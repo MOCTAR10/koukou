@@ -134,3 +134,14 @@ Reference constants (`ReferenceKey`, seeded in `database-seed.service.ts`) are *
 ## Not built
 
 PostGIS · FinTech/Mobile Money (escrow) · KouKou Market marketplace (the backend `orders` module is delivered, but there is no public client channel).
+
+## OpenCode (native subagents)
+
+Config: opencode.json (root). Subagents run in child sessions and inherit parent context — keep prompts tight.
+
+- **Flow**: prefer Plan for analysis, switch to Build only when ready to edit.
+- **When to use which**: @explore (read-only, cheapest) for grep/glob/file discovery; @scout (read-only) for external/dependency research; @general (full tools) only when you need parallel edits/commands.
+- **Parallel fan-out**: only independent, file-isolated work. **Never run backend e2e in parallel** (single PostgreSQL + synchronize:true, ileParallelism:false, maxWorkers:1). Mobile/web unit tests can run in parallel if tasks don't share state.
+- **Caps & permissions**: gent.build.maxSteps=25, gent.plan.maxSteps=12, subagentDepth=1. Task permissions deny * by default and allow only explore/scout (prevents accidental @general sprawl). Hidden agents (	itle/summary/compaction) use smallModel.
+- **Context hygiene**: spawn subagents from a clean turn (avoid 150+). Don't fan out from a very long session — start fresh instead.
+- **CI gate**: .github/workflows/ci.yml runs backend build+lint+test, web build+lint, mobile typecheck+lint+test (no e2e). Treat green CI as proof-of-work before merging.
