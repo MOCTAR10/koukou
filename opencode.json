@@ -6,18 +6,19 @@
   "agent": {
     "build": {
       "model": "opencode/sonic",
-      "maxSteps": 25,
+      "steps": 25,
       "permission": {
         "task": {
           "*": "deny",
           "explore": "allow",
-          "scout": "allow"
+          "scout": "allow",
+          "general": "allow"
         }
       }
     },
     "plan": {
       "model": "opencode/sonic",
-      "maxSteps": 12,
+      "steps": 12,
       "permission": {
         "task": {
           "*": "deny",

@@ -6,7 +6,7 @@ Offline-first poultry SaaS (multi-species) for Gabon. Repo: https://github.com/M
 
 `backend/` (NestJS), `web/` (admin console), `mobile/` (Expo), `docs/`.
 
-**No root `package.json`, no workspaces, no `.github/` CI.** Three independent npm projects — every command runs from its own directory. Nothing enforces lint/typecheck/test, so you must run them yourself before claiming done. There is no root lockfile.
+**No root `package.json`, no workspaces, no root lockfile.** Three independent npm projects — every command runs from its own directory. CI *does* exist (`.github/workflows/ci.yml`, on push to `main`/`feat/**` and PRs to `main`): backend build+lint+test, web build+lint, mobile typecheck+lint+test — no e2e. It is the proof-of-work gate, so treat green CI as required before pushing; running the commands locally first still catches failures in seconds instead of minutes.
 
 ## Commands
 
@@ -140,8 +140,9 @@ PostGIS · FinTech/Mobile Money (escrow) · KouKou Market marketplace (the backe
 Config: opencode.json (root). Subagents run in child sessions and inherit parent context — keep prompts tight.
 
 - **Flow**: prefer Plan for analysis, switch to Build only when ready to edit.
-- **When to use which**: @explore (read-only, cheapest) for grep/glob/file discovery; @scout (read-only) for external/dependency research; @general (full tools) only when you need parallel edits/commands.
-- **Parallel fan-out**: only independent, file-isolated work. **Never run backend e2e in parallel** (single PostgreSQL + synchronize:true, ileParallelism:false, maxWorkers:1). Mobile/web unit tests can run in parallel if tasks don't share state.
-- **Caps & permissions**: gent.build.maxSteps=25, gent.plan.maxSteps=12, subagentDepth=1. Task permissions deny * by default and allow only explore/scout (prevents accidental @general sprawl). Hidden agents (	itle/summary/compaction) use smallModel.
+- **When to use which**: @explore (read-only, cheapest) for grep/glob/file discovery; @scout (read-only) for external/dependency research; @general (full tools) for parallel edits across independent files. Small or single-area tasks: just do them inline — `build` already has full tools, and spawning costs a fresh context.
+- **Parallel fan-out**: only independent, file-isolated work. **Never run backend e2e in parallel** (single PostgreSQL + synchronize:true, fileParallelism:false, maxWorkers:1). Mobile/web unit tests can run in parallel if tasks don't share state.
+- **Caps & permissions**: agent.build.steps=25, agent.plan.steps=12, subagentDepth=1 (subagents cannot spawn subagents). Task permissions deny `*` by default: build allows explore/scout/general, plan allows explore only. `steps` is the current field — the older `maxSteps` is deprecated. Hidden agents (title/summary/compaction) use smallModel.
+- **Parallel writers**: `@general` can edit files, so fan-out agents must be **file-isolated** — two agents on one file conflict, and the permission system cannot prevent it. Isolation is a discipline of how the fan-out is written, not something config enforces.
 - **Context hygiene**: spawn subagents from a clean turn (avoid 150+). Don't fan out from a very long session — start fresh instead.
 - **CI gate**: .github/workflows/ci.yml runs backend build+lint+test, web build+lint, mobile typecheck+lint+test (no e2e). Treat green CI as proof-of-work before merging.
