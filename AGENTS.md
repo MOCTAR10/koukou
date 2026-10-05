@@ -23,7 +23,7 @@ Offline-first poultry SaaS (multi-species) for Gabon. Repo: https://github.com/M
 - `mobile`: use `npm run lint`, **not** `npx expo lint` (Node 22 issue).
 - Verified green baseline: backend unit 2 files/10 tests, mobile 16 files/305 tests.
 - **Full backend e2e is expensive**: 29 specs, forced sequential (`fileParallelism:false`, `maxWorkers:1`), each boots the whole AppModule *and* runs `synchronize` against the same DB. ~10 min. Filter by name while iterating.
-- Vitest prints a `vite-tsconfig-paths` deprecation warning on every run (Vite now resolves tsconfig paths natively). Expected noise — don't "fix" it mid-task.
+- **`vite-tsconfig-paths` is deliberately not installed.** It was removed from `backend/` because it was a no-op (backend tsconfigs declare no `compilerOptions.paths` and no source file uses alias imports) while pulling in the deprecated `tsconfck`, whose optional peer `typescript@^5.0.0` conflicts with TypeScript 6. Newer npm resolves that peer to 5.x and aborts `npm ci` with `Missing: typescript@5.9.3 from lock file` — which only reproduces on CI, never on npm 10.x. **Do not re-add it**; if aliases are ever needed, use Vite's native tsconfig paths resolution.
 
 ## Windows / encoding (this repo is edited on Windows)
 
