@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlertsModule } from '../alerts/alerts.module.js';
+import { AccountingModule } from '../accounting/accounting.module.js';
 import { BreedsModule } from '../breeds/breeds.module.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { FarmsModule } from '../farms/farms.module.js';
@@ -14,10 +15,12 @@ import { WeatherModule } from '../weather/weather.module.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { Payment } from '../finance/entities/payment.entity.js';
+import { Expense } from '../finance/entities/expense.entity.js';
 import { FeedStockModule } from '../feed-stock/feed-stock.module.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { HealthEvent } from '../sanitary/entities/health-event.entity.js';
+import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
 import { AdvisoryEngine } from './advisory.engine.js';
 import { BatchesController } from './batches.controller.js';
 import { BatchesService } from './batches.service.js';
@@ -45,14 +48,17 @@ import {
       SaleItem,
       Sale,
       Payment,
+      Expense,
       Alert,
       FarmEmployee,
       SlaughterOrder,
       HealthEvent,
+      StockTransfer,
     ]),
     FarmsModule,
     BreedsModule,
     AlertsModule,
+    AccountingModule,
     ReferenceConstantsModule,
     FeedStockModule,
     WeatherModule,

@@ -11,6 +11,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { PointsOfSaleService } from './points-of-sale.service.js';
 import {
@@ -39,6 +40,7 @@ export class PointsOfSaleController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE)
+  @Permissions('pdv:gerer')
   @ApiOperation({
     summary: 'Créer un point de vente (Propriétaire).',
   })
@@ -64,6 +66,7 @@ export class PointsOfSaleController {
 
   @Patch(':pointOfSaleId')
   @Roles(UserRole.PROPRIETAIRE)
+  @Permissions('pdv:gerer')
   @ApiOperation({ summary: 'Mettre à jour un point de vente (Propriétaire).' })
   @ApiParam({ name: 'farmId' })
   update(
@@ -77,6 +80,7 @@ export class PointsOfSaleController {
 
   @Delete(':pointOfSaleId')
   @Roles(UserRole.PROPRIETAIRE)
+  @Permissions('pdv:gerer')
   @ApiOperation({
     summary: 'Supprimer un point de vente (le « ferme » par défaut est protégé).',
   })

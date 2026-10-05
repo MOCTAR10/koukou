@@ -46,3 +46,21 @@ export class CreateCashMovementDto {
   )
   movementDate?: string;
 }
+
+export class UpdateCashMovementDto {
+  @IsOptional()
+  @IsInt({ message: 'Le montant doit être un entier.' })
+  @Min(1, { message: 'Le montant doit être positif (FCFA).' })
+  amountFcfa?: number;
+
+  @IsOptional()
+  @IsString({ message: 'La raison doit être une chaîne de caractères.' })
+  reason?: string;
+
+  @IsOptional()
+  @IsDateString(
+    {},
+    { message: 'La date du mouvement doit être au format YYYY-MM-DD.' },
+  )
+  movementDate?: string;
+}

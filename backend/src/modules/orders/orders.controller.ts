@@ -13,6 +13,7 @@ import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { OrderCanal } from '../../common/enums/order-canal.enum.js';
 import { OrderStatus } from '../../common/enums/order-status.enum.js';
@@ -48,6 +49,7 @@ export class OrdersController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('vente:creer')
   @ApiOperation({
     summary:
       'Créer une commande / précommande : enveloppe la vente, fige le prix des articles, réserve le cheptel (sans le décrémenter) et encaisse éventuellement un acompte (caisse ouverte requise).',
@@ -77,6 +79,7 @@ export class OrdersController {
 
   @Post(':orderId/deposit')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('vente:creer')
   @ApiOperation({
     summary:
       'Encaisser un acompte / confirmer la commande (la caisse doit être ouverte)',
@@ -93,6 +96,7 @@ export class OrdersController {
 
   @Post(':orderId/livrer')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('vente:creer')
   @ApiOperation({
     summary:
       'Livrer / facturer : décrémente le cheptel ou vérifie le stock d’œufs, applique les quantités finales (au kilo) et encaisse le solde éventuel.',
@@ -152,10 +156,11 @@ export class OrdersController {
   }
 
   @Delete(':orderId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('vente:commande')
   @ApiOperation({
     summary:
-      'Annuler une commande (PROPRIÉTAIRE) : annule la vente enveloppée sans réintégrer le cheptel, rembourse le cas échéant les acomptes.',
+      'Annuler une commande : annule la vente enveloppée sans réintégrer le cheptel, rembourse le cas échéant les acomptes.',
   })
   @ApiParam({ name: 'farmId' })
   cancel(

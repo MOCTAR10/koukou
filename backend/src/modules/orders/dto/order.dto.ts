@@ -12,6 +12,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -103,6 +104,22 @@ export class CreateOrderDto {
   @IsString({ message: 'L’adresse de livraison doit être une chaîne.' })
   @IsNotEmpty({ message: 'L’adresse de livraison ne doit pas être vide.' })
   address?: string;
+
+  @IsOptional()
+  @IsString({ message: 'La province de livraison doit être une chaîne.' })
+  province?: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'La latitude doit être un nombre.' })
+  @Min(-90, { message: 'Latitude invalide.' })
+  @Max(90, { message: 'Latitude invalide.' })
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'La longitude doit être un nombre.' })
+  @Min(-180, { message: 'Longitude invalide.' })
+  @Max(180, { message: 'Longitude invalide.' })
+  longitude?: number;
 
   @IsOptional()
   @IsDateString(

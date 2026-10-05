@@ -10,6 +10,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { SanitaryService } from './sanitary.service.js';
 import { GenerateProgramDto } from './dto/generate-program.dto.js';
@@ -23,6 +24,7 @@ export class VaccineSchedulesController {
 
   @Post('vaccine-schedules/programs/generate')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({
     summary:
       'Appliquer un programme pré-chargé (calendrier vaccinal Gabon) à un ou plusieurs lots — non bloquant : étapes dont la date est passée ou déjà réalisées sautées avec raison',
@@ -38,6 +40,7 @@ export class VaccineSchedulesController {
 
   @Post('vaccine-schedules/manual')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({
     summary:
       'Planifier un soin unique (vaccin ou médicament) sur un ou plusieurs lots — option « Sortir du stock » pour un médicament (jamais de quantité négative)',
@@ -53,6 +56,7 @@ export class VaccineSchedulesController {
 
   @Patch('batches/:batchId/vaccine-schedules/:eventId')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({
     summary:
       'Éditer un soin planifié (vaccin ↔ médicament, intitulé, voie, dosage, délai d’attente, notes, date)',
@@ -77,10 +81,11 @@ export class VaccineSchedulesController {
   }
 
   @Delete('batches/:batchId/vaccine-schedules/:eventId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({
     summary:
-      'Supprimer un soin planifié (Propriétaire) — restaure le stock si le soin portait une sortie de stock',
+      'Supprimer un soin planifié — restaure le stock si le soin portait une sortie de stock',
   })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'batchId' })

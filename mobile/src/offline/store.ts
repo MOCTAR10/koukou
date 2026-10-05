@@ -9,6 +9,7 @@ export type OfflineKind =
   | 'order-payment'
   | 'order-deliver'
   | 'order-cancel'
+  | 'customer-payment'
   | 'pdv-create'
   | 'pdv-update'
   | 'pdv-delete'

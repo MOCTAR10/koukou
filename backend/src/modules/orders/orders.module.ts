@@ -5,6 +5,7 @@ import { FarmsModule } from '../farms/farms.module.js';
 import { PointsOfSaleModule } from '../points-of-sale/points-of-sale.module.js';
 import { BatchesModule } from '../batches/batches.module.js';
 import { FinanceModule } from '../finance/finance.module.js';
+import { AccountingModule } from '../accounting/accounting.module.js';
 import { Order } from './entities/order.entity.js';
 import { OrdersService } from './orders.service.js';
 import { OrdersController } from './orders.controller.js';
@@ -17,6 +18,7 @@ import { OrdersController } from './orders.controller.js';
     PointsOfSaleModule,
     BatchesModule,
     FinanceModule,
+    AccountingModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

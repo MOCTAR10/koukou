@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { Bird, AlertTriangle, Wheat, Egg, Banknote, BarChart3, MapPin, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Thermometer, Users, Medal, Maximize2, Store, ChevronDown, Droplets, Building, ArrowRight, Stethoscope } from 'lucide-react-native';
+import { AlertTriangle, Wheat, Banknote, BarChart3, MapPin, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, Droplets, Building, ArrowRight, Stethoscope } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -12,10 +12,10 @@ import { AppText } from '@/components/ui/AppText';
 import { Card } from '@/components/ui/Card';
 import { MetricTile } from '@/components/ui/MetricTile';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { LotCard } from '@/components/LotCard';
+
 import { EggStockCard, buildEggDailyData } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
-import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
+
 import { useAuth } from '@/auth/AuthContext';
 import { givenName, speciesLabel } from '@/api/format';
 import { color, emoji, fmt, fmtFcfa, gradeColor, palette, radii } from '@/constants/theme';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchSlaughterOrders } from '@/api';
@@ -42,7 +42,7 @@ function weatherHint(w: FarmWeather): string {
 
 export default function AccueilScreen() {
   const router = useRouter();
-  const { openDaily, openFeed, openSale } = useQuickCapture();
+
   const { user, farms, farmId } = useAuth();
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [cheptelOpen, setCheptelOpen] = useState(false);
@@ -55,7 +55,6 @@ export default function AccueilScreen() {
     return () => clearInterval(id);
   }, []);
 
-  const isFiltered = window.isFiltered;
   const isToday = window.to === toDateStr(liveNow);
 
   const formatDayShort = (d: Date) =>
@@ -89,7 +88,7 @@ export default function AccueilScreen() {
 
   const farm = farms.length > 0 ? farms[0] : null;
   const d = dashboard.data;
-  const topAction = advisory.data?.actions[0];
+
 
   const loading = dashboard.isLoading || advisory.isLoading;
 
@@ -124,9 +123,7 @@ export default function AccueilScreen() {
   const pondeuseLayRate = pondeuseLive > 0
     ? pondeuseBatches.reduce((s, b) => s + (b.metrics.layRatePercent ?? 0) * b.metrics.liveCount, 0) / pondeuseLive
     : null;
-  const avgViability = totalLive > 0
-    ? activeBatches.reduce((s, b) => s + b.metrics.viabilityPercent * b.metrics.liveCount, 0) / totalLive
-    : null;
+
 
   // --- Leaderboard top performer ---
   const topPerf = d?.leaderboard?.[0] ?? null;
@@ -179,26 +176,7 @@ export default function AccueilScreen() {
     void Promise.all([dashboard.refetch(), advisory.refetch(), batchesQuery.refetch()]);
   };
 
-  const runTopAction = () => {
-    if (!topAction) return;
-    const batchId = topAction.batchId ?? undefined;
-    switch (topAction.kind) {
-      case 'VENTE':
-        openSale(batchId);
-        return;
-      case 'SAISIE':
-        openDaily(batchId);
-        return;
-      case 'SOIN':
-        router.push('/sanitary');
-        return;
-      case 'STOCK_PROVENDE':
-        openFeed();
-        return;
-      default:
-        router.push('/alerts');
-    }
-  };
+
 
   return (
     <Screen

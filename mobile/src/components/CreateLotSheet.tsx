@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, Modal, Platform, Pressable, StyleSheet, ScrollView, TextInput as RNTextInput, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowRight, Calendar, Check, ChevronDown, Clock, Eye, Pill, Wheat, Zap, ShieldCheck, Syringe, TrendingUp, Warehouse } from 'lucide-react-native';
+import { AlertTriangle, ArrowRight, Calendar, Check, ChevronDown, Clock, Eye, Wheat, Zap, ShieldCheck, Syringe, TrendingUp, Warehouse } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { Sheet } from './ui/Sheet';
@@ -15,7 +15,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { createBatch, createTreatment } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { fetchBuildings, fetchBreeds, fetchBreedStandards, fetchProtocols, fetchSanitaryProgram } from '@/api';
-import type { BatchType, Building, ProtocolStep, FeedPhase, Species } from '@/api/types';
+import type { BatchType, Building, FeedPhase, Species } from '@/api/types';
 
 type BatchInput = {
   batchName: string;

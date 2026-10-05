@@ -31,7 +31,6 @@ export default function LoginScreen() {
     if (ok) router.replace('/');
   };
 
-  const focusPhone = () => { phoneRef.current?.focus(); };
   const focusCode = () => { codeRef.current?.focus(); };
 
   return (

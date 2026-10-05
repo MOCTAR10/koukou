@@ -4,6 +4,8 @@ import type {
   AlertLevel,
   AlertStatus,
   AdvisoryData,
+  BalanceData,
+  BilanData,
   BatchCurve,
   BatchHealth,
   BatchMetrics,
@@ -13,14 +15,26 @@ import type {
   BatchWithMetrics,
   CaisseSummary,
   CashSession,
+  CloseExerciceResult,
+  CompteResultatData,
+  CreateRegularisationInput,
+  ExerciceInfo,
+  InitAccountResult,
+  JournalData,
+  GrandLivreAccount,
   MortalityStatus,
   EggBreakdown,
   Customer,
+  CustomerBalance,
   CustomerStats,
+  CustomerSummary,
   DashboardData,
   Expense,
   Farm,
   FarmMember,
+  FarmMemberProfile,
+  AssignableTeamMember,
+  PermissionGroup,
   FarmWeather,
   FeedMovement,
   FeedProduct,
@@ -34,6 +48,7 @@ import type {
   OverviewPnl,
   PondageSummary,
   PointOfSale,
+  StockProvende,
   StockTransfer,
   StockTransferProductType,
   Promotion,
@@ -139,6 +154,8 @@ interface RawBatchMetrics {
   ipe?: number | null;
   eggsCollectedTotal?: number;
   eggBreakdown?: EggBreakdown;
+  eggStockAvailableEggs?: number;
+  eggStockAvailableAlveoles?: number;
   layRatePercent?: number | null;
   status?: string;
   densityPerM2?: number | null;
@@ -218,6 +235,8 @@ function mapMetrics(m: RawBatchMetrics): BatchMetrics {
       dirty: 0,
     },
     layRatePercent: m.layRatePercent ?? null,
+    eggStockAvailableEggs: m.eggStockAvailableEggs ?? (m.eggStockAvailableAlveoles ?? 0) * 30,
+    eggStockAvailableAlveoles: m.eggStockAvailableAlveoles ?? 0,
     status: (m.status as AlertLevel) ?? 'VERT',
     densityPerM2: m.densityPerM2 ?? null,
     moduleFraction: m.moduleFraction ?? 0,
@@ -318,6 +337,79 @@ export function mapAdvisory(raw: BackendAdvisory): AdvisoryData {
 export class LiveApi {
   async fetchFarms() {
     return apiFetch<Farm[]>('/farms');
+  }
+
+  private accountingPeriod(from?: string, to?: string): string {
+    const qs = new URLSearchParams();
+    if (from) qs.set('from', from);
+    if (to) qs.set('to', to);
+    const query = qs.toString();
+    return query ? `?${query}` : '';
+  }
+
+  async fetchJournal(farmId: string, from?: string, to?: string): Promise<JournalData> {
+    return apiFetch<JournalData>(
+      `/farms/${farmId}/accounting/journal${this.accountingPeriod(from, to)}`,
+    );
+  }
+
+  async fetchGrandLivre(farmId: string, from?: string, to?: string): Promise<GrandLivreAccount[]> {
+    return apiFetch<GrandLivreAccount[]>(
+      `/farms/${farmId}/accounting/grand-livre${this.accountingPeriod(from, to)}`,
+    );
+  }
+
+  async fetchBalance(farmId: string, from?: string, to?: string): Promise<BalanceData> {
+    return apiFetch<BalanceData>(
+      `/farms/${farmId}/accounting/balance${this.accountingPeriod(from, to)}`,
+    );
+  }
+
+  async fetchCompteResultat(farmId: string, from?: string, to?: string): Promise<CompteResultatData> {
+    return apiFetch<CompteResultatData>(
+      `/farms/${farmId}/accounting/compte-resultat${this.accountingPeriod(from, to)}`,
+    );
+  }
+
+  async fetchBilan(farmId: string, from?: string, to?: string): Promise<BilanData> {
+    return apiFetch<BilanData>(
+      `/farms/${farmId}/accounting/bilan${this.accountingPeriod(from, to)}`,
+    );
+  }
+
+  async initializeAccounting(farmId: string): Promise<InitAccountResult> {
+    return apiFetch<InitAccountResult>(`/farms/${farmId}/accounting/init`, {
+      method: 'POST',
+      body: {},
+    });
+  }
+
+  async fetchExercices(farmId: string): Promise<ExerciceInfo[]> {
+    return apiFetch<ExerciceInfo[]>(`/farms/${farmId}/accounting/exercices`);
+  }
+
+  async fetchStockProvende(farmId: string): Promise<StockProvende> {
+    return apiFetch<StockProvende>(`/farms/${farmId}/accounting/stock`);
+  }
+
+  async closeExercice(
+    farmId: string,
+    exerciceId: string,
+  ): Promise<CloseExerciceResult> {
+    return apiFetch<CloseExerciceResult>(
+      `/farms/${farmId}/accounting/exercices/${exerciceId}/close`,
+      { method: 'POST', body: {} },
+    );
+  }
+
+  async createRegularisation(
+    farmId: string,
+    input: CreateRegularisationInput,
+  ): Promise<JournalData['entries'][number]> {
+    return apiFetch<JournalData['entries'][number]>(
+      `/farms/${farmId}/accounting/entries`,
+      { method: 'POST', body: input },
+    );
   }
 
   async fetchDashboard(farmId: string, date?: string, time?: string): Promise<DashboardData> {
@@ -424,8 +516,47 @@ export class LiveApi {
     return apiFetch<SlaughterOrder[]>(`/farms/${farmId}/slaughter-orders`);
   }
 
-  async fetchCustomers(farmId: string): Promise<Customer[]> {
-    return apiFetch<Customer[]>(`/farms/${farmId}/customers`);
+  async fetchCustomers(
+    farmId: string,
+    filters?: { search?: string; type?: string },
+  ): Promise<Customer[]> {
+    const qs = new URLSearchParams();
+    if (filters?.search?.trim()) qs.set('search', filters.search.trim());
+    if (filters?.type) qs.set('type', filters.type);
+    const query = qs.toString();
+    return apiFetch<Customer[]>(`/farms/${farmId}/customers${query ? `?${query}` : ''}`);
+  }
+
+  async fetchCustomersSummary(farmId: string): Promise<CustomerSummary> {
+    return apiFetch<CustomerSummary>(`/farms/${farmId}/customers/summary`);
+  }
+
+  async updateCustomer(
+    farmId: string,
+    customerId: string,
+    input: {
+      type?: string;
+      fullName?: string;
+      phone?: string;
+      city?: string;
+      notes?: string;
+    },
+  ): Promise<Customer> {
+    return apiFetch<Customer>(`/farms/${farmId}/customers/${customerId}`, {
+      method: 'PATCH',
+      body: input,
+    });
+  }
+
+  async recordCustomerPayment(
+    farmId: string,
+    customerId: string,
+    input: { amountFcfa: number; idempotencyKey?: string },
+  ): Promise<{ payments: unknown[]; balance: CustomerBalance }> {
+    return apiFetch<{ payments: unknown[]; balance: CustomerBalance }>(
+      `/farms/${farmId}/customers/${customerId}/payments`,
+      { method: 'POST', body: input },
+    );
   }
 
   async fetchCustomer(farmId: string, customerId: string): Promise<Customer> {
@@ -512,8 +643,20 @@ export class LiveApi {
     return apiFetch<FarmMember[]>(`/farms/${farmId}/eleveurs`);
   }
 
+  async fetchFarmProfile(farmId: string): Promise<FarmMemberProfile> {
+    return apiFetch<FarmMemberProfile>(`/farms/${farmId}/me`);
+  }
+
+  async fetchPermissionCatalog(farmId: string): Promise<PermissionGroup[]> {
+    return apiFetch<PermissionGroup[]>(`/farms/${farmId}/permissions`);
+  }
+
   async fetchTasks(farmId: string): Promise<FarmTask[]> {
     return apiFetch<FarmTask[]>(`/farms/${farmId}/tasks`);
+  }
+
+  async fetchAssignableTeam(farmId: string): Promise<AssignableTeamMember[]> {
+    return apiFetch<AssignableTeamMember[]>(`/farms/${farmId}/team`);
   }
 
   async fetchDailyEntries(farmId: string, batchId: string): Promise<DailyEntryRecord[]> {

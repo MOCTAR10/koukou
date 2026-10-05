@@ -3,6 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { InputsService } from './inputs.service.js';
@@ -18,6 +19,7 @@ export class InputsController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('stock:gerer')
   @ApiOperation({
     summary: 'Enregistrer un intrant (aliment / poussins / médicament)',
   })

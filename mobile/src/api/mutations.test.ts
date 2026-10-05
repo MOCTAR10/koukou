@@ -24,8 +24,10 @@ import {
   generateVaccineProgram,
   openCaisse,
   processSlaughterOrder,
+  recordCustomerPayment,
   rescheduleProphylaxis,
   sendSlaughterOrder,
+  updateCustomer,
   updateSchedule,
   type DailyEntryValues,
 } from './mutations';
@@ -224,6 +226,15 @@ describe('buildSaleItem', () => {
     }
   });
 
+  it('KG : poids réel pesé remplace l’estimation (quantity = kg saisi)', () => {
+    const r = buildSaleItem('KG', 10, 2200, 'lot-1', { weightKg: 17.35 });
+    if ('item' in r) {
+      expect(r.item).toMatchObject({ productType: 'POULET_KG', quantity: 17.35, pieceCount: 10 });
+    } else {
+      throw new Error('KG avec lot doit réussir');
+    }
+  });
+
   it('OEUF → alvéoles, batch optionnel', () => {
     const withLot = buildSaleItem('OEUF', 5, 2500, 'lot-p');
     if ('item' in withLot) {
@@ -282,6 +293,19 @@ describe('buildSaleItem', () => {
       });
     } else {
       throw new Error('ABATTU_KG transfert doit réussir');
+    }
+  });
+
+  it('ABATTU_KG : poids réel pesé remplace l’estimation', () => {
+    const r = buildSaleItem('ABATTU_KG', 6, 2800, 'lot-1', { weightKg: 12.4 });
+    if ('item' in r) {
+      expect(r.item).toMatchObject({
+        productType: 'ABATTU_KG',
+        quantity: 12.4,
+        pieceCount: 6,
+      });
+    } else {
+      throw new Error('ABATTU_KG doit réussir');
     }
   });
 
@@ -601,6 +625,28 @@ describe('createCustomer', () => {
     expect(call.url).toBe('http://10.0.0.5:3000/farms/f-1/customers');
     expect(call.init.method).toBe('POST');
     expect(JSON.parse(call.init.body as string)).toEqual({ fullName: 'Restaurant Coco', phone: '074112233' });
+  });
+});
+
+describe('updateCustomer', () => {
+  it('reclasse le type commercial (PATCH type)', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(200, { id: 'c-1' }));
+    await updateCustomer('f-1', 'c-1', { type: 'RESTAURANT' });
+    const call = readCall(fetchMock);
+    expect(call.url).toBe('http://10.0.0.5:3000/farms/f-1/customers/c-1');
+    expect(call.init.method).toBe('PATCH');
+    expect(JSON.parse(call.init.body as string)).toEqual({ type: 'RESTAURANT' });
+  });
+});
+
+describe('recordCustomerPayment', () => {
+  it('encaisse depuis la fiche client avec clé d’idempotence', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(201, { balance: { outstandingFcfa: 0 } }));
+    await recordCustomerPayment('f-1', 'c-1', 25000, { idempotencyKey: 'op-7' });
+    const call = readCall(fetchMock);
+    expect(call.url).toBe('http://10.0.0.5:3000/farms/f-1/customers/c-1/payments');
+    expect(call.init.method).toBe('POST');
+    expect(JSON.parse(call.init.body as string)).toEqual({ amountFcfa: 25000, idempotencyKey: 'op-7' });
   });
 });
 

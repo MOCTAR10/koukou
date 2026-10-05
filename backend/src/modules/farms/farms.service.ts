@@ -8,9 +8,19 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import {
+  defaultPermissionsFor,
+  ELEVEUR_DEFAULT_PERMISSIONS,
+  isPermissionCode,
+  type PermissionCode,
+} from '../../common/permissions/permission-catalog.js';
 import { CreateElevageDto } from './dto/create-eleveur.dto.js';
+import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
 import { User } from '../users/entities/user.entity.js';
 import { FarmEmployee } from './entities/farm-employee.entity.js';
 import { Farm } from './entities/farm.entity.js';
@@ -25,6 +35,31 @@ export interface CreateFarmInput {
   longitude?: number | null;
   latitude?: number | null;
   isVerified?: boolean;
+}
+
+/** Fichier reçu en multipart. `multer` écrit en mémoire par défaut dans Nest,
+ *  d'où `buffer`. Interface locale : `@types/multer` n'est pas installé et le
+ *  tsconfig restreint les types globaux. */
+export interface UploadedImageFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
+const LOGO_MIME_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/webp': 'webp',
+};
+
+const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 Mo
+
+/** Racine des fichiers servis par l'API (`app.useStaticAssets`). Surchargable
+ *  via UPLOADS_DIR ; relatif au cwd du process (backend/ en dev). */
+export function uploadsRoot(): string {
+  return process.env.UPLOADS_DIR ?? join(process.cwd(), 'uploads');
 }
 
 @Injectable()
@@ -117,11 +152,105 @@ export class FarmsService {
       const link = await this.employeeRepo.findOne({
         where: { farmId, userId: user.id },
       });
+      if (link && link.active === false) {
+        throw new ForbiddenException(
+          'Accès refusé : votre compte a été désactivé par le propriétaire de la ferme.',
+        );
+      }
       if (link) return farm;
     }
     throw new ForbiddenException(
       'Accès refusé : cette ferme ne vous appartient pas ou vous n’y êtes pas rattaché.',
     );
+  }
+
+  /** Les rattachements créés avant le système de rôles n'ont pas de rôle : Éleveur par défaut. */
+  private staffRole(role: FarmStaffRole | null | undefined): FarmStaffRole {
+    return role === FarmStaffRole.ADMIN
+      ? FarmStaffRole.ADMIN
+      : FarmStaffRole.ELEVEUR;
+  }
+
+  /**
+   * Résolution des droits effectifs d'un utilisateur sur une ferme, pour le
+   * PermissionsGuard et les services : 'ALL' (Propriétaire/plateforme),
+   * null (inaccessible ou membre inactif), sinon le set de permissions.
+   */
+  async resolveEffectivePermissions(
+    user: AuthUser,
+    farmId: string,
+  ): Promise<'ALL' | { role: FarmStaffRole; permissions: ReadonlySet<PermissionCode> } | null> {
+    if (user.role === UserRole.PLATFORM_ADMIN) return 'ALL';
+    const farm = await this.farmRepo.findOne({ where: { id: farmId } });
+    if (!farm) return null;
+    if (farm.ownerId === user.id) return 'ALL';
+    const link = await this.employeeRepo.findOne({
+      where: { farmId, userId: user.id },
+    });
+    if (!link || link.active === false) return null;
+    const role = this.staffRole(link.role);
+    const permissions =
+      role === FarmStaffRole.ADMIN
+        ? new Set<PermissionCode>(
+            (link.permissions ?? []).filter(isPermissionCode),
+          )
+        : ELEVEUR_DEFAULT_PERMISSIONS;
+    return { role, permissions };
+  }
+
+  /** Profil « moi » sur une ferme : personnalité + poste + droits effectifs (mobile). */
+  async profileOf(
+    user: AuthUser,
+    farmId: string,
+  ): Promise<
+    | {
+        farmId: string;
+        role: 'PROPRIETAIRE' | FarmStaffRole;
+        jobTitle: string | null;
+        buildingAssignment: string | null;
+        active: boolean;
+        permissions: string[];
+      }
+    | null
+  > {
+    await this.assertAccessible(user, farmId);
+    if (user.role === UserRole.PLATFORM_ADMIN) {
+      return {
+        farmId,
+        role: 'PROPRIETAIRE',
+        jobTitle: 'Administrateur plateforme',
+        buildingAssignment: null,
+        active: true,
+        permissions: ['*'],
+      };
+    }
+    const farm = await this.farmRepo.findOne({ where: { id: farmId } });
+    if (farm?.ownerId === user.id) {
+      return {
+        farmId,
+        role: 'PROPRIETAIRE',
+        jobTitle: 'Propriétaire',
+        buildingAssignment: null,
+        active: true,
+        permissions: ['*'],
+      };
+    }
+    const link = await this.employeeRepo.findOne({
+      where: { farmId, userId: user.id },
+    });
+    if (!link) return null;
+    const role = this.staffRole(link.role);
+    return {
+      farmId,
+      role,
+      jobTitle: link.jobTitle,
+      buildingAssignment: link.buildingAssignment,
+      active: link.active,
+      permissions:
+        role === FarmStaffRole.ADMIN
+          ? (link.permissions ?? []).filter(isPermissionCode)
+          : [...ELEVEUR_DEFAULT_PERMISSIONS],
+    };
   }
 
   /** Liste toutes les fermes (plateforme) avec un aperçu du propriétaire. */
@@ -184,6 +313,57 @@ export class FarmsService {
     return this.farmRepo.save(farm);
   }
 
+  /** Remplace le logo de la ferme : écrit le fichier sous /uploads/logos et
+   *  n'en garde que le chemin public. L'ancien fichier est supprimé. */
+  async setFarmLogo(farm: Farm, file: UploadedImageFile): Promise<Farm> {
+    const extension = LOGO_MIME_EXTENSIONS[file.mimetype];
+    if (!extension) {
+      throw new BadRequestException(
+        'Format d’image non supporté. Utilisez un fichier PNG, JPEG ou WEBP.',
+      );
+    }
+    if (file.size === 0 || file.buffer.length === 0) {
+      throw new BadRequestException('Le fichier image est vide.');
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      throw new BadRequestException('Le logo ne doit pas dépasser 2 Mo.');
+    }
+
+    const directory = join(uploadsRoot(), 'logos');
+    await mkdir(directory, { recursive: true });
+    const filename = `${farm.id}.${extension}`;
+    await writeFile(join(directory, filename), file.buffer);
+
+    const previous = farm.logoUrl;
+    farm.logoUrl = `/uploads/logos/${filename}`;
+    const saved = await this.farmRepo.save(farm);
+
+    // Ménage best-effort : un logo replaced par un autre format laisse un orphelin.
+    if (previous && previous !== saved.logoUrl) {
+      const previousName = previous.split('/').pop();
+      if (previousName && previousName !== filename) {
+        await unlink(join(directory, previousName)).catch(() => undefined);
+      }
+    }
+    return saved;
+  }
+
+  /** Retire le logo personnalisé (retour au logo KouKou par défaut). */
+  async clearFarmLogo(farm: Farm): Promise<Farm> {
+    const previous = farm.logoUrl;
+    farm.logoUrl = null;
+    const saved = await this.farmRepo.save(farm);
+    if (previous) {
+      const previousName = previous.split('/').pop();
+      if (previousName) {
+        await unlink(join(uploadsRoot(), 'logos', previousName)).catch(
+          () => undefined,
+        );
+      }
+    }
+    return saved;
+  }
+
   async createEmployee(owner: AuthUser, farmId: string, dto: CreateElevageDto) {
     await this.assertAccessible(owner, farmId);
     const existing = await this.userRepo.findOne({
@@ -194,6 +374,22 @@ export class FarmsService {
         'Un compte existe déjà avec ce numéro ou cet e-mail.',
       );
     }
+    const role = dto.role ?? FarmStaffRole.ELEVEUR;
+    let permissions: PermissionCode[] | undefined;
+    if (dto.permissions !== undefined) {
+      if (role !== FarmStaffRole.ADMIN) {
+        throw new BadRequestException(
+          'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+        );
+      }
+      const invalid = dto.permissions.filter((c) => !isPermissionCode(c));
+      if (invalid.length > 0) {
+        throw new BadRequestException(
+          `Permission(s) inconnue(s) : ${invalid.join(', ')}. Consultez le catalogue GET /farms/:farmId/permissions.`,
+        );
+      }
+      permissions = dto.permissions as PermissionCode[];
+    }
     const employee = await this.userRepo.save(
       this.userRepo.create({
         phone: dto.phone,
@@ -203,7 +399,12 @@ export class FarmsService {
         role: UserRole.ELEVEUR,
       }),
     );
-    const link = await this.linkEmployee(owner, farmId, employee.id);
+    const link = await this.linkEmployee(owner, farmId, employee.id, {
+      role,
+      jobTitle: dto.jobTitle ?? null,
+      buildingAssignment: dto.buildingAssignment ?? null,
+      permissions: permissions ?? defaultPermissionsFor(role),
+    });
     return { user: this.publicUser(employee), employment: link };
   }
 
@@ -211,23 +412,95 @@ export class FarmsService {
     owner: AuthUser,
     farmId: string,
     employeeUserId: string,
+    options?: {
+      role?: FarmStaffRole;
+      jobTitle?: string | null;
+      buildingAssignment?: string | null;
+      permissions?: PermissionCode[];
+    },
   ): Promise<FarmEmployee> {
     await this.assertAccessible(owner, farmId);
     const employee = await this.userRepo.findOne({
       where: { id: employeeUserId },
     });
-    if (!employee)
-      throw new NotFoundException('Employé (Éleveur) introuvable.');
+    if (!employee) throw new NotFoundException('Employé introuvable.');
     if (employee.role !== UserRole.ELEVEUR) {
       throw new BadRequestException(
-        'Seul un compte « Éleveur » (role ELEVEUR) peut être rattaché à une ferme.',
+        'Seul un compte de la ferme peut être rattaché (Administrateur KouKou ou Éleveur Koukou).',
       );
     }
     const existing = await this.employeeRepo.findOne({
       where: { farmId, userId: employeeUserId },
     });
     if (existing) return existing;
-    const link = this.employeeRepo.create({ farmId, userId: employeeUserId });
+    const link = this.employeeRepo.create({
+      farmId,
+      userId: employeeUserId,
+      role: options?.role ?? FarmStaffRole.ELEVEUR,
+      jobTitle: options?.jobTitle ?? null,
+      buildingAssignment: options?.buildingAssignment ?? null,
+      permissions: options?.permissions ?? defaultPermissionsFor(FarmStaffRole.ELEVEUR),
+    });
+    return this.employeeRepo.save(link);
+  }
+
+  /** Éditer un membre : poste, rôle, bâtiment, suspension, permissions (si Administrateur). */
+  async updateEmployee(
+    auth: AuthUser,
+    farmId: string,
+    employmentId: string,
+    dto: UpdateEleveurDto,
+  ): Promise<FarmEmployee> {
+    await this.assertAccessible(auth, farmId);
+    const link = await this.employeeRepo.findOne({
+      where: { id: employmentId, farmId },
+    });
+    if (!link) {
+      throw new NotFoundException('Membre introuvable dans cette ferme.');
+    }
+
+    if (dto.jobTitle !== undefined) link.jobTitle = dto.jobTitle;
+    if (dto.buildingAssignment !== undefined) {
+      link.buildingAssignment = dto.buildingAssignment;
+    }
+    if (dto.active !== undefined) link.active = dto.active;
+
+    if (dto.role !== undefined) {
+      const nextRole = dto.role;
+      if (nextRole === link.role) {
+        // aucun changement
+      } else if (nextRole === FarmStaffRole.ELEVEUR) {
+        link.role = nextRole;
+        link.permissions = defaultPermissionsFor(FarmStaffRole.ELEVEUR);
+      } else {
+        link.role = nextRole;
+        link.permissions = defaultPermissionsFor(FarmStaffRole.ADMIN);
+      }
+    }
+
+    if (dto.permissions !== undefined) {
+      if (link.role !== FarmStaffRole.ADMIN) {
+        throw new BadRequestException(
+          'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+        );
+      }
+      const invalid = dto.permissions.filter((c) => !isPermissionCode(c));
+      if (invalid.length > 0) {
+        throw new BadRequestException(
+          `Permission(s) inconnue(s) : ${invalid.join(', ')}. Consultez le catalogue GET /farms/:farmId/permissions.`,
+        );
+      }
+      link.permissions = dto.permissions;
+    }
+
+    // Normalise les anciens rattachements sans rôle (colonne ajoutée plus tard).
+    if (link.role === null || link.role === undefined) {
+      link.role = FarmStaffRole.ELEVEUR;
+      if (!link.permissions || link.permissions.length === 0) {
+        link.permissions = defaultPermissionsFor(FarmStaffRole.ELEVEUR);
+      }
+    }
+
     return this.employeeRepo.save(link);
   }
 
@@ -237,10 +510,16 @@ export class FarmsService {
     const employments = await this.employeeRepo.find({
       where: { farmId },
       relations: { user: true },
+      order: { role: 'ASC', createdAt: 'DESC' },
     });
     return employments.map((e) => {
       const { user, ...rest } = e;
-      return { ...rest, user: this.publicUser(user) };
+      return {
+        ...rest,
+        role: this.staffRole(rest.role),
+        permissions: this.staffRole(rest.role) === FarmStaffRole.ADMIN ? e.permissions : [...ELEVEUR_DEFAULT_PERMISSIONS],
+        user: this.publicUser(user),
+      };
     });
   }
 
@@ -252,6 +531,23 @@ export class FarmsService {
       fullName: user.fullName,
       role: user.role,
     };
+  }
+
+  /** Équipe assignable pour une tâche (accès « planifier les tâches », sans exigence equipe:gerer). */
+  async listAssignableTeam(auth: AuthUser, farmId: string) {
+    await this.assertAccessible(auth, farmId);
+    const employments = await this.employeeRepo.find({
+      where: { farmId, active: true },
+      relations: { user: true },
+      order: { role: 'ASC', createdAt: 'DESC' },
+    });
+    return employments.map((e) => ({
+      id: e.id,
+      userId: e.user.id,
+      fullName: e.user.fullName,
+      role: this.staffRole(e.role),
+      active: e.active,
+    }));
   }
 }
 

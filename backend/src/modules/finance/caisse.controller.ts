@@ -1,14 +1,16 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { CaisseService } from './caisse.service.js';
 import {
   CloseCashSessionDto,
   CreateCashMovementDto,
   OpenCashSessionDto,
+  UpdateCashMovementDto,
 } from './dto/caisse.dto.js';
 
 @ApiTags('Finance — Caisse journalière')
@@ -35,10 +37,11 @@ export class CaisseController {
   }
 
   @Post('open')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('caisse:ouvrir')
   @ApiOperation({
     summary:
-      'Ouvrir la caisse journalière (PROPRIÉTAIRE) : fonds de caisse initial.',
+      'Ouvrir la caisse journalière (fonds de caisse initial).',
   })
   @ApiParam({ name: 'farmId' })
   open(
@@ -50,10 +53,11 @@ export class CaisseController {
   }
 
   @Post('close')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('caisse:fermer')
   @ApiOperation({
     summary:
-      'Clôturer la caisse (PROPRIÉTAIRE) : solde déclaré vs attendu, écart tracé.',
+      'Clôturer la caisse : solde déclaré vs attendu, écart tracé.',
   })
   @ApiParam({ name: 'farmId' })
   close(
@@ -68,7 +72,7 @@ export class CaisseController {
   @Roles(UserRole.PROPRIETAIRE)
   @ApiOperation({
     summary:
-      'Mouvement manuel de caisse (dépense/retrait IN ou OUT) — PROPRIÉTAIRE.',
+      'Mouvement manuel de caisse (dépense/retrait IN ou OUT) — réservé au Propriétaire.',
   })
   @ApiParam({ name: 'farmId' })
   movement(
@@ -77,5 +81,36 @@ export class CaisseController {
     @Body() dto: CreateCashMovementDto,
   ) {
     return this.caisseService.createMovement(user, farmId, dto);
+  }
+
+  @Patch('movements/:movementId')
+  @Roles(UserRole.PROPRIETAIRE)
+  @ApiOperation({
+    summary:
+      'Modifier un mouvement manuel (montant, raison, date) — ajustement comptable automatique. Réservé au Propriétaire.',
+  })
+  @ApiParam({ name: 'farmId' })
+  updateMovement(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('movementId') movementId: string,
+    @Body() dto: UpdateCashMovementDto,
+  ) {
+    return this.caisseService.updateMovement(user, farmId, movementId, dto);
+  }
+
+  @Delete('movements/:movementId')
+  @Roles(UserRole.PROPRIETAIRE)
+  @ApiOperation({
+    summary:
+      'Supprimer un mouvement manuel — contrepassation comptable automatique. Réservé au Propriétaire.',
+  })
+  @ApiParam({ name: 'farmId' })
+  deleteMovement(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('movementId') movementId: string,
+  ) {
+    return this.caisseService.deleteMovement(user, farmId, movementId);
   }
 }

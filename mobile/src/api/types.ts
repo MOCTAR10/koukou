@@ -63,9 +63,51 @@ export interface Farm {
   defaultSacKg: number;
   isVerified: boolean;
   active: boolean;
+  /** Chemin public du logo (ex. « /uploads/logos/<farmId>.png ») ; null = logo KouKou par défaut. */
+  logoUrl: string | null;
 }
 
 export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN';
+
+/** Rôle de membre du staff ferme (Administrateur KouKou / Éleveur Koukou). */
+export type FarmStaffRole = 'ADMIN' | 'ELEVEUR';
+
+/** Catalogue des permissions accordables (câblées côté serveur via @Permissions). */
+export type PermissionCode =
+  | 'equipe:gerer'
+  | 'equipe:taches'
+  | 'caisse:lire'
+  | 'caisse:ouvrir'
+  | 'caisse:fermer'
+  | 'vente:creer'
+  | 'vente:annuler'
+  | 'vente:commande'
+  | 'vente:promotion'
+  | 'compta:depense'
+  | 'compta:client'
+  | 'compta:rapports'
+  | 'compta:ecritures'
+  | 'stock:gerer'
+  | 'pdv:gerer'
+  | 'saisie:creer'
+  | 'production:gerer'
+  | 'production:abattage'
+  | 'sanitaire:gerer'
+  | 'sanitaire:lecture'
+  | 'reglages:ferme';
+
+/** Un groupe de permissions présenté dans l'écran Équipe (GET /farms/:id/permissions). */
+export interface PermissionItem {
+  code: PermissionCode;
+  label: string;
+  description: string;
+}
+
+export interface PermissionGroup {
+  key: string;
+  label: string;
+  items: PermissionItem[];
+}
 
 export interface PublicUser {
   id: string;
@@ -75,13 +117,36 @@ export interface PublicUser {
   role: UserRole;
 }
 
-/** Lien de travail d'un compte Éleveur rattaché à la ferme (GET /farms/:id/eleveurs). */
+/** Lien de travail d'un membre rattaché à la ferme (GET /farms/:id/eleveurs). */
 export interface FarmMember {
   id: string;
   farmId: string;
   userId: string;
+  role: FarmStaffRole;
+  jobTitle: string | null;
   buildingAssignment: string | null;
+  active: boolean;
+  permissions: PermissionCode[];
   user: PublicUser;
+}
+
+/** Membre actif assignable à une tâche (GET /farms/:id/team, accès « planifier les tâches »). */
+export interface AssignableTeamMember {
+  id: string;
+  userId: string;
+  fullName: string;
+  role: FarmStaffRole;
+  active: boolean;
+}
+
+/** Profil « moi » sur une ferme (GET /farms/:id/me) : personnalité + poste + droits effectifs. */
+export interface FarmMemberProfile {
+  farmId: string;
+  role: 'PROPRIETAIRE' | FarmStaffRole;
+  jobTitle: string | null;
+  buildingAssignment: string | null;
+  active: boolean;
+  permissions: string[];
 }
 
 export interface ReferenceConstant {
@@ -121,6 +186,11 @@ export interface BatchMetrics {
   ipe: number | null;
   eggsCollectedTotal: number;
   eggBreakdown: EggBreakdown;
+  /** Œufs vendables restants propres à ce lot (hors mise en commun ferme).
+   *  Reliquat < 30 œufs possible : pas encore une alvéole complète. */
+  eggStockAvailableEggs: number;
+  /** Alvéoles d'œufs vendables (30 œufs) propres à ce lot = floor(eggs / 30). */
+  eggStockAvailableAlveoles: number;
   layRatePercent: number | null;
   status: AlertLevel;
   densityPerM2: number | null;
@@ -186,6 +256,9 @@ export interface ProductionBatch {
   customSpecies?: string | null;
   /** Souche / race libre — quand species = AUTRE (ex : "Coureur indien") */
   customBreed?: string | null;
+  /** Souche complète (relation eager côté serveur — présente sur les réponses
+   *  brutes comme les ordres d'abattage, où `breedName`/`breedCode` manquent). */
+  breed?: Breed | null;
   /** Identifiant de la souche (comparaisons aux standards de la courbe). */
   breedId?: string | null;
   /** Auto-signal de disponibilité à la vente (persisté côté serveur). */
@@ -259,10 +332,13 @@ export interface HealthOverviewRow {
   liveCount: number;
   weekDeaths: number;
   mortalityPercent: number;
-  /** Mortalité cumulée attendue à l'âge du lot (référentiel de la bande). */
-  expectedMortalityPct: number;
-  /** normal | elevated | critical — écart de mortalité vs attendu. */
-  mortalityStatus: MortalityStatus;
+  /** Mortalité cumulée attendue à l'âge du lot (référentiel de la bande).
+   * Non renvoyée par `/dashboard` : uniquement par le résumé de lot. Utiliser
+   * `normalizeMortalityStatus` plutôt que ce champ sur une ligne d'overview. */
+  expectedMortalityPct?: number;
+  /** normal | elevated | critical — écart de mortalité vs attendu.
+   * Non renvoyé par `/dashboard` : utiliser `normalizeMortalityStatus`. */
+  mortalityStatus?: MortalityStatus;
   alertesRouges: number;
   alertesJaunes: number;
   lastEntryDate: string | null;
@@ -325,8 +401,10 @@ export interface DashboardData {
   batches: { total: number; actif: number; enVente: number; cloture: number };
   mortalityPercent: number | null;
   viabilityPercent: number | null;
-  /** Statut mortalité agrégé de la ferme (le plus dégradé). */
-  mortalityStatus: MortalityStatus;
+  /** Statut mortalité agrégé de la ferme (le plus dégradé).
+   * Dérivé côté client : `/dashboard` ne le renvoie pas. Passer par
+   * `normalizeMortalityStatus(mortalityStatus, mortalityPercent)`. */
+  mortalityStatus?: MortalityStatus;
   feedAutonomyDays: number | null;
   collectedTodayFcfa: number;
   teamCount: number;
@@ -775,6 +853,24 @@ export interface SlaughterOrder {
 
 export type CustomerSegment = 'NOUVEAU' | 'REGULIER' | 'TOP';
 
+/** Catégorie commerciale du client (nature de l'activité dans la ferme).
+ *  Varchar côté serveur : un nouveau type sans migration est possible. */
+export type CustomerType =
+  | 'PARTICULIER'
+  | 'RESTAURANT'
+  | 'HOTEL'
+  | 'EVENEMENT'
+  | 'TRAITEUR'
+  | 'COMMERCE'
+  | 'REVENDEUR'
+  | 'GROSSISTE'
+  | 'BOULANGERIE'
+  | 'COLLECTIVITE'
+  | 'ENTREPRISE'
+  | 'ELEVEUR'
+  | 'ONG'
+  | 'TRANSFORMATEUR';
+
 export interface CustomerBalance {
   totalInvoicedFcfa: number;
   paidFcfa: number;
@@ -791,8 +887,29 @@ export interface Customer {
   notes: string | null;
   balance: CustomerBalance;
   segment: CustomerSegment;
+  /** Code client généré côté serveur (CL-####, séquentiel par ferme). */
+  code: string | null;
+  /** Type commercial (défaut PARTICULIER) — purement descriptif. */
+  type: CustomerType;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CustomerTypeCount {
+  count: number;
+  outstandingFcfa: number;
+}
+
+/** GET /farms/:farmId/customers/summary — comptages par type et par segment. */
+export interface CustomerSummary {
+  total: number;
+  /** Nombre de clients avec un solde dû > 0. */
+  debtors: number;
+  totalInvoicedFcfa: number;
+  paidFcfa: number;
+  totalOutstandingFcfa: number;
+  byType: Partial<Record<CustomerType, CustomerTypeCount>>;
+  bySegment: Record<CustomerSegment, number>;
 }
 
 export interface CustomerStats {
@@ -877,10 +994,16 @@ export interface SaleSummary {
 export type ExpenseCategory =
   | 'ACHAT_POUSSINS'
   | 'ALIMENTS'
-  | 'TRAITEMENTS_SANITAIRES'
+  | 'VETERINAIRE'
   | 'TRANSPORT'
+  | 'EAU'
   | 'ENERGIE_GAZ'
+  | 'LOYER'
+  | 'MAINTENANCE'
+  | 'ASSURANCE'
   | 'MAIN_D_OEUVRE'
+  | 'COTISATIONS'
+  | 'FRAIS_BANCAIRES'
   | 'AUTRE';
 
 export interface Expense {
@@ -913,6 +1036,60 @@ export interface OrderItemSnapshot {
   inputLotId: string | null;
 }
 
+export interface OrderPassportAlert {
+  kind: string;
+  level: AlertLevel;
+  message: string;
+}
+
+export interface OrderPassportWithdrawal {
+  careTypeLabel: string;
+  productName: string;
+  administeredAt: string;
+  withdrawalEndDate: string;
+}
+
+export interface OrderPassportEvent {
+  title: string;
+  occurredAt: string;
+  severity: string;
+}
+
+/** Passeport de traçabilité du lot, figé au moment du bon de commande. */
+export interface OrderPassport {
+  batchId: string;
+  batchLabel: string;
+  speciesLabel: string;
+  breedName: string | null;
+  batchTypeLabel: string;
+  integrationDate: string;
+  ageDays: number;
+  liveCount: number;
+  statusLabel: string;
+  readiness: {
+    readyForSale: boolean;
+    readyReason: ReadyReason;
+    label: string;
+    note: string;
+  };
+  metrics: { label: string; value: string }[];
+  vaccinations: {
+    completed: number;
+    planned: number;
+    last: { name: string; date: string | null } | null;
+  };
+  withdrawals: OrderPassportWithdrawal[];
+  sanitary: {
+    level: AlertLevel;
+    conformity: 'CONFORME' | 'PRECONFORMITE' | 'EN_ATTENTE';
+    conformityNote: string;
+    alerts: OrderPassportAlert[];
+    events: OrderPassportEvent[];
+    vetVisited: boolean;
+  };
+  generatedAt: string;
+}
+
 export interface OrderFull {
   id: string;
   farmId: string;
@@ -924,12 +1101,17 @@ export interface OrderFull {
   customer: Customer | null;
   expectedDate: string | null;
   address: string | null;
+  deliveryProvince?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   pointOfSaleId?: string | null;
   batchId: string | null;
   batch: ProductionBatch | null;
   totalAmountFcfa: number;
   depositFcfa: number;
   items: OrderItemSnapshot[];
+  /** Passeport de traçabilité du lot (figé au bon de commande, volaille uniquement). */
+  passport: OrderPassport | null;
   livredAt: string | null;
   cancelledAt: string | null;
   cancelledReason: string | null;
@@ -1060,4 +1242,192 @@ export interface PondageSummary {
   eggsPerHen: number | null;
   layRatePercent: number | null;
   weekly: PondageWeek[];
+}
+
+// ── Comptabilité SYSCOHADA ──────────────────────────────────────────────
+
+export type AccountingSource =
+  | 'SALE'
+  | 'PAYMENT'
+  | 'EXPENSE'
+  | 'CAISSE'
+  | 'ORDER'
+  | 'INPUT'
+  | 'REGULARISATION'
+  | 'STOCK'
+  | 'CLOTURE';
+export type JournalEntryStatus = 'POSTED' | 'CANCELLED';
+
+export interface JournalEntryLine {
+  id: string;
+  entryId: string;
+  accountCode: string;
+  label: string | null;
+  debitFcfa: number;
+  creditFcfa: number;
+  createdAt: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  farmId: string;
+  exerciceId: string | null;
+  reference: string;
+  entryDate: string;
+  label: string;
+  source: AccountingSource;
+  sourceId: string;
+  status: JournalEntryStatus;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  lines: JournalEntryLine[];
+}
+
+export interface JournalData {
+  entries: JournalEntry[];
+  totals: { debit: number; credit: number };
+}
+
+export interface AccountSoldes {
+  account?: never;
+  code: string;
+  label: string;
+  classe: number;
+  nature: string;
+  debitTotalFcfa: number;
+  creditTotalFcfa: number;
+  soldeFcfa: number;
+}
+
+export interface GrandLivreMovement {
+  date: string;
+  reference: string;
+  label: string;
+  source: string;
+  sourceId: string;
+  debitFcfa: number;
+  creditFcfa: number;
+}
+
+export interface GrandLivreAccount {
+  account: string;
+  label: string | null;
+  classe: number | null;
+  nature: string | null;
+  debitTotalFcfa: number;
+  creditTotalFcfa: number;
+  soldeFcfa: number;
+  mouvements: GrandLivreMovement[];
+}
+
+export interface BalanceClasseGroup {
+  classe: number;
+  accounts: AccountSoldes[];
+}
+
+export interface BalanceTotals {
+  totalDebit: number;
+  totalCredit: number;
+  totalSoldeDebit: number;
+  totalSoldeCredit: number;
+}
+
+export interface BalanceData {
+  accounts: AccountSoldes[];
+  byClasse: BalanceClasseGroup[];
+  totals: BalanceTotals;
+}
+
+export interface CompteResultatData {
+  charges: AccountSoldes[];
+  produits: AccountSoldes[];
+  totalCharges: number;
+  totalProduits: number;
+  resultatFcfa: number;
+  resultatNegatif: boolean;
+}
+
+export interface BilanData {
+  actif: AccountSoldes[];
+  passif: AccountSoldes[];
+  capitaux: AccountSoldes[];
+  resultatFcfa: number;
+  resultatNegatif: boolean;
+  capitauxApportsFcfa: number;
+  totalActif: number;
+  totalPassifExterne: number;
+  totalCapitaux: number;
+  ecartFcfa: number;
+}
+
+export interface RegularisationLineInput {
+  account: string;
+  label?: string | null;
+  debitFcfa?: number;
+  creditFcfa?: number;
+}
+
+export interface CreateRegularisationInput {
+  date: string;
+  label: string;
+  lines: RegularisationLineInput[];
+}
+
+export interface ExerciceInfo {
+  id: string;
+  farmId: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface InitAccountResult {
+  exercice: ExerciceInfo | null;
+  posted: {
+    caisse: number;
+    ventes: number;
+    paiements: number;
+    depenses: number;
+    intrants: number;
+  };
+}
+
+export interface StockProvendeLot {
+  lotId: string;
+  productName: string;
+  supplierLotNumber: string;
+  receivedKg: number;
+  availableKg: number;
+  valueFcfa: number;
+}
+
+export interface StockProvende {
+  totalValueFcfa: number;
+  lots: StockProvendeLot[];
+}
+
+export type ExerciceStatus = 'OPEN' | 'CLOSED';
+
+export interface CloseExerciceResult {
+  exercice: {
+    id: string;
+    label: string;
+    startDate: string;
+    endDate: string;
+    status: ExerciceStatus;
+  };
+  next: {
+    id: string;
+    label: string;
+    startDate: string;
+    endDate: string;
+    status: ExerciceStatus;
+  };
+  resultatFcfa: number;
+  resultatNegatif: boolean;
+  stockFcfa: number;
+  posted: string[];
 }

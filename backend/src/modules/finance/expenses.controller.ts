@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -11,6 +12,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { ExpensesService } from './expenses.service.js';
 import {
@@ -23,6 +25,21 @@ import {
 @Controller('farms/:farmId/expenses')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
+
+  @Post('sync')
+  @Roles(UserRole.PROPRIETAIRE)
+  @Permissions('compta:depense')
+  @ApiOperation({
+    summary:
+      'Synchroniser les dépenses auto (poussins + intrants) — backfill pour les données historiques.',
+  })
+  @ApiParam({ name: 'farmId' })
+  async sync(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+  ) {
+    return this.expensesService.syncAutoExpenses(user, farmId);
+  }
 
   @Get()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
@@ -39,7 +56,8 @@ export class ExpensesController {
   }
 
   @Post()
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('compta:depense')
   @ApiOperation({
     summary:
       'Nouvelle dépense catégorisée (CDCF). Option paidByCaisse : sortie de caisse automatique.',
@@ -54,7 +72,8 @@ export class ExpensesController {
   }
 
   @Patch(':expenseId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('compta:depense')
   @ApiOperation({
     summary: 'Corriger une dépense (catégorie, libellé, fournisseur, lot)',
   })
@@ -66,5 +85,21 @@ export class ExpensesController {
     @Body() dto: UpdateExpenseDto,
   ) {
     return this.expensesService.update(user, farmId, expenseId, dto);
+  }
+
+  @Delete(':expenseId')
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('compta:depense')
+  @ApiOperation({
+    summary:
+      'Supprimer une dépense (contrepassation comptable automatique ; refusée si payée sur une session de caisse clôturée)',
+  })
+  @ApiParam({ name: 'farmId' })
+  remove(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('expenseId') expenseId: string,
+  ) {
+    return this.expensesService.remove(user, farmId, expenseId);
   }
 }

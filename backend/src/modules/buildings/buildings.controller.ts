@@ -11,6 +11,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { BuildingsService } from './buildings.service.js';
 import { CreateBuildingDto } from './dto/create-building.dto.js';
@@ -22,7 +23,8 @@ export class BuildingsController {
   constructor(private readonly buildingsService: BuildingsService) {}
 
   @Post()
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({ summary: 'Créer un bâtiment dans une ferme' })
   @ApiParam({ name: 'farmId' })
   create(
@@ -55,7 +57,8 @@ export class BuildingsController {
   }
 
   @Patch(':buildingId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({
     summary: 'Modifier un bâtiment (ex : valider le vide sanitaire)',
   })
@@ -71,7 +74,8 @@ export class BuildingsController {
   }
 
   @Delete(':buildingId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({ summary: 'Supprimer un bâtiment' })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'buildingId' })

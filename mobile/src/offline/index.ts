@@ -8,6 +8,7 @@ import {
   cancelOrderQueued,
   cancelStockTransferQueued,
   createStockTransferQueued,
+  createCreditSaleQueued,
   createDailyEntryQueued,
   createFeedInputQueued,
   createOrderQueued,
@@ -16,6 +17,7 @@ import {
   deletePointOfSaleQueued,
   deliverOrderQueued,
   flushQueue,
+  recordCustomerPaymentQueued,
   recordOrderPaymentQueued,
   recordStockLossQueued,
   updatePointOfSaleQueued,
@@ -31,6 +33,7 @@ export {
   cancelOrderQueued,
   cancelStockTransferQueued,
   createStockTransferQueued,
+  createCreditSaleQueued,
   createDailyEntryQueued,
   createFeedInputQueued,
   createOrderQueued,
@@ -38,6 +41,7 @@ export {
   createSaleQueued,
   deletePointOfSaleQueued,
   deliverOrderQueued,
+  recordCustomerPaymentQueued,
   recordOrderPaymentQueued,
   recordStockLossQueued,
   updatePointOfSaleQueued,
@@ -84,4 +88,24 @@ export function queueSale(
   pointOfSaleId?: string,
 ): Promise<SendResult> {
   return createSaleQueued(farmId, saleDate, items, amountFcfa, invoice, pointOfSaleId);
+}
+
+/** Vente à crédit : aucun encaissement, la dette est portée par le client. */
+export function queueCreditSale(
+  farmId: string,
+  saleDate: string,
+  items: SaleItemPayload[],
+  invoice: InvoiceFields,
+  pointOfSaleId?: string,
+): Promise<SendResult> {
+  return createCreditSaleQueued(farmId, saleDate, items, invoice, pointOfSaleId);
+}
+
+/** Encaissement depuis la fiche client : mis en file si hors ligne. */
+export function queueCustomerPayment(
+  farmId: string,
+  customerId: string,
+  amountFcfa: number,
+): Promise<SendResult> {
+  return recordCustomerPaymentQueued(farmId, customerId, amountFcfa);
 }

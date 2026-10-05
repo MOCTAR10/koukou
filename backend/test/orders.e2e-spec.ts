@@ -21,6 +21,7 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
   let batchId: string;
   let orderId: string;
   let secondOrderId: string;
+  let customerId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -95,9 +96,19 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ openingBalanceFcfa: 10000 })
       .expect(201);
+
+    const cust = await request(server)
+      .post(`/farms/${farmId}/customers`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fullName: 'Mme Test',
+        phone: '+241710012345',
+      })
+      .expect(201);
+    customerId = cust.body.id;
   });
 
-  it('lot non commercialisable (jeune) → 400 sur la précommande', async () => {
+  it('lot jeune : la précommande est acceptée (conseil non bloquant) avec passeport TOO_YOUNG', async () => {
     const jeune = await request(server)
       .post(`/farms/${farmId}/batches`)
       .set('Authorization', `Bearer ${token}`)
@@ -109,7 +120,7 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
       })
       .expect(201);
 
-    await request(server)
+    const res = await request(server)
       .post(`/farms/${farmId}/orders`)
       .set('Authorization', `Bearer ${token}`)
       .send({
@@ -125,7 +136,17 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
           },
         ],
       })
-      .expect(400);
+      .expect(201);
+
+    // L'éleveur est libre de vendre : pas de blocage, mais le passeport
+    // figé au bon de commande expose l'auto-signal (conseil).
+    expect(res.body.status).toBe('PENDING');
+    expect(res.body.passport).toBeDefined();
+    expect(res.body.passport.batchId).toBe(jeune.body.id);
+    expect(res.body.passport.readiness.readyForSale).toBe(false);
+    expect(res.body.passport.readiness.readyReason).toBe('TOO_YOUNG');
+    expect(res.body.passport.metrics.length).toBeGreaterThan(0);
+    expect(res.body.passport.generatedAt).toBe(today());
   });
 
   it('création : bon CMD, vente enveloppée OUTSTANDING, cheptel non décrémenté', async () => {
@@ -135,8 +156,7 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
       .send({
         canal: 'FERME',
         expectedDate: today(),
-        customerName: 'Mme Test',
-        customerPhone: '+241710012345',
+        customerId,
         items: [
           {
             productType: 'POULET_PIECE',
@@ -155,6 +175,10 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
     expect(res.body.depositFcfa).toBe(0);
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0].batchId).toBe(batchId);
+    expect(res.body.passport).toBeDefined();
+    expect(res.body.passport.batchId).toBe(batchId);
+    expect(res.body.passport.readiness.readyReason).toBe('READY');
+    expect(res.body.passport.readiness.readyForSale).toBe(true);
     expect(res.body.sale).toBeDefined();
     expect(res.body.sale.status).toBe('OUTSTANDING');
     expect(res.body.sale.totalAmountFcfa).toBe(35000);

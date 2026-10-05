@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { motion } from 'motion/react';
 import {
   Activity,
   AlertTriangle,
@@ -16,8 +17,10 @@ import { api } from '../api/client';
 import type { BatchCurve, DashboardData } from '../api/types';
 import { useFarm } from '../app/FarmContext';
 import { Card, EmptyState, LevelBadge, Loading, StatCard, StatusBadge, Th, Td } from '../components/ui';
+import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
 import { classNames, dateFr, fcfa, num, pct } from '../lib/format';
+import { stagger, staggerItem } from '../lib/motion';
 
 const HEALTH_LABEL: Record<string, string> = {
   EXCELLENT: 'Excellente',
@@ -87,46 +90,63 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <StatCard
-          label="Cheptel vivant"
-          value={num(d.liveStock)}
-          hint={`${d.batches.actif} lot(s) actif(s)`}
-          icon={<Bird className="h-5 w-5" />}
-          tone="accent"
-        />
-        <StatCard
-          label="Mortalité"
-          value={pct(d.mortalityPercent)}
-          hint={`Viabilité ${d.viabilityPercent != null ? pct(d.viabilityPercent) : '—'}`}
-          icon={<Activity className="h-5 w-5" />}
-          tone={d.mortalityPercent != null && d.mortalityPercent > 5 ? 'bad' : 'default'}
-        />
-        <StatCard
-          label="Autonomie provende"
-          value={d.feedAutonomyDays != null ? `${num(d.feedAutonomyDays)} j` : '—'}
-          icon={<Wheat className="h-5 w-5" />}
-          tone={d.feedAutonomyDays != null && d.feedAutonomyDays < 3 ? 'warn' : 'default'}
-        />
-        <StatCard
-          label="Encaissé du jour"
-          value={fcfa(d.collectedTodayFcfa)}
-          icon={<Banknote className="h-5 w-5" />}
-          tone="good"
-        />
-        <StatCard
-          label="Équipe"
-          value={num(d.teamCount)}
-          icon={<Users className="h-5 w-5" />}
-        />
-        <StatCard
-          label="Œufs de stock"
-          value={`${num(d.eggStock.availableAlveoles)} alv.`}
-          hint={`~${num(d.eggStock.availableEggs)} œufs`}
-          icon={<Egg className="h-5 w-5" />}
-          tone="accent"
-        />
-      </div>
+      <motion.div
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+      >
+        <motion.div variants={staggerItem}>
+          <StatCard
+            label="Cheptel vivant"
+            value={<AnimatedNumber value={d.liveStock} format={num} />}
+            hint={`${d.batches.actif} lot(s) actif(s)`}
+            icon={<Bird className="h-5 w-5" />}
+            tone="accent"
+          />
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          <StatCard
+            label="Mortalité"
+            value={pct(d.mortalityPercent)}
+            hint={`Viabilité ${d.viabilityPercent != null ? pct(d.viabilityPercent) : '—'}`}
+            icon={<Activity className="h-5 w-5" />}
+            tone={d.mortalityPercent != null && d.mortalityPercent > 5 ? 'bad' : 'default'}
+          />
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          <StatCard
+            label="Autonomie provende"
+            value={d.feedAutonomyDays != null ? `${num(d.feedAutonomyDays)} j` : '—'}
+            icon={<Wheat className="h-5 w-5" />}
+            tone={d.feedAutonomyDays != null && d.feedAutonomyDays < 3 ? 'warn' : 'default'}
+          />
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          <StatCard
+            label="Encaissé du jour"
+            value={<AnimatedNumber value={d.collectedTodayFcfa} format={fcfa} />}
+            icon={<Banknote className="h-5 w-5" />}
+            tone="good"
+          />
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          <StatCard
+            label="Équipe"
+            value={num(d.teamCount)}
+            icon={<Users className="h-5 w-5" />}
+          />
+        </motion.div>
+        <motion.div variants={staggerItem}>
+          <StatCard
+            label="Œufs de stock"
+            value={`${num(d.eggStock.availableAlveoles)} alv.`}
+            hint={`~${num(d.eggStock.availableEggs)} œufs`}
+            icon={<Egg className="h-5 w-5" />}
+            tone="accent"
+          />
+        </motion.div>
+      </motion.div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-4 lg:col-span-1">

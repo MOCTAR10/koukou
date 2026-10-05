@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import {
   AlertKind,
   AlertLevel,
@@ -11,11 +11,20 @@ import {
   BatchType,
 } from '../../common/enums/batch-type.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
+import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
+import { SaleStatus } from '../../common/enums/sale-status.enum.js';
+import {
+  StockTransferProductType,
+} from '../../common/enums/stock-transfer-product-type.enum.js';
+import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
 import { BreedStandard } from '../breeds/entities/breed-standard.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { Farm } from '../farms/entities/farm.entity.js';
+import { SaleItem } from '../finance/entities/sale-item.entity.js';
+import { Sale } from '../finance/entities/sale.entity.js';
+import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
@@ -23,6 +32,8 @@ import {
   BatchMetrics,
   ReadyReason,
 } from './models/batch-metrics.model.js';
+
+const EGGS_PER_ALVEOL = 30;
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -123,6 +134,12 @@ export class MetricsService {
     private readonly standardRepo: Repository<BreedStandard>,
     @InjectRepository(Alert)
     private readonly alertRepo: Repository<Alert>,
+    @InjectRepository(Sale)
+    private readonly saleRepo: Repository<Sale>,
+    @InjectRepository(SaleItem)
+    private readonly saleItemRepo: Repository<SaleItem>,
+    @InjectRepository(StockTransfer)
+    private readonly stockTransferRepo: Repository<StockTransfer>,
     private readonly constants: ReferenceConstantsService,
     private readonly flockReconciliation: FlockReconciliationService,
   ) {}
@@ -259,6 +276,17 @@ export class MetricsService {
         eggBreakdown.doubleYolk -
         eggBreakdown.dirty,
     );
+    const {
+      availableEggs: eggStockAvailableEggs,
+      availableAlveoles: eggStockAvailableAlveoles,
+    } =
+      eggBreakdown.sellable > 0
+        ? await this.eggStockForBatch(
+            batch.farmId,
+            batch.id,
+            eggBreakdown.sellable,
+          )
+        : { availableEggs: 0, availableAlveoles: 0 };
     // Taux de ponte = fenêtre glissante de 7 jours (aligné sur la cible
     // hebdomadaire du référentiel) : un cumul de toute la vie de la bande ne
     // peut pas être comparé à une cible de semaine d'âge (ex. 300 % vs 86 %).
@@ -337,6 +365,8 @@ export class MetricsService {
       ipe,
       eggsCollectedTotal,
       eggBreakdown,
+      eggStockAvailableEggs,
+      eggStockAvailableAlveoles,
       layRatePercent,
       status,
       densityPerM2,
@@ -411,6 +441,57 @@ export class MetricsService {
     const ref = new Date(onDate + 'T00:00:00');
     const diff = ref.getTime() - start.getTime();
     return Math.max(0, Math.floor(diff / 86400000));
+  }
+
+  /**
+   * Alvéoles d'œufs vendables propres à CE lot : production commercialisable du
+   * lot − alvéoles vendues attribuées au lot (sale_items OEUFS avec ce
+   * batchId, ventes non annulées) − alvéoles encore en boutique issues de ce
+   * lot (transférées, non vendues). Aligné sur `SalesService.assertEggsAvailable`
+   * et `DashboardService.evaluateEggStockAlerts`, mais scopé au lot : chaque lot
+   * ne présente que ses propres œufs, sans mise en commun ferme.
+   */
+  private async eggStockForBatch(
+    farmId: string,
+    batchId: string,
+    sellableEggs: number,
+  ): Promise<{ availableEggs: number; availableAlveoles: number }> {
+    const nonCancelled = await this.saleRepo.find({
+      where: { farmId, status: Not(SaleStatus.CANCELLED) },
+    });
+    let soldAlveoles = 0;
+    if (nonCancelled.length > 0) {
+      const eggItems = await this.saleItemRepo.find({
+        where: {
+          saleId: In(nonCancelled.map((s) => s.id)),
+          productType: SaleItemProductType.OEUFS,
+          batchId,
+        },
+      });
+      soldAlveoles = eggItems.reduce((s, i) => s + i.quantity, 0);
+    }
+
+    const transfers = await this.stockTransferRepo.find({
+      where: {
+        farmId,
+        batchId,
+        productType: StockTransferProductType.OEUFS,
+        status: StockTransferStatus.TRANSFERRED,
+      },
+    });
+    const transferredEggs = transfers.reduce(
+      (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
+      0,
+    );
+
+    const availableEggs = Math.max(
+      0,
+      sellableEggs - soldAlveoles * EGGS_PER_ALVEOL - transferredEggs,
+    );
+    return {
+      availableEggs,
+      availableAlveoles: Math.floor(availableEggs / EGGS_PER_ALVEOL),
+    };
   }
 
   private computeStatus(input: {

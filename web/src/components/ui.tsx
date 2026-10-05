@@ -132,9 +132,9 @@ export function EmptyState({ message }: { message: string }) {
   );
 }
 
-export function Th({ children }: { children?: ReactNode }) {
+export function Th({ children, className }: { children?: ReactNode; className?: string }) {
   return (
-    <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+    <th className={classNames('whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500', className)}>
       {children}
     </th>
   );

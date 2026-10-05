@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { OrderPassportSnapshot } from '../../modules/orders/entities/order.entity.js';
 
 export interface ReceiptItemData {
   label: string;
@@ -59,6 +60,24 @@ export interface BonCommandeData {
   depositFcfa: number;
   remainingFcfa: number;
   method: string;
+  /** Passeport de traçabilité du lot (figé au bon de commande). */
+  passport?: OrderPassportSnapshot | null;
+}
+
+export interface AccountingPdfSection {
+  title: string;
+  columns: string[];
+  rows: string[][];
+  totals?: { label: string; value: string }[];
+}
+
+export interface AccountingReportData {
+  farmName: string;
+  title: string;
+  period: string;
+  generatedAtLabel: string;
+  sections: AccountingPdfSection[];
+  totals: { label: string; value: string }[];
 }
 
 export interface PasseportData {
@@ -204,6 +223,12 @@ export class PdfService {
         },
         tableHeader: { bold: true, color: '#222222' },
         total: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+        passportNote: {
+          fontSize: 8.5,
+          italics: true,
+          color: '#7f8c8d',
+          margin: [0, 0, 0, 4],
+        },
         warning: {
           fontSize: 11,
           bold: true,
@@ -274,6 +299,76 @@ export class PdfService {
         },
         tableHeader: { bold: true, color: '#222222' },
         total: { fontSize: 11, bold: true, color: '#222222' },
+      },
+      defaultStyle: { font: 'Roboto' },
+    };
+
+    const pdfmake = await this.ensurePdfmake();
+    const document = pdfmake.createPdf(documentDefinition);
+    return document.getBuffer();
+  }
+
+  async createAccountingPdf(data: AccountingReportData): Promise<Buffer> {
+    const documentDefinition = {
+      content: [
+        { text: data.farmName, style: 'header' },
+        { text: data.title, style: 'subheader' },
+        { text: data.period, style: 'meta' },
+        ...data.sections.flatMap((section) => [
+          { text: section.title, style: 'section' },
+          {
+            table: {
+              widths:
+                section.columns.length > 2
+                  ? Array(section.columns.length)
+                      .fill('auto')
+                      .map((w, i) => (i === 0 ? '*' : w))
+                  : ['*', 'auto'],
+              headerRows: 1,
+              body: [
+                section.columns.map((c) => ({ text: c, style: 'tableHeader' })),
+                ...section.rows,
+                ...(section.totals ?? []).map((t) => [
+                  { text: t.label, style: 'total' },
+                  ...Array(Math.max(0, section.columns.length - 2)).fill(''),
+                  { text: t.value, style: 'total' },
+                ]),
+              ],
+            },
+            layout: 'lightHorizontalLines',
+            margin: [0, 2, 0, 12],
+          },
+        ]),
+        data.totals.map((t) => ({ text: `${t.label} : ${t.value}`, style: 'total' })),
+        { text: `Document généré le ${data.generatedAtLabel}.`, style: 'footer' },
+      ],
+      styles: {
+        header: { fontSize: 16, bold: true, margin: [0, 0, 0, 4] },
+        subheader: {
+          fontSize: 12,
+          bold: true,
+          color: '#444444',
+          margin: [0, 0, 0, 8],
+        },
+        section: {
+          fontSize: 10.5,
+          bold: true,
+          color: '#206080',
+          margin: [0, 0, 0, 4],
+        },
+        meta: {
+          fontSize: 9,
+          color: '#555555',
+          margin: [0, 0, 0, 8],
+        },
+        tableHeader: { bold: true, color: '#222222' },
+        total: { fontSize: 11, bold: true, color: '#222222' },
+        footer: {
+          fontSize: 8,
+          color: '#888888',
+          alignment: 'center',
+          margin: [0, 12, 0, 0],
+        },
       },
       defaultStyle: { font: 'Roboto' },
     };
@@ -496,6 +591,110 @@ export class PdfService {
   }
 
   async createBonCommandePdf(data: BonCommandeData): Promise<Buffer> {
+    const passportBlocks: object[] = [];
+    if (data.passport) {
+      const p = data.passport;
+      const readyColor = p.readiness.readyForSale ? '#27ae60' : '#c0392b';
+      const vaccineLast = p.vaccinations.last
+        ? `${p.vaccinations.last.name} (${p.vaccinations.last.date})`
+        : 'Aucun vaccin enregistré';
+      const withdrawalList =
+        p.withdrawals.length > 0
+          ? p.withdrawals
+              .map(
+                (w) =>
+                  `- ${w.productName} (${w.careTypeLabel}) : retrait jusqu'au ${w.withdrawalEndDate}`,
+              )
+              .join('\n')
+          : 'Aucun retrait en cours';
+      const alertList =
+        p.sanitary.alerts.length > 0
+          ? p.sanitary.alerts
+              .map((a) => `- [${a.level}] ${a.message}`)
+              .join('\n')
+          : 'Aucune alerte sanitaire active';
+      const diseaseList =
+        p.sanitary.events.length > 0
+          ? p.sanitary.events
+              .map((e) => `- ${e.title} (${e.occurredAt})`)
+              .join('\n')
+          : null;
+      const conformityStyle = {
+        CONFORME: '#27ae60',
+        PRECONFORMITE: '#d68910',
+        EN_ATTENTE: '#c0392b',
+      }[p.sanitary.conformity];
+
+      passportBlocks.push(
+        {
+          text: 'Traçabilité du lot — passeport figé au bon de commande',
+          style: 'subheader',
+          margin: [0, 14, 0, 4],
+        },
+        {
+          table: {
+            widths: ['auto', '*'],
+            headerRows: 0,
+            body: [
+              ['Lot', p.batchLabel],
+              ['Espèce', p.speciesLabel],
+              ['Souche', p.breedName ?? 'Non renseignée'],
+              ['Type', p.batchTypeLabel],
+              [
+                'Intégration',
+                `${p.integrationDate} (âge : ${p.ageDays} jours)`,
+              ],
+              ['Effectif vivant', String(p.liveCount)],
+              ['Statut du lot', p.statusLabel],
+              [
+                'Auto-signal vente',
+                { text: p.readiness.label, color: readyColor, bold: true },
+              ],
+            ],
+          },
+          layout: 'lightHorizontalLines',
+          margin: [0, 4, 0, 8],
+        },
+        {
+          table: {
+            widths: ['*', 'auto'],
+            headerRows: 1,
+            body: [
+              [
+                { text: 'Indicateur', style: 'tableHeader' },
+                { text: 'Valeur', style: 'tableHeader' },
+              ],
+              ...p.metrics.map((m) => [m.label, m.value]),
+              ['Dernier vaccin', vaccineLast],
+              ['Vaccinations faites', String(p.vaccinations.completed)],
+              ['Vaccinations restantes', String(p.vaccinations.planned)],
+              ['Retraits (carence)', withdrawalList],
+              ['Alertes sanitaires', alertList],
+              ...(diseaseList
+                ? [['Maladies déclarées', diseaseList]]
+                : []),
+              [
+                'Visite vétérinaire',
+                p.sanitary.vetVisited ? 'Oui' : 'Non',
+              ],
+              [
+                'Conformité',
+                {
+                  text: p.sanitary.conformity,
+                  color: conformityStyle,
+                  bold: true,
+                },
+              ],
+            ],
+          },
+          layout: 'lightHorizontalLines',
+          margin: [0, 0, 0, 6],
+        },
+        { text: p.readiness.note, style: 'passportNote' },
+        { text: p.sanitary.conformityNote, style: 'passportNote' },
+      );
+    }
+
     const documentDefinition = {
       content: [
         { text: data.farmName, style: 'header' },
@@ -543,6 +742,7 @@ export class PdfService {
               style: 'warning',
             }
           : {},
+        ...passportBlocks,
         {
           qr: `KOUKOU|CMD|${data.referenceNumber}|${data.totalAmountFcfa}`,
           fit: 110,
@@ -570,6 +770,12 @@ export class PdfService {
         },
         tableHeader: { bold: true, color: '#222222' },
         total: { fontSize: 11, bold: true, margin: [0, 2, 0, 2] },
+        passportNote: {
+          fontSize: 8.5,
+          italics: true,
+          color: '#7f8c8d',
+          margin: [0, 0, 0, 4],
+        },
         warning: {
           fontSize: 11,
           bold: true,

@@ -14,7 +14,13 @@ import {
   OpenCashSessionDto,
   CloseCashSessionDto,
   CreateCashMovementDto,
+  UpdateCashMovementDto,
 } from './dto/caisse.dto.js';
+import { AccountingService } from '../accounting/accounting.service.js';
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export interface CaisseSummary {
   session: CashSession;
@@ -39,6 +45,7 @@ export class CaisseService {
     private readonly movementRepo: Repository<CashMovement>,
     private readonly farmsService: FarmsService,
     private readonly dataSource: DataSource,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async open(
@@ -55,15 +62,32 @@ export class CaisseService {
     }
     const today = new Date().toISOString().slice(0, 10);
     try {
-      return await this.sessionRepo.save(
-        this.sessionRepo.create({
-          farmId,
-          status: CashSessionStatus.OPEN,
-          openedAt: dto.openedAt ?? today,
-          openingBalanceFcfa: dto.openingBalanceFcfa,
-          openedById: user.id,
-        }),
-      );
+      return await this.dataSource.transaction(async (em) => {
+        const session = await em.getRepository(CashSession).save(
+          em.getRepository(CashSession).create({
+            farmId,
+            status: CashSessionStatus.OPEN,
+            openedAt: dto.openedAt ?? today,
+            openingBalanceFcfa: dto.openingBalanceFcfa,
+            openedById: user.id,
+          }),
+        );
+        if (session.openingBalanceFcfa > 0) {
+          await this.accountingService.post(em, {
+            farmId,
+            date: session.openedAt,
+            label: `Fonds de caisse du ${session.openedAt}`,
+            source: 'CAISSE',
+            sourceId: `open:${session.id}`,
+            lines: [
+              { account: '571', debit: session.openingBalanceFcfa, label: 'Caisse — espèces' },
+              { account: '108', credit: session.openingBalanceFcfa, label: 'Apports de l’exploitant' },
+            ],
+            operatorId: user.id,
+          });
+        }
+        return session;
+      });
     } catch (err) {
       // Index unique partiel (ferme, statut OPEN) : deux ouvertures
       // concurrentes → 23505. On re-lit la session gagnante pour la signaler.
@@ -102,6 +126,31 @@ export class CaisseService {
       session.closingExpectedFcfa = summary.expectedBalanceFcfa;
       session.closingDifferenceFcfa = difference;
       const saved = await em.getRepository(CashSession).save(session);
+      // Comptabilité : écart de clôture → pertes divers (658) ou produits
+      // divers (758) selon le signe de l'écart, contre Caisse.
+      if (difference !== 0) {
+        await this.accountingService.post(em, {
+          farmId,
+          date: saved.closedAt ? saved.closedAt.toISOString().slice(0, 10) : saved.openedAt,
+          label:
+            difference < 0
+              ? `Clôture de caisse du ${saved.openedAt} — écart négatif ${difference} FCFA`
+              : `Clôture de caisse du ${saved.openedAt} — écart positif +${difference} FCFA`,
+          source: 'CAISSE',
+          sourceId: `close:${saved.id}`,
+          lines:
+            difference < 0
+              ? [
+                  { account: '658', debit: -difference, label: 'Pertes et charges diverses' },
+                  { account: '571', credit: -difference, label: 'Caisse — espèces' },
+                ]
+              : [
+                  { account: '571', debit: difference, label: 'Caisse — espèces' },
+                  { account: '758', credit: difference, label: 'Produits et gains divers' },
+                ],
+          operatorId: user.id,
+        });
+      }
       return { ...saved, summary };
     });
   }
@@ -140,7 +189,7 @@ export class CaisseService {
           );
         }
       }
-      return em.getRepository(CashMovement).save(
+      const movement = await em.getRepository(CashMovement).save(
         em.getRepository(CashMovement).create({
           farmId,
           cashSessionId: session.id,
@@ -152,6 +201,170 @@ export class CaisseService {
           createdById: user.id,
         }),
       );
+
+      // Comptabilité : apport (571/108) ou prélèvement (108/571) de l'exploitant.
+      await this.accountingService.post(em, {
+        farmId,
+        date: movement.movementDate,
+        label:
+          dto.type === CashMovementType.IN
+            ? `Apport en caisse${dto.reason ? ` — ${dto.reason}` : ''}`
+            : `Prélèvement en caisse${dto.reason ? ` — ${dto.reason}` : ''}`,
+        source: 'CAISSE',
+        sourceId: `movement:${movement.id}`,
+        lines:
+          dto.type === CashMovementType.IN
+            ? [
+                { account: '571', debit: movement.amountFcfa, label: 'Caisse — espèces' },
+                { account: '108', credit: movement.amountFcfa, label: 'Apports de l’exploitant' },
+              ]
+            : [
+                { account: '108', debit: movement.amountFcfa, label: 'Apports de l’exploitant' },
+                { account: '571', credit: movement.amountFcfa, label: 'Caisse — espèces' },
+              ],
+        operatorId: user.id,
+      });
+
+      return movement;
+    });
+  }
+
+  async updateMovement(
+    user: AuthUser,
+    farmId: string,
+    movementId: string,
+    dto: UpdateCashMovementDto,
+  ): Promise<CashMovement> {
+    await this.farmsService.assertAccessible(user, farmId);
+    return this.dataSource.transaction(async (em) => {
+      const movementRepo = em.getRepository(CashMovement);
+      const movement = await movementRepo.findOne({
+        where: { id: movementId, farmId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!movement) throw new NotFoundException('Mouvement de caisse introuvable.');
+      if (movement.source !== CashMovementSource.MANUAL) {
+        throw new BadRequestException(
+          'Seuls les mouvements manuels sont modifiables — les autres sont liés à des opérations comptabilisées.',
+        );
+      }
+      const session = await em.getRepository(CashSession).findOne({
+        where: { id: movement.cashSessionId ?? '' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!session || session.status !== CashSessionStatus.OPEN) {
+        throw new BadRequestException(
+          'Session de caisse clôturée : les mouvements sont immuables.',
+        );
+      }
+      const nextAmount = dto.amountFcfa ?? movement.amountFcfa;
+      if (
+        movement.type === CashMovementType.OUT &&
+        nextAmount > movement.amountFcfa
+      ) {
+        // Re-vérifie le « jamais négatif » hors ce mouvement.
+        const movements = await em.getRepository(CashMovement).find({
+          where: { cashSessionId: session.id },
+        });
+        let inFcfa = 0;
+        let outFcfa = 0;
+        for (const m of movements) {
+          if (m.id === movement.id) continue;
+          if (m.type === CashMovementType.IN) inFcfa += m.amountFcfa;
+          else outFcfa += m.amountFcfa;
+        }
+        const available = session.openingBalanceFcfa + inFcfa - outFcfa;
+        if (nextAmount > available) {
+          throw new BadRequestException(
+            `Sortie de ${nextAmount} FCFA refusée : solde de caisse disponible ${available} FCFA. Une caisse ne peut pas être négative.`,
+          );
+        }
+      }
+      if (dto.amountFcfa != null) movement.amountFcfa = dto.amountFcfa;
+      if (dto.reason != null) movement.reason = dto.reason;
+      if (dto.movementDate != null) movement.movementDate = dto.movementDate;
+      await movementRepo.save(movement);
+
+      // Comptabilité : ajustement 571/108 (ou 108/571) — diff vs l'ancienne,
+      // équilibré et idempotent (postOrAdjust).
+      const basis =
+        movement.type === CashMovementType.IN
+          ? 'Apport en caisse'
+          : 'Prélèvement en caisse';
+      await this.accountingService.postOrAdjust(
+        em,
+        {
+          farmId,
+          date: movement.movementDate,
+          label: `${basis}${movement.reason ? ` — ${movement.reason}` : ''}`,
+          source: 'CAISSE',
+          sourceId: `movement:${movement.id}`,
+          lines:
+            movement.type === CashMovementType.IN
+              ? [
+                  { account: '571', debit: movement.amountFcfa, label: 'Caisse — espèces' },
+                  { account: '108', credit: movement.amountFcfa, label: 'Apports de l’exploitant' },
+                ]
+              : [
+                  { account: '108', debit: movement.amountFcfa, label: 'Apports de l’exploitant' },
+                  { account: '571', credit: movement.amountFcfa, label: 'Caisse — espèces' },
+                ],
+          operatorId: user.id,
+        },
+        `movement:${movement.id}`,
+      );
+      return movement;
+    });
+  }
+
+  async deleteMovement(
+    user: AuthUser,
+    farmId: string,
+    movementId: string,
+  ): Promise<{ id: string }> {
+    await this.farmsService.assertAccessible(user, farmId);
+    return this.dataSource.transaction(async (em) => {
+      const movementRepo = em.getRepository(CashMovement);
+      const movement = await movementRepo.findOne({
+        where: { id: movementId, farmId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!movement) throw new NotFoundException('Mouvement de caisse introuvable.');
+      if (movement.source !== CashMovementSource.MANUAL) {
+        throw new BadRequestException(
+          'Seuls les mouvements manuels sont supprimables — les autres sont liés à des opérations comptabilisées.',
+        );
+      }
+      const session = await em.getRepository(CashSession).findOne({
+        where: { id: movement.cashSessionId ?? '' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!session || session.status !== CashSessionStatus.OPEN) {
+        throw new BadRequestException(
+          'Session de caisse clôturée : les mouvements sont immuables.',
+        );
+      }
+      // Comptabilité : contrepassation de l'écriture de mouvement manuel.
+      await this.accountingService.post(em, {
+        farmId,
+        date: todayStr(),
+        label: `Suppression mouvement de caisse${movement.reason ? ` — ${movement.reason}` : ''}`,
+        source: 'CAISSE',
+        sourceId: `movement-cancel:${movement.id}`,
+        lines:
+          movement.type === CashMovementType.IN
+            ? [
+                { account: '108', debit: movement.amountFcfa, label: 'Apports de l’exploitant' },
+                { account: '571', credit: movement.amountFcfa, label: 'Caisse — espèces' },
+              ]
+            : [
+                { account: '571', debit: movement.amountFcfa, label: 'Caisse — espèces' },
+                { account: '108', credit: movement.amountFcfa, label: 'Apports de l’exploitant' },
+              ],
+        operatorId: user.id,
+      });
+      await movementRepo.delete(movementId);
+      return { id: movementId };
     });
   }
 

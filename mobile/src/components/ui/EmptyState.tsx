@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { color, palette, radii } from '@/constants/theme';
+import { palette, radii } from '@/constants/theme';
 
 interface EmptyStateProps {
   emoji: string;

@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({
@@ -26,4 +26,27 @@ export class RegisterDto {
     message: 'Le code doit contenir au moins 6 caractères.',
   })
   code: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Nom de la ferme (définit la ferme par défaut du Propriétaire). Absent → « Ferme de <nom complet> ».",
+    example: 'Ferme de SunPark',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(2, {
+    message: 'Le nom de la ferme doit contenir au moins 2 caractères.',
+  })
+  farmName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Ville administrative de la ferme',
+    example: 'Libreville',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty({ message: 'La ville administrative est obligatoire.' })
+  farmCity?: string;
 }

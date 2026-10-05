@@ -21,8 +21,10 @@ interface AuthContextValue {
   error: string | null;
   setActiveFarmId: (farmId: string) => void;
   signIn: (phone: string, code: string) => Promise<boolean>;
-  signUp: (phone: string, fullName: string, code: string) => Promise<boolean>;
+  signUp: (phone: string, fullName: string, code: string, farmName?: string) => Promise<boolean>;
   signOut: () => void;
+  /** Recharge /farms et met à jour la session (après renommage / logo). */
+  refreshFarms: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -75,13 +77,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signUp = useCallback(
-    async (phone: string, fullName: string, code: string): Promise<boolean> => {
+    async (phone: string, fullName: string, code: string, farmName?: string): Promise<boolean> => {
       setBusy(true);
       setError(null);
       try {
         const res = await apiFetch<{ accessToken: string; user: PublicUser }>('/auth/register', {
           method: 'POST',
-          body: { phone, fullName, code },
+          body: { phone, fullName, code, farmName: farmName?.trim() || undefined },
         });
         const next: StoredSession = { token: res.accessToken, user: res.user, farms: [] };
         saveSession(next);
@@ -119,6 +121,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [session],
   );
 
+  const refreshFarms = useCallback(async () => {
+    setSession((prev) => {
+      if (!prev?.token) return prev;
+      void apiFetch<Farm[]>('/farms')
+        .then((farms) => {
+          const next: StoredSession = { ...prev, farms };
+          saveSession(next);
+          setSession((cur) => (cur?.token === prev.token ? next : cur));
+        })
+        .catch(() => undefined);
+      return prev;
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => {
     const signedIn = Boolean(session?.token);
     const activeFarmId = session?.activeFarmId ?? session?.farms[0]?.id ?? '';
@@ -135,8 +151,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signOut,
       setActiveFarmId,
+      refreshFarms,
     };
-  }, [session, busy, error, signIn, signUp, signOut, setActiveFarmId]);
+  }, [session, busy, error, signIn, signUp, signOut, setActiveFarmId, refreshFarms]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

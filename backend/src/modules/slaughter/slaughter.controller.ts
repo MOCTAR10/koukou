@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import {
   CancelSlaughterOrderDto,
@@ -20,7 +21,8 @@ export class SlaughterController {
   constructor(private readonly slaughterService: SlaughterService) {}
 
   @Post()
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:abattage')
   @ApiOperation({
     summary:
       'Créer un ordre d’abattage lié à un lot (interne = code suivi auto, externe = bordereau à envoyer à l’abattoir).',
@@ -55,7 +57,8 @@ export class SlaughterController {
   }
 
   @Patch(':orderId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:abattage')
   @ApiOperation({
     summary:
       'Modifier un ordre (dates, effectif, poids, code lot abattoir manuel).',
@@ -71,7 +74,8 @@ export class SlaughterController {
   }
 
   @Post(':orderId/send')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:abattage')
   @ApiOperation({
     summary:
       'Envoyer l’ordre (DRAFT → SENT) : génère le code interne si INTERNE, prépare le bordereau si EXTERNE.',
@@ -87,7 +91,8 @@ export class SlaughterController {
   }
 
   @Post(':orderId/process')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:abattage')
   @ApiOperation({
     summary:
       'Marquer l’ordre traité (PROCESSED) — processedAt = date de mort du lot.',
@@ -128,7 +133,8 @@ export class SlaughterController {
   }
 
   @Post(':orderId/cancel')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:abattage')
   @ApiOperation({ summary: 'Annuler un ordre d’abattage (DRAFT ou SENT).' })
   @ApiParam({ name: 'farmId' })
   cancel(

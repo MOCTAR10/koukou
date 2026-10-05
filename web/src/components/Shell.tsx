@@ -19,6 +19,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
 import { Logo } from './Logo';
 import { classNames, initials, statusLabel } from '../lib/format';
+import { pageTm } from '../lib/motion';
+import { motion, useReducedMotion } from 'motion/react';
 
 const NAV = [
   {
@@ -56,6 +58,7 @@ export function Shell() {
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
   const { pathname } = useLocation();
   const onPlatform = pathname.startsWith('/app/platform');
+  const reduced = useReducedMotion();
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -226,7 +229,14 @@ export function Shell() {
         </header>
 
         <main className="mx-auto max-w-7xl p-4 sm:p-6">
-          <Outlet />
+          <motion.div
+            key={pathname}
+            initial={reduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={pageTm}
+          >
+            <Outlet />
+          </motion.div>
         </main>
       </div>
     </div>

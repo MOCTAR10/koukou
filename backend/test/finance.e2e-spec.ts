@@ -181,6 +181,16 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
       })
       .expect(201);
     customerId = cust.body.id;
+    expect(cust.body.type).toBe('PARTICULIER');
+    expect(cust.body.code).toMatch(/^CL-\d{4}$/);
+
+    // Le type est purement descriptif (aucun effet sur le crédit).
+    const reclass = await request(server)
+      .patch(`/farms/${farmId}/customers/${customerId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ type: 'RESTAURANT' })
+      .expect(200);
+    expect(reclass.body.type).toBe('RESTAURANT');
   });
 
   it('vente pièce (10 × 3000 = 30000 FCFA, espèces) → décrémente le cheptel', async () => {

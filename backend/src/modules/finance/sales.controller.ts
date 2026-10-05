@@ -13,6 +13,7 @@ import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { SalesService } from './sales.service.js';
@@ -45,6 +46,7 @@ export class SalesController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('vente:creer')
   @ApiOperation({
     summary:
       'Créer une vente au comptoir : décrémente le cheptel/l’inventaire, enregistre l’encaissement espèces et retourne les warnings advisory (non bloquants).',
@@ -72,6 +74,7 @@ export class SalesController {
 
   @Post(':saleId/payments')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('vente:creer')
   @ApiOperation({
     summary: 'Encaisser un acompte / solde sur une vente (crédit client)',
   })
@@ -106,10 +109,11 @@ export class SalesController {
   }
 
   @Delete(':saleId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('vente:annuler')
   @ApiOperation({
     summary:
-      'Annuler une vente (PROPRIÉTAIRE) : réintègre le stock, rembourse les encaissements.',
+      'Annuler une vente : réintègre le stock, rembourse les encaissements.',
   })
   @ApiParam({ name: 'farmId' })
   cancel(

@@ -3,6 +3,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { BatchesService } from './batches.service.js';
@@ -72,7 +73,8 @@ export class BatchesController {
   }
 
   @Patch(':batchId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({ summary: 'Modifier un lot (traçabilité HACCP éditable)' })
   update(
     @CurrentUser() user: AuthUser,
@@ -84,7 +86,8 @@ export class BatchesController {
   }
 
   @Patch(':batchId/type')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({
     summary: 'Changer le type (ex: PONDEUSE -> CHAIR) avec historique',
   })
@@ -98,7 +101,8 @@ export class BatchesController {
   }
 
   @Post(':batchId/vente')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({
     summary: 'Passer le lot en vente (traçabilité HACCP requise)',
   })
@@ -111,7 +115,8 @@ export class BatchesController {
   }
 
   @Post(':batchId/cloture')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({ summary: 'Clôturer le lot (traçabilité HACCP requise)' })
   close(
     @CurrentUser() user: AuthUser,

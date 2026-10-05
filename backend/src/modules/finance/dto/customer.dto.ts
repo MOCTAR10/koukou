@@ -1,10 +1,15 @@
 import { OmitType } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { CustomerType } from '../../../common/enums/customer-type.enum.js';
 
 export class CreateCustomerDto {
   @IsNotEmpty({ message: 'Le nom du client est obligatoire.' })
   @IsString({ message: 'Le nom du client doit être une chaîne de caractères.' })
   fullName: string;
+
+  @IsOptional()
+  @IsEnum(CustomerType, { message: 'Type de client invalide.' })
+  type?: CustomerType;
 
   @IsOptional()
   @IsString({ message: 'Le numéro de téléphone doit être une chaîne.' })
@@ -32,4 +37,17 @@ export class UpdateCustomerDto extends OmitType(CreateCustomerDto, [
   @IsOptional()
   @IsString({ message: 'Le nom du client doit être une chaîne de caractères.' })
   fullName?: string;
+}
+
+/** Encaissement depuis la fiche client : montant réparti sur les ventes impayées. */
+export class CustomerPaymentDto {
+  @IsInt({ message: 'Le montant doit être un nombre entier.' })
+  @Min(1, { message: 'Le montant doit être supérieur à zéro.' })
+  amountFcfa: number;
+
+  /** Clé d'idempotence (file hors-ligne) : rejoue sans double encaissement. */
+  @IsOptional()
+  @IsString({ message: 'La clé d’idempotence doit être une chaîne.' })
+  @MaxLength(100, { message: 'La clé d’idempotence est trop longue.' })
+  idempotencyKey?: string;
 }

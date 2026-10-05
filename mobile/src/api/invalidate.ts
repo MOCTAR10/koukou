@@ -23,6 +23,7 @@ export function invalidateFarmQueries(
   void queryClient.invalidateQueries({ queryKey: ['caisse-sessions', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['slaughter-orders', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['customers', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['customers-summary', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['promotions', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['points-of-sale', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['stock-transfers', farmId] });
@@ -30,6 +31,8 @@ export function invalidateFarmQueries(
   void queryClient.invalidateQueries({ queryKey: ['orders', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['rentabilite', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['farm-members', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['farm-profile', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['permission-catalog', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['tasks', farmId] });
   if (batchId) {
     void queryClient.invalidateQueries({ queryKey: ['batch', farmId, batchId] });

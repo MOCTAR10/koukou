@@ -18,6 +18,8 @@ import { PaymentMethodConfig } from './entities/payment-method.entity.js';
 import { CashSession } from './entities/cash-session.entity.js';
 import { CashSessionStatus } from '../../common/enums/cash-session-status.enum.js';
 import { Sale } from './entities/sale.entity.js';
+import { AccountingService } from '../accounting/accounting.service.js';
+import { cashAccountForMethod } from '../accounting/posting-map.js';
 
 export interface RecordPaymentInput {
   farm: Farm;
@@ -46,6 +48,7 @@ export class PaymentsService {
     @InjectRepository(PaymentMethodConfig)
     private readonly methodRepo: Repository<PaymentMethodConfig>,
     private readonly farmsService: FarmsService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async listPaymentMethods(): Promise<PaymentMethodConfig[]> {
@@ -146,6 +149,20 @@ export class PaymentsService {
         }),
       );
     }
+
+    // Comptabilité : encaissement → Caisse / Client (idempotent par paiement).
+    await this.accountingService.post(em, {
+      farmId: input.farm.id,
+      date: input.paymentDate ?? new Date().toISOString().slice(0, 10),
+      label: `Encaissement vente ${input.sale.referenceNumber}`,
+      source: 'PAYMENT',
+      sourceId: `payment:${payment.id}`,
+      lines: [
+        { account: cashAccountForMethod(method), debit: input.amountFcfa, label: 'Caisse — espèces' },
+        { account: '411', credit: input.amountFcfa, label: 'Clients — créances' },
+      ],
+      operatorId: input.operatorId,
+    });
 
     return payment;
   }

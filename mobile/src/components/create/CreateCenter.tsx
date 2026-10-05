@@ -1,16 +1,20 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Bird, BookOpen, Building2, CreditCard, PackageOpen, Plus, Syringe } from 'lucide-react-native';
+import { Bird, BookOpen, Building2, HandCoins, PackageOpen, Syringe } from 'lucide-react-native';
 
-import { Sheet } from '../ui/Sheet';
-import { AppText } from '../ui/AppText';
 import { CreateLotSheet } from '../CreateLotSheet';
 import { CreateBuildingSheet } from '../CreateBuildingSheet';
-import { color, palette, radii } from '@/constants/theme';
+import { FarmLogo } from '../ui/FarmLogo';
+import { RadialMenu, type RadialItem } from './RadialMenu';
+import { color } from '@/constants/theme';
 import { useQuickCapture } from '../capture/QuickCaptureProvider';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { useAuth } from '@/auth/AuthContext';
+import type { PermissionCode } from '@/api/types';
 
 type CreateMode = 'none' | 'menu' | 'lot' | 'building';
+
+type CreateKey = 'lot' | 'building' | 'daily' | 'sale' | 'feed' | 'care';
 
 interface CreateCenterApi {
   openCreateMenu: () => void;
@@ -26,18 +30,33 @@ export function useCreateCenter(): CreateCenterApi {
   return ctx;
 }
 
-const CREATE_ACTIONS = [
-  { key: 'daily' as const, label: 'Saisie du jour', sub: 'Morts, aliments, eau', icon: BookOpen, bg: color.green[50], fg: color.green[600] },
-  { key: 'lot' as const, label: 'Nouveau lot', sub: 'Bande de poulets', icon: Bird, bg: color.brand[50], fg: color.brand[600] },
-  { key: 'feed' as const, label: 'Entrée provende', sub: 'Nouveau lot HACCP', icon: PackageOpen, bg: color.surfaceAlt, fg: color.ink[600] },
-  { key: 'care' as const, label: 'Soin', sub: 'Prophylaxie', icon: Syringe, bg: color.brand[50], fg: color.brand[700] },
-  { key: 'building' as const, label: 'Bâtiment', sub: 'Infrastructure', icon: Building2, bg: color.brand[50], fg: color.brand[700] },
-  { key: 'sale' as const, label: 'Encaisser', sub: 'POS espèces', icon: CreditCard, bg: color.accent[50], fg: color.accent[600] },
+/**
+ * Les six entrées du cercle. `perm` pilote l'affichage : une entrée que le rôle
+ * courant ne peut pas utiliser n'est pas proposée — mieux vaut un anneau de
+ * trois nœuds qu'un anneau qui mène à un écran interdit.
+ */
+/**
+ * Les six entrées du cercle. `perm` pilote l'affichage : une entrée que le rôle
+ * courant ne peut pas utiliser n'est pas proposée — mieux vaut un anneau de
+ * trois nœuds qu'un anneau qui mène à un écran interdit.
+ *
+ * `short` est ce qui s'affiche sous l'icône ; il faut tenir dans ~100pt entre
+ * deux nœuds voisins, donc on abrège (« Lot », pas « Nouveau lot »).
+ */
+const CREATE_ACTIONS: (RadialItem & { key: CreateKey; perm: PermissionCode })[] = [
+  { key: 'daily', label: 'Saisie du jour', short: 'Saisie', hint: 'Morts, aliments, eau', icon: BookOpen, bg: color.green[50], fg: color.green[600], perm: 'saisie:creer' },
+  { key: 'lot', label: 'Nouveau lot', short: 'Lot', hint: 'Bande de poulets', icon: Bird, bg: color.brand[50], fg: color.brand[600], perm: 'production:gerer' },
+  { key: 'feed', label: 'Entrée provende', short: 'Provende', hint: 'Nouveau lot HACCP', icon: PackageOpen, bg: color.surfaceAlt, fg: color.ink[600], perm: 'stock:gerer' },
+  { key: 'care', label: 'Soin', short: 'Soin', hint: 'Protocole sanitaire', icon: Syringe, bg: color.brand[50], fg: color.brand[700], perm: 'sanitaire:lecture' },
+  { key: 'building', label: 'Bâtiment', short: 'Bâtiment', hint: 'Infrastructure', icon: Building2, bg: color.brand[50], fg: color.brand[700], perm: 'production:gerer' },
+  { key: 'sale', label: 'Encaisser', short: 'Encaisser', hint: 'POS espèces', icon: HandCoins, bg: color.accent[50], fg: color.accent[600], perm: 'vente:creer' },
 ];
 
 export function CreateCenterProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const { farms, farmId } = useAuth();
   const { openDaily, openSale, openFeed } = useQuickCapture();
+  const { hasPermission } = useFarmProfile();
   const [mode, setMode] = useState<CreateMode>('none');
 
   const close = () => setMode('none');
@@ -51,7 +70,16 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
     [],
   );
 
-  const handlePick = (key: 'lot' | 'building' | 'daily' | 'sale' | 'feed' | 'care') => {
+  const items = useMemo(
+    () =>
+      CREATE_ACTIONS.filter((a) => hasPermission(a.perm)).map(
+        ({ perm: _perm, ...item }): RadialItem => item,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [farms, farmId],
+  );
+
+  const handlePick = (key: CreateKey) => {
     switch (key) {
       case 'lot':
         setMode('lot');
@@ -78,6 +106,8 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const farm = farms.find((f) => f.id === farmId) ?? farms[0];
+
   return (
     <CreateCenterContext.Provider value={api}>
       {children}
@@ -85,62 +115,14 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
       <CreateLotSheet visible={mode === 'lot'} onClose={close} />
       <CreateBuildingSheet visible={mode === 'building'} onClose={close} />
 
-      <Sheet
+      <RadialMenu
         visible={mode === 'menu'}
+        items={items}
+        onPick={(key) => handlePick(key as CreateKey)}
         onClose={close}
-        title="Nouvelle entrée"
-        subtitle="Choisissez une action"
-        icon={<Plus size={22} color={color.brand[600]} />}>
-        <View style={styles.grid}>
-          {CREATE_ACTIONS.map((a) => {
-            const Icon = a.icon;
-            return (
-              <Pressable
-                key={a.key}
-                onPress={() => handlePick(a.key)}
-                style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
-                accessibilityRole="button">
-                <View style={[styles.iconWrap, { backgroundColor: a.bg }]}>
-                  <Icon size={20} color={a.fg} />
-                </View>
-                <AppText size="body" weight="semibold" color="text" numberOfLines={1}>
-                  {a.label}
-                </AppText>
-                <AppText size="small" color="muted" numberOfLines={1}>
-                  {a.sub}
-                </AppText>
-              </Pressable>
-            );
-          })}
-        </View>
-      </Sheet>
+        hubLabel={farm?.name ?? 'KouKou'}
+        hub={<FarmLogo farm={farm} size={58} tone="brand" />}
+      />
     </CreateCenterContext.Provider>
   );
 }
-
-const styles = StyleSheet.create({
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  tile: {
-    width: '47%',
-    backgroundColor: palette.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    padding: 12,
-    gap: 4,
-  },
-  pressed: {
-    backgroundColor: palette.surfaceAlt,
-  },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

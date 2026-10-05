@@ -4,15 +4,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AlertKind } from '../../common/enums/alert-level.enum.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
+import { ExpenseCategory } from '../../common/enums/expense-category.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { BreedsService } from '../breeds/breeds.service.js';
+import { AccountingService } from '../accounting/accounting.service.js';
 import { Building } from '../buildings/entities/building.entity.js';
+import { Expense } from '../finance/entities/expense.entity.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
 import { TypeHistoryEntry } from './entities/type-history-entry.entity.js';
 import { CreateBatchDto } from './dto/create-batch.dto.js';
@@ -31,11 +34,15 @@ export class BatchesService {
     private readonly buildingRepo: Repository<Building>,
     @InjectRepository(TypeHistoryEntry)
     private readonly historyRepo: Repository<TypeHistoryEntry>,
+    @InjectRepository(Expense)
+    private readonly expenseRepo: Repository<Expense>,
     private readonly farmsService: FarmsService,
     private readonly breedsService: BreedsService,
     private readonly metricsService: MetricsService,
     private readonly advisoryEngine: AdvisoryEngine,
     private readonly alertsService: AlertsService,
+    private readonly accountingService: AccountingService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(
@@ -84,6 +91,42 @@ export class BatchesService {
     });
     await this.batchRepo.save(batch);
     await this.afterChange(user, farmId, batch);
+
+    // Auto-create expense for chick purchase cost (ACHAT_POUSSINS)
+    if (dto.chickUnitPriceFcfa && dto.chickUnitPriceFcfa > 0) {
+      const totalFcfa = Math.round(dto.chickUnitPriceFcfa * dto.quantityAtStart);
+      if (totalFcfa > 0) {
+        await this.dataSource.transaction(async (em) => {
+          const expense = await em.getRepository(Expense).save(
+            em.getRepository(Expense).create({
+              farmId,
+              batchId: batch.id,
+              expenseDate: dto.integrationDate,
+              category: ExpenseCategory.ACHAT_POUSSINS,
+              amountFcfa: totalFcfa,
+              label: `Achat ${dto.quantityAtStart} poussins — ${dto.batchName}`,
+              supplier: dto.couvoirSupplier ?? null,
+              notes: `[Auto] Créé automatiquement lors de la création du lot ${dto.batchName}`,
+              paidByCaisse: false,
+              createdById: user.id,
+            }),
+          );
+          await this.accountingService.post(em, {
+            farmId,
+            date: dto.integrationDate,
+            label: `Achat poussins — ${dto.batchName}`,
+            source: 'EXPENSE',
+            sourceId: `expense:${expense.id}`,
+            lines: [
+              { account: '6010', debit: totalFcfa },
+              { account: '401', credit: totalFcfa },
+            ],
+            operatorId: user.id,
+          });
+        });
+      }
+    }
+
     return this.findOne(user, farmId, batch.id);
   }
 

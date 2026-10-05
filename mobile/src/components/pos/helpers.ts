@@ -1,11 +1,23 @@
-import { buildSaleItem, DEFAULT_AVG_WEIGHT_KG, todayStr, type SaleItemPayload } from '@/api/mutations';
+import { buildSaleItem, todayStr, type SaleItemPayload } from '@/api/mutations';
+import { fmt } from '@/constants/theme';
 import type { Promotion } from '@/api/types';
 
 import type { PosLine, PosTotals } from './types';
 
+/** Formatage œufs → alvéoles : "2 alvéoles", "1 alvéole + 5 œufs",
+ *  "moins d'une alvéole" (reliquat < 30 œufs encore visible). */
+export function formatEggAlveoles(eggCount: number): string {
+  if (eggCount <= 0) return '0';
+  const alv = Math.floor(eggCount / 30);
+  const rem = eggCount % 30;
+  if (alv === 0) return "moins d'une alvéole";
+  if (rem === 0) return `${fmt(alv)} alvéole${alv > 1 ? 's' : ''}`;
+  return `${fmt(alv)} alvéole${alv > 1 ? 's' : ''} + ${fmt(rem)} œufs`;
+}
+
 export function lineAmount(line: PosLine): number {
   if (line.product === 'KG' || line.product === 'ABATTU_KG') {
-    return Math.round(line.qty * DEFAULT_AVG_WEIGHT_KG * line.unitPriceFcfa);
+    return Math.round((line.weightKg ?? 0) * line.unitPriceFcfa);
   }
   return line.qty * line.unitPriceFcfa;
 }
@@ -44,7 +56,7 @@ export function buildPosSaleItems(lines: PosLine[]): SaleItemPayload[] {
   const items: SaleItemPayload[] = [];
   for (const line of lines) {
     const built = buildSaleItem(line.product, line.qty, line.unitPriceFcfa, line.batchId ?? null, {
-      avgWeightKg: DEFAULT_AVG_WEIGHT_KG,
+      ...(line.weightKg != null ? { weightKg: line.weightKg } : {}),
       ...(line.slaughterOrderId ? { sourceSlaughterOrderId: line.slaughterOrderId } : {}),
       ...(line.transferId ? { stockTransferId: line.transferId } : {}),
       ...(line.unit ? { unit: line.unit } : {}),

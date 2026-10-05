@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { BookOpen, Coins, CreditCard, FileBarChart2, Syringe, Wheat } from 'lucide-react-native';
+import { BookOpen, Coins, FileBarChart2, HandCoins, Syringe, Wheat } from 'lucide-react-native';
 
 import { AppText } from '../ui/AppText';
 import { color, palette, radii } from '@/constants/theme';
@@ -11,7 +11,7 @@ interface QuickActionsProps {
 
 const ACTIONS = [
   { key: 'saisie' as const, label: 'Saisie du jour', sub: 'Morts, aliments, eau', icon: BookOpen, bg: color.brand[50], fg: color.brand[600] },
-  { key: 'vente' as const, label: 'Encaisser', sub: 'POS espèces', icon: CreditCard, bg: color.accent[50], fg: color.accent[600] },
+  { key: 'vente' as const, label: 'Encaisser', sub: 'POS espèces', icon: HandCoins, bg: color.accent[50], fg: color.accent[600] },
   { key: 'caisse' as const, label: 'Caisse', sub: 'Ouvrir / clôturer', icon: Coins, bg: color.green[50], fg: color.green[600] },
   { key: 'soin' as const, label: 'Soin', sub: 'Prophylaxie', icon: Syringe, bg: color.brand[50], fg: color.brand[700] },
   { key: 'provende' as const, label: 'Provende', sub: 'Entrée HACCP', icon: Wheat, bg: color.amber[50], fg: color.amber[600] },

@@ -11,6 +11,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FeedProductsService } from './feed-products.service.js';
 import { CreateFeedProductDto } from './dto/create-feed-product.dto.js';
@@ -23,6 +24,7 @@ export class FeedProductsController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('stock:gerer')
   @ApiOperation({
     summary:
       'Ajouter un produit au catalogue provende de la ferme (nom unique par ferme)',
@@ -46,6 +48,7 @@ export class FeedProductsController {
 
   @Patch(':productId')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('stock:gerer')
   @ApiOperation({
     summary:
       'Modifier un produit du catalogue (prix, fournisseur, sac, phase, actif)',
@@ -61,7 +64,8 @@ export class FeedProductsController {
   }
 
   @Delete(':productId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('stock:gerer')
   @ApiOperation({
     summary:
       'Supprimer un produit du catalogue (refusé s’il est rattaché à une entrée d’aliment)',

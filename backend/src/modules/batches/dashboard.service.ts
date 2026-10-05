@@ -38,6 +38,9 @@ import { Building } from '../buildings/entities/building.entity.js';
 import { Payment } from '../finance/entities/payment.entity.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
 import { Sale } from '../finance/entities/sale.entity.js';
+import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
+import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
+import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
 import { BatchesService } from './batches.service.js';
 import { BreedStatus, MetricsService } from './metrics.service.js';
@@ -211,6 +214,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     private readonly saleRepo: Repository<Sale>,
     @InjectRepository(SaleItem)
     private readonly saleItemRepo: Repository<SaleItem>,
+    @InjectRepository(StockTransfer)
+    private readonly stockTransferRepo: Repository<StockTransfer>,
     private readonly farmsService: FarmsService,
     private readonly feedStockService: FeedStockService,
     private readonly batchesService: BatchesService,
@@ -426,13 +431,15 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
   // ---------- Stock d'œufs & alerte seuil ----------
 
-  /**
-   * Stock d'œufs disponible = œufs collectés (toutes bandes, quel que soit le
-   * type — un lot CHAIR peut aussi déclarer des œufs) − œufs non
-   * commercialisables − alvéoles vendues (vente OEUFS, unité ALVEOLES).
-   * Évaluée de façon paresseuse (lecture dashboard) et re-évaluée après chaque
-   * saisie de ponte / vente.
-   */
+/**
+ * Stock d'œufs disponible = œufs collectés (toutes bandes, quel que soit le
+ * type — un lot CHAIR peut aussi déclarer des œufs) − œufs non
+ * commercialisables − alvéoles vendues (vente OEUFS, unité ALVEOLES) − œufs
+ * encore en boutique (transférées, non vendues : un transfert ferme → boutique
+ * retire ces œufs du stock vendable à la ferme). Aligné sur
+ * `SalesService.assertEggsAvailable`. Évaluée de façon paresseuse (lecture
+ * dashboard) et re-évaluée après chaque saisie de ponte / vente.
+ */
   async evaluateEggStockAlerts(farmId: string): Promise<EggStockInfo> {
     const farmBatches = await this.batchRepo.find({ where: { farmId } });
     let collected = 0;
@@ -468,9 +475,21 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       soldAlveoles = eggItems.reduce((s, i) => s + i.quantity, 0);
     }
 
+    const transfers = await this.stockTransferRepo.find({
+      where: {
+        farmId,
+        productType: StockTransferProductType.OEUFS,
+        status: StockTransferStatus.TRANSFERRED,
+      },
+    });
+    const transferredEggs = transfers.reduce(
+      (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
+      0,
+    );
+
     const availableEggs = Math.max(
       0,
-      collected - soldAlveoles * EGGS_PER_ALVEOL,
+      collected - soldAlveoles * EGGS_PER_ALVEOL - transferredEggs,
     );
     const availableAlveoles = Math.floor(availableEggs / EGGS_PER_ALVEOL);
     const warnAlveoles = await this.constants.get(

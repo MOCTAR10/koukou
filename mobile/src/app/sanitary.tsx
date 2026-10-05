@@ -23,7 +23,6 @@ import {
   Pill,
   Plus,
   RotateCcw,
-  Scale,
   ShieldCheck,
   Stethoscope,
   Syringe,
@@ -34,7 +33,7 @@ import {
 } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import { Screen, ScreenHeader } from '@/components/ui/Screen';
+import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';

@@ -1,11 +1,13 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Lock, User } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useAuth } from './AuthContext';
 import { ApiError } from '../api/client';
 import { getStoredUser } from '../api/client';
 import { useEffect } from 'react';
 import { Logo } from '../components/Logo';
+import { EASE, durations } from '../lib/motion';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -14,6 +16,7 @@ export function LoginPage() {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
     const u = getStoredUser();
@@ -39,7 +42,12 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-white p-4">
-      <div className="w-full max-w-xs rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+      <motion.div
+        className="w-full max-w-xs rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+        initial={reduced ? false : { opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: durations.base, ease: EASE }}
+      >
         <div className="mb-5 flex flex-col items-center gap-2 text-center">
           <Logo className="h-24 w-auto" />
           <div>
@@ -92,15 +100,16 @@ export function LoginPage() {
               />
             </div>
           </div>
-          <button
+          <motion.button
             type="submit"
             disabled={submitting}
+            whileTap={{ scale: 0.99 }}
             className="w-full rounded-lg bg-brand-600 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
           >
             {submitting ? 'Connexion…' : 'Se connecter'}
-          </button>
+          </motion.button>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

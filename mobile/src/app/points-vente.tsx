@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronDown, Map as MapIcon, MapPin, Plus, Star, Store, Trash2, TrendingUp, X } from 'lucide-react-native';
@@ -11,6 +11,7 @@ import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
+import { AddressSearchSheet } from '@/components/capture/AddressSearchSheet';
 import { fetchStockTransfers, fetchPointsOfSale, fetchSales } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { PointOfSaleInput } from '@/api/mutations';
@@ -21,7 +22,7 @@ import { canManageFarm } from '@/api/roles';
 import type { PointOfSale, SaleSummary } from '@/api/types';
 import { color, palette, radii, spacing, fmt, fmtFcfa } from '@/constants/theme';
 import { GABON_PROVINCES } from '@/constants/gabon';
-import { geocodeGabonAddress, suggestGabonAddress, type GeoSuggest } from '@/utils/geocode';
+import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
 
 function addDaysIso(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -123,121 +124,6 @@ function StatusTile({
         </AppText>
       </View>
     </Pressable>
-  );
-}
-
-function AddressSearchSheet({
-  visible,
-  province,
-  onPick,
-  onManual,
-  onClose,
-}: {
-  visible: boolean;
-  province?: string | null;
-  onPick: (r: GeoSuggest) => void;
-  onManual: (text: string) => void;
-  onClose: () => void;
-}) {
-  const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<GeoSuggest[]>([]);
-  const [searching, setSearching] = useState(false);
-
-  useEffect(() => {
-    if (!visible) return;
-    setQuery('');
-    setSuggestions([]);
-  }, [visible]);
-
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 3 || !visible) {
-      setSuggestions([]);
-      setSearching(false);
-      return;
-    }
-    setSearching(true);
-    const timer = setTimeout(() => {
-      suggestGabonAddress(q, province ?? undefined)
-        .then(setSuggestions)
-        .catch(() => setSuggestions([]))
-        .finally(() => setSearching(false));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [query, province, visible]);
-
-  return (
-    <Sheet
-      visible={visible}
-      onClose={onClose}
-      title="Adresse"
-      subtitle={province ? `Recherche · ${province}, Gabon` : 'Recherche sur OpenStreetMap (Gabon)'}
-      icon={<MapIcon size={22} color={color.brand[600]} />}
-      stickyHeader={
-        <View style={styles.inputWrap}>
-          <View style={styles.inputIcon}>
-            <MapIcon size={18} color={color.ink[400]} />
-          </View>
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Marché, rue, lieu-dit, quartier…"
-            placeholderTextColor={color.ink[300]}
-            style={styles.input}
-            autoFocus
-            autoCorrect={false}
-          />
-          {query.length > 0 ? (
-            <Pressable onPress={() => setQuery('')} style={styles.inputIcon}>
-              <X size={16} color={color.ink[400]} />
-            </Pressable>
-          ) : null}
-        </View>
-      }
-      footer={
-        <Button
-          label="Ajouter cette adresse manuellement"
-          tone="ghost"
-          size="md"
-          disabled={query.trim().length === 0}
-          onPress={() => onManual(query.trim())}
-        />
-      }>
-      <View style={{ gap: spacing.sm }}>
-        {searching ? <Spinner label="Recherche…" /> : null}
-        {suggestions.length > 0 ? (
-          <View style={styles.suggestWrap}>
-            {suggestions.map((s) => (
-              <Pressable
-                key={`${s.latitude}-${s.longitude}-${s.label}`}
-                onPress={() => onPick(s)}
-                accessibilityRole="button"
-                style={styles.suggestRow}>
-                <MapPin size={14} color={color.accent[600]} />
-                <View style={{ flex: 1, gap: 1 }}>
-                  <AppText size="small" weight="semibold" color="text" numberOfLines={1}>
-                    {s.label.split(',')[0]}
-                  </AppText>
-                  <AppText size="caption" color="muted" numberOfLines={2}>
-                    {s.label}
-                  </AppText>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        ) : !searching && query.trim().length >= 3 ? (
-          <View style={styles.suggestEmpty}>
-            <AppText size="small" color="muted">
-              Aucun résultat pour « {query.trim()} » — utilisez le bouton ci-dessous pour saisir manuellement.
-            </AppText>
-          </View>
-        ) : !searching ? (
-          <AppText size="caption" color="faint">
-            Tapez au moins 3 lettres pour rechercher (rue, marché, quartier, ville…).
-          </AppText>
-        ) : null}
-      </View>
-    </Sheet>
   );
 }
 
@@ -1023,27 +909,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: palette.surfaceAlt,
-    borderRadius: radii.md,
-    padding: 10,
-  },
-  suggestWrap: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: color.surface,
-    overflow: 'hidden',
-  },
-  suggestRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.border,
-  },
-  suggestEmpty: {
     backgroundColor: palette.surfaceAlt,
     borderRadius: radii.md,
     padding: 10,

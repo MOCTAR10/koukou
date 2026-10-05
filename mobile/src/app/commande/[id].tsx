@@ -1,8 +1,28 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Printer, Store, Ticket as TicketCheck, Truck, Wallet, X } from 'lucide-react-native';
+import {
+  Activity,
+  AlertTriangle,
+  CalendarDays,
+  Clock,
+  Dna,
+  Info,
+  Layers,
+  MapPin,
+  Printer,
+  ShieldAlert,
+  ShieldCheck,
+  Stethoscope,
+  Store,
+  Syringe,
+  Ticket as TicketCheck,
+  Truck,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
@@ -18,10 +38,12 @@ import { downloadPdf } from '@/api/pdf';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import { cancelOrderQueued, deliverOrderQueued, recordOrderPaymentQueued } from '@/offline/engine';
-import type { OrderFull } from '@/api/types';
+import type { OrderFull, OrderPassport } from '@/api/types';
 import { color, palette, radii, spacing, fmt, fmtFcfa } from '@/constants/theme';
 
 function OrderItems({ order }: { order: OrderFull }) {
+  const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
+  const payRate = order.totalAmountFcfa > 0 ? Math.min(1, order.depositFcfa / order.totalAmountFcfa) : 0;
   return (
     <Card tone="default" style={{ gap: 8 }}>
       <AppText size="label" color="muted">
@@ -63,8 +85,225 @@ function OrderItems({ order }: { order: OrderFull }) {
         <AppText size="body" color="muted">
           Reste dû
         </AppText>
-        <AppText size="h3" weight="bold" color={order.totalAmountFcfa - order.depositFcfa > 0 ? 'brand' : 'green'}>
-          {fmtFcfa(Math.max(order.totalAmountFcfa - order.depositFcfa, 0))}
+        <AppText size="h3" weight="bold" color={remaining > 0 ? 'brand' : 'green'}>
+          {fmtFcfa(remaining)}
+        </AppText>
+      </View>
+      <View style={styles.microTrack}>
+        <View
+          style={[
+            styles.microFill,
+            { width: `${Math.round(payRate * 100)}%`, backgroundColor: remaining === 0 ? palette.green[500] : palette.accent[300] },
+          ]}
+        />
+      </View>
+      <AppText size="caption" color="muted">
+        {Math.round(payRate * 100)} % versé{order.depositFcfa > 0 ? ` · ${fmtFcfa(order.depositFcfa)} encaissés` : ' · aucun acompte'}
+      </AppText>
+    </Card>
+  );
+}
+
+function passportDate(iso: string): string {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return y && m && d ? `${Number(d)}/${Number(m)}/${y}` : iso;
+}
+
+function conformityChip(passport: OrderPassport) {
+  const c = passport.sanitary.conformity;
+  if (c === 'CONFORME') return <Chip label="Conforme" tone="green" />;
+  if (c === 'PRECONFORMITE') return <Chip label="Préconformité" tone="amber" />;
+  return <Chip label="En attente" tone="red" />;
+}
+
+function PassportCard({ passport }: { passport: OrderPassport }) {
+  const ready = passport.readiness;
+  const notReady = !ready.readyForSale;
+  const bannerTone = notReady
+    ? ready.readyReason === 'SANITARY'
+      ? 'red'
+      : 'amber'
+    : 'green';
+  const BannerIcon = notReady
+    ? ready.readyReason === 'SANITARY'
+      ? ShieldAlert
+      : Info
+    : ShieldCheck;
+  const bannerColor =
+    bannerTone === 'green'
+      ? palette.green[600]
+      : bannerTone === 'red'
+        ? palette.red[500]
+        : palette.amber[600];
+  const bannerBg =
+    bannerTone === 'green'
+      ? palette.green[50]
+      : bannerTone === 'red'
+        ? palette.red[50]
+        : palette.amber[50];
+  const lastVaccine = passport.vaccinations.last;
+
+  return (
+    <Card tone={notReady ? 'warn' : 'default'} style={{ gap: 12 }}>
+      <View style={styles.passportHeader}>
+        <View style={styles.passportTitle}>
+          <ShieldCheck size={18} color={color.brand[600]} />
+          <AppText size="label" color="muted">
+            PASSEPORT & TRAÇABILITÉ
+          </AppText>
+        </View>
+        <Chip label={`figé le ${passportDate(passport.generatedAt)}`} tone="outline" />
+      </View>
+
+      <View style={[styles.passportBanner, { backgroundColor: bannerBg }]}>
+        <BannerIcon size={18} color={bannerColor} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText size="body" weight="bold" color={bannerTone === 'green' ? 'green' : bannerTone === 'red' ? 'danger' : 'text'}>
+            {ready.label}
+          </AppText>
+          <AppText size="small" color="text">
+            {ready.note}
+          </AppText>
+        </View>
+      </View>
+
+      <View style={{ gap: 5 }}>
+        <InfoRow icon={<Layers size={15} color={color.ink[400]} />} label="Lot" value={passport.batchLabel} />
+        <InfoRow icon={<Dna size={15} color={color.ink[400]} />} label="Souche" value={passport.breedName ?? 'Non renseignée'} />
+        <InfoRow icon={<Activity size={15} color={color.ink[400]} />} label="Type" value={passport.batchTypeLabel} />
+        <InfoRow icon={<Users size={15} color={color.ink[400]} />} label="Espèce" value={passport.speciesLabel} />
+        <InfoRow icon={<CalendarDays size={15} color={color.ink[400]} />} label="Intégration" value={passportDate(passport.integrationDate)} />
+        <InfoRow icon={<Clock size={15} color={color.ink[400]} />} label="Âge au bon" value={`J${passport.ageDays}`} />
+        <InfoRow icon={<Users size={15} color={color.ink[400]} />} label="Effectif vivant" value={fmt(passport.liveCount)} />
+      </View>
+
+      <View style={[styles.divider, { marginVertical: 2 }]} />
+
+      <View style={{ gap: 6 }}>
+        <AppText size="caption" color="muted">
+          INDICATEURS DU LOT
+        </AppText>
+        {passport.metrics.map((m) => (
+          <View key={m.label} style={styles.totalRow}>
+            <AppText size="small" color="muted">
+              {m.label}
+            </AppText>
+            <AppText size="small" weight="semibold" color="text">
+              {m.value}
+            </AppText>
+          </View>
+        ))}
+      </View>
+
+      <View style={{ gap: 6 }}>
+        <AppText size="caption" color="muted">
+          VACCINATIONS
+        </AppText>
+        <View style={styles.totalRow}>
+          <View style={styles.passportTitle}>
+            <Syringe size={15} color={color.brand[600]} />
+            <AppText size="small" color="muted">
+              Dernier vaccin
+            </AppText>
+          </View>
+          <AppText size="small" weight="semibold" color="text">
+            {lastVaccine
+              ? `${lastVaccine.name}${lastVaccine.date ? ` (${passportDate(lastVaccine.date)})` : ''}`
+              : 'Aucun enregistré'}
+          </AppText>
+        </View>
+        <View style={styles.totalRow}>
+          <AppText size="small" color="muted">
+            Faites / restantes
+          </AppText>
+          <AppText size="small" weight="semibold" color="text">
+            {passport.vaccinations.completed} / {passport.vaccinations.planned}
+          </AppText>
+        </View>
+      </View>
+
+      {passport.withdrawals.length > 0 ? (
+        <View style={{ gap: 6 }}>
+          <AppText size="caption" color="muted">
+            RETRAITS EN COURS (CARENCE)
+          </AppText>
+          {passport.withdrawals.map((w) => (
+            <View key={`${w.productName}-${w.withdrawalEndDate}`} style={[styles.passportBanner, { backgroundColor: palette.amber[50] }]}>
+              <Clock size={16} color={palette.amber[600]} />
+              <AppText size="small" color="text" style={{ flex: 1 }}>
+                {w.productName} ({w.careTypeLabel}) — retrait jusqu’au {passportDate(w.withdrawalEndDate)}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {passport.sanitary.alerts.length > 0 ? (
+        <View style={{ gap: 6 }}>
+          <AppText size="caption" color="muted">
+            ALERTES SANITAIRES ACTIVES
+          </AppText>
+          {passport.sanitary.alerts.map((a) => (
+            <View
+              key={`${a.kind}-${a.message}`}
+              style={[styles.passportBanner, { backgroundColor: a.level === 'ROUGE' ? palette.red[50] : palette.amber[50] }]}>
+              {a.level === 'ROUGE' ? (
+                <AlertTriangle size={16} color={palette.red[500]} />
+              ) : (
+                <Info size={16} color={palette.amber[600]} />
+              )}
+              <AppText size="small" color="text" style={{ flex: 1 }}>
+                {a.message}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {passport.sanitary.events.length > 0 ? (
+        <View style={{ gap: 6 }}>
+          <AppText size="caption" color="muted">
+            MALADIES DÉCLARÉES
+          </AppText>
+          {passport.sanitary.events.map((e) => (
+            <View key={`${e.title}-${e.occurredAt}`} style={styles.totalRow}>
+              <AppText size="small" color="muted" style={{ flex: 1 }}>
+                {e.title}
+              </AppText>
+              <AppText size="small" weight="semibold" color={e.severity === 'ROUGE' ? 'danger' : 'text'}>
+                {e.severity} · {passportDate(e.occurredAt)}
+              </AppText>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <View style={[styles.divider, { marginVertical: 2 }]} />
+
+      <View style={{ gap: 8 }}>
+        <View style={styles.totalRow}>
+          <View style={styles.passportTitle}>
+            {passport.sanitary.vetVisited ? (
+              <Stethoscope size={15} color={color.green[600]} />
+            ) : (
+              <Info size={15} color={color.ink[400]} />
+            )}
+            <AppText size="small" color="muted">
+              Visite vétérinaire
+            </AppText>
+          </View>
+          <AppText size="body" weight="bold" color="text">
+            {passport.sanitary.vetVisited ? 'Oui' : 'Non'}
+          </AppText>
+        </View>
+        <View style={styles.totalRow}>
+          <AppText size="small" color="muted">
+            Conformité sanitaire
+          </AppText>
+          {conformityChip(passport)}
+        </View>
+        <AppText size="small" color="text">
+          {passport.sanitary.conformityNote}
         </AppText>
       </View>
     </Card>
@@ -112,13 +351,29 @@ function DepositSheet({ order, onClose }: { order: OrderFull; onClose: () => voi
           style={styles.input}
         />
         <View style={styles.rowWrap}>
-          {[remaining >= 1000 ? Math.round(remaining / 2 / 100) * 100 : remaining, remaining / 2, remaining]
+          {[Math.round((remaining / 2) / 100) * 100, remaining]
             .filter((v, i, arr) => v > 0 && arr.indexOf(v) === i)
             .map((v) => (
               <Pressable key={v} onPress={() => setAmount(Math.round(v))} accessibilityRole="button">
-                <Chip label={fmt(Math.round(v)) + ' FCFA'} tone="brand" selected={Math.abs(amount - v) < 50} />
+                <Chip label={fmt(Math.round(v)) + ' FCFA'} tone="brand" selected={amount === Math.round(v)} />
               </Pressable>
             ))}
+        </View>
+        <View style={styles.totalRow}>
+          <AppText size="body" color="muted">
+            Encaissé
+          </AppText>
+          <AppText size="body" weight="bold" color={amount > 0 ? 'text' : 'faint'}>
+            {fmt(amount)} FCFA
+          </AppText>
+        </View>
+        <View style={styles.totalRow}>
+          <AppText size="body" color="muted">
+            Reste dû après paiement
+          </AppText>
+          <AppText size="body" weight="bold" color={remaining - amount === 0 ? 'green' : 'brand'}>
+            {fmtFcfa(Math.max(remaining - amount, 0))}
+          </AppText>
         </View>
         {error ? (
           <AppText size="small" color="danger">
@@ -217,8 +472,11 @@ export default function CommandeDetailScreen() {
       <View style={{ gap: spacing.lg }}>
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={styles.avatar}>
+              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+            </View>
             <View style={{ flex: 1 }}>
-              <AppText size="body" weight="bold" color="text">
+              <AppText size="h3" weight="bold" color="text">
                 {order.customer?.fullName ?? 'Client non renseigné'}
               </AppText>
               <AppText size="small" color="muted">
@@ -237,12 +495,14 @@ export default function CommandeDetailScreen() {
               label="Prévu"
               value={order.expectedDate ? order.expectedDate.split('-').reverse().join('/') : 'À convenir'}
             />
-            <InfoRow icon={<X size={15} color={color.ink[400]} />} label="Créée" value={new Date(order.createdAt).toLocaleDateString('fr-FR')} />
+            <InfoRow icon={<X size={15} color={color.ink[400]} />} label="Créée le" value={new Date(order.createdAt).toLocaleDateString('fr-FR')} />
             {order.cancelledReason ? <InfoRow icon={<X size={15} color={color.red[500]} />} label="Motif" value={order.cancelledReason} /> : null}
           </View>
         </Card>
 
         <OrderItems order={order} />
+
+        {order.passport ? <PassportCard passport={order.passport} /> : null}
 
         <View style={{ gap: spacing.sm }}>
           {order.status === 'PENDING' ? (
@@ -280,6 +540,29 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 }
 
 const styles = StyleSheet.create({
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.brand[600],
+  },
+  avatarLogo: {
+    width: 26,
+    height: 26,
+  },
+  microTrack: {
+    height: 6,
+    borderRadius: radii.pill,
+    backgroundColor: palette.ink[100],
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  microFill: {
+    height: 6,
+    borderRadius: radii.pill,
+  },
   input: {
     height: 48,
     borderWidth: 1,
@@ -295,6 +578,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  passportHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  passportTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  passportBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: radii.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   itemRow: {
     flexDirection: 'row',

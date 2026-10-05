@@ -11,6 +11,7 @@ import {
   deletePointOfSale,
   deliverOrder,
   ensureCashOpen,
+  recordCustomerPayment,
   recordFeedLoss,
   recordOrderPayment,
   updatePointOfSale,
@@ -92,6 +93,40 @@ export async function createSaleQueued(
   };
   try {
     await ensureCashOpen(farmId);
+    const res = await createSale(farmId, payload);
+    void flushQueue();
+    return { status: 'sent', reference: res.sale.referenceNumber };
+  } catch (e) {
+    if (shouldQueue(e)) {
+      enqueueOp({ id: opId, kind: 'sale', farmId, payload, createdAt: new Date().toISOString() });
+      return { status: 'queued' };
+    }
+    throw e;
+  }
+}
+
+/**
+ * Vente à crédit (aucun encaissement) : la dette est portée par le client.
+ * Pas de caisse requise ; `invoice.customerId` est obligatoire côté serveur
+ * (le crédit alloué du client est vérifié).
+ */
+export async function createCreditSaleQueued(
+  farmId: string,
+  saleDate: string,
+  items: SalePayload['items'],
+  invoice: InvoiceFields,
+  pointOfSaleId?: string,
+): Promise<SendResult> {
+  const opId = nextId('sale');
+  const payload: SalePayload = {
+    saleDate,
+    items,
+    idempotencyKey: opId,
+    payments: [],
+    ...invoice,
+    ...(pointOfSaleId ? { pointOfSaleId } : {}),
+  };
+  try {
     const res = await createSale(farmId, payload);
     void flushQueue();
     return { status: 'sent', reference: res.sale.referenceNumber };
@@ -203,6 +238,33 @@ export async function recordOrderPaymentQueued(
   } catch (e) {
     if (shouldQueue(e)) {
       enqueueOp({ id: opId, kind: 'order-payment', farmId, payload, createdAt: new Date().toISOString() });
+      return { status: 'queued' };
+    }
+    throw e;
+  }
+}
+
+/** Encaissement depuis la fiche client : mis en file si hors ligne. */
+export async function recordCustomerPaymentQueued(
+  farmId: string,
+  customerId: string,
+  amountFcfa: number,
+): Promise<SendResult> {
+  const opId = nextId('customer-payment');
+  try {
+    await ensureCashOpen(farmId);
+    await recordCustomerPayment(farmId, customerId, amountFcfa, { idempotencyKey: opId });
+    void flushQueue();
+    return { status: 'sent' };
+  } catch (e) {
+    if (shouldQueue(e)) {
+      enqueueOp({
+        id: opId,
+        kind: 'customer-payment',
+        farmId,
+        payload: { customerId, amountFcfa, idempotencyKey: opId },
+        createdAt: new Date().toISOString(),
+      });
       return { status: 'queued' };
     }
     throw e;
@@ -379,6 +441,10 @@ async function processOne(op: OfflineOp): Promise<'ok' | 'retry' | 'dropped'> {
       const p = op.payload as { orderId: string; amountFcfa: number; idempotencyKey?: string };
       await ensureCashOpenOrRetry(op.farmId);
       await recordOrderPayment(op.farmId, p.orderId, p.amountFcfa, { idempotencyKey: p.idempotencyKey });
+    } else if (op.kind === 'customer-payment') {
+      const p = op.payload as { customerId: string; amountFcfa: number; idempotencyKey?: string };
+      await ensureCashOpenOrRetry(op.farmId);
+      await recordCustomerPayment(op.farmId, p.customerId, p.amountFcfa, { idempotencyKey: p.idempotencyKey });
     } else if (op.kind === 'order-deliver') {
       await deliverOrder(op.farmId, (op.payload as { orderId: string }).orderId);
     } else if (op.kind === 'order-cancel') {

@@ -13,6 +13,8 @@ export interface PosLine {
   qty: number;
   unitPriceFcfa: number;
   label: string;
+  /** Poids réel saisi (kg) pour POULET_KG / ABATTU_KG — base de calcul du montant. */
+  weightKg?: number;
 }
 
 export interface PosContext {

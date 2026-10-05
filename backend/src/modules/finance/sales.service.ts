@@ -48,7 +48,9 @@ import { Order } from '../orders/entities/order.entity.js';
 import { PaymentsService } from './payments.service.js';
 import { RentabiliteService } from './rentabilite.service.js';
 import { PromotionsService } from './promotions.service.js';
-import { normalizePhone } from './customers.service.js';
+import { AccountingService, type PostingLine } from '../accounting/accounting.service.js';
+import { revenueLines } from '../accounting/posting-map.js';
+import { normalizePhone, CustomersService } from './customers.service.js';
 import { PdfService } from '../../common/services/pdf.service.js';
 import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
 import { CreatePaymentDto } from './dto/payment.dto.js';
@@ -105,10 +107,12 @@ export class SalesService {
     private readonly paymentsService: PaymentsService,
     private readonly rentabiliteService: RentabiliteService,
     private readonly promotionsService: PromotionsService,
+    private readonly customersService: CustomersService,
     private readonly feedStockService: FeedStockService,
     private readonly batchesService: BatchesService,
     private readonly alertsService: AlertsService,
     private readonly pdfService: PdfService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   // ---------- Création (transaction POS) ----------
@@ -253,11 +257,34 @@ export class SalesService {
         );
       }
 
+      const paidSum = payments.reduce((s, p) => s + p.amountFcfa, 0);
       sale.status =
-        payments.reduce((s, p) => s + p.amountFcfa, 0) >= sale.totalAmountFcfa
+        paidSum >= sale.totalAmountFcfa
           ? SaleStatus.SETTLED
           : SaleStatus.OUTSTANDING;
+
       const savedSale = await saleRepo.save(sale);
+
+      // Comptabilité : vente → Clients / Ventes (produits ventilés par type,
+      // remise incluse). Idempotent par vente — même transaction que le POS.
+      await this.accountingService.post(em, {
+        farmId,
+        date: savedSale.saleDate,
+        label: `Vente ${savedSale.referenceNumber}`,
+        source: 'SALE',
+        sourceId: `sale:${savedSale.id}`,
+        lines: [
+          { account: '411', debit: savedSale.totalAmountFcfa, label: 'Clients — créances' },
+          ...revenueLines(
+            items.map((i) => ({
+              productType: i.productType,
+              amountFcfa: i.amountFcfa,
+            })),
+            savedSale.totalAmountFcfa,
+          ),
+        ],
+        operatorId: user.id,
+      });
 
       return { savedSale, items, payments };
     }).catch(async (err: unknown) => {
@@ -317,15 +344,16 @@ export class SalesService {
       const existing = candidates.find(
         (c) => c.phone != null && normalizePhone(c.phone) === normalized,
       );
-      if (existing) return existing.id;
-      const created = await em.getRepository(Customer).save(
-        em.getRepository(Customer).create({
-          farmId,
-          fullName: (dto.customerName ?? '').trim() || `Client ${normalized}`,
-          phone: normalized,
-          createdById: operatorId,
-        }),
-      );
+      if (existing) {
+        await this.customersService.ensureCode(existing, em);
+        return existing.id;
+      }
+      const created = await this.customersService.buildNew(em, {
+        farmId,
+        fullName: (dto.customerName ?? '').trim() || `Client ${normalized}`,
+        phone: normalized,
+        createdById: operatorId,
+      });
       return created.id;
     }
     return null;
@@ -538,6 +566,14 @@ export class SalesService {
         batchId = t.batchId ?? batchId;
       } else {
         await this.assertEggsAvailable(em, farmId, quantity);
+        if (batchId != null) {
+          const batchAlveoles = await this.availableBatchEggAlveoles(em, farmId, batchId);
+          if (quantity > batchAlveoles) {
+            throw new BadRequestException(
+              `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), vente demandée ${quantity}.`,
+            );
+          }
+        }
       }
     } else if (productType === SaleItemProductType.PROVENDE) {
       if (unit !== SaleItemUnit.SAC && unit !== SaleItemUnit.KG) {
@@ -887,6 +923,64 @@ export class SalesService {
     }
   }
 
+  /** Alvéoles d'œufs propres à UN lot (produit − vendu − déjà transféré),
+   *  aligné sur `MetricsService.eggStockForBatch`. Empêche les ventes œufs
+   *  « fantômes » attribuées à un lot qui n'a pas assez d'œufs. */
+  private async availableBatchEggAlveoles(
+    em: EntityManager,
+    farmId: string,
+    batchId: string,
+  ): Promise<number> {
+    const entries = await em.getRepository(DailyEntry).find({
+      where: { batchId },
+    });
+    const produced = entries.reduce(
+      (s, e) =>
+        s +
+        (e.eggsCollected -
+          e.eggsCracked -
+          e.eggsSmall -
+          e.eggsDoubleYolk -
+          e.eggsDirty),
+      0,
+    );
+    const soldEggs = await this.batchSoldEggs(em, farmId, batchId);
+    const transfers = await em.getRepository(StockTransfer).find({
+      where: {
+        farmId,
+        batchId,
+        productType: StockTransferProductType.OEUFS,
+        status: StockTransferStatus.TRANSFERRED,
+      },
+    });
+    const transferredEggs = transfers.reduce(
+      (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
+      0,
+    );
+    const availableEggs = produced - soldEggs - transferredEggs;
+    return Math.max(0, Math.floor(availableEggs / EGGS_PER_ALVEOL));
+  }
+
+  /** Œufs vendus (alvéoles × 30) attribués à un lot, ventes non annulées. */
+  private async batchSoldEggs(
+    em: EntityManager,
+    farmId: string,
+    batchId: string,
+  ): Promise<number> {
+    const sales = await em.getRepository(Sale).find({
+      where: { farmId, status: Not(SaleStatus.CANCELLED) },
+    });
+    if (sales.length === 0) return 0;
+    const eggItems = await em.getRepository(SaleItem).find({
+      where: {
+        saleId: In(sales.map((s) => s.id)),
+        productType: SaleItemProductType.OEUFS,
+        batchId,
+      },
+    });
+    return eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
+  }
+
   /** Vérifie que l'id feed sale existe bien dans la transaction (validate). */
   private async afterSaleChange(farmId: string, batchIds: string[]) {
     await Promise.all([
@@ -1184,6 +1278,58 @@ export class SalesService {
       sale.cancelledAt = new Date();
       sale.cancelledReason = reason ?? null;
       await em.getRepository(Sale).save(sale);
+
+      // Comptabilité : contrepassation des produits reconnus — débit 701
+      // (produits annulés, ventilés) / crédit 411 (solde impayé) + 571
+      // (espèces restituées). Idempotent par annulation. Pour une vente dont
+      // le chiffre d'affaires n'a jamais été reconnu (bon de commande annulé
+      // avant livraison, ferme sans init comptable), on contre-passe uniquement
+      // les acomptes rendus (411/571) — sans écrire d'annulation orpheline.
+      const refunded = confirmed.reduce((s, p) => s + p.amountFcfa, 0);
+      const recognized = await this.accountingService.netSaleRevenue(
+        em,
+        farmId,
+        sale.id,
+      );
+      if (recognized > 0) {
+        const restored = revenueLines(
+          items.map((i) => ({
+            productType: i.productType,
+            amountFcfa: i.amountFcfa,
+          })),
+          sale.totalAmountFcfa,
+        ).map((r) => ({ account: r.account, debit: r.credit as number }));
+        const reversal: PostingLine[] = [...restored];
+        const unpaid = Math.max(0, sale.totalAmountFcfa - refunded);
+        if (unpaid > 0) {
+          reversal.push({ account: '411', credit: unpaid, label: 'Clients — créances' });
+        }
+        if (refunded > 0) {
+          reversal.push({ account: '571', credit: refunded, label: 'Caisse — espèces' });
+        }
+        await this.accountingService.post(em, {
+          farmId,
+          date: todayStr(),
+          label: `Annulation vente ${sale.referenceNumber}`,
+          source: 'SALE',
+          sourceId: `cancel:${sale.id}`,
+          lines: reversal,
+          operatorId: user.id,
+        });
+      } else if (refunded > 0) {
+        await this.accountingService.post(em, {
+          farmId,
+          date: todayStr(),
+          label: `Annulation vente ${sale.referenceNumber} — remboursement acompte`,
+          source: 'SALE',
+          sourceId: `cancel-deposits:${sale.id}`,
+          lines: [
+            { account: '411', debit: refunded, label: 'Clients — créances' },
+            { account: '571', credit: refunded, label: 'Caisse — espèces' },
+          ],
+          operatorId: user.id,
+        });
+      }
     }
     return involvedBatches;
   }

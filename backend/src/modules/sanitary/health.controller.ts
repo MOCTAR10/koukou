@@ -11,6 +11,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { HealthService } from './health.service.js';
 import { CreateHealthEventDto } from './dto/create-health-event.dto.js';
@@ -49,6 +50,7 @@ export class HealthController {
   }
 
   @Post('health-events')
+  @Permissions('sanitaire:gerer')
   @ApiOperation({
     summary:
       "Enregistrer un événement sanitaire (maladie, mortalité, réforme/culling, symptôme, visite vétérinaire) ; une réforme décrémente l'effectif vivant",
@@ -65,6 +67,7 @@ export class HealthController {
   }
 
   @Patch('health-events/:eventId/resolve')
+  @Permissions('sanitaire:gerer')
   @ApiOperation({ summary: "Marquer un événement sanitaire comme résolu" })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'batchId' })
@@ -79,10 +82,10 @@ export class HealthController {
   }
 
   @Delete('health-events/:eventId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({
     summary:
-      "Supprimer un événement sanitaire (propriétaire) ; le retrait d'une réforme réintègre l'effectif",
+      "Supprimer un événement sanitaire ; le retrait d'une réforme réintègre l'effectif",
   })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'batchId' })

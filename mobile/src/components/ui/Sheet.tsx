@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronsUpDown, X } from 'lucide-react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AppText } from './AppText';
 import { color, palette, layout, radii, shadow } from '@/constants/theme';
@@ -19,11 +27,46 @@ interface SheetProps {
 }
 
 const MAX_H = 0.92;
+/** Durée de l'animation de sortie — le Modal reste monté pendant ce délai. */
+const EXIT_MS = 220;
 
 export function Sheet({ visible, title, subtitle, icon, accentColor, footer, stickyHeader, onClose, children }: SheetProps) {
+  const { height: screenH } = useWindowDimensions();
+  // Edge-to-edge (SDK 54) : la barre système Android (3 boutons) est dessinée
+  // par-dessus le contenu — le panneau doit se terminer AU-DESSUS de cette barre.
+  // Dans un Modal, `useSafeAreaInsets` peut renvoyer 0 sur certains appareils :
+  // on retombe sur `initialWindowMetrics` (capturé au démarrage).
+  const insets = useSafeAreaInsets();
+  const navPad = Math.max(insets.bottom, initialWindowMetrics?.insets.bottom ?? 0, 8);
+
+  // Le contenu reste monté pendant l'animation de sortie, puis démontré.
+  const [mounted, setMounted] = useState(visible);
+  const translateY = useSharedValue(screenH);
+  const backdropOpacity = useSharedValue(0);
+
   useEffect(() => {
-    if (!visible) return;
+    if (visible) {
+      setMounted(true);
+      translateY.value = screenH;
+      backdropOpacity.value = 0;
+      translateY.value = withSpring(0, { damping: 22, stiffness: 200, mass: 0.9 });
+      backdropOpacity.value = withTiming(1, { duration: 180 });
+      return;
+    }
+    // Fermeture : glisse vers le bas, puis démontre le Modal.
+    translateY.value = withDelay(0, withTiming(screenH, { duration: EXIT_MS }));
+    backdropOpacity.value = withTiming(0, { duration: 160 });
+    const t = setTimeout(() => setMounted(false), EXIT_MS + 20);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
+
+  const sheetAnim = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+  const backdropAnim = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
 
   const [contentH, setContentH] = useState(0);
   const [viewH, setViewH] = useState(0);
@@ -32,10 +75,26 @@ export function Sheet({ visible, title, subtitle, icon, accentColor, footer, sti
   const atBottom = offsetY > 0 && offsetY + viewH >= contentH - 20;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={mounted}
+      transparent
+      statusBarTranslucent
+      navigationBarTranslucent
+      animationType="none"
+      onRequestClose={onClose}>
       <View style={styles.root}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" />
-        <View style={[styles.sheet, accentColor && styles.sheetAccent, accentColor && { borderTopColor: accentColor }]}>
+        <Animated.View style={[styles.backdrop, backdropAnim]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.sheet,
+            { paddingBottom: 14 + navPad },
+            sheetAnim,
+            accentColor && styles.sheetAccent,
+            accentColor && { borderTopColor: accentColor },
+          ]}>
+          <View style={styles.grabber} />
           {(title || icon) && (
             <View style={styles.header}>
               <View style={styles.titleWrap}>
@@ -79,7 +138,7 @@ export function Sheet({ visible, title, subtitle, icon, accentColor, footer, sti
             ) : null}
           </View>
           {footer ? <View style={styles.footer}>{footer}</View> : null}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -99,7 +158,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'rgba(12, 35, 49, 0.45)',
   },
+  grabber: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: palette.border,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
   sheet: {
+    alignSelf: 'stretch',
     width: '100%',
     maxWidth: layout.maxW,
     backgroundColor: palette.paper,

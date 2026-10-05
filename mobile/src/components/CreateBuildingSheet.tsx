@@ -44,9 +44,7 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
   // Auto-calculated capacities from surface
   const areaNum = parseFloat(area) || 0;
   const capacityChair = areaNum > 0 ? Math.round(areaNum * DENSITY_CHAIR) : 0;
-  const capacityChairHot = areaNum > 0 ? Math.round(areaNum * DENSITY_CHAIR_HOT) : 0;
   const capacityPondeuse = areaNum > 0 ? Math.round(areaNum * DENSITY_PONDEUSE) : 0;
-  const capacityPoussins = areaNum > 0 ? Math.round(areaNum * DENSITY_POUSSEINS) : 0;
 
   // Suggested capacity based on type
   const effectiveCapacity = selectedType === 'CHAIR' ? capacityChair : capacityPondeuse;

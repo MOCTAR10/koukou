@@ -27,10 +27,16 @@ import { Payment } from './entities/payment.entity.js';
 const CATEGORY_LABELS: Record<string, string> = {
   ACHAT_POUSSINS: 'Achat de poussins',
   ALIMENTS: 'Aliments / provende',
-  TRAITEMENTS_SANITAIRES: 'Traitements sanitaires',
+  VETERINAIRE: 'Vétérinaire / soins',
   TRANSPORT: 'Transport',
+  EAU: 'Eau',
   ENERGIE_GAZ: 'Énergie & gaz',
+  LOYER: 'Loyer',
+  MAINTENANCE: 'Maintenance',
+  ASSURANCE: 'Assurance',
   MAIN_D_OEUVRE: 'Main d’œuvre',
+  COTISATIONS: 'Cotisations sociales',
+  FRAIS_BANCAIRES: 'Frais bancaires',
   AUTRE: 'Autre',
 };
 

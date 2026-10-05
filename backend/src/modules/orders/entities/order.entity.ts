@@ -10,10 +10,12 @@ import {
 } from 'typeorm';
 import { OrderCanal } from '../../../common/enums/order-canal.enum.js';
 import { OrderStatus } from '../../../common/enums/order-status.enum.js';
+import { AlertLevel } from '../../../common/enums/alert-level.enum.js';
 import {
   SaleItemProductType,
   SaleItemUnit,
 } from '../../../common/enums/sale-item-type.enum.js';
+import { ReadyReason } from '../../batches/models/batch-metrics.model.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { Farm } from '../../farms/entities/farm.entity.js';
 import { PointOfSale } from '../../points-of-sale/entities/point-of-sale.entity.js';
@@ -32,6 +34,73 @@ export interface OrderItemSnapshot {
   amountFcfa: number;
   batchId: string | null;
   inputLotId: string | null;
+}
+
+/** Alerte sanitaire active figée au bon de commande (DELAI_ATTENTE / PROPHYLAXIE / MALADIE). */
+export interface OrderPassportAlert {
+  kind: string;
+  level: AlertLevel;
+  message: string;
+}
+
+/** Délai de carence (retrait) encore en cours à la date du bon de commande. */
+export interface OrderPassportWithdrawal {
+  careTypeLabel: string;
+  productName: string;
+  administeredAt: string;
+  withdrawalEndDate: string;
+}
+
+export interface OrderPassportVaccination {
+  name: string;
+  date: string | null;
+}
+
+/** Événement sanitaire notable (maladie) figé au bon de commande. */
+export interface OrderPassportEvent {
+  title: string;
+  occurredAt: string;
+  severity: string;
+}
+
+/**
+ * « Passeport » de traçabilité du lot, figé au moment du bon de commande :
+ * identité du lot, zootechnie, auto-signal (conseil non bloquant), vaccins,
+ * délais de carence et alerts sanitaires. Transparence totale envers le
+ * client : il voit exactement ce qu'il achète.
+ */
+export interface OrderPassportSnapshot {
+  batchId: string;
+  batchLabel: string;
+  speciesLabel: string;
+  breedName: string | null;
+  batchTypeLabel: string;
+  integrationDate: string;
+  ageDays: number;
+  liveCount: number;
+  statusLabel: string;
+  readiness: {
+    readyForSale: boolean;
+    readyReason: ReadyReason;
+    label: string;
+    note: string;
+  };
+  metrics: { label: string; value: string }[];
+  vaccinations: {
+    completed: number;
+    planned: number;
+    last: OrderPassportVaccination | null;
+  };
+  withdrawals: OrderPassportWithdrawal[];
+  sanitary: {
+    level: AlertLevel;
+    conformity: 'CONFORME' | 'PRECONFORMITE' | 'EN_ATTENTE';
+    conformityNote: string;
+    alerts: OrderPassportAlert[];
+    events: OrderPassportEvent[];
+    vetVisited: boolean;
+  };
+  generatedAt: string;
 }
 
 @Entity('orders')
@@ -85,6 +154,17 @@ export class Order {
   @Column({ type: 'varchar', nullable: true })
   address: string | null;
 
+  /** Province de livraison au Gabon (filtre du géocodage OSM côté mobile). */
+  @Column({ name: 'delivery_province', type: 'varchar', nullable: true })
+  deliveryProvince: string | null;
+
+  /** Coordonnées GPS de livraison (issue du géocodage OpenStreetMap). */
+  @Column({ type: 'double precision', nullable: true })
+  latitude: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  longitude: number | null;
+
   /** Lot de production concerné (réservation des précommandes de volaille). */
   @ManyToOne(() => ProductionBatch, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'batch_id' })
@@ -112,6 +192,10 @@ export class Order {
 
   @Column({ type: 'jsonb' })
   items: OrderItemSnapshot[];
+
+  /** Passeport de traçabilité du lot, figé au moment du bon de commande (null pour les commandes sans volaille). */
+  @Column({ type: 'jsonb', nullable: true })
+  passport: OrderPassportSnapshot | null;
 
   @Column({ name: 'livred_at', type: 'timestamptz', nullable: true })
   livredAt: Date | null;

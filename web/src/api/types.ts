@@ -179,8 +179,19 @@ export interface Customer {
   farmId: string;
   fullName: string;
   phone: string | null;
+  /** Code client généré côté serveur (CL-####, séquentiel par ferme). */
+  code: string | null;
+  /** Type commercial (défaut PARTICULIER) — purement indicatif. */
+  type: string;
   segment: string;
   createdAt: string;
+  balance?: CustomerBalance;
+}
+
+export interface CustomerBalance {
+  totalInvoicedFcfa: number;
+  paidFcfa: number;
+  outstandingFcfa: number;
 }
 
 export interface Promotion {

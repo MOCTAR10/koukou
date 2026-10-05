@@ -41,6 +41,11 @@ export class Farm {
   @Column({ name: 'default_sac_kg', type: 'float', default: 50 })
   defaultSacKg: number;
 
+  /** Chemin public du logo de la ferme (ex. « /uploads/logos/<farmId>.png »),
+   *  servi par les assets statiques de l'API. Null = logo KouKou par défaut. */
+  @Column({ name: 'logo_url', type: 'varchar', nullable: true })
+  logoUrl: string | null;
+
   @Column({ name: 'longitude', type: 'float', nullable: true })
   longitude: number | null;
 

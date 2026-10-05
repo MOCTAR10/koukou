@@ -1,24 +1,37 @@
 import { LiveApi } from './live';
 import type {
   AdvisoryData,
+  BalanceData,
   BatchCurve,
   BatchHealth,
   BatchPnl,
   BatchWithMetrics,
+  BilanData,
   CaisseSummary,
   CashSession,
+  CloseExerciceResult,
+  CompteResultatData,
+  CreateRegularisationInput,
   Customer,
   CustomerStats,
+  CustomerSummary,
   DashboardData,
   Expense,
+  ExerciceInfo,
   FarmMember,
+  FarmMemberProfile,
+  AssignableTeamMember,
+  PermissionGroup,
   FarmTask,
   DailyEntryRecord,
   FeedMovement,
   FeedProduct,
   FeedStockSummary,
+  GrandLivreAccount,
   HealthEvent,
+  InitAccountResult,
   InputLot,
+  JournalData,
   OrderCanal,
   OrderFull,
   OrderStatus,
@@ -39,6 +52,7 @@ import type {
   Building,
   Breed,
   BreedStandard,
+  StockProvende,
 } from './types';
 
 const live = new LiveApi();
@@ -49,6 +63,72 @@ const live = new LiveApi();
  */
 export function isLive(): boolean {
   return true;
+}
+
+export function fetchAccountJournal(
+  farmId: string,
+  from?: string,
+  to?: string,
+): Promise<JournalData> {
+  return live.fetchJournal(farmId, from, to);
+}
+
+export function fetchAccountGrandLivre(
+  farmId: string,
+  from?: string,
+  to?: string,
+): Promise<GrandLivreAccount[]> {
+  return live.fetchGrandLivre(farmId, from, to);
+}
+
+export function fetchAccountBalance(
+  farmId: string,
+  from?: string,
+  to?: string,
+): Promise<BalanceData> {
+  return live.fetchBalance(farmId, from, to);
+}
+
+export function fetchAccountCompteResultat(
+  farmId: string,
+  from?: string,
+  to?: string,
+): Promise<CompteResultatData> {
+  return live.fetchCompteResultat(farmId, from, to);
+}
+
+export function fetchAccountBilan(
+  farmId: string,
+  from?: string,
+  to?: string,
+): Promise<BilanData> {
+  return live.fetchBilan(farmId, from, to);
+}
+
+export function initializeAccounting(farmId: string): Promise<InitAccountResult> {
+  return live.initializeAccounting(farmId);
+}
+
+export function fetchAccountExercices(farmId: string): Promise<ExerciceInfo[]> {
+  return live.fetchExercices(farmId);
+}
+
+export function fetchAccountStockProvende(farmId: string): Promise<StockProvende> {
+  return live.fetchStockProvende(farmId);
+}
+
+export function closeAccountExercice(
+  farmId: string,
+  exerciceId: string,
+): Promise<CloseExerciceResult> {
+  return live.closeExercice(farmId, exerciceId);
+}
+
+export function createRegularisation(
+  farmId: string,
+  input: CreateRegularisationInput,
+): Promise<JournalData['entries'][number]> {
+  return live.createRegularisation(farmId, input);
 }
 
 export function fetchDashboard(farmId: string, date?: string, time?: string): Promise<DashboardData> {
@@ -128,8 +208,34 @@ export function fetchSlaughterOrders(farmId: string): Promise<SlaughterOrder[]> 
   return live.fetchSlaughterOrders(farmId);
 }
 
-export function fetchCustomers(farmId: string): Promise<Customer[]> {
-  return live.fetchCustomers(farmId);
+export function fetchCustomers(farmId: string, filters?: { search?: string; type?: string }): Promise<Customer[]> {
+  return live.fetchCustomers(farmId, filters);
+}
+
+export function fetchCustomersSummary(farmId: string): Promise<CustomerSummary> {
+  return live.fetchCustomersSummary(farmId);
+}
+
+export function updateCustomer(
+  farmId: string,
+  customerId: string,
+  input: {
+    type?: string;
+    fullName?: string;
+    phone?: string;
+    city?: string;
+    notes?: string;
+  },
+): Promise<Customer> {
+  return live.updateCustomer(farmId, customerId, input);
+}
+
+export function recordCustomerPayment(
+  farmId: string,
+  customerId: string,
+  input: { amountFcfa: number; idempotencyKey?: string },
+) {
+  return live.recordCustomerPayment(farmId, customerId, input);
 }
 
 export function fetchCustomer(farmId: string, customerId: string): Promise<Customer> {
@@ -200,12 +306,24 @@ export function fetchFarmMembers(farmId: string): Promise<FarmMember[]> {
   return live.fetchFarmMembers(farmId);
 }
 
+export function fetchFarmProfile(farmId: string): Promise<FarmMemberProfile> {
+  return live.fetchFarmProfile(farmId);
+}
+
+export function fetchPermissionCatalog(farmId: string): Promise<PermissionGroup[]> {
+  return live.fetchPermissionCatalog(farmId);
+}
+
 export function fetchDailyEntries(farmId: string, batchId: string): Promise<DailyEntryRecord[]> {
   return live.fetchDailyEntries(farmId, batchId);
 }
 
 export function fetchTasks(farmId: string): Promise<FarmTask[]> {
   return live.fetchTasks(farmId);
+}
+
+export function fetchAssignableTeam(farmId: string): Promise<AssignableTeamMember[]> {
+  return live.fetchAssignableTeam(farmId);
 }
 
 export function fetchReferenceConstants(): Promise<ReferenceConstant[]> {

@@ -1,8 +1,13 @@
-import { apiFetch } from './client';
+import { apiFetch, apiUpload } from './client';
 import type {
   AlertLevel,
   CareType,
+  CashMovement,
+  CashMovementType,
   DiseaseSeverity,
+  Expense,
+  ExpenseCategory,
+  Farm,
   FeedEntryType,
   FeedLossReason,
   FeedPhase,
@@ -117,6 +122,8 @@ export type BuildSaleItemResult =
 export interface BuildSaleItemOptions {
   /** Poids moyen estimé (kg/oiseau) pour la vente au kilo. */
   avgWeightKg?: number;
+  /** Poids réel pesé (kg) — remplace l'estimation pour POULET_KG / ABATTU_KG. */
+  weightKg?: number;
   /** Source carcasse (abattage) pour ABATTU_PIECE/ABATTU_KG. */
   sourceSlaughterOrderId?: string;
   /** Réserve d'un transfert ferme → boutique (ABATTU, OEUFS ou PROVENDE). */
@@ -153,7 +160,8 @@ export function buildSaleItem(
     if (product === 'ABATTU_KG') {
       if (!batchId) return { error: 'Sélectionnez un lot abattu.' };
       const avg = opts?.avgWeightKg ?? DEFAULT_AVG_WEIGHT_KG;
-      const weightKg = Math.round(quantity * avg * 100) / 100;
+      const weightKg =
+        opts?.weightKg != null ? Math.round(opts.weightKg * 100) / 100 : Math.round(quantity * avg * 100) / 100;
       return {
         item: {
           productType: 'ABATTU_KG',
@@ -178,7 +186,8 @@ export function buildSaleItem(
     case 'KG': {
       if (!batchId) return { error: 'Sélectionnez un lot de poulets à décompter.' };
       const avg = opts?.avgWeightKg ?? DEFAULT_AVG_WEIGHT_KG;
-      const weightKg = Math.round(quantity * avg * 100) / 100;
+      const weightKg =
+        opts?.weightKg != null ? Math.round(opts.weightKg * 100) / 100 : Math.round(quantity * avg * 100) / 100;
       return {
         item: {
           productType: 'POULET_KG',
@@ -267,6 +276,7 @@ export interface SalePayload {
   items: SaleItemPayload[];
   idempotencyKey?: string;
   payments: { method: 'CASH'; amountFcfa: number; idempotencyKey?: string }[];
+  customerId?: string;
   customerName?: string;
   customerPhone?: string;
   promoCode?: string;
@@ -275,6 +285,7 @@ export interface SalePayload {
 
 /** Zone client (non bloquante) + coupon au POS : tout est optionnel. */
 export interface InvoiceFields {
+  customerId?: string;
   customerName?: string;
   customerPhone?: string;
   promoCode?: string;
@@ -554,7 +565,7 @@ export function cancelSlaughterOrder(farmId: string, orderId: string, reason: st
 /** Find-or-create : le téléphone est normalisé côté serveur, la capture reste optionnelle. */
 export function createCustomer(
   farmId: string,
-  input: { fullName: string; phone?: string; city?: string; notes?: string },
+  input: { fullName: string; phone?: string; city?: string; notes?: string; type?: string },
 ): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/customers`, {
     method: 'POST',
@@ -562,12 +573,50 @@ export function createCustomer(
   });
 }
 
-/** Crée un compte Éleveur et le lie à la ferme (PROPRIETAIRE). */
+/** Met à jour une fiche client (type commercial, crédit alloué, coordonnées…). */
+export function updateCustomer(
+  farmId: string,
+  customerId: string,
+  input: {
+    type?: string;
+    fullName?: string;
+    phone?: string;
+    city?: string;
+    notes?: string;
+  },
+): Promise<unknown> {
+  return apiFetch(`/farms/${farmId}/customers/${customerId}`, {
+    method: 'PATCH',
+    body: input,
+  });
+}
+
+/**
+ * Encaissement depuis la fiche client : le serveur répartit le montant sur
+ * les ventes impayées (FIFO). `idempotencyKey` évite le double encaissement
+ * au rejeu de la file hors-ligne.
+ */
+export function recordCustomerPayment(
+  farmId: string,
+  customerId: string,
+  amountFcfa: number,
+  options?: { idempotencyKey?: string },
+): Promise<unknown> {
+  return apiFetch(`/farms/${farmId}/customers/${customerId}/payments`, {
+    method: 'POST',
+    body: { amountFcfa, ...options },
+  });
+}
+
+/** Crée un compte membre (Administrateur KouKou / Éleveur Koukou) et le lie à la ferme. */
 export interface CreateFarmMemberInput {
   fullName: string;
   phone: string;
   code: string;
+  role?: 'ADMIN' | 'ELEVEUR';
+  jobTitle?: string;
   buildingAssignment?: string;
+  permissions?: string[];
 }
 
 export function createFarmMember(farmId: string, input: CreateFarmMemberInput): Promise<unknown> {
@@ -575,6 +624,65 @@ export function createFarmMember(farmId: string, input: CreateFarmMemberInput): 
     method: 'POST',
     body: input,
   });
+}
+
+export interface UpdateFarmMemberInput {
+  role?: 'ADMIN' | 'ELEVEUR';
+  jobTitle?: string | null;
+  buildingAssignment?: string | null;
+  active?: boolean;
+  permissions?: string[];
+}
+
+export function updateFarmMember(
+  farmId: string,
+  employmentId: string,
+  input: UpdateFarmMemberInput,
+): Promise<unknown> {
+  return apiFetch(`/farms/${farmId}/eleveurs/${employmentId}`, {
+    method: 'PATCH',
+    body: input,
+  });
+}
+
+export interface UpdateFarmSettingsInput {
+  name?: string;
+  administrativeCity?: string;
+  defaultSacKg?: number;
+}
+
+/** Paramètres de la ferme : nom, ville, poids du sac (PATCH /farms/:farmId). */
+export function updateFarmSettings(
+  farmId: string,
+  input: UpdateFarmSettingsInput,
+): Promise<Farm> {
+  return apiFetch<Farm>(`/farms/${farmId}`, {
+    method: 'PATCH',
+    body: input,
+  });
+}
+
+/** Logo de la ferme : multipart « file » (POST /farms/:farmId/logo).
+ *  Natif : `uri` (Expo gère le upload du fichier). Web : `file` (File réel). */
+export function uploadFarmLogo(
+  farmId: string,
+  asset: { uri?: string; file?: File; name: string; mimeType: string },
+): Promise<Farm> {
+  const form = new FormData();
+  if (asset.file) {
+    form.append('file', asset.file, asset.name);
+  } else if (asset.uri) {
+    form.append(
+      'file',
+      { uri: asset.uri, name: asset.name, type: asset.mimeType } as unknown as Blob,
+    );
+  }
+  return apiUpload<Farm>(`/farms/${farmId}/logo`, form);
+}
+
+/** Retire le logo personnalisé — la ferme repasse au logo KouKou par défaut. */
+export function deleteFarmLogo(farmId: string): Promise<Farm> {
+  return apiFetch<Farm>(`/farms/${farmId}/logo`, { method: 'DELETE' });
 }
 
 /** Intrant aliment (provende) — HACCP : fournisseur + n° de lot + péremption obligatoire. */
@@ -764,12 +872,19 @@ export function cancelStockTransfer(farmId: string, transferId: string): Promise
 export interface CreateOrderInput {
   customerName?: string;
   customerPhone?: string;
+  /** Assigner la commande à un client existant (prioritaire sur nom/téléphone). */
+  customerId?: string;
   /** Clé d'idempotence : le serveur renvoie la commande existante pour une même
    *  clé (rejeu offline / double envoi sans doublon). */
   idempotencyKey?: string;
-  canal: 'FERME' | 'PRECOMMANDE';
+  canal: 'FERME' | 'PRECOMMANDE' | 'LIVRAISON';
   expectedDate?: string;
   address?: string;
+  /** Province de livraison (filtre du géocodage OSM). */
+  province?: string;
+  /** Coordonnées GPS de livraison (géocodage OpenStreetMap). */
+  latitude?: number;
+  longitude?: number;
   pointOfSaleId?: string;
   items: {
     productType: SaleProductType;
@@ -865,6 +980,96 @@ export function updateTask(
 /** Supprime une tâche (PROPRIETAIRE uniquement). */
 export function deleteTask(farmId: string, taskId: string): Promise<void> {
   return apiFetch<void>(`/farms/${farmId}/tasks/${taskId}`, {
+    method: 'DELETE',
+  });
+}
+
+// ── Dépenses CDCF ────────────────────────────────────────────
+
+export interface CreateExpenseInput {
+  category: ExpenseCategory;
+  amountFcfa: number;
+  label?: string;
+  supplier?: string;
+  notes?: string;
+  expenseDate?: string;
+  /** Sortie de caisse automatique (session ouverte requise). */
+  paidByCaisse?: boolean;
+  batchId?: string;
+}
+
+export function createExpense(farmId: string, input: CreateExpenseInput): Promise<Expense> {
+  return apiFetch<Expense>(`/farms/${farmId}/expenses`, {
+    method: 'POST',
+    body: input,
+  });
+}
+
+/** Le montant et « payé par caisse » ne sont pas modifiables après création.
+ *  Un changement de catégorie reclassé automatiquement le compte de charge. */
+export function updateExpense(
+  farmId: string,
+  expenseId: string,
+  input: {
+    category?: ExpenseCategory;
+    label?: string;
+    supplier?: string;
+    notes?: string;
+  },
+): Promise<Expense> {
+  return apiFetch<Expense>(`/farms/${farmId}/expenses/${expenseId}`, {
+    method: 'PATCH',
+    body: input,
+  });
+}
+
+/** Contrepassation comptable automatique ; refusée si payée sur une session
+ *  de caisse clôturée (écritures immuables). */
+export function deleteExpense(farmId: string, expenseId: string): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/farms/${farmId}/expenses/${expenseId}`, {
+    method: 'DELETE',
+  });
+}
+
+/** Synchronise les dépenses auto-créées (poussins + intrants) pour une ferme. */
+export function syncExpenses(farmId: string): Promise<{ batchesSynced: number; inputsSynced: number }> {
+  return apiFetch<{ batchesSynced: number; inputsSynced: number }>(
+    `/farms/${farmId}/expenses/sync`,
+    { method: 'POST' },
+  );
+}
+
+// ── Caisse — mouvements manuels ──────────────────────────────
+
+export interface CreateCashMovementInput {
+  type: CashMovementType;
+  amountFcfa: number;
+  reason?: string;
+  movementDate?: string;
+}
+
+export function createCashMovement(farmId: string, input: CreateCashMovementInput): Promise<CashMovement> {
+  return apiFetch<CashMovement>(`/farms/${farmId}/caisse/movements`, {
+    method: 'POST',
+    body: input,
+  });
+}
+
+/** Seuls les mouvements manuels sont modifiables, dans une session ouverte
+ *  (la caisse ne peut jamais passer négative — vérifié côté serveur). */
+export function updateCashMovement(
+  farmId: string,
+  movementId: string,
+  input: { amountFcfa?: number; reason?: string; movementDate?: string },
+): Promise<CashMovement> {
+  return apiFetch<CashMovement>(`/farms/${farmId}/caisse/movements/${movementId}`, {
+    method: 'PATCH',
+    body: input,
+  });
+}
+
+export function deleteCashMovement(farmId: string, movementId: string): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>(`/farms/${farmId}/caisse/movements/${movementId}`, {
     method: 'DELETE',
   });
 }

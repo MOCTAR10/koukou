@@ -3,6 +3,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FeedStockService } from './feed-stock.service.js';
 import { CreateLossDto } from './dto/create-loss.dto.js';
@@ -25,6 +26,7 @@ export class FeedStockController {
 
   @Post('losses')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('stock:gerer')
   @ApiOperation({ summary: 'Déclarer des sacs gâtés (perte de provende)' })
   @ApiParam({ name: 'farmId' })
   createLoss(

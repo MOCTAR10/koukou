@@ -4,7 +4,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { AppText } from './AppText';
 import { color, radii } from '@/constants/theme';
 
-type ChipTone = 'neutral' | 'brand' | 'accent' | 'green' | 'amber' | 'red' | 'outline' | 'solid';
+export type ChipTone = 'neutral' | 'brand' | 'accent' | 'green' | 'amber' | 'red' | 'outline' | 'solid';
 
 const CHIPS: Record<ChipTone, { bg: string; fg: string; bd?: string }> = {
   neutral: { bg: color.surfaceAlt, fg: color.ink[700] },

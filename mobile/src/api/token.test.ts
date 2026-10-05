@@ -17,7 +17,15 @@ describe('token (session store)', () => {
       token: 'jwt-abc',
       user,
       farms: [
-        { id: 'f-1', name: 'Ferme Demo', administrativeCity: 'Libreville', defaultSacKg: 50, isVerified: true, active: true },
+        {
+          id: 'f-1',
+          name: 'Ferme Demo',
+          administrativeCity: 'Libreville',
+          defaultSacKg: 50,
+          isVerified: true,
+          active: true,
+          logoUrl: null,
+        },
       ],
     });
     const s = loadSession();

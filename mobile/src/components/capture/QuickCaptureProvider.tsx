@@ -88,7 +88,7 @@ export function QuickCaptureProvider({ children }: { children: React.ReactNode }
               if (key === 'saisie') { setMode('daily'); return; }
               if (key === 'vente') { close(); router.push('/pos'); return; }
               if (key === 'soin') { close(); router.push('/sanitary'); return; }
-              if (key === 'caisse') { close(); router.push('/caisse'); return; }
+              if (key === 'caisse') { close(); router.push('/pos?tab=CAISSE'); return; }
               if (key === 'rapports') { close(); router.push('/rapports'); return; }
               maybeOpenFeed();
             }}

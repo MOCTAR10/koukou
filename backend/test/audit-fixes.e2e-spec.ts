@@ -22,7 +22,7 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
   let server: App;
   let token: string;
 
-  async function ownerToken(prefix: string): Promise<string> {
+  async function ownerToken(_prefix: string): Promise<string> {
     const phone = `+2419${Date.now()}`;
     await request(server)
       .post('/auth/register')

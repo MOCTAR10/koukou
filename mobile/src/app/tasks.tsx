@@ -24,7 +24,8 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
 
 import { useAuth } from '@/auth/AuthContext';
-import { fetchBatches, fetchFarmMembers, fetchTasks } from '@/api';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { fetchAssignableTeam, fetchBatches, fetchTasks } from '@/api';
 import { createTask, updateTask, deleteTask, type TaskStatusValue } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
@@ -80,13 +81,15 @@ function dateFr(iso: string): string {
 function TaskFormSheet({
   initial,
   members,
+  canManage,
   onClose,
 }: {
   initial: FarmTask | null;
   members: { id: string; userId: string; fullName: string }[];
+  canManage: boolean;
   onClose: () => void;
 }) {
-  const { farmId, user } = useAuth();
+  const { farmId } = useAuth();
   const queryClient = useQueryClient();
   const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
 
@@ -116,7 +119,7 @@ function TaskFormSheet({
           title: title.trim(),
           notes: notes.trim() ? notes.trim() : null,
           dueDate: toLocalDateString(dueDate),
-          ...(user.role !== 'ELEVEUR'
+          ...(canManage
             ? { assigneeId: assigneeId || null, batchId: batchId || null }
             : {}),
         });
@@ -183,7 +186,7 @@ function TaskFormSheet({
           ) : null}
         </View>
 
-        {user.role !== 'ELEVEUR' ? (
+        {canManage ? (
           <>
             <View style={{ gap: spacing.sm }}>
               <AppText size="label" color="muted">
@@ -387,13 +390,17 @@ const FILTERS: { key: Filter; label: string }[] = [
 
 export default function TasksScreen() {
   const { farmId, user } = useAuth();
-  const canManage = canManageFarm(user.role);
+  const profileHook = useFarmProfile();
+  const canManage =
+    canManageFarm(user.role) ||
+    profileHook.isOwner ||
+    profileHook.hasPermission('equipe:taches');
   const queryClient = useQueryClient();
 
   const tasksQuery = useQuery({ queryKey: ['tasks', farmId], queryFn: () => fetchTasks(farmId) });
-  const membersQuery = useQuery({
-    queryKey: ['farm-members', farmId],
-    queryFn: () => fetchFarmMembers(farmId),
+  const teamQuery = useQuery({
+    queryKey: ['assignable-team', farmId],
+    queryFn: () => fetchAssignableTeam(farmId),
     enabled: canManage,
   });
   const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
@@ -402,15 +409,7 @@ export default function TasksScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<FarmTask | null>(null);
 
-  const members = useMemo(
-    () =>
-      (membersQuery.data ?? []).map((m) => ({
-        id: m.id,
-        userId: m.userId,
-        fullName: m.user.fullName,
-      })),
-    [membersQuery.data],
-  );
+  const members = useMemo(() => teamQuery.data ?? [], [teamQuery.data]);
   const memberNames = useMemo(() => new Map(members.map((m) => [m.userId, m.fullName])), [members]);
   const batchNames = useMemo(
     () => new Map((batchesQuery.data ?? []).map((b) => [b.id, b.batchName ?? 'Lot'])),
@@ -525,6 +524,7 @@ export default function TasksScreen() {
         <TaskFormSheet
           initial={null}
           members={members}
+          canManage={canManage}
           onClose={() => {
             setCreateOpen(false);
           }}
@@ -534,6 +534,7 @@ export default function TasksScreen() {
         <TaskFormSheet
           initial={editing}
           members={members}
+          canManage={canManage}
           onClose={() => {
             setEditing(null);
           }}

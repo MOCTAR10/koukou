@@ -46,7 +46,7 @@ export class AuthService {
     });
     await this.usersRepo.save(user);
 
-    await this.ensureOwnerFarm(user);
+    await this.ensureOwnerFarm(user, dto.farmName, dto.farmCity);
 
     return this.buildAuthResponse(user);
   }
@@ -72,14 +72,16 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  /** Un Propriétaire dispose toujours d'une ferme : crée la ferme par défaut sinon. */
-  private async ensureOwnerFarm(user: User) {
+  /** Un Propriétaire dispose toujours d'une ferme : crée la ferme par défaut sinon.
+   *  Le nom saisie à l'inscription prime ; à défaut on retombe sur « Ferme de <nom> »
+   *  (les farms déjà créées gardent leur nom — renommable via PATCH /farms/:farmId). */
+  private async ensureOwnerFarm(user: User, farmName?: string, farmCity?: string) {
     if (user.role !== UserRole.PROPRIETAIRE) return;
     const count = await this.farmsRepo.count({ where: { ownerId: user.id } });
     if (count > 0) return;
     await this.farmsService.create(user, {
-      name: `Ferme de ${user.fullName}`,
-      administrativeCity: DEFAULT_FARM_CITY,
+      name: farmName?.trim() || `Ferme de ${user.fullName}`,
+      administrativeCity: farmCity?.trim() || DEFAULT_FARM_CITY,
     });
   }
 

@@ -543,6 +543,247 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     expect(after.body.find((p: any) => p.id === fid.id)).toBeUndefined();
   });
 
+  it('types de clients : création typée + filtre type + recherche + summary', async () => {
+    const resto = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Resto La Palette',
+      phone: `+24170${Date.now().toString().slice(-6)}`,
+      type: 'RESTAURANT',
+    });
+    expect(resto.status).toBe(201);
+    expect(resto.body.type).toBe('RESTAURANT');
+    expect(resto.body.code).toMatch(/^CL-\d{4}$/);
+
+    const invalide = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Type Invalide',
+      type: 'MOUCHETTE',
+    });
+    expect(invalide.status).toBe(400);
+
+    const byType = await get(`/farms/${farmId}/customers?type=RESTAURANT`);
+    expect(byType.status).toBe(200);
+    expect(byType.body.length).toBeGreaterThanOrEqual(1);
+    for (const c of byType.body) expect(c.type).toBe('RESTAURANT');
+
+    const search = await get(`/farms/${farmId}/customers?search=Palette`);
+    expect(search.status).toBe(200);
+    expect(search.body.length).toBe(1);
+    expect(search.body[0].fullName).toBe('Resto La Palette');
+
+    const summary = await get(`/farms/${farmId}/customers/summary`);
+    expect(summary.status).toBe(200);
+    expect(summary.body.total).toBeGreaterThanOrEqual(1);
+    expect(summary.body.byType.RESTAURANT.count).toBeGreaterThanOrEqual(1);
+    expect(summary.body.byType.PARTICULIER.count).toBeGreaterThanOrEqual(1);
+    expect(summary.body.bySegment.NOUVEAU).toBeGreaterThanOrEqual(0);
+    expect(summary.body.totalInvoicedFcfa).toBeGreaterThanOrEqual(0);
+    expect(summary.body.paidFcfa).toBeGreaterThanOrEqual(0);
+    expect(summary.body.totalOutstandingFcfa).toBeGreaterThanOrEqual(0);
+    expect(summary.body.debtors).toBeGreaterThanOrEqual(0);
+  });
+
+  it('codes CL-#### attribués séquentiellement par ferme', async () => {
+    const a = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Client Séquentiel A',
+      phone: `+24171${Date.now().toString().slice(-6)}`,
+    });
+    const b = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Client Séquentiel B',
+      phone: `+24172${Date.now().toString().slice(-6)}`,
+    });
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(201);
+    const num = (code: string) => parseInt(/^CL-(\d{4})$/.exec(code)![1], 10);
+    expect(a.body.code).toMatch(/^CL-\d{4}$/);
+    expect(b.body.code).toMatch(/^CL-\d{4}$/);
+    expect(num(b.body.code)).toBeGreaterThan(num(a.body.code));
+  });
+
+  it('crédit : toute vente à crédit est acceptée, sans plafond', async () => {
+    const phone = `+24173${Date.now().toString().slice(-6)}`;
+    const credit = await post('/farms/' + farmId + '/sales', {
+      customerPhone: phone,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 40000 },
+      ],
+      payments: [],
+    });
+    expect(credit.status).toBe(201);
+    expect(credit.body.sale.status).toBe('OUTSTANDING');
+  });
+
+  it('crédit : la dette cumulée n’est plus plafonnée', async () => {
+    const phone = `+24174${Date.now().toString().slice(-6)}`;
+    const cust = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Crédit illimité',
+      phone,
+    });
+    expect(cust.status).toBe(201);
+    expect(cust.body).not.toHaveProperty('creditLimitFcfa');
+
+    const first = await post('/farms/' + farmId + '/sales', {
+      customerId: cust.body.id,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 40000 },
+      ],
+      payments: [],
+    });
+    expect(first.status).toBe(201);
+    expect(first.body.sale.status).toBe('OUTSTANDING');
+
+    // Cumul bien au-delà de l’ancien plafond « particulier » (50 000 FCFA).
+    const second = await post('/farms/' + farmId + '/sales', {
+      customerId: cust.body.id,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 200000 },
+      ],
+      payments: [],
+    });
+    expect(second.status).toBe(201);
+
+    const profile = (await get(`/farms/${farmId}/customers/${cust.body.id}`)).body;
+    expect(profile.balance.outstandingFcfa).toBe(240000);
+  });
+
+  it('crédit : le type de client n’a aucun effet sur le crédit', async () => {
+    const gros = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Grossiste Central',
+      phone: `+24174${Date.now().toString().slice(-6)}`,
+      type: 'GROSSISTE',
+    });
+    expect(gros.status).toBe(201);
+    expect(gros.body.type).toBe('GROSSISTE');
+
+    const sale = await post('/farms/' + farmId + '/sales', {
+      customerId: gros.body.id,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 600000 },
+      ],
+      payments: [],
+    });
+    expect(sale.status).toBe(201);
+    expect(sale.body.sale.status).toBe('OUTSTANDING');
+  });
+
+  it('plafond de crédit : l’encaissement n’est jamais bloqué (paiement ≠ nouveau crédit)', async () => {
+    const phone = `+24175${Date.now().toString().slice(-6)}`;
+    const cust = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Encaissement Espèces',
+      phone,
+    });
+    expect(cust.status).toBe(201);
+    const res = await post('/farms/' + farmId + '/sales', {
+      customerId: cust.body.id,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 40000 },
+      ],
+      payments: [],
+    });
+    expect(res.status).toBe(201);
+    const saleId = res.body.sale.id;
+    expect(res.body.sale.status).toBe('OUTSTANDING');
+
+    const paid = await post(`/farms/${farmId}/sales/${saleId}/payments`, {
+      method: 'CASH',
+      amountFcfa: 40000,
+    });
+    expect(paid.status).toBe(201);
+
+    const sale = await get(`/farms/${farmId}/sales/${saleId}`);
+    expect(sale.body.status).toBe('SETTLED');
+  });
+
+  it('encaisser depuis la fiche client : répartit sur les ventes impayées (FIFO)', async () => {
+    const cust = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Client Encaissement',
+      phone: `+24176${Date.now().toString().slice(-6)}`,
+    });
+    expect(cust.status).toBe(201);
+
+    const saleA = await post('/farms/' + farmId + '/sales', {
+      customerId: cust.body.id,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 30000 },
+      ],
+      payments: [],
+    });
+    const saleB = await post('/farms/' + farmId + '/sales', {
+      customerId: cust.body.id,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 20000 },
+      ],
+      payments: [],
+    });
+    expect(saleA.status).toBe(201);
+    expect(saleB.status).toBe(201);
+
+    // 25 000 → sale A (30 000) partiellement soldée (reste 5 000), sale B intacte.
+    const paid = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
+      amountFcfa: 25000,
+    });
+    expect(paid.status).toBe(201);
+    expect(paid.body.balance.outstandingFcfa).toBe(25000);
+    const saleADetail = await get(`/farms/${farmId}/sales/${saleA.body.sale.id}`);
+    expect(saleADetail.body.status).toBe('OUTSTANDING');
+
+    // Montant > solde dû → 400.
+    const over = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
+      amountFcfa: 25001,
+    });
+    expect(over.status).toBe(400);
+
+    // Montant négatif → 400.
+    const negative = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
+      amountFcfa: -1000,
+    });
+    expect(negative.status).toBe(400);
+
+    // Solde complet → les deux ventes passent en SETTLED.
+    const settled = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
+      amountFcfa: 25000,
+    });
+    expect(settled.status).toBe(201);
+    expect(settled.body.balance.outstandingFcfa).toBe(0);
+    const saleA2 = await get(`/farms/${farmId}/sales/${saleA.body.sale.id}`);
+    expect(saleA2.body.status).toBe('SETTLED');
+    const saleBDetail = await get(`/farms/${farmId}/sales/${saleB.body.sale.id}`);
+    expect(saleBDetail.body.status).toBe('SETTLED');
+
+    const history = await get(`/farms/${farmId}/customers/${cust.body.id}/history`);
+    expect(history.status).toBe(200);
+  });
+
+  it('encaisser : rejeu avec la même clé d’idempotence → pas de double encaissement', async () => {
+    const cust = await post('/farms/' + farmId + '/customers', {
+      fullName: 'Client Idempotent',
+      phone: `+24177${Date.now().toString().slice(-6)}`,
+    });
+    expect(cust.status).toBe(201);
+    const sale = await post('/farms/' + farmId + '/sales', {
+      customerId: cust.body.id,
+      items: [
+        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 30000 },
+      ],
+      payments: [],
+    });
+    expect(sale.status).toBe(201);
+
+    const key = `e2e-${Date.now()}`;
+    const first = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
+      amountFcfa: 30000,
+      idempotencyKey: key,
+    });
+    expect(first.status).toBe(201);
+    expect(first.body.balance.outstandingFcfa).toBe(0);
+
+    const replay = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
+      amountFcfa: 30000,
+      idempotencyKey: key,
+    });
+    expect(replay.status).toBe(201);
+    expect(replay.body.balance.outstandingFcfa).toBe(0);
+    expect(replay.body.payments).toHaveLength(1);
+  });
+
   afterAll(async () => {
     await app.close();
   });

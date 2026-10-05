@@ -6,7 +6,19 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
-import { BatchStatus } from '../../common/enums/batch-type.enum.js';
+import {
+  AlertKind,
+  AlertLevel,
+  AlertStatus,
+} from '../../common/enums/alert-level.enum.js';
+import {
+  BatchStatus,
+  BatchType,
+} from '../../common/enums/batch-type.enum.js';
+import { CareType } from '../../common/enums/care-type.enum.js';
+import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
+import { ProphylaxisStatus } from '../../common/enums/prophylaxis-status.enum.js';
+import { Species } from '../../common/enums/species.enum.js';
 import { OrderCanal } from '../../common/enums/order-canal.enum.js';
 import { OrderStatus } from '../../common/enums/order-status.enum.js';
 import {
@@ -26,6 +38,7 @@ import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
 import { PdfService } from '../../common/services/pdf.service.js';
 import { MetricsService } from '../batches/metrics.service.js';
+import { BatchMetrics } from '../batches/models/batch-metrics.model.js';
 import { BatchesService } from '../batches/batches.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
@@ -34,22 +47,37 @@ import { PointsOfSaleService } from '../points-of-sale/points-of-sale.service.js
 import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
 import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
 import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
+import { Alert } from '../alerts/entities/alert.entity.js';
+import {
+  HealthEvent,
+} from '../sanitary/entities/health-event.entity.js';
+import {
+  ProphylaxisEvent,
+} from '../sanitary/entities/prophylaxis-event.entity.js';
+import {
+  TreatmentRecord,
+} from '../sanitary/entities/treatment-record.entity.js';
 import { CashMovement } from '../finance/entities/cash-movement.entity.js';
 import { CashSession } from '../finance/entities/cash-session.entity.js';
 import { Customer } from '../finance/entities/customer.entity.js';
 import { Payment } from '../finance/entities/payment.entity.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
-import { normalizePhone } from '../finance/customers.service.js';
+import { normalizePhone, CustomersService } from '../finance/customers.service.js';
 import { PaymentsService } from '../finance/payments.service.js';
 import { RentabiliteService } from '../finance/rentabilite.service.js';
 import { SalesService } from '../finance/sales.service.js';
+import { AccountingService } from '../accounting/accounting.service.js';
 import {
   CreateOrderDto,
   FinalizeOrderDto,
   OrderDepositDto,
 } from './dto/order.dto.js';
-import { Order, OrderItemSnapshot } from './entities/order.entity.js';
+import {
+  Order,
+  OrderItemSnapshot,
+  OrderPassportSnapshot,
+} from './entities/order.entity.js';
 
 const ORDER_PREFIX = 'CMD';
 const EGGS_PER_ALVEOL = 30;
@@ -72,6 +100,37 @@ const CANAL_LABELS: Record<OrderCanal, string> = {
   LIVRAISON: 'Vente en livraison',
   PRECOMMANDE: 'Précommande',
 };
+const SPECIES_LABELS: Partial<Record<Species, string>> = {
+  POULET: 'Poulet',
+  DINDE: 'Dinde',
+  PINTADE: 'Pintade',
+  CAILLE: 'Caille',
+  CANARD: 'Canard',
+  OIE: 'Oie',
+  FAISAN: 'Faisan',
+};
+const BATCH_TYPE_LABELS: Record<BatchType, string> = {
+  CHAIR: 'Chair',
+  PONDEUSE: 'Pondeuse',
+};
+const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
+  ACTIF: 'Actif',
+  EN_VENTE: 'En vente',
+  FINI: 'Épuisé',
+  CLOTURE: 'Clôturé',
+};
+const CARE_LABELS: Record<CareType, string> = {
+  VACCIN: 'Vaccin',
+  MEDICAMENT: 'Médicament',
+  VITAMINE: 'Vitamine',
+  ANTIBIOTIQUE: 'Antibiotique',
+  AUTRE: 'Autre',
+};
+const PASSPORT_ALERT_KINDS = [
+  AlertKind.DELAI_ATTENTE,
+  AlertKind.PROPHYLAXIE,
+  AlertKind.MALADIE,
+];
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -133,10 +192,12 @@ export class OrdersService {
     private readonly pointsOfSaleService: PointsOfSaleService,
     private readonly paymentsService: PaymentsService,
     private readonly salesService: SalesService,
+    private readonly customersService: CustomersService,
     private readonly rentabiliteService: RentabiliteService,
     private readonly metricsService: MetricsService,
     private readonly batchesService: BatchesService,
     private readonly pdfService: PdfService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   // ---------- Création (bon de commande) ----------
@@ -170,6 +231,7 @@ export class OrdersService {
       let birdsRequested = 0;
       let checkoutBatchId: string | null = null;
       let total = 0;
+      let passport: OrderPassportSnapshot | null = null;
 
       for (const it of dto.items) {
         if (!ORDERABLE_TYPES.includes(it.productType)) {
@@ -232,6 +294,14 @@ export class OrdersService {
             );
           }
           await this.assertEggsAvailable(em, farmId, it.quantity);
+          if (it.batchId) {
+            const batchAlveoles = await this.availableBatchEggAlveoles(em, farmId, it.batchId);
+            if (it.quantity > batchAlveoles) {
+              throw new BadRequestException(
+                `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), commande demandée ${it.quantity}.`,
+              );
+            }
+          }
         }
 
         if (batchId) {
@@ -272,6 +342,11 @@ export class OrdersService {
           batch,
           birdsRequested,
         );
+        // Passeport de traçabilité figé au bon de commande : transparence
+        // totale pour le client (zootechnie, vaccins, retraits, sanitaire,
+        // et l'auto-signal « prêt à vendre » — simple conseil, jamais bloquant).
+        const metrics = await this.metricsService.compute(batch);
+        passport = await this.buildLotPassport(em, batch, metrics);
       }
 
       const customerId = await this.resolveCustomer(em, farmId, user.id, dto);
@@ -344,10 +419,17 @@ export class OrdersService {
           pointOfSaleId: resolvedPointOfSaleId,
           address:
             dto.canal === OrderCanal.LIVRAISON ? (dto.address ?? null) : null,
+          deliveryProvince:
+            dto.canal === OrderCanal.LIVRAISON ? (dto.province ?? null) : null,
+          latitude:
+            dto.canal === OrderCanal.LIVRAISON ? (dto.latitude ?? null) : null,
+          longitude:
+            dto.canal === OrderCanal.LIVRAISON ? (dto.longitude ?? null) : null,
           batchId: checkoutBatchId,
           totalAmountFcfa: total,
           depositFcfa,
           items: snapshots,
+          passport,
           createdById: user.id,
         }),
       );
@@ -508,6 +590,14 @@ export class OrdersService {
           // Exclut la vente enveloppe courante : ses items œufs existent déjà
           // et ne doivent pas compter comme « déjà vendus » contre eux-mêmes.
           await this.assertEggsAvailable(em, farmId, item.quantity, sale.id);
+          if (item.batchId) {
+            const batchAlveoles = await this.availableBatchEggAlveoles(em, farmId, item.batchId);
+            if (item.quantity > batchAlveoles) {
+              throw new BadRequestException(
+                `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), livraison demandée ${item.quantity}.`,
+              );
+            }
+          }
         }
       }
 
@@ -556,6 +646,21 @@ export class OrdersService {
       order.livredAt = new Date();
       order.depositFcfa = Math.min(await this.paidSum(em, sale.id), total);
       await orderRepo.save(order);
+
+      // Comptabilité : reconnaissance du chiffre d'affaires à la livraison,
+      // avec les quantités/montants finaux (ou ajustement équilibré si l'init
+      // a déjà passé l'écriture sur l'instantané du bon de commande).
+      await this.accountingService.ensureSaleEntry(em, {
+        farmId,
+        sale: { id: sale.id, referenceNumber: sale.referenceNumber },
+        date: todayStr(),
+        items: items.map((i) => ({
+          productType: i.productType,
+          amountFcfa: i.amountFcfa,
+        })),
+        totalAmountFcfa: total,
+        operatorId: user.id,
+      });
 
       return { order, touchedBatches };
     });
@@ -650,7 +755,7 @@ export class OrdersService {
         `Remboursement du surplus d'acompte (${excess} FCFA) refusé : solde de caisse disponible ${available} FCFA. Une caisse ne peut pas être négative.`,
       );
     }
-    await em.getRepository(CashMovement).save(
+    const movement = await em.getRepository(CashMovement).save(
       em.getRepository(CashMovement).create({
         farmId,
         cashSessionId: session.id,
@@ -663,6 +768,20 @@ export class OrdersService {
         createdById: order.createdById ?? null,
       }),
     );
+
+    // Comptabilité : surplus d'acompte rendu → Clients / Caisse.
+    await this.accountingService.post(em, {
+      farmId,
+      date: movement.movementDate,
+      label: `Remboursement surplus d’acompte — ${order.referenceNumber}`,
+      source: 'ORDER',
+      sourceId: `refund:${movement.id}`,
+      lines: [
+        { account: '411', debit: excess, label: 'Clients — créances' },
+        { account: '571', credit: excess, label: 'Caisse — espèces' },
+      ],
+      operatorId: order.createdById ?? null,
+    });
   }
 
   // ---------- Lecture ----------
@@ -718,6 +837,7 @@ export class OrdersService {
       customerName: order.customer?.fullName ?? null,
       address: order.address,
       batchLabel: order.batchId ? `Lot #${order.batchId.slice(0, 8)}` : null,
+      passport: order.passport ?? null,
       items: order.items.map((item) => ({
         label: item.label,
         quantity: `${item.quantity} ${item.unit}`,
@@ -741,6 +861,210 @@ export class OrdersService {
   }
 
   // ---------- Helpers ----------
+
+  private async buildLotPassport(
+    em: EntityManager,
+    batch: ProductionBatch,
+    metrics: BatchMetrics,
+  ): Promise<OrderPassportSnapshot> {
+    const today = todayStr();
+    const alerts = await em.getRepository(Alert).find({
+      where: {
+        farmId: batch.farmId,
+        batchId: batch.id,
+        status: AlertStatus.ACTIVE,
+        kind: In(PASSPORT_ALERT_KINDS),
+      },
+    });
+    const vaccines = await em.getRepository(ProphylaxisEvent).find({
+      where: {
+        farmId: batch.farmId,
+        batchId: batch.id,
+        careType: CareType.VACCIN,
+      },
+      order: { scheduledDate: 'DESC' },
+    });
+    const treatments = await em.getRepository(TreatmentRecord).find({
+      where: { farmId: batch.farmId, batchId: batch.id },
+      order: { administeredAt: 'DESC' },
+    });
+    const events = await em.getRepository(HealthEvent).find({
+      where: { farmId: batch.farmId, batchId: batch.id },
+      order: { occurredAt: 'DESC' },
+      take: 30,
+    });
+
+    const withdrawals = treatments
+      .filter(
+        (t) =>
+          t.withdrawalEndDate != null && t.withdrawalEndDate >= today,
+      )
+      .map((t) => ({
+        careTypeLabel: CARE_LABELS[t.careType] ?? t.careType,
+        productName: t.productName,
+        administeredAt: new Date(t.administeredAt)
+          .toISOString()
+          .slice(0, 10),
+        withdrawalEndDate: t.withdrawalEndDate!,
+      }));
+
+    const done = vaccines.filter(
+      (v) => v.status === ProphylaxisStatus.FAIT,
+    );
+    const planned = vaccines.filter(
+      (v) =>
+        v.status === ProphylaxisStatus.PLANIFIE ||
+        v.status === ProphylaxisStatus.EN_RETARD,
+    );
+    const lastVaccine = done.length > 0 ? done[0] : null;
+
+    const delaiAttente = alerts.find(
+      (a) => a.kind === AlertKind.DELAI_ATTENTE,
+    );
+    const prophyEnRetard = alerts.find(
+      (a) =>
+        a.kind === AlertKind.PROPHYLAXIE && a.level === AlertLevel.ROUGE,
+    );
+    const conformity: OrderPassportSnapshot['sanitary']['conformity'] =
+      delaiAttente
+        ? 'EN_ATTENTE'
+        : prophyEnRetard
+          ? 'PRECONFORMITE'
+          : 'CONFORME';
+    const conformityNote = delaiAttente
+      ? 'Délai de retrait en cours (sécurité alimentaire) : le produit peut contenir des résidus de soins jusqu’à la fin de la carence. À respecter avant mise à la consommation.'
+      : prophyEnRetard
+        ? 'Des soins planifiés sont en retard au calendrier sanitaire du lot.'
+        : 'Aucun délai de retrait en cours et prophylaxie à jour : lot présenté conformément au programme sanitaire.';
+
+    const diseaseEvents = events
+      .filter((e) => e.kind === HealthEventKind.MALADIE)
+      .slice(0, 3)
+      .map((e) => ({
+        title: e.title,
+        occurredAt: e.occurredAt,
+        severity: e.severity,
+      }));
+
+    const metricRows: { label: string; value: string }[] = [
+      { label: 'Mortalité', value: `${metrics.mortalityPercent.toFixed(1)} %` },
+      {
+        label: 'Viabilité',
+        value: `${metrics.viabilityPercent.toFixed(1)} %`,
+      },
+      {
+        label: 'IC (indice de consommation)',
+        value: metrics.fcr != null ? metrics.fcr.toFixed(2) : 'N/A',
+      },
+      {
+        label: 'GMQ (gain moyen/jour)',
+        value:
+          metrics.gmqGramsPerDay != null
+            ? `${metrics.gmqGramsPerDay.toFixed(1)} g/j`
+            : 'N/A',
+      },
+      {
+        label: 'IPE',
+        value: metrics.ipe != null ? metrics.ipe.toFixed(1) : 'N/A',
+      },
+    ];
+    if (
+      batch.type === BatchType.PONDEUSE &&
+      metrics.layRatePercent != null
+    ) {
+      metricRows.push({
+        label: 'Taux de ponte',
+        value: `${metrics.layRatePercent.toFixed(1)} %`,
+      });
+    }
+
+    return {
+      batchId: batch.id,
+      batchLabel: batch.batchName ?? `Lot #${batch.id.slice(0, 8)}`,
+      speciesLabel:
+        batch.customSpecies ??
+        SPECIES_LABELS[batch.species] ??
+        batch.species,
+      breedName: batch.breed?.name ?? null,
+      batchTypeLabel: BATCH_TYPE_LABELS[batch.type],
+      integrationDate: batch.integrationDate,
+      ageDays: metrics.ageDays,
+      liveCount: Math.max(0, batch.quantityAlive),
+      statusLabel: BATCH_STATUS_LABELS[batch.status],
+      readiness: this.readinessLabel(metrics),
+      metrics: metricRows,
+      vaccinations: {
+        completed: done.length,
+        planned: planned.length,
+        last: lastVaccine
+          ? {
+              name: lastVaccine.name,
+              date: lastVaccine.completedAt
+                ? lastVaccine.completedAt.toISOString().slice(0, 10)
+                : lastVaccine.scheduledDate,
+            }
+          : null,
+      },
+      withdrawals,
+      sanitary: {
+        level: metrics.status,
+        conformity,
+        conformityNote,
+        alerts: alerts.map((a) => ({
+          kind: a.kind,
+          level: a.level,
+          message: a.message,
+        })),
+        events: diseaseEvents,
+        vetVisited:
+          events.some(
+            (e) =>
+              e.kind === HealthEventKind.VISITE_VETO || e.vetConsulted,
+          ),
+      },
+      generatedAt: today,
+    };
+  }
+
+  private readinessLabel(
+    metrics: BatchMetrics,
+  ): OrderPassportSnapshot['readiness'] {
+    const reason = metrics.readyReason;
+    let label: string;
+    let note: string;
+    switch (reason) {
+      case 'READY':
+        label = 'Prêt à la vente';
+        note =
+          'Auto-signal : l’âge et la performance du lot correspondent au seuil de vente conseillé.';
+        break;
+      case 'TOO_YOUNG':
+        label = 'Lot encore jeune';
+        note = `Avis conseil : lot encore jeune (J${metrics.ageDays}). L’éleveur reste libre de vendre — vérifier poids et sanitaire, ajuster le prix.`;
+        break;
+      case 'FCR':
+        label = 'IC au-dessus du seuil de vente';
+        note =
+          'Avis conseil : indice de consommation supérieur au seuil de vente (performance moindre). Vente possible, à ajuster le prix.';
+        break;
+      case 'SANITARY':
+        label = 'Contre-indication sanitaire';
+        note =
+          'Avis conseil : alerte sanitaire en cours (statut ROUGE ou soin/délai de retrait). Vérifier l’état du lot avant la vente.';
+        break;
+      default:
+        label = 'Non signalé prêt à la vente';
+        note =
+          'Avis conseil : lot non signalé prêt. La vente reste possible à l’initiative de l’éleveur.';
+        break;
+    }
+    return {
+      readyForSale: metrics.readyForSale,
+      readyReason: reason,
+      label,
+      note,
+    };
+  }
 
   private async afterOrderChange(farmId: string, batchIds: string[]) {
     const unique = [...new Set(batchIds.filter(Boolean))];
@@ -806,7 +1130,12 @@ export class OrdersService {
     return touched;
   }
 
-  /** Lots commercialisables : EN_VENTE ou ACTIF auto-signalé « prêt à vendre ». */
+  /**
+   * Lots commercialisables : EN_VENTE ou ACTIF. L'auto-signal « prêt à vendre »
+   * est un CONSEIL non bloquant (l'éleveur est maître de sa vente) : si le lot
+   * n'est pas encore prêt, la commande reste acceptée et le reporter l'explique.
+   * Seuls les états absolus (clôturé / épuisé) bloquent.
+   */
   private async assertBatchOrderable(
     em: EntityManager,
     farmId: string,
@@ -832,14 +1161,6 @@ export class OrdersService {
     if (batch.status === BatchStatus.FINI) {
       throw new BadRequestException(
         'Lot épuisé : aucune volaille disponible sur ce lot pour une nouvelle commande.',
-      );
-    }
-    if (batch.status === BatchStatus.EN_VENTE) return batch;
-
-    const metrics = await this.metricsService.compute(batch);
-    if (!metrics.readyForSale) {
-      throw new BadRequestException(
-        'Ce lot n’est pas encore prêt à la vente : l’âge ou la performance (IC/mortalité) ne le permettent pas (auto-signal).',
       );
     }
     return batch;
@@ -936,6 +1257,64 @@ export class OrdersService {
     }
   }
 
+  /** Alvéoles d'œufs propres à UN lot (produit − vendu − déjà transféré),
+   *  aligné sur `MetricsService.eggStockForBatch`. Empêche les commandes œufs
+   *  « fantômes » attribuées à un lot qui n'a pas assez d'œufs. */
+  private async availableBatchEggAlveoles(
+    em: EntityManager,
+    farmId: string,
+    batchId: string,
+  ): Promise<number> {
+    const entries = await em.getRepository(DailyEntry).find({
+      where: { batchId },
+    });
+    const produced = entries.reduce(
+      (s, e) =>
+        s +
+        (e.eggsCollected -
+          e.eggsCracked -
+          e.eggsSmall -
+          e.eggsDoubleYolk -
+          e.eggsDirty),
+      0,
+    );
+    const soldEggs = await this.batchSoldEggs(em, farmId, batchId);
+    const transfers = await em.getRepository(StockTransfer).find({
+      where: {
+        farmId,
+        batchId,
+        productType: StockTransferProductType.OEUFS,
+        status: StockTransferStatus.TRANSFERRED,
+      },
+    });
+    const transferredEggs = transfers.reduce(
+      (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
+      0,
+    );
+    const availableEggs = produced - soldEggs - transferredEggs;
+    return Math.max(0, Math.floor(availableEggs / EGGS_PER_ALVEOL));
+  }
+
+  /** Œufs vendus (alvéoles × 30) attribués à un lot, ventes non annulées. */
+  private async batchSoldEggs(
+    em: EntityManager,
+    farmId: string,
+    batchId: string,
+  ): Promise<number> {
+    const sales = await em.getRepository(Sale).find({
+      where: { farmId, status: Not(SaleStatus.CANCELLED) },
+    });
+    if (sales.length === 0) return 0;
+    const eggItems = await em.getRepository(SaleItem).find({
+      where: {
+        saleId: In(sales.map((s) => s.id)),
+        productType: SaleItemProductType.OEUFS,
+        batchId,
+      },
+    });
+    return eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
+  }
+
   /** Trouve ou crée le client (jamais bloquant : la commande aboutit toujours). */
   private async resolveCustomer(
     em: EntityManager,
@@ -962,15 +1341,16 @@ export class OrdersService {
       const existing = candidates.find(
         (c) => c.phone != null && normalizePhone(c.phone) === normalized,
       );
-      if (existing) return existing.id;
-      const created = await repo.save(
-        repo.create({
-          farmId,
-          fullName: (dto.customerName ?? '').trim() || `Client ${normalized}`,
-          phone: normalized,
-          createdById: operatorId,
-        }),
-      );
+      if (existing) {
+        await this.customersService.ensureCode(existing, em);
+        return existing.id;
+      }
+      const created = await this.customersService.buildNew(em, {
+        farmId,
+        fullName: (dto.customerName ?? '').trim() || `Client ${normalized}`,
+        phone: normalized,
+        createdById: operatorId,
+      });
       return created.id;
     }
     return null;

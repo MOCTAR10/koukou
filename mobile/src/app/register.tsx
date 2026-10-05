@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, Check, CheckCircle2, Lock, User } from 'lucide-react-native';
+import { ArrowLeft, Check, CheckCircle2, Lock, Tractor, User } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
@@ -20,15 +20,19 @@ export default function RegisterScreen() {
   const { busy, error, signUp } = useAuth();
   const [step, setStep] = useState<Step>(1);
   const [fullName, setFullName] = useState('');
+  const [farmName, setFarmName] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeConfirm, setCodeConfirm] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const phoneRef = useRef<TextInput>(null);
+  const farmNameRef = useRef<TextInput>(null);
   const codeRef = useRef<TextInput>(null);
   const codeConfirmRef = useRef<TextInput>(null);
   const keyboardInset = useKeyboardInset();
+
+  const fallbackFarmName = fullName.trim() ? `Ferme de ${fullName.trim()}` : '';
 
   const canContinue = fullName.trim().length >= 3 && !busy;
   const canSubmit =
@@ -41,7 +45,7 @@ export default function RegisterScreen() {
       return;
     }
     setLocalError(null);
-    const ok = await signUp(phone, fullName.trim(), code);
+    const ok = await signUp(phone, fullName.trim(), code, farmName.trim() || undefined);
     if (ok) router.replace('/');
   };
 
@@ -95,10 +99,8 @@ export default function RegisterScreen() {
                   placeholder="Nom complet"
                   placeholderTextColor={palette.ink[300]}
                   autoCapitalize="words"
-                  returnKeyType="go"
-                  onSubmitEditing={() => {
-                    if (canContinue) setStep(2);
-                  }}
+                  returnKeyType="next"
+                  onSubmitEditing={() => farmNameRef.current?.focus()}
                   accessibilityLabel="Nom complet"
                 />
               </View>
@@ -108,6 +110,30 @@ export default function RegisterScreen() {
                   Le nom doit comporter au moins 3 lettres.
                 </AppText>
               ) : null}
+
+              <View style={styles.field}>
+                <Tractor size={16} color={color.brand[600]} />
+                <TextInput
+                  ref={farmNameRef}
+                  style={styles.input}
+                  value={farmName}
+                  onChangeText={setFarmName}
+                  placeholder={fallbackFarmName || 'Nom de la ferme'}
+                  placeholderTextColor={palette.ink[300]}
+                  autoCapitalize="words"
+                  returnKeyType="go"
+                  onSubmitEditing={() => {
+                    if (canContinue) setStep(2);
+                  }}
+                  accessibilityLabel="Nom de la ferme"
+                />
+              </View>
+
+              <AppText size="small" color="faint">
+                {fallbackFarmName && farmName.trim() === ''
+                  ? `Optionnel — sans nom, votre ferme s’appellera « ${fallbackFarmName} ».`
+                  : 'Optionnel — modifiable plus tard dans Mon profil.'}
+              </AppText>
 
               <Button
                 label="Continuer"

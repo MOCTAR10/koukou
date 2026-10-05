@@ -22,6 +22,7 @@ async function photonFetch(url: string): Promise<GeoResult[]> {
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { features?: { geometry?: { coordinates?: number[] }; properties?: Record<string, unknown> }[] };
+    const seen = new Set<string>();
     return (data.features ?? [])
       .filter((f) => f.geometry?.coordinates?.length === 2)
       .map((f) => {
@@ -35,6 +36,12 @@ async function photonFetch(url: string): Promise<GeoResult[]> {
           city: typeof p.city === 'string' ? p.city : undefined,
           province: typeof p.state === 'string' ? p.state : undefined,
         };
+      })
+      .filter((r) => {
+        const key = `${r.latitude}-${r.longitude}-${r.label}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
   } catch {
     return [];

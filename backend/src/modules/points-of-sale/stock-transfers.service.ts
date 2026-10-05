@@ -147,7 +147,7 @@ export class StockTransfersService {
       } else if (dto.productType === StockTransferProductType.OEUFS) {
         if (!dto.batchId) {
           throw new BadRequestException(
-            'Transfert d’œufs : indiquer le lot de pondeuses d’origine.',
+            'Transfert d’œufs : indiquer le lot de production d’origine.',
           );
         }
         const batch = await em.getRepository(ProductionBatch).findOne({
@@ -159,6 +159,12 @@ export class StockTransfersService {
           );
         }
         await this.assertEggsAvailable(em, farmId, dto.quantity);
+        const batchEggAlveoles = await this.availableBatchEggAlveoles(em, farmId, batch.id);
+        if (dto.quantity > batchEggAlveoles) {
+          throw new BadRequestException(
+            `Stock d’œufs insuffisant sur ce lot : ${batchEggAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), transfert demandé ${dto.quantity}.`,
+          );
+        }
         batchId = batch.id;
         unit = 'ALVEOLES';
       } else {
@@ -358,6 +364,64 @@ if (quantityKg > availableKg + 1e-6) {
         )} alvéoles), transfert demandé ${alveoles} alvéoles.`,
       );
     }
+  }
+
+  /** Alvéoles d'œufs propres à UN lot (produit − vendu − déjà transféré),
+   *  aligné sur `MetricsService.eggStockForBatch`. Empêche les transferts
+   *  « fantômes » attribués à un lot qui n'a pas assez d'œufs. */
+  private async availableBatchEggAlveoles(
+    em: EntityManager,
+    farmId: string,
+    batchId: string,
+  ): Promise<number> {
+    const entries = await em.getRepository(DailyEntry).find({
+      where: { batchId },
+    });
+    const produced = entries.reduce(
+      (s, e) =>
+        s +
+        (e.eggsCollected -
+          e.eggsCracked -
+          e.eggsSmall -
+          e.eggsDoubleYolk -
+          e.eggsDirty),
+      0,
+    );
+    const soldEggs = await this.batchSoldEggs(em, farmId, batchId);
+    const transfers = await em.getRepository(StockTransfer).find({
+      where: {
+        farmId,
+        batchId,
+        productType: StockTransferProductType.OEUFS,
+        status: StockTransferStatus.TRANSFERRED,
+      },
+    });
+    const transferredEggs = transfers.reduce(
+      (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
+      0,
+    );
+    const availableEggs = produced - soldEggs - transferredEggs;
+    return Math.max(0, Math.floor(availableEggs / EGGS_PER_ALVEOL));
+  }
+
+  /** Œufs vendus (alvéoles × 30) attribués à un lot, ventes non annulées. */
+  private async batchSoldEggs(
+    em: EntityManager,
+    farmId: string,
+    batchId: string,
+  ): Promise<number> {
+    const sales = await em.getRepository(Sale).find({
+      where: { farmId, status: Not(SaleStatus.CANCELLED) },
+    });
+    if (sales.length === 0) return 0;
+    const eggItems = await em.getRepository(SaleItem).find({
+      where: {
+        saleId: In(sales.map((s) => s.id)),
+        productType: SaleItemProductType.OEUFS,
+        batchId,
+      },
+    });
+    return eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
   }
 
   /** Kg d'aliment réellement disponibles sur un lot (réception − conso − pertes − ventes). */

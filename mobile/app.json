@@ -37,6 +37,12 @@
       ],
       "@react-native-community/datetimepicker",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "KouKou utilise vos photos pour choisir le logo de votre ferme."
+        }
+      ],
+      [
         "expo-navigation-bar",
         {
           "backgroundColor": "#FFFFFF",

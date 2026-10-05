@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommonModule } from '../../common/services/common.module.js';
 import { FarmsModule } from '../farms/farms.module.js';
+import { AccountingModule } from '../accounting/accounting.module.js';
 import { PointsOfSaleModule } from '../points-of-sale/points-of-sale.module.js';
 import { AlertsModule } from '../alerts/alerts.module.js';
 import { ReferenceConstantsModule } from '../reference-constants/reference-constants.module.js';
@@ -60,6 +61,7 @@ import { PromotionsController } from './promotions.controller.js';
       Farm,
     ]),
     FarmsModule,
+    AccountingModule,
     PointsOfSaleModule,
     AlertsModule,
     ReferenceConstantsModule,

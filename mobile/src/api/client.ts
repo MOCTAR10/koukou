@@ -42,6 +42,8 @@ interface ApiInit {
 }
 
 const REQUEST_TIMEOUT_MS = 15_000;
+/** Les uploads passent par un réseau souvent lent (mobile 2G/3G) : marge plus large. */
+const UPLOAD_TIMEOUT_MS = 60_000;
 
 export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> {
   const session = loadSession();
@@ -57,6 +59,52 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
         ...(session ? { Authorization: `Bearer ${session.token}` } : {}),
       },
       body: init.body != null ? JSON.stringify(init.body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (e: unknown) {
+    if (controller.signal.aborted) {
+      throw new Error('Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const contentType = res.headers.get('content-type') ?? '';
+  let body: unknown = null;
+  if (contentType.includes('application/json')) {
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+  }
+
+  if (!res.ok) {
+    const message = extractMessage(body) ?? `Erreur serveur (${res.status})`;
+    throw new ApiError(res.status, message);
+  }
+
+  return body as T;
+}
+
+/** Requête multipart (upload de fichier). `Content-Type` n'est pas défini ici :
+ *  fetch doit ajouter lui-même la boundary du FormData. */
+export async function apiUpload<T>(
+  path: string,
+  form: FormData,
+  method = 'POST',
+): Promise<T> {
+  const session = loadSession();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: session ? { Authorization: `Bearer ${session.token}` } : {},
+      body: form,
       signal: controller.signal,
     });
   } catch (e: unknown) {

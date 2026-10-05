@@ -3,7 +3,16 @@ import { Platform } from 'react-native';
 import { API_BASE_URL, ApiError } from './client';
 import { loadSession } from './token';
 
-export async function downloadPdf(path: string, filename: string): Promise<void> {
+export interface PdfDownloadResult {
+  platform: 'web' | 'android' | 'ios' | 'native';
+  /** true quand le PDF a été écrit dans le dossier Téléchargements (Android, via SAF) */
+  savedToDownloads?: boolean;
+  /** true quand le PDF est passé par la feuille de partage système (iOS) */
+  shared?: boolean;
+  uri?: string;
+}
+
+export async function downloadPdf(path: string, filename: string): Promise<PdfDownloadResult> {
   const session = loadSession();
   const headers: Record<string, string> = { Accept: 'application/pdf' };
   if (session) headers.Authorization = `Bearer ${session.token}`;
@@ -17,11 +26,17 @@ export async function downloadPdf(path: string, filename: string): Promise<void>
 
   if (Platform.OS === 'web') {
     await savePdfOnWeb(await res.blob(), filename);
-    return;
+    return { platform: 'web' };
   }
 
   const { savePdfOnDevice } = await import('./pdf-native');
-  await savePdfOnDevice(new Uint8Array(await res.arrayBuffer()), filename);
+  const result = await savePdfOnDevice(new Uint8Array(await res.arrayBuffer()), filename);
+  return {
+    platform: Platform.OS === 'android' ? 'android' : 'ios',
+    savedToDownloads: result.savedToDownloads,
+    shared: result.shared,
+    uri: result.uri,
+  };
 }
 
 export function savePdfOnWeb(blob: Blob, filename: string): void {

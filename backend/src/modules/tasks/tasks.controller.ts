@@ -11,6 +11,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
@@ -22,10 +23,11 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('equipe:taches')
   @ApiOperation({
     summary:
-      'Créer une tâche pour l’équipe (assignée à un Éleveur, liée optionnellement à un lot).',
+      'Créer une tâche pour l’équipe (assignée à un membre, liée optionnellement à un lot).',
   })
   @ApiParam({ name: 'farmId' })
   create(
@@ -40,7 +42,7 @@ export class TasksController {
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
-      'Lister les tâches (Propriétaire : toutes ; Éleveur : les siennes).',
+      'Lister les tâches (Propriétaire / Administrateur : toutes ; Éleveur : les siennes).',
   })
   @ApiParam({ name: 'farmId' })
   list(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
@@ -63,7 +65,7 @@ export class TasksController {
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
-      'Mettre à jour (Propriétaire : tout ; Éleveur : statut de ses tâches uniquement).',
+      'Mettre à jour (Propriétaire / Administrateur habilité : tout ; Éleveur : statut de ses tâches uniquement).',
   })
   @ApiParam({ name: 'farmId' })
   update(
@@ -76,7 +78,8 @@ export class TasksController {
   }
 
   @Delete(':taskId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('equipe:taches')
   @ApiOperation({ summary: 'Supprimer une tâche' })
   @ApiParam({ name: 'farmId' })
   remove(

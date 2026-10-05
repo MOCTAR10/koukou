@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, readCall, stubFetch, stubFetchSequence } from '@/api/test-utils';
 import { clearSession } from '@/api/token';
 
-import { cancelStockTransferQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue } from './engine';
+import { cancelStockTransferQueued, createCreditSaleQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue, recordCustomerPaymentQueued } from './engine';
 import { clearQueue, enqueueOp, getQueueVersion, loadOps, removeOp, subscribeQueue } from './store';
 
 vi.mock('expo-constants', () => ({
@@ -168,6 +168,38 @@ describe('capture hors-ligne — enfile et rejette', () => {
     const res = await createSaleQueued('f-1', '2026-08-28', [], 2500);
     expect(res).toEqual({ status: 'sent', reference: 'VTE-20260828-000001' });
     expect(loadOps()).toEqual([]);
+  });
+
+  it('createCreditSaleQueued : réseau → en attente sans paiement (crédit client)', async () => {
+    stubFetch(networkError);
+    const res = await createCreditSaleQueued('f-1', '2026-08-28', [], { customerId: 'c-1' });
+    expect(res).toEqual({ status: 'queued' });
+    const [op] = loadOps();
+    expect(op.kind).toBe('sale');
+    expect(op.payload).toEqual({
+      saleDate: '2026-08-28',
+      items: [],
+      idempotencyKey: op.id,
+      payments: [],
+      customerId: 'c-1',
+    });
+  });
+
+  it('createCreditSaleQueued : en ligne → envoyée sans ouvrir de caisse', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(201, { sale: { referenceNumber: 'VTE-20260828-000042' } }));
+    const res = await createCreditSaleQueued('f-1', '2026-08-28', [], { customerId: 'c-1' });
+    expect(res).toEqual({ status: 'sent', reference: 'VTE-20260828-000042' });
+    expect(readCall(fetchMock).url).toContain('/sales');
+    expect(loadOps()).toEqual([]);
+  });
+
+  it('recordCustomerPaymentQueued : réseau → mis en attente (kind customer-payment)', async () => {
+    stubFetch(networkError);
+    const res = await recordCustomerPaymentQueued('f-1', 'c-1', 25000);
+    expect(res).toEqual({ status: 'queued' });
+    const [op] = loadOps();
+    expect(op.kind).toBe('customer-payment');
+    expect(op.payload).toEqual({ customerId: 'c-1', amountFcfa: 25000, idempotencyKey: op.id });
   });
 
   it('createStockTransferQueued : réseau → mis en attente avec le bon kind', async () => {

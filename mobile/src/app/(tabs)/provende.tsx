@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 
-import { Screen, ScreenHeader } from '@/components/ui/Screen';
+import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -705,9 +705,11 @@ export default function ProvendeScreen() {
               <NumberInput
                 value={lossQty > 0 ? String(lossQty) : ''}
                 onChangeText={(t) => {
-                  setLossQty(Math.min(parseInt(t, 10) || 0, lossCap));
+                  const next = lossUnit === 'KG' ? parseFloat(t) || 0 : parseInt(t, 10) || 0;
+                  setLossQty(Math.min(next, lossCap));
                   setLossError(null);
                 }}
+                decimal={lossUnit === 'KG'}
                 suffix={lossUnit === 'SAC' ? 'sacs' : 'kg'}
                 placeholder="0"
               />

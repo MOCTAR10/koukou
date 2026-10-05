@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Bird, House, LayoutGrid, Plus, Wheat } from 'lucide-react-native';
 
@@ -139,7 +139,20 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
       : `M 0 0 H 0 V ${BAR_H} H 0 Z`;
 
   return (
-    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    // Edge-to-edge (SDK 54) : sur Android la barre système (3 boutons) dessine
+    // par-dessus le contenu — la barre d'onglets doit flotter au-dessus.
+    // Fallback sur initialWindowMetrics si l'inset live est fiable à 0.
+    <View
+      style={[
+        styles.wrap,
+        {
+          paddingBottom: Math.max(
+            insets.bottom,
+            initialWindowMetrics?.insets.bottom ?? 0,
+            8,
+          ),
+        },
+      ]}>
       <View style={styles.barOuter} onLayout={(e) => setBarW(e.nativeEvent.layout.width)}>
         <View style={styles.barSection}>
           <View

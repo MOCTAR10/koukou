@@ -9,7 +9,7 @@ import { In, LessThan, Not, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { TaskStatus } from '../../common/enums/task-status.enum.js';
-import { UserRole } from '../../common/enums/role.enum.js';
+import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { FarmEmployee } from '../farms/entities/farm-employee.entity.js';
@@ -53,9 +53,17 @@ export class TasksService {
 
   async list(user: AuthUser, farmId: string): Promise<FarmTask[]> {
     await this.farmsService.assertAccessible(user, farmId);
+    const resolution = await this.farmsService.resolveEffectivePermissions(
+      user,
+      farmId,
+    );
+    // Éleveur Koukou : uniquement ses propres tâches ; Propriétaire /
+    // Administrateur : toutes les tâches de l'équipe.
+    const onlyMine =
+      resolution !== 'ALL' && resolution?.role === FarmStaffRole.ELEVEUR;
     const where = {
       farmId,
-      ...(user.role === UserRole.ELEVEUR ? { assigneeId: user.id } : {}),
+      ...(onlyMine ? { assigneeId: user.id } : {}),
     };
     return this.taskRepo.find({
       where,
@@ -79,8 +87,17 @@ export class TasksService {
     dto: UpdateTaskDto,
   ): Promise<FarmTask> {
     const task = await this.getScoped(user, farmId, taskId);
+    const resolution = await this.farmsService.resolveEffectivePermissions(
+      user,
+      farmId,
+    );
+    const isManager =
+      resolution === 'ALL' ||
+      (resolution !== null &&
+        resolution.role === FarmStaffRole.ADMIN &&
+        resolution.permissions.has('equipe:taches'));
 
-    if (user.role === UserRole.ELEVEUR) {
+    if (!isManager) {
       const editableFields = ['status'] as const;
       const requested = Object.keys(dto).filter(
         (k) => (dto as Record<string, unknown>)[k] !== undefined,
@@ -90,7 +107,7 @@ export class TasksService {
       );
       if (forbidden.length > 0) {
         throw new ForbiddenException(
-          'Un Éleveur ne peut modifier que le statut de ses propres tâches.',
+          'Un membre terraine ne peut modifier que le statut de ses propres tâches.',
         );
       }
       if (task.assigneeId !== user.id) {
@@ -105,7 +122,7 @@ export class TasksService {
     if (dto.notes !== undefined) task.notes = dto.notes ?? null;
     if (dto.status !== undefined) task.status = dto.status;
 
-    if (user.role === UserRole.PROPRIETAIRE) {
+    if (isManager) {
       if (dto.assigneeId !== undefined) {
         await this.assertAssignable(farmId, dto.assigneeId ?? null);
         task.assigneeId = dto.assigneeId ?? null;
@@ -128,12 +145,21 @@ export class TasksService {
   }
 
   async remove(user: AuthUser, farmId: string, taskId: string): Promise<void> {
-    if (user.role !== UserRole.PROPRIETAIRE) {
+    const task = await this.getScoped(user, farmId, taskId);
+    const resolution = await this.farmsService.resolveEffectivePermissions(
+      user,
+      farmId,
+    );
+    const isManager =
+      resolution === 'ALL' ||
+      (resolution !== null &&
+        resolution.role === FarmStaffRole.ADMIN &&
+        resolution.permissions.has('equipe:taches'));
+    if (!isManager) {
       throw new ForbiddenException(
-        'Seul le Propriétaire peut supprimer une tâche.',
+        'Seul le Propriétaire (ou un Administrateur habilité) peut supprimer une tâche.',
       );
     }
-    const task = await this.getScoped(user, farmId, taskId);
     await this.taskRepo.remove(task);
     await this.refreshOverdueAlerts(farmId);
   }
@@ -147,7 +173,15 @@ export class TasksService {
     const task = await this.taskRepo.findOne({ where: { id: taskId, farmId } });
     if (!task)
       throw new NotFoundException('Tâche introuvable dans cette ferme.');
-    if (user.role === UserRole.ELEVEUR && task.assigneeId !== user.id) {
+    const resolution = await this.farmsService.resolveEffectivePermissions(
+      user,
+      farmId,
+    );
+    if (
+      resolution !== 'ALL' &&
+      (resolution === null || resolution.role === FarmStaffRole.ELEVEUR) &&
+      task.assigneeId !== user.id
+    ) {
       throw new ForbiddenException(
         'Accès refusé : vous ne pouvez accéder qu’aux tâches qui vous sont assignées.',
       );
@@ -165,7 +199,7 @@ export class TasksService {
     });
     if (!link) {
       throw new BadRequestException(
-        'L’éleveur assigné n’est pas rattaché à cette ferme.',
+        'Le membre assigné n’est pas rattaché à cette ferme.',
       );
     }
   }

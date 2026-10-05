@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { Relation } from 'typeorm';
 import {
   SaleItemProductType,
   SaleItemUnit,
@@ -24,7 +25,7 @@ export class SaleItem {
 
   @ManyToOne(() => Sale, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'sale_id' })
-  sale: Sale;
+  sale: Relation<Sale>;
 
   @Column({ name: 'sale_id', type: 'uuid' })
   @Index()
