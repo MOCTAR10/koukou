@@ -1,0 +1,120 @@
+# KouKou Ferme — CI (fast checks)
+#
+# What this runs, and nothing more:
+#   backend : TypeScript compile + oxlint + unit tests (vitest)
+#   web     : tsc --noEmit + vite build + oxlint
+#   mobile  : tsc --noEmit + eslint + unit tests (vitest)
+#
+# The backend e2e suite is NOT here on purpose: it needs PostgreSQL and runs
+# 29 specs sequentially (~10 min). It gets its own workflow file later.
+#
+# Node is pinned to 22 because the Expo app has a Node 22 specific quirk.
+# If you upgrade Node locally, change `node-version` in all three jobs.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lets you run it by hand from the Actions tab while testing.
+  workflow_dispatch:
+
+# If you push a second commit while a run is still going, cancel the old one.
+# Saves Actions minutes and stops you reading stale results.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + lint + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # Reuses the npm download cache between runs.
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      # `npm ci` installs exactly what package-lock.json says, and fails loudly
+      # if package.json and the lockfile disagree. Prefer it over `npm install`.
+      - name: Install dependencies
+        run: npm ci
+
+      # `nest build` is also the typecheck: if TypeScript is unhappy, this fails.
+      - name: Compile (typecheck)
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+  web:
+    name: Web (build + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Runs `tsc --noEmit && vite build` — typecheck first, then bundle.
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+  mobile:
+    name: Mobile (typecheck + lint + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # There is no build script here — `tsc --noEmit` is the typecheck.
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Do not replace this with `npx expo lint`: it breaks on Node 22.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test

@@ -1,146 +1,136 @@
 # KouKou Ferme — AGENTS
 
-Poultry farm management app (**offline-first**) for Gabon (SaaS), now multi-species (chicken, pintade, dinde, caille, canard, oie, faisan). Monorepo: `backend/` (NestJS), `web/` (admin console), `mobile/` (Expo prototype), `docs/`. GitHub: https://github.com/MoctarSidibe/koukou. Modules 1–5 delivered.
+Offline-first poultry SaaS (multi-species) for Gabon. Repo: https://github.com/MoctarSidibe/koukou
 
-## Backend commands (from `backend/`)
+## Repo shape
 
-- `npm run start:dev` — dev watch · `npm run build` — compile (**serves as typecheck**, no dedicated script) · `npm run lint` — **oxlint** · `npm run format` — prettier on `src/**/*.ts` and `test/**/*.ts`
-- `npm run test` — unit tests (`**/*.spec.ts`) · `npm run test:e2e` — e2e (`**/*.e2e-spec.ts`)
-- **e2e requires a local PostgreSQL.** Config via `backend/.env` (gitignored, **no `.env.example`**). Defaults: `localhost:5432`, user `postgres`, password `postgres`, database `koukou_ferme`
-- **e2e runs sequentially** (`fileParallelism:false`, `maxWorkers:1`) — specs share the same DB and boot `AppModule` with `synchronize:true`
+`backend/` (NestJS), `web/` (admin console), `mobile/` (Expo), `docs/`.
 
-## Critical backend conventions
+**No root `package.json`, no workspaces, no `.github/` CI.** Three independent npm projects — every command runs from its own directory. Nothing enforces lint/typecheck/test, so you must run them yourself before claiming done. There is no root lockfile.
 
-- **Relative imports MUST end in `.js`** (`from './app.module.js'`) — tsconfig uses `nodenext`; omitting it breaks the build. Applies in tests too.
-- **No migrations** — TypeORM `synchronize: true`, schema recreated at boot. Seed is idempotent (`src/database/database-seed.service.ts`, `onApplicationBootstrap`).
-- **All routes protected** — global `JwtAuthGuard` (401 without Bearer), global `RolesGuard`. Only `/auth/register` and `/auth/login` are public. Auth = **phone + code secret**, token 7 days.
-- **DB columns snake_case** (`@Column({ name: 'foo_bar' })`), TS fields camelCase. Enums in `src/common/enums/`. DTOs with class-validator, **error messages in French**. Swagger at `/api-docs` on :3000.
-- **e2e tests**: unique IDs using timestamps (`+24170${Date.now()}`), emails `*.e2e.ga`. Each spec boots a full `AppModule` against the real DB.
-- **PDFs via pdfmake 0.3.11**: write fonts with `virtualfs.writeFileSync`, `addFonts(...)`, then `createPdf(dd).getBuffer()` returns a **Promise**. Call `setUrlAccessPolicy`/`setLocalAccessPolicy(() => false)` to suppress warnings. Types at `src/common/types/pdfmake-vfs.d.ts`.
-- **PdfService is shared** at `src/common/services/pdf.service.ts` (used by finance, slaughter, health). Exposed via `CommonModule`.
-- **Readiness auto-signal (commercialisation)**: calculé à la lecture dans `MetricsService.compute()` (`readyForSale`/`readyReason`) — CHAIR prêt si `ageDays >= VENTE_AGE_MIN_DAYS` (seed 35), statut ≠ ROUGE et `fcrDeviationPct <= VENTE_FCR_DEV_MAX_PCT` (10); PONDEUSE réformable si `layRateDeviationPct < -REFORME_LAY_RATE_FALL_PCT` (15). `ProductionBatch.readyForSaleAt` (`ready_for_sale_at`) persisté dans `batches.service.afterChange`; `BatchStatus.EN_VENTE` reste une sortie de secours manuelle.
+## Commands
 
-## Language & roles
+| | backend | web | mobile |
+|---|---|---|---|
+| dev | `npm run start:dev` | `npm run dev` (proxies `/api`→`:3000`) | `npm run start` |
+| typecheck | `npm run build` (`nest build` compiles) | `npm run build` (`tsc --noEmit` + vite build) | `npm run typecheck` (`tsc --noEmit`; no build script) |
+| lint | `npm run lint` (oxlint) | `npm run lint` (oxlint) | `npm run lint` (`eslint .`) |
+| test | `npm run test` | **none — web has no test script** | `npm run test` |
 
-- **UI / user messages / errors / alerts / tips: FRENCH**
-- **Code identifiers (variables, DB tables, functions): ENGLISH**
-- Roles: `PLATFORM_ADMIN` (inherits all PROPRIETAIRE rights via `RolesGuard`), `PROPRIETAIRE` (full farm access), `ELEVEUR` (restricted: can sell, view caisse, do entries; cannot open/close caisse, manage team, or create/process slaughter orders)
-- PLATFORM_ADMIN account created **exclusively via env vars** (`PLATFORM_ADMIN_EMAIL`/`PHONE`/`PASSWORD`) at seed. If vars missing, no admin is created.
-- `Farm.active` and `User.active`: suspended farm → reads OK but sales blocked (400); suspended user → login refused (401)
+- Single test: `npm run test -- <filter>` in `backend/` or `mobile/` (vitest). Backend e2e: `npx vitest run --config ./vitest.config.e2e.ts <filter>`.
+- Formatting is `npm run format` (prettier) — separate from lint in all three.
+- `web`: `npm run types` regenerates `src/api/schema.d.ts` from a **running** backend. Output is **not imported** — `src/api/types.ts` is hand-maintained and authoritative. Never edit `schema.d.ts` to fix a type error.
+- `mobile`: use `npm run lint`, **not** `npx expo lint` (Node 22 issue).
+- Verified green baseline: backend unit 2 files/10 tests, mobile 16 files/305 tests.
+- **Full backend e2e is expensive**: 29 specs, forced sequential (`fileParallelism:false`, `maxWorkers:1`), each boots the whole AppModule *and* runs `synchronize` against the same DB. ~10 min. Filter by name while iterating.
+- Vitest prints a `vite-tsconfig-paths` deprecation warning on every run (Vite now resolves tsconfig paths natively). Expected noise — don't "fix" it mid-task.
 
-## Module map (`src/modules/`)
+## Windows / encoding (this repo is edited on Windows)
 
-| Module | Key files / concepts |
-|---|---|
-| `auth` | Phone+code login, auto-create default farm for new PROPRIETAIRE |
-| `batches` | Module 1 core: `advisory.engine.ts`, `metrics.service.ts` |
-| `daily-entries` | Daily worker entries (deaths, feed, water, weight, eggs) |
-| `inputs` | HACCP `InputLot` for feed/medication stock |
-| `alerts` | Rule registry, persisted alerts, French messages |
-| `sanitary` | Module 2: protocols, prophylaxis, treatments, health events |
-| `feed-stock` | Module 3: `FeedPhase`/`FeedEntryType`, FEFO, never-negative-stock |
-| `finance` | Module 4: POS (cash only), sales, caisse, customers, P&L, PDF receipts |
-| `orders` | Précommandes & bons de commande: `order` = wrapper autour d'une `Sale`, snapshot JSONB `items`, acomptes via `recordPayment`, réservation souple du cheptel, PDF bon de commande |
-| `slaughter` | Module 5: orders (INTERNAL/EXTERNAL), bordereau PDF, health passport |
-| `tasks` | Équipe: `FarmTask` (A_FAIRE…), assignable to employee/batch, overdue `TACHE` alert. ELEVEUR sees only own tasks |
-| `advisory` | `GET /farms/:farmId/advisory/next-actions` — aggregated for mobile |
-| `platform` | `/admin/*` — PLATFORM_ADMIN only: metrics, provisioning, config |
-| `weather` | Weather observations, THI heat-stress alerts |
-| `points-of-sale` | POS terminal management |
-| `breeds` · `buildings` · `farms` · `users` · `reference-constants` | Support modules (own controllers/services, no invariants listed above) |
+- **Never `Get-Content`/`Set-Content`/`Out-File` French UTF-8 files in PS 5.1.** `Get-Content` reads as ANSI and renders `é`→`Ǹ`; `Set-Content` adds a BOM *and* corrupts. Use the `read`/`write`/`edit` tools, or `[System.IO.File]::WriteAllText($p,$s,(New-Object System.Text.UTF8Encoding($false)))`. Tracked files are clean UTF-8 — any `Ǹ`/`â€¦` you see in console output is a *display* artifact, not damage. Verify before "fixing".
+- `.gitattributes` pins `*.ts` and `*.md` to `eol=lf`. Working tree is CRLF on Windows and git warns on every write. Keep LF in the file.
 
-## Key invariants (would cause bugs if missed)
+## Backend gotchas
 
-### Feed stock (Module 3)
-- **FEFO auto-assignment**: consumption is auto-assigned to the first eligible non-expired lot with available stock for the phase. Never allow negative stock.
-- Quantity calculation differs by `entryType`: `BULKER`/`MATIERE_PREMIERE` → `tonnageMt × 1000` kg; `BAG` → `numberOfBags × bagSizeKg`; `MEDICAMENT` → not counted in kg autonomy (it's a dose).
-- Feed alert (`ALIMENT`): RED if autonomy < 3 days, YELLOW if < 5. Recommendation includes suggested reorder quantity.
+- **Relative imports MUST end in `.js`** (tsconfig `nodenext`). All 1129 relative imports in `src/` comply — including tests. A missing `.js` is a runtime `ERR_MODULE_NOT_FOUND`, not a type error.
+- **Property-level `@Index('name', ['a','b'])` silently corrupts.** Verified in `node_modules/typeorm/decorator/Index.js`: `columns: propertyName ? [propertyName] : fields` — the field list is **discarded**, while the composite `name` and `unique: true` survive. Result: a single-column unique index under a misleading name. Multi-column `@Index` must be **class-level** (above `@Entity`); single-column may be property-level. Live violations to fix, not copy: `finance/entities/sale.entity.ts:39`, `orders/entities/order.entity.ts:135`.
+- **Entity circular imports + `emitDecoratorMetadata`** can cause TDZ crashes. Break cycles with `import type` and relation-by-**name** (`@ManyToOne('JournalEntry')`) — never mutual value imports.
+- **No migrations.** `synchronize` comes from `DB_SYNCHRONIZE` (default `'true'`) in `app.module.ts`; schema is rebuilt at boot, so **column changes need no migration file** but also can't be rolled back. Seeding is idempotent from `onApplicationBootstrap` in `src/database/database-seed.service.ts`. Enums live in `src/common/enums/` — don't inline string unions.
+- **`.env` is gitignored and there is no `.env.example`.** Required keys: `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`, `DB_SYNCHRONIZE`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `PORT`, `SWAGGER_PATH`. Optional `PLATFORM_ADMIN_EMAIL/PHONE/PASSWORD` seed the platform admin (absent → warning, no admin created).
+- **e2e needs a live local PostgreSQL** on `DB_HOST:DB_PORT` reading the same `.env`. Each spec boots the full app with synchronize on. Use unique IDs/timestamps and `*.e2e.ga` emails. `globalThis.fetch` is mocked in `test/e2e-setup.ts` (weather returns THI<75 comfort forecast to keep every other spec deterministic and offline); only `weather.e2e-spec.ts` overrides and restores it. Unmatched URLs resolve to a 404 stub.
+- **Auth**: `@Public()` exists on exactly two routes — `/auth/register` and `/auth/login`. Everything else is JwtAuthGuard → RolesGuard → PermissionsGuard. Phone + code secret, 7d token. Swagger at `/api-docs` (3000).
+- **DB naming**: snake_case columns, camelCase TS. **Error messages and all user-facing text are French.**
+- **PDFs** (pdfmake 0.3.11): register fonts via `virtualfs.writeFileSync` + `addFonts(...)`; `createPdf(dd).getBuffer()` returns a **Promise**. Set `setUrlAccessPolicy`/`setLocalAccessPolicy(() => false)` to silence warnings. VFS types at `src/common/types/pdfmake-vfs.d.ts`. Use the shared `PdfService` (`src/common/services/pdf.service.ts`, exported by `CommonModule`) — never build a second pdfmake instance per feature.
 
-### Finance (Module 4)
-- **Cash only** at MVP (Mobile Money shows "coming soon"). Amounts are **integer FCFA**.
-- `POULET_PIECE` sale: integer quantity mandatory. `PROVENDE` sale: `inputLotId` required (HACCP traceability). `POULET_KG`: `pieceCount` required, `quantityAlive -= pieceCount`.
-- **Cash register (caisse) can never go negative** — outgoing > available balance → 400. Open/close/movements = PROPRIETAIRE only.
-- Cancellation uses pessimistic locks on both the sale and the lot; refunds require open caisse session and sufficient balance.
-- P&L auto-deducts chick cost + feed costs (InputLot kind=ALIMENT linked to batch). Do NOT re-enter these as manual expenses.
-- **Customers captured find-or-create by phone at POS — non-blocking** (sale proceeds even if capture is skipped/incomplete). Phone normalized (spaces/dashes stripped). Segments NOUVEAU/REGULIER/TOP computed server-side.
-- **Promotions**: code stored **uppercase, unique per farm** (409 on duplicate), type `PCT|FCFA`, optional `minSubtotalFcfa` + `customerId` targeting, reusable. Applied in the POS transaction, discount traced on the receipt; discounted sale still enforces never-negative-caisse.
+## Language, roles & permissions
 
-### Commandes & bons de commande (`orders`)
-- **`Order` enveloppe une `Sale`** : création = bon de commande/précommande sans décrémenter le cheptel. La livraison (`fulfil`) décrémente `quantityAlive` (verrou pessimiste) ou vérifie le stock d'œufs.
-- **État machine** : `PENDING → CONFIRMED (acompte) → LIVRE | CANCELLED`. `livrer` refuse non-CONFIRMED (400). Annulation = `SalesService.cancel(..., { skipStockRestore: true })` — le cheptel n'ayant pas été décrémenté, rien n'est réintégré.
-- **La vente enveloppe d'une commande ne doit JAMAIS être annulée directement** (uniquement via `orders/:id/cancel`) — `sales.cancel` interdit si `orderRepo.findOne({where:{saleId}})` existe (400) ; et `orders.cancel` tolère une enveloppe déjà `CANCELLED` (idempotence, blinde le `skipStockRestore`).
-- **Fulfil (livraison œufs) exclut la commande courante** : `assertEggsAvailable(..., excludeSaleId)` ne compte pas les items OEUFS de la vente enveloppe en cours contre eux-mêmes (la vente est déjà créée → sinon double-compte).
-- **Verrouillages : toujours lot AVANT ordre d'abattage.** `sales.create` pré-verrouille TOUS les lots impliqués (triés, déterministes) avant de traiter les items POS — sinon un item ABATTU (lock ordre) suivi d'un POULET (lock lot) inverse le graphe vs `slaughter.process` (lot→ordre) → deadlock.
-- **Réservation = cap souple calculé serveur** : `vivants − Σ oiseaux des commandes non LIVRE/CANCELLED`. Multi-lots refusé : une commande = un lot.
-- **Acomptes via `PaymentsService.recordPayment`** : caisse CASH ouverte requise, montant ≤ reste dû (le total de la vente enveloppée est la référence). Références `CMD-YYYYMMDD-######` / `VTE-`.
-- **Snapshot JSONB `items`** : prix figés au bon de commande; les quantités finales (`POST :id/livrer`) recalculent montants et resynchronisent le snapshot.
-- Volaille uniquement (POULET_PIECE/KG, OEUFS) : PROVENDE/AUTRE restent sur le POS direct.
+- **UI text, labels, errors: FRENCH. Code identifiers, comments: FRENCH too, but keep them English.** Mixed by design — don't "normalize" either direction.
+- `UserRole`: `PLATFORM_ADMIN` (inherits PROPRIETAIRE), `PROPRIETAIRE` (full), `ELEVEUR` (member).
+- `FarmStaffRole` is **per farm link**, distinct from `UserRole`: `ADMIN` (flexible, per-link permission list) vs `ELEVEUR` (fixed).
+- Effective permissions resolve in `farms.service.ts` (`assertAccessible`/`profileOf`): owner and PLATFORM_ADMIN get `ALL`/`['*']`; `ADMIN` gets **exactly the stored `link.permissions` filtered by `isPermissionCode` — there is no default set, so an empty list means no permissions**; `ELEVEUR` always gets `ELEVEUR_DEFAULT_PERMISSIONS`. A `permissions` payload is refused for ELEVEUR.
+- Suspended farm → sales blocked (400). Suspended user → login 401.
+- **Authz is two layers**: broad `@Roles(...)` plus fine-grained `@Permissions('code', ...)`; owner/PLATFORM_ADMIN bypass both. The catalog is the single source of truth: `src/common/permissions/permission-catalog.ts` (`PERMISSION_GROUPS`). **Never invent a permission code** — gate new routes with existing ones or add to the catalog. Mobile gates with `useFarmProfile().hasPermission()`; per-code constants are mirrored in `mobile/src/constants/permissions.ts`.
 
-### Slaughter (Module 5)
-- Strict state machine: `DRAFT → SENT → PROCESSED | CANCELLED`. `process` refuses non-SENT (400). PROCESSED/CANCELLED are immutable.
-- `birdCount ≤ quantityAlive` enforced at send AND process (pessimistic lock in transaction).
-- **Sanitary criteria block shipment**: active `DELAI_ATTENTE` or `PROPHYLAXIE` RED → 400 on `POST :orderId/send`.
-- **Rendement optional, non-blocking**: `carcassWeightKg` set at process → `rendementPercent = carcass/liveWeight ×100`. Carcass **cannot exceed** live weight (400). `carcassWeightKg` without `totalWeightKg` keeps rendement null.
+## Module map (`backend/src/modules/`)
 
-### Sanitary (Module 2)
-- **All dates compared in UTC** (`YYYY-MM-DD`) — never mix local and UTC dates.
-- PROPHYLAXIE RED if care is `EN_RETARD`, YELLOW if next care ≤ `calendar_lead_days`.
-- Health events `REFORME` or `MORTALITE` with `quantity>0` decrement `quantityAlive` immediately (pessimistic lock). Deletion restores it.
-- DELETE health event = PROPRIETAIRE only (403 for ELEVEUR).
-- **Pre-loaded vaccination programs (`vacc-*`) are species- AND type-specific.** The mobile wizard queries `GET /sanitary/protocols?species=&type=` scoped to the selected lots (single species + single type required); a mixed-species selection disables the program mode. `generateVaccineProgram` rejects with 400 (`BadRequestException`, French message) any lot whose `species`/`type` doesn't match the program — never ship a POULET program onto a non-POULET lot. Manual schedules unfold species from the server-side lot (no client species field).
+`auth` · `batches` (M1: `advisory.engine.ts`, `metrics.service.ts`) · `daily-entries` · `inputs` (HACCP `InputLot`) · `alerts` · `sanitary` (M2) · `feed-stock` (M3, FEFO) · `finance` (M4: sales, caisse, customers, payments, promotions, expenses, `rentabilite.*` P&L) · `slaughter` (M5) · `orders` (Order wraps Sale, JSONB `items` snapshot, acomptes, PDF) · `points-of-sale` (POS + ferme→boutique `stock-transfers`) · `tasks` · `farms` (équipe + permissions) · `accounting` (M11 SYSCOHADA: `posting-map.ts`, `account-plan.data.ts`) · `advisory` (mobile aggregation) · `platform` (`/admin/*`, PLATFORM_ADMIN) · `weather` (THI alerts) · `breeds`/`buildings`/`users`/`reference-constants` (support).
+
+## Key invariants
+
+### Feed stock / finance
+- **FEFO auto-assignment**, stock never negative. Quantity by `entryType`: `BULKER`/`MATIERE_PREMIERE` = `tonnageMt×1000` kg; `BAG` = `nBags×bagSizeKg`; `MEDICAMENT` excluded from kg autonomy.
+- Feed autonomy thresholds are **seeded reference constants**, not hardcoded: `FEED_STOCK_CRITICAL_DAYS`=3 (RED), `FEED_STOCK_WARN_DAYS`=5 (YELLOW), `FEED_ORDER_TARGET_DAYS`=7. Read them via `constants.get(...)`. Change the seed, not `feed-stock.service.ts`.
+- **Cash only** (no Mobile Money). **Integer FCFA.** Caisse never negative. P&L auto-deducts chick + feed costs — do **not** re-enter them as manual expenses. Sale cancellation needs pessimistic locks + an open caisse + sufficient balance. Customers are find-or-create by phone (non-blocking). Promotion codes are uppercased and unique per farm (409 on duplicate).
+- Sale types: `POULET_PIECE` requires integer qty; `PROVENDE` requires `inputLotId` (HACCP); `POULET_KG` requires `pieceCount` and decrements `quantityAlive`.
+
+### Points of sale / stock-transfers
+- POS `FERME` (default: live birds + slaughter) vs `BOUTIQUE` (external, sells **only** farm-transferred reserves). A FERME POS is never reclassifiable to BOUTIQUE; `stockTransferId` is rejected on non-BOUTIQUE POS.
+- `POST /stock-transfers` **decrements the source at creation**: `ABATTU` → `carcassesAvailable` of a PROCESSED order; `PROVENDE` → `InputLot.quantity` (SAC/KG via `farm.defaultSacKg`, default 50); `OEUFS` → derived reservation only (nothing decremented; `EGGS_PER_ALVEOL = 30`, transfers store alvéoles).
+- `TRANSFERRED → CANCELLED`; cancel re-integrates `quantity − quantitySold` to the source. Each BOUTIQUE sale decrements `quantitySold` under a pessimistic lock; cancelling it restores via `restoreStockTransfer`.
+
+### Orders
+- An `Order` wraps a `Sale`; creation does **not** decrement stock, `fulfil` does. State: `PENDING→CONFIRMED→LIVRE|CANCELLED`. Cancel passes `skipStockRestore:true`.
+- **Never cancel an order's wrapped sale directly** — only via `orders/:id/cancel`, which is idempotent. Egg fulfil must exclude the order's own sale (`excludeSaleId`).
+- **Lock ordering matters**: `sales.create` pre-locks *all* lots (sorted, deterministic) before POS items. Otherwise ABATTU→POULET inverts the graph relative to `slaughter.process` (lot→order) and deadlocks.
+
+### Slaughter / sanitary
+- `DRAFT→SENT→PROCESSED|CANCELLED` (terminal states immutable). `birdCount ≤ quantityAlive` checked at send **and** at process. Active RED `DELAI_ATTENTE`/`PROPHYLAXIE` blocks shipment. Carcass weight ≤ live weight.
+- **All date comparisons in UTC.** REFORME/MORTALITE health events decrement `quantityAlive` immediately.
+- Pre-loaded `vacc-*` programs are **species- and type-specific**; the server rejects mismatches (400). Never ship a POULET program onto a non-POULET lot.
 
 ### Advisory & alerts
-- **Advisory only, never blocking** — even for HACCP and sanitary. Red alert + recommendation + trace; user decides.
-- Water is the #1 indicator. Combined `MALADIE` alert: water drop + rising mortality → RED/YELLOW.
-- Alerts go `ACTIVE → RESOLÉ` when risk disappears; manual `ACKNOWLEDGE` → `ACQUITTÉE` (re-raised if risk persists).
+- **Advisory only, never blocking** — including HACCP and sanitary. Emit a red alert + recommendation + trace; the farmer decides. Water is the #1 indicator (drop in water + rising mortality → combined `MALADIE` RED/YELLOW). One daily entry per batch per date (upsert on `(batch, entryDate)`).
+- Alert lifecycle: `ACTIVE → RESOLU` when risk clears; manual `ACKNOWLEDGE` → `ACQUITTEE`, re-raised if the risk persists.
+- **Readiness is computed on read** in `MetricsService.compute()` (`readyForSale`/`readyReason`) and cached onto `ProductionBatch.readyForSaleAt` by `batches.service.afterChange`. `BatchStatus.EN_VENTE` is only a manual escape hatch.
+
+### SYSCOHADA accounting
+- Integer FCFA; entries **always balance**; posted **in the same transaction** as the business mutation. Idempotent via unique `(farmId, source, sourceId)` (tolerate PG `23505`). No TVA.
+- Order revenue is recognized **at delivery**, not creation (the order-wrapper sale is written with a direct `saleRepo.save`). Cancelling before delivery posts only `cancel-deposits:`.
+- Feed stock (Classe 3) → `311` (asset) ↔ `603`, valued per lot by available vs received kg.
+- Accounts auto-seed via `ensureAccounts`; `Account.code` is unique per farm (class-level composite index). The bilan balances by construction; codes `12`/`129`/`13` (RAN) are excluded from the capital base to avoid double-counting.
+- Mobile write paths — `comptabilite.tsx`, `depenses.tsx`, `components/pos/CaisseTab.tsx` — are gated by `compta:rapports`/`compta:ecritures`/`compta:depense`. Non-manual cash movements (`SALE_PAYMENT`/`REFUND`/`EXPENSE`) are immutable.
 
 ## Web console (`web/`)
 
-- SPA: **Vite + React 18 + TS strict + Tailwind v4 + react-router v6 + TanStack Query v5 + lucide-react**
-- **PLATFORM_ADMIN only** — farmers use `mobile/`. Non-admin login refused with `MobileOnlyScreen`.
-- Commands (from `web/`): `npm run dev` (proxy `/api` → `localhost:3000`) · `npm run build` = `tsc --noEmit` + `vite build` · `npm run lint` (oxlint) · `npm run format` (prettier) · `npm run types` = generate OpenAPI types (needs backend running; output committed but **not imported** — local `src/api/types.ts` is authoritative)
-- Types: `src/api/client.ts` (fetch + localStorage token `koukou.token` + `.download()` for PDFs) · `src/api/types.ts` (local interfaces, NOT the generated schema)
-- **`api.download()` maps 401 → logout redirect** via shared `handleUnauthorized` (same as `request`), so a stale token on PDF export doesn't strand the user.
-- Routes: `/login`; `/app` shell → `dashboard|batches|alerts|finance|stock|sanitary|slaughter|team|settings`; `/app/platform` gated to PLATFORM_ADMIN. Admin lands on `/app/platform` via HomeRedirect.
-- `GET /farms/:id/inputs` returns full `InputLot` — feed option label = `supplierLotNumber — productName` (**not** `lotNumber`/`supplierName`, those fields don't exist). Query keys for POST-sale refresh (`refreshFarm`) are `['sales','batches','dashboard','caisse-current','feed-stock','customers']` — `['inputs']` is not a subscribed key.
-- Colors: `--color-brand-*` (teal `#206080`), `--color-accent-*` (orange `#F08010`) in `src/index.css` `@theme`
+- Vite + React 18 + TS strict + Tailwind v4 + react-router v6 + TanStack Query v5. **PLATFORM_ADMIN only** — any other role gets `MobileOnlyScreen` from `src/auth/guards.tsx`.
+- `src/api/client.ts`: fetch wrapper, localStorage keys `koukou.token` / `koukou.user`, and `.download(path, filename)` for PDFs. A 401 triggers logout, so use `.download()` rather than raw `fetch` for file endpoints.
+- Routes live in `src/App.tsx`: `/login`, then under `/app` → `dashboard|batches|alerts|finance|stock|sanitary|slaughter|team|settings`, plus `/app/platform` behind `RequiresPlatformAdmin`. `finance` has children `ventes|caisse|clients|promotions` and defaults to `ventes`.
+- Feed option label is `supplierLotNumber — productName` (**not** `lotNumber`).
+- After a sale, invalidate `['sales','batches','dashboard','caisse-current','feed-stock','customers']`.
+- Farm context lives in `src/app/FarmContext.tsx`; there is no `src/app/router`.
 
 ## Mobile (`mobile/`)
 
-- **Expo SDK 54** + React Native 0.81.5 + React 19.1 + expo-router ~6.0.24 + TS ~5.9.2
-- SDK 54 chosen because Expo Go in stores was stuck on SDK 57 (not yet approved); SDK 55+ won't run in store Expo Go.
-- No NativeWind — StyleSheet + theme tokens. UI in French, code in English.
-- **Client API facade 100 % live** : `src/api/index.ts` délègue uniquement à `src/api/live.ts` — la démo locale (`mock.ts`) a été supprimée. Toujours importer depuis `@/api`, **jamais** `@/api/live` directement. L'authentification est obligatoire (`AuthContext.signedIn`) ; le routage est verrouillé en dur via `<Stack.Protected guard={signedIn}>` dans `_layout.tsx` (login/register hors protected) — pas de `SessionGate`, pas de redirection `router.replace` au montage (évite le crash « no routes matched »). Le mode hors-ligne reste géré par la file FIFO (retry au retour en ligne), jamais par une simulation locale.
-- Commands (from `mobile/`): `npm run start` · `npm run typecheck` (= `tsc --noEmit`, **no `build` script**) · `npm run lint` (= **`eslint .`** — `npx expo lint` crashes on Node 22) · `npm run test` (= `vitest run`, environment node, tests in `src/**/*.test.ts` — `src/api/*.test.ts`, `src/offline/engine.test.ts`, `src/constants/phone.test.ts`)
-- **React Compiler rule** (lint `react-hooks/purity`): `Math.random`/`Date.now` must live **outside render** in module-scope helpers (e.g. `newIdempotencyKey`).
-- **Submit buttons that build state offline must bind `disabled={... || busy}`** (not just `loading`): a double-tap before `busy` flips could enqueue two ops (e.g. duplicate order-create). Include the local `busy` flag in `disabled`.
-- **`CustomTabBar` uses intentionally loose types** (`state`/`navigation` typed loosely, `emit/navigate` as `any`) — the types from `@react-navigation/bottom-tabs@7` forked by expo-router are incompatible. Do NOT reimport `BottomTabBarProps`.
+- **Expo SDK 54**, RN 0.81, React 19, expo-router ~6. Routes are in **`src/app/`** (not `app/`). StyleSheet + theme tokens from `src/constants/theme.ts` — **no NativeWind**. See `mobile/AGENTS.md` (and `mobile/CLAUDE.md` → `@AGENTS.md`) before writing Expo code; the SDK pin exists because store Expo Go cannot run SDK 55+.
+- `app.json` sets `experiments.reactCompiler: true` and `typedRoutes: true`, but there is **no `babel.config.js` or `metro.config.js`** — Metro runs on defaults, so don't assume the compiler is transforming anything.
+- `react-native-worklets` is pinned to **exactly** `0.5.1` (Reanimated 4 requirement). Don't loosen to `~` or bump it independently.
+- `expo-haptics`/`expo-sharing` must **not** be listed in `plugins` in `app.json` (no `app.plugin.js`; TS entry resolution crashes with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`).
+- Import the API from **`@/api`** (facade over `live.ts`) — never `@/api/live` directly; no file does. All 92 API imports go through the facade. The mock backend is gone: `isLive()` is hardcoded `true`.
+- Auth is enforced by `<Stack.Protected guard={signedIn}>` in `src/app/_layout.tsx`. Do not reintroduce a SessionGate or `router.replace` at mount.
+- Keep render pure: `Math.random`/`Date.now` belong in module-scope helpers (see the explicit helper block in `src/app/(tabs)/lots.tsx`). Note this is a **convention, not a lint rule** — `eslint --print-config` enables only `react-hooks/rules-of-hooks` and `react-hooks/exhaustive-deps`; `react-hooks/purity` is *not* active.
+- Offline submit buttons must bind `disabled={... || busy}` to prevent double-enqueue.
+- `CustomTabBar` has intentionally loose types — do **not** re-import `BottomTabBarProps`.
 
-### Windows gotcha
-- **Never use `Get-Content`/`Set-Content`** (PS 5.1) on French UTF-8 files — it reads ANSI and writes UTF-8+BOM → mojibake (win-1252). Use the `write`/`edit` tools or .NET `UTF8Encoding($false)`. Check: no `Ã©`/`Ã§`/`â€¦` in output.
+### Motion
+- **Reanimated 4.x** (mobile) / **`motion` v13** (web). **No Moti, no GSAP** — never add a native animation dependency. Tokens: `src/constants/motion.ts` (mobile) and `src/lib/motion.ts` (web). Primitives: `src/components/ui/motion/{AnimatedNumber,TapScale}.tsx` and `web/src/components/AnimatedNumber.tsx`. Always honour reduced motion (`timed()`/`springed()` default to `System`). Repo skill **`motion-design`** is the best-practices source.
+- Reanimated 4's `withSpring` config is a discriminated union — pass a concrete config, never spread a `Partial`.
 
-### Node 22 quirk
-- `expo-haptics` and `expo-sharing` **must NOT be listed in `plugins`** in `app.json` — they're runtime-only with no `app.plugin.js`, and Expo resolves their TS entry → crashes with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. Do not re-add plugin-less packages to `plugins`.
+### Offline sync (`mobile/src/offline/`)
+- Custom FIFO engine, zero dependencies. Network failure (`TypeError` or `ApiError ≥ 500`) → enqueue; 4xx propagates and drops. Sales send `idempotencyKey = op.id`.
+- `flushQueue()` returns `{synced, dropped, remaining}` and is guarded by a **mutex** promise so concurrent callers share one pass (no double-POST). `runFlush()` **re-loops up to 20 rounds** while new ops arrive — never snapshot the queue.
+- **Cash ops (`sale`, `order-payment`, `customer-payment`) must never be dropped.** `ensureCashOpenOrRetry()` deliberately rethrows a plain `Error` (not `ApiError`) so a 4xx from the caisse step maps to *retry*, not *drop*.
+- `OfflineAutoSync` (mounted in `_layout.tsx`) flushes on reconnect/pending-op, ref-guarded. Invalidate via `invalidateFarmQueries()`.
 
-## Offline sync (`mobile/src/offline/`)
+## Seeded data & tunable constants
 
-- Custom engine, no dependencies. FIFO queue of `OfflineOp` in `localStorage`/memory.
-- Network failure (`TypeError` or `ApiError ≥ 500`) → enqueue; 4xx propagated as real errors / dropped at flush.
-- Pending sale uses `idempotencyKey = op.id` → retry without duplicates. Customer info (`customerName`/`customerPhone`/`promoCode`) preserved through queue and online POST.
-- `flushQueue()` stops at first unsendable op, returns `{synced, dropped, remaining}`. **Mutex** (`flushing` promise): concurrent calls (post-enqueue + `OfflineAutoSync`) share ONE pass so an idempotent-but-not-replayed op is never POSTed twice.
-- `runFlush()` **re-loopes up to 20 rounds** while new ops keep arriving during a pass (network flapping) — don't snapshot the queue once, keep draining until stable.
-- **Cash ops must never be `dropped`** (`sale`, `order-payment`): `ensureCashOpenOrRetry()` wraps `ensureCashOpen` and rethrows a plain `Error` (not `ApiError`) so a 4xx from the caisse step maps to `retry`, not `drop` — otherwise the cash op is discarded silently. A genuine 4xx from the sale/payment POST itself still drops.
-- `OfflineAutoSync` component (mounted in `_layout.tsx`): flushes on connection transition or new pending op, guarded by refs to avoid loops.
-- Cache invalidation after successful sync via `invalidateFarmQueries(queryClient, {farmId, batchId?})`.
+33 breeds across 8 species (each with zootechnic curves), `standard_module` = 3000, densities 15/18, vaccination programs `GABON_VACC_PROTOCOLS`.
 
-## Seeded data
+Reference constants (`ReferenceKey`, seeded in `database-seed.service.ts`) are **data, not code**: GET is open to farm members, PATCH is PLATFORM_ADMIN-only and rejects values ≤ 0. Alert thresholds, calendar lead days and rentabilité margins all come from here — always confirm you are editing the seed and not a hardcoded literal.
 
-- Breeds: 33 default breeds across 8 species — Chair (Cobb 500, Ross 308, Ross 708, Hubbard, Arbor Acres, Sasso T451), Pondeuses (ISA Brown, Lohmann Brown, Hy-Line Brown, Novogen Brown, Bovans Brown, Shaver Brown), plus Pintade, Dinde, Caille, Canard, Oie, Faisan and Volaille Locale. Custom breeds via `POST /breeds`. Each seeded breed ships zootechnic reference curves (weight/FCR for chair, lay rate for pondeuse).
-- Constants: `standard_module`=3000 (POUFA reference), density 15/18 birds/m², empty-clean 14–21 days, age gap 4 weeks, mortality/water/feed/IPE/GMQ thresholds.
-- Protocols: `proto-poulet-chair-standard`, `proto-poule-pondeuse-standard` + Gabon vaccination programs (`GABON_VACC_PROTOCOLS`).
-- Reference constants: `GET /reference-constants` (read for PROPRIETAIRE+ELEVEUR), `PATCH` only by PLATFORM_ADMIN. Values strictly positive (0 rejected).
+## Domain reference
 
-## What's NOT yet built
+`docs/rag-knowledge/` is the poultry knowledge base (eau, alimentation, oeufs, poids, mortalite, sante, especes, donnees-ferme). **Read the relevant file before changing any threshold or advisory rule** — never quote a number without its context (which reference constant, which calculation window, batch vs building scope). Alerts are actually computed server-side by `AdvisoryEngine`; the corpus is reference material only.
 
-- PostGIS, FinTech / Mobile Money (escrow)
-- KouKou Market (le **back est livré** : précommandes/bons de commande `orders` + auto-signal de disponibilité, mais ni marketplace, ni canal client public)
+## Not built
+
+PostGIS · FinTech/Mobile Money (escrow) · KouKou Market marketplace (the backend `orders` module is delivered, but there is no public client channel).
