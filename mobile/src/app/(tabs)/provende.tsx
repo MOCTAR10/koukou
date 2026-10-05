@@ -150,11 +150,15 @@ function TypeCard({ t, pricePerKg }: { t: FeedTypeStock; pricePerKg: number | nu
 }
 
 /** Insight consommation provende : rythme / jour, tendance, couverture et ordre suggéré. */
-function ConsumptionInsight({ byType, mvts }: { byType: FeedTypeStock[]; mvts: FeedMovement[] }) {
+function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]; mvts: FeedMovement[]; refDate?: string }) {
   const today = useMemo(() => {
+    if (refDate) {
+      const t = new Date(`${refDate}T12:00:00Z`);
+      return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
+    }
     const t = new Date();
     return new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
-  }, []);
+  }, [refDate]);
   const dayStr = (d: Date) => d.toISOString().slice(0, 10);
   const d7 = dayStr(new Date(today.getTime() - 7 * 86_400_000));
   const d14 = dayStr(new Date(today.getTime() - 14 * 86_400_000));
@@ -279,6 +283,7 @@ export default function ProvendeScreen() {
   const { openFeed } = useQuickCapture();
 
   const [view, setView] = useState<'stock' | 'mouvements'>('stock');
+  const [subView, setSubView] = useState<'lots' | 'journal'>('lots');
   const [window, setWindow] = useState<PeriodWindow>(() => periodWindow('all'));
   const firstWindowRef = useRef(true);
 
@@ -396,7 +401,7 @@ export default function ProvendeScreen() {
 
   // ── Filtre par fenêtre (barre de date en haut) ──
   const inPeriod = (d?: string | null): boolean => {
-    if (!d) return true;
+    if (!d) return window.span === 'all' && !window.isFiltered;
     const day = d.slice(0, 10);
     if (window.span === 'all') return !window.isFiltered || day === window.to;
     if (!window.from) return true;
@@ -484,6 +489,22 @@ export default function ProvendeScreen() {
             <ArrowDownRight size={16} color={color.ink[400]} style={styles.ctaArrow} />
           </Pressable>
 
+          <Card tone="warn" style={[styles.card, styles.lossCard]} onPress={() => setLossOpen(true)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <PackageX size={15} color={color.red[600]} />
+              <View style={{ flex: 1, gap: 1 }}>
+                <AppText size="label" weight="semibold" color="text">
+                  Déclarer une perte
+                </AppText>
+                <AppText size="small" color="muted" numberOfLines={2}>
+                  {summary.low > 0
+                    ? `${summary.low} phase${summary.low > 1 ? 's' : ''} sous 5 j d’autonomie. Sacs gâtés à sortir de l’inventaire.`
+                    : 'Sacs gâtés (humidité, rongeurs…) à sortir de l’inventaire — traçabilité conservée.'}
+                </AppText>
+              </View>
+            </View>
+          </Card>
+
           <View style={styles.metricGrid}>
             <MetricTile
               label="Stock total"
@@ -512,7 +533,7 @@ export default function ProvendeScreen() {
             />
           </View>
 
-          {byType.length > 0 ? <ConsumptionInsight byType={byType} mvts={mvts} /> : null}
+          {byType.length > 0 ? <ConsumptionInsight byType={byType} mvts={visibleMvts} refDate={window.isFiltered ? window.to : undefined} /> : null}
 
           <SectionHeader title="Inventaire par type" subtitle="Autonomie en jours · valeur estimée au prix moyen" />
           <View style={{ gap: 10 }}>
@@ -527,105 +548,107 @@ export default function ProvendeScreen() {
               byType.map((t) => <TypeCard key={t.feedPhase} t={t} pricePerKg={pricePerKgOf(t.feedPhase)} />)
             )}
           </View>
-
-          <Card tone="warn" style={styles.card} onPress={() => setLossOpen(true)}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <PackageX size={18} color={color.red[600]} />
-              <View style={{ flex: 1, gap: 1 }}>
-                <AppText size="body" weight="semibold" color="text">
-                  Déclarer une perte
-                </AppText>
-                <AppText size="caption" color="muted">
-                  {summary.low > 0
-                    ? `${summary.low} phase${summary.low > 1 ? 's' : ''} sous 5 j d’autonomie. Sacs gâtés (humidité, rongeurs…) à sortir de l’inventaire.`
-                    : 'Sacs gâtés (humidité, rongeurs…) à sortir de l’inventaire — traçabilité conservée.'}
-                </AppText>
-              </View>
-            </View>
-          </Card>
         </>
       ) : (
         <>
-          <SectionHeader title="Lots de provende" subtitle="Traçabilité HACCP : fournisseur, n° lot, péremption" />
-          <View style={{ gap: 10 }}>
-            {lots.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <Package size={22} color={color.ink[300]} />
-                <AppText size="caption" color="muted" align="center">
-                  Aucun lot d’aliment saisi.
-                </AppText>
-              </View>
-            ) : (
-              lots.map((l) => (
-                <Card key={l.id} tone="default" style={styles.card}>
-                  <View style={styles.cardHead}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <AppText size="body" weight="bold" color="text" numberOfLines={1}>
-                        {l.productName ?? (l.feedPhase ? FEED_PHASE_LABELS[l.feedPhase as FeedPhase] : 'Provende')}
-                      </AppText>
-                      <AppText size="caption" color="muted" numberOfLines={1}>
-                        {l.supplier ?? 'Fournisseur inconnu'} · n° {l.supplierLotNumber ?? '—'}
-                        {l.batchId ? ' · lot ferme lié' : ''}
-                      </AppText>
-                    </View>
-                    {l.expired ? <Chip label="Périmé" tone="red" /> : <Chip label={FEED_ENTRY_TYPE_LABELS[l.entryType] ?? l.entryType} tone={l.entryType === 'MEDICAMENT' ? 'accent' : 'brand'} />}
-                  </View>
-                  <View style={{ gap: 2 }}>
-                    <Row label="Quantité reçue" value={`${l.quantity} ${l.unit?.toLowerCase() ?? ''}`} />
-                    <Row label="Restant" value={`${Math.round(l.availableKg)} kg`} strong />
-                    <Row
-                      label="Reçu le / péremption"
-                      value={`${fmtDate(l.receivedDate)} · ${fmtDate(l.expirationDate)}`}
-                      warn={l.expired}
-                    />
-                  </View>
-                </Card>
-              ))
-            )}
+          <View style={styles.subTabBar}>
+            <Segmented
+              options={[
+                { key: 'lots', label: 'Lots de provende', icon: <Package size={17} color={subView === 'lots' ? color.brand[600] : color.ink[400]} /> },
+                { key: 'journal', label: 'Journal des mouvements', icon: <ArrowDownRight size={17} color={subView === 'journal' ? color.brand[600] : color.ink[400]} /> },
+              ]}
+              value={subView}
+              onChange={setSubView}
+              haptic
+            />
           </View>
 
-          <SectionHeader title="Journal des mouvements" subtitle="Consommations liées, pertes et ventes (valeur tracée)" />
-          <View style={{ gap: 10 }}>
-            {visibleMvts.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <ArrowDownRight size={22} color={color.ink[300]} />
-                <AppText size="caption" color="muted" align="center">
-                  {mvtsFiltered ? 'Aucun mouvement sur la période sélectionnée.' : 'Aucun mouvement enregistré.'}
-                </AppText>
-              </View>
-            ) : (
-              visibleMvts.map((m: FeedMovement) => (
-                <Card key={m.id} tone={m.type === 'PERTE' ? 'warn' : 'default'} style={styles.card}>
-                  <View style={styles.cardHead}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <AppText
-                        size="body"
-                        weight={m.type === 'PERTE' ? 'semibold' : 'medium'}
-                        color={m.type === 'PERTE' ? 'danger' : 'text'}>
-                        {m.type === 'PERTE' ? '−' : ''}
-                        {Math.round(m.quantityKg)} kg · {m.productName ?? '—'}
-                      </AppText>
-                      <AppText size="caption" color="muted">
-                        {m.feedPhase ? FEED_PHASE_LABELS[m.feedPhase] : '—'} · {fmtDate(m.date)}
-                        {m.reason && m.reason in LOSS_REASON_LABEL ? ` · ${LOSS_REASON_LABEL[m.reason as FeedLossReason]}` : ''}
-                      </AppText>
-                    </View>
-                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                      <Chip
-                        label={MOVEMENT_TYPE_LABEL[m.type]}
-                        tone={m.type === 'PERTE' ? 'red' : m.type === 'VENTE' ? 'amber' : 'neutral'}
-                      />
-                      {m.valueFcfa != null ? (
-                        <AppText size="caption" weight="semibold" color="text">
-                          {m.valueFcfa.toLocaleString('fr-FR')} FCFA
-                        </AppText>
-                      ) : null}
-                    </View>
+          {subView === 'lots' ? (
+            <>
+              <SectionHeader title="Lots de provende" subtitle="Traçabilité HACCP : fournisseur, n° lot, péremption" />
+              <View style={{ gap: 10 }}>
+                {lots.length === 0 ? (
+                  <View style={styles.emptyWrap}>
+                    <Package size={22} color={color.ink[300]} />
+                    <AppText size="caption" color="muted" align="center">
+                      Aucun lot d’aliment saisi.
+                    </AppText>
                   </View>
-                </Card>
-              ))
-            )}
-          </View>
+                ) : (
+                  lots.map((l) => (
+                    <Card key={l.id} tone="default" style={styles.card}>
+                      <View style={styles.cardHead}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <AppText size="body" weight="bold" color="text" numberOfLines={1}>
+                            {l.productName ?? (l.feedPhase ? FEED_PHASE_LABELS[l.feedPhase as FeedPhase] : 'Provende')}
+                          </AppText>
+                          <AppText size="caption" color="muted" numberOfLines={1}>
+                            {l.supplier ?? 'Fournisseur inconnu'} · n° {l.supplierLotNumber ?? '—'}
+                            {l.batchId ? ' · lot ferme lié' : ''}
+                          </AppText>
+                        </View>
+                        {l.expired ? <Chip label="Périmé" tone="red" /> : <Chip label={FEED_ENTRY_TYPE_LABELS[l.entryType] ?? l.entryType} tone={l.entryType === 'MEDICAMENT' ? 'accent' : 'brand'} />}
+                      </View>
+                      <View style={{ gap: 2 }}>
+                        <Row label="Quantité reçue" value={`${l.quantity} ${l.unit?.toLowerCase() ?? ''}`} />
+                        <Row label="Restant" value={`${Math.round(l.availableKg)} kg`} strong />
+                        <Row
+                          label="Reçu le / péremption"
+                          value={`${fmtDate(l.receivedDate)} · ${fmtDate(l.expirationDate)}`}
+                          warn={l.expired}
+                        />
+                      </View>
+                    </Card>
+                  ))
+                )}
+              </View>
+            </>
+          ) : (
+            <>
+              <SectionHeader title="Journal des mouvements" subtitle="Consommations liées, pertes et ventes (valeur tracée)" />
+              <View style={{ gap: 10 }}>
+                {visibleMvts.length === 0 ? (
+                  <View style={styles.emptyWrap}>
+                    <ArrowDownRight size={22} color={color.ink[300]} />
+                    <AppText size="caption" color="muted" align="center">
+                      {mvtsFiltered ? 'Aucun mouvement sur la période sélectionnée.' : 'Aucun mouvement enregistré.'}
+                    </AppText>
+                  </View>
+                ) : (
+                  visibleMvts.map((m: FeedMovement) => (
+                    <Card key={m.id} tone={m.type === 'PERTE' ? 'warn' : 'default'} style={styles.card}>
+                      <View style={styles.cardHead}>
+                        <View style={{ flex: 1, gap: 2 }}>
+                          <AppText
+                            size="body"
+                            weight={m.type === 'PERTE' ? 'semibold' : 'medium'}
+                            color={m.type === 'PERTE' ? 'danger' : 'text'}>
+                            {m.type === 'PERTE' ? '−' : ''}
+                            {Math.round(m.quantityKg)} kg · {m.productName ?? '—'}
+                          </AppText>
+                          <AppText size="caption" color="muted">
+                            {m.feedPhase ? FEED_PHASE_LABELS[m.feedPhase] : '—'} · {fmtDate(m.date)}
+                            {m.reason && m.reason in LOSS_REASON_LABEL ? ` · ${LOSS_REASON_LABEL[m.reason as FeedLossReason]}` : ''}
+                          </AppText>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                          <Chip
+                            label={MOVEMENT_TYPE_LABEL[m.type]}
+                            tone={m.type === 'PERTE' ? 'red' : m.type === 'VENTE' ? 'amber' : 'neutral'}
+                          />
+                          {m.valueFcfa != null ? (
+                            <AppText size="caption" weight="semibold" color="text">
+                              {m.valueFcfa.toLocaleString('fr-FR')} FCFA
+                            </AppText>
+                          ) : null}
+                        </View>
+                      </View>
+                    </Card>
+                  ))
+                )}
+              </View>
+            </>
+          )}
         </>
       )}
 
@@ -776,6 +799,9 @@ const styles = StyleSheet.create({
   tabBar: {
     marginBottom: 12,
   },
+  subTabBar: {
+    marginBottom: 16,
+  },
   hero: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -842,6 +868,11 @@ const styles = StyleSheet.create({
   card: {
     gap: 8,
     padding: 14,
+  },
+  lossCard: {
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 14,
   },
   insightCard: {
     gap: 10,

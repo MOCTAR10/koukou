@@ -79,6 +79,11 @@ export class SaleItem {
   @Index()
   sourceSlaughterOrderId: string | null;
 
+  /** Transfert de stock ferme → boutique (vente puisant dans une réserve PDV). */
+  @Column({ name: 'stock_transfer_id', type: 'uuid', nullable: true })
+  @Index()
+  stockTransferId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

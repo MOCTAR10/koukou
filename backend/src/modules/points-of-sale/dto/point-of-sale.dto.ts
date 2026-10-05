@@ -25,6 +25,10 @@ export class CreatePointOfSaleDto {
   city?: string;
 
   @IsOptional()
+  @IsString({ message: 'La province doit être une chaîne de caractères.' })
+  province?: string;
+
+  @IsOptional()
   @IsNumber(
     { maxDecimalPlaces: 7 },
     { message: 'La latitude doit être un nombre valide.' },
@@ -60,6 +64,10 @@ export class UpdatePointOfSaleDto {
   @IsOptional()
   @IsString({ message: 'La ville doit être une chaîne de caractères.' })
   city?: string;
+
+  @IsOptional()
+  @IsString({ message: 'La province doit être une chaîne de caractères.' })
+  province?: string;
 
   @IsOptional()
   @IsNumber(

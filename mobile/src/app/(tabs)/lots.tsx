@@ -55,13 +55,16 @@ import { PeriodBar, periodWindow, toDateStr, type PeriodBarHandle, type PeriodWi
 import { color, fmt, palette, radii } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
-import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchTreatments } from '@/api';
+import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
 import { completeProphylaxis } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { BatchHealth, BatchPnl, BatchStatus, BatchType, BatchWithMetrics, Expense, OrderCanal, OrderFull, OrderStatus, OverviewPnl, ProphylaxisEvent, ProtocolStep, ReadyReason, SaleSummary, SanitaryProtocol, SanitaryProtocolWithSteps, Species, TreatmentRecord } from '@/api/types';
 import { speciesLabel } from '@/api/format';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES, breedImageForLot } from '@/constants/breedImages';
+import { normalizeMortalityStatus } from '@/constants/health';
+import { lotSlaughterSummary, type LotSlaughterSummary } from '@/utils/slaughterInsights';
+import { SlaughterBadge, SlaughterInfoCard } from '@/components/slaughter/SlaughterLotInfo';
 import { CreateLotSheet } from '@/components/CreateLotSheet';
 import { useCreateCenter } from '@/components/create/CreateCenter';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
@@ -669,13 +672,23 @@ export default function LotsScreen() {
   }, [overviewLive, filteredList, applyFilter, overviewBatches.data]);
   const overviewSummary = useMemo(() => buildOverviewSummary(overviewList), [overviewList]);
 
-  // ── Farm-wide stats (4 tiles, indépendants du filtre) ──
   // ── Farm-wide stats (tuiles, indépendantes du filtre) ──
   const farmStats = useMemo(() => {
     const list = batches.data ?? [];
     const totalBirds = list.reduce((s, b) => s + b.metrics.liveCount, 0);
     const totalEggs = list.reduce((s, b) => s + (b.metrics.eggsCollectedTotal ?? 0), 0);
-    return { totalBirds, totalEggs };
+    const chairCount = list.filter((b) => b.type === 'CHAIR').reduce((s, b) => s + b.metrics.liveCount, 0);
+    const pondeuseCount = list.filter((b) => b.type === 'PONDEUSE').reduce((s, b) => s + b.metrics.liveCount, 0);
+    const pondeuseBatches = list.filter((b) => b.type === 'PONDEUSE' && b.metrics.layRatePercent != null);
+    const pondeuseLive = pondeuseBatches.reduce((s, b) => s + b.metrics.liveCount, 0);
+    const avgLayRatePondeuse = pondeuseLive > 0
+      ? pondeuseBatches.reduce((s, b) => s + (b.metrics.layRatePercent ?? 0) * b.metrics.liveCount, 0) / pondeuseLive
+      : null;
+    const activeCount = list.filter((b) => b.status === 'ACTIF').length;
+    const sellingCount = list.filter((b) => b.status === 'EN_VENTE').length;
+    const readyBirds = list.filter((b) => b.metrics.readyForSale).reduce((s, b) => s + b.metrics.liveCount, 0);
+    const totalAlveoles = Math.floor(totalEggs / 30);
+    return { totalBirds, totalEggs, chairCount, pondeuseCount, avgLayRatePondeuse, activeCount, sellingCount, readyBirds, totalAlveoles };
   }, [batches.data]);
 
   // Empty-state helpers
@@ -712,18 +725,97 @@ export default function LotsScreen() {
       {/* ── STATS TILES (ferme) — au-dessus de la finance ── */}
       <View style={styles.slimTileRow}>
         <View style={styles.slimTile}>
-          <View style={[styles.slimTileIcon, { backgroundColor: 'rgba(96, 160, 64, 0.12)' }]}>
-            <Bird size={13} color={palette.green[600]} />
+          <View style={styles.slimTileHead}>
+            <View style={styles.slimTileTitleWrap}>
+              <View style={[styles.slimTileIcon, { backgroundColor: 'rgba(96, 160, 64, 0.12)' }]}>
+                <Bird size={15} color={palette.green[600]} />
+              </View>
+              <AppText style={styles.slimTileTitle} color={palette.green[700]}>Volaille</AppText>
+            </View>
+            <View style={[styles.slimTileCount, { borderColor: palette.green[600] + '45', backgroundColor: palette.green[600] + '12' }]}>
+              <AppText style={styles.slimTileCountText} color={palette.green[700]}>{farmStats.activeCount + farmStats.sellingCount} lots</AppText>
+            </View>
           </View>
-          <AppText size="body" weight="bold" color={palette.green[600]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{fmt(farmStats.totalBirds)}</AppText>
-          <AppText size="caption" color="faint" numberOfLines={1}>volailles</AppText>
+          <AppText style={styles.slimTileValue} color={palette.green[700]}>{fmt(farmStats.totalBirds)}</AppText>
+          <AppText style={styles.slimTileCaption} color="muted">
+            {farmStats.readyBirds > 0
+              ? `oiseaux vivants · ${fmt(farmStats.readyBirds)} prêts`
+              : 'oiseaux vivants'}
+          </AppText>
+          <View style={styles.slimTileDivider} />
+          {farmStats.totalBirds > 0 ? (
+            <>
+              <View style={styles.slimTileBar}>
+                {farmStats.chairCount > 0 && (
+                  <View style={[styles.slimTileBarSeg, { flex: farmStats.chairCount, backgroundColor: palette.green[500] }]} />
+                )}
+                {farmStats.pondeuseCount > 0 && (
+                  <View style={[styles.slimTileBarSeg, { flex: farmStats.pondeuseCount, backgroundColor: palette.accent[500] }]} />
+                )}
+                {farmStats.chairCount === 0 && farmStats.pondeuseCount === 0 && (
+                  <View style={[styles.slimTileBarSeg, { flex: 1, backgroundColor: palette.border }]} />
+                )}
+              </View>
+              <View style={styles.slimTileLegend}>
+                {farmStats.chairCount > 0 && (
+                  <View style={styles.slimTileLegendItem}>
+                    <View style={[styles.slimTileLegendDot, { backgroundColor: palette.green[500] }]} />
+                    <AppText style={styles.slimTileLegendText} color={palette.green[700]}>{fmt(farmStats.chairCount)} chair</AppText>
+                  </View>
+                )}
+                {farmStats.pondeuseCount > 0 && (
+                  <View style={styles.slimTileLegendItem}>
+                    <View style={[styles.slimTileLegendDot, { backgroundColor: palette.accent[500] }]} />
+                    <AppText style={styles.slimTileLegendText} color={palette.accent[700]}>{fmt(farmStats.pondeuseCount)} pondeuse</AppText>
+                  </View>
+                )}
+              </View>
+            </>
+          ) : (
+            <AppText style={styles.slimTileLegendText} color="faint">aucun lot actif</AppText>
+          )}
         </View>
         <View style={styles.slimTile}>
-          <View style={[styles.slimTileIcon, { backgroundColor: 'rgba(240, 128, 16, 0.13)' }]}>
-            <Egg size={13} color={palette.accent[500]} />
+          <View style={styles.slimTileHead}>
+            <View style={styles.slimTileTitleWrap}>
+              <View style={[styles.slimTileIcon, { backgroundColor: 'rgba(240, 128, 16, 0.13)' }]}>
+                <Egg size={15} color={palette.accent[500]} />
+              </View>
+              <AppText style={styles.slimTileTitle} color={palette.accent[700]}>Œufs</AppText>
+            </View>
+            <View style={[styles.slimTileCount, { borderColor: palette.accent[500] + '45', backgroundColor: palette.accent[500] + '12' }]}>
+              <AppText style={styles.slimTileCountText} color={palette.accent[700]}>
+                {farmStats.totalEggs >= 30
+                  ? `${fmt(farmStats.totalAlveoles)} alvéole${farmStats.totalAlveoles !== 1 ? 's' : ''}`
+                  : farmStats.totalEggs > 0
+                    ? 'œufs en vrac'
+                    : 'pas de collecte'}
+              </AppText>
+            </View>
           </View>
-          <AppText size="body" weight="bold" color={palette.accent[500]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{farmStats.totalEggs > 0 ? fmt(farmStats.totalEggs) : '—'}</AppText>
-          <AppText size="caption" color="faint" numberOfLines={1}>Œufs collectés</AppText>
+          <AppText style={styles.slimTileValue} color={palette.accent[600]}>{farmStats.totalEggs > 0 ? fmt(farmStats.totalEggs) : '—'}</AppText>
+          <AppText style={styles.slimTileCaption} color="muted">récolte cumulée</AppText>
+          <View style={styles.slimTileDivider} />
+          {farmStats.avgLayRatePondeuse != null ? (
+            <>
+              <View style={styles.slimTileBar}>
+                <View style={[styles.slimTileBarSeg, { flex: Math.min(100, farmStats.avgLayRatePondeuse), backgroundColor: palette.accent[500] }]} />
+                {farmStats.avgLayRatePondeuse < 100 && (
+                  <View style={[styles.slimTileBarSeg, { flex: 100 - Math.min(100, farmStats.avgLayRatePondeuse), backgroundColor: palette.accent[100] }]} />
+                )}
+              </View>
+              <View style={styles.slimTileLegend}>
+                <View style={styles.slimTileLegendItem}>
+                  <View style={[styles.slimTileLegendDot, { backgroundColor: palette.accent[500] }]} />
+                  <AppText style={styles.slimTileLegendText} color={palette.accent[700]}>{farmStats.avgLayRatePondeuse.toFixed(0)} % ponte</AppText>
+                </View>
+              </View>
+            </>
+          ) : (
+            <AppText style={styles.slimTileLegendText} color="faint">
+              {farmStats.totalEggs > 0 ? 'taux de ponte non renseigné' : 'aucune collecte'}
+            </AppText>
+          )}
         </View>
       </View>
 
@@ -898,7 +990,9 @@ export default function LotsScreen() {
       ) : (
         <View style={{ gap: 10 }}>
           {shown.map((b) => (
-            <LotCardWithHealth key={b.id} batch={b} farmId={farmId} onPress={() => router.push(`/lot/${b.id}`)}
+            <LotCardWithHealth key={b.id} batch={b} farmId={farmId}
+              buildingName={b.buildingId ? buildings.data?.find((bd) => bd.id === b.buildingId)?.name ?? null : null}
+              onPress={() => router.push(`/lot/${b.id}`)}
               detailOpen={detailLotId === b.id} onOpenDetail={() => setDetailLotId(b.id)} onCloseDetail={() => setDetailLotId(null)}
               onOpenEggs={() => { Haptics.selectionAsync().catch(() => {}); setDetailLotId(null); setEggLotId(b.id); }}
               onPlanCare={() => { Haptics.selectionAsync().catch(() => {}); router.push({ pathname: '/sanitary', params: { lot: b.id, plan: '1' } }); }} />
@@ -994,8 +1088,8 @@ function EmptyStep({ icon: Icon, label, desc, done }: { icon: typeof Clock; labe
 // LOT CARD WITH HEALTH
 // ═══════════════════════════════════════════════════════════════════════
 
-function LotCardWithHealth({ batch, farmId, onPress, detailOpen, onOpenDetail, onCloseDetail, onOpenEggs, onPlanCare }: {
-  batch: BatchWithMetrics; farmId: string; onPress: () => void; detailOpen: boolean; onOpenDetail: () => void; onCloseDetail: () => void; onOpenEggs: () => void; onPlanCare: () => void;
+function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, onOpenDetail, onCloseDetail, onOpenEggs, onPlanCare }: {
+  batch: BatchWithMetrics; farmId: string; buildingName?: string | null; onPress: () => void; detailOpen: boolean; onOpenDetail: () => void; onCloseDetail: () => void; onOpenEggs: () => void; onPlanCare: () => void;
 }) {
   const queryClient = useQueryClient();
   const completeCare = useCallback((eventId: string) => {
@@ -1049,10 +1143,16 @@ function LotCardWithHealth({ batch, farmId, onPress, detailOpen, onOpenDetail, o
     enabled: detailOpen,
     staleTime: 60_000,
   });
+  const slaughterQ = useQuery({
+    queryKey: ['slaughter-orders', farmId],
+    queryFn: () => fetchSlaughterOrders(farmId),
+    staleTime: 60_000,
+  });
+  const slaughterSummary = useMemo(() => lotSlaughterSummary(slaughterQ.data ?? [], batch), [slaughterQ.data, batch]);
   return (
     <>
-      <LotCard batch={batch} health={healthQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onPress={onPress} onCompleteCare={completeCare} onOpenDetail={onOpenDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} />
-      <LotDetailSheet visible={detailOpen} batch={batch} health={healthQ.data} pnl={pnlQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onClose={onCloseDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} />
+      <LotCard batch={batch} buildingName={buildingName} health={healthQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onPress={onPress} onCompleteCare={completeCare} onOpenDetail={onOpenDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
+      <LotDetailSheet visible={detailOpen} batch={batch} health={healthQ.data} pnl={pnlQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onClose={onCloseDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
     </>
   );
 }
@@ -1061,8 +1161,8 @@ function LotCardWithHealth({ batch, farmId, onPress, detailOpen, onOpenDetail, o
 // LOT CARD
 // ═══════════════════════════════════════════════════════════════════════
 
-function LotCard({ batch, health, prophylaxis, treatments, program, onPress, onCompleteCare, onOpenDetail, onOpenEggs, onPlanCare }: {
-  batch: BatchWithMetrics; health?: BatchHealth; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onPress: () => void; onCompleteCare?: (eventId: string) => void; onOpenDetail: () => void; onOpenEggs: () => void; onPlanCare?: () => void;
+function LotCard({ batch, buildingName, health, prophylaxis, treatments, program, onPress, onCompleteCare, onOpenDetail, onOpenEggs, onPlanCare, slaughterSummary }: {
+  batch: BatchWithMetrics; buildingName?: string | null; health?: BatchHealth; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onPress: () => void; onCompleteCare?: (eventId: string) => void; onOpenDetail: () => void; onOpenEggs: () => void; onPlanCare?: () => void; slaughterSummary?: LotSlaughterSummary;
 }) {
   const m = batch.metrics;
   const isLayer = batch.type === 'PONDEUSE';
@@ -1162,6 +1262,15 @@ function LotCard({ batch, health, prophylaxis, treatments, program, onPress, onC
             {stage.label}
           </AppText>
         </View>
+        {buildingName && (
+          <View style={[styles.buildingChip, { backgroundColor: palette.brand[50], borderColor: palette.brand[200] }]}>
+            <Building2 size={12} color={palette.brand[700]} />
+            <AppText size="small" weight="bold" color={palette.brand[700]} numberOfLines={1} style={styles.buildingChipText}>
+              {buildingName}
+            </AppText>
+          </View>
+        )}
+        {slaughterSummary ? <SlaughterBadge summary={slaughterSummary} /> : null}
       </View>
 
       {/* ── SOINS à venir / en retard (slim, seulement si pertinent) ── */}
@@ -1201,7 +1310,7 @@ function LotCard({ batch, health, prophylaxis, treatments, program, onPress, onC
       <View style={styles.metricRow}>
         <MetricBlock label="Vivants" value={fmt(m.liveCount)} icon={Bird} tone="brand" compact />
         <MetricBlock label="Mortalité" value={`${m.mortalityPercent.toLocaleString('fr-FR')} %`} icon={HeartPulse}
-          tone={m.mortalityPercent > 1.5 ? 'red' : m.mortalityPercent > 0.8 ? 'amber' : 'green'} compact />
+          tone={normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'normal' ? 'green' : normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'elevated' ? 'amber' : 'red'} compact />
         <PonteMetric
           label={isLayer ? 'Taux de ponte' : 'Œufs produits'}
           value={m.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : m.eggsCollectedTotal > 0 ? fmt(m.eggsCollectedTotal) : '—'}
@@ -1439,7 +1548,7 @@ function StatsPanel({ summary, hasAnyBatch, filterLabel, onOpen }: { summary: Ov
         </View>
         <View style={{ flex: 1 }} />
         <View style={[styles.summaryPill, styles.summaryPillActive]}>
-          <AppText size="caption" weight="bold" color="surface">{summary.count} lot(s)</AppText>
+          <AppText size="caption" weight="bold" color="surface">{summary.count} lots · {summary.activeCount} actifs</AppText>
         </View>
         <View style={[styles.panelChevron, styles.panelChevronActive]}>
           <ChevronUp size={14} color={palette.brand[50]} />
@@ -1865,6 +1974,13 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
         </View>
         {lots.length > 0 && (
           <View style={styles.ovSanCard}>
+            <View style={styles.ovSanHead}>
+              <View style={styles.ovSanHeadL}>
+                <Syringe size={13} color={palette.brand[600]} />
+                <AppText size="caption" weight="bold" color="text">Statut par lot</AppText>
+              </View>
+              <AppText size="caption" color="faint">{lots.length} lot{lots.length > 1 ? 's' : ''}</AppText>
+            </View>
             {lots.map((b, i) => {
               const chips = lotCares[i] ?? [];
               const top = chips[0] ?? null;
@@ -1945,9 +2061,9 @@ function BadgeChip({ icon: Icon, value, color }: { icon: typeof Clock; value: st
 function MiniMetric({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Clock }) {
   return (
     <View style={styles.miniMetric}>
-      <Icon size={11} color={color.ink[400]} />
-      <AppText size="caption" color="muted" style={{ flexShrink: 1 }}>{label}</AppText>
-      <AppText size="small" weight="bold" color="text" style={{ flexShrink: 1 }}>{value}</AppText>
+      <Icon size={10} color={color.ink[300]} />
+      <AppText size="caption" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.miniMetricLabel}>{label}</AppText>
+      <AppText size="small" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.miniMetricValue}>{value}</AppText>
     </View>
   );
 }
@@ -2344,8 +2460,8 @@ function PlanCareButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, program, onClose, onOpenEggs, onPlanCare }: {
-  visible: boolean; batch: BatchWithMetrics; health?: BatchHealth; pnl?: BatchPnl; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onClose: () => void; onOpenEggs: () => void; onPlanCare?: () => void;
+function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, program, onClose, onOpenEggs, onPlanCare, slaughterSummary }: {
+  visible: boolean; batch: BatchWithMetrics; health?: BatchHealth; pnl?: BatchPnl; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onClose: () => void; onOpenEggs: () => void; onPlanCare?: () => void; slaughterSummary?: LotSlaughterSummary;
 }) {
   const router = useRouter();
   const { openDaily, openSale } = useQuickCapture();
@@ -2412,6 +2528,11 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
         </View>
       }
     >
+      {slaughterSummary ? (
+        <View style={styles.sheetSlaughter}>
+          <SlaughterInfoCard summary={slaughterSummary} />
+        </View>
+      ) : null}
       <LotExpandedDetail batch={batch} health={health} pnl={pnl} prophylaxis={prophylaxis} treatments={treatments} program={program} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} />
     </Sheet>
   );
@@ -2439,7 +2560,12 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
   const PillIcon = pill ? pill.icon : Activity;
   const pillLabel = pill ? pill.label : 'En élevage';
 
-  const mortTone = m.mortalityPercent > 1.5 ? palette.red[500] : m.mortalityPercent > 0.8 ? palette.amber[500] : palette.green[600];
+  const mortTone =
+    normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'normal'
+      ? palette.green[600]
+      : normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'elevated'
+        ? palette.amber[500]
+        : palette.red[500];
   const layTone = m.layRatePercent != null ? palette.accent[600] : color.ink[400];
 
   const readyTone = m.readyReason === 'READY' ? palette.green[600] : m.readyReason === 'SANITARY' ? palette.red[500] : m.readyReason === 'FCR' ? palette.amber[500] : color.ink[500];
@@ -2655,21 +2781,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6,
   },
 
-  // Stats tiles (ferme) — chips fines
-  slimTileRow: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 4 },
+  // Stats tiles (ferme) — cartes pro
+  slimTileRow: { flexDirection: 'row', gap: 10, marginTop: 12, marginBottom: 4 },
   slimTile: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     backgroundColor: palette.surfaceAlt,
     borderWidth: 1,
     borderColor: palette.border,
     borderRadius: radii.lg,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 2,
   },
-  slimTileIcon: { width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  slimTileHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 4 },
+  slimTileTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  slimTileIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  slimTileTitle: { fontSize: 9.5, lineHeight: 12, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  slimTileCount: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 1, borderRadius: radii.pill, borderWidth: 1 },
+  slimTileCountText: { fontSize: 9, lineHeight: 11, fontWeight: '700' },
+  slimTileValue: { fontSize: 26, lineHeight: 30, fontWeight: '800' },
+  slimTileCaption: { fontSize: 10, lineHeight: 13 },
+  slimTileDivider: { height: 1, backgroundColor: palette.border, marginVertical: 8, alignSelf: 'stretch' },
+  slimTileBar: { flexDirection: 'row', height: 6, borderRadius: radii.pill, overflow: 'hidden', backgroundColor: palette.border, marginBottom: 6 },
+  slimTileBarSeg: { height: '100%' },
+  slimTileLegend: { flexDirection: 'row', gap: 8 },
+  slimTileLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  slimTileLegendDot: { width: 6, height: 6, borderRadius: 3 },
+  slimTileLegendText: { fontSize: 9.5, lineHeight: 12, fontWeight: '600' },
 
   // Stats panel (Vue d'ensemble)
   statsCard: { gap: 10, marginTop: 16, marginBottom: 8 },
@@ -2689,7 +2827,7 @@ const styles = StyleSheet.create({
   summaryPillActive: { backgroundColor: palette.brand[600] },
   panelChevron: { width: 24, height: 24, borderRadius: 8, backgroundColor: palette.brand[50], alignItems: 'center', justifyContent: 'center' },
   panelChevronActive: { backgroundColor: palette.brand[600] },
-  alertStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  alertStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   alertChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill, borderWidth: 1, flexShrink: 0 },
   progressTrack: { height: 6, borderRadius: 3, backgroundColor: palette.ink[100], overflow: 'hidden' },
   readyFill: { height: '100%', borderRadius: 3 },
@@ -2722,11 +2860,13 @@ const styles = StyleSheet.create({
   ovSpeciesEggs: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingBottom: 4 },
   ovStrainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.border },
   ovSanCard: { borderRadius: radii.lg, borderWidth: 1, borderColor: palette.border, overflow: 'hidden', backgroundColor: palette.paper },
-  ovSanRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 10 },
+  ovSanHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 9, backgroundColor: palette.surfaceAlt, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  ovSanHeadL: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ovSanRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 12, minWidth: 0 },
   ovSanRowBordered: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
   ovSanIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   ovSanIdent: { flex: 1, gap: 1, minWidth: 0 },
-  ovSanRight: { alignItems: 'flex-end', gap: 1, flexShrink: 1, minWidth: 0 },
+  ovSanRight: { alignItems: 'flex-end', gap: 2, flexShrink: 1, maxWidth: '54%', minWidth: 0 },
   readyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: radii.lg, borderWidth: 1 },
   readyBannerOn: { backgroundColor: palette.green[50], borderColor: palette.green[200] },
   readyBannerOff: { backgroundColor: palette.surfaceAlt, borderColor: palette.border },
@@ -2767,6 +2907,8 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, borderWidth: 1 },
   stageChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, borderWidth: 1 },
+  buildingChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', maxWidth: '100%', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, borderWidth: 1 },
+  buildingChipText: { maxWidth: 140, flexShrink: 1 },
   careStack: { gap: 4 },
   careRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.md },
   nextVaccineRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 5, borderRadius: radii.md, borderWidth: 1 },
@@ -2860,8 +3002,10 @@ const styles = StyleSheet.create({
   eggRowBarFill: { height: 4, borderRadius: radii.pill },
   eggRowDot: { width: 10, height: 10, borderRadius: radii.pill },
   eggRowPct: { width: 40, textAlign: 'right' },
-  miniMetricRow: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 6, paddingHorizontal: 2 },
-  miniMetric: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 },
+  miniMetricRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  miniMetric: { flex: 1, minWidth: 0, alignItems: 'center', gap: 1 },
+  miniMetricLabel: { fontSize: 8.5, lineHeight: 11, textAlign: 'center' },
+  miniMetricValue: { fontSize: 11, lineHeight: 15, textAlign: 'center' },
   expandPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill },
 
   // Lot detail sheet
@@ -2941,6 +3085,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill, borderWidth: 1,
   },
   sheetFinDivider: { height: 1, backgroundColor: palette.border },
+  sheetSlaughter: { marginBottom: 12 },
   financeFootnote: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderTopWidth: 1, borderTopColor: palette.border,

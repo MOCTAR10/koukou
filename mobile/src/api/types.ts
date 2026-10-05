@@ -10,6 +10,7 @@ export interface PointOfSale {
   name: string;
   address: string | null;
   city: string | null;
+  province: string | null;
   latitude: number | null;
   longitude: number | null;
   isActive: boolean;
@@ -18,10 +19,40 @@ export interface PointOfSale {
   createdAt: string;
   updatedAt: string;
 }
+
+export type StockTransferProductType = 'ABATTU' | 'OEUFS' | 'PROVENDE';
+export type StockTransferStatus = 'TRANSFERRED' | 'CANCELLED';
+
+/** Transfert de stock ferme → boutique (abattu, œufs, provende répartis sur un PDV externe). */
+export interface StockTransfer {
+  id: string;
+  farmId: string;
+  productType: StockTransferProductType;
+  sourcePosId: string;
+  pointOfSaleId: string;
+  slaughterOrderId: string | null;
+  batchId: string | null;
+  inputLotId: string | null;
+  unit: string | null;
+  quantity: number;
+  quantitySold: number;
+  status: StockTransferStatus;
+  cancelledAt: string | null;
+  createdById: string | null;
+  createdAt: string;
+  updatedAt: string;
+  slaughterOrder: SlaughterOrder | null;
+  batch: ProductionBatch | null;
+  inputLot: any | null;
+  sourcePos: PointOfSale;
+  pointOfSale: PointOfSale;
+}
 export type AlertLevel = 'ROUGE' | 'JAUNE' | 'VERT';
 export type AlertStatus = 'ACTIVE' | 'RESOLUE' | 'ACQUITTEE';
 export type HealthGrade = 'EXCELLENT' | 'BON' | 'MOYEN' | 'CRITIQUE';
 export type ReadyReason = 'READY' | 'TOO_YOUNG' | 'FCR' | 'SANITARY' | 'N_A';
+/** Écart de mortalité vs attendu à l'âge du lot (référentiel serveur). */
+export type MortalityStatus = 'normal' | 'elevated' | 'critical';
 export type OrderCanal = 'FERME' | 'LIVRAISON' | 'PRECOMMANDE';
 export type OrderStatus = 'PENDING' | 'CONFIRMED' | 'LIVRE' | 'CANCELLED';
 
@@ -75,6 +106,12 @@ export interface BatchMetrics {
   ageDays: number;
   totalDeaths: number;
   mortalityPercent: number;
+  /** Mortalité cumulée attendue à l'âge du lot (référentiel de la bande). */
+  expectedMortalityPct: number;
+  /** Écart relatif (actual − attendu) / attendu × 100. */
+  mortalityDeviationPct: number | null;
+  /** normal | elevated | critical — écart de mortalité vs attendu. */
+  mortalityStatus: MortalityStatus;
   viabilityPercent: number;
   liveCount: number;
   totalFeedKg: number;
@@ -134,6 +171,8 @@ export interface ProductionBatch {
   id: string;
   farmId: string;
   batchName: string | null;
+  /** Bâtiment d'accueil du lot (nullable). */
+  buildingId?: string | null;
   /** Code de la souche (référentiel fournisseur/couvoir — ex : AA-500). */
   breedCode: string | null;
   breedName: string | null;
@@ -220,6 +259,10 @@ export interface HealthOverviewRow {
   liveCount: number;
   weekDeaths: number;
   mortalityPercent: number;
+  /** Mortalité cumulée attendue à l'âge du lot (référentiel de la bande). */
+  expectedMortalityPct: number;
+  /** normal | elevated | critical — écart de mortalité vs attendu. */
+  mortalityStatus: MortalityStatus;
   alertesRouges: number;
   alertesJaunes: number;
   lastEntryDate: string | null;
@@ -282,6 +325,8 @@ export interface DashboardData {
   batches: { total: number; actif: number; enVente: number; cloture: number };
   mortalityPercent: number | null;
   viabilityPercent: number | null;
+  /** Statut mortalité agrégé de la ferme (le plus dégradé). */
+  mortalityStatus: MortalityStatus;
   feedAutonomyDays: number | null;
   collectedTodayFcfa: number;
   teamCount: number;
@@ -677,6 +722,10 @@ export interface BatchHealth {
   liveCount: number;
   totalDeaths: number;
   mortalityPercent: number;
+  /** Mortalité cumulée attendue à l'âge du lot (référentiel de la bande). */
+  expectedMortalityPct: number;
+  /** normal | elevated | critical — écart de mortalité vs attendu. */
+  mortalityStatus: MortalityStatus;
   viabilityPercent: number;
   fcr: number | null;
   gmq: number | null;
@@ -803,7 +852,7 @@ export interface SaleFull {
   updatedAt: string;
 }
 
-/** Vente sans articles/paiements (GET /farms/:farmId/sales). */
+/** Vente liste (GET /farms/:farmId/sales) — le serveur renvoie les articles. */
 export interface SaleSummary {
   id: string;
   farmId: string;
@@ -822,6 +871,7 @@ export interface SaleSummary {
   createdById: string | null;
   createdAt: string;
   updatedAt: string;
+  items: SaleItemFull[];
 }
 
 export type ExpenseCategory =

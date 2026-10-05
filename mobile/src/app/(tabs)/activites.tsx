@@ -2,9 +2,9 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ArrowDownToLine, ArrowUpFromLine, Banknote, BookOpen, CalendarCheck, ClipboardList, TrendingUp } from 'lucide-react-native';
+import { ArrowDownToLine, Banknote, BookOpen, ClipboardList, TrendingUp } from 'lucide-react-native';
 
-import { Screen } from '@/components/ui/Screen';
+import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
@@ -13,45 +13,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
 import { fetchDashboard, fetchCaisseCurrent } from '@/api';
 import { color, palette, fmtFcfa } from '@/constants/theme';
-
-function ActivityRow({
-  icon,
-  iconBg,
-  iconColor,
-  title,
-  subtitle,
-  amount,
-  amountColor,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  title: string;
-  subtitle: string;
-  amount?: string;
-  amountColor?: string;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.activityRow, pressed && { backgroundColor: palette.surfaceAlt }]}
-      accessibilityRole="button"
-    >
-      <View style={[styles.activityIcon, { backgroundColor: iconBg }]}>
-        {icon}
-      </View>
-      <View style={{ flex: 1 }}>
-        <AppText size="body" weight="semibold" color="text" numberOfLines={1}>{title}</AppText>
-        <AppText size="small" color="muted" numberOfLines={1}>{subtitle}</AppText>
-      </View>
-      {amount ? (
-        <AppText size="bodyM" weight="bold" color={amountColor ?? 'text'}>{amount}</AppText>
-      ) : null}
-    </Pressable>
-  );
-}
 
 export default function ActivitesScreen() {
   const router = useRouter();
@@ -190,15 +151,6 @@ export default function ActivitesScreen() {
   );
 }
 
-function ScreenHeader({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <View style={{ marginBottom: 10 }}>
-      <AppText size="h2" weight="bold" color="text">{title}</AppText>
-      {subtitle ? <AppText size="caption" color="muted">{subtitle}</AppText> : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   summaryIcon: {
     width: 28,
@@ -227,21 +179,6 @@ const styles = StyleSheet.create({
   caisseStat: {
     flex: 1,
     gap: 1,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
-  activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   entryRow: {
     flexDirection: 'row',

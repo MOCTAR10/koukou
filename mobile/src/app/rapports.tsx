@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileBarChart2, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { Download, FileBarChart2, Store, TrendingDown, TrendingUp } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -11,7 +11,7 @@ import { Chip } from '@/components/ui/Chip';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
-import { fetchBatches, fetchRentabiliteBatch, fetchRentabiliteOverview } from '@/api';
+import { fetchBatches, fetchPointsOfSale, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales } from '@/api';
 import { downloadPdf } from '@/api/pdf';
 import type { BatchPnl, BatchStatus, OverviewPnl, RentabiliteBreakdownExpense, RentabiliteBreakdownProduct } from '@/api/types';
 import { color, palette, fmt, fmtFcfa } from '@/constants/theme';
@@ -68,6 +68,28 @@ export default function RapportsScreen() {
   });
 
   const ov: OverviewPnl | undefined = overviewQuery.data;
+
+  const periodFrom = ov?.period?.from?.slice(0, 10);
+  const periodTo = ov?.period?.to?.slice(0, 10);
+  const salesQuery = useQuery({
+    queryKey: ['sales', farmId, periodFrom ?? '', periodTo ?? ''],
+    queryFn: () => fetchSales(farmId, periodFrom ?? undefined, periodTo ?? undefined),
+    enabled: !!periodFrom,
+  });
+  const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId) });
+  const canalRows = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of salesQuery.data ?? []) {
+      if (s.status === 'CANCELLED' || !s.pointOfSaleId) continue;
+      map.set(s.pointOfSaleId, (map.get(s.pointOfSaleId) ?? 0) + s.totalAmountFcfa);
+    }
+    const pdvs = pdvQuery.data ?? [];
+    return [...map.entries()]
+      .map(([id, amount]) => ({ pdv: pdvs.find((p) => p.id === id), amount }))
+      .filter((r) => r.pdv)
+      .sort((a, b) => b.amount - a.amount) as { pdv: NonNullable<(typeof pdvs)[number]>; amount: number }[];
+  }, [salesQuery.data, pdvQuery.data]);
+  const canalTotal = useMemo(() => canalRows.reduce((a, r) => a + r.amount, 0), [canalRows]);
 
   const exportOverview = async () => {
     const from = ov?.period?.from?.slice(0, 10);
@@ -138,6 +160,44 @@ export default function RapportsScreen() {
             {(ov.breakdown?.byExpenseCategory ?? []).map((e: RentabiliteBreakdownExpense) => (
               <BreakdownRow key={e.category} label={e.label} amount={e.amountFcfa} />
             ))}
+          </Card>
+
+          <SectionHeader
+            title="Ventes par canal"
+            subtitle={canalRows.length > 0 ? `${fmt(canalRows.length)} point(s) de vente · ${fmtFcfa(canalTotal)}` : undefined}
+          />
+          <Card tone="default" style={{ gap: 6, paddingVertical: 10 }}>
+            {canalRows.length > 0 ? (
+              <>
+                {canalRows.map((r) => (
+                  <View key={r.pdv.id} style={styles.canalRow}>
+                    <View style={styles.canalEmoji}>
+                      <Store size={15} color={color.brand[600]} />
+                    </View>
+                    <AppText size="small" color="muted" style={{ flex: 1 }} numberOfLines={1}>
+                      {r.pdv.name}
+                      {r.pdv.province ? ` · ${r.pdv.province}` : ''}
+                    </AppText>
+                    <AppText size="small" weight="semibold" color="text">
+                      {fmtFcfa(r.amount)}
+                    </AppText>
+                  </View>
+                ))}
+                <View style={styles.sep} />
+                <View style={styles.rowBetween}>
+                  <AppText size="body" color="muted">
+                    Total canaux
+                  </AppText>
+                  <AppText size="body" weight="bold" color="text">
+                    {fmtFcfa(canalTotal)}
+                  </AppText>
+                </View>
+              </>
+            ) : (
+              <AppText size="small" color="muted">
+                Aucune vente sur la période.
+              </AppText>
+            )}
           </Card>
         </>
       ) : null}
@@ -279,5 +339,18 @@ const styles = StyleSheet.create({
   },
   chip: {
     marginBottom: 2,
+  },
+  canalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  canalEmoji: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: palette.brand[50],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

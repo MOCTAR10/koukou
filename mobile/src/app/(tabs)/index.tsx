@@ -19,6 +19,7 @@ import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { givenName, speciesLabel } from '@/api/format';
 import { color, emoji, fmt, fmtFcfa, gradeColor, palette, radii } from '@/constants/theme';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchSlaughterOrders } from '@/api';
+import { normalizeMortalityStatus } from '@/constants/health';
 import { Spinner } from '@/components/ui/Spinner';
 import { MetricInfoSheet } from '@/components/MetricInfoSheet';
 import type { MetricKey } from '@/components/MetricInfoSheet';
@@ -75,7 +76,7 @@ export default function AccueilScreen() {
     queryFn: () => fetchDashboard(farmId, queryDateStr, queryTimeStr),
   });
   const advisory = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId) });
-  const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId), refetchInterval: !window.isFiltered ? 60_000 : undefined });
+  const batchesQuery = useQuery({ queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''], queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined), refetchInterval: !window.isFiltered ? 60_000 : undefined });
   const slaughterQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId) });
   const slaughterOrders = slaughterQuery.data ?? [];
   const slaughterProcessed = slaughterOrders.filter((o) => o.status === 'PROCESSED');
@@ -315,14 +316,14 @@ export default function AccueilScreen() {
                 <AppText size="small" color="muted">Jaune</AppText>
               </View>
               <View style={[styles.healthAlertBadge, {
-                backgroundColor: (d.mortalityPercent ?? 0) > 5 ? palette.red[50] : palette.green[50],
-                borderColor: (d.mortalityPercent ?? 0) > 5 ? palette.red[200] : palette.green[200],
+                backgroundColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[50] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[50] : palette.red[50],
+                borderColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[200] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[200] : palette.red[200],
               }]}>
                 <View style={[styles.healthAlertDot, {
-                  backgroundColor: (d.mortalityPercent ?? 0) > 5 ? palette.red[500] : palette.green[500],
+                  backgroundColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[500] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[500] : palette.red[500],
                 }]} />
                 <AppText size="small" weight="semibold"
-                  color={(d.mortalityPercent ?? 0) > 5 ? 'danger' : 'success'}>
+                  color={normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? 'success' : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? 'warn' : 'danger'}>
                   {d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—'}
                 </AppText>
                 <AppText size="small" color="muted">Mort.</AppText>
@@ -333,7 +334,7 @@ export default function AccueilScreen() {
               <View style={styles.healthMortalityTrack}>
                 <View style={[styles.healthMortalityFill, {
                   width: `${Math.min(100, (d.mortalityPercent ?? 0) / 10 * 100)}%`,
-                  backgroundColor: (d.mortalityPercent ?? 0) > 5 ? palette.red[500] : (d.mortalityPercent ?? 0) > 3 ? palette.amber[500] : palette.green[500],
+                  backgroundColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[500] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[500] : palette.red[500],
                 }]} />
               </View>
               <AppText size="small" color="muted">Mortalité</AppText>

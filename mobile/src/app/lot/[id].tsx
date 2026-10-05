@@ -16,6 +16,7 @@ import {
   Layers,
   PenLine,
   Pill,
+  Scale,
   ShoppingCart,
   Stethoscope,
   Syringe,
@@ -41,12 +42,16 @@ import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/compone
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { color, palette, radii, fmt, fmtFcfa } from '@/constants/theme';
+import { normalizeMortalityStatus } from '@/constants/health';
 import { breedImageForLot } from '@/constants/breedImages';
+import { lotSlaughterSummary } from '@/utils/slaughterInsights';
+import { SlaughterInfoCard } from '@/components/slaughter/SlaughterLotInfo';
 import {
   fetchAdvisory,
   fetchBatch,
   fetchBatchHealth,
   fetchBreedStandards,
+  fetchBuildings,
   fetchCurve,
   fetchDashboard,
   fetchFeedStock,
@@ -56,6 +61,7 @@ import {
   fetchProtocols,
   fetchRentabiliteBatch,
   fetchSanitaryProgram,
+  fetchSlaughterOrders,
   fetchTreatments,
 } from '@/api';
 import { downloadPdf } from '@/api/pdf';
@@ -198,24 +204,29 @@ export default function LotDetailScreen() {
   const { openDaily, openSale } = useQuickCapture();
   const { farmId } = useAuth();
 
+  // ── Fenêtre partagée PeriodBar (déclarée avant les requêtes : elles en dépendent) ──
+  const [period, setPeriod] = useState<PeriodWindow>(() => periodWindow('all'));
+  const asOf = period.isFiltered && period.to ? period.to : undefined;
+
   // ── Queries ──
-  const batchQ = useQuery({ queryKey: ['batch', farmId, batchId], queryFn: () => fetchBatch(farmId, batchId), enabled: !!batchId });
+  const batchQ = useQuery({ queryKey: ['batch', farmId, batchId, asOf ?? ''], queryFn: () => fetchBatch(farmId, batchId, asOf), enabled: !!batchId });
   const curveQ = useQuery({ queryKey: ['curve', farmId, batchId], queryFn: () => fetchCurve(farmId, batchId), enabled: !!batchId });
   const advisoryQ = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId) });
-  const healthQ = useQuery({ queryKey: ['batch-health', farmId, batchId], queryFn: () => fetchBatchHealth(farmId, batchId), enabled: !!batchId });
+  const healthQ = useQuery({ queryKey: ['batch-health', farmId, batchId, asOf ?? ''], queryFn: () => fetchBatchHealth(farmId, batchId, asOf), enabled: !!batchId });
   const treatmentsQ = useQuery({ queryKey: ['treatments', farmId, batchId], queryFn: () => fetchTreatments(farmId, batchId), enabled: !!batchId });
   const prophylaxisQ = useQuery({ queryKey: ['prophylaxis', farmId, batchId], queryFn: () => fetchProphylaxis(farmId, batchId), enabled: !!batchId });
   const healthEventsQ = useQuery({ queryKey: ['health-events', farmId, batchId], queryFn: () => fetchHealthEvents(farmId, batchId), enabled: !!batchId });
+  const slaughterQ = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), staleTime: 60_000 });
 
   // ── New queries for lot metrics ──
   const rentabQ = useQuery({ queryKey: ['rentabilite-batch', farmId, batchId], queryFn: () => fetchRentabiliteBatch(farmId, batchId), enabled: !!batchId });
   const feedStockQ = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
-  const dashboardQ = useQuery({ queryKey: ['dashboard', farmId], queryFn: () => fetchDashboard(farmId) });
+  const dashboardQ = useQuery({ queryKey: ['dashboard', farmId, asOf ?? '', period.time ?? ''], queryFn: () => fetchDashboard(farmId, asOf, period.time), staleTime: 30_000 });
+  const buildingsQ = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
 
   // ── State ──
   const [mainTab, setMainTab] = useState<MainTab>('overview');
   const [curveTab, setCurveTab] = useState<'weight' | 'fcr' | 'water' | 'mortality' | 'eggs'>('weight');
-  const [period, setPeriod] = useState<PeriodWindow>(() => periodWindow('all'));
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const [healthFilter, setHealthFilter] = useState<'all' | 'event' | 'care'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -224,6 +235,10 @@ export default function LotDetailScreen() {
   const b = batchQ.data;
   const m = b?.metrics;
   const isLayer = b?.type === 'PONDEUSE';
+  const buildingName = useMemo(
+    () => (b?.buildingId ? buildingsQ.data?.find((bd) => bd.id === b.buildingId)?.name ?? null : null),
+    [b?.buildingId, buildingsQ.data],
+  );
   const eb = m?.eggBreakdown;
   const eggTotal = eb?.collected ?? 0;
   const eggCracked = eb?.cracked ?? 0;
@@ -299,6 +314,12 @@ export default function LotDetailScreen() {
   const pnl: BatchPnl | null = rentabQ.data ?? null;
   const quantityAtStart = b?.quantityAtStart ?? 0;
 
+  // ── Synthèse abattage ──
+  const slaughterSummary = useMemo(
+    () => lotSlaughterSummary(slaughterQ.data ?? [], b ?? { id: batchId, quantityAlive: 0 }),
+    [slaughterQ.data, b, batchId],
+  );
+
   // Prix d'achat par unité (poussins) — explique un Net négatif : ex. 1500/u.
   const chickUnitPriceFcfa = useMemo(() => {
     if (pnl?.enrichment.chickCostFcfa != null && quantityAtStart > 0) {
@@ -317,10 +338,11 @@ export default function LotDetailScreen() {
   // ── Filtered curve data ──
   const filteredWeekly = useMemo(() => {
     const weeks = curveQ.data?.weekly ?? [];
-    if (!dateRange.from) return weeks;
+    const { from, to } = dateRange;
+    if (!from && !to) return weeks;
     return weeks.filter((w) => {
       const d = new Date(w.weekStart);
-      return d >= dateRange.from! && d <= dateRange.to!;
+      return (!from || d >= from) && (!to || d <= to);
     });
   }, [curveQ.data, dateRange]);
 
@@ -346,12 +368,11 @@ export default function LotDetailScreen() {
   const eggsPoints = useMemo(() => {
     if (!isLayer) return [];
     const weekly = pondageQ.data?.weekly ?? [];
-    const scoped = dateRange.from
-      ? weekly.filter((w) => {
-          const d = new Date(w.weekStart);
-          return d >= dateRange.from! && d <= dateRange.to!;
-        })
-      : weekly;
+    const { from, to } = dateRange;
+    const scoped = (!from && !to) ? weekly : weekly.filter((w) => {
+      const d = new Date(w.weekStart);
+      return (!from || d >= from) && (!to || d <= to);
+    });
     return scoped.filter((w) => w.collected > 0).map((w) => ({ x: labelDay(w.weekStart), y: w.collected }));
   }, [pondageQ.data, dateRange, isLayer]);
 
@@ -365,12 +386,11 @@ export default function LotDetailScreen() {
   const layRatePoints = useMemo(() => {
     if (!isLayer) return [];
     const weekly = pondageQ.data?.weekly ?? [];
-    const scoped = dateRange.from
-      ? weekly.filter((w) => {
-          const d = new Date(w.weekStart);
-          return d >= dateRange.from! && d <= dateRange.to!;
-        })
-      : weekly;
+    const { from, to } = dateRange;
+    const scoped = (!from && !to) ? weekly : weekly.filter((w) => {
+      const d = new Date(w.weekStart);
+      return (!from || d >= from) && (!to || d <= to);
+    });
     return scoped
       .filter((w) => w.layRatePercent != null)
       .map((w) => ({ x: w.weekStart.slice(5).replace('-', '/'), y: w.layRatePercent! }));
@@ -427,14 +447,27 @@ export default function LotDetailScreen() {
       });
     }
 
+    // Slaughter orders (métriques d'abattage dans l'historique du lot)
+    for (const o of slaughterQ.data ?? []) {
+      if (o.batchId !== batchId || o.status === 'CANCELLED') continue;
+      items.push({
+        date: o.processedAt?.slice(0, 10) ?? o.plannedDate,
+        kind: 'slaughter',
+        label: `Abattage · ${o.referenceNumber}`,
+        detail: `${o.destination === 'INTERNE' ? 'Interne' : 'Externe'}${o.slaughterType === 'ABATTU' ? ' · abattu' : ' · vivant'} · ${o.birdCount} oiseaux${o.carcassWeightKg != null ? ` · ${o.carcassWeightKg} kg carcasse` : ''}${o.rendementPercent != null ? ` · ${o.rendementPercent.toFixed(1)} % rendement` : ''}`,
+        icon: Scale,
+        tone: o.status === 'PROCESSED' ? 'green' : o.status === 'SENT' ? 'amber' : 'brand',
+      });
+    }
+
     items.sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
     return items;
-  }, [treatmentsQ.data, prophylaxisQ.data, healthEventsQ.data]);
+  }, [treatmentsQ.data, prophylaxisQ.data, healthEventsQ.data, slaughterQ.data, batchId]);
 
   const filteredHistory = useMemo(() => {
     const from = dateRange.from ? toDateStr(dateRange.from) : null;
     const to = dateRange.to ? toDateStr(dateRange.to) : null;
-    const inRange = (d: string) => !from || !d || (d >= from && d <= to!);
+    const inRange = (d: string) => !d || (!from && !to) || ((!from || d >= from) && (!to || d <= to));
     const scoped = historyItems.filter((h) => inRange(h.date));
     if (historyFilter === 'treatments') return scoped.filter((h) => h.kind === 'treatment' || h.kind === 'prophylaxis' || h.kind === 'prophylaxis_late');
     if (historyFilter === 'health') return scoped.filter((h) => h.kind === 'health');
@@ -444,10 +477,15 @@ export default function LotDetailScreen() {
   // ── Suivi sanitaire (unifié : événements + prophylaxie, triés par date asc) ──
   const healthTimeline = useMemo(() => {
     const items: { key: string; date: string; category: 'event' | 'care'; icon: typeof Clock; title: string; chipLabel: string; chipTone: 'red' | 'amber' | 'green' | 'brand'; detail: string }[] = [];
+    const from = dateRange.from ? toDateStr(dateRange.from) : null;
+    const to = dateRange.to ? toDateStr(dateRange.to) : null;
+    const inRange = (d: string) => !d || (!from && !to) || ((!from || d >= from) && (!to || d <= to));
     for (const e of healthEventsQ.data ?? []) {
+      const date = e.occurredAt?.slice(0, 10) ?? '';
+      if (!inRange(date)) continue;
       items.push({
         key: `e-${e.id}`,
-        date: e.occurredAt?.slice(0, 10) ?? '',
+        date,
         category: 'event',
         icon: Stethoscope,
         title: e.title,
@@ -458,9 +496,11 @@ export default function LotDetailScreen() {
     }
     for (const p of prophylaxisQ.data ?? []) {
       if (p.status === 'ANNULE') continue;
+      const date = p.status === 'FAIT' ? p.completedAt?.slice(0, 10) ?? p.scheduledDate : p.scheduledDate;
+      if (!inRange(date)) continue;
       items.push({
         key: `p-${p.id}`,
-        date: p.status === 'FAIT' ? p.completedAt?.slice(0, 10) ?? p.scheduledDate : p.scheduledDate,
+        date,
         category: 'care',
         icon: Pill,
         title: p.name,
@@ -471,7 +511,7 @@ export default function LotDetailScreen() {
     }
     items.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     return items;
-  }, [healthEventsQ.data, prophylaxisQ.data]);
+  }, [healthEventsQ.data, prophylaxisQ.data, dateRange]);
 
   const filteredHealth = useMemo(() => {
     if (healthFilter === 'all') return healthTimeline;
@@ -552,25 +592,32 @@ export default function LotDetailScreen() {
             </View>
           ) : null}
           <View style={styles.heroStats}>
-            <View style={styles.heroTitleRow}>
-              <View style={styles.heroSpeciesTag}>
-                <AppText size="label" weight="bold" color="brand" style={{ flexShrink: 1 }}>
-                  {b.species && b.species !== 'POULET' ? (b.species === 'AUTRE' && b.customSpecies ? b.customSpecies : SPECIES_LABELS[b.species]) : SPECIES_LABELS.POULET}
-                </AppText>
-                {(b.breedCode || b.breedName) ? <View style={styles.heroTitleSep} /> : null}
-                {b.breedCode ? (
-                  <AppText size="label" weight="bold" color="accent" style={{ flexShrink: 1 }}>{b.breedCode}</AppText>
-                ) : null}
-                {b.breedName ? <View style={styles.heroTitleSep} /> : null}
-                {b.breedName ? (
-                  <AppText size="label" weight="medium" color="muted" style={{ flexShrink: 1 }}>{b.breedName}</AppText>
-                ) : null}
-              </View>
+            <View style={styles.heroBadgesRow}>
               <View style={[styles.heroTypeBadge, styles.heroTypeBadgeChair, isLayer && styles.heroTypeBadgeLayer]}>
                 <AppText size="caption" weight="bold" color={isLayer ? color.accent[700] : color.brand[800]}>
                   {isLayer ? 'Pondeuse' : 'Chair'}
                 </AppText>
               </View>
+              {buildingName && (
+                <View style={styles.heroBuildingBadge}>
+                  <AppText size="caption" weight="bold" color={palette.brand[700]} numberOfLines={1} style={styles.heroBuildingText}>
+                    {buildingName}
+                  </AppText>
+                </View>
+              )}
+            </View>
+            <View style={styles.heroSpeciesTag}>
+              <AppText size="label" weight="bold" color="brand" style={{ flexShrink: 1, minWidth: 0 }}>
+                {b.species && b.species !== 'POULET' ? (b.species === 'AUTRE' && b.customSpecies ? b.customSpecies : SPECIES_LABELS[b.species]) : SPECIES_LABELS.POULET}
+              </AppText>
+              {(b.breedCode || b.breedName) ? <View style={styles.heroTitleSep} /> : null}
+              {b.breedCode ? (
+                <AppText size="label" weight="bold" color="accent" style={{ flexShrink: 1, minWidth: 0 }}>{b.breedCode}</AppText>
+              ) : null}
+              {b.breedName ? <View style={styles.heroTitleSep} /> : null}
+              {b.breedName ? (
+                <AppText size="label" weight="medium" color="muted" style={{ flexShrink: 1, minWidth: 0 }}>{b.breedName}</AppText>
+              ) : null}
             </View>
             <View style={styles.heroMainRow}>
               <HeroStat value={fmt(m?.liveCount ?? 0)} label="vivants" small />
@@ -578,7 +625,7 @@ export default function LotDetailScreen() {
               <HeroStat
                 value={`${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
                 label="mortalité"
-                tone={(m?.mortalityPercent ?? 0) > 1.5 ? 'danger' : 'text'}
+                tone={normalizeMortalityStatus(m?.mortalityStatus, m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
                 small
               />
               <View style={styles.heroStatSep} />
@@ -651,6 +698,9 @@ export default function LotDetailScreen() {
             <MetricTile label="Aliment/bird" value={healthQ.data?.feedPerBirdGrams != null && healthQ.data.feedPerBirdGrams > 0 ? `${Math.round(healthQ.data.feedPerBirdGrams)} g/j` : '—'} icon={Wheat} tone="default" threeCol labelLines={2} />
             <MetricTile label="Densité" value={m?.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : '—'} icon={Layers} tone="default" threeCol />
           </View>
+
+          {/* ── ABATTAGE — synthèse ordres ── */}
+          <SlaughterInfoCard summary={slaughterSummary} showEmpty />
 
           {/* ── ŒUFS — répartition détaillée ── */}
           <Card style={styles.eggCard}>
@@ -1016,7 +1066,7 @@ export default function LotDetailScreen() {
               <View style={styles.healthGrid}>
                 <View style={styles.healthStat}>
                   <AppText size="small" color="muted">Mortalité</AppText>
-                  <AppText size="body" weight="bold" color={healthQ.data.mortalityPercent > 1.5 ? 'danger' : 'text'}>
+                  <AppText size="body" weight="bold" color={normalizeMortalityStatus(healthQ.data.mortalityStatus, healthQ.data.mortalityPercent) === 'normal' ? 'text' : 'danger'}>
                     {healthQ.data.mortalityPercent.toLocaleString('fr-FR')} %
                   </AppText>
                 </View>
@@ -1117,16 +1167,18 @@ function HeroStat({ value, label, tone = 'text', small = false }: { value: strin
 const styles = StyleSheet.create({
   // Hero
   heroCard: { gap: 10 },
-  heroSplit: { flexDirection: 'row', alignItems: 'stretch', gap: 12 },
-  heroImageWrap: { width: 76, borderRadius: radii.lg, overflow: 'hidden' },
+  heroSplit: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  heroImageWrap: { width: 76, height: 76, borderRadius: radii.lg, overflow: 'hidden' },
   heroImage: { width: 76, height: 76, borderRadius: radii.lg },
   heroAgeBadge: { position: 'absolute', left: 5, bottom: 5, backgroundColor: 'rgba(12,35,49,0.72)', borderRadius: radii.pill, paddingHorizontal: 7, paddingVertical: 2 },
-  heroStats: { flex: 1, gap: 8, justifyContent: 'center' },
-  heroTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heroSpeciesTag: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2, flex: 1 },
+  heroStats: { flex: 1, gap: 8, justifyContent: 'center', minWidth: 0 },
+  heroBadgesRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  heroSpeciesTag: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2, minWidth: 0 },
   heroTypeBadge: { borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
   heroTypeBadgeChair: { backgroundColor: palette.brand[100], borderColor: palette.brand[200] },
   heroTypeBadgeLayer: { backgroundColor: color.accent[50], borderColor: color.accent[100] },
+  heroBuildingBadge: { borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, backgroundColor: palette.brand[50], borderColor: palette.brand[200] },
+  heroBuildingText: { maxWidth: 150, flexShrink: 1 },
   heroTitleSep: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(12,35,49,0.18)' },
   heroMainRow: { flexDirection: 'row', alignItems: 'stretch' },
   heroStatSep: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: 'rgba(12,35,49,0.12)', marginVertical: 2 },

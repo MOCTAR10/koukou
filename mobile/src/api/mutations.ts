@@ -11,6 +11,7 @@ import type {
   SlaughterDestination,
   SlaughterType,
   Species,
+  StockTransferProductType,
 } from './types';
 
 export function todayStr(): string {
@@ -107,7 +108,7 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
   return p;
 }
 
-export type PosProduct = 'PIECE' | 'KG' | 'OEUF' | 'AUTRE' | 'ABATTU_PIECE' | 'ABATTU_KG';
+export type PosProduct = 'PIECE' | 'KG' | 'OEUF' | 'AUTRE' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'PROVENDE';
 
 export type BuildSaleItemResult =
   | { item: SaleItemPayload }
@@ -118,6 +119,10 @@ export interface BuildSaleItemOptions {
   avgWeightKg?: number;
   /** Source carcasse (abattage) pour ABATTU_PIECE/ABATTU_KG. */
   sourceSlaughterOrderId?: string;
+  /** Réserve d'un transfert ferme → boutique (ABATTU, OEUFS ou PROVENDE). */
+  stockTransferId?: string;
+  /** Unité de vente proposée (PROVENDE réservée : SAC ou KG). */
+  unit?: SaleUnit;
 }
 
 /** Poids moyen retenu faute de pesée (poulet de chair, Gabon). */
@@ -131,36 +136,38 @@ export function buildSaleItem(
   opts?: BuildSaleItemOptions,
 ): BuildSaleItemResult {
   if (product === 'ABATTU_PIECE') {
-    if (!batchId) return { error: 'Sélectionnez un lot abattu.' };
-    return {
-      item: {
-        productType: 'ABATTU_PIECE',
-        unit: 'PIECE',
-        label: 'Abattu à la pièce',
-        quantity,
-        unitPriceFcfa,
-        batchId,
-        ...(opts?.sourceSlaughterOrderId ? { sourceSlaughterOrderId: opts.sourceSlaughterOrderId } : {}),
-      },
-    };
-  }
-  if (product === 'ABATTU_KG') {
-    if (!batchId) return { error: 'Sélectionnez un lot abattu.' };
-    const avg = opts?.avgWeightKg ?? DEFAULT_AVG_WEIGHT_KG;
-    const weightKg = Math.round(quantity * avg * 100) / 100;
-    return {
-      item: {
-        productType: 'ABATTU_KG',
-        unit: 'KG',
-        label: 'Abattu au kilo',
-        quantity: weightKg,
-        unitPriceFcfa,
-        batchId,
-        pieceCount: quantity,
-        ...(opts?.sourceSlaughterOrderId ? { sourceSlaughterOrderId: opts.sourceSlaughterOrderId } : {}),
-      },
-    };
-  }
+      if (!batchId) return { error: 'Sélectionnez un lot abattu.' };
+      return {
+        item: {
+          productType: 'ABATTU_PIECE',
+          unit: 'PIECE',
+          label: 'Abattu à la pièce',
+          quantity,
+          unitPriceFcfa,
+          batchId,
+          ...(opts?.sourceSlaughterOrderId ? { sourceSlaughterOrderId: opts.sourceSlaughterOrderId } : {}),
+          ...(opts?.stockTransferId ? { stockTransferId: opts.stockTransferId } : {}),
+        },
+      };
+    }
+    if (product === 'ABATTU_KG') {
+      if (!batchId) return { error: 'Sélectionnez un lot abattu.' };
+      const avg = opts?.avgWeightKg ?? DEFAULT_AVG_WEIGHT_KG;
+      const weightKg = Math.round(quantity * avg * 100) / 100;
+      return {
+        item: {
+          productType: 'ABATTU_KG',
+          unit: 'KG',
+          label: 'Abattu au kilo',
+          quantity: weightKg,
+          unitPriceFcfa,
+          batchId,
+          pieceCount: quantity,
+          ...(opts?.sourceSlaughterOrderId ? { sourceSlaughterOrderId: opts.sourceSlaughterOrderId } : {}),
+          ...(opts?.stockTransferId ? { stockTransferId: opts.stockTransferId } : {}),
+        },
+      };
+    }
   switch (product) {
     case 'PIECE': {
       if (!batchId) return { error: 'Sélectionnez un lot de poulets à décompter.' };
@@ -186,8 +193,30 @@ export function buildSaleItem(
     }
     case 'OEUF':
       return {
-        item: { productType: 'OEUFS', unit: 'ALVEOLES', label: 'Œufs (alvéoles)', quantity, unitPriceFcfa, batchId: batchId ?? undefined },
+        item: {
+          productType: 'OEUFS',
+          unit: 'ALVEOLES',
+          label: 'Œufs (alvéoles)',
+          quantity,
+          unitPriceFcfa,
+          batchId: batchId ?? undefined,
+          ...(opts?.stockTransferId ? { stockTransferId: opts.stockTransferId } : {}),
+        },
       };
+    case 'PROVENDE': {
+      if (!opts?.stockTransferId) return { error: 'Sélectionnez une réserve de provende.' };
+      const unit: SaleUnit = opts?.unit === 'KG' ? 'KG' : 'SAC';
+      return {
+        item: {
+          productType: 'PROVENDE',
+          unit,
+          label: 'Provende',
+          quantity,
+          unitPriceFcfa,
+          stockTransferId: opts.stockTransferId,
+        },
+      };
+    }
     default:
       return { item: { productType: 'AUTRE', unit: 'UNITE', label: 'Autre', quantity, unitPriceFcfa } };
   }
@@ -229,6 +258,8 @@ export interface SaleItemPayload {
   pieceCount?: number;
   /** Carcasse pool (abattage) — requise pour ABATTU_PIECE/ABATTU_KG. */
   sourceSlaughterOrderId?: string;
+  /** Réserve d'un transfert ferme → boutique (vente ABATTU, OEUFS ou PROVENDE). */
+  stockTransferId?: string;
 }
 
 export interface SalePayload {
@@ -677,6 +708,7 @@ export interface PointOfSaleInput {
   kind: 'FERME' | 'BOUTIQUE';
   address?: string;
   city?: string;
+  province?: string;
   latitude?: number;
   longitude?: number;
   isActive?: boolean;
@@ -699,6 +731,31 @@ export function updatePointOfSale(farmId: string, pointOfSaleId: string, input: 
 export function deletePointOfSale(farmId: string, pointOfSaleId: string): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/points-of-sale/${pointOfSaleId}`, {
     method: 'DELETE',
+  });
+}
+
+// ── Transferts de stock ferme → boutique ─────────────────────
+
+export interface StockTransferInput {
+  productType: StockTransferProductType;
+  slaughterOrderId?: string;
+  pointOfSaleId: string;
+  batchId?: string;
+  inputLotId?: string;
+  unit?: string;
+  quantity: number;
+}
+
+export function createStockTransfer(farmId: string, input: StockTransferInput): Promise<unknown> {
+  return apiFetch(`/farms/${farmId}/stock-transfers`, {
+    method: 'POST',
+    body: input,
+  });
+}
+
+export function cancelStockTransfer(farmId: string, transferId: string): Promise<unknown> {
+  return apiFetch(`/farms/${farmId}/stock-transfers/${transferId}/cancel`, {
+    method: 'POST',
   });
 }
 

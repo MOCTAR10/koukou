@@ -62,6 +62,11 @@ export class CreateSaleItemDto {
   @IsOptional()
   @IsUUID('4', { message: 'Identifiant d’ordre d’abattage invalide.' })
   sourceSlaughterOrderId?: string;
+
+  /** Réserve d'un transfert ferme → boutique (vente ABATTU, OEUFS ou PROVENDE). */
+  @IsOptional()
+  @IsUUID('4', { message: 'Identifiant de transfert invalide.' })
+  stockTransferId?: string;
 }
 
 export class PaymentInputDto {

@@ -13,6 +13,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="lots" />
       <Tabs.Screen name="provende" />
       <Tabs.Screen name="menu" />
+      <Tabs.Screen name="activites" options={{ href: null }} />
+      <Tabs.Screen name="marche" options={{ href: null }} />
     </Tabs>
   );
 }

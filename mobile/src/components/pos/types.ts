@@ -6,6 +6,10 @@ export interface PosLine {
   product: PosProduct;
   batchId?: string;
   slaughterOrderId?: string;
+  /** Réserve d'un transfert ferme → boutique (source ABATTU/OEUFS/PROVENDE en boutique). */
+  transferId?: string;
+  /** Unité de vente retenue (PROVENDE : 'SAC' | 'KG'). */
+  unit?: 'SAC' | 'KG';
   qty: number;
   unitPriceFcfa: number;
   label: string;

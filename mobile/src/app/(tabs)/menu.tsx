@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import {
+  Activity,
   Bird,
   ClipboardList,
   Coins,
@@ -10,6 +11,7 @@ import {
   ListTodo,
   MapPin,
   Stethoscope,
+  Store,
   User,
   Wheat,
 } from 'lucide-react-native';
@@ -33,13 +35,15 @@ export default function MenuScreen() {
 
   const items = [
     { key: 'profil', label: 'Profil', sub: 'Compte & paramètres', icon: <User size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/reglages' },
+    { key: 'activites', label: 'Activités', sub: 'Journal & opérations', icon: <Activity size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/activites' },
+    { key: 'marche', label: 'Marché', sub: 'Vitrine clients (bientôt)', icon: <Store size={24} color={color.green[600]} />, bg: color.green[50], fg: color.green[600], href: '/marche' },
     { key: 'sanitaire', label: 'Sanitaire', sub: 'Protocoles & soins', icon: <Stethoscope size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/sanitary' },
     { key: 'stock', label: 'Stock & provendes', sub: 'Inventaire, pertes, mouvements', icon: <Wheat size={24} color={color.amber[600]} />, bg: color.amber[50], fg: color.amber[600], href: '/provende' },
     { key: 'abattage', label: 'Abattage', sub: 'Ordres & passeport', icon: <Bird size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/slaughter' },
     { key: 'caisse', label: 'Caisse', sub: 'Ouverture & encaisses', icon: <Coins size={24} color={color.green[600]} />, bg: color.green[50], fg: color.green[600], href: '/caisse' },
     { key: 'commandes', label: 'Commandes', sub: 'Bons & précommandes', icon: <ClipboardList size={24} color={color.accent[600]} />, bg: color.accent[50], fg: color.accent[600], href: '/commandes' },
     { key: 'taches', label: 'Tâches', sub: 'Travail de l\'équipe', icon: <ListTodo size={24} color={color.amber[600]} />, bg: color.amber[50], fg: color.amber[600], href: '/tasks' },
-    { key: 'pointsvente', label: 'Points de vente', sub: 'Boutiques, adresses', icon: <MapPin size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/points-vente' },
+    { key: 'pointsvente', label: 'Points de vente', sub: 'Ferme & points de vente', icon: <MapPin size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/points-vente' },
     { key: 'clients', label: 'Clients', sub: 'Profils, soldes', icon: <Handshake size={24} color={color.accent[600]} />, bg: color.accent[50], fg: color.accent[600], href: '/clients' },
     { key: 'rapports', label: 'Rentabilité', sub: 'P&L & exports PDF', icon: <FileBarChart2 size={24} color={color.green[600]} />, bg: color.green[50], fg: color.green[600], href: '/rapports' },
   ] satisfies GridItem[];

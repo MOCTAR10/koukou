@@ -25,6 +25,8 @@ export function invalidateFarmQueries(
   void queryClient.invalidateQueries({ queryKey: ['customers', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['promotions', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['points-of-sale', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['stock-transfers', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['sales', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['orders', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['rentabilite', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['farm-members', farmId] });

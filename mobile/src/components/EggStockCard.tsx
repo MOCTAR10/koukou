@@ -131,6 +131,7 @@ export function EggStockCard({
       {/* ── Body: big number + mini metrics ── */}
       <View style={styles.bodyRow}>
         <View style={styles.bigBlock}>
+          <AppText size='small' weight='semibold' color='muted'>En stock</AppText>
           <View style={styles.valueRow}>
             <AppText size='h1' weight='bold' color={palette.brand[600]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
               {displayValue.toLocaleString('fr-FR')}

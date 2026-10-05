@@ -24,3 +24,6 @@ Thumbs.db
 
 # Temp / local
 *.tmp
+
+# Fichiers uploadés par l'API (logos de ferme, à la volée)
+backend/uploads/

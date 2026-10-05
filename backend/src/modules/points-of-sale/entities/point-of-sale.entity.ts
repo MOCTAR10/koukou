@@ -37,6 +37,9 @@ export class PointOfSale {
   @Column({ type: 'varchar', nullable: true })
   city: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  province: string | null;
+
   @Column({ type: 'float', nullable: true })
   latitude: number | null;
 

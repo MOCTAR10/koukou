@@ -32,6 +32,10 @@ import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { SlaughterStatus } from '../../common/enums/slaughter-status.enum.js';
 import { SlaughterType } from '../../common/enums/slaughter-type.enum.js';
+import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
+import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
+import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
+import { PointOfSaleKind } from '../../common/enums/point-of-sale-kind.enum.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { Customer } from './entities/customer.entity.js';
 import { CashSession } from './entities/cash-session.entity.js';
@@ -167,6 +171,12 @@ export class SalesService {
         farmId,
         dto.pointOfSaleId,
       );
+      const resolvedPosEntity = resolvedPointOfSaleId
+        ? await this.pointsOfSaleService.resolveEntity(
+            farmId,
+            resolvedPointOfSaleId,
+          )
+        : null;
 
       if (dto.batchId) {
         await this.assertBatchInFarm(em, farmId, dto.batchId);
@@ -196,6 +206,9 @@ export class SalesService {
           sale.id,
           user,
           itemDto as any,
+          resolvedPosEntity
+            ? { id: resolvedPosEntity.id, kind: resolvedPosEntity.kind }
+            : null,
         );
         total += item.amountFcfa;
         items.push(item);
@@ -346,7 +359,9 @@ export class SalesService {
       batchId?: string;
       inputLotId?: string;
       sourceSlaughterOrderId?: string;
+      stockTransferId?: string;
     },
+    pos?: { id: string; kind: PointOfSaleKind } | null,
   ): Promise<SaleItem> {
     const itemRepo = em.getRepository(SaleItem);
     const batchRepo = em.getRepository(ProductionBatch);
@@ -366,8 +381,43 @@ export class SalesService {
       productType === SaleItemProductType.ABATTU_PIECE ||
       productType === SaleItemProductType.ABATTU_KG;
     const fromCarcassPool = isAbattu && sourceSlaughterOrderId != null;
+    const pendingStockTransferId = dto.stockTransferId ?? null;
+    const boutiqueTransfer =
+      pos?.kind === PointOfSaleKind.BOUTIQUE && pendingStockTransferId != null;
+    if (pendingStockTransferId != null && pos?.kind !== PointOfSaleKind.BOUTIQUE) {
+      throw new BadRequestException(
+        'Une réserve de transfert ne peut être consommée que par une vente en boutique (point de vente externe).',
+      );
+    }
+    if (
+      boutiqueTransfer &&
+      productType !== SaleItemProductType.ABATTU_PIECE &&
+      productType !== SaleItemProductType.ABATTU_KG &&
+      productType !== SaleItemProductType.OEUFS &&
+      productType !== SaleItemProductType.PROVENDE
+    ) {
+      throw new BadRequestException(
+        'Ce produit ne peut pas être vendu depuis une réserve de transfert.',
+      );
+    }
 
-    if (productType === SaleItemProductType.POULET_PIECE ||
+    if (
+      productType === SaleItemProductType.ABATTU_PIECE &&
+      boutiqueTransfer &&
+      unit === SaleItemUnit.PIECE
+    ) {
+      const birds = Math.ceil(quantity);
+      const t = await this.decrementStockTransfer(
+        em,
+        farmId,
+        pendingStockTransferId!,
+        birds,
+      );
+      sourceSlaughterOrderId = null;
+      batchId = t.batchId ?? null;
+      pieceCount = birds;
+    } else if (
+        productType === SaleItemProductType.POULET_PIECE ||
         productType === SaleItemProductType.ABATTU_PIECE) {
       batchId = this.requireBatch(
         dto.batchId,
@@ -412,7 +462,27 @@ export class SalesService {
       productType === SaleItemProductType.POULET_KG ||
       productType === SaleItemProductType.ABATTU_KG
     ) {
-      batchId = this.requireBatch(
+      if (
+        productType === SaleItemProductType.ABATTU_KG &&
+        boutiqueTransfer &&
+        unit === SaleItemUnit.KG
+      ) {
+        if (!dto.pieceCount || dto.pieceCount <= 0) {
+          throw new BadRequestException(
+            'Vente au kilo : indiquer le nombre de pièces (nb de poulets) décrémenté depuis la réserve du transfert.',
+          );
+        }
+        const t = await this.decrementStockTransfer(
+          em,
+          farmId,
+          pendingStockTransferId!,
+          dto.pieceCount,
+        );
+        sourceSlaughterOrderId = null;
+        batchId = t.batchId ?? null;
+        pieceCount = dto.pieceCount;
+      } else {
+        batchId = this.requireBatch(
         dto.batchId,
         productType === SaleItemProductType.ABATTU_KG
           ? 'poulet abattu au kilo'
@@ -450,6 +520,7 @@ export class SalesService {
         pieceCount = dto.pieceCount;
         batchValidated = true;
       }
+      }
     } else if (productType === SaleItemProductType.OEUFS) {
       if (unit !== SaleItemUnit.ALVEOLES) {
         throw new BadRequestException(
@@ -457,20 +528,39 @@ export class SalesService {
         );
       }
       batchId = dto.batchId ?? null;
-      await this.assertEggsAvailable(em, farmId, quantity);
+      if (boutiqueTransfer) {
+        const t = await this.decrementStockTransfer(
+          em,
+          farmId,
+          pendingStockTransferId!,
+          quantity,
+        );
+        batchId = t.batchId ?? batchId;
+      } else {
+        await this.assertEggsAvailable(em, farmId, quantity);
+      }
     } else if (productType === SaleItemProductType.PROVENDE) {
       if (unit !== SaleItemUnit.SAC && unit !== SaleItemUnit.KG) {
         throw new BadRequestException(
           'Pour la provende, l’unité doit être SAC ou KG.',
         );
       }
-      if (!dto.inputLotId) {
-        throw new BadRequestException(
-          'Vente de provende : rattacher un lot d’intrant (inputLotId) pour tracer la déduction de stock HACCP.',
+      if (boutiqueTransfer) {
+        await this.decrementStockTransfer(
+          em,
+          farmId,
+          pendingStockTransferId!,
+          quantity,
         );
-      }
-      inputLotId = dto.inputLotId;
-      if (inputLotId != null) {
+        inputLotId = null;
+        batchId = null;
+      } else {
+        if (!dto.inputLotId) {
+          throw new BadRequestException(
+            'Vente de provende : rattacher un lot d’intrant (inputLotId) pour tracer la déduction de stock HACCP.',
+          );
+        }
+        inputLotId = dto.inputLotId;
         const lot = await em.getRepository(InputLot).findOne({
           where: { id: inputLotId, farmId },
         });
@@ -480,8 +570,6 @@ export class SalesService {
           );
         }
         batchId = dto.batchId ?? lot.batchId ?? null;
-      } else {
-        batchId = dto.batchId ?? null;
       }
     } else {
       // AUTRE : aucune contrainte d'inventaire.
@@ -508,10 +596,14 @@ export class SalesService {
         batchId,
         inputLotId,
         sourceSlaughterOrderId,
+        stockTransferId: pendingStockTransferId,
       }),
     );
 
-    if (productType === SaleItemProductType.PROVENDE) {
+    if (
+      productType === SaleItemProductType.PROVENDE &&
+      !pendingStockTransferId
+    ) {
       await this.feedStockService.recordFeedSale({
         farmId,
         inputLotId,
@@ -674,6 +766,65 @@ export class SalesService {
   }
 
   /**
+   * Consomme une réserve de transfert ferme → boutique : le transfert doit
+   * être actif (TRANSFERRED) et disposer du solde demandé (quantity − sold).
+   */
+  private async decrementStockTransfer(
+    em: EntityManager,
+    farmId: string,
+    transferId: string,
+    count: number,
+  ): Promise<StockTransfer> {
+    const transfer = await em
+      .getRepository(StockTransfer)
+      .createQueryBuilder('t')
+      .setLock('pessimistic_write')
+      .where('t.id = :id', { id: transferId })
+      .andWhere('t.farm_id = :farmId', { farmId })
+      .getOne();
+    if (!transfer) {
+      throw new BadRequestException(
+        'Transfert de stock introuvable dans cette ferme.',
+      );
+    }
+    if (transfer.status !== StockTransferStatus.TRANSFERRED) {
+      throw new BadRequestException(
+        'Ce transfert est annulé : la vente sur sa réserve est impossible.',
+      );
+    }
+    const remaining = transfer.quantity - transfer.quantitySold;
+    if (count > remaining) {
+      throw new BadRequestException(
+        `Réserve insuffisante sur ce transfert : ${remaining} unité(s) restante(s), vente demandée ${count}.`,
+      );
+    }
+    transfer.quantitySold += count;
+    return em.getRepository(StockTransfer).save(transfer);
+  }
+
+  /** Réintègre la réserve d'un transfert lors de l'annulation d'une vente. */
+  private async restoreStockTransfer(
+    em: EntityManager,
+    farmId: string,
+    transferId: string,
+    delta: number,
+  ): Promise<void> {
+    if (delta <= 0) return;
+    const transfer = await em
+      .getRepository(StockTransfer)
+      .createQueryBuilder('t')
+      .setLock('pessimistic_write')
+      .where('t.id = :id', { id: transferId })
+      .andWhere('t.farm_id = :farmId', { farmId })
+      .getOne();
+    if (!transfer || transfer.status !== StockTransferStatus.TRANSFERRED) {
+      return;
+    }
+    transfer.quantitySold = Math.max(0, transfer.quantitySold - delta);
+    await em.getRepository(StockTransfer).save(transfer);
+  }
+
+  /**
    * Garde de stock œufs : calcul identique au dashboard
    * (Σ collectés − fêlés − petits − déjà vendus, 30 œufs/alvéole).
    */
@@ -714,8 +865,19 @@ export class SalesService {
       });
       soldEggs = eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
     }
+    const transfers = await em.getRepository(StockTransfer).find({
+      where: {
+        farmId,
+        productType: StockTransferProductType.OEUFS,
+        status: StockTransferStatus.TRANSFERRED,
+      },
+    });
+    const transferredEggs = transfers.reduce(
+      (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
+      0,
+    );
     const requestedEggs = alveoles * EGGS_PER_ALVEOL;
-    const availableEggs = produced - soldEggs;
+    const availableEggs = produced - soldEggs - transferredEggs;
     if (requestedEggs > availableEggs) {
       throw new BadRequestException(
         `Stock d’œufs insuffisant : ${Math.max(0, availableEggs)} œuf(s) disponible(s) (≈${Math.floor(
@@ -904,6 +1066,19 @@ export class SalesService {
       const feedItems: SaleItem[] = [];
 
       for (const item of items) {
+        if (!skipStockRestore && item.stockTransferId) {
+          const delta =
+            item.productType === SaleItemProductType.ABATTU_PIECE ||
+            item.productType === SaleItemProductType.ABATTU_KG
+              ? item.pieceCount ?? Math.ceil(item.quantity)
+              : item.quantity;
+          await this.restoreStockTransfer(
+            em,
+            farmId,
+            item.stockTransferId,
+            delta,
+          );
+        }
         if (item.productType === SaleItemProductType.ABATTU_PIECE ||
             item.productType === SaleItemProductType.ABATTU_KG) {
           if (!skipStockRestore && item.sourceSlaughterOrderId) {

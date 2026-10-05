@@ -6,6 +6,7 @@ import { AppText } from './ui/AppText';
 import { Card } from './ui/Card';
 import { Chip } from './ui/Chip';
 import { color, palette, fmt } from '@/constants/theme';
+import { normalizeMortalityStatus } from '@/constants/health';
 import type { HealthOverviewRow } from '@/api/types';
 import { SPECIES_ICONS, speciesLabel } from '@/api/format';
 
@@ -72,7 +73,7 @@ export function LotCard({ row, onPress }: { row: HealthOverviewRow; onPress?: ()
           </View>
           <View style={styles.divider} />
           <View style={styles.stat}>
-            <AppText size="h3" weight="bold" color={row.mortalityPercent > 1.5 ? 'danger' : 'text'}>
+            <AppText size="h3" weight="bold" color={normalizeMortalityStatus(row.mortalityStatus, row.mortalityPercent) === 'normal' ? 'text' : 'danger'}>
               {row.mortalityPercent.toLocaleString('fr-FR')}%
             </AppText>
             <AppText size="small" color="muted">

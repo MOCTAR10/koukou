@@ -93,7 +93,7 @@ import type {
   TreatmentRecord,
 } from '@/api/types';
 import { color, palette } from '@/constants/theme';
-
+import { normalizeMortalityStatus } from '@/constants/health';
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements';
 
 const TAB_OPTIONS: { key: TabKey; label: string; icon: (active: boolean) => React.ReactNode; description: string; tint?: 'green' | 'red' }[] = [
@@ -630,7 +630,10 @@ export default function SanitaryScreen() {
   const queryClient = useQueryClient();
   const isProprietaire = canManageFarm(user?.role);
 
-  const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
+  const [window, setWindow] = useState<PeriodWindow>(() => periodWindow('all'));
+  const firstWindowRef = useRef(true);
+
+  const batchesQuery = useQuery({ queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''], queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined) });
   const lots = (batchesQuery.data ?? []).filter((b) => b.status === 'ACTIF' || b.status === 'EN_VENTE');
 
   const [lotId, setLotId] = useState('');
@@ -641,8 +644,6 @@ export default function SanitaryScreen() {
   const { lot: lotParam, plan: planParam } = useLocalSearchParams<{ lot?: string; plan?: string }>();
 
   const [tab, setTab] = useState<TabKey>('sante');
-  const [window, setWindow] = useState<PeriodWindow>(() => periodWindow('all'));
-  const firstWindowRef = useRef(true);
 
   const handlePeriodChange = (w: PeriodWindow) => {
     setWindow(w);
@@ -660,8 +661,8 @@ export default function SanitaryScreen() {
   };
 
   const health = useQuery({
-    queryKey: ['health', farmId, batchId],
-    queryFn: () => fetchBatchHealth(farmId, batchId),
+    queryKey: ['health', farmId, batchId, window.isFiltered ? (window.to ?? '') : ''],
+    queryFn: () => fetchBatchHealth(farmId, batchId, window.isFiltered ? window.to : undefined),
     enabled: batchId !== '',
   });
   const events = useQuery({
@@ -2152,6 +2153,10 @@ function SanteTab({ health, loading, lotName, prophylaxis, integrationDate }: { 
   const empty = !health;
   const score = health?.healthScore ?? 0;
   const trends = health?.trends ?? { dates: [], mortality: [], eggs: [] };
+  const mortStatus = normalizeMortalityStatus(
+    health?.mortalityStatus,
+    health?.mortalityPercent,
+  );
 
   return (
     <>
@@ -2198,7 +2203,7 @@ function SanteTab({ health, loading, lotName, prophylaxis, integrationDate }: { 
       <View style={styles.metricRow}>
         <MetricTile label="Plateaux" value={String(health?.trays ?? 0)} sub={`${health?.eggsCollectedTotal ?? 0} œufs`} tone="accent" icon={Egg} threeCol />
         <MetricTile label="Taux ponte" value={health?.layRatePercent != null ? `${health.layRatePercent.toFixed(1)}%` : '—'} sub="sur 7 j" tone="accent" icon={TrendingUp} threeCol />
-        <MetricTile label="Mortalité" value={`${(health?.mortalityPercent ?? 0).toFixed(1)}%`} tone={(health?.mortalityPercent ?? 0) > 5 ? 'red' : (health?.mortalityPercent ?? 0) > 1 ? 'amber' : 'green'} icon={TrendingDown} threeCol />
+        <MetricTile label="Mortalité" value={`${(health?.mortalityPercent ?? 0).toFixed(1)}%`} tone={mortStatus === 'normal' ? 'green' : mortStatus === 'elevated' ? 'amber' : 'red'} icon={TrendingDown} threeCol />
       </View>
 
       <SectionHeader title="Conseils du jour" />

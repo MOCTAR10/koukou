@@ -4,11 +4,13 @@ import {
   acknowledgeAlert,
   buildDailyEntryPayload,
   buildSaleItem,
+  cancelStockTransfer,
   cancelProphylaxis,
   cancelSlaughterOrder,
   closeCaisse,
   completeProphylaxis,
   createCustomer,
+  createStockTransfer,
   createDailyEntry,
   createFarmMember,
   createInput,
@@ -245,6 +247,68 @@ describe('buildSaleItem', () => {
       expect(r.item.batchId).toBeUndefined();
     } else {
       throw new Error('AUTRE doit réussir');
+    }
+  });
+
+  it('ABATTU_PIECE : source abattoir ou transfert boutique', () => {
+    const pool = buildSaleItem('ABATTU_PIECE', 4, 3200, 'lot-1', { sourceSlaughterOrderId: 'ab-1' });
+    if ('item' in pool) {
+      expect(pool.item).toMatchObject({ productType: 'ABATTU_PIECE', sourceSlaughterOrderId: 'ab-1' });
+      expect(pool.item.stockTransferId).toBeUndefined();
+    } else {
+      throw new Error('ABATTU pool doit réussir');
+    }
+    const transfer = buildSaleItem('ABATTU_PIECE', 4, 3200, 'lot-1', { stockTransferId: 'tr-1' });
+    if ('item' in transfer) {
+      expect(transfer.item).toMatchObject({ productType: 'ABATTU_PIECE', stockTransferId: 'tr-1' });
+      expect(transfer.item.sourceSlaughterOrderId).toBeUndefined();
+    } else {
+      throw new Error('ABATTU transfert doit réussir');
+    }
+  });
+
+  it('ABATTU_KG : pièces comptées, transfert boutique porté', () => {
+    const r = buildSaleItem('ABATTU_KG', 6, 2800, 'lot-1', {
+      avgWeightKg: 1.8,
+      stockTransferId: 'tr-9',
+    });
+    if ('item' in r) {
+      expect(r.item).toMatchObject({
+        productType: 'ABATTU_KG',
+        unit: 'KG',
+        quantity: 10.8,
+        pieceCount: 6,
+        stockTransferId: 'tr-9',
+      });
+    } else {
+      throw new Error('ABATTU_KG transfert doit réussir');
+    }
+  });
+
+  it('OEUF : une réserve boutique porte le stockTransferId', () => {
+    const r = buildSaleItem('OEUF', 10, 3000, 'lot-p', { stockTransferId: 'tr-7' });
+    if ('item' in r) {
+      expect(r.item).toMatchObject({ productType: 'OEUFS', unit: 'ALVEOLES', batchId: 'lot-p', stockTransferId: 'tr-7' });
+    } else {
+      throw new Error('OEUF réserve doit réussir');
+    }
+  });
+
+  it('PROVENDE : exige une réserve et porte SAC/KG + stockTransferId', () => {
+    const noReserve = buildSaleItem('PROVENDE', 2, 4500, null);
+    expect('error' in noReserve).toBe(true);
+    const sac = buildSaleItem('PROVENDE', 2, 4500, null, { stockTransferId: 'tr-3', unit: 'SAC' });
+    if ('item' in sac) {
+      expect(sac.item).toMatchObject({ productType: 'PROVENDE', unit: 'SAC', quantity: 2, stockTransferId: 'tr-3' });
+      expect(sac.item.batchId).toBeUndefined();
+    } else {
+      throw new Error('PROVENDE sac doit réussir');
+    }
+    const kg = buildSaleItem('PROVENDE', 50, 500, null, { stockTransferId: 'tr-3', unit: 'KG' });
+    if ('item' in kg) {
+      expect(kg.item).toMatchObject({ productType: 'PROVENDE', unit: 'KG', quantity: 50 });
+    } else {
+      throw new Error('PROVENDE kg doit réussir');
     }
   });
 });
@@ -598,5 +662,24 @@ describe('createInput', () => {
       numberOfBags: 10,
       kind: 'ALIMENT',
     });
+  });
+});
+
+describe('transferts de stock ferme → boutique', () => {
+  it('createStockTransfer POSTe le transfert', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(201, { id: 'tr-1' }));
+    await createStockTransfer('f-1', { productType: 'ABATTU', slaughterOrderId: 'ab-1', pointOfSaleId: 'pdv-2', quantity: 12 });
+    const call = readCall(fetchMock);
+    expect(call.url).toBe('http://10.0.0.5:3000/farms/f-1/stock-transfers');
+    expect(call.init.method).toBe('POST');
+    expect(JSON.parse(call.init.body as string)).toEqual({ productType: 'ABATTU', slaughterOrderId: 'ab-1', pointOfSaleId: 'pdv-2', quantity: 12 });
+  });
+
+  it('cancelStockTransfer POSTe l’annulation sur le transfert', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(200, { id: 'tr-1', status: 'CANCELLED' }));
+    await cancelStockTransfer('f-1', 'tr-1');
+    const call = readCall(fetchMock);
+    expect(call.url).toBe('http://10.0.0.5:3000/farms/f-1/stock-transfers/tr-1/cancel');
+    expect(call.init.method).toBe('POST');
   });
 });

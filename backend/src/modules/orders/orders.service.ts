@@ -31,6 +31,9 @@ import { ProductionBatch } from '../batches/entities/production-batch.entity.js'
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { PointsOfSaleService } from '../points-of-sale/points-of-sale.service.js';
+import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
+import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
+import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
 import { CashMovement } from '../finance/entities/cash-movement.entity.js';
 import { CashSession } from '../finance/entities/cash-session.entity.js';
 import { Customer } from '../finance/entities/customer.entity.js';
@@ -911,8 +914,19 @@ export class OrdersService {
       });
       soldEggs = eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
     }
+    const transfers = await em.getRepository(StockTransfer).find({
+      where: {
+        farmId,
+        productType: StockTransferProductType.OEUFS,
+        status: StockTransferStatus.TRANSFERRED,
+      },
+    });
+    const transferredEggs = transfers.reduce(
+      (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
+      0,
+    );
     const requestedEggs = alveoles * EGGS_PER_ALVEOL;
-    const availableEggs = produced - soldEggs;
+    const availableEggs = produced - soldEggs - transferredEggs;
     if (requestedEggs > availableEggs) {
       throw new BadRequestException(
         `Stock d’œufs insuffisant : ${Math.max(0, availableEggs)} œuf(s) disponible(s) (≈${Math.floor(

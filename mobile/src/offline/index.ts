@@ -6,6 +6,8 @@ import type { DailyEntryPayload, InvoiceFields, SaleItemPayload } from '@/api/mu
 
 import {
   cancelOrderQueued,
+  cancelStockTransferQueued,
+  createStockTransferQueued,
   createDailyEntryQueued,
   createFeedInputQueued,
   createOrderQueued,
@@ -27,6 +29,8 @@ export type { FlushSummary, OfflineOp, SendResult };
 
 export {
   cancelOrderQueued,
+  cancelStockTransferQueued,
+  createStockTransferQueued,
   createDailyEntryQueued,
   createFeedInputQueued,
   createOrderQueued,

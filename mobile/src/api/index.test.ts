@@ -5,6 +5,7 @@ import {
   fetchBatches,
   fetchCaisseCurrent,
   fetchCaisseSessions,
+  fetchStockTransfers,
   fetchCustomerHistory,
   fetchCustomers,
   fetchExpenses,
@@ -58,6 +59,7 @@ vi.mock('./live', () => ({
     fetchRentabiliteOverview = vi.fn(async () => ({ src: 'live' }));
     fetchRentabiliteBatch = vi.fn(async () => ({ src: 'live' }));
     fetchSales = vi.fn(async () => [{ src: 'live' }]);
+    fetchStockTransfers = vi.fn(async () => [{ src: 'live' }]);
     fetchExpenses = vi.fn(async () => [{ src: 'live' }]);
     fetchOrders = vi.fn(async () => [{ src: 'live' }]);
     fetchOrder = vi.fn(async () => ({ src: 'live' }));
@@ -100,6 +102,7 @@ describe('facade @/api (100 % connecté)', () => {
     expect(await fetchRentabiliteOverview('f-demo')).toEqual({ src: 'live' });
     expect(await fetchRentabiliteBatch('f-demo', 'b-1')).toEqual({ src: 'live' });
     expect(await fetchSales('f-demo')).toEqual([{ src: 'live' }]);
+    expect(await fetchStockTransfers('f-demo')).toEqual([{ src: 'live' }]);
     expect(await fetchExpenses('f-demo')).toEqual([{ src: 'live' }]);
     expect(await fetchOrders('f-demo')).toEqual([{ src: 'live' }]);
     expect(await fetchOrder('f-demo', 'ord-1')).toEqual({ src: 'live' });

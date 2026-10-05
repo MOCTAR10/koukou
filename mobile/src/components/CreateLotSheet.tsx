@@ -1291,7 +1291,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       </View>
 
       <Field label='Fournisseur couvoir'>
-        <TextInput value={couvoirSupplier} onChangeText={setCouvoirSupplier} placeholder='Ex : Couvoir de Libreville' />
+        <TextInput value={couvoirSupplier} onChangeText={setCouvoirSupplier} placeholder='Ex : Couvoir agro' />
       </Field>
       <Field label='N° lot poussins'>
         <TextInput value={chickLotNumber} onChangeText={setChickLotNumber} placeholder='Ex : LOT-2026-089' />

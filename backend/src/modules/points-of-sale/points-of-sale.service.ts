@@ -87,6 +87,18 @@ export class PointsOfSaleService {
     return pos.id;
   }
 
+  /** Retourne l'entité point de vente actif (ou null) pour comprendre son type. */
+  async resolveEntity(
+    farmId: string,
+    pointOfSaleId: string,
+  ): Promise<PointOfSale | null> {
+    const pos = await this.repo.findOne({
+      where: { id: pointOfSaleId, farmId },
+    });
+    if (!pos || pos.isActive === false) return null;
+    return pos;
+  }
+
   async create(
     user: AuthUser,
     farmId: string,
@@ -110,6 +122,7 @@ export class PointsOfSaleService {
         name: dto.name,
         address: dto.address ?? null,
         city: dto.city ?? null,
+        province: dto.province ?? null,
         latitude: dto.latitude ?? null,
         longitude: dto.longitude ?? null,
         isActive: dto.isActive ?? true,
@@ -132,10 +145,21 @@ export class PointsOfSaleService {
         'Le point de vente par défaut (ferme) ne peut pas être reclassé en boutique.',
       );
     }
+    if (dto.kind === PointOfSaleKind.FERME && !pos.isDefault) {
+      const existing = await this.repo.findOne({
+        where: { farmId, kind: PointOfSaleKind.FERME },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          'La ferme possède déjà son point de vente mère ; ce point de vente ne peut pas être reclassé en ferme.',
+        );
+      }
+    }
     if (dto.kind !== undefined) pos.kind = dto.kind;
     if (dto.name !== undefined) pos.name = dto.name;
     if (dto.address !== undefined) pos.address = dto.address;
     if (dto.city !== undefined) pos.city = dto.city;
+    if (dto.province !== undefined) pos.province = dto.province;
     if (dto.latitude !== undefined) pos.latitude = dto.latitude;
     if (dto.longitude !== undefined) pos.longitude = dto.longitude;
     if (dto.isActive !== undefined) {
