@@ -16,6 +16,8 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { EggStockCard } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
 import { FarmSelector } from '@/components/ui/FarmSelector';
+import { FarmModeSwitch } from '@/components/FarmModeSwitch';
+import { AgricultureHome } from '@/components/agriculture/AgricultureHome';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -58,7 +60,7 @@ function lastSevenDays(): string[] {
 export default function AccueilScreen() {
   const router = useRouter();
 
-  const { user, farms, farmId, setActiveFarmId } = useAuth();
+  const { user, farms, farmId, setActiveFarmId, farmMode } = useAuth();
   const { hasPermission } = useFarmProfile();
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [cheptelOpen, setCheptelOpen] = useState(false);
@@ -90,10 +92,24 @@ export default function AccueilScreen() {
   const dashboard = useQuery({
     queryKey: ['dashboard', farmId, queryDateStr, queryTimeStr],
     queryFn: () => fetchDashboard(farmId, queryDateStr, queryTimeStr),
+    enabled: farmMode === 'aviculture',
   });
-  const advisory = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId) });
-  const batchesQuery = useQuery({ queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''], queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined), refetchInterval: !window.isFiltered ? 60_000 : undefined });
-  const slaughterQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId) });
+  const advisory = useQuery({
+    queryKey: ['advisory', farmId],
+    queryFn: () => fetchAdvisory(farmId),
+    enabled: farmMode === 'aviculture',
+  });
+  const batchesQuery = useQuery({
+    queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''],
+    queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined),
+    refetchInterval: !window.isFiltered ? 60_000 : undefined,
+    enabled: farmMode === 'aviculture',
+  });
+  const slaughterQuery = useQuery({
+    queryKey: ['slaughter-orders', farmId],
+    queryFn: () => fetchSlaughterOrders(farmId),
+    enabled: farmMode === 'aviculture',
+  });
   // Supplément Statistiques : P&L + portefeuille clients, chargés à la demande
   // (une fois le panneau « Plus » ouvert) selon les permissions.
   const canRapports = hasPermission('compta:rapports');
@@ -101,12 +117,12 @@ export default function AccueilScreen() {
   const pnlQuery = useQuery({
     queryKey: ['rentabilite', farmId, window.from ?? '', window.to ?? ''],
     queryFn: () => fetchRentabiliteOverview(farmId, window.from, window.to),
-    enabled: canRapports && statsExpanded,
+    enabled: farmMode === 'aviculture' && canRapports && statsExpanded,
   });
   const customersSummaryQuery = useQuery({
     queryKey: ['customers-summary', farmId],
     queryFn: () => fetchCustomersSummary(farmId),
-    enabled: canClients && statsExpanded,
+    enabled: farmMode === 'aviculture' && canClients && statsExpanded,
   });
   // Série réelle des œufs collectés sur 7 jours, sommée sur les lots pondeurs :
   // le backend n'expose pas de série journalière, on agrège les saisies.
@@ -233,7 +249,10 @@ export default function AccueilScreen() {
     void Promise.all([dashboard.refetch(), advisory.refetch(), batchesQuery.refetch(), pnlQuery.refetch(), customersSummaryQuery.refetch()]);
   };
 
-
+  // ── Domaine Agriculture : tableau de bord dédié (pas d'élevage). ──
+  if (farmMode === 'agriculture') {
+    return <AgricultureHome />;
+  }
 
   return (
     <Screen
@@ -348,6 +367,8 @@ export default function AccueilScreen() {
         <BrandLoader />
       ) : (
         <>
+          {/* ── Bascule Élevage / Agriculture ── */}
+          <FarmModeSwitch />
           {/* ── Cheptel + Lots ── */}
           <View style={styles.metricGrid}>
             <MetricTile label='Cheptel vivant' value={fmt(d.liveStock)} sub={`${d.batches.actif} lot${d.batches.actif > 1 ? 's' : ''}`} tone='green' iconImage={require('@/assets/images/chiken.jpg')} narrowStats onPress={() => setCheptelOpen(true)} compact />

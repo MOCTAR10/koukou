@@ -34,6 +34,8 @@ export function invalidateFarmQueries(
   void queryClient.invalidateQueries({ queryKey: ['farm-profile', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['permission-catalog', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['tasks', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['parcelles', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['cultures'] });
   if (batchId) {
     void queryClient.invalidateQueries({ queryKey: ['batch', farmId, batchId] });
     void queryClient.invalidateQueries({ queryKey: ['curve', farmId, batchId] });

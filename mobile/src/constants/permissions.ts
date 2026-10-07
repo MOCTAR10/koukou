@@ -74,6 +74,11 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
     ],
   },
   {
+    key: 'agriculture',
+    label: 'Agriculture',
+    items: [{ code: 'agri:gerer', label: 'Parcelles & cultures' }],
+  },
+  {
     key: 'reglages',
     label: 'Réglages',
     items: [{ code: 'reglages:ferme', label: 'Paramètres de la ferme' }],

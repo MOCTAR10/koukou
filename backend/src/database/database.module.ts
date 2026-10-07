@@ -8,6 +8,7 @@ import { SanitaryProtocol } from '../modules/sanitary/entities/sanitary-protocol
 import { ProtocolStep } from '../modules/sanitary/entities/protocol-step.entity.js';
 import { PaymentMethodConfig } from '../modules/finance/entities/payment-method.entity.js';
 import { User } from '../modules/users/entities/user.entity.js';
+import { Culture } from '../modules/agriculture/entities/culture.entity.js';
 import { DatabaseSeedService } from './database-seed.service.js';
 
 @Module({
@@ -21,6 +22,7 @@ import { DatabaseSeedService } from './database-seed.service.js';
       ProtocolStep,
       PaymentMethodConfig,
       User,
+      Culture,
     ]),
   ],
   providers: [DatabaseSeedService],

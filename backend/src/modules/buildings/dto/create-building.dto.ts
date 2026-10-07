@@ -37,4 +37,17 @@ export class CreateBuildingDto {
   @IsOptional()
   @IsDateString()
   lastVideSanitaireAt?: string;
+
+  @ApiPropertyOptional({
+    description: 'Longitude du bâtiment (coordonnées GPS)',
+    example: 9.4512,
+  })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @ApiPropertyOptional({ description: 'Latitude du bâtiment', example: 0.4162 })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
 }

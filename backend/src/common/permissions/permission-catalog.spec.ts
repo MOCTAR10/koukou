@@ -50,4 +50,10 @@ describe('permission-catalog : profils métier', () => {
     expect(codes).toContain('rh:lire');
     expect(codes).toContain('rh:gerer');
   });
+
+  it('le catalogue expose un groupe Agriculture avec la gestion des parcelles', () => {
+    const group = PERMISSION_GROUPS.find((g) => g.key === 'agriculture');
+    const codes = group?.items.map((i) => i.code) ?? [];
+    expect(codes).toContain('agri:gerer');
+  });
 });

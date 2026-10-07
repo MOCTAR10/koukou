@@ -65,6 +65,8 @@ export interface Farm {
   active: boolean;
   /** Chemin public du logo (ex. « /uploads/logos/<farmId>.png ») ; null = logo KouKou par défaut. */
   logoUrl: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN';
@@ -96,7 +98,8 @@ export type PermissionCode =
   | 'sanitaire:lecture'
   | 'reglages:ferme'
   | 'rh:lire'
-  | 'rh:gerer';
+  | 'rh:gerer'
+  | 'agri:gerer';
 
 /** Nature du contrat de travail (dossier RH). */
 export type ContractType =
@@ -267,7 +270,46 @@ export interface Building {
   buildingAreaM2: number | null;
   capacity: number | null;
   lastVideSanitaireAt: string | null;
+  latitude: number | null;
+  longitude: number | null;
   stats?: { activeBirds: number; activeLots: number; densityPerM2: number | null };
+}
+
+export type CropCategory = 'TUBERCULE' | 'MARAICHAGE' | 'FRUIT' | 'CEREALE' | 'AUTRE';
+
+/** Culture du référentiel global (Agriculture), regroupée par catégorie. */
+export interface Culture {
+  id: string;
+  name: string;
+  category: CropCategory;
+  defaultCycleDays: number | null;
+  waterNeedsLPlantDay: number | null;
+  notes: string | null;
+}
+
+export type ParcelleStatus = 'PREPARATION' | 'ACTIVE' | 'JACHERE' | 'CLOTURE';
+
+/** Contour de parcelle au format GeoJSON (Polygon / MultiPolygon). */
+export interface GeoJsonGeometry {
+  type: 'Polygon' | 'MultiPolygon';
+  coordinates: number[][][][] | number[][][];
+}
+
+/** Parcelle agricole d'une ferme. */
+export interface Parcelle {
+  id: string;
+  farmId: string;
+  name: string;
+  culture: Culture;
+  cultureId: string;
+  areaHa: number;
+  areaM2: number | null;
+  boundaryGeoJson: GeoJsonGeometry | null;
+  plantedAt: string | null;
+  status: ParcelleStatus;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProductionBatch {

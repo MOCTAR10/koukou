@@ -10,10 +10,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Bird, House, LayoutGrid, Plus, Wheat } from 'lucide-react-native';
+import { Bird, Tractor, House, LayoutGrid, Plus, Sprout, Wheat } from 'lucide-react-native';
 
 import { AppText } from '../ui/AppText';
-import { useAuth } from '@/auth/AuthContext';
+import { useAuth, type FarmMode } from '@/auth/AuthContext';
 import { useOfflineQueue } from '@/offline';
 import { useCreateCenter } from '../create/CreateCenter';
 import { color, palette, shadow } from '@/constants/theme';
@@ -28,11 +28,20 @@ interface CustomTabBarProps {
   };
 }
 
+/** Étiquettes + icônes des onglets, quel que soit le domaine. */
 const TABS: Record<string, { label: string; icon: typeof House }> = {
   index: { label: 'Accueil', icon: House },
   lots: { label: 'Lots', icon: Bird },
   provende: { label: 'Provende', icon: Wheat },
   menu: { label: 'Menu', icon: LayoutGrid },
+  parcelles: { label: 'Parcelles', icon: Sprout },
+  recoltes: { label: 'Récoltes', icon: Tractor },
+};
+
+/** Onglets visibles (ordre d'affichage) par domaine d'exploitation. */
+const MODE_TABS: Record<FarmMode, string[]> = {
+  aviculture: ['index', 'lots', 'provende', 'menu'],
+  agriculture: ['index', 'parcelles', 'recoltes', 'menu'],
 };
 
 const FAB_SPRING = { damping: 15, stiffness: 400, mass: 0.8 };
@@ -102,7 +111,7 @@ function pillShapePath(W: number, R: number, H: number, cx: number, nr: number):
 
 export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { farmId } = useAuth();
+  const { farmId, farmMode } = useAuth();
   const { openCreateMenu } = useCreateCenter();
   const offline = useOfflineQueue(farmId);
   const pendingOffline = offline.pending.length;
@@ -116,6 +125,16 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
   const indicatorOpacity = useSharedValue(0);
   const hapticRef = useRef(false);
 
+  // Onglets visibles dans l'ordre du domaine actif, indexés sur les routes réelles.
+  const tabOrder = MODE_TABS[farmMode];
+  const visibleRoutes = tabOrder
+    .map((name) => state.routes.find((r) => r.name === name))
+    .filter((r): r is TabRoute => Boolean(r));
+
+  const focusedName = state.routes[state.index]?.name;
+  const focusedLocal = visibleRoutes.findIndex((r) => r.name === focusedName);
+  const activeSlot = focusedLocal >= 0 ? (SLOT_MAP[focusedLocal] ?? 4) : 4;
+
   useEffect(() => {
     if (hapticRef.current) {
       Haptics.selectionAsync().catch(() => {});
@@ -125,10 +144,9 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
 
   useEffect(() => {
     if (tabW <= 0) return;
-    const slot = SLOT_MAP[state.index] ?? 4;
-    indicatorX.value = withSpring(slot * tabW, INDICATOR_SPRING);
+    indicatorX.value = withSpring(activeSlot * tabW, INDICATOR_SPRING);
     indicatorOpacity.value = withTiming(1, { duration: 200 });
-  }, [state.index, tabW, indicatorX, indicatorOpacity]);
+  }, [activeSlot, tabW, indicatorX, indicatorOpacity]);
 
   const indicatorStyle = useAnimatedStyle(() => ({
     left: indLeft,
@@ -178,16 +196,21 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
           />
 
           <View style={styles.bar}>
-            <NavTab route={state.routes[0]} index={0} stateIndex={state.index} navigation={navigation} badge={false} badgeCount={0} />
-            <NavTab route={state.routes[1]} index={1} stateIndex={state.index} navigation={navigation} badge={false} badgeCount={0} />
+            <NavTab route={visibleRoutes[0]} focused={visibleRoutes[0]?.name === focusedName} navigation={navigation} badge={false} badgeCount={0} />
+            <NavTab route={visibleRoutes[1]} focused={visibleRoutes[1]?.name === focusedName} navigation={navigation} badge={false} badgeCount={0} />
 
-            <AnimatedFAB onPress={openCreateMenu} />
+            <AnimatedFAB
+              onPress={
+                farmMode === 'agriculture'
+                  ? () => navigation.navigate('parcelles', { new: '1' })
+                  : openCreateMenu
+              }
+            />
 
-            <NavTab route={state.routes[2]} index={2} stateIndex={state.index} navigation={navigation} badge={false} badgeCount={0} />
+            <NavTab route={visibleRoutes[2]} focused={visibleRoutes[2]?.name === focusedName} navigation={navigation} badge={false} badgeCount={0} />
             <NavTab
-              route={state.routes[3]}
-              index={3}
-              stateIndex={state.index}
+              route={visibleRoutes[3]}
+              focused={visibleRoutes[3]?.name === focusedName}
               navigation={navigation}
               badge={pendingOffline > 0}
               badgeCount={pendingOffline}
@@ -202,22 +225,19 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
 
 function NavTab({
   route,
-  index,
-  stateIndex,
+  focused,
   navigation,
   badge,
   badgeCount,
   badgeTone = 'red',
 }: {
   route: TabRoute;
-  index: number;
-  stateIndex: number;
+  focused: boolean;
   navigation: CustomTabBarProps['navigation'];
   badge?: boolean;
   badgeCount: number;
   badgeTone?: 'red' | 'amber';
 }) {
-  const focused = stateIndex === index;
   const active = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {

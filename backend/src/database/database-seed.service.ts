@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 import { BatchType } from '../common/enums/batch-type.enum.js';
 import { Species } from '../common/enums/species.enum.js';
+import { CropCategory } from '../common/enums/crop-category.enum.js';
 import { CareType } from '../common/enums/care-type.enum.js';
 import { ReferenceKey } from '../common/enums/reference-key.enum.js';
 import { UserRole } from '../common/enums/role.enum.js';
@@ -18,6 +19,7 @@ import { ProtocolStep } from '../modules/sanitary/entities/protocol-step.entity.
 import { PaymentMethodConfig } from '../modules/finance/entities/payment-method.entity.js';
 import { PaymentMethod } from '../common/enums/payment-method.enum.js';
 import { User } from '../modules/users/entities/user.entity.js';
+import { Culture } from '../modules/agriculture/entities/culture.entity.js';
 
 interface SeedConstant {
   key: ReferenceKey;
@@ -281,6 +283,35 @@ const DEFAULT_BREEDS: {
   // ── Autre (volailles locales / non catégorisées) ──
   { name: 'Volaille Locale (chair)', type: BatchType.CHAIR, species: Species.AUTRE, refCode: 'VL-CH' },
   { name: 'Volaille Locale (pondeuse)', type: BatchType.PONDEUSE, species: Species.AUTRE, refCode: 'VL-PD' },
+];
+
+/** Référentiel des cultures par catégorie (Agriculture), idempotent par nom. */
+const DEFAULT_CULTURES: {
+  name: string;
+  category: CropCategory;
+  defaultCycleDays: number | null;
+  waterNeedsLPlantDay: number | null;
+}[] = [
+  // ── Tubercules ──
+  { name: 'Plantain', category: CropCategory.TUBERCULE, defaultCycleDays: 330, waterNeedsLPlantDay: 4 },
+  { name: 'Manioc', category: CropCategory.TUBERCULE, defaultCycleDays: 365, waterNeedsLPlantDay: 3 },
+  { name: 'Macabo', category: CropCategory.TUBERCULE, defaultCycleDays: 270, waterNeedsLPlantDay: 3 },
+  { name: 'Igname', category: CropCategory.TUBERCULE, defaultCycleDays: 300, waterNeedsLPlantDay: 4 },
+  // ── Maraîchage ──
+  { name: 'Tomate', category: CropCategory.MARAICHAGE, defaultCycleDays: 90, waterNeedsLPlantDay: 1.5 },
+  { name: 'Oignon', category: CropCategory.MARAICHAGE, defaultCycleDays: 120, waterNeedsLPlantDay: 1 },
+  { name: 'Aubergine', category: CropCategory.MARAICHAGE, defaultCycleDays: 100, waterNeedsLPlantDay: 1.5 },
+  { name: 'Piment', category: CropCategory.MARAICHAGE, defaultCycleDays: 90, waterNeedsLPlantDay: 1 },
+  { name: 'Gombo', category: CropCategory.MARAICHAGE, defaultCycleDays: 75, waterNeedsLPlantDay: 1 },
+  // ── Fruits ──
+  { name: 'Mangue', category: CropCategory.FRUIT, defaultCycleDays: 1500, waterNeedsLPlantDay: 20 },
+  { name: 'Papaye', category: CropCategory.FRUIT, defaultCycleDays: 365, waterNeedsLPlantDay: 15 },
+  { name: 'Avocat', category: CropCategory.FRUIT, defaultCycleDays: 1500, waterNeedsLPlantDay: 25 },
+  { name: 'Agrumes', category: CropCategory.FRUIT, defaultCycleDays: 1000, waterNeedsLPlantDay: 18 },
+  // ── Céréales ──
+  { name: 'Maïs', category: CropCategory.CEREALE, defaultCycleDays: 100, waterNeedsLPlantDay: 1.5 },
+  { name: 'Riz (paddy)', category: CropCategory.CEREALE, defaultCycleDays: 140, waterNeedsLPlantDay: 8 },
+  { name: 'Sorgho', category: CropCategory.CEREALE, defaultCycleDays: 105, waterNeedsLPlantDay: 1 },
 ];
 
 /**
@@ -2173,6 +2204,8 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     private readonly paymentMethodRepo: Repository<PaymentMethodConfig>,
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
+    @InjectRepository(Culture)
+    private readonly cultureRepo: Repository<Culture>,
     private readonly config: ConfigService,
   ) {}
 
@@ -2185,6 +2218,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     await this.seedProtocols();
     await this.seedGabonPrograms();
     await this.seedPaymentMethods();
+    await this.seedCultures();
     this.logger.log('Semence des données de référence terminée.');
   }
 
@@ -2263,6 +2297,35 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
           this.standardRepo.create({ ...s, breedId: breed.id }),
         ),
       );
+    }
+  }
+
+  /** Référentiel des cultures agricoles par défaut (idempotent par nom). */
+  private async seedCultures() {
+    for (const c of DEFAULT_CULTURES) {
+      const existing = await this.cultureRepo.findOne({
+        where: { name: c.name },
+      });
+      if (!existing) {
+        await this.cultureRepo.save(
+          this.cultureRepo.create({
+            name: c.name,
+            category: c.category,
+            defaultCycleDays: c.defaultCycleDays,
+            waterNeedsLPlantDay: c.waterNeedsLPlantDay,
+            notes: null,
+            isCustom: false,
+          }),
+        );
+      } else if (
+        existing.category !== c.category ||
+        existing.defaultCycleDays !== c.defaultCycleDays
+      ) {
+        existing.category = c.category;
+        existing.defaultCycleDays = c.defaultCycleDays;
+        existing.waterNeedsLPlantDay = c.waterNeedsLPlantDay;
+        await this.cultureRepo.save(existing);
+      }
     }
   }
 

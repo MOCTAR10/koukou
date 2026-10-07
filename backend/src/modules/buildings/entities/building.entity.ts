@@ -35,6 +35,12 @@ export class Building {
   @Column({ name: 'last_vide_sanitaire_at', type: 'date', nullable: true })
   lastVideSanitaireAt: string | null;
 
+  @Column({ name: 'longitude', type: 'float', nullable: true })
+  longitude: number | null;
+
+  @Column({ name: 'latitude', type: 'float', nullable: true })
+  latitude: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

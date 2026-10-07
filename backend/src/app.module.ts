@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Client } from 'pg';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './modules/auth/auth.module.js';
@@ -25,6 +26,8 @@ import { TasksModule } from './modules/tasks/tasks.module.js';
 import { WeatherModule } from './modules/weather/weather.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 import { AdvisoryModule } from './modules/advisory/advisory.module.js';
+import { AgricultureModule } from './modules/agriculture/agriculture.module.js';
+import { SpatialModule } from './modules/spatial/spatial.module.js';
 import { DatabaseModule } from './database/database.module.js';
 
 @Module({
@@ -41,16 +44,24 @@ import { DatabaseModule } from './database/database.module.js';
     ]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get('DB_HOST', 'localhost'),
-        port: config.get<number>('DB_PORT', 5432),
-        username: config.get('DB_USERNAME', 'postgres'),
-        password: config.get('DB_PASSWORD', 'postgres'),
-        database: config.get('DB_DATABASE', 'koukou_ferme'),
-        autoLoadEntities: true,
-        synchronize: config.get('DB_SYNCHRONIZE', 'true') === 'true',
-      }),
+      useFactory: async (config: ConfigService) => {
+        const host = config.get('DB_HOST', 'localhost');
+        const port = config.get<number>('DB_PORT', 5432);
+        const username = config.get('DB_USERNAME', 'postgres');
+        const password = config.get('DB_PASSWORD', 'postgres');
+        const database = config.get('DB_DATABASE', 'koukou_ferme');
+        await ensurePostgis(host, port, username, password, database);
+        return {
+          type: 'postgres',
+          host,
+          port,
+          username,
+          password,
+          database,
+          autoLoadEntities: true,
+          synchronize: config.get('DB_SYNCHRONIZE', 'true') === 'true',
+        };
+      },
     }),
     AuthModule,
     UsersModule,
@@ -72,6 +83,8 @@ import { DatabaseModule } from './database/database.module.js';
     WeatherModule,
     PlatformModule,
     AdvisoryModule,
+    SpatialModule,
+    AgricultureModule,
     DatabaseModule,
   ],
   controllers: [AppController],
@@ -84,3 +97,34 @@ import { DatabaseModule } from './database/database.module.js';
   ],
 })
 export class AppModule {}
+
+/**
+ * Tente d'activer l'extension PostGIS (idempotent) AVANT la connexion TypeORM
+ * afin que `synchronize` et les calculs ST_* fonctionnent dès le démarrage.
+ * PostGIS est optionnel : sans lui, le spatial se replie sur le calcul JS
+ * (`SpatialService.areaHa`) et l'API reste fonctionnelle.
+ */
+async function ensurePostgis(
+  host: string,
+  port: number,
+  username: string,
+  password: string,
+  database: string,
+): Promise<void> {
+  const client = new Client({ host, port, user: username, password, database });
+  try {
+    await client.connect();
+    await client.query('CREATE EXTENSION IF NOT EXISTS postgis');
+  } catch (err) {
+    console.warn(
+      '[PostGIS] Extension indisponible — repli sur le calcul de surface JavaScript.',
+      err instanceof Error ? err.message : err,
+    );
+  } finally {
+    try {
+      await client.end();
+    } catch {
+      /* connexion déjà fermée */
+    }
+  }
+}

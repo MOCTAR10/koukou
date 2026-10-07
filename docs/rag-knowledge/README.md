@@ -2,7 +2,8 @@
 
 Base de connaissances métier de Koukou Ferme, destinée à alimenter un RAG
 personnel qui répond aux conseils d'élevage **à partir des données de la ferme**
-(saisies journalières, stocks, alertes, référentiels).
+(saisies journalières, stocks, alertes, référentiels). Depuis la phase
+Agriculture, elle couvre aussi les cultures et les parcelles.
 
 ## Comment utiliser ce corpus
 
@@ -28,6 +29,8 @@ personnel qui répond aux conseils d'élevage **à partir des données de la fer
 | `06-sante.md` | Signaux combinés, chaleur/THI, densité, vide sanitaire, biosécurité |
 | `07-especes.md` | Espèces & souches, poids jour 1, courbes de référence |
 | `08-donnees-ferme.md` | Modèle de données : saisies, stock, alertes, logique de l'écran "Saisie du jour" |
+| `09-cultures.md` | Agriculture — référentiel des cultures : catégories, cycle, eau, routes |
+| `10-parcelles.md` | Agriculture — parcelles : statuts, surface (PostGIS optionnel), carte, droits |
 
 ## Règles transverses
 

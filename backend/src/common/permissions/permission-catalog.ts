@@ -165,6 +165,18 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    key: 'agriculture',
+    label: 'Agriculture',
+    items: [
+      {
+        code: 'agri:gerer',
+        label: 'Gérer les parcelles & cultures',
+        description:
+          'Créer, modifier et supprimer les parcelles et les cultures du référentiel.',
+      },
+    ],
+  },
+  {
     key: 'reglages',
     label: 'Réglages',
     items: [

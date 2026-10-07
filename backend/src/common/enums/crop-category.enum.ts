@@ -1,0 +1,7 @@
+export enum CropCategory {
+  TUBERCULE = 'TUBERCULE',
+  MARAICHAGE = 'MARAICHAGE',
+  FRUIT = 'FRUIT',
+  CEREALE = 'CEREALE',
+  AUTRE = 'AUTRE',
+}

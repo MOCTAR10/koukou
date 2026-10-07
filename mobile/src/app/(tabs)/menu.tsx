@@ -17,6 +17,7 @@ import {
   MapPin,
   ReceiptText,
   Settings,
+  Sprout,
   Stethoscope,
   Store,
   User,
@@ -163,6 +164,18 @@ export default function MenuScreen() {
         { key: 'sanitaire', label: 'Sanitaire', icon: <Stethoscope size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/sanitary', perms: ['sanitaire:lecture'] },
         { key: 'stock', label: 'Stock & provendes', icon: <Wheat size={ICON} color={color.amber[600]} />, bg: color.amber[50], href: '/provende', perms: ['stock:gerer'] },
         { key: 'abattage', label: 'Abattage', icon: <Bird size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/slaughter', perms: ['production:abattage'] },
+      ],
+    },
+    {
+      key: 'agriculture',
+      title: 'Agriculture',
+      subtitle: 'Parcelles, récoltes & terres',
+      icon: Sprout,
+      iconColor: palette.green[600],
+      iconBg: palette.green[50],
+      items: [
+        { key: 'parcelles', label: 'Parcelles', icon: <Sprout size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/parcelles' },
+        { key: 'recoltes', label: 'Récoltes', icon: <Activity size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/recoltes' },
       ],
     },
     {

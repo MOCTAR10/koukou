@@ -9,9 +9,12 @@ import type { Farm, PublicUser } from '@/api/types';
 const EMPTY_USER: PublicUser = { id: '', fullName: '', phone: '', role: 'PROPRIETAIRE' };
 
 export type AuthMode = 'live';
+export type FarmMode = 'aviculture' | 'agriculture';
 
 interface AuthContextValue {
   mode: AuthMode;
+  /** Domaine d'exploitation actif (élevage / agriculture), persisté par session. */
+  farmMode: FarmMode;
   signedIn: boolean;
   user: PublicUser;
   farms: Farm[];
@@ -20,6 +23,7 @@ interface AuthContextValue {
   busy: boolean;
   error: string | null;
   setActiveFarmId: (farmId: string) => void;
+  setFarmMode: (farmMode: FarmMode) => void;
   signIn: (phone: string, code: string) => Promise<boolean>;
   signUp: (phone: string, fullName: string, code: string, farmName?: string) => Promise<boolean>;
   signOut: () => void;
@@ -121,6 +125,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [session],
   );
 
+  const setFarmMode = useCallback(
+    (farmMode: FarmMode) => {
+      setSession((prev) => {
+        if (!prev?.token) return prev;
+        const next: StoredSession = { ...prev, mode: farmMode };
+        saveSession(next);
+        return next;
+      });
+    },
+    [],
+  );
+
   const refreshFarms = useCallback(async () => {
     setSession((prev) => {
       if (!prev?.token) return prev;
@@ -140,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const activeFarmId = session?.activeFarmId ?? session?.farms[0]?.id ?? '';
     return {
       mode: 'live',
+      farmMode: session?.mode ?? 'aviculture',
       signedIn,
       user: session?.user ?? EMPTY_USER,
       farms: session?.farms ?? [],
@@ -151,9 +168,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signOut,
       setActiveFarmId,
+      setFarmMode,
       refreshFarms,
     };
-  }, [session, busy, error, signIn, signUp, signOut, setActiveFarmId, refreshFarms]);
+  }, [session, busy, error, signIn, signUp, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -25,6 +25,8 @@ describe('token (session store)', () => {
           isVerified: true,
           active: true,
           logoUrl: null,
+          latitude: 0.4,
+          longitude: 9.45,
         },
       ],
     });

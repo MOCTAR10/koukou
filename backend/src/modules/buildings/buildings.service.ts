@@ -31,6 +31,8 @@ export class BuildingsService {
       buildingAreaM2: dto.buildingAreaM2 ?? null,
       capacity: dto.capacity ?? null,
       lastVideSanitaireAt: dto.lastVideSanitaireAt ?? null,
+      longitude: dto.longitude ?? null,
+      latitude: dto.latitude ?? null,
     });
     return this.buildingRepo.save(building);
   }
@@ -75,6 +77,8 @@ export class BuildingsService {
     if (dto.capacity !== undefined) building.capacity = dto.capacity ?? null;
     if (dto.lastVideSanitaireAt !== undefined)
       building.lastVideSanitaireAt = dto.lastVideSanitaireAt ?? null;
+    if (dto.longitude !== undefined) building.longitude = dto.longitude ?? null;
+    if (dto.latitude !== undefined) building.latitude = dto.latitude ?? null;
     await this.buildingRepo.save(building);
     return this.withStats(building);
   }

@@ -32,4 +32,14 @@ export class UpdateBuildingDto {
   @IsOptional()
   @IsDateString()
   lastVideSanitaireAt?: string;
+
+  @ApiPropertyOptional({ description: 'Longitude du bâtiment' })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @ApiPropertyOptional({ description: 'Latitude du bâtiment' })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
 }

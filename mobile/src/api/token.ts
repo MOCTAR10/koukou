@@ -5,6 +5,8 @@ export interface StoredSession {
   user: PublicUser;
   farms: Farm[];
   activeFarmId?: string;
+  /** Domaine d'exploitation actif : élevage (aviculture) ou agriculture. */
+  mode?: 'aviculture' | 'agriculture';
 }
 
 const KEY = 'koukou.session';

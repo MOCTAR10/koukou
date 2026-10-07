@@ -54,6 +54,9 @@ import type {
   Breed,
   BreedStandard,
   StockProvende,
+  Culture,
+  CropCategory,
+  Parcelle,
 } from './types';
 
 const live = new LiveApi();
@@ -345,4 +348,66 @@ export function fetchBreeds(): Promise<Breed[]> {
 
 export function fetchBreedStandards(breedId: string): Promise<BreedStandard[]> {
   return live.fetchBreedStandards(breedId);
+}
+
+export function fetchCultures(): Promise<Culture[]> {
+  return live.fetchCultures();
+}
+
+export function createCulture(
+  input: {
+    name: string;
+    category: CropCategory;
+    defaultCycleDays?: number;
+    waterNeedsLPlantDay?: number;
+    notes?: string;
+  },
+): Promise<Culture> {
+  return live.createCulture(input);
+}
+
+export function fetchParcelles(farmId: string): Promise<Parcelle[]> {
+  return live.fetchParcelles(farmId);
+}
+
+export function fetchParcelle(farmId: string, parcelleId: string): Promise<Parcelle> {
+  return live.fetchParcelle(farmId, parcelleId);
+}
+
+export function createParcelle(
+  farmId: string,
+  input: {
+    name: string;
+    cultureId: string;
+    areaHa?: number;
+    boundaryGeoJson?: Parcelle['boundaryGeoJson'];
+    plantedAt?: string;
+    status?: Parcelle['status'];
+    notes?: string;
+  },
+): Promise<Parcelle> {
+  return live.createParcelle(farmId, input);
+}
+
+export function updateParcelle(
+  farmId: string,
+  parcelleId: string,
+  input: Partial<{
+    name: string;
+    cultureId: string;
+    areaHa: number;
+    boundaryGeoJson: Parcelle['boundaryGeoJson'];
+    plantedAt: string | null;
+    status: Parcelle['status'];
+    notes: string | null;
+  }>,
+): Promise<Parcelle> {
+  return live.updateParcelle(farmId, parcelleId, input);
+}
+
+export function deleteParcelle(
+  farmId: string,
+  parcelleId: string,
+): Promise<{ deleted: boolean }> {
+  return live.deleteParcelle(farmId, parcelleId);
 }

@@ -68,6 +68,9 @@ import type {
   FarmTask,
   DailyEntryRecord,
   Species,
+  Culture,
+  Parcelle,
+  CropCategory,
 } from './types';
 
 interface BackendAdvisoryAction {
@@ -737,5 +740,74 @@ export class LiveApi {
       standards: BreedStandard[];
     }>(`/breeds/${breedId}/standards`);
     return res.standards;
+  }
+
+  async fetchCultures(): Promise<Culture[]> {
+    return apiFetch<Culture[]>('/cultures');
+  }
+
+  async createCulture(input: {
+    name: string;
+    category: CropCategory;
+    defaultCycleDays?: number;
+    waterNeedsLPlantDay?: number;
+    notes?: string;
+  }): Promise<Culture> {
+    return apiFetch<Culture>('/cultures', { method: 'POST', body: input });
+  }
+
+  async fetchParcelles(farmId: string): Promise<Parcelle[]> {
+    return apiFetch<Parcelle[]>(`/farms/${farmId}/parcelles`);
+  }
+
+  async fetchParcelle(farmId: string, parcelleId: string): Promise<Parcelle> {
+    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles/${parcelleId}`);
+  }
+
+  async createParcelle(
+    farmId: string,
+    input: {
+      name: string;
+      cultureId: string;
+      areaHa?: number;
+      boundaryGeoJson?: Parcelle['boundaryGeoJson'];
+      plantedAt?: string;
+      status?: Parcelle['status'];
+      notes?: string;
+    },
+  ): Promise<Parcelle> {
+    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles`, {
+      method: 'POST',
+      body: input,
+    });
+  }
+
+  async updateParcelle(
+    farmId: string,
+    parcelleId: string,
+    input: Partial<{
+      name: string;
+      cultureId: string;
+      areaHa: number;
+      boundaryGeoJson: Parcelle['boundaryGeoJson'];
+      plantedAt: string | null;
+      status: Parcelle['status'];
+      notes: string | null;
+    }>,
+  ): Promise<Parcelle> {
+    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles/${parcelleId}`, {
+      method: 'PATCH',
+      body: input,
+    });
+  }
+
+  async deleteParcelle(
+    farmId: string,
+    parcelleId: string,
+  ): Promise<{ deleted: boolean }> {
+    return apiFetch<{ deleted: boolean }>(
+      `/farms/${farmId}/parcelles/${parcelleId}`,
+      { method: 'DELETE' },
+    );
   }
 }
