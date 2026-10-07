@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { AlertTriangle, Wheat, Banknote, BarChart3, MapPin, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, Droplets, Building, ArrowRight, Stethoscope } from 'lucide-react-native';
+import { AlertTriangle, Wheat, Banknote, BarChart3, MapPin, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Droplets, Building, ArrowRight, Stethoscope } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -15,10 +15,12 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 
 import { EggStockCard } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
+import { FarmSelector } from '@/components/ui/FarmSelector';
 
 import { useAuth } from '@/auth/AuthContext';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { givenName, speciesLabel } from '@/api/format';
-import { color, emoji, fmt, fmtFcfa, gradeColor, layout, palette, radii } from '@/constants/theme';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders } from '@/api';
+import { color, emoji, fmt, fmtFcfa, gradeColor, layout, palette, radii, shadow } from '@/constants/theme';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { BrandLoader } from '@/components/ui/BrandLoader';
 import { MetricInfoSheet } from '@/components/MetricInfoSheet';
@@ -55,9 +57,11 @@ function lastSevenDays(): string[] {
 export default function AccueilScreen() {
   const router = useRouter();
 
-  const { user, farms, farmId } = useAuth();
+  const { user, farms, farmId, setActiveFarmId } = useAuth();
+  const { hasPermission } = useFarmProfile();
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [cheptelOpen, setCheptelOpen] = useState(false);
+  const [farmSelectOpen, setFarmSelectOpen] = useState(false);
   const [metricInfo, setMetricInfo] = useState<MetricKey | null>(null);
   const [window, setWindow] = useState<PeriodWindow>(() => periodWindow(30));
   const [liveNow, setLiveNow] = useState(new Date());
@@ -119,8 +123,9 @@ export default function AccueilScreen() {
     : null;
 
 
-  const farm = farms.length > 0 ? farms[0] : null;
+  const farm = farms.find((f) => f.id === farmId) ?? farms[0] ?? null;
   const d = dashboard.data;
+  const canCaisse = hasPermission('caisse:lire');
 
 
   const loading = dashboard.isLoading || advisory.isLoading;
@@ -247,31 +252,66 @@ export default function AccueilScreen() {
               </Pressable>
             )}
           </View>
-          <View style={styles.metaRow}>
-            <View style={styles.farmChipRow}>
-              {farms.length > 0 ? (
-                <>
-                  <MapPin size={12} color={palette.ink[400]} />
-                  <Pressable onPress={() => Alert.alert('Ferme actuelle', farm?.name ?? 'Aucune ferme', [{ text: 'OK', style: 'cancel' }])}>
-                    <AppText size='small' color='muted' style={styles.chipText}>
-                      {farm!.name} · {farm!.administrativeCity}
-                    </AppText>
-                    {farm!.isVerified ? <ShieldCheck size={12} color={palette.green[600]} /> : null}
-                  </Pressable>
-                </>
-              ) : null}
-            </View>
-            <View style={styles.encaissePill}>
-              <Banknote size={14} color={palette.accent[500]} />
-              <View>
-                <AppText size='body' weight='bold' color='text' numberOfLines={1}>
-                  {fmtFcfa(d?.collectedTodayFcfa ?? 0)}
+          <View style={styles.headerTiles}>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                setFarmSelectOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Ma ferme"
+              style={({ pressed }) => [styles.headerTile, pressed && styles.headerTilePressed]}>
+              <View style={[styles.tileIcon, { backgroundColor: palette.brand[50], borderColor: palette.brand[200] }]}>
+                <Store size={16} color={palette.brand[600]} strokeWidth={2.2} />
+              </View>
+              <View style={styles.tileBody}>
+                <AppText size="label" color="muted">
+                  Ma ferme
                 </AppText>
-                <AppText size='caption' color='muted' numberOfLines={1}>
+                <AppText size="body" weight="bold" color="text">
+                  {farm?.name ?? '—'}
+                </AppText>
+                <View style={styles.tileSubRow}>
+                  <MapPin size={11} color={palette.ink[400]} />
+                  <AppText size="small" color="muted" numberOfLines={1}>
+                    {farm?.administrativeCity ?? 'Aucune ville'}
+                  </AppText>
+                  {farm?.isVerified ? (
+                    <View style={styles.verifiedChip}>
+                      <ShieldCheck size={11} color={palette.green[600]} />
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+              <ChevronDown size={16} color={palette.ink[400]} strokeWidth={2.2} />
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                if (!canCaisse) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                router.push('/caisse');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Encaisser"
+              disabled={!canCaisse}
+              style={({ pressed }) => [styles.headerTile, !canCaisse && styles.headerTileMuted, pressed && canCaisse && styles.headerTilePressed]}>
+              <View style={[styles.tileIcon, { backgroundColor: palette.accent[50], borderColor: palette.accent[200] }]}>
+                <Banknote size={16} color={palette.accent[600]} strokeWidth={2.2} />
+              </View>
+              <View style={styles.tileBody}>
+                <AppText size="label" color="muted">
                   {isToday ? "Encaissé aujourd'hui" : `Encaissé le ${formatDayShort(window.to ? new Date(window.to) : liveNow)}`}
                 </AppText>
+                <AppText size="body" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                  {fmtFcfa(d?.collectedTodayFcfa ?? 0)}
+                </AppText>
+                <AppText size="small" color="muted" numberOfLines={1}>
+                  {canCaisse ? 'Encaisser +' : 'Consultation seule'}
+                </AppText>
               </View>
-            </View>
+              {canCaisse ? <ChevronRight size={18} color={palette.accent[600]} strokeWidth={2.4} /> : null}
+            </Pressable>
           </View>
           <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
         </>
@@ -644,6 +684,12 @@ export default function AccueilScreen() {
       )}
       <MetricInfoSheet metric={metricInfo} onClose={() => setMetricInfo(null)} />
       <CheptelModal visible={cheptelOpen} batches={activeBatches} onClose={() => setCheptelOpen(false)} />
+      <FarmSelector
+        visible={farmSelectOpen}
+        farms={farms}
+        onClose={() => setFarmSelectOpen(false)}
+        onSelect={setActiveFarmId}
+      />
     </Screen>
   );
 }
@@ -723,32 +769,58 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  metaRow: {
+  headerTiles: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 10,
-    marginTop: 4,
+    marginTop: 8,
   },
-  farmChipRow: {
+  headerTile: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 1,
+    gap: 10,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radii.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    ...shadow.card,
   },
-  chipText: {
-    flexShrink: 1,
+  headerTilePressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
-  encaissePill: {
+  headerTileMuted: {
+    opacity: 0.82,
+  },
+  tileIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tileBody: {
+    flex: 1,
+    gap: 1,
+  },
+  tileSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: palette.accent[50],
-    borderRadius: radii.lg,
+    gap: 4,
+  },
+  verifiedChip: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: palette.green[50],
     borderWidth: 1,
-    borderColor: palette.accent[200],
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    borderColor: palette.green[200],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
 
   metricGrid: {
