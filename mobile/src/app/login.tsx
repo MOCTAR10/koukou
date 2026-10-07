@@ -1,14 +1,15 @@
-import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowRight, Lock, LogOut, ShieldCheck } from 'lucide-react-native';
+import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { PulsarDot } from '@/components/ui/PulsarDot';
+import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
 import { API_BASE_URL } from '@/api/client';
 import { roleLabel } from '@/api/roles';
@@ -19,19 +20,15 @@ export default function LoginScreen() {
   const { signedIn, user, farms, busy, error, signIn, signOut } = useAuth();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const phoneRef = useRef<TextInput>(null);
-  const codeRef = useRef<TextInput>(null);
   const keyboardInset = useKeyboardInset();
 
-  const canSubmit = phone.trim().length > 0 && code.length > 0 && !busy;
+  const canSubmit = phone.trim().length > 0 && code.length >= 6 && !busy;
 
   const submit = async () => {
     if (!canSubmit) return;
     const ok = await signIn(phone.trim(), code);
     if (ok) router.replace('/');
   };
-
-  const focusCode = () => { codeRef.current?.focus(); };
 
   return (
     <View style={styles.root}>
@@ -89,35 +86,22 @@ export default function LoginScreen() {
             </View>
           ) : (
             <View style={{ gap: 14 }}>
-                  <PhoneInput
-                ref={phoneRef}
+              <PhoneInput
                 value={phone}
                 onChangeText={setPhone}
                 returnKeyType="next"
-                onSubmitEditing={focusCode}
+                onSubmitEditing={() => void submit()}
               />
-              <View style={styles.field}>
-                <Lock size={18} color={color.brand[600]} />
-                <TextInput
-                  ref={codeRef}
-                  style={styles.input}
-                  value={code}
-                  onChangeText={setCode}
-                  placeholder="Code secret"
-                  placeholderTextColor={palette.ink[300]}
-                  keyboardType="number-pad"
-                  autoCapitalize="none"
-                  returnKeyType="go"
-                  onSubmitEditing={submit}
-                  accessibilityLabel="Code secret"
-                />
-              </View>
 
-              <Pressable onPress={() => {}} style={styles.forgotLink} accessibilityRole="link">
-                <AppText size="small" color="muted" align="right">
-                  Mot de passe oublié ?
-                </AppText>
-              </Pressable>
+              <SecretCodePad
+                value={code}
+                onChange={setCode}
+                onSubmit={() => void submit()}
+                disabled={busy}
+                submitEnabled={phone.trim().length > 0}
+                caption="6 chiffres minimum"
+                size="sm"
+              />
 
               {error ? (
                 <AppText size="small" color="danger">
@@ -125,7 +109,7 @@ export default function LoginScreen() {
                 </AppText>
               ) : null}
 
-              <View style={{ gap: 10, marginTop: 6 }}>
+              <View style={{ gap: 10, marginTop: 2 }}>
                 <Button
                   label="Se connecter"
                   tone="success"
@@ -166,42 +150,21 @@ const styles = StyleSheet.create({
   },
   hero: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 14,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 14,
+    marginTop: 8,
   },
   logo: {
-    width: 224,
-    height: 224,
-  },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: palette.surfaceAlt,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: color.border,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: palette.ink[900],
-    padding: 0,
+    width: 118,
+    height: 118,
   },
   registerLink: {
     paddingVertical: 12,
     alignItems: 'center',
-  },
-  forgotLink: {
-    paddingVertical: 6,
-    alignSelf: 'flex-end',
   },
   connectedRow: {
     flexDirection: 'row',

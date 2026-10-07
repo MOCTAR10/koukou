@@ -3,18 +3,20 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, Check, CheckCircle2, Lock, Tractor, User } from 'lucide-react-native';
+import { ArrowLeft, Tractor, User } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { PulsarDot } from '@/components/ui/PulsarDot';
+import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
 import { isGabonPhoneValid } from '@/constants/phone';
 import { color, palette } from '@/constants/theme';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 
 type Step = 1 | 2;
+type CodePhase = 'code' | 'confirm';
 
 export default function RegisterScreen() {
   const { busy, error, signUp } = useAuth();
@@ -24,17 +26,13 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeConfirm, setCodeConfirm] = useState('');
+  const [codePhase, setCodePhase] = useState<CodePhase>('code');
   const [localError, setLocalError] = useState<string | null>(null);
 
-  const phoneRef = useRef<TextInput>(null);
   const farmNameRef = useRef<TextInput>(null);
-  const codeRef = useRef<TextInput>(null);
-  const codeConfirmRef = useRef<TextInput>(null);
   const keyboardInset = useKeyboardInset();
 
-  const fallbackFarmName = fullName.trim() ? `Ferme de ${fullName.trim()}` : '';
-
-  const canContinue = fullName.trim().length >= 3 && !busy;
+  const canContinue = fullName.trim().length >= 3 && farmName.trim().length >= 3 && !busy;
   const canSubmit =
     isGabonPhoneValid(phone) && code.length >= 6 && codeConfirm.length > 0 && code === codeConfirm && !busy;
 
@@ -45,8 +43,22 @@ export default function RegisterScreen() {
       return;
     }
     setLocalError(null);
-    const ok = await signUp(phone, fullName.trim(), code, farmName.trim() || undefined);
+    const ok = await signUp(phone, fullName.trim(), code, farmName.trim());
     if (ok) router.replace('/');
+  };
+
+  const activeCode = codePhase === 'code' ? code : codeConfirm;
+  const setActiveCode = codePhase === 'code' ? setCode : setCodeConfirm;
+
+  const handlePadSubmit = () => {
+    if (codePhase === 'code') {
+      if (code.length < 6) return;
+      setLocalError(null);
+      setCodeConfirm('');
+      setCodePhase('confirm');
+      return;
+    }
+    void submit();
   };
 
   const signInLink = (
@@ -118,7 +130,7 @@ export default function RegisterScreen() {
                   style={styles.input}
                   value={farmName}
                   onChangeText={setFarmName}
-                  placeholder={fallbackFarmName || 'Nom de la ferme'}
+                  placeholder="Nom de la ferme"
                   placeholderTextColor={palette.ink[300]}
                   autoCapitalize="words"
                   returnKeyType="go"
@@ -129,10 +141,14 @@ export default function RegisterScreen() {
                 />
               </View>
 
+              {farmName.trim().length > 0 && farmName.trim().length < 3 ? (
+                <AppText size="small" color="danger">
+                  Le nom de la ferme doit comporter au moins 3 lettres.
+                </AppText>
+              ) : null}
+
               <AppText size="small" color="faint">
-                {fallbackFarmName && farmName.trim() === ''
-                  ? `Optionnel — sans nom, votre ferme s’appellera « ${fallbackFarmName} ».`
-                  : 'Optionnel — modifiable plus tard dans Mon profil.'}
+                Modifiable plus tard dans Mon profil.
               </AppText>
 
               <Button
@@ -168,7 +184,7 @@ export default function RegisterScreen() {
               contentFit="contain"
               accessibilityLabel="Logo KouKou"
             />
-            <AppText size="h1" weight="bold" color={color.accent[500]} style={{ marginTop: 10 }}>
+            <AppText size="h1" weight="bold" color={color.accent[500]} style={{ marginTop: 6 }}>
               Créer mon compte
             </AppText>
           </View>
@@ -182,55 +198,54 @@ export default function RegisterScreen() {
 
           <View style={{ gap: 10 }}>
             <PhoneInput
-              ref={phoneRef}
               compact
               value={phone}
               onChangeText={setPhone}
               returnKeyType="next"
-              onSubmitEditing={() => codeRef.current?.focus()}
             />
 
-            <View style={styles.field}>
-              <Lock size={16} color={color.brand[600]} />
-              <TextInput
-                ref={codeRef}
-                style={styles.input}
-                value={code}
-                onChangeText={setCode}
-                placeholder="Code secret (min. 6 chiffres)"
-                placeholderTextColor={palette.ink[300]}
-                keyboardType="number-pad"
-                secureTextEntry
-                autoCapitalize="none"
-                returnKeyType="next"
-                onSubmitEditing={() => codeConfirmRef.current?.focus()}
-                accessibilityLabel="Code secret"
-              />
+            <View style={styles.phaseRow}>
+              <Pressable
+                onPress={() => setCodePhase('code')}
+                style={[styles.phaseChip, codePhase === 'code' && styles.phaseChipOn]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: codePhase === 'code' }}>
+                <AppText
+                  size="label"
+                  weight={codePhase === 'code' ? 'semibold' : 'medium'}
+                  color={codePhase === 'code' ? 'brand' : 'muted'}>
+                  1 · Code secret
+                </AppText>
+              </Pressable>
+              <Pressable
+                onPress={() => code.length >= 6 && setCodePhase('confirm')}
+                style={[styles.phaseChip, codePhase === 'confirm' && styles.phaseChipOn]}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: codePhase === 'confirm' }}>
+                <AppText
+                  size="label"
+                  weight={codePhase === 'confirm' ? 'semibold' : 'medium'}
+                  color={codePhase === 'confirm' ? 'brand' : 'muted'}>
+                  2 · Confirmation
+                </AppText>
+              </Pressable>
             </View>
 
-            <View style={styles.field}>
-              <Check size={16} color={color.brand[600]} />
-              <TextInput
-                ref={codeConfirmRef}
-                style={styles.input}
-                value={codeConfirm}
-                placeholder="Confirmer le code secret"
-                placeholderTextColor={palette.ink[300]}
-                keyboardType="number-pad"
-                secureTextEntry
-                autoCapitalize="none"
-                returnKeyType="go"
-                onChangeText={t => {
-                  setCodeConfirm(t);
-                  if (localError) setLocalError(null);
-                }}
-                onSubmitEditing={submit}
-                accessibilityLabel="Confirmer le code secret"
-              />
-              {code.length >= 6 && code === codeConfirm ? (
-                <CheckCircle2 size={16} color={palette.green[600]} />
-              ) : null}
-            </View>
+            <SecretCodePad
+              value={activeCode}
+              onChange={(next) => {
+                setActiveCode(next);
+                if (localError) setLocalError(null);
+              }}
+              onSubmit={handlePadSubmit}
+              disabled={busy}
+              submitEnabled={
+                codePhase === 'code' ? code.length >= 6 : code.length >= 6 && code === codeConfirm
+              }
+              label={codePhase === 'code' ? 'Choisissez un code secret' : 'Confirmez votre code secret'}
+              caption="6 chiffres minimum"
+              size="sm"
+            />
 
             {localError ? (
               <AppText size="small" color="danger">
@@ -272,29 +287,47 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingVertical: 20,
   },
   heroBig: {
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 16,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 12,
+    marginTop: 8,
   },
   logoBig: {
-    width: 240,
-    height: 240,
+    width: 160,
+    height: 160,
   },
   hero: {
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   logoSmall: {
-    width: 176,
-    height: 176,
+    width: 110,
+    height: 110,
+  },
+  phaseRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  phaseChip: {
+    flex: 1,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: palette.surfaceAlt,
+    borderWidth: 1,
+    borderColor: color.border,
+    alignItems: 'center',
+  },
+  phaseChipOn: {
+    backgroundColor: color.brand[50],
+    borderColor: color.brand[300],
   },
   field: {
     flexDirection: 'row',
@@ -318,8 +351,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    paddingVertical: 6,
-    marginBottom: 12,
+    paddingVertical: 4,
+    marginBottom: 8,
   },
   registerLink: {
     paddingVertical: 12,
