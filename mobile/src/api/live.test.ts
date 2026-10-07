@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { _clearBreedCache, LiveApi, mapAdvisory } from './live';
 import { clearSession } from './token';
 import { jsonResponse, readCall, stubFetch, stubFetchSequence } from './test-utils';
-import type { AlertLevel } from './types';
+import type { AlertCategory, AlertLevel } from './types';
 
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: '10.0.0.5:8081' } },
@@ -14,7 +14,7 @@ vi.mock('react-native', () => ({
 
 type RawAction = {
   id: string;
-  category: string;
+  category: AlertCategory;
   level: AlertLevel;
   title: string;
   description: string;
@@ -24,6 +24,8 @@ type RawAction = {
   buildingId: string | null;
   acknowledged: boolean;
   alertId: string | null;
+  kind?: string | null;
+  status?: 'ACTIVE' | 'ACQUITTEE';
 };
 
 function rawAdvisory(actions: RawAction[], summary?: { rouge: number; jaune: number; vert: number }) {
@@ -106,9 +108,20 @@ describe('mapAdvisory', () => {
     expect(d.alerts[1]).toMatchObject({ status: 'ACQUITTEE', level: 'ROUGE' });
   });
 
-  it('CTA par catégorie, défaut Voir', () => {
-    const d = mapAdvisory(rawAdvisory([action({ category: 'SAISIE' }), action({ category: 'VENTE' }), action({ category: 'INCONNUE' })]));
-    expect(d.actions.map((a) => a.cta)).toEqual(['Saisir', 'Encaisser', 'Voir']);
+  it('CTA par catégorie, alerte → « J\'ai vu »', () => {
+    const d = mapAdvisory(rawAdvisory([action({ category: 'SAISIE' }), action({ category: 'VENTE' }), action({ category: 'ALERTE' })]));
+    expect(d.actions.map((a) => a.cta)).toEqual(['Saisir', 'Encaisser', "J'ai vu"]);
+  });
+
+  it('alerts portent la catégorie, le kind réel et un statut explicite', () => {
+    const d = mapAdvisory(
+      rawAdvisory([
+        action({ id: 'k', category: 'ALERTE', kind: 'MORTALITE', acknowledged: true, status: 'ACQUITTEE' }),
+        action({ id: 's', category: 'SOIN', kind: null }),
+      ]),
+    );
+    expect(d.alerts[0]).toMatchObject({ category: 'ALERTE', kind: 'MORTALITE', status: 'ACQUITTEE' });
+    expect(d.alerts[1]).toMatchObject({ category: 'SOIN', kind: 'SOIN', status: 'ACTIVE' });
   });
 });
 

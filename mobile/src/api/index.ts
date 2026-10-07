@@ -1,6 +1,7 @@
 import { LiveApi } from './live';
 import type {
   AdvisoryData,
+  Alert,
   BalanceData,
   BatchCurve,
   BatchHealth,
@@ -149,6 +150,10 @@ export function fetchCurve(farmId: string, batchId: string): Promise<BatchCurve>
 
 export function fetchAdvisory(farmId: string): Promise<AdvisoryData> {
   return live.fetchAdvisory(farmId);
+}
+
+export function fetchAlertHistory(farmId: string): Promise<Alert[]> {
+  return live.fetchAlertHistory(farmId);
 }
 
 export function fetchFeedStock(farmId: string): Promise<FeedStockSummary> {

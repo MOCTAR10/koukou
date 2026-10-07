@@ -478,11 +478,16 @@ export interface BatchCurve {
   weekly: CurveWeek[];
 }
 
+export type AlertCategory = 'ALERTE' | 'SAISIE' | 'SOIN' | 'STOCK_PROVENDE' | 'VENTE';
+
 export interface Alert {
   id: string;
   farmId: string;
   batchId: string | null;
   batchName: string | null;
+  /** Catégorie d'action advisoriale ; 'ALERTE' pour une alerte stockée. */
+  category: AlertCategory;
+  /** Kind réel (EAU, MORTALITE…) pour les alertes stockées, sinon la catégorie. */
   kind: string;
   level: AlertLevel;
   status: AlertStatus;
@@ -490,6 +495,9 @@ export interface Alert {
   recommendation: string | null;
   why: string[];
   createdAt: string;
+  dueDate: string | null;
+  /** Date de résolution (alerte stockée résolue). */
+  resolvedAt?: string | null;
   /** Id de l'alerte backend (POST acknowledge) — null si action advisoriale sans alerte. */
   alertId?: string | null;
 }
@@ -497,12 +505,15 @@ export interface Alert {
 export interface NextAction {
   id: string;
   level: AlertLevel;
+  category: AlertCategory;
   kind: string;
   title: string;
   message: string;
   recommendation: string | null;
   batchId: string | null;
   batchName: string | null;
+  dueDate: string | null;
+  status: AlertStatus;
   why: string[];
   cta: string;
 }

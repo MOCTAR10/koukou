@@ -39,6 +39,10 @@ export interface NextAction {
   buildingId: string | null;
   acknowledged: boolean;
   alertId: string | null;
+  /** Kind réel pour les actions dérivées d'une alerte stockée ; null sinon. */
+  kind?: AlertKind | null;
+  /** Statut : celui de l'alerte stockée (ACTIVE/ACQUITTEE), ACTIVE pour les actions dérivées. */
+  status: AlertStatus;
 }
 
 export interface AdvisoryNextActions {
@@ -157,6 +161,8 @@ export class AdvisoryService {
         buildingId: a.buildingId,
         acknowledged: a.status === AlertStatus.ACQUITTEE,
         alertId: a.id,
+        kind: a.kind,
+        status: a.status,
       });
     }
 
@@ -181,6 +187,7 @@ export class AdvisoryService {
         buildingId: b.buildingId,
         acknowledged: false,
         alertId: null,
+        status: AlertStatus.ACTIVE,
       });
     }
 
@@ -206,6 +213,7 @@ export class AdvisoryService {
         buildingId: ev.buildingId,
         acknowledged: false,
         alertId: null,
+        status: AlertStatus.ACTIVE,
       });
     }
 
@@ -239,6 +247,7 @@ export class AdvisoryService {
           buildingId: null,
           acknowledged: false,
           alertId: null,
+          status: AlertStatus.ACTIVE,
         });
       } else if (warning.length > 0) {
         actions.push({
@@ -253,6 +262,7 @@ export class AdvisoryService {
           buildingId: null,
           acknowledged: false,
           alertId: null,
+          status: AlertStatus.ACTIVE,
         });
       }
     }
@@ -273,6 +283,7 @@ export class AdvisoryService {
         buildingId: b.buildingId,
         acknowledged: false,
         alertId: null,
+        status: AlertStatus.ACTIVE,
       });
     }
 
@@ -301,6 +312,7 @@ export class AdvisoryService {
         buildingId: b.buildingId,
         acknowledged: false,
         alertId: null,
+        status: AlertStatus.ACTIVE,
       });
     }
 

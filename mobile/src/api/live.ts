@@ -1,6 +1,7 @@
 import { apiFetch } from './client';
 import type {
   Alert,
+  AlertCategory,
   AlertLevel,
   AlertStatus,
   AdvisoryData,
@@ -71,7 +72,7 @@ import type {
 
 interface BackendAdvisoryAction {
   id: string;
-  category: string;
+  category: AlertCategory;
   level: AlertLevel;
   title: string;
   description: string;
@@ -81,6 +82,23 @@ interface BackendAdvisoryAction {
   buildingId: string | null;
   acknowledged: boolean;
   alertId: string | null;
+  /** Kind réel pour les actions issues d'une alerte stockée. */
+  kind?: string | null;
+  status?: AlertStatus;
+}
+
+interface BackendStoredAlert {
+  id: string;
+  farmId: string;
+  batchId: string | null;
+  buildingId: string | null;
+  kind: string;
+  level: AlertLevel;
+  status: AlertStatus;
+  message: string;
+  recommendation: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
 }
 
 interface BackendAdvisory {
@@ -186,10 +204,10 @@ interface RawBatch {
   metrics: RawBatchMetrics;
 }
 
-const CTA_BY_CATEGORY: Record<string, string> = {
-  ALERTE: 'Voir',
+const CTA_BY_CATEGORY: Record<AlertCategory, string> = {
+  ALERTE: "J'ai vu",
   SAISIE: 'Saisir',
-  SOIN: 'Planifier',
+  SOIN: 'Fait',
   STOCK_PROVENDE: 'Commander',
   VENTE: 'Encaisser',
 };
@@ -291,14 +309,42 @@ function mapAction(a: BackendAdvisoryAction): NextAction {
   return {
     id: a.id,
     level: a.level,
-    kind: a.category,
+    category: a.category,
+    kind: a.kind ?? a.category,
     title: a.title,
     message: a.description,
     recommendation: null,
     batchId: a.batchId,
     batchName: a.batchName,
+    dueDate: a.dueDate,
+    status: actionStatus(a),
     why: [],
-    cta: CTA_BY_CATEGORY[a.category] ?? 'Voir',
+    cta: CTA_BY_CATEGORY[a.category],
+  };
+}
+
+function actionStatus(a: BackendAdvisoryAction): AlertStatus {
+  return a.status ?? (a.acknowledged ? 'ACQUITTEE' : 'ACTIVE');
+}
+
+/** Alerte stockée (GET /alerts/history) → forme mobile. */
+function mapStoredAlert(raw: BackendStoredAlert): Alert {
+  return {
+    id: `alert:${raw.id}`,
+    farmId: raw.farmId,
+    batchId: raw.batchId,
+    batchName: null,
+    category: 'ALERTE',
+    kind: raw.kind,
+    level: raw.level,
+    status: raw.status,
+    message: raw.message,
+    recommendation: raw.recommendation,
+    why: [],
+    createdAt: raw.createdAt,
+    dueDate: null,
+    resolvedAt: raw.resolvedAt,
+    alertId: raw.id,
   };
 }
 
@@ -309,19 +355,21 @@ export function mapAdvisory(raw: BackendAdvisory): AdvisoryData {
   const grade = GRADE_TABLE.find((g) => score >= g.min)?.grade ?? 'CRITIQUE';
 
   const alerts: Alert[] = raw.actions.map((a): Alert => {
-    const status: AlertStatus = a.acknowledged ? 'ACQUITTEE' : 'ACTIVE';
+    const status = actionStatus(a);
     return {
       id: a.id,
       farmId: raw.farmId,
       batchId: a.batchId,
       batchName: a.batchName,
-      kind: a.category,
+      category: a.category,
+      kind: a.kind ?? a.category,
       level: a.level,
       status,
       message: a.title,
       recommendation: null,
       why: a.description ? [a.description] : [],
       createdAt: raw.generatedAt,
+      dueDate: a.dueDate,
       alertId: a.alertId ?? null,
     };
   });
@@ -452,6 +500,12 @@ export class LiveApi {
   async fetchAdvisory(farmId: string): Promise<AdvisoryData> {
     const raw = await apiFetch<BackendAdvisory>(`/farms/${farmId}/advisory/next-actions`);
     return mapAdvisory(raw);
+  }
+
+  /** Historique complet des alertes stockées (actives, acquittées, résolues). */
+  async fetchAlertHistory(farmId: string): Promise<Alert[]> {
+    const raw = await apiFetch<BackendStoredAlert[]>(`/farms/${farmId}/alerts/history`);
+    return raw.map(mapStoredAlert);
   }
 
   async fetchFeedStock(farmId: string): Promise<FeedStockSummary> {

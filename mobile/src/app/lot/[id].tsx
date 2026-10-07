@@ -64,6 +64,7 @@ import {
   fetchSlaughterOrders,
   fetchTreatments,
 } from '@/api';
+import { acknowledgeAlert } from '@/api/mutations';
 import { downloadPdf } from '@/api/pdf';
 import type {
   Alert as LotAlert,
@@ -526,6 +527,7 @@ export default function LotDetailScreen() {
       farmId,
       batchId,
       batchName: b?.batchName ?? null,
+      category: 'SOIN',
       kind: 'PROPHYLAXIE',
       level: c.level,
       status: 'ACTIVE' as const,
@@ -533,6 +535,7 @@ export default function LotDetailScreen() {
       recommendation: c.recommendation,
       why: [],
       createdAt: c.date,
+      dueDate: c.date,
     }));
     const dedupe = (a: LotAlert) => `${a.kind}|${a.level}|${a.message}`;
     const seen = new Set<string>();
@@ -1139,7 +1142,21 @@ export default function LotDetailScreen() {
         <>
           <SectionHeader title="Alertes" subtitle={`${lotAlerts.length} signalement(s)`} />
           <View style={{ gap: 10 }}>
-            {lotAlerts.map((a) => <AlertCard key={a.id} alert={a} onAcknowledge={() => void advisoryQ.refetch()} />)}
+            {lotAlerts.map((a) => (
+              <AlertCard
+                key={a.id}
+                alert={a}
+                onPrimary={(alert) => {
+                  if (alert.category === 'ALERTE' && alert.alertId) {
+                    acknowledgeAlert(farmId, alert.alertId)
+                      .catch(() => {})
+                      .finally(() => void advisoryQ.refetch());
+                  } else if (alert.category === 'SOIN') {
+                    setMainTab('health');
+                  }
+                }}
+              />
+            ))}
           </View>
         </>
       )}
