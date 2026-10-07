@@ -14,6 +14,7 @@ import {
   Info,
   Landmark,
   Lock,
+  LogOut,
   MapPin,
   Phone,
   Scale,
@@ -28,6 +29,7 @@ import {
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { FarmLogo } from '@/components/ui/FarmLogo';
@@ -110,7 +112,7 @@ function ConstantRow({ c }: { c: ReferenceConstant }) {
 }
 
 export default function ReglagesScreen() {
-  const { farms, user } = useAuth();
+  const { farms, user, signOut } = useAuth();
   const farm = farms[0];
   const profileHook = useFarmProfile();
   const [constantsOpen, setConstantsOpen] = useState(false);
@@ -178,7 +180,7 @@ export default function ReglagesScreen() {
         <Card tone="default" style={styles.card} padding={false}>
           <InfoRow icon={Phone} label="Téléphone" value={user.phone || '—'} />
           <View style={styles.divider} />
-          <InfoRow icon={ShieldCheck} label="Rôle" value={roleLabel(user.role)} />
+          <InfoRow icon={ShieldCheck} label="Rôle" value={profile ? farmRoleLabel(profile.role) : roleLabel(user.role)} />
           {farm ? (
             <>
               <View style={styles.divider} />
@@ -360,6 +362,18 @@ export default function ReglagesScreen() {
             </AppText>
           </View>
         </Card>
+      </Animated.View>
+
+      {/* ── Session ──────────────────────────────────────────────────────── */}
+      <Animated.View entering={staggeredEnter(6)}>
+        <SectionHeader title="Session" subtitle="Déconnexion de ce compte" icon={LogOut} />
+        <Button
+          label="Se déconnecter"
+          tone="ghost"
+          icon={LogOut}
+          block
+          onPress={() => signOut()}
+        />
       </Animated.View>
     </Screen>
   );

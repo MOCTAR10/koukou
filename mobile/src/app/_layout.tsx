@@ -28,6 +28,22 @@ function RootNavigator() {
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="lot/[id]" />
+        <Stack.Screen name="commande/[id]" />
+        <Stack.Screen name="aide" />
+        <Stack.Screen name="caisse" />
+        <Stack.Screen name="clients" />
+        <Stack.Screen name="commandes" />
+        <Stack.Screen name="comptabilite" />
+        <Stack.Screen name="depenses" />
+        <Stack.Screen name="equipe" />
+        <Stack.Screen name="points-vente" />
+        <Stack.Screen name="pos" />
+        <Stack.Screen name="rapports" />
+        <Stack.Screen name="reglages" />
+        <Stack.Screen name="rh" />
+        <Stack.Screen name="sanitary" />
+        <Stack.Screen name="slaughter" />
+        <Stack.Screen name="tasks" />
       </Stack.Protected>
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />

@@ -188,15 +188,6 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
       ) : null}
 
       <View style={styles.factRow}>
-        <View style={styles.fact}>
-          <AppText size="label" style={{ color: palette.brand[600] }}>
-            SAC PROVENDE
-          </AppText>
-          <AppText size="bodyM" weight="bold" color="text">
-            {farm.defaultSacKg} kg
-          </AppText>
-        </View>
-        <View style={styles.factDivider} />
         <View style={styles.factPills}>
           <Chip label={farm.active ? 'Active' : 'Suspendue'} tone={farm.active ? 'green' : 'red'} />
         </View>
@@ -301,14 +292,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     marginTop: 2,
-  },
-  fact: {
-    gap: 1,
-  },
-  factDivider: {
-    width: 1,
-    alignSelf: 'stretch',
-    backgroundColor: color.brand[100],
   },
   factPills: {
     flexDirection: 'row',

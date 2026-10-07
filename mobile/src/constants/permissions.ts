@@ -111,7 +111,9 @@ export const STAFF_PROFILES_LOCAL: StaffProfile[] = [
     role: 'ADMIN',
     jobTitle: 'Gestionnaire',
     permissions: [
+      'equipe:gerer',
       'equipe:taches',
+      'rh:lire',
       'caisse:lire',
       'caisse:ouvrir',
       'caisse:fermer',
@@ -144,7 +146,7 @@ export const STAFF_PROFILES_LOCAL: StaffProfile[] = [
     label: 'Vétérinaire',
     role: 'ADMIN',
     jobTitle: 'Vétérinaire',
-    permissions: ['sanitaire:gerer', 'sanitaire:lecture', 'saisie:creer'],
+    permissions: ['sanitaire:gerer', 'sanitaire:lecture', 'saisie:creer', 'stock:gerer'],
   },
   {
     key: 'rh',
@@ -172,7 +174,7 @@ export const STAFF_PROFILES_LOCAL: StaffProfile[] = [
     label: 'Responsable production',
     role: 'ADMIN',
     jobTitle: 'Responsable production',
-    permissions: ['production:gerer', 'production:abattage', 'saisie:creer', 'stock:gerer'],
+    permissions: ['production:gerer', 'production:abattage', 'saisie:creer', 'stock:gerer', 'sanitaire:lecture'],
   },
   {
     key: 'eleveur',

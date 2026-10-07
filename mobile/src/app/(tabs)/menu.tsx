@@ -32,7 +32,8 @@ import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useOfflineQueue } from '@/offline';
-import { roleLabel } from '@/api/roles';
+import { farmRoleLabel } from '@/api/roles';
+import type { PermissionCode } from '@/api/types';
 
 interface MenuItem {
   key: string;
@@ -40,6 +41,8 @@ interface MenuItem {
   icon: React.ReactNode;
   bg: string;
   href: Href;
+  /** Droits (au moins un) requis pour afficher la tuile ; absent = visible par tous. */
+  perms?: PermissionCode[];
 }
 
 interface MenuGroup {
@@ -157,9 +160,9 @@ export default function MenuScreen() {
       iconBg: palette.brand[50],
       items: [
         { key: 'activites', label: 'Activités', icon: <Activity size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/activites' },
-        { key: 'sanitaire', label: 'Sanitaire', icon: <Stethoscope size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/sanitary' },
-        { key: 'stock', label: 'Stock & provendes', icon: <Wheat size={ICON} color={color.amber[600]} />, bg: color.amber[50], href: '/provende' },
-        { key: 'abattage', label: 'Abattage', icon: <Bird size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/slaughter' },
+        { key: 'sanitaire', label: 'Sanitaire', icon: <Stethoscope size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/sanitary', perms: ['sanitaire:lecture'] },
+        { key: 'stock', label: 'Stock & provendes', icon: <Wheat size={ICON} color={color.amber[600]} />, bg: color.amber[50], href: '/provende', perms: ['stock:gerer'] },
+        { key: 'abattage', label: 'Abattage', icon: <Bird size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/slaughter', perms: ['production:abattage'] },
       ],
     },
     {
@@ -170,11 +173,11 @@ export default function MenuScreen() {
       iconColor: palette.accent[500],
       iconBg: palette.accent[50],
       items: [
-        { key: 'caisse', label: 'Caisse', icon: <Coins size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/pos?tab=CAISSE' },
-        { key: 'commandes', label: 'Commandes', icon: <ClipboardList size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/commandes' },
-        { key: 'clients', label: 'Clients', icon: <Handshake size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/clients' },
-        { key: 'pointsvente', label: 'Points de vente', icon: <MapPin size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/points-vente' },
-        { key: 'marche', label: 'Marché', icon: <Store size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/marche' },
+        { key: 'caisse', label: 'Caisse', icon: <Coins size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/pos?tab=CAISSE', perms: ['caisse:lire'] },
+        { key: 'commandes', label: 'Commandes', icon: <ClipboardList size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/commandes', perms: ['vente:commande'] },
+        { key: 'clients', label: 'Clients', icon: <Handshake size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/clients', perms: ['compta:client'] },
+        { key: 'pointsvente', label: 'Points de vente', icon: <MapPin size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/points-vente', perms: ['pdv:gerer'] },
+        { key: 'marche', label: 'Marché', icon: <Store size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/marche', perms: ['vente:creer'] },
       ],
     },
     {
@@ -185,13 +188,9 @@ export default function MenuScreen() {
       iconColor: palette.green[600],
       iconBg: palette.green[50],
       items: [
-        { key: 'rapports', label: 'Rentabilité', icon: <FileBarChart2 size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/rapports' },
-        ...(hasPermission('compta:rapports')
-          ? [{ key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: <Landmark size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/comptabilite' } as MenuItem]
-          : []),
-        ...(hasPermission('compta:depense')
-          ? [{ key: 'depenses', label: 'Dépenses', icon: <ReceiptText size={ICON} color={color.red[600]} />, bg: color.red[50], href: '/depenses' } as MenuItem]
-          : []),
+        { key: 'rapports', label: 'Rentabilité', icon: <FileBarChart2 size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/rapports', perms: ['compta:rapports'] },
+        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: <Landmark size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/comptabilite', perms: ['compta:rapports'] },
+        { key: 'depenses', label: 'Dépenses', icon: <ReceiptText size={ICON} color={color.red[600]} />, bg: color.red[50], href: '/depenses', perms: ['compta:depense'] },
       ],
     },
     {
@@ -202,20 +201,26 @@ export default function MenuScreen() {
       iconColor: palette.brand[600],
       iconBg: palette.brand[50],
       items: [
-        { key: 'equipe', label: 'Équipe', icon: <Users size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/equipe' },
-        ...(hasPermission('rh:lire') || hasPermission('equipe:gerer')
-          ? [{ key: 'rh', label: 'Dossiers RH', icon: <Briefcase size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/rh' } as MenuItem]
-          : []),
+        { key: 'equipe', label: 'Équipe', icon: <Users size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/equipe', perms: ['equipe:gerer'] },
+        { key: 'rh', label: 'Dossiers RH', icon: <Briefcase size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/rh', perms: ['rh:lire', 'equipe:gerer'] },
         { key: 'profil', label: 'Profil', icon: <User size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/reglages' },
       ],
     },
   ];
 
+  // Ne montrer que les tuiles autorisées ; masquer une section devenue vide.
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.perms || item.perms.some((code) => hasPermission(code))),
+    }))
+    .filter((group) => group.items.length > 0);
+
   return (
     // Bas d'écran calé sur la barre d'onglets : pas de vide superflu à la fin.
     <Screen bottomPad={layout.bottomPad}>
       <MenuHeader eyebrow="MENU" title="Votre ferme" subtitle="Tous les outils, classés par activité." />
-      {groups.map((group) => (
+      {visibleGroups.map((group) => (
         <MenuSection key={group.key} group={group} onPick={(href) => router.push(href)} />
       ))}
     </Screen>
@@ -252,7 +257,7 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
         ) : null}
         <View style={styles.metaChip}>
           <AppText size="small" weight="semibold" color="brand">
-            {roleLabel(profileHook.farmRole)}
+            {farmRoleLabel(profileHook.farmRole)}
           </AppText>
         </View>
         {pending > 0 ? (
