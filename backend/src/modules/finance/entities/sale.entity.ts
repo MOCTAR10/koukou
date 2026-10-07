@@ -18,6 +18,9 @@ import { Promotion } from './promotion.entity.js';
 import { SaleItem } from './sale-item.entity.js';
 import { Payment } from './payment.entity.js';
 
+@Index('UQ_sales_farm_idempotency', ['farmId', 'idempotencyKey'], {
+  unique: true,
+})
 @Entity('sales')
 export class Sale {
   @PrimaryGeneratedColumn('uuid')
@@ -36,9 +39,6 @@ export class Sale {
   referenceNumber: string;
 
   @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
-  @Index('UQ_sales_farm_idempotency', ['farmId', 'idempotencyKey'], {
-    unique: true,
-  })
   idempotencyKey: string | null;
 
   @Column({ name: 'sale_date', type: 'date' })

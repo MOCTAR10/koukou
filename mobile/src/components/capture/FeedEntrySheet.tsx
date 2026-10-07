@@ -39,6 +39,7 @@ import { todayStr, type CreateInputLotInput } from '@/api/mutations';
 import type { FeedEntryType, FeedPhase, FeedTypeStock } from '@/api/types';
 import { createFeedInputQueued } from '@/offline';
 import { color, palette, radii, spacing } from '@/constants/theme';
+import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 
 interface FeedEntrySheetProps {
   onClose: () => void;
@@ -231,13 +232,13 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
     if (!phase) return null;
     const row = stockByPhase.find((s) => s.feedPhase === phase);
     if (!row) return null;
-    if (row.autonomyDays !== null && row.autonomyDays < 3) {
+    if (row.autonomyDays !== null && row.autonomyDays < FEED_STOCK_CRITICAL_DAYS) {
       return {
         level: 'crit',
         text: `Stock critique : ${Math.round(row.autonomyDays)} j restants sur ${FEED_PHASE_LABELS[phase]} — prévoyez un réapprovisionnement.`,
       };
     }
-    if (row.autonomyDays !== null && row.autonomyDays < 5) {
+    if (row.autonomyDays !== null && row.autonomyDays < FEED_STOCK_WARN_DAYS) {
       return {
         level: 'warn',
         text: `Stock faible : ${Math.round(row.autonomyDays)} j restants sur ${FEED_PHASE_LABELS[phase]}.`,

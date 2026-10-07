@@ -20,6 +20,7 @@ import {
   CashMovementSource,
 } from '../../common/enums/cash-session-status.enum.js';
 import { AlertKind } from '../../common/enums/alert-level.enum.js';
+import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { PointsOfSaleService } from '../points-of-sale/points-of-sale.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
@@ -58,7 +59,6 @@ import { CreateSaleDto } from './dto/sale.dto.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 
 const SALE_PREFIX = 'VTE';
-const EGGS_PER_ALVEOL = 30;
 const ITEM_LABELS: Record<SaleItemProductType, string> = {
   POULET_PIECE: 'Poulet à la pièce',
   POULET_KG: 'Poulet au kilo',

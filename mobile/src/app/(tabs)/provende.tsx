@@ -47,6 +47,7 @@ import type {
   FeedTypeStock,
 } from '@/api/types';
 import { color, palette, radii, spacing } from '@/constants/theme';
+import { FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 
 const MOVEMENT_TYPE_LABEL: Record<FeedMovementType, string> = {
   CONSOMMATION: 'Consommation',
@@ -124,7 +125,7 @@ function TypeCard({ t, pricePerKg }: { t: FeedTypeStock; pricePerKg: number | nu
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
           <AppText size="caption" color="muted">Autonomie</AppText>
-          <AppText size="body" weight="bold" color={t.autonomyDays !== null && t.autonomyDays < 5 ? 'warn' : 'text'}>
+          <AppText size="body" weight="bold" color={t.autonomyDays !== null && t.autonomyDays < FEED_STOCK_WARN_DAYS ? 'warn' : 'text'}>
             {t.autonomyDays ?? '—'} j
           </AppText>
         </View>
@@ -329,7 +330,7 @@ export default function ProvendeScreen() {
       .map((t) => ({ t, p: pricePerKgOf(t.feedPhase) }))
       .filter((x) => x.p !== null);
     const totalFcfa = priced.reduce((s2, x) => s2 + x.t.availableKg * (x.p ?? 0), 0);
-    const low = byType.filter((t) => t.autonomyDays !== null && t.autonomyDays < 5).length;
+    const low = byType.filter((t) => t.autonomyDays !== null && t.autonomyDays < FEED_STOCK_WARN_DAYS).length;
     return { totalKg, totalFcfa, active: byType.length, low };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [byType, mvts]);

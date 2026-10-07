@@ -6,6 +6,7 @@ import { AppText } from '@/components/ui/AppText';
 import type { DashboardData } from '@/api/types';
 import { fmt, fmtFcfa } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
+import { FEED_STOCK_CRITICAL_DAYS } from '@/constants/stock';
 
 /** Teintes volontairement sourdes : l'écran informe, il n'alerte pas. */
 const TONE_GOOD = '#A9DCBC';
@@ -69,7 +70,7 @@ export function ActivityHero({ d, dateLabel }: { d: DashboardData; dateLabel: st
         <HeroStat
           label="Autonomie provende"
           value={d.feedAutonomyDays != null ? `${Math.round(d.feedAutonomyDays)} j` : '—'}
-          tone={d.feedAutonomyDays != null && d.feedAutonomyDays < 3 ? TONE_WARN : undefined}
+          tone={d.feedAutonomyDays != null && d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? TONE_WARN : undefined}
         />
         <View style={styles.statDivider} />
         <HeroStat

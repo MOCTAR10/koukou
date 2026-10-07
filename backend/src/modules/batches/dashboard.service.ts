@@ -20,6 +20,7 @@ import { PaymentStatus } from '../../common/enums/payment-method.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
+import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
 import { isoWeekStart } from '../../common/utils/date.utils.js';
 import {
   DailyEntryCreatedEvent,
@@ -47,8 +48,6 @@ import { BreedStatus, MetricsService } from './metrics.service.js';
 import { FarmWeather, WeatherService } from '../weather/weather.service.js';
 
 const DAY1_WEIGHT_KG = 0.045;
-
-const EGGS_PER_ALVEOL = 30;
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 

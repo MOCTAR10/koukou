@@ -11,6 +11,7 @@ import {
   BatchType,
 } from '../../common/enums/batch-type.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
+import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
 import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import {
@@ -32,8 +33,6 @@ import {
   BatchMetrics,
   ReadyReason,
 } from './models/batch-metrics.model.js';
-
-const EGGS_PER_ALVEOL = 30;
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 

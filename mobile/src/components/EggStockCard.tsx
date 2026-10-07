@@ -7,6 +7,7 @@ import { AppText } from './ui/AppText';
 import { Card } from './ui/Card';
 import { toDateStr } from './ui/PeriodBar';
 import { color, palette, radii } from '@/constants/theme';
+import { EGGS_PER_ALVEOL } from '@/constants/stock';
 
 interface DailyCount {
   /** Date ISO (YYYY-MM-DD) de la collecte. */
@@ -89,7 +90,7 @@ export function EggStockCard({
       : stockSeenZero
         ? `Pas de stock disponible · ${fmtCompact(producedTotal)} œufs produits`
         : showTrays
-          ? `= ${(availableAlveoles * 30).toLocaleString('fr-FR')} œufs`
+          ? `= ${(availableAlveoles * EGGS_PER_ALVEOL).toLocaleString('fr-FR')} œufs`
           : `= ${availableAlveoles} alvéole${availableAlveoles !== 1 ? 's' : ''}`;
 
   const todayIso = toDateStr(today);
@@ -97,7 +98,7 @@ export function EggStockCard({
   // alvéoles pleines (÷30). Les barres restent proportionnelles entre elles.
   const chartRows = dailyData.map((d) => ({
     date: d.date,
-    count: showTrays ? Math.floor(d.count / 30) : d.count,
+    count: showTrays ? Math.floor(d.count / EGGS_PER_ALVEOL) : d.count,
   }));
   const maxCount = Math.max(...chartRows.map((d) => d.count), 1);
   const totalCount = chartRows.reduce((s, d) => s + d.count, 0);

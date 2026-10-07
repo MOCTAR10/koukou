@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { AlertTriangle, Wheat, Banknote, BarChart3, MapPin, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Droplets, Building, ArrowRight, Stethoscope } from 'lucide-react-native';
+import { AlertTriangle, Wheat, Banknote, BarChart3, MapPin, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Droplets, Building, ArrowRight, Stethoscope, Users } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -20,7 +20,8 @@ import { FarmSelector } from '@/components/ui/FarmSelector';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { givenName, speciesLabel } from '@/api/format';
-import { color, emoji, fmt, fmtFcfa, gradeColor, layout, palette, radii, shadow } from '@/constants/theme';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders } from '@/api';
+import { color, emoji, fmt, fmtFcfa, gradeColor, layout, palette, radii, shadow } from '@/constants/theme';
+import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders, fetchCustomersSummary, fetchRentabiliteOverview } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { BrandLoader } from '@/components/ui/BrandLoader';
 import { MetricInfoSheet } from '@/components/MetricInfoSheet';
@@ -93,6 +94,20 @@ export default function AccueilScreen() {
   const advisory = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId) });
   const batchesQuery = useQuery({ queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''], queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined), refetchInterval: !window.isFiltered ? 60_000 : undefined });
   const slaughterQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId) });
+  // Supplément Statistiques : P&L + portefeuille clients, chargés à la demande
+  // (une fois le panneau « Plus » ouvert) selon les permissions.
+  const canRapports = hasPermission('compta:rapports');
+  const canClients = hasPermission('compta:client');
+  const pnlQuery = useQuery({
+    queryKey: ['rentabilite', farmId, window.from ?? '', window.to ?? ''],
+    queryFn: () => fetchRentabiliteOverview(farmId, window.from, window.to),
+    enabled: canRapports && statsExpanded,
+  });
+  const customersSummaryQuery = useQuery({
+    queryKey: ['customers-summary', farmId],
+    queryFn: () => fetchCustomersSummary(farmId),
+    enabled: canClients && statsExpanded,
+  });
   // Série réelle des œufs collectés sur 7 jours, sommée sur les lots pondeurs :
   // le backend n'expose pas de série journalière, on agrège les saisies.
   const pondeuseBatchIds = (batchesQuery.data ?? [])
@@ -210,8 +225,12 @@ export default function AccueilScreen() {
     eggBreakdown.dirty += eb.dirty;
   }
 
+  // ── P&L période + portefeuille clients (Statistiques « Plus ») ──
+  const pnl = pnlQuery.data;
+  const customersSummary = customersSummaryQuery.data;
+
   const refresh = () => {
-    void Promise.all([dashboard.refetch(), advisory.refetch(), batchesQuery.refetch()]);
+    void Promise.all([dashboard.refetch(), advisory.refetch(), batchesQuery.refetch(), pnlQuery.refetch(), customersSummaryQuery.refetch()]);
   };
 
 
@@ -498,16 +517,16 @@ export default function AccueilScreen() {
                     <AppText size='small' color='muted'>Autonomie</AppText>
                     <View style={styles.statsValueRow}>
                       <AppText size='bodyM' weight='bold'
-                        color={d.feedAutonomyDays != null && d.feedAutonomyDays < 3 ? palette.red[500] : d.feedAutonomyDays != null && d.feedAutonomyDays < 5 ? palette.amber[500] : palette.green[600]}>
+                        color={d.feedAutonomyDays != null && d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? palette.red[500] : d.feedAutonomyDays != null && d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? palette.amber[500] : palette.green[600]}>
                         {d.feedAutonomyDays != null ? `${d.feedAutonomyDays} j` : '—'}
                       </AppText>
                       {d.feedAutonomyDays != null && (
                         <View style={[styles.statsChip, {
-                          backgroundColor: d.feedAutonomyDays < 3 ? palette.red[50] : d.feedAutonomyDays < 5 ? palette.amber[50] : palette.green[50],
-                          borderColor: d.feedAutonomyDays < 3 ? palette.red[200] : d.feedAutonomyDays < 5 ? palette.amber[200] : palette.green[200],
+                          backgroundColor: d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? palette.red[50] : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? palette.amber[50] : palette.green[50],
+                          borderColor: d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? palette.red[200] : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? palette.amber[200] : palette.green[200],
                         }]}>
-                          <AppText size='small' weight='semibold' color={d.feedAutonomyDays < 3 ? 'danger' : d.feedAutonomyDays < 5 ? 'warn' : 'success'}>
-                            {d.feedAutonomyDays < 3 ? 'Critique' : d.feedAutonomyDays < 5 ? 'Bas' : 'OK'}
+                          <AppText size='small' weight='semibold' color={d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? 'danger' : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? 'warn' : 'success'}>
+                            {d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? 'Critique' : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? 'Bas' : 'OK'}
                           </AppText>
                         </View>
                       )}
@@ -644,6 +663,84 @@ export default function AccueilScreen() {
                   </View>
                 </View>
               </View>
+{canRapports && pnl && (
+                <>
+                  <View style={styles.statsGroupDivider} />
+                  {/* ── Group: Finances (P&L période) ── */}
+                  <View style={styles.statsGroup}>
+                    <View style={[styles.statsGroupLabel, { borderLeftColor: palette.green[500] }]}>
+                      <Banknote size={13} color={palette.green[700]} />
+                      <AppText size='small' weight='bold' color='text'>Finances</AppText>
+                      {pnl.period?.from && (
+                        <AppText size='caption' color='faint' numberOfLines={1} style={{ flexShrink: 1 }}>
+                          {pnl.period.from.slice(0, 10)}{pnl.period.to && pnl.period.to !== pnl.period.from ? ` → ${pnl.period.to.slice(0, 10)}` : ''}
+                        </AppText>
+                      )}
+                    </View>
+                    <View style={styles.statsGroupRow}>
+                      <View style={styles.statsItem}>
+                        <AppText size='small' color='muted'>Ventes</AppText>
+                        <AppText size='bodyM' weight='bold' color='text'>{fmt(pnl.sales.count)}</AppText>
+                        <AppText size='small' color='faint'>{fmtFcfa(pnl.sales.totalFcfa)}</AppText>
+                      </View>
+                      <View style={styles.statsVerticalDivider} />
+                      <View style={styles.statsItem}>
+                        <AppText size='small' color='muted'>Charges</AppText>
+                        <AppText size='bodyM' weight='bold' color='text'>{fmtFcfa(pnl.expenses.totalFcfa)}</AppText>
+                        <AppText size='small' color='faint'>{pnl.expenses.count} dépense{pnl.expenses.count > 1 ? 's' : ''}</AppText>
+                      </View>
+                    </View>
+                    <View style={styles.statsGroupRow}>
+                      <View style={styles.statsItem}>
+                        <AppText size='small' color='muted'>Résultat net</AppText>
+                        <AppText size='bodyM' weight='bold'
+                          color={pnl.netFcfa >= 0 ? 'success' : 'danger'}>
+                          {pnl.netFcfa >= 0 ? '+' : ''}{fmtFcfa(pnl.netFcfa)}
+                        </AppText>
+                        <AppText size='small' color='faint'>
+                          {pnl.collectedFcfa > 0 ? `${fmtFcfa(pnl.collectedFcfa)} encaissés` : 'Rien encaissé'}
+                        </AppText>
+                      </View>
+                      <View style={styles.statsVerticalDivider} />
+                      <View style={styles.statsItem}>
+                        <AppText size='small' color='muted'>Créances</AppText>
+                        <AppText size='bodyM' weight='bold'
+                          color={pnl.outstandingFcfa > 0 ? 'warn' : 'text'}>
+                          {fmtFcfa(pnl.outstandingFcfa)}
+                        </AppText>
+                        <AppText size='small' color='faint'>Restant dû clients</AppText>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              )}
+              {canClients && customersSummary && (
+                <>
+                  <View style={styles.statsGroupDivider} />
+                  {/* ── Group: Clients ── */}
+                  <View style={styles.statsGroup}>
+                    <View style={[styles.statsGroupLabel, { borderLeftColor: palette.accent[500] }]}>
+                      <Users size={13} color={palette.accent[600]} />
+                      <AppText size='small' weight='bold' color='text'>Clients</AppText>
+                    </View>
+                    <View style={styles.statsGroupRow}>
+                      <View style={styles.statsItem}>
+                        <AppText size='small' color='muted'>Actifs</AppText>
+                        <AppText size='bodyM' weight='bold' color='text'>{customersSummary.total}</AppText>
+                        <AppText size='small' color='faint'>
+                          {customersSummary.debtors} débiteur{customersSummary.debtors > 1 ? 's' : ''}
+                        </AppText>
+                      </View>
+                      <View style={styles.statsVerticalDivider} />
+                      <View style={styles.statsItem}>
+                        <AppText size='small' color='muted'>Encaissé</AppText>
+                        <AppText size='bodyM' weight='bold' color='success'>{fmtFcfa(customersSummary.paidFcfa)}</AppText>
+                        <AppText size='small' color='faint'>Facturé {fmtFcfa(customersSummary.totalInvoicedFcfa)}</AppText>
+                      </View>
+                    </View>
+                  </View>
+                </>
+              )}
             </Card>
           )}
 <EggStockCard

@@ -35,6 +35,7 @@ import {
   SaleItemUnit,
 } from '../../common/enums/sale-item-type.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
+import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
 import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
 import { PdfService } from '../../common/services/pdf.service.js';
 import { MetricsService } from '../batches/metrics.service.js';
@@ -80,7 +81,6 @@ import {
 } from './entities/order.entity.js';
 
 const ORDER_PREFIX = 'CMD';
-const EGGS_PER_ALVEOL = 30;
 const ORDERABLE_TYPES = [
   SaleItemProductType.POULET_PIECE,
   SaleItemProductType.POULET_KG,

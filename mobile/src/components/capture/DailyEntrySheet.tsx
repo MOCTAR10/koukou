@@ -44,6 +44,7 @@ import type { BatchWithMetrics, FeedPhase } from '@/api/types';
 import { queueDailyEntry } from '@/offline';
 import { color, palette, radii, spacing } from '@/constants/theme';
 import { breedImageForLot } from '@/constants/breedImages';
+import { EGGS_PER_ALVEOL, FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 import { estimateDailyFeedPerBirdKg, type FeedRecommendation } from '@/zootechnics/feed-recommendation';
 
 interface DailyEntrySheetProps {
@@ -714,8 +715,8 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       : null;
 
   // ── Œufs ──
-  const eggTrays = Math.floor(values.eggs / 30);
-  const eggLoose = values.eggs % 30;
+  const eggTrays = Math.floor(values.eggs / EGGS_PER_ALVEOL);
+  const eggLoose = values.eggs % EGGS_PER_ALVEOL;
   const rejectTotal =
     values.eggsCracked + values.eggsSmall + values.eggsDoubleYolk + values.eggsDirty;
   const rejectsExceed = rejectTotal > values.eggs;
@@ -901,13 +902,13 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
 
   const setEggsFromTrays = (t: string) => {
     const trays = Math.max(0, parseInt(t, 10) || 0);
-    setValues((v) => ({ ...v, eggs: trays * 30 + (v.eggs % 30) }));
+    setValues((v) => ({ ...v, eggs: trays * EGGS_PER_ALVEOL + (v.eggs % EGGS_PER_ALVEOL) }));
     setError(null);
   };
   // ≥ 30 œufs en vrac : bascule automatiquement en alvéole(s) pleine(s).
   const setEggsFromLoose = (t: string) => {
     const loose = Math.max(0, parseInt(t, 10) || 0);
-    setValues((v) => ({ ...v, eggs: Math.floor(v.eggs / 30) * 30 + loose }));
+    setValues((v) => ({ ...v, eggs: Math.floor(v.eggs / EGGS_PER_ALVEOL) * EGGS_PER_ALVEOL + loose }));
     setError(null);
   };
 
@@ -1124,8 +1125,8 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
             done={feedKgEquivalent > 0 || values.waterL > 0}
             accent={color.amber[600]}
             right={phaseStock?.autonomyDays != null ? (
-              <View style={[styles.autoChip, phaseStock.autonomyDays < 3 ? styles.autoCrit : phaseStock.autonomyDays < 5 ? styles.autoWarn : null]}>
-                <AppText size="caption" weight="bold" color={phaseStock.autonomyDays < 3 ? 'danger' : phaseStock.autonomyDays < 5 ? 'amber' : 'muted'}>
+              <View style={[styles.autoChip, phaseStock.autonomyDays < FEED_STOCK_CRITICAL_DAYS ? styles.autoCrit : phaseStock.autonomyDays < FEED_STOCK_WARN_DAYS ? styles.autoWarn : null]}>
+                <AppText size="caption" weight="bold" color={phaseStock.autonomyDays < FEED_STOCK_CRITICAL_DAYS ? 'danger' : phaseStock.autonomyDays < FEED_STOCK_WARN_DAYS ? 'amber' : 'muted'}>
                   {Math.round(phaseStock.autonomyDays)} j stock
                 </AppText>
               </View>
@@ -1422,7 +1423,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
                 Total : {values.eggs.toLocaleString('fr-FR')} œufs
               </AppText>
               <AppText size="caption" color="muted">
-                ≈ {Math.floor(values.eggs / 30)} alvéole(s) + {values.eggs % 30} œuf(s) · {eggsSellable.toLocaleString('fr-FR')} vendables
+                ≈ {Math.floor(values.eggs / EGGS_PER_ALVEOL)} alvéole(s) + {values.eggs % EGGS_PER_ALVEOL} œuf(s) · {eggsSellable.toLocaleString('fr-FR')} vendables
               </AppText>
             </View>
           ) : null}

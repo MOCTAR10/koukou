@@ -53,6 +53,7 @@ import { todayStr, type InvoiceFields } from '@/api/mutations';
 import type { BatchWithMetrics, CaisseSummary, SaleSummary, StockTransfer } from '@/api/types';
 import { queueCreditSale, queueSale, useOfflineQueue } from '@/offline';
 import { breedImageForLot } from '@/constants/breedImages';
+import { EGGS_PER_ALVEOL } from '@/constants/stock';
 import { color, palette, radii, spacing, fmt, fmtFcfa } from '@/constants/theme';
 
 /** Formatage œufs → alvéoles : "2 alvéoles", "1 alvéole + 5 œufs",
@@ -811,7 +812,7 @@ export default function PosScreen() {
                           ) : null}
                           {totalEggsSent > 0 ? (
                             <AppText size="small" color="muted">
-                              {fmt(totalEggsSent * 30)} œufs envoyés à {eggsSent.map((s) => s.posName).join(', ')}
+                              {fmt(totalEggsSent * EGGS_PER_ALVEOL)} œufs envoyés à {eggsSent.map((s) => s.posName).join(', ')}
                             </AppText>
                           ) : null}
                           {lotSoldItems > 0 ? (

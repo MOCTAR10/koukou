@@ -63,6 +63,7 @@ import { speciesLabel } from '@/api/format';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES, breedImageForLot } from '@/constants/breedImages';
 import { normalizeMortalityStatus } from '@/constants/health';
+import { EGGS_PER_ALVEOL } from '@/constants/stock';
 import { lotSlaughterSummary, type LotSlaughterSummary } from '@/utils/slaughterInsights';
 import { SlaughterBadge, SlaughterInfoCard } from '@/components/slaughter/SlaughterLotInfo';
 import { CreateLotSheet } from '@/components/CreateLotSheet';
@@ -687,7 +688,7 @@ export default function LotsScreen() {
     const activeCount = list.filter((b) => b.status === 'ACTIF').length;
     const sellingCount = list.filter((b) => b.status === 'EN_VENTE').length;
     const readyBirds = list.filter((b) => b.metrics.readyForSale).reduce((s, b) => s + b.metrics.liveCount, 0);
-    const totalAlveoles = Math.floor(totalEggs / 30);
+    const totalAlveoles = Math.floor(totalEggs / EGGS_PER_ALVEOL);
     return { totalBirds, totalEggs, chairCount, pondeuseCount, avgLayRatePondeuse, activeCount, sellingCount, readyBirds, totalAlveoles };
   }, [batches.data]);
 
@@ -2357,7 +2358,7 @@ function EggBreakdownSheet({ lot, onClose }: { lot: BatchWithMetrics | null; onC
               <AppText size="body" weight="bold" color="text">{collected.toLocaleString('fr-FR')} œufs collectés</AppText>
             </View>
             <AppText size="caption" color="faint">
-              ≈ {Math.floor((b?.sellable ?? 0) / 30).toLocaleString('fr-FR')} alvéoles commercialisables · {pct(b?.sellable ?? 0)}% de qualité
+              ≈ {Math.floor((b?.sellable ?? 0) / EGGS_PER_ALVEOL).toLocaleString('fr-FR')} alvéoles commercialisables · {pct(b?.sellable ?? 0)}% de qualité
             </AppText>
           </View>
 

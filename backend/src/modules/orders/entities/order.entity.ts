@@ -103,6 +103,9 @@ export interface OrderPassportSnapshot {
   generatedAt: string;
 }
 
+@Index('UQ_orders_farm_idem', ['farmId', 'idempotencyKey'], {
+  unique: true,
+})
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')
@@ -132,9 +135,6 @@ export class Order {
   saleId: string;
 
   @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
-  @Index('UQ_orders_farm_idem', ['farmId', 'idempotencyKey'], {
-    unique: true,
-  })
   idempotencyKey: string | null;
 
   @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })

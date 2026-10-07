@@ -44,6 +44,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { color, palette, radii, fmt, fmtFcfa } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { breedImageForLot } from '@/constants/breedImages';
+import { EGGS_PER_ALVEOL } from '@/constants/stock';
 import { lotSlaughterSummary } from '@/utils/slaughterInsights';
 import { SlaughterInfoCard } from '@/components/slaughter/SlaughterLotInfo';
 import {
@@ -712,7 +713,7 @@ export default function LotDetailScreen() {
               <AppText size="body" weight="bold" color="brand">Œufs</AppText>
               {eggTotal > 0 && (
                 <AppText size="small" color="muted" style={{ marginLeft: 'auto' }}>
-                  ≈ {Math.floor((eb?.sellable ?? 0) / 30).toLocaleString('fr-FR')} alvéoles
+                  ≈ {Math.floor((eb?.sellable ?? 0) / EGGS_PER_ALVEOL).toLocaleString('fr-FR')} alvéoles
                 </AppText>
               )}
             </View>

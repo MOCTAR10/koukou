@@ -25,7 +25,14 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors();
+  const configService = app.get(ConfigService);
+
+  const corsOrigins = configService.get('CORS_ORIGINS', '*');
+  app.enableCors({
+    origin: corsOrigins === '*' ? '*' : corsOrigins.split(',').map((o: string) => o.trim()),
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
 
   const config = new DocumentBuilder()
     .setTitle('KouKou Ferme API')
@@ -36,7 +43,6 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  const configService = app.get(ConfigService);
   SwaggerModule.setup(
     configService.get('SWAGGER_PATH', 'api-docs'),
     app,

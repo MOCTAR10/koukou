@@ -15,6 +15,7 @@ import { InputKind } from '../../common/enums/input-kind.enum.js';
 import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
+import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
@@ -27,8 +28,6 @@ import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js'
 import { CreateStockTransferDto } from './dto/stock-transfer.dto.js';
 import { StockTransfer } from './entities/stock-transfer.entity.js';
 import { PointOfSale } from './entities/point-of-sale.entity.js';
-
-const EGGS_PER_ALVEOL = 30;
 
 function round2(v: number): number {
   return Math.round(v * 100) / 100;

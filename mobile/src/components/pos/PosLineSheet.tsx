@@ -11,6 +11,7 @@ import { Segmented } from '../ui/Segmented';
 import { Sheet } from '../ui/Sheet';
 import { SPECIES_ICONS, speciesLabel } from '@/api/format';
 import { breedImageForLot } from '@/constants/breedImages';
+import { EGGS_PER_ALVEOL } from '@/constants/stock';
 import type { PosProduct } from '@/api/mutations';
 import type {
   BatchWithMetrics,
@@ -538,7 +539,7 @@ export function PosLineSheet({
     : 0;
   const reserveReceived = transfer?.quantity ?? 0;
   const reserveSold = transfer?.quantitySold ?? 0;
-  const reserveEggs = transfer ? reserveRemaining * 30 : 0;
+  const reserveEggs = transfer ? reserveRemaining * EGGS_PER_ALVEOL : 0;
 
   // Batch source pour la carte « souche » (code / nom / type / age)
   const reserveBatchId = transfer?.slaughterOrder?.batchId ?? transfer?.batchId;
