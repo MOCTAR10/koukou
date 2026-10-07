@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Image, Keyboard, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Briefcase, ChevronDown, ChevronUp, KeyRound, ListTodo, Phone, ShieldCheck, Sprout, UserCog, UserPlus, Users } from 'lucide-react-native';
+import { Building2, Briefcase, ChevronDown, ChevronUp, KeyRound, ListTodo, Phone, ShieldCheck, UserCog, UserPlus, Users } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -14,18 +14,37 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
-import { fetchFarmMembers, fetchPermissionCatalog } from '@/api';
+import { fetchBuildings, fetchFarmMembers, fetchPermissionCatalog } from '@/api';
 import { createFarmMember, updateFarmMember } from '@/api/mutations';
 import { canManageFarm, farmRoleLabel } from '@/api/roles';
-import type { ContractType, FarmMember, PermissionCatalog, StaffProfile } from '@/api/types';
-import { CREATE_ADMIN_DEFAULT_PERMISSIONS } from '@/constants/permissions';
+import type { ContractType, FarmMember, PermissionCatalog, PermissionCode, StaffProfile } from '@/api/types';
+import { CREATE_ADMIN_DEFAULT_PERMISSIONS, LOCAL_PERMISSION_GROUPS, STAFF_PROFILES_LOCAL } from '@/constants/permissions';
 import { CONTRACT_TYPES, contractTypeLabel } from '@/constants/hr';
-import { color, palette } from '@/constants/theme';
+import { color, fmt, palette } from '@/constants/theme';
 
-const ROLE_OPTIONS: { value: 'ADMIN' | 'ELEVEUR'; icon: typeof Sprout }[] = [
-  { value: 'ELEVEUR', icon: Sprout },
-  { value: 'ADMIN', icon: UserCog },
-];
+/** Clé du profil « sur mesure » (non fourni par le serveur) : rôle Admin, droits à cocher. */
+const CUSTOM_PROFILE_KEY = '__custom__';
+const CUSTOM_PROFILE: StaffProfile = {
+  key: CUSTOM_PROFILE_KEY,
+  label: 'Profil personnalisé',
+  role: 'ADMIN',
+  jobTitle: '',
+  permissions: [],
+};
+
+function samePermissions(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const x = [...a].sort();
+  const y = [...b].sort();
+  return x.every((v, i) => v === y[i]);
+}
+
+/** Retrouve le profil correspondant à l'état courant ; « sur mesure » sinon. */
+function matchProfileKey(role: 'ADMIN' | 'ELEVEUR', permissions: PermissionCode[], profiles: StaffProfile[]): string {
+  if (role === 'ELEVEUR') return 'eleveur';
+  const found = profiles.find((p) => p.role === 'ADMIN' && samePermissions(p.permissions, permissions));
+  return found?.key ?? CUSTOM_PROFILE_KEY;
+}
 
 /** Grille de profils métier : un tap pré-remplit rôle, poste et permissions. */
 function ProfileGrid({
@@ -40,12 +59,21 @@ function ProfileGrid({
   if (profiles.length === 0) return null;
   return (
     <View style={{ marginTop: 4 }}>
-      <AppText size="label" color="muted" style={{ marginBottom: 8 }}>
+      <AppText size="label" color="muted">
         PROFIL MÉTIER
+      </AppText>
+      <AppText size="caption" color="muted" style={{ marginBottom: 8 }}>
+        Choisissez un profil : rôle, poste et droits sont pré-remplis.
       </AppText>
       <View style={styles.profileGrid}>
         {profiles.map((p) => {
           const on = selected === p.key;
+          const custom = p.key === CUSTOM_PROFILE_KEY;
+          const sub = custom
+            ? 'Sur mesure'
+            : p.role === 'ADMIN'
+              ? `${p.permissions.length} droits`
+              : 'Droits fixes';
           return (
             <Pressable
               key={p.key}
@@ -57,7 +85,7 @@ function ProfileGrid({
                 {p.label}
               </AppText>
               <AppText size="caption" color={on ? 'surface' : 'muted'} numberOfLines={1}>
-                {p.role === 'ADMIN' ? `${p.permissions.length} droits` : 'Droits fixes'}
+                {sub}
               </AppText>
             </Pressable>
           );
@@ -67,11 +95,12 @@ function ProfileGrid({
   );
 }
 
-/** Section « Dossier RH » repliable (fiche employé optionnelle). */
+/** Section « Dossier RH » repliable et mise en avant (fiche employé optionnelle). */
 function RhDossier(props: {
   open: boolean;
   onToggle: () => void;
   busy: boolean;
+  filled: boolean;
   department: string;
   setDepartment: (v: string) => void;
   contractType: ContractType | null;
@@ -86,16 +115,24 @@ function RhDossier(props: {
   setNotes: (v: string) => void;
 }) {
   return (
-    <View style={{ marginTop: 4 }}>
+    <View style={[styles.rhCard, props.open && styles.rhCardOpen]}>
       <Pressable onPress={props.onToggle} style={styles.rhHeader} accessibilityRole="button">
-        <Briefcase size={16} color={color.ink[400]} />
-        <AppText size="small" weight="semibold" color="muted" style={{ flex: 1 }}>
-          DOSSIER RH (OPTIONNEL)
-        </AppText>
-        {props.open ? <ChevronUp size={16} color={color.ink[300]} /> : <ChevronDown size={16} color={color.ink[300]} />}
+        <View style={styles.rhIcon}>
+          <Briefcase size={18} color={color.brand[700]} />
+        </View>
+        <View style={{ flex: 1, gap: 1 }}>
+          <AppText size="body" weight="semibold" color="text">
+            Dossier RH
+          </AppText>
+          <AppText size="caption" color="muted">
+            Contrat, poste, rémunération et notes
+          </AppText>
+        </View>
+        <Chip label={props.filled ? 'Renseigné' : 'À compléter'} tone={props.filled ? 'green' : 'amber'} />
+        {props.open ? <ChevronUp size={18} color={color.ink[400]} /> : <ChevronDown size={18} color={color.ink[400]} />}
       </Pressable>
       {props.open ? (
-        <View style={{ gap: 2, marginTop: 8 }}>
+        <View style={styles.rhBody}>
           <Field icon={<Briefcase size={16} color={color.ink[400]} />} label="Service / département">
             <FieldInput value={props.department} onChangeText={props.setDepartment} placeholder="Ex : Production, Ventes…" editable={!props.busy} />
           </Field>
@@ -144,9 +181,62 @@ function RhDossier(props: {
   );
 }
 
+/** Sélecteur de bâtiment assigné : liste les bâtiments de la ferme. */
+function BuildingPicker({
+  value,
+  options,
+  onSelect,
+  busy,
+}: {
+  value: string;
+  options: string[];
+  onSelect: (v: string) => void;
+  busy: boolean;
+}) {
+  return (
+    <Field icon={<Building2 size={16} color={color.ink[400]} />} label="Bâtiment assigné (optionnel)">
+      {options.length === 0 ? (
+        <AppText size="caption" color="muted">
+          Aucun bâtiment enregistré. Créez-en depuis « Lots ».
+        </AppText>
+      ) : (
+        <View style={styles.chipWrap}>
+          <Pressable
+            onPress={() => onSelect('')}
+            style={[styles.miniChip, !value && styles.miniChipOn]}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !value }}>
+            <AppText size="caption" weight={!value ? 'bold' : 'medium'} color={!value ? 'surface' : 'muted'}>
+              Aucun
+            </AppText>
+          </Pressable>
+          {options.map((name) => {
+            const on = value === name;
+            return (
+              <Pressable
+                key={name}
+                onPress={() => onSelect(on ? '' : name)}
+                style={[styles.miniChip, on && styles.miniChipOn]}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}>
+                <AppText size="caption" weight={on ? 'bold' : 'medium'} color={on ? 'surface' : 'muted'}>
+                  {name}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </Field>
+  );
+}
+
 function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName?: string; onPress: () => void }) {
   const isAdmin = member.role === 'ADMIN';
   const label = member.jobTitle?.trim() || farmRoleLabel(member.role, farmName);
+  const hasDossier = Boolean(member.contractType || member.department || member.hireDate || member.salaryFcfa != null);
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]} accessibilityRole="button">
       <View style={styles.memberHead}>
@@ -170,6 +260,19 @@ function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName
           </AppText>
         </View>
       </View>
+
+      {hasDossier ? (
+        <View style={styles.memberTags}>
+          {member.contractType ? <Chip label={contractTypeLabel(member.contractType)} tone="brand" /> : null}
+          {member.department ? <Chip label={member.department} tone="outline" /> : null}
+          {member.hireDate ? <Chip label={`Depuis ${member.hireDate}`} tone="neutral" /> : null}
+          {member.salaryFcfa != null ? <Chip label={`${fmt(member.salaryFcfa)} F`} tone="neutral" /> : null}
+        </View>
+      ) : (
+        <View style={styles.memberTags}>
+          <Chip label="Dossier RH à compléter" tone="amber" />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -191,6 +294,13 @@ export default function EquipeScreen() {
   const permissionCatalog = useQuery({
     queryKey: ['permission-catalog', farmId],
     queryFn: () => fetchPermissionCatalog(farmId),
+    enabled: Boolean(farmId) && canManageAccount,
+    staleTime: 5 * 60_000,
+  });
+
+  const buildings = useQuery({
+    queryKey: ['buildings', farmId],
+    queryFn: () => fetchBuildings(farmId),
     enabled: Boolean(farmId) && canManageAccount,
     staleTime: 5 * 60_000,
   });
@@ -262,7 +372,7 @@ export default function EquipeScreen() {
     setEditBuilding(member.buildingAssignment ?? '');
     setEditActive(member.active);
     setEditPermissions(new Set(member.permissions));
-    setEditProfileKey(null);
+    setEditProfileKey(matchProfileKey(member.role, member.permissions, profiles));
     setEDepartment(member.department ?? '');
     setEContractType(member.contractType);
     setEHireDate(member.hireDate ?? '');
@@ -274,16 +384,18 @@ export default function EquipeScreen() {
   };
 
   const applyProfile = (p: StaffProfile, target: 'create' | 'edit') => {
+    const custom = p.key === CUSTOM_PROFILE_KEY;
+    const permissions = custom ? [...CREATE_ADMIN_DEFAULT_PERMISSIONS] : p.permissions;
     if (target === 'create') {
       setCreateProfileKey(p.key);
       setRole(p.role);
-      setJobTitle(p.jobTitle);
-      setCreatePermissions(new Set(p.permissions));
+      if (!custom) setJobTitle(p.jobTitle);
+      setCreatePermissions(new Set(permissions));
     } else {
       setEditProfileKey(p.key);
       setEditRole(p.role);
-      setEditJobTitle(p.jobTitle);
-      setEditPermissions(new Set(p.permissions));
+      if (!custom) setEditJobTitle(p.jobTitle);
+      setEditPermissions(new Set(permissions));
     }
   };
 
@@ -321,7 +433,7 @@ export default function EquipeScreen() {
         jobTitle: jobTitle.trim() ? jobTitle.trim() : undefined,
         buildingAssignment: building.trim() ? building.trim() : undefined,
         permissions: role === 'ADMIN' ? [...createPermissions] : undefined,
-        profileKey: createProfileKey ?? undefined,
+        profileKey: createProfileKey && createProfileKey !== CUSTOM_PROFILE_KEY ? createProfileKey : undefined,
         department: cDepartment.trim() || undefined,
         contractType: cContractType ?? undefined,
         hireDate: cHireDate.trim() || undefined,
@@ -350,7 +462,7 @@ export default function EquipeScreen() {
       const payload: Record<string, unknown> = {
         role: editRole,
       };
-      if (editProfileKey) {
+      if (editProfileKey && editProfileKey !== CUSTOM_PROFILE_KEY) {
         payload.profileKey = editProfileKey;
       }
       if (editRole === 'ADMIN') {
@@ -396,7 +508,7 @@ export default function EquipeScreen() {
   };
 
   const togglePermission = (code: string) => {
-    setEditProfileKey(null);
+    setEditProfileKey(CUSTOM_PROFILE_KEY);
     setEditPermissions((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
@@ -406,7 +518,7 @@ export default function EquipeScreen() {
   };
 
   const toggleCreatePermission = (code: string) => {
-    setCreateProfileKey(null);
+    setCreateProfileKey(CUSTOM_PROFILE_KEY);
     setCreatePermissions((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
@@ -416,8 +528,10 @@ export default function EquipeScreen() {
   };
 
   const catalog: PermissionCatalog | undefined = permissionCatalog.data;
-  const groups = catalog?.groups ?? [];
-  const profiles = catalog?.profiles ?? [];
+  const groups = catalog?.groups?.length ? catalog.groups : LOCAL_PERMISSION_GROUPS;
+  const profiles = catalog?.profiles?.length ? catalog.profiles : STAFF_PROFILES_LOCAL;
+  const profileOptions: StaffProfile[] = [...profiles, CUSTOM_PROFILE];
+  const buildingOptions = (buildings.data ?? []).map((b) => b.name);
 
   return (
     <Screen header={<ScreenHeader title="Équipe" subtitle={farms[0]?.name ?? 'Ferme'} back right={<Users size={18} color={color.ink[300]} />} />}>
@@ -440,6 +554,27 @@ export default function EquipeScreen() {
         </View>
         <ListTodo size={16} color={color.ink[300]} />
       </Pressable>
+
+      {canManageAccount ? (
+        <Pressable
+          onPress={() => router.push('/rh')}
+          style={({ pressed }) => [styles.tasksLink, pressed && { opacity: 0.8 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Ouvrir les dossiers RH">
+          <View style={[styles.tasksLinkIcon, { backgroundColor: color.brand[50] }]}>
+            <Briefcase size={20} color={color.brand[600]} />
+          </View>
+          <View style={{ flex: 1, gap: 1 }}>
+            <AppText size="body" weight="semibold" color="text">
+              Dossiers RH
+            </AppText>
+            <AppText size="caption" color="muted" numberOfLines={1}>
+              Contrats, postes, rémunération et ancienneté
+            </AppText>
+          </View>
+          <Briefcase size={16} color={color.ink[300]} />
+        </Pressable>
+      ) : null}
 
       {success ? (
         <Card tone="green" style={styles.card}>
@@ -522,37 +657,7 @@ export default function EquipeScreen() {
             </View>
           }
         >
-          <ProfileGrid profiles={profiles} selected={createProfileKey} onSelect={(p) => applyProfile(p, 'create')} />
-
-          <View style={styles.segmented}>
-            {ROLE_OPTIONS.map((opt) => {
-              const on = role === opt.value;
-              return (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => {
-                    setCreateProfileKey(null);
-                    setRole(opt.value);
-                    if (opt.value === 'ADMIN') {
-                      setCreatePermissions((prev) => (prev.size > 0 ? prev : new Set(CREATE_ADMIN_DEFAULT_PERMISSIONS)));
-                    }
-                  }}
-                  style={[styles.segOption, on && styles.segOptionOn]}
-                  accessibilityRole="button">
-                  <View style={styles.segRow}>
-                    <opt.icon size={15} color={on ? color.surface : color.ink[400]} />
-                    <AppText
-                      size="small"
-                      weight={on ? 'bold' : 'medium'}
-                      color={on ? 'surface' : 'muted'}
-                      style={styles.segLabel}>
-                      {farmRoleLabel(opt.value, farmName)}
-                    </AppText>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          <ProfileGrid profiles={profileOptions} selected={createProfileKey} onSelect={(p) => applyProfile(p, 'create')} />
 
           <Field icon={<UserCog size={16} color={color.ink[400]} />} label="Nom complet">
             <FieldInput value={fullName} onChangeText={setFullName} placeholder="Ex : Jean-Marc Ondo" editable={!busy} />
@@ -563,14 +668,10 @@ export default function EquipeScreen() {
           <Field icon={<KeyRound size={16} color={color.ink[400]} />} label="Code secret (≥ 6 caractères)">
             <FieldInput value={code} onChangeText={setCode} placeholder="••••••" secureTextEntry editable={!busy} />
           </Field>
-          {role === 'ADMIN' ? (
-            <Field icon={<ShieldCheck size={16} color={color.ink[400]} />} label="Intitulé du poste (ex : Comptable)">
-              <FieldInput value={jobTitle} onChangeText={setJobTitle} placeholder="Ex : Comptable, Chef d’élevage…" editable={!busy} />
-            </Field>
-          ) : null}
-          <Field icon={<Building2 size={16} color={color.ink[400]} />} label="Bâtiment assigné (optionnel)">
-            <FieldInput value={building} onChangeText={setBuilding} placeholder="Ex : Bâtiment A" editable={!busy} />
+          <Field icon={<ShieldCheck size={16} color={color.ink[400]} />} label="Intitulé du poste">
+            <FieldInput value={jobTitle} onChangeText={setJobTitle} placeholder="Ex : Comptable, Chef d’élevage…" editable={!busy} />
           </Field>
+          <BuildingPicker value={building} options={buildingOptions} onSelect={setBuilding} busy={busy} />
 
           {role === 'ADMIN' ? (
             <View style={{ marginTop: 4 }}>
@@ -620,6 +721,7 @@ export default function EquipeScreen() {
             open={createRhOpen}
             onToggle={() => setCreateRhOpen((v) => !v)}
             busy={busy}
+            filled={Boolean(cDepartment.trim() || cContractType || cHireDate.trim() || cEndDate.trim() || cSalary.trim() || cNotes.trim())}
             department={cDepartment}
             setDepartment={setCDepartment}
             contractType={cContractType}
@@ -652,41 +754,12 @@ export default function EquipeScreen() {
             {editing.user.fullName} — {farmRoleLabel(editRole, farmName)}
           </AppText>
 
-          <ProfileGrid profiles={profiles} selected={editProfileKey} onSelect={(p) => applyProfile(p, 'edit')} />
-
-          <View style={styles.segmented}>
-            {ROLE_OPTIONS.map((opt) => {
-              const on = editRole === opt.value;
-              return (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => {
-                    setEditProfileKey(null);
-                    setEditRole(opt.value);
-                  }}
-                  style={[styles.segOption, on && styles.segOptionOn]}
-                  accessibilityRole="button">
-                  <View style={styles.segRow}>
-                    <opt.icon size={15} color={on ? color.surface : color.ink[400]} />
-                    <AppText
-                      size="small"
-                      weight={on ? 'bold' : 'medium'}
-                      color={on ? 'surface' : 'muted'}
-                      style={styles.segLabel}>
-                      {farmRoleLabel(opt.value, farmName)}
-                    </AppText>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          <ProfileGrid profiles={profileOptions} selected={editProfileKey} onSelect={(p) => applyProfile(p, 'edit')} />
 
           <Field icon={<ShieldCheck size={16} color={color.ink[400]} />} label="Intitulé du poste">
             <FieldInput value={editJobTitle} onChangeText={setEditJobTitle} placeholder="Ex : Comptable, Chef d’élevage…" editable={!busy} />
           </Field>
-          <Field icon={<Building2 size={16} color={color.ink[400]} />} label="Bâtiment assigné (optionnel)">
-            <FieldInput value={editBuilding} onChangeText={setEditBuilding} placeholder="Ex : Bâtiment A" editable={!busy} />
-          </Field>
+          <BuildingPicker value={editBuilding} options={buildingOptions} onSelect={setEditBuilding} busy={busy} />
 
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>
@@ -756,6 +829,7 @@ export default function EquipeScreen() {
             open={editRhOpen}
             onToggle={() => setEditRhOpen((v) => !v)}
             busy={busy}
+            filled={Boolean(eDepartment.trim() || eContractType || eHireDate.trim() || eEndDate.trim() || eSalary.trim() || eNotes.trim())}
             department={eDepartment}
             setDepartment={setEDepartment}
             contractType={eContractType}
@@ -839,6 +913,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  memberTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
   },
   avatar: {
     width: 44,
@@ -950,11 +1030,35 @@ const styles = StyleSheet.create({
     backgroundColor: color.brand[600],
     borderColor: color.brand[600],
   },
+  rhCard: {
+    marginTop: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: palette.brand[100],
+    backgroundColor: palette.brand[50],
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  rhCardOpen: {
+    borderColor: color.brand[300],
+  },
   rhHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
+    gap: 10,
+    paddingVertical: 10,
+  },
+  rhIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rhBody: {
+    gap: 2,
+    paddingBottom: 10,
   },
   chipWrap: {
     flexDirection: 'row',
