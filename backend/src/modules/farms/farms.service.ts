@@ -12,10 +12,12 @@ import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
+import { ContractType } from '../../common/enums/contract-type.enum.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import {
   defaultPermissionsFor,
   ELEVEUR_DEFAULT_PERMISSIONS,
+  findStaffProfile,
   isPermissionCode,
   type PermissionCode,
 } from '../../common/permissions/permission-catalog.js';
@@ -374,7 +376,13 @@ export class FarmsService {
         'Un compte existe déjà avec ce numéro ou cet e-mail.',
       );
     }
-    const role = dto.role ?? FarmStaffRole.ELEVEUR;
+    // Un profil métier (Vétérinaire, Comptable…) pose la base ; les champs
+    // explicites (role/permissions) du DTO la surchargent ensuite.
+    const profile = dto.profileKey ? findStaffProfile(dto.profileKey) : undefined;
+    if (dto.profileKey && !profile) {
+      throw new BadRequestException(`Profil inconnu : ${dto.profileKey}.`);
+    }
+    const role = dto.role ?? profile?.role ?? FarmStaffRole.ELEVEUR;
     let permissions: PermissionCode[] | undefined;
     if (dto.permissions !== undefined) {
       if (role !== FarmStaffRole.ADMIN) {
@@ -401,9 +409,15 @@ export class FarmsService {
     );
     const link = await this.linkEmployee(owner, farmId, employee.id, {
       role,
-      jobTitle: dto.jobTitle ?? null,
+      jobTitle: dto.jobTitle ?? profile?.jobTitle ?? null,
       buildingAssignment: dto.buildingAssignment ?? null,
-      permissions: permissions ?? defaultPermissionsFor(role),
+      permissions: permissions ?? profile?.permissions ?? defaultPermissionsFor(role),
+      department: dto.department ?? null,
+      contractType: dto.contractType ?? null,
+      hireDate: dto.hireDate ?? null,
+      endDate: dto.endDate ?? null,
+      salaryFcfa: dto.salaryFcfa ?? null,
+      notes: dto.notes ?? null,
     });
     return { user: this.publicUser(employee), employment: link };
   }
@@ -417,6 +431,12 @@ export class FarmsService {
       jobTitle?: string | null;
       buildingAssignment?: string | null;
       permissions?: PermissionCode[];
+      department?: string | null;
+      contractType?: ContractType | null;
+      hireDate?: string | null;
+      endDate?: string | null;
+      salaryFcfa?: number | null;
+      notes?: string | null;
     },
   ): Promise<FarmEmployee> {
     await this.assertAccessible(owner, farmId);
@@ -440,6 +460,12 @@ export class FarmsService {
       jobTitle: options?.jobTitle ?? null,
       buildingAssignment: options?.buildingAssignment ?? null,
       permissions: options?.permissions ?? defaultPermissionsFor(FarmStaffRole.ELEVEUR),
+      department: options?.department ?? null,
+      contractType: options?.contractType ?? null,
+      hireDate: options?.hireDate ?? null,
+      endDate: options?.endDate ?? null,
+      salaryFcfa: options?.salaryFcfa ?? null,
+      notes: options?.notes ?? null,
     });
     return this.employeeRepo.save(link);
   }
@@ -464,6 +490,30 @@ export class FarmsService {
       link.buildingAssignment = dto.buildingAssignment;
     }
     if (dto.active !== undefined) link.active = dto.active;
+
+    /* ── Dossier RH ── */
+    if (dto.department !== undefined) link.department = dto.department;
+    if (dto.contractType !== undefined) link.contractType = dto.contractType;
+    if (dto.hireDate !== undefined) link.hireDate = dto.hireDate;
+    if (dto.endDate !== undefined) link.endDate = dto.endDate;
+    if (dto.salaryFcfa !== undefined) link.salaryFcfa = dto.salaryFcfa;
+    if (dto.notes !== undefined) link.notes = dto.notes;
+
+    // Profil métier : pose rôle + permissions avant les surcharges explicites.
+    const profile = dto.profileKey ? findStaffProfile(dto.profileKey) : undefined;
+    if (dto.profileKey && !profile) {
+      throw new BadRequestException(`Profil inconnu : ${dto.profileKey}.`);
+    }
+    if (profile) {
+      link.role = profile.role;
+      link.permissions =
+        profile.role === FarmStaffRole.ADMIN
+          ? [...profile.permissions]
+          : defaultPermissionsFor(FarmStaffRole.ELEVEUR);
+      if (dto.jobTitle === undefined && !link.jobTitle) {
+        link.jobTitle = profile.jobTitle;
+      }
+    }
 
     if (dto.role !== undefined) {
       const nextRole = dto.role;

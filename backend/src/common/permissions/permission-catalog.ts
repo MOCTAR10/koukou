@@ -23,6 +23,22 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    key: 'rh',
+    label: 'Ressources humaines',
+    items: [
+      {
+        code: 'rh:lire',
+        label: 'Voir les dossiers RH',
+        description: 'Consulter les fiches employés (poste, contrat, ancienneté, salaire).',
+      },
+      {
+        code: 'rh:gerer',
+        label: 'Gérer les dossiers RH',
+        description: 'Éditer les fiches employés : contrat, dates, salaire, département.',
+      },
+    ],
+  },
+  {
     key: 'caisse',
     label: 'Caisse',
     items: [
@@ -208,3 +224,106 @@ export const FARM_STAFF_ROLE_LABELS: Record<FarmStaffRole, string> = {
   [FarmStaffRole.ADMIN]: 'Administrateur KouKou',
   [FarmStaffRole.ELEVEUR]: 'Éleveur Koukou',
 };
+
+/** Modèle de profil métier : remplit rôle + permissions d'un coup à l'embauche. */
+export interface StaffProfile {
+  key: string;
+  label: string;
+  role: FarmStaffRole;
+  /** Poste suggéré (pré-rempli), librement modifiable. */
+  jobTitle: string;
+  permissions: PermissionCode[];
+}
+
+const eleveurPermissions = PERMISSIONS.filter((p) =>
+  ELEVEUR_DEFAULT_PERMISSIONS.has(p.code),
+).map((p) => p.code);
+
+/**
+ * Profils prêts à l'emploi proposés à l'embauche. Le Propriétaire (ou un
+ * gestionnaire RH) choisit un profil → rôle + permissions sont pré-remplis,
+ * puis affinables. Source de vérité partagée (mobile, web).
+ */
+export const STAFF_PROFILES: StaffProfile[] = [
+  {
+    key: 'gestionnaire',
+    label: 'Gestionnaire',
+    role: FarmStaffRole.ADMIN,
+    jobTitle: 'Gestionnaire',
+    permissions: [
+      'equipe:taches',
+      'caisse:lire',
+      'caisse:ouvrir',
+      'caisse:fermer',
+      'vente:creer',
+      'vente:annuler',
+      'vente:commande',
+      'vente:promotion',
+      'compta:depense',
+      'compta:client',
+      'compta:rapports',
+      'compta:ecritures',
+      'stock:gerer',
+      'pdv:gerer',
+      'saisie:creer',
+      'production:gerer',
+      'production:abattage',
+      'sanitaire:lecture',
+      'reglages:ferme',
+    ],
+  },
+  {
+    key: 'comptable',
+    label: 'Comptable',
+    role: FarmStaffRole.ADMIN,
+    jobTitle: 'Comptable',
+    permissions: ['compta:depense', 'compta:client', 'compta:rapports', 'compta:ecritures', 'caisse:lire'],
+  },
+  {
+    key: 'veterinaire',
+    label: 'Vétérinaire',
+    role: FarmStaffRole.ADMIN,
+    jobTitle: 'Vétérinaire',
+    permissions: ['sanitaire:gerer', 'sanitaire:lecture', 'saisie:creer'],
+  },
+  {
+    key: 'rh',
+    label: 'Ressources humaines',
+    role: FarmStaffRole.ADMIN,
+    jobTitle: 'Responsable RH',
+    permissions: ['equipe:gerer', 'equipe:taches', 'rh:lire', 'rh:gerer'],
+  },
+  {
+    key: 'caissier',
+    label: 'Caissier / Vendeur',
+    role: FarmStaffRole.ADMIN,
+    jobTitle: 'Caissier',
+    permissions: ['vente:creer', 'vente:annuler', 'caisse:lire', 'caisse:ouvrir', 'caisse:fermer', 'compta:client'],
+  },
+  {
+    key: 'magasinier',
+    label: 'Magasinier / Stock',
+    role: FarmStaffRole.ADMIN,
+    jobTitle: 'Magasinier',
+    permissions: ['stock:gerer', 'pdv:gerer', 'saisie:creer'],
+  },
+  {
+    key: 'production',
+    label: 'Responsable production',
+    role: FarmStaffRole.ADMIN,
+    jobTitle: 'Responsable production',
+    permissions: ['production:gerer', 'production:abattage', 'saisie:creer', 'stock:gerer'],
+  },
+  {
+    key: 'eleveur',
+    label: 'Éleveur terrain',
+    role: FarmStaffRole.ELEVEUR,
+    jobTitle: 'Éleveur',
+    permissions: eleveurPermissions,
+  },
+];
+
+export function findStaffProfile(key: string | undefined | null): StaffProfile | undefined {
+  if (!key) return undefined;
+  return STAFF_PROFILES.find((p) => p.key === key);
+}

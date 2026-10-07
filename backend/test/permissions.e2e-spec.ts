@@ -151,7 +151,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .get(`/farms/${farmId}/permissions`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
-    const codes = (catalog.body as any[]).flatMap((g: any) =>
+    const codes = (catalog.body.groups as any[]).flatMap((g: any) =>
       g.items.map((i: any) => i.code),
     );
     expect(codes).toContain('equipe:gerer');

@@ -22,7 +22,7 @@ import type { AuthUser } from '../../common/decorators/current-user.decorator.js
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
-import { PERMISSION_GROUPS } from '../../common/permissions/permission-catalog.js';
+import { PERMISSION_GROUPS, STAFF_PROFILES } from '../../common/permissions/permission-catalog.js';
 import { FarmsService } from './farms.service.js';
 import type { UploadedImageFile } from './farms.service.js';
 import { CreateElevageDto } from './dto/create-eleveur.dto.js';
@@ -139,7 +139,7 @@ export class FarmsController {
 
   @Get(':farmId/eleveurs')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('equipe:gerer')
+  @Permissions('equipe:gerer', 'rh:lire')
   @ApiOperation({ summary: 'Lister les membres de la ferme' })
   async listEleveurs(
     @CurrentUser() owner: AuthUser,
@@ -161,13 +161,14 @@ export class FarmsController {
 
   @Get(':farmId/permissions')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('equipe:gerer')
+  @Permissions('equipe:gerer', 'rh:lire')
   @ApiOperation({
-    summary: 'Catalogue des permissions accordables aux membres (gestion d’équipe)',
+    summary:
+      'Catalogue des permissions + profils métier prêts à l’emploi (gestion d’équipe)',
   })
   async permissions(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
     await this.farmsService.assertAccessible(user, farmId);
-    return PERMISSION_GROUPS;
+    return { groups: PERMISSION_GROUPS, profiles: STAFF_PROFILES };
   }
 
   @Get(':farmId/team')

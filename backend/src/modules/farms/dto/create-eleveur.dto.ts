@@ -3,15 +3,19 @@ import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEmail,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { FarmStaffRole } from '../../../common/enums/farm-staff-role.enum.js';
+import { ContractType } from '../../../common/enums/contract-type.enum.js';
 
 export class CreateElevageDto {
   @ApiProperty({ description: 'Numéro de téléphone', example: '+24174123457' })
@@ -81,4 +85,46 @@ export class CreateElevageDto {
   @IsOptional()
   @IsBoolean()
   linkImmediately?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Clé de profil métier (ex : veterinaire, comptable, rh) — pré-remplit rôle et permissions.',
+  })
+  @IsOptional()
+  @IsString()
+  profileKey?: string;
+
+  /* ── Dossier RH ── */
+
+  @ApiPropertyOptional({ description: 'Service / département' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80, { message: 'Le département ne doit pas dépasser 80 caractères.' })
+  department?: string;
+
+  @ApiPropertyOptional({ enum: ContractType, description: 'Nature du contrat' })
+  @IsOptional()
+  @IsEnum(ContractType, { message: 'Type de contrat inconnu.' })
+  contractType?: ContractType;
+
+  @ApiPropertyOptional({ description: "Date d'embauche (ISO YYYY-MM-DD)" })
+  @IsOptional()
+  @IsDateString({}, { message: "Date d'embauche invalide." })
+  hireDate?: string;
+
+  @ApiPropertyOptional({ description: 'Fin de contrat prévue (ISO YYYY-MM-DD)' })
+  @IsOptional()
+  @IsDateString({}, { message: 'Date de fin invalide.' })
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Salaire de référence en FCFA (entier)' })
+  @IsOptional()
+  @IsInt({ message: 'Le salaire doit être un entier (FCFA).' })
+  @Min(0, { message: 'Le salaire ne peut pas être négatif.' })
+  salaryFcfa?: number;
+
+  @ApiPropertyOptional({ description: 'Observations RH' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000, { message: 'La note ne doit pas dépasser 1000 caractères.' })
+  notes?: string;
 }
