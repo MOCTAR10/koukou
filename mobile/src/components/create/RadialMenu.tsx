@@ -332,9 +332,13 @@ function Node({
     <Animated.View
       style={[
         styles.node,
+        // La position statique est le CENTRE : la transform translate déjà de
+        // `slot * t`, donc ajouter `slot` ici décalerait le nœud au repos à
+        // `2 × rayon` — hors du cercle de guidage, sur les bords de l'écran,
+        // et sous son libellé qui, lui, est calculé au rayon réel.
         {
-          left: centre.x + slot.x - NODE_SIZE / 2,
-          top: centre.y + slot.y - NODE_SIZE / 2,
+          left: centre.x - NODE_SIZE / 2,
+          top: centre.y - NODE_SIZE / 2,
           width: NODE_SIZE,
           height: NODE_SIZE,
         },
@@ -367,7 +371,11 @@ function Node({
  */
 function nodeWindow(index: number, count: number): { start: number; width: number } {
   const step = SPAN / Math.max(1, count);
-  return { start: index * step, width: Math.min(0.34, step * 1.5) };
+  const start = index * step;
+  // Le dernier nœud doit finir pile à `progress = 1`, sinon il s'immobilise à
+  // ~88 % de sa course et reste assis en dessous du cercle de guidage.
+  const width = Math.min(0.34, start + step * 1.5 <= 1 ? step * 1.5 : 1 - start);
+  return { start, width };
 }
 
 /**

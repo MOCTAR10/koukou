@@ -146,11 +146,18 @@ describe('layout — invariants géométriques', () => {
     expect(fitsOnScreen({ width: 390, height: 844 })).toBe(true);
   });
 
-  it('l’anneau est plus haut que large, donc le hub n’est pas au milieu vertical', () => {
+  it('centre le bloc sur l’écran (le cercle visuel reste au milieu)', () => {
     const s = { width: 390, height: 844 };
     const { hub, radius } = layout(6, s);
-    // Le bloc est centré sur son encombrement, pas sur l'écran.
+    // Le bloc visible va du bord haut du nœud supérieur au bord bas de la
+    // queue de libellé, marges comprises.
+    const top = hub.y - (radius + NODE_SIZE / 2 + EDGE);
+    const bottom = hub.y + labelTail(radius) + EDGE;
+    // Le hub n'est pas exactement au milieu — la queue de libellé « pèse » en
+    // bas — mais le bloc entier l'est, donc l'anneau paraît centré.
     expect(hub.y).toBeLessThan(s.height / 2);
+    expect((top + bottom) / 2).toBeCloseTo(s.height / 2, 1);
+    // La queue de libellé ne sort toujours pas par le bas.
     expect(hub.y + labelTail(radius)).toBeLessThanOrEqual(s.height - EDGE);
   });
 

@@ -73,7 +73,10 @@ const RIM_PATHS = (() => {
 
 const SLOT_MAP = [0, 1, 3, 4];
 
-const PILL_FILL = 'rgba(255,255,255,0.92)';
+// Barre pleine : à 92 % le contenu qui défile transparaissait derrière la
+// pastille et surtout dans l'encoche du FAB — rien ne doit être « caché »
+// derrière la barre.
+const PILL_FILL = '#FFFFFF';
 const PILL_STROKE = 'rgba(127,181,198,0.4)';
 const INDICATOR_FILL = 'rgba(32,96,128,0.12)';
 
@@ -352,12 +355,16 @@ const styles = StyleSheet.create({
   barSection: {
     position: 'relative',
   },
+  // Pas de `shadow.tabBar` ici : la barre visible est la forme SVG (pastille
+  // + encoche), mais l'ombre se dessine sur la boîte du View (un simple
+  // rectangle arrondi). Sur Android, l'élévation trace donc une « plaque »
+  // rectangulaire qui apparaît derrière le FAB et le bord haut de la barre —
+  // le trait `pillSvg` suffit à détacher la barre du contenu.
   pill: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
-    ...shadow.tabBar,
   },
   pillSvg: {
     position: 'absolute',

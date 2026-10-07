@@ -13,14 +13,14 @@ import { Card } from '@/components/ui/Card';
 import { MetricTile } from '@/components/ui/MetricTile';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 
-import { EggStockCard, buildEggDailyData } from '@/components/EggStockCard';
+import { EggStockCard } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
 
 import { useAuth } from '@/auth/AuthContext';
 import { givenName, speciesLabel } from '@/api/format';
-import { color, emoji, fmt, fmtFcfa, gradeColor, palette, radii } from '@/constants/theme';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchSlaughterOrders } from '@/api';
+import { color, emoji, fmt, fmtFcfa, gradeColor, layout, palette, radii } from '@/constants/theme';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
-import { Spinner } from '@/components/ui/Spinner';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { MetricInfoSheet } from '@/components/MetricInfoSheet';
 import type { MetricKey } from '@/components/MetricInfoSheet';
 import { CheptelModal } from '@/components/CheptelModal';
@@ -38,6 +38,18 @@ function weatherHint(w: FarmWeather): string {
 }
 
 // Bornes de dates stables : gérées en interne par PeriodBar.
+
+/** Les 7 derniers jours (du plus ancien à aujourd'hui), au format ISO. */
+function lastSevenDays(): string[] {
+  const days: string[] = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    days.push(toDateStr(d));
+  }
+  return days;
+}
 
 
 export default function AccueilScreen() {
@@ -77,6 +89,27 @@ export default function AccueilScreen() {
   const advisory = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId) });
   const batchesQuery = useQuery({ queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''], queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined), refetchInterval: !window.isFiltered ? 60_000 : undefined });
   const slaughterQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId) });
+  // Série réelle des œufs collectés sur 7 jours, sommée sur les lots pondeurs :
+  // le backend n'expose pas de série journalière, on agrège les saisies.
+  const pondeuseBatchIds = (batchesQuery.data ?? [])
+    .filter((b) => b.status !== 'CLOTURE' && b.type === 'PONDEUSE')
+    .map((b) => b.id);
+  const eggDailyQuery = useQuery({
+    queryKey: ['egg-daily-series', farmId, pondeuseBatchIds.join(',')],
+    enabled: pondeuseBatchIds.length > 0,
+    refetchInterval: !window.isFiltered ? 60_000 : undefined,
+    queryFn: async () => {
+      const days = lastSevenDays();
+      const totals = new Map(days.map((date) => [date, 0]));
+      const all = await Promise.all(pondeuseBatchIds.map((id) => fetchDailyEntries(farmId, id)));
+      for (const entries of all) {
+        for (const e of entries) {
+          if (totals.has(e.entryDate)) totals.set(e.entryDate, (totals.get(e.entryDate) ?? 0) + e.eggsCollected);
+        }
+      }
+      return days.map((date) => ({ date, count: totals.get(date) ?? 0 }));
+    },
+  });
   const slaughterOrders = slaughterQuery.data ?? [];
   const slaughterProcessed = slaughterOrders.filter((o) => o.status === 'PROCESSED');
   const totalBirdsSlaughtered = slaughterProcessed.reduce((s, o) => s + o.birdCount, 0);
@@ -150,8 +183,8 @@ export default function AccueilScreen() {
       })
     : null;
 
-  // --- Egg daily data from layer batches ---
-  const eggDailyData = d ? buildEggDailyData(totalLive, avgLayRate) : [];
+  // --- Egg daily data: real collections over the last 7 days (layer batches) ---
+  const eggDailyData = eggDailyQuery.data ?? [];
 
   // --- Egg breakdown by category, aggregated across active batches ---
   const eggBreakdown = {
@@ -180,8 +213,12 @@ export default function AccueilScreen() {
 
   return (
     <Screen
-      bottomPad={120}
-      refreshing={dashboard.isFetching || advisory.isFetching || batchesQuery.isFetching}
+      // Mesuré depuis le haut de la barre d'onglets : juste assez pour
+      // dépasser le débord du FAB (voir `layout.bottomPad`).
+      bottomPad={layout.bottomPad}
+      // Pas de spinner « pull-to-refresh » pendant le chargement initial : le
+      // BrandLoader suffit. Le refresh garde le sien dès que le contenu existe.
+      refreshing={!!d && (dashboard.isFetching || advisory.isFetching || batchesQuery.isFetching)}
       onRefresh={refresh}
       header={
         <>
@@ -249,7 +286,7 @@ export default function AccueilScreen() {
           <Button label='Réessayer' tone='brand' onPress={refresh} />
         </View>
       ) : loading || !d ? (
-        <Spinner label="Chargement de votre ferme…" />
+        <BrandLoader />
       ) : (
         <>
           {/* ── Cheptel + Lots ── */}

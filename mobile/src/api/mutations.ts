@@ -4,6 +4,7 @@ import type {
   CareType,
   CashMovement,
   CashMovementType,
+  ContractType,
   DiseaseSeverity,
   Expense,
   ExpenseCategory,
@@ -617,6 +618,14 @@ export interface CreateFarmMemberInput {
   jobTitle?: string;
   buildingAssignment?: string;
   permissions?: string[];
+  /** Profil métier : pré-remplit rôle + permissions côté serveur. */
+  profileKey?: string;
+  department?: string;
+  contractType?: ContractType;
+  hireDate?: string;
+  endDate?: string;
+  salaryFcfa?: number;
+  notes?: string;
 }
 
 export function createFarmMember(farmId: string, input: CreateFarmMemberInput): Promise<unknown> {
@@ -632,6 +641,14 @@ export interface UpdateFarmMemberInput {
   buildingAssignment?: string | null;
   active?: boolean;
   permissions?: string[];
+  /** Profil métier : pose rôle + permissions côté serveur. */
+  profileKey?: string;
+  department?: string | null;
+  contractType?: ContractType | null;
+  hireDate?: string | null;
+  endDate?: string | null;
+  salaryFcfa?: number | null;
+  notes?: string | null;
 }
 
 export function updateFarmMember(

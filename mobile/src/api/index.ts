@@ -21,7 +21,7 @@ import type {
   FarmMember,
   FarmMemberProfile,
   AssignableTeamMember,
-  PermissionGroup,
+  PermissionCatalog,
   FarmTask,
   DailyEntryRecord,
   FeedMovement,
@@ -310,7 +310,7 @@ export function fetchFarmProfile(farmId: string): Promise<FarmMemberProfile> {
   return live.fetchFarmProfile(farmId);
 }
 
-export function fetchPermissionCatalog(farmId: string): Promise<PermissionGroup[]> {
+export function fetchPermissionCatalog(farmId: string): Promise<PermissionCatalog> {
   return live.fetchPermissionCatalog(farmId);
 }
 

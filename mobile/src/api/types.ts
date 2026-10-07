@@ -94,7 +94,18 @@ export type PermissionCode =
   | 'production:abattage'
   | 'sanitaire:gerer'
   | 'sanitaire:lecture'
-  | 'reglages:ferme';
+  | 'reglages:ferme'
+  | 'rh:lire'
+  | 'rh:gerer';
+
+/** Nature du contrat de travail (dossier RH). */
+export type ContractType =
+  | 'CDI'
+  | 'CDD'
+  | 'JOURNALIER'
+  | 'STAGE'
+  | 'APPRENTISSAGE'
+  | 'AUTRE';
 
 /** Un groupe de permissions présenté dans l'écran Équipe (GET /farms/:id/permissions). */
 export interface PermissionItem {
@@ -107,6 +118,21 @@ export interface PermissionGroup {
   key: string;
   label: string;
   items: PermissionItem[];
+}
+
+/** Profil métier prêt à l'emploi (miroir serveur STAFF_PROFILES). */
+export interface StaffProfile {
+  key: string;
+  label: string;
+  role: FarmStaffRole;
+  jobTitle: string;
+  permissions: PermissionCode[];
+}
+
+/** Réponse GET /farms/:id/permissions : catalogue + profils. */
+export interface PermissionCatalog {
+  groups: PermissionGroup[];
+  profiles: StaffProfile[];
 }
 
 export interface PublicUser {
@@ -127,6 +153,13 @@ export interface FarmMember {
   buildingAssignment: string | null;
   active: boolean;
   permissions: PermissionCode[];
+  /** Dossier RH (fiche employé). */
+  department: string | null;
+  contractType: ContractType | null;
+  hireDate: string | null;
+  endDate: string | null;
+  salaryFcfa: number | null;
+  notes: string | null;
   user: PublicUser;
 }
 

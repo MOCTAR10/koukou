@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Image, Keyboard, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, KeyRound, ListTodo, Phone, ShieldCheck, Sprout, UserCog, UserPlus, Users } from 'lucide-react-native';
+import { Building2, Briefcase, ChevronDown, ChevronUp, KeyRound, ListTodo, Phone, ShieldCheck, Sprout, UserCog, UserPlus, Users } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -17,14 +17,132 @@ import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchFarmMembers, fetchPermissionCatalog } from '@/api';
 import { createFarmMember, updateFarmMember } from '@/api/mutations';
 import { canManageFarm, farmRoleLabel } from '@/api/roles';
-import type { FarmMember, PermissionGroup } from '@/api/types';
+import type { ContractType, FarmMember, PermissionCatalog, StaffProfile } from '@/api/types';
 import { CREATE_ADMIN_DEFAULT_PERMISSIONS } from '@/constants/permissions';
+import { CONTRACT_TYPES, contractTypeLabel } from '@/constants/hr';
 import { color, palette } from '@/constants/theme';
 
 const ROLE_OPTIONS: { value: 'ADMIN' | 'ELEVEUR'; icon: typeof Sprout }[] = [
   { value: 'ELEVEUR', icon: Sprout },
   { value: 'ADMIN', icon: UserCog },
 ];
+
+/** Grille de profils métier : un tap pré-remplit rôle, poste et permissions. */
+function ProfileGrid({
+  profiles,
+  selected,
+  onSelect,
+}: {
+  profiles: StaffProfile[];
+  selected: string | null;
+  onSelect: (p: StaffProfile) => void;
+}) {
+  if (profiles.length === 0) return null;
+  return (
+    <View style={{ marginTop: 4 }}>
+      <AppText size="label" color="muted" style={{ marginBottom: 8 }}>
+        PROFIL MÉTIER
+      </AppText>
+      <View style={styles.profileGrid}>
+        {profiles.map((p) => {
+          const on = selected === p.key;
+          return (
+            <Pressable
+              key={p.key}
+              onPress={() => onSelect(p)}
+              style={[styles.profileChip, on && styles.profileChipOn]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}>
+              <AppText size="small" weight={on ? 'bold' : 'medium'} color={on ? 'surface' : 'text'} numberOfLines={1}>
+                {p.label}
+              </AppText>
+              <AppText size="caption" color={on ? 'surface' : 'muted'} numberOfLines={1}>
+                {p.role === 'ADMIN' ? `${p.permissions.length} droits` : 'Droits fixes'}
+              </AppText>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+/** Section « Dossier RH » repliable (fiche employé optionnelle). */
+function RhDossier(props: {
+  open: boolean;
+  onToggle: () => void;
+  busy: boolean;
+  department: string;
+  setDepartment: (v: string) => void;
+  contractType: ContractType | null;
+  setContractType: (v: ContractType | null) => void;
+  hireDate: string;
+  setHireDate: (v: string) => void;
+  endDate: string;
+  setEndDate: (v: string) => void;
+  salary: string;
+  setSalary: (v: string) => void;
+  notes: string;
+  setNotes: (v: string) => void;
+}) {
+  return (
+    <View style={{ marginTop: 4 }}>
+      <Pressable onPress={props.onToggle} style={styles.rhHeader} accessibilityRole="button">
+        <Briefcase size={16} color={color.ink[400]} />
+        <AppText size="small" weight="semibold" color="muted" style={{ flex: 1 }}>
+          DOSSIER RH (OPTIONNEL)
+        </AppText>
+        {props.open ? <ChevronUp size={16} color={color.ink[300]} /> : <ChevronDown size={16} color={color.ink[300]} />}
+      </Pressable>
+      {props.open ? (
+        <View style={{ gap: 2, marginTop: 8 }}>
+          <Field icon={<Briefcase size={16} color={color.ink[400]} />} label="Service / département">
+            <FieldInput value={props.department} onChangeText={props.setDepartment} placeholder="Ex : Production, Ventes…" editable={!props.busy} />
+          </Field>
+          <AppText size="small" weight="semibold" color="muted" style={{ marginBottom: 5 }}>
+            Type de contrat
+          </AppText>
+          <View style={styles.chipWrap}>
+            {CONTRACT_TYPES.map((t) => {
+              const on = props.contractType === t;
+              return (
+                <Pressable
+                  key={t}
+                  onPress={() => props.setContractType(on ? null : t)}
+                  style={[styles.miniChip, on && styles.miniChipOn]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}>
+                  <AppText size="caption" weight={on ? 'bold' : 'medium'} color={on ? 'surface' : 'muted'}>
+                    {contractTypeLabel(t)}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Field icon={<Briefcase size={16} color={color.ink[400]} />} label="Date d’embauche (AAAA-MM-JJ)">
+            <FieldInput value={props.hireDate} onChangeText={props.setHireDate} placeholder="2026-01-15" editable={!props.busy} />
+          </Field>
+          <Field icon={<Briefcase size={16} color={color.ink[400]} />} label="Fin de contrat (AAAA-MM-JJ)">
+            <FieldInput value={props.endDate} onChangeText={props.setEndDate} placeholder="2026-12-31" editable={!props.busy} />
+          </Field>
+          <Field icon={<Briefcase size={16} color={color.ink[400]} />} label="Salaire de référence (FCFA)">
+            <FieldInput value={props.salary} onChangeText={props.setSalary} placeholder="Ex : 150000" keyboardType="number-pad" editable={!props.busy} />
+          </Field>
+          <Field icon={<Briefcase size={16} color={color.ink[400]} />} label="Observations">
+            <FieldInput
+              value={props.notes}
+              onChangeText={props.setNotes}
+              placeholder="Notes RH…"
+              multiline
+              editable={!props.busy}
+              style={styles.notesInput}
+            />
+          </Field>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName?: string; onPress: () => void }) {
   const isAdmin = member.role === 'ADMIN';
@@ -88,6 +206,14 @@ export default function EquipeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [createPermissions, setCreatePermissions] = useState<Set<string>>(new Set());
+  const [createProfileKey, setCreateProfileKey] = useState<string | null>(null);
+  const [createRhOpen, setCreateRhOpen] = useState(false);
+  const [cDepartment, setCDepartment] = useState('');
+  const [cContractType, setCContractType] = useState<ContractType | null>(null);
+  const [cHireDate, setCHireDate] = useState('');
+  const [cEndDate, setCEndDate] = useState('');
+  const [cSalary, setCSalary] = useState('');
+  const [cNotes, setCNotes] = useState('');
 
   const [editing, setEditing] = useState<FarmMember | null>(null);
   const [editRole, setEditRole] = useState<'ADMIN' | 'ELEVEUR'>('ELEVEUR');
@@ -95,6 +221,14 @@ export default function EquipeScreen() {
   const [editBuilding, setEditBuilding] = useState('');
   const [editActive, setEditActive] = useState(true);
   const [editPermissions, setEditPermissions] = useState<Set<string>>(new Set());
+  const [editProfileKey, setEditProfileKey] = useState<string | null>(null);
+  const [editRhOpen, setEditRhOpen] = useState(false);
+  const [eDepartment, setEDepartment] = useState('');
+  const [eContractType, setEContractType] = useState<ContractType | null>(null);
+  const [eHireDate, setEHireDate] = useState('');
+  const [eEndDate, setEEndDate] = useState('');
+  const [eSalary, setESalary] = useState('');
+  const [eNotes, setENotes] = useState('');
 
   const reset = () => {
     setFullName('');
@@ -104,6 +238,14 @@ export default function EquipeScreen() {
     setJobTitle('');
     setBuilding('');
     setCreatePermissions(new Set());
+    setCreateProfileKey(null);
+    setCreateRhOpen(false);
+    setCDepartment('');
+    setCContractType(null);
+    setCHireDate('');
+    setCEndDate('');
+    setCSalary('');
+    setCNotes('');
     setSuccess(null);
   };
 
@@ -120,7 +262,40 @@ export default function EquipeScreen() {
     setEditBuilding(member.buildingAssignment ?? '');
     setEditActive(member.active);
     setEditPermissions(new Set(member.permissions));
+    setEditProfileKey(null);
+    setEDepartment(member.department ?? '');
+    setEContractType(member.contractType);
+    setEHireDate(member.hireDate ?? '');
+    setEEndDate(member.endDate ?? '');
+    setESalary(member.salaryFcfa != null ? String(member.salaryFcfa) : '');
+    setENotes(member.notes ?? '');
+    setEditRhOpen(Boolean(member.department || member.contractType || member.hireDate || member.endDate || member.salaryFcfa != null || member.notes));
     setError(null);
+  };
+
+  const applyProfile = (p: StaffProfile, target: 'create' | 'edit') => {
+    if (target === 'create') {
+      setCreateProfileKey(p.key);
+      setRole(p.role);
+      setJobTitle(p.jobTitle);
+      setCreatePermissions(new Set(p.permissions));
+    } else {
+      setEditProfileKey(p.key);
+      setEditRole(p.role);
+      setEditJobTitle(p.jobTitle);
+      setEditPermissions(new Set(p.permissions));
+    }
+  };
+
+  const parseSalary = (raw: string, setErr: (m: string) => void): number | undefined => {
+    const t = raw.trim();
+    if (!t) return undefined;
+    const n = Number(t);
+    if (!Number.isInteger(n) || n < 0) {
+      setErr('Salaire invalide : entier FCFA positif attendu.');
+      return undefined;
+    }
+    return n;
   };
 
   const submit = async () => {
@@ -132,6 +307,8 @@ export default function EquipeScreen() {
       setError('Le code doit contenir au moins 6 caractères.');
       return;
     }
+    const salary = parseSalary(cSalary, setError);
+    if (cSalary.trim() && salary === undefined) return;
     Keyboard.dismiss();
     setBusy(true);
     setError(null);
@@ -144,6 +321,13 @@ export default function EquipeScreen() {
         jobTitle: jobTitle.trim() ? jobTitle.trim() : undefined,
         buildingAssignment: building.trim() ? building.trim() : undefined,
         permissions: role === 'ADMIN' ? [...createPermissions] : undefined,
+        profileKey: createProfileKey ?? undefined,
+        department: cDepartment.trim() || undefined,
+        contractType: cContractType ?? undefined,
+        hireDate: cHireDate.trim() || undefined,
+        endDate: cEndDate.trim() || undefined,
+        salaryFcfa: salary,
+        notes: cNotes.trim() || undefined,
       });
       reset();
       setShowCreate(false);
@@ -158,16 +342,21 @@ export default function EquipeScreen() {
 
   const saveEdit = async () => {
     if (!editing) return;
+    const salary = parseSalary(eSalary, setError);
+    if (eSalary.trim() && salary === undefined) return;
     setBusy(true);
     setError(null);
     try {
       const payload: Record<string, unknown> = {
         role: editRole,
       };
+      if (editProfileKey) {
+        payload.profileKey = editProfileKey;
+      }
       if (editRole === 'ADMIN') {
         payload.permissions = [...editPermissions];
       }
-      if (editJobTitle.trim() !== editing.jobTitle) {
+      if (editJobTitle.trim() !== (editing.jobTitle ?? '')) {
         payload.jobTitle = editJobTitle.trim() || null;
       }
       if (editBuilding.trim() !== (editing.buildingAssignment ?? '')) {
@@ -175,6 +364,24 @@ export default function EquipeScreen() {
       }
       if (editActive !== editing.active) {
         payload.active = editActive;
+      }
+      if (eDepartment.trim() !== (editing.department ?? '')) {
+        payload.department = eDepartment.trim() || null;
+      }
+      if ((eContractType ?? null) !== (editing.contractType ?? null)) {
+        payload.contractType = eContractType;
+      }
+      if (eHireDate.trim() !== (editing.hireDate ?? '')) {
+        payload.hireDate = eHireDate.trim() || null;
+      }
+      if (eEndDate.trim() !== (editing.endDate ?? '')) {
+        payload.endDate = eEndDate.trim() || null;
+      }
+      if (salary !== (editing.salaryFcfa ?? undefined)) {
+        payload.salaryFcfa = salary ?? null;
+      }
+      if (eNotes.trim() !== (editing.notes ?? '')) {
+        payload.notes = eNotes.trim() || null;
       }
       await updateFarmMember(farmId, editing.id, payload);
       setEditing(null);
@@ -189,6 +396,7 @@ export default function EquipeScreen() {
   };
 
   const togglePermission = (code: string) => {
+    setEditProfileKey(null);
     setEditPermissions((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
@@ -198,6 +406,7 @@ export default function EquipeScreen() {
   };
 
   const toggleCreatePermission = (code: string) => {
+    setCreateProfileKey(null);
     setCreatePermissions((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
@@ -206,7 +415,9 @@ export default function EquipeScreen() {
     });
   };
 
-  const groups: PermissionGroup[] = permissionCatalog.data ?? [];
+  const catalog: PermissionCatalog | undefined = permissionCatalog.data;
+  const groups = catalog?.groups ?? [];
+  const profiles = catalog?.profiles ?? [];
 
   return (
     <Screen header={<ScreenHeader title="Équipe" subtitle={farms[0]?.name ?? 'Ferme'} back right={<Users size={18} color={color.ink[300]} />} />}>
@@ -311,6 +522,8 @@ export default function EquipeScreen() {
             </View>
           }
         >
+          <ProfileGrid profiles={profiles} selected={createProfileKey} onSelect={(p) => applyProfile(p, 'create')} />
+
           <View style={styles.segmented}>
             {ROLE_OPTIONS.map((opt) => {
               const on = role === opt.value;
@@ -318,6 +531,7 @@ export default function EquipeScreen() {
                 <Pressable
                   key={opt.value}
                   onPress={() => {
+                    setCreateProfileKey(null);
                     setRole(opt.value);
                     if (opt.value === 'ADMIN') {
                       setCreatePermissions((prev) => (prev.size > 0 ? prev : new Set(CREATE_ADMIN_DEFAULT_PERMISSIONS)));
@@ -402,6 +616,24 @@ export default function EquipeScreen() {
             </AppText>
           )}
 
+          <RhDossier
+            open={createRhOpen}
+            onToggle={() => setCreateRhOpen((v) => !v)}
+            busy={busy}
+            department={cDepartment}
+            setDepartment={setCDepartment}
+            contractType={cContractType}
+            setContractType={setCContractType}
+            hireDate={cHireDate}
+            setHireDate={setCHireDate}
+            endDate={cEndDate}
+            setEndDate={setCEndDate}
+            salary={cSalary}
+            setSalary={setCSalary}
+            notes={cNotes}
+            setNotes={setCNotes}
+          />
+
           {error ? (
             <AppText size="small" color="danger" style={{ marginTop: 8 }}>
               {error}
@@ -420,13 +652,18 @@ export default function EquipeScreen() {
             {editing.user.fullName} — {farmRoleLabel(editRole, farmName)}
           </AppText>
 
+          <ProfileGrid profiles={profiles} selected={editProfileKey} onSelect={(p) => applyProfile(p, 'edit')} />
+
           <View style={styles.segmented}>
             {ROLE_OPTIONS.map((opt) => {
               const on = editRole === opt.value;
               return (
                 <Pressable
                   key={opt.value}
-                  onPress={() => setEditRole(opt.value)}
+                  onPress={() => {
+                    setEditProfileKey(null);
+                    setEditRole(opt.value);
+                  }}
                   style={[styles.segOption, on && styles.segOptionOn]}
                   accessibilityRole="button">
                   <View style={styles.segRow}>
@@ -514,6 +751,24 @@ export default function EquipeScreen() {
               {error}
             </AppText>
           ) : null}
+
+          <RhDossier
+            open={editRhOpen}
+            onToggle={() => setEditRhOpen((v) => !v)}
+            busy={busy}
+            department={eDepartment}
+            setDepartment={setEDepartment}
+            contractType={eContractType}
+            setContractType={setEContractType}
+            hireDate={eHireDate}
+            setHireDate={setEHireDate}
+            endDate={eEndDate}
+            setEndDate={setEEndDate}
+            salary={eSalary}
+            setSalary={setESalary}
+            notes={eNotes}
+            setNotes={setENotes}
+          />
 
           <View style={styles.inlineActions}>
             <Button label="Fermer" tone="ghost" onPress={() => setEditing(null)} disabled={busy} style={{ flex: 1 }} />
@@ -673,5 +928,56 @@ const styles = StyleSheet.create({
   checkboxOn: {
     backgroundColor: color.brand[600],
     borderColor: color.brand[600],
+  },
+  profileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  profileChip: {
+    minWidth: '47%',
+    flexGrow: 1,
+    gap: 2,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  profileChipOn: {
+    backgroundColor: color.brand[600],
+    borderColor: color.brand[600],
+  },
+  rhHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  miniChip: {
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  miniChipOn: {
+    backgroundColor: color.brand[600],
+    borderColor: color.brand[600],
+  },
+  notesInput: {
+    height: undefined,
+    minHeight: 72,
+    paddingTop: 12,
+    textAlignVertical: 'top',
   },
 });

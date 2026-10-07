@@ -66,6 +66,14 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
     ],
   },
   {
+    key: 'rh',
+    label: 'Ressources humaines',
+    items: [
+      { code: 'rh:lire', label: 'Voir les dossiers employés' },
+      { code: 'rh:gerer', label: 'Gérer les dossiers RH' },
+    ],
+  },
+  {
     key: 'reglages',
     label: 'Réglages',
     items: [{ code: 'reglages:ferme', label: 'Paramètres de la ferme' }],

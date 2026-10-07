@@ -5,10 +5,12 @@ import * as Haptics from 'expo-haptics';
 
 import { AppText } from './ui/AppText';
 import { Card } from './ui/Card';
+import { toDateStr } from './ui/PeriodBar';
 import { color, palette, radii } from '@/constants/theme';
 
 interface DailyCount {
-  day: string;
+  /** Date ISO (YYYY-MM-DD) de la collecte. */
+  date: string;
   count: number;
 }
 
@@ -24,8 +26,8 @@ interface EggStockCardProps {
   breakdown?: { collected: number; sellable: number; cracked: number; small: number; doubleYolk: number; dirty: number };
 }
 
-const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const BAR_HEIGHT = 52;
+const WEEKDAY_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+const BAR_HEIGHT = 84;
 
 function formatDateFull(d: Date): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -33,6 +35,22 @@ function formatDateFull(d: Date): string {
 
 function formatDateShort(d: Date): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
+/** Lettre du jour pour une date ISO (index aligné sur Date.getDay()). */
+function weekdayLetter(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return WEEKDAY_LETTERS[d.getDay()] ?? '';
+}
+
+/** Taux de ponte : « — » sans donnée, une décimale sous 1 %. Arrondir à
+ * l'entier afficherait « 0 % » pour un vrai taux faible (ex. 0,4 %). */
+function fmtRate(v: number | null): string {
+  if (v == null) return '—';
+  if (v > 0 && v < 1) {
+    return `${v.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  }
+  return `${Math.round(v)}%`;
 }
 
 export function EggStockCard({
@@ -74,8 +92,16 @@ export function EggStockCard({
           ? `= ${(availableAlveoles * 30).toLocaleString('fr-FR')} œufs`
           : `= ${availableAlveoles} alvéole${availableAlveoles !== 1 ? 's' : ''}`;
 
-  const maxCount = Math.max(...dailyData.map((d) => d.count), 1);
-  const totalCount = dailyData.reduce((s, d) => s + d.count, 0);
+  const todayIso = toDateStr(today);
+  // Le graphique suit l'unité choisie : en alvéoles, une journée se compte en
+  // alvéoles pleines (÷30). Les barres restent proportionnelles entre elles.
+  const chartRows = dailyData.map((d) => ({
+    date: d.date,
+    count: showTrays ? Math.floor(d.count / 30) : d.count,
+  }));
+  const maxCount = Math.max(...chartRows.map((d) => d.count), 1);
+  const totalCount = chartRows.reduce((s, d) => s + d.count, 0);
+  const chartUnit = showTrays ? 'alvéoles' : 'œufs';
 
   return (
     <Card tone='default' style={styles.card}>
@@ -148,7 +174,7 @@ export function EggStockCard({
         <View style={styles.miniMetricsPill}>
           <View style={styles.miniItem}>
             <AppText size='small' weight='bold' color='brand' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>
-              {layRatePercent != null ? `${layRatePercent.toFixed(0)}%` : '—'}
+              {fmtRate(layRatePercent)}
             </AppText>
             <AppText size='small' color='faint'>Ponte</AppText>
           </View>
@@ -166,7 +192,7 @@ export function EggStockCard({
                 size='body'
                 weight='bold'
                 color={pondeuseLayRate != null && pondeuseLayRate >= 100 ? palette.red[500] : pondeuseLayRate != null && pondeuseLayRate >= 80 ? palette.green[600] : pondeuseLayRate != null ? palette.amber[600] : 'faint'}>
-                {pondeuseLayRate != null ? `${pondeuseLayRate.toFixed(0)}%` : '—'}
+                {fmtRate(pondeuseLayRate)}
               </AppText>
               <AppText size='small' color={pondeuseLayRate != null && pondeuseLayRate >= 100 ? palette.red[500] : 'faint'}>
                 {pondeuseLayRate != null && pondeuseLayRate >= 100 ? 'Œufs ≥ effectif — à vérifier' : pondeuseLayRate != null && pondeuseLayRate >= 80 ? 'Soutenue' : pondeuseLayRate != null ? 'En montée' : 'Pas de données'}
@@ -178,22 +204,27 @@ export function EggStockCard({
               Récolte 7 jours
             </AppText>
             <AppText size='small' color='faint'>
-              Total {fmtCompact(totalCount)}
+              Total {fmtCompact(totalCount)} {chartUnit}
             </AppText>
           </View>
+          {chartRows.length === 0 ? (
+            <AppText size='small' color='faint'>
+              Aucune ponte enregistrée sur les 7 derniers jours.
+            </AppText>
+          ) : (
           <View style={styles.chartRow}>
-            {dailyData.map((d, i) => {
+            {chartRows.map((d) => {
               const pct = maxCount > 0 ? d.count / maxCount : 0;
-              const barH = Math.max(pct * BAR_HEIGHT, d.count > 0 ? 4 : 0);
-              const isToday = i === dailyData.length - 1;
+              const barH = Math.max(pct * BAR_HEIGHT, d.count > 0 ? 6 : 0);
+              const isCurrentDay = d.date === todayIso;
               const isMax = d.count === maxCount && d.count > 0;
               return (
-                <View key={i} style={styles.barCol}>
+                <View key={d.date} style={styles.barCol}>
                   <View style={styles.barValWrap}>
                     <AppText
-                      size='small'
-                      weight={isToday ? 'bold' : 'medium'}
-                      color={isToday ? 'brand' : isMax ? 'text' : 'faint'}
+                      size='bodyM'
+                      weight={isCurrentDay ? 'bold' : 'medium'}
+                      color={isCurrentDay ? 'brand' : isMax ? 'text' : 'faint'}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                       minimumFontScale={0.7}>
@@ -206,7 +237,7 @@ export function EggStockCard({
                         styles.barFill,
                         {
                           height: barH,
-                          backgroundColor: isToday
+                          backgroundColor: isCurrentDay
                             ? palette.brand[500]
                             : isMax
                               ? palette.brand[300]
@@ -217,16 +248,17 @@ export function EggStockCard({
                   </View>
                   <View style={styles.dayLabelWrap}>
                     <AppText
-                      size='small'
-                      weight={isToday ? 'bold' : 'medium'}
-                      color={isToday ? 'brand' : 'faint'}>
-                      {DAY_LABELS[i]}
+                      size='caption'
+                      weight={isCurrentDay ? 'bold' : 'medium'}
+                      color={isCurrentDay ? 'brand' : 'faint'}>
+                      {weekdayLetter(d.date)}
                     </AppText>
                   </View>
                 </View>
               );
             })}
           </View>
+          )}
 
           {/* ── Répartition par catégorie ── */}
           {breakdown && (
@@ -283,22 +315,6 @@ export function EggStockCard({
       )}
     </Card>
   );
-}
-
-/** Build 7-day estimated egg data from lay rate and live count. */
-export function buildEggDailyData(
-  liveCount: number,
-  layRatePct: number | null,
-): DailyCount[] {
-  const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-  const avg = layRatePct != null && layRatePct > 0
-    ? Math.round((liveCount * layRatePct) / 100)
-    : 0;
-  const seed = [1.02, 0.98, 1.05, 1.0, 0.95, 0.78, 0.72];
-  return dayNames.map((day, i) => ({
-    day,
-    count: avg > 0 ? Math.round(avg * seed[i]) : 0,
-  }));
 }
 
 function fmtCompact(n: number): string {
@@ -450,25 +466,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   barValWrap: {
-    height: 14,
+    height: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
   barTrack: {
-    width: 24,
+    width: 32,
     height: BAR_HEIGHT,
-    borderRadius: 5,
+    borderRadius: 6,
     backgroundColor: palette.surfaceAlt,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
   barFill: {
     width: '100%',
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+    borderTopLeftRadius: 5,
+    borderTopRightRadius: 5,
   },
   dayLabelWrap: {
-    height: 14,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 2,

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Landmark, Plus, Download, Scale, CircleCheck, CircleAlert, Lock, Boxes } from 'lucide-react-native';
+import { Plus, Download, Scale, CircleCheck, CircleAlert, Lock, Boxes } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -195,10 +195,12 @@ export default function ComptabiliteScreen() {
     <Screen
       header={
         <ScreenHeader
-          title="Comptabilité"
+          // Pas d'icône décorative à droite : « Comptabilité SYSCOHADA » en
+          // h2 (22px) frôle la largeur disponible sur les petits écrans, et le
+          // titre ne doit jamais être tronqué.
+          title="Comptabilité SYSCOHADA"
           subtitle={farms[0]?.name ?? 'Ferme'}
           back
-          right={<Landmark size={18} color={color.ink[300]} />}
         />
       }>
       <Segmented

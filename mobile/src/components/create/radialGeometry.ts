@@ -25,11 +25,11 @@ export const HUB_LOGO = 48;
 const EDGE_MARGIN = 12;
 
 /**
- * Écart entre le bord du hub et le bord du nœud le plus proche. C'est ce qui
- * fait la différence entre un « autour du logo » et un anneau dispersé : le
- * rayon est déduit de cette marge, pas d'un pourcentage de l'écran.
+ * Dégagement entre le bas du nom de ferme et le nœud de minuit, au rayon
+ * minimal. C'est lui qui fixe `MIN_RADIUS` : le nom occupe le vide sous le
+ * logo, et ce dégagement garantit qu'il ne passe jamais sous le nœud du bas.
  */
-const RING_GAP = 10;
+const RING_GAP = 14;
 
 /**
  * Hauteur réservée au nom de la ferme sous le logo (2 lignes à 11/14 + marge).
@@ -53,9 +53,10 @@ const MAX_RADIUS = 104;
 /**
  * Rayon du cercle, mesuré du centre du hub.
  *
- * Il est serré autour du logo : `width·0.22` vaut 86pt sur un iPhone 14. Un
- * ratio plus élevé (0.36, le défaut d'origine) écartait les nœuds dans le
- * tiers extérieur de l'écran.
+ * Il est serré autour du logo : `width·0.25` vaut ~98pt sur un iPhone 14, un
+ * chouïa en dessous du plancher, donc en pratique `MIN_RADIUS` guide les
+ * téléphones courants. Un ratio plus élevé (0.36, le défaut d'origine)
+ * écartait les nœuds dans le tiers extérieur de l'écran.
  *
  * Trois contraintes s'appliquent, la plus petite l'emporte :
  *  - la largeur, pour garder le ratio ci-dessus ;
@@ -67,7 +68,7 @@ const MAX_RADIUS = 104;
  * l'anneau déborde, et il n'a pas de solution — voir `fitsOnScreen`.
  */
 export function ringRadius(bounds: Bounds): number {
-  const byWidth = bounds.width * 0.22;
+  const byWidth = bounds.width * 0.25;
   // En hauteur, l'anneau occupe `R + demi-nœud` vers le haut et `R + demi-nœud
   // + libellé` vers le bas : le bas est le côté contraignant, il contient le
   // libellé du nœud de minuit. Un écran bas (paysage) doit donc réduire le rayon.
@@ -86,17 +87,18 @@ export function ringRadius(bounds: Bounds): number {
  *
  * Il ne peut pas être simplement `width/2, height/2` : l'anneau est plus haut
  * que large (nœud du haut + nœud du bas + son libellé), donc un hub centré
- * verticalement ferait sortir le libellé du bas. On centre sur l'encombrement
- * réel, ce qui garantit que rien ne déborde sur la taille d'écran la plus
- * contraignante.
+ * parfaitement ferait sortir le libellé du bas. On centre le BLOC visible
+ * (du bord haut du nœud supérieur au bord bas de la queue de libellé) dans
+ * l'écran : le cercle reste au centre, décalé du strict minimum pour que le
+ * libellé du nœud de minuit ne quitte jamais l'écran.
  */
 export function hubCentre({ width, height }: Bounds, radius: number): Point {
-  // Encombrement réel de haut en bas, marges d'écran comprises.
-  const top = radius + NODE_SIZE / 2 + EDGE_MARGIN;
-  const bottom = labelTail(radius) + EDGE_MARGIN;
-  // Centre du bloc : le logo (et non le hub carré) sert de repère, donc le
-  // nom de ferme reste dans le vide laissé sous le logo.
-  const y = (top + bottom) / 2;
+  // Encombrement réel au-dessus et au-dessous du hub, marges comprises.
+  const topExtent = radius + NODE_SIZE / 2 + EDGE_MARGIN;
+  const bottomExtent = labelTail(radius) + EDGE_MARGIN;
+  // Petit décalage vers le haut : l'anneau est plus « lourd » en bas (sa queue
+  // de libellé), donc le hub ne peut pas être au milieu géométriquement.
+  const y = (height - topExtent - bottomExtent) / 2 + topExtent;
   return { x: width / 2, y: Math.round(y * 100) / 100 };
 }
 

@@ -34,7 +34,7 @@ import type {
   FarmMember,
   FarmMemberProfile,
   AssignableTeamMember,
-  PermissionGroup,
+  PermissionCatalog,
   FarmWeather,
   FeedMovement,
   FeedProduct,
@@ -647,8 +647,8 @@ export class LiveApi {
     return apiFetch<FarmMemberProfile>(`/farms/${farmId}/me`);
   }
 
-  async fetchPermissionCatalog(farmId: string): Promise<PermissionGroup[]> {
-    return apiFetch<PermissionGroup[]>(`/farms/${farmId}/permissions`);
+  async fetchPermissionCatalog(farmId: string): Promise<PermissionCatalog> {
+    return apiFetch<PermissionCatalog>(`/farms/${farmId}/permissions`);
   }
 
   async fetchTasks(farmId: string): Promise<FarmTask[]> {

@@ -1,10 +1,12 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
+import type { LucideIcon } from 'lucide-react-native';
 import {
   Activity,
   Bird,
   BookOpen,
+  Briefcase,
   ClipboardList,
   Coins,
   FileBarChart2,
@@ -14,6 +16,7 @@ import {
   ListTodo,
   MapPin,
   ReceiptText,
+  Settings,
   Stethoscope,
   Store,
   User,
@@ -23,34 +26,44 @@ import {
 
 import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
-import { color, palette, radii } from '@/constants/theme';
+import { SectionHeader } from '@/components/ui/SectionHeader';
+import { color, layout, palette, radii } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
-import { farmRoleLabel } from '@/api/roles';
+import { useOfflineQueue } from '@/offline';
+import { roleLabel } from '@/api/roles';
 
-interface GridItem {
+interface MenuItem {
   key: string;
   label: string;
-  sub: string;
   icon: React.ReactNode;
   bg: string;
-  fg: string;
   href: Href;
 }
+
+interface MenuGroup {
+  key: string;
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+  iconColor: string;
+  iconBg: string;
+  items: MenuItem[];
+}
+
+const ICON = 24;
 
 function GroundHome() {
   const router = useRouter();
   const { openDaily, openSale } = useQuickCapture();
-  const { farms } = useAuth();
-  const profileHook = useFarmProfile();
 
   const primary = [
     {
       key: 'daily',
       label: 'Saisie du jour',
       sub: 'Morts, aliments, eau, poids',
-      icon: <BookOpen size={30} color={color.green[600]} />,
+      icon: <BookOpen size={26} color={color.green[600]} />,
       bg: color.green[50],
       onPress: () => openDaily(),
     },
@@ -58,7 +71,7 @@ function GroundHome() {
       key: 'tasks',
       label: 'Mes tâches',
       sub: 'Travail assigné de l’équipe',
-      icon: <ListTodo size={30} color={color.amber[600]} />,
+      icon: <ListTodo size={26} color={color.amber[600]} />,
       bg: color.amber[50],
       onPress: () => router.push('/tasks'),
     },
@@ -66,63 +79,60 @@ function GroundHome() {
       key: 'sell',
       label: 'Vendre',
       sub: 'POS espèces — encaisser',
-      icon: <HandCoins size={30} color={color.accent[600]} />,
+      icon: <HandCoins size={26} color={color.accent[600]} />,
       bg: color.accent[50],
       onPress: () => openSale(),
     },
   ];
 
-  const secondary = [
-    { key: 'profil', label: 'Mon profil', icon: <User size={20} color={color.brand[600]} />, bg: color.brand[50], href: '/reglages' },
-    { key: 'lots', label: 'Mes lots', icon: <Bird size={20} color={color.brand[600]} />, bg: color.brand[50], href: '/lots' },
-  ] as const;
+  const links: MenuItem[] = [
+    {
+      key: 'profil',
+      label: 'Mon profil',
+      icon: <User size={ICON} color={color.brand[600]} />,
+      bg: color.brand[50],
+      href: '/reglages',
+    },
+    {
+      key: 'lots',
+      label: 'Mes lots',
+      icon: <Bird size={ICON} color={color.brand[600]} />,
+      bg: color.brand[50],
+      href: '/lots',
+    },
+  ];
 
   return (
-    <Screen>
-      <View style={styles.groundHeader}>
-        <AppText size="label" color="brand">
-          TERRAIN · {farmRoleLabel(profileHook.profile?.role, farms[0]?.name)}
-        </AppText>
-        <AppText size="h2" weight="bold" color="text" style={{ marginTop: 2 }}>
-          Mon terrain
-        </AppText>
-        <AppText size="caption" color="muted" style={{ marginTop: 2 }}>
-          Saisie du jour, vos tâches et les ventes au comptoir.
-        </AppText>
-      </View>
+    // Même bas d'écran qu'Accueil : `Screen` gère le défilement et réserve le
+    // padding sous la dernière ligne, donc rien ne passe derrière la barre.
+    <Screen bottomPad={layout.bottomPad}>
+      <MenuHeader eyebrow="TERRAIN" title="Mon terrain" subtitle="Saisie du jour, vos tâches et les ventes au comptoir." />
 
-      <View style={styles.groundGrid}>
+      <View style={styles.grid}>
         {primary.map((a) => (
           <Pressable
             key={a.key}
             onPress={a.onPress}
-            style={({ pressed }) => [styles.groundCard, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+            style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
             accessibilityRole="button"
             accessibilityLabel={a.label}>
-            <View style={[styles.groundIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
-            <AppText size="body" weight="bold" color="text" numberOfLines={1}>
-              {a.label}
-            </AppText>
-            <AppText size="small" color="muted" numberOfLines={2}>
-              {a.sub}
-            </AppText>
+            <View style={[styles.tileIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
+            <View style={styles.tileCol}>
+              <AppText size="bodyM" weight="semibold" color="text" numberOfLines={2}>
+                {a.label}
+              </AppText>
+              <AppText size="small" color="muted" numberOfLines={2}>
+                {a.sub}
+              </AppText>
+            </View>
           </Pressable>
         ))}
       </View>
 
-      <View style={styles.secondaryRow}>
-        {secondary.map((a) => (
-          <Pressable
-            key={a.key}
-            onPress={() => router.push(a.href)}
-            style={({ pressed }) => [styles.secondaryCard, pressed && { opacity: 0.85 }]}
-            accessibilityRole="button"
-            accessibilityLabel={a.label}>
-            <View style={[styles.secondaryIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
-            <AppText size="small" weight="semibold" color="text">
-              {a.label}
-            </AppText>
-          </Pressable>
+      <SectionHeader title="Comptes & suivi" subtitle="Profil et bandes en cours" icon={Settings} />
+      <View style={styles.grid}>
+        {links.map((item) => (
+          <MenuTile key={item.key} item={item} onPress={() => router.push(item.href)} />
         ))}
       </View>
     </Screen>
@@ -137,147 +147,226 @@ export default function MenuScreen() {
     return <GroundHome />;
   }
 
-  const items = [
-    { key: 'profil', label: 'Profil', sub: 'Compte & paramètres', icon: <User size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/reglages' },
-    { key: 'activites', label: 'Activités', sub: 'Journal & opérations', icon: <Activity size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/activites' },
-    { key: 'marche', label: 'Marché', sub: 'Vitrine clients (bientôt)', icon: <Store size={24} color={color.green[600]} />, bg: color.green[50], fg: color.green[600], href: '/marche' },
-    { key: 'sanitaire', label: 'Sanitaire', sub: 'Protocoles & soins', icon: <Stethoscope size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/sanitary' },
-    { key: 'stock', label: 'Stock & provendes', sub: 'Inventaire, pertes, mouvements', icon: <Wheat size={24} color={color.amber[600]} />, bg: color.amber[50], fg: color.amber[600], href: '/provende' },
-    { key: 'abattage', label: 'Abattage', sub: 'Ordres & passeport', icon: <Bird size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/slaughter' },
-    { key: 'caisse', label: 'Caisse', sub: 'Ouverture, encaisses & reçus', icon: <Coins size={24} color={color.green[600]} />, bg: color.green[50], fg: color.green[600], href: '/pos?tab=CAISSE' },
-    { key: 'commandes', label: 'Commandes', sub: 'Bons & précommandes', icon: <ClipboardList size={24} color={color.accent[600]} />, bg: color.accent[50], fg: color.accent[600], href: '/commandes' },
-    { key: 'equipe', label: 'Équipe', sub: 'Équipe, rôles, droits & tâches', icon: <Users size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/equipe' },
-    { key: 'pointsvente', label: 'Points de vente', sub: 'Ferme & points de vente', icon: <MapPin size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/points-vente' },
-    { key: 'clients', label: 'Clients', sub: 'Profils, soldes', icon: <Handshake size={24} color={color.accent[600]} />, bg: color.accent[50], fg: color.accent[600], href: '/clients' },
-    { key: 'rapports', label: 'Rentabilité', sub: 'P&L & exports PDF', icon: <FileBarChart2 size={24} color={color.green[600]} />, bg: color.green[50], fg: color.green[600], href: '/rapports' },
-    ...(hasPermission('compta:rapports')
-      ? ([{ key: 'comptabilite', label: 'Comptabilité', sub: 'Journal SYSCOHADA, bilan & régularisations', icon: <Landmark size={24} color={color.brand[600]} />, bg: color.brand[50], fg: color.brand[600], href: '/comptabilite' }] as GridItem[])
-      : []),
-    ...(hasPermission('compta:depense')
-      ? ([{ key: 'depenses', label: 'Dépenses', sub: 'Charges & écritures par poste', icon: <ReceiptText size={24} color={color.red[600]} />, bg: color.red[50], fg: color.red[600], href: '/depenses' }] as GridItem[])
-      : []),
-  ] satisfies GridItem[];
+  const groups: MenuGroup[] = [
+    {
+      key: 'elevage',
+      title: 'Élevage',
+      subtitle: 'Suivi sanitaire, soins & stocks',
+      icon: Activity,
+      iconColor: palette.brand[600],
+      iconBg: palette.brand[50],
+      items: [
+        { key: 'activites', label: 'Activités', icon: <Activity size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/activites' },
+        { key: 'sanitaire', label: 'Sanitaire', icon: <Stethoscope size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/sanitary' },
+        { key: 'stock', label: 'Stock & provendes', icon: <Wheat size={ICON} color={color.amber[600]} />, bg: color.amber[50], href: '/provende' },
+        { key: 'abattage', label: 'Abattage', icon: <Bird size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/slaughter' },
+      ],
+    },
+    {
+      key: 'comptoir',
+      title: 'Comptoir',
+      subtitle: 'Caisse, ventes, clients & points de vente',
+      icon: HandCoins,
+      iconColor: palette.accent[500],
+      iconBg: palette.accent[50],
+      items: [
+        { key: 'caisse', label: 'Caisse', icon: <Coins size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/pos?tab=CAISSE' },
+        { key: 'commandes', label: 'Commandes', icon: <ClipboardList size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/commandes' },
+        { key: 'clients', label: 'Clients', icon: <Handshake size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/clients' },
+        { key: 'pointsvente', label: 'Points de vente', icon: <MapPin size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/points-vente' },
+        { key: 'marche', label: 'Marché', icon: <Store size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/marche' },
+      ],
+    },
+    {
+      key: 'finances',
+      title: 'Finances',
+      subtitle: 'Rentabilité, écritures & bilans',
+      icon: FileBarChart2,
+      iconColor: palette.green[600],
+      iconBg: palette.green[50],
+      items: [
+        { key: 'rapports', label: 'Rentabilité', icon: <FileBarChart2 size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/rapports' },
+        ...(hasPermission('compta:rapports')
+          ? [{ key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: <Landmark size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/comptabilite' } as MenuItem]
+          : []),
+        ...(hasPermission('compta:depense')
+          ? [{ key: 'depenses', label: 'Dépenses', icon: <ReceiptText size={ICON} color={color.red[600]} />, bg: color.red[50], href: '/depenses' } as MenuItem]
+          : []),
+      ],
+    },
+    {
+      key: 'administration',
+      title: 'Administration',
+      subtitle: 'Équipe, profil & paramètres',
+      icon: Settings,
+      iconColor: palette.brand[600],
+      iconBg: palette.brand[50],
+      items: [
+        { key: 'equipe', label: 'Équipe', icon: <Users size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/equipe' },
+        ...(hasPermission('rh:lire') || hasPermission('equipe:gerer')
+          ? [{ key: 'rh', label: 'Dossiers RH', icon: <Briefcase size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/rh' } as MenuItem]
+          : []),
+        { key: 'profil', label: 'Profil', icon: <User size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/reglages' },
+      ],
+    },
+  ];
 
   return (
-    <Screen bottomPad={0} scroll={false} style={styles.fill}>
-      {/* Centre le contenu quand tout tient à l'écran, défile s'il déborde
-          (petits appareils / grandes polices) — plus aucune carte tronquée. */}
-      <ScrollView
-        style={styles.fill}
-        contentContainerStyle={styles.gridWrap}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.grid}>
-          {items.map((item) => (
-            <Pressable
-              key={item.key}
-              onPress={() => router.push(item.href)}
-              style={({ pressed }) => [styles.card, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}
-              accessibilityRole="button"
-              accessibilityLabel={item.label}>
-              <View style={[styles.iconWrap, { backgroundColor: item.bg }]}>{item.icon}</View>
-              <AppText size="body" weight="semibold" color="text" style={styles.label}>
-                {item.label}
-              </AppText>
-              <AppText size="small" color="muted" style={styles.label}>
-                {item.sub}
-              </AppText>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+    // Bas d'écran calé sur la barre d'onglets : pas de vide superflu à la fin.
+    <Screen bottomPad={layout.bottomPad}>
+      <MenuHeader eyebrow="MENU" title="Votre ferme" subtitle="Tous les outils, classés par activité." />
+      {groups.map((group) => (
+        <MenuSection key={group.key} group={group} onPick={(href) => router.push(href)} />
+      ))}
     </Screen>
   );
 }
 
+/** En-tête de la page : contexte ferme, rôle et état de synchronisation. */
+function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
+  const { farms, farmId } = useAuth();
+  const profileHook = useFarmProfile();
+  const offline = useOfflineQueue(farmId);
+  const pending = offline.pending.length;
+  const farm = farms[0];
+
+  return (
+    <View style={styles.header}>
+      <AppText size="label" color="brand">
+        {eyebrow}
+      </AppText>
+      <AppText size="h2" weight="bold" color="text" style={styles.headerTitle}>
+        {title}
+      </AppText>
+      <AppText size="caption" color="muted">
+        {subtitle}
+      </AppText>
+      <View style={styles.metaRow}>
+        {farm ? (
+          <View style={styles.metaChip}>
+            <MapPin size={12} color={palette.ink[400]} />
+            <AppText size="small" color="muted" numberOfLines={1} style={styles.metaChipText}>
+              {farm.name} · {farm.administrativeCity}
+            </AppText>
+          </View>
+        ) : null}
+        <View style={styles.metaChip}>
+          <AppText size="small" weight="semibold" color="brand">
+            {roleLabel(profileHook.farmRole)}
+          </AppText>
+        </View>
+        {pending > 0 ? (
+          <View style={[styles.metaChip, styles.syncChip]}>
+            <AppText size="small" weight="semibold" color="warn">
+              {pending} en attente
+            </AppText>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+/** Une catégorie du menu : titre + grille de tuiles. */
+function MenuSection({ group, onPick }: { group: MenuGroup; onPick: (href: Href) => void }) {
+  return (
+    <View style={styles.section}>
+      <SectionHeader title={group.title} subtitle={group.subtitle} icon={group.icon} iconColor={group.iconColor} iconBg={group.iconBg} />
+      <View style={styles.grid}>
+        {group.items.map((item) => (
+          <MenuTile key={item.key} item={item} onPress={() => onPick(item.href)} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** Tuile « tuile colorée + libellé » : grille de navigation des écrans pro. */
+function MenuTile({ item, onPress }: { item: MenuItem; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+      accessibilityRole="menuitem"
+      accessibilityLabel={item.label}>
+      <View style={[styles.tileIcon, { backgroundColor: item.bg }]}>{item.icon}</View>
+      <View style={styles.tileCol}>
+        <AppText size="bodyM" weight="semibold" color="text" numberOfLines={2}>
+          {item.label}
+        </AppText>
+      </View>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  groundHeader: {
+  header: {
     paddingHorizontal: 4,
-    marginBottom: 16,
+    paddingTop: 4,
+    marginBottom: 6,
   },
-  groundGrid: {
+  headerTitle: {
+    marginTop: 2,
+  },
+  metaRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  groundCard: {
-    width: '48%',
-    flexGrow: 1,
-    minWidth: 150,
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: palette.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    padding: 16,
-  },
-  groundIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  secondaryRow: {
-    flexDirection: 'row',
-    gap: 10,
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 12,
   },
-  secondaryCard: {
-    flex: 1,
+  metaChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     backgroundColor: palette.surface,
-    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: palette.border,
-    paddingVertical: 12,
+    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
-  secondaryIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+  metaChipText: {
+    flexShrink: 1,
+  },
+  syncChip: {
+    backgroundColor: palette.amber[50],
+    borderColor: palette.amber[200],
+  },
+  section: {
+    marginTop: 4,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
   },
-  card: {
-    width: '30%',
-    flexGrow: 1,
-    maxWidth: 140,
+  tile: {
+    // Icone + libellé sur la même ligne : la carte tombe à ~60px au lieu de
+    // ~95px empilées, et le label gagne toute la largeur restante.
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 10,
+    width: '48%',
     backgroundColor: palette.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: palette.border,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    padding: 10,
   },
-  iconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+  tilePressed: {
+    backgroundColor: palette.surfaceAlt,
+  },
+  tileCol: {
+    flex: 1,
+    gap: 1,
+  },
+  tileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
-  },
-  fill: {
-    flex: 1,
-  },
-  gridWrap: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingBottom: 140,
-  },
-  label: {
-    textAlign: 'center',
-    width: '100%',
   },
 });

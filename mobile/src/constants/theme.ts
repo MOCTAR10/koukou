@@ -262,6 +262,13 @@ export const layout = {
   screenPadding: spacing.lg,
   contentPadding: spacing.lg,
   bottomInset: Platform.select({ ios: 40, android: 64, web: 24 }) ?? 24,
+  /**
+   * Espace sous le dernier contenu d'un écran, mesuré depuis le HAUT de la
+   * barre d'onglets : la scène occupe tout l'espace au-dessus d'elle (le tab
+   * bar est en flux normal dans `BottomTabView`). Il suffit de dépasser le
+   * débord du FAB — son anneau monte à 35px au-dessus de la pastille.
+   */
+  bottomPad: 52,
 } as const;
 
 export function fmt(n: number): string {
