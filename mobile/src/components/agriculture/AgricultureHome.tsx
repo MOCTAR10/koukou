@@ -124,16 +124,13 @@ export function AgricultureHome() {
                 <AppText size="body" weight="bold" color="text" numberOfLines={1}>
                   {farm?.name ?? '—'}
                 </AppText>
-                <View style={styles.tileSubRow}>
-                  <AppText size="small" color="muted" numberOfLines={1}>
-                    {farm?.administrativeCity ?? 'Aucune ville'}
-                  </AppText>
-                  {farm?.isVerified ? (
+                {farm?.isVerified ? (
+                  <View style={styles.tileSubRow}>
                     <View style={styles.verifiedChip}>
                       <ShieldCheck size={11} color={palette.green[600]} />
                     </View>
-                  ) : null}
-                </View>
+                  </View>
+                ) : null}
               </View>
               <ChevronDown size={16} color={palette.ink[400]} strokeWidth={2.2} />
             </Pressable>
@@ -158,9 +155,11 @@ export function AgricultureHome() {
                 <AppText size="body" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                   {fmtFcfa(collectedTodayFcfa)}
                 </AppText>
-                <AppText size="small" color="muted" numberOfLines={1}>
-                  {canCaisse ? 'Encaisser +' : 'Consultation seule'}
-                </AppText>
+                {!canCaisse ? (
+                  <AppText size="caption" color="faint" numberOfLines={1}>
+                    Consultation seule
+                  </AppText>
+                ) : null}
               </View>
               {canCaisse ? <ChevronRight size={18} color={palette.accent[600]} strokeWidth={2.4} /> : null}
             </Pressable>

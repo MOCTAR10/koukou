@@ -1,25 +1,20 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, Map, Trash2 } from 'lucide-react-native';
+import { Calendar, CheckCircle2, ChevronDown, Map, Trash2 } from 'lucide-react-native';
 
 import { Sheet } from '../ui/Sheet';
 import { AppText } from '../ui/AppText';
 import { Button } from '../ui/Button';
 import { NumberInput } from '../ui/NumberInput';
-import { Segmented } from '../ui/Segmented';
 import { Spinner } from '../ui/Spinner';
+import { CulturePicker } from './CulturePicker';
 import { useAuth } from '@/auth/AuthContext';
 import { createParcelle, deleteParcelle, fetchCultures, updateParcelle } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { Culture, Parcelle, ParcelleStatus } from '@/api/types';
-import {
-  CROP_CATEGORY_LABELS,
-  CULTURE_EMOJI,
-  groupCulturesByCategory,
-  PARCELLE_STATUS_LABELS,
-} from '@/constants/agriculture';
+import { PARCELLE_STATUS_LABELS, cultureStage, formatHarvestDate, waterNeedLabel } from '@/constants/agriculture';
 import { color, palette, radii } from '@/constants/theme';
 
 interface ParcelleSheetProps {
@@ -29,6 +24,33 @@ interface ParcelleSheetProps {
 }
 
 const STATUS_ORDER: ParcelleStatus[] = ['PREPARATION', 'ACTIVE', 'JACHERE', 'CLOTURE'];
+
+const STATUS_META: Record<ParcelleStatus, { label: string; description: string; color: string; bg: string }> = {
+  PREPARATION: {
+    label: PARCELLE_STATUS_LABELS.PREPARATION,
+    description: 'Sol en préparation — plantation à venir.',
+    color: palette.accent[600],
+    bg: palette.accent[50],
+  },
+  ACTIVE: {
+    label: PARCELLE_STATUS_LABELS.ACTIVE,
+    description: 'Culture en place, le cycle est suivi.',
+    color: palette.green[600],
+    bg: palette.green[50],
+  },
+  JACHERE: {
+    label: PARCELLE_STATUS_LABELS.JACHERE,
+    description: 'Parcelle au repos, non cultivée.',
+    color: palette.amber[600],
+    bg: palette.amber[50],
+  },
+  CLOTURE: {
+    label: PARCELLE_STATUS_LABELS.CLOTURE,
+    description: 'Parcelle arrêtée ou retirée du suivi.',
+    color: palette.ink[500],
+    bg: palette.ink[100],
+  },
+};
 
 export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps) {
   const qc = useQueryClient();
@@ -41,7 +63,6 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
   const [status, setStatus] = useState<ParcelleStatus>('ACTIVE');
   const [plantedDate, setPlantedDate] = useState<Date | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-  const [notes, setNotes] = useState('');
   const [cultures, setCultures] = useState<Culture[]>([]);
   const [selectedCulture, setSelectedCulture] = useState<Culture | null>(null);
 
@@ -52,8 +73,8 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
     setCultureId(parcelle?.cultureId ?? '');
     setAreaHa(parcelle?.areaHa != null ? String(parcelle.areaHa) : '');
     setStatus(parcelle?.status ?? 'ACTIVE');
-    setPlantedDate(parcelle?.plantedAt ? new Date(parcelle.plantedAt) : null);
-    setNotes(parcelle?.notes ?? '');
+    // Nouvelle parcelle : date par défaut = aujourd'hui pour que le stade s'affiche.
+    setPlantedDate(parcelle?.plantedAt ? new Date(parcelle.plantedAt) : parcelle ? null : new Date());
     let cancelled = false;
     fetchCultures()
       .then((list) => {
@@ -67,13 +88,6 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
     };
   }, [visible, parcelle]);
 
-  const groups = useMemo(() => groupCulturesByCategory(cultures), [cultures]);
-
-  const pickCulture = (c: Culture) => {
-    setCultureId(c.id);
-    setSelectedCulture(c);
-  };
-
   const saveMutation = useMutation({
     mutationFn: () => {
       const area = areaHa.trim() ? parseFloat(areaHa.replace(',', '.')) : undefined;
@@ -84,7 +98,6 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
           areaHa: area,
           status,
           plantedAt: plantedDate ? plantedDate.toISOString().slice(0, 10) : null,
-          notes: notes.trim() ? notes : null,
         });
       }
       return createParcelle(farmId, {
@@ -93,7 +106,6 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
         areaHa: area,
         status,
         plantedAt: plantedDate ? plantedDate.toISOString().slice(0, 10) : undefined,
-        notes: notes.trim() ? notes : undefined,
       });
     },
     onSuccess: () => {
@@ -137,45 +149,22 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
       </Field>
 
       {/* ── Culture ── */}
-      <Field label={selectedCulture ? 'Culture' : 'Culture *'}>
-        {selectedCulture ? (
-          <View style={styles.cultureSelected}>
-            <View style={styles.cultureChip}>
-              <AppText style={{ fontSize: 15 }}>{CULTURE_EMOJI[selectedCulture.category]}</AppText>
-              <AppText size="small" weight="semibold" color="text">{selectedCulture.name}</AppText>
-              <AppText size="caption" color="muted">{CROP_CATEGORY_LABELS[selectedCulture.category]}</AppText>
-            </View>
-            <Pressable onPress={() => { setSelectedCulture(null); setCultureId(''); }} hitSlop={8} accessibilityRole="button">
-              <AppText size="small" weight="semibold" color="brand">Changer</AppText>
-            </Pressable>
+      {cultures.length === 0 ? (
+        <Field label="Catégorie & Culture">
+          <View style={styles.cultureLoading}>
+            <Spinner />
           </View>
-        ) : (
-          <View style={styles.cultureGrid}>
-            {groups.length === 0 ? (
-              <Spinner />
-            ) : groups.map((g) => (
-              <View key={g.category} style={styles.cultureGroup}>
-                <AppText size="caption" weight="bold" color="muted">
-                  {CULTURE_EMOJI[g.category]} {g.label}
-                </AppText>
-                <View style={styles.cultureChips}>
-                  {g.cultures.map((c) => (
-                    <Pressable
-                      key={c.id}
-                      onPress={() => pickCulture(c)}
-                      style={[styles.cultureChip, cultureId === c.id && styles.cultureChipActive]}>
-                      <AppText size="small" weight={cultureId === c.id ? 'bold' : 'medium'}
-                        color={cultureId === c.id ? 'surface' : 'text'}>
-                        {c.name}
-                      </AppText>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-      </Field>
+        </Field>
+      ) : (
+        <CulturePicker
+          cultures={cultures}
+          value={selectedCulture}
+          onSelect={(c) => {
+            setSelectedCulture(c);
+            setCultureId(c ? c.id : '');
+          }}
+        />
+      )}
 
       {/* ── Surface (ha) ── */}
       <Field label="Surface">
@@ -201,31 +190,56 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
       </View>
 
       {/* ── Statut ── */}
-      <Field label="Statut">
-        <Segmented<ParcelleStatus>
-          value={status}
-          onChange={setStatus}
-          options={STATUS_ORDER.map((s) => ({
-            key: s,
-            label: s === 'ACTIVE' ? 'Active' : s === 'JACHERE' ? 'Jachère' : s === 'PREPARATION' ? 'Prépar.' : 'Clôt.',
-          }))}
-        />
-        <AppText size="caption" color="faint" style={{ marginTop: 6 }}>
-          {PARCELLE_STATUS_LABELS[status]}
-        </AppText>
+      <Field label="Statut" hint={STATUS_META[status].description}>
+        <View style={styles.statusGrid}>
+          {STATUS_ORDER.map((s) => {
+            const meta = STATUS_META[s];
+            const active = s === status;
+            return (
+              <Pressable
+                key={s}
+                onPress={() => setStatus(s)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                style={[styles.statusCard, active && { borderColor: meta.color, backgroundColor: meta.bg }]}>
+                <View style={[styles.statusDot, { backgroundColor: meta.color }]} />
+                <AppText
+                  size="small"
+                  weight={active ? 'bold' : 'semibold'}
+                  color={active ? 'text' : 'text'}
+                  numberOfLines={1}>
+                  {meta.label}
+                </AppText>
+                {active ? <CheckCircle2 size={14} color={meta.color} strokeWidth={2.4} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
       </Field>
 
       {/* ── Date de plantation ── */}
-      <Field label="Date de plantation">
+      <Field
+        label="Date de plantation *"
+        hint="Indispensable pour calculer le stade et suivre la culture.">
         <Pressable
           onPress={() => setShowPicker(true)}
-          style={styles.dateBtn}
+          style={({ pressed }) => [styles.dateBtn, pressed && styles.dateBtnPressed]}
           accessibilityRole="button">
-          <View style={styles.dateRow}>
-            <Calendar size={15} color={color.brand[600]} />
-            <AppText size="small" color={plantedDate ? 'text' : 'faint'}>
-              {plantedDate ? plantedDate.toLocaleDateString('fr-FR') : 'Aujourd’hui'}
+          <View style={styles.dateIcon}>
+            <Calendar size={18} color={palette.green[600]} strokeWidth={2.4} />
+          </View>
+          <View style={styles.dateCol}>
+            <AppText size="small" weight="semibold" color={plantedDate ? 'text' : 'faint'}>
+              {plantedDate
+                ? plantedDate.toLocaleDateString('fr-FR', { weekday: undefined, day: 'numeric', month: 'long', year: 'numeric' })
+                : 'Aucune date'}
             </AppText>
+            {plantedDate && sameDay(plantedDate, new Date()) ? (
+              <AppText size="caption" color="brand">Aujourd’hui</AppText>
+            ) : null}
+          </View>
+          <View pointerEvents="none">
+            <ChevronDown size={16} color={color.ink[400]} strokeWidth={2.4} />
           </View>
         </Pressable>
         {showPicker && (
@@ -238,16 +252,42 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
         )}
       </Field>
 
-      {/* ── Notes ── */}
-      <Field label="Notes">
-        <TextInput
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Rotation, intrants, repères…"
-          multiline
-          style={{ minHeight: 56 }}
-        />
-      </Field>
+      {/* ── Stade estimé (calculé depuis plantedAt + cycle, lecture seule) ── */}
+      {(() => {
+        if (!plantedDate || !selectedCulture?.defaultCycleDays) return null;
+        const iso = plantedDate.toISOString().slice(0, 10);
+        const stage = cultureStage(iso, selectedCulture.defaultCycleDays);
+        if (!stage) return null;
+        const pct = stage.key === 'A_RECOLTER' ? 100 : Math.min(100, Math.round(stage.progress * 100));
+        const water = waterNeedLabel(selectedCulture);
+        return (
+          <Field label="Stade estimé">
+            <View style={styles.stageCard}>
+              <View style={styles.stageRow}>
+                <AppText size="small" weight="bold" color="brand">{stage.label}</AppText>
+                <AppText size="caption" color="muted">
+                  {stage.key === 'A_RECOLTER'
+                    ? 'Cycle terminé — prêt à récolter'
+                    : stage.daysRemaining > 0
+                      ? `J-${stage.daysRemaining}`
+                      : 'À récolter'}
+                </AppText>
+              </View>
+              <View style={styles.track}>
+                <View style={[styles.fill, { width: `${pct}%` }]} />
+              </View>
+              <View style={styles.stageRow}>
+                <AppText size="caption" color="muted">
+                  {stage.harvestDate
+                    ? `Récolte estimée le ${formatHarvestDate(stage.harvestDate)}`
+                    : 'Cycle libre'}
+                </AppText>
+                {water ? <AppText size="caption" color="faint">💧 {water}</AppText> : null}
+              </View>
+            </View>
+          </Field>
+        );
+      })()}
 
       {/* ── Actions ── */}
       <View style={styles.actions}>
@@ -274,12 +314,26 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <View style={styles.field}>
       <AppText size="label" weight="semibold" color="muted">{label}</AppText>
       {children}
+      {hint ? (
+        <AppText size="caption" color="faint">
+          {hint}
+        </AppText>
+      ) : null}
     </View>
+  );
+}
+
+/** Même jour calendaire (heure locale) ? */
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
   );
 }
 
@@ -301,39 +355,80 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  cultureSelected: {
+  cultureLoading: {
+    backgroundColor: color.surfaceAlt,
+    borderRadius: radii.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  statusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    width: '48.5%',
+    backgroundColor: color.surfaceAlt,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radii.md,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  statusDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  dateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: color.surfaceAlt,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radii.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  dateBtnPressed: { opacity: 0.82 },
+  dateIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: palette.green[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateCol: { flex: 1, gap: 0 },
+  stageCard: {
+    backgroundColor: color.surfaceAlt,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: radii.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 7,
+  },
+  stageRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
-  cultureChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: color.green[50],
-    borderColor: color.green[200],
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+  track: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: color.border,
+    overflow: 'hidden',
   },
-  cultureGrid: { gap: 10 },
-  cultureGroup: { gap: 6 },
-  cultureChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  cultureChipActive: {
+  fill: {
+    height: '100%',
+    borderRadius: 3,
     backgroundColor: palette.green[600],
   },
-  dateBtn: {
-    backgroundColor: color.surfaceAlt,
-    borderRadius: radii.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  actions: { flexDirection: 'row', gap: 10 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 12 },
 });

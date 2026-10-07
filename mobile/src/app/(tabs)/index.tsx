@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { AlertTriangle, Wheat, Banknote, BarChart3, MapPin, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Droplets, Building, ArrowRight, Stethoscope, Users } from 'lucide-react-native';
+import { AlertTriangle, Wheat, Banknote, BarChart3, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Droplets, Building, ArrowRight, Stethoscope, Users } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -309,17 +309,13 @@ export default function AccueilScreen() {
                 <AppText size="body" weight="bold" color="text">
                   {farm?.name ?? '—'}
                 </AppText>
-                <View style={styles.tileSubRow}>
-                  <MapPin size={11} color={palette.ink[400]} />
-                  <AppText size="small" color="muted" numberOfLines={1}>
-                    {farm?.administrativeCity ?? 'Aucune ville'}
-                  </AppText>
-                  {farm?.isVerified ? (
+                {farm?.isVerified ? (
+                  <View style={styles.tileSubRow}>
                     <View style={styles.verifiedChip}>
                       <ShieldCheck size={11} color={palette.green[600]} />
                     </View>
-                  ) : null}
-                </View>
+                  </View>
+                ) : null}
               </View>
               <ChevronDown size={16} color={palette.ink[400]} strokeWidth={2.2} />
             </Pressable>
@@ -344,9 +340,11 @@ export default function AccueilScreen() {
                 <AppText size="body" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                   {fmtFcfa(d?.collectedTodayFcfa ?? 0)}
                 </AppText>
-                <AppText size="small" color="muted" numberOfLines={1}>
-                  {canCaisse ? 'Encaisser +' : 'Consultation seule'}
-                </AppText>
+                {!canCaisse ? (
+                  <AppText size="caption" color="faint" numberOfLines={1}>
+                    Consultation seule
+                  </AppText>
+                ) : null}
               </View>
               {canCaisse ? <ChevronRight size={18} color={palette.accent[600]} strokeWidth={2.4} /> : null}
             </Pressable>

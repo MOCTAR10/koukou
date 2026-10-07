@@ -200,6 +200,7 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
             <NavTab route={visibleRoutes[1]} focused={visibleRoutes[1]?.name === focusedName} navigation={navigation} badge={false} badgeCount={0} />
 
             <AnimatedFAB
+              mode={farmMode}
               onPress={
                 farmMode === 'agriculture'
                   ? () => navigation.navigate('parcelles', { new: '1' })
@@ -290,7 +291,8 @@ function NavTab({
   );
 }
 
-function AnimatedFAB({ onPress }: { onPress: () => void }) {
+function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void }) {
+  const isAgri = mode === 'agriculture';
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const ringOpacity = useSharedValue(0);
@@ -312,7 +314,7 @@ function AnimatedFAB({ onPress }: { onPress: () => void }) {
   const handlePressIn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     scale.value = withSpring(0.85, FAB_SPRING);
-    rotation.value = withTiming(45, { duration: 200 });
+    rotation.value = withTiming(isAgri ? 0 : 45, { duration: 200 });
     ringOpacity.value = withTiming(1, { duration: 200 });
     ringScale.value = withTiming(1.6, { duration: 400 });
   };
@@ -331,7 +333,7 @@ function AnimatedFAB({ onPress }: { onPress: () => void }) {
       onPressOut={handlePressOut}
       style={styles.fabSlot}
       accessibilityRole="button"
-      accessibilityLabel="Ajouter">
+      accessibilityLabel={isAgri ? 'Nouvelle parcelle' : 'Ajouter'}>
       <View style={styles.fabContainer}>
         <Animated.View style={[styles.fabRing, ringStyle]} />
         <Animated.View style={[styles.fabOuter, outerStyle]}>
@@ -356,7 +358,11 @@ function AnimatedFAB({ onPress }: { onPress: () => void }) {
             ))}
           </Svg>
           <Animated.View style={[styles.fab, fabStyle]}>
-            <Plus size={28} color={color.surface} strokeWidth={2.6} />
+            {isAgri ? (
+              <Sprout size={27} color={color.surface} strokeWidth={2.6} />
+            ) : (
+              <Plus size={28} color={color.surface} strokeWidth={2.6} />
+            )}
           </Animated.View>
         </Animated.View>
       </View>
