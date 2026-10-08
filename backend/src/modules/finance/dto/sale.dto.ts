@@ -67,6 +67,11 @@ export class CreateSaleItemDto {
   @IsOptional()
   @IsUUID('4', { message: 'Identifiant de transfert invalide.' })
   stockTransferId?: string;
+
+  /** Parcelle source d'une vente RECOLTE au point de vente Ferme. */
+  @IsOptional()
+  @IsUUID('4', { message: 'Identifiant de parcelle invalide.' })
+  parcelleId?: string;
 }
 
 export class PaymentInputDto {

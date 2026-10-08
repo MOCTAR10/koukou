@@ -310,6 +310,20 @@ describe('LiveApi — sanitaire, abattage, clients, rentabilité', () => {
     expect(readCall(fetchMock).url).toBe('http://10.0.0.5:3000/farms/f-1/rentabilite/batches/b-2');
   });
 
+  it('fetchRecoltes liste le journal des récoltes', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(200, [{ id: 'r-1', parcelleId: 'parc-1', quantity: 40, unit: 'KG' }]));
+    const rows = await new LiveApi().fetchRecoltes('f-1');
+    expect(rows[0].quantity).toBe(40);
+    expect(readCall(fetchMock).url).toBe('http://10.0.0.5:3000/farms/f-1/recoltes');
+  });
+
+  it('fetchRecolteStock lit le stock disponible par parcelle', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(200, [{ parcelleId: 'parc-1', harvested: 100, sold: 30, available: 70 }]));
+    const stock = await new LiveApi().fetchRecolteStock('f-1');
+    expect(stock[0].available).toBe(70);
+    expect(readCall(fetchMock).url).toBe('http://10.0.0.5:3000/farms/f-1/recoltes/stock');
+  });
+
   it('fetchSales liste les ventes (période en query optionnelle)', async () => {
     const fetchMock = stubFetch(async () => jsonResponse(200, [{ id: 's-1', referenceNumber: 'VTE-20260828-000001', status: 'SETTLED' }]));
     const sales = await new LiveApi().fetchSales('f-1', '2026-08-01', '2026-08-28');

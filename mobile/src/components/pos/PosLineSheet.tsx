@@ -19,6 +19,7 @@ import type {
   PointOfSaleKind,
   SlaughterOrder,
   EggStockInfo,
+  ParcelleStock,
 } from '@/api/types';
 import { color, palette, radii, spacing, fmt } from '@/constants/theme';
 
@@ -34,6 +35,8 @@ interface PosLineSheetProps {
   transfers?: StockTransfer[];
   /** Stock d'œufs ferme (alvéoles réellement vendables) — plafonne Œufs hors boutique. */
   eggStock?: EggStockInfo | null;
+  /** Stock de récoltes vendable par parcelle (exclusif au POS Ferme). */
+  recolteStock?: ParcelleStock[];
   /** Type du point de vente sélectionné (FERME par défaut). */
   posKind?: PointOfSaleKind;
   committed?: PosLine[];
@@ -74,6 +77,7 @@ export function PosLineSheet({
   pools,
   transfers = [],
   eggStock,
+  recolteStock,
   posKind,
   committed,
   initial,
@@ -88,6 +92,8 @@ export function PosLineSheet({
   const [lotId, setLotId] = useState('');
   const [poolId, setPoolId] = useState('');
   const [provenUnit, setProvenUnit] = useState<'SAC' | 'KG' | null>(null);
+  const [recolteParcelleId, setRecolteParcelleId] = useState('');
+  const [recolteUnit, setRecolteUnit] = useState<'KG' | 'PIECE' | 'SAC' | null>(null);
   const [qty, setQty] = useState(0);
   const [price, setPrice] = useState(0);
   const [weightKgText, setWeightKgText] = useState('');
@@ -101,6 +107,7 @@ export function PosLineSheet({
     ABATTU_KG: 'ABATTU',
     OEUF: 'OEUFS',
     PROVENDE: 'PROVENDE',
+    RECOLTE: null,
     PIECE: null,
     KG: null,
     AUTRE: null,
@@ -120,7 +127,9 @@ export function PosLineSheet({
       );
       setLotId(initial.batchId ?? '');
       setPoolId(initial.transferId ?? initial.slaughterOrderId ?? '');
-      setProvenUnit(initial.product === 'PROVENDE' ? (initial.unit ?? 'SAC') : null);
+      setProvenUnit(initial.product === 'PROVENDE' ? ((initial.unit as 'SAC' | 'KG') ?? 'SAC') : null);
+      setRecolteParcelleId(initial.product === 'RECOLTE' ? (initial.parcelleId ?? '') : '');
+      setRecolteUnit(initial.product === 'RECOLTE' ? (initial.unit as 'KG' | 'PIECE' | 'SAC') ?? 'KG' : null);
       setQty(initial.qty);
       setPrice(initial.unitPriceFcfa);
       const initialIsKg = initial.product === 'KG' || initial.product === 'ABATTU_KG';
@@ -150,6 +159,8 @@ export function PosLineSheet({
       setLotId(isBoutique ? '' : preset ? preset.id : '');
       setPoolId(isBoutique && presetTransferId ? presetTransferId : '');
       setProvenUnit(presetTransfer?.productType === 'PROVENDE' ? ((presetTransfer.unit as 'SAC' | 'KG') ?? 'SAC') : null);
+      setRecolteParcelleId('');
+      setRecolteUnit(null);
       setQty(0);
       setWeightKgText('');
       setPrice(
@@ -169,11 +180,31 @@ export function PosLineSheet({
   const isReserveProduct = isAbattu || product === 'OEUF' || product === 'PROVENDE';
   const needsLot = product === 'PIECE' || product === 'KG';
   const meta = productMeta(posKind, product);
-  const category: 'surPied' | 'abattu' | 'oeufs' = isAbattu
+  const category: 'surPied' | 'abattu' | 'oeufs' | 'recolte' = isAbattu
     ? 'abattu'
     : product === 'OEUF'
       ? 'oeufs'
-      : 'surPied';
+      : product === 'RECOLTE'
+        ? 'recolte'
+        : 'surPied';
+
+  // Récoltes vendables (POS Ferme) : stock restant > 0.
+  const sellableRecolte = (recolteStock ?? []).filter((s) => s.available > 0);
+  const selectedRecolte =
+    recolteUnit && recolteParcelleId
+      ? sellableRecolte.find(
+          (s) => s.parcelleId === recolteParcelleId && s.unit === recolteUnit,
+        )
+      : undefined;
+  const recolteStockUsed = (committed ?? [])
+    .filter(
+      (l) =>
+        l.uid !== initial?.uid &&
+        l.product === 'RECOLTE' &&
+        l.parcelleId === recolteParcelleId &&
+        l.unit === recolteUnit,
+    )
+    .reduce((a, l) => a + l.qty, 0);
 
   const sellable = lots.filter(
     (b) => b.quantityAlive > 0 && (b.status === 'EN_VENTE' || b.status === 'ACTIF'),
@@ -237,7 +268,10 @@ export function PosLineSheet({
       // À la ferme, les œufs se vendent uniquement via le lot qui les produit
       // (attribution batchId + stock scopé au lot) : jamais en liste large.
       return products.filter(
-        (p) => p.key !== 'OEUF' && p.key !== 'AUTRE',
+        (p) =>
+          p.key !== 'OEUF' &&
+          p.key !== 'AUTRE' &&
+          (p.key !== 'RECOLTE' || sellableRecolte.length > 0),
       );
     return products
       .filter(
@@ -277,6 +311,8 @@ export function PosLineSheet({
         ? 0
       : product === 'OEUF'
         ? Math.max(eggStockAvailable - eggLinesUsed, 0)
+      : product === 'RECOLTE'
+        ? Math.max((selectedRecolte?.available ?? 0) - recolteStockUsed, 0)
       : abattuMode === 'pool'
         ? Math.max((pool?.carcassesAvailable ?? 0) - poolUsed, 0)
         : lot != null
@@ -298,7 +334,8 @@ export function PosLineSheet({
           ? (transfer?.slaughterOrderId ?? undefined)
           : (pool?.id ?? undefined),
       transferId: abattuMode === 'transfer' ? transfer?.id : undefined,
-      unit: reserveUnit ?? undefined,
+      unit: product === 'RECOLTE' ? recolteUnit ?? undefined : reserveUnit ?? undefined,
+      parcelleId: product === 'RECOLTE' ? (recolteParcelleId || undefined) : undefined,
       qty,
       unitPriceFcfa: price,
       weightKg: isKg ? roundKg(weightKg) : undefined,
@@ -332,6 +369,12 @@ export function PosLineSheet({
     }
     if (!isAbattuKey(key) && abattuMode === 'pool') {
       setAbattuMode('direct');
+    }
+    if (key === 'RECOLTE') {
+      setAbattuMode('direct');
+      setPoolId('');
+      setLotId('');
+      return;
     }
     if (key === 'AUTRE') {
       setAbattuMode('direct');
@@ -401,6 +444,10 @@ export function PosLineSheet({
       setError('Sélectionnez un lot.');
       return;
     }
+    if (product === 'RECOLTE' && !selectedRecolte) {
+      setError('Sélectionnez la parcelle et l’unité de la récolte.');
+      return;
+    }
     if (qty > maxQty) {
       setError(
         isKg
@@ -423,7 +470,8 @@ export function PosLineSheet({
           ? (transfer?.slaughterOrderId ?? undefined)
           : (pool?.id ?? undefined),
       transferId: abattuMode === 'transfer' ? transfer?.id : undefined,
-      unit: reserveUnit ?? undefined,
+      unit: product === 'RECOLTE' ? recolteUnit ?? undefined : reserveUnit ?? undefined,
+      parcelleId: product === 'RECOLTE' ? (recolteParcelleId || undefined) : undefined,
       qty,
       unitPriceFcfa: price,
       weightKg: isKg ? roundKg(weightKg) : undefined,
@@ -548,7 +596,15 @@ export function PosLineSheet({
     transfer && reserveBatchId ? lots.find((b) => b.id === reserveBatchId)?.metrics?.ageDays : undefined;
 
   const unitSuffix =
-    product === 'PROVENDE' && reserveUnit ? (reserveUnit === 'KG' ? 'kg' : 'sac') : meta.unit;
+    product === 'RECOLTE'
+      ? recolteUnit === 'KG'
+        ? 'kg'
+        : recolteUnit === 'SAC'
+          ? 'sac'
+          : 'u.'
+      : product === 'PROVENDE' && reserveUnit
+        ? (reserveUnit === 'KG' ? 'kg' : 'sac')
+        : meta.unit;
 
   return (
     <Sheet
@@ -727,13 +783,17 @@ export function PosLineSheet({
           </>
         ) : (
           <>
-            {/* ── 1 · LOT & STOCK DISPONIBLE ─────────────────────────── */}
+            {/* ── 1 · SOURCE DU STOCK (ferme) ─────────────────────── */}
             <View>
-              <StepTitle n={1} label="Lot & stock disponible" />
-              <Card tone={notReady ? 'warn' : 'default'} style={styles.lotPanel}>
+              <StepTitle n={1} label={product === 'RECOLTE' ? 'Parcelle & stock disponible' : 'Lot & stock disponible'} />
+              <Card tone={product === 'RECOLTE' ? (selectedRecolte ? 'green' : 'default') : notReady ? 'warn' : 'default'} style={styles.lotPanel}>
                 <View style={styles.lotPanelHead}>
                   <View style={styles.lotPanelIcon}>
-                    {lot && breedImageForLot(lot.breedName, lot.species) ? (
+                    {product === 'RECOLTE' ? (
+                      <AppText size="h2" color="faint">
+                        {'🌾'}
+                      </AppText>
+                    ) : lot && breedImageForLot(lot.breedName, lot.species) ? (
                       <Image
                         source={breedImageForLot(lot.breedName, lot.species) as number}
                         style={styles.lotPanelImg}
@@ -746,16 +806,53 @@ export function PosLineSheet({
                   </View>
                   <View style={{ flex: 1 }}>
                     <AppText size="h3" weight="bold" color="text" numberOfLines={1}>
-                      {lot?.batchName ?? 'Lot'}
+                      {product === 'RECOLTE'
+                        ? (selectedRecolte?.parcelleName ?? (sellableRecolte.length ? 'Choisissez une parcelle' : 'Récolte'))
+                        : (lot?.batchName ?? 'Lot')}
                     </AppText>
                     <AppText size="small" color="muted">
-                      {[lot?.breedCode, lot?.breedName, lot?.type === 'CHAIR' ? 'Chair' : 'Pondeuse'].filter(Boolean).join(' · ') || '—'} · J
-                      {lot?.metrics.ageDays ?? '—'}
+                      {product === 'RECOLTE'
+                        ? (selectedRecolte
+                            ? `${selectedRecolte.cultureName ?? selectedRecolte.parcelleName ?? 'Parcelle'} · ${recolteUnit}`
+                            : sellableRecolte.length
+                              ? `${sellableRecolte.length} parcelle${sellableRecolte.length > 1 ? 's' : ''} avec stock`
+                              : 'Aucune récolte stockée — journalisez une récolte.')
+                        : `${[lot?.breedCode, lot?.breedName, lot?.type === 'CHAIR' ? 'Chair' : 'Pondeuse'].filter(Boolean).join(' · ') || '—'} · J${lot?.metrics.ageDays ?? '—'}`}
                     </AppText>
                   </View>
                 </View>
-                <View style={styles.stockRow}>
-                  {lot ? (
+                {product === 'RECOLTE' ? (
+                  <View style={styles.stockRow}>
+                    {selectedRecolte ? (
+                      <>
+                        <View style={styles.stockItem}>
+                          <View style={[styles.stockDot, { backgroundColor: color.green[500] }]} />
+                          <AppText size="small" weight="semibold" color="text">
+                            {fmt(selectedRecolte.harvested)} récolté{selectedRecolte.unit === 'KG' ? ' kg' : ''}
+                          </AppText>
+                        </View>
+                        <View style={styles.stockItem}>
+                          <View style={[styles.stockDot, { backgroundColor: color.ink[300] }]} />
+                          <AppText size="small" weight="semibold" color="muted">
+                            {fmt(selectedRecolte.sold)} vendu{selectedRecolte.unit === 'KG' ? ' kg' : ''}
+                          </AppText>
+                        </View>
+                        <View style={styles.stockItem}>
+                          <View style={[styles.stockDot, { backgroundColor: color.accent[500] }]} />
+                          <AppText size="small" weight="semibold" color="accent">
+                            {fmt(selectedRecolte.available)} restant
+                          </AppText>
+                        </View>
+                      </>
+                    ) : (
+                      <AppText size="small" color="muted">
+                        Stock vendable par parcelle : récolté − vendu.
+                      </AppText>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.stockRow}>
+                {lot ? (
                     <View style={styles.stockItem}>
                       <View style={[styles.stockDot, { backgroundColor: color.green[500] }]} />
                       <AppText size="small" weight="semibold" color="text">
@@ -781,12 +878,37 @@ export function PosLineSheet({
                     </View>
                   ) : null}
                 </View>
-                {advisory ? (
+                )}
+                {product !== 'RECOLTE' && advisory ? (
                   <AppText size="small" weight="semibold" color="danger" style={{ marginTop: spacing.xs }}>
                     {advisory}
                   </AppText>
                 ) : null}
               </Card>
+              {product === 'RECOLTE' && sellableRecolte.length > 0 ? (
+                <View style={styles.rowWrap}>
+                  {sellableRecolte.map((s) => {
+                    const key = `${s.parcelleId}:${s.unit}`;
+                    return (
+                      <Pressable
+                        key={key}
+                        onPress={() => {
+                          setRecolteParcelleId(s.parcelleId);
+                          setRecolteUnit(s.unit);
+                          setError(null);
+                        }}
+                        accessibilityRole="button">
+                        <Chip
+                          label={`${s.parcelleName ?? 'Parcelle'} · ${fmt(s.available)} ${s.unit.toLowerCase()}`}
+                          tone="green"
+                          selected={recolteParcelleId === s.parcelleId && recolteUnit === s.unit}
+                          style={styles.chip}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
             </View>
 
             {/* ── 2 · ARTICLE À VENDRE ───────────────────────────────── */}
@@ -979,7 +1101,7 @@ export function PosLineSheet({
                   style={styles.priceInput}
                 />
                 <AppText size="small" weight="semibold" color="muted">
-                  / {product === 'PROVENDE' && reserveUnit ? (reserveUnit === 'KG' ? 'kg' : 'sac') : meta.priceUnit}
+                  / {product === 'RECOLTE' ? (recolteUnit === 'KG' ? 'kg' : recolteUnit === 'SAC' ? 'sac' : 'pièce') : product === 'PROVENDE' && reserveUnit ? (reserveUnit === 'KG' ? 'kg' : 'sac') : meta.priceUnit}
                 </AppText>
               </View>
             </View>

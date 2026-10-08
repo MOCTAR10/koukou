@@ -16,6 +16,7 @@ import {
   createInput,
   createManualSchedule,
   createSale,
+  createRecolte,
   createSlaughterOrder,
   createTreatment,
   deleteSchedule,
@@ -335,6 +336,32 @@ describe('buildSaleItem', () => {
       throw new Error('PROVENDE kg doit réussir');
     }
   });
+
+  it('RECOLTE : exige la parcelle et porte l’unité KG/PIECE/SAC + parcelleId', () => {
+    const noParcelle = buildSaleItem('RECOLTE', 4, 500, null, { unit: 'KG' });
+    expect('error' in noParcelle).toBe(true);
+    const badUnit = buildSaleItem('RECOLTE', 4, 500, null, { parcelleId: 'parc-1', unit: 'UNITE' });
+    expect('error' in badUnit).toBe(true);
+    const kg = buildSaleItem('RECOLTE', 40, 350, null, { parcelleId: 'parc-1', unit: 'KG', label: 'Récolte plantain' });
+    if ('item' in kg) {
+      expect(kg.item).toMatchObject({ productType: 'RECOLTE', unit: 'KG', quantity: 40, parcelleId: 'parc-1', label: 'Récolte plantain' });
+      expect(kg.item.batchId).toBeUndefined();
+    } else {
+      throw new Error('RECOLTE kg doit réussir');
+    }
+    const pieces = buildSaleItem('RECOLTE', 12, 100, null, { parcelleId: 'parc-1', unit: 'PIECE' });
+    if ('item' in pieces) {
+      expect(pieces.item).toMatchObject({ productType: 'RECOLTE', unit: 'PIECE', quantity: 12 });
+    } else {
+      throw new Error('RECOLTE pièce doit réussir');
+    }
+    const sac = buildSaleItem('RECOLTE', 3, 8000, null, { parcelleId: 'parc-1', unit: 'SAC' });
+    if ('item' in sac) {
+      expect(sac.item).toMatchObject({ productType: 'RECOLTE', unit: 'SAC', quantity: 3 });
+    } else {
+      throw new Error('RECOLTE sac doit réussir');
+    }
+  });
 });
 
 describe('createDailyEntry', () => {
@@ -383,6 +410,23 @@ describe('createSale', () => {
     const body = JSON.parse(call.init.body as string);
     expect(body.items[0].productType).toBe('POULET_PIECE');
     expect(body.payments[0]).toMatchObject({ method: 'CASH', amountFcfa: 10000 });
+  });
+});
+
+describe('createRecolte', () => {
+  it('POSTe la récolte de parcelle', async () => {
+    const fetchMock = stubFetch(async () => jsonResponse(201, { id: 'r-1' }));
+    await createRecolte('f-1', { parcelleId: 'parc-1', quantity: 40, unit: 'KG', harvestDate: '2026-08-28', notes: 'Premier champ' });
+    const call = readCall(fetchMock);
+    expect(call.url).toBe('http://10.0.0.5:3000/farms/f-1/recoltes');
+    expect(call.init.method).toBe('POST');
+    expect(JSON.parse(call.init.body as string)).toEqual({
+      parcelleId: 'parc-1',
+      quantity: 40,
+      unit: 'KG',
+      harvestDate: '2026-08-28',
+      notes: 'Premier champ',
+    });
   });
 });
 

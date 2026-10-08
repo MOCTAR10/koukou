@@ -45,6 +45,7 @@ const PRODUCT_LABELS: Record<string, string> = {
   POULET_KG: 'Poulet au kilo',
   OEUFS: 'Œufs (alvéoles)',
   PROVENDE: 'Provende',
+  RECOLTE: 'Récolte de parcelle',
   AUTRE: 'Autre vente',
 };
 

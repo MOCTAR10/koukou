@@ -57,6 +57,8 @@ import type {
   Culture,
   CropCategory,
   Parcelle,
+  ParcelleStock,
+  Recolte,
 } from './types';
 
 const live = new LiveApi();
@@ -368,6 +370,14 @@ export function createCulture(
 
 export function fetchParcelles(farmId: string): Promise<Parcelle[]> {
   return live.fetchParcelles(farmId);
+}
+
+export function fetchRecoltes(farmId: string): Promise<Recolte[]> {
+  return live.fetchRecoltes(farmId);
+}
+
+export function fetchRecolteStock(farmId: string): Promise<ParcelleStock[]> {
+  return live.fetchRecolteStock(farmId);
 }
 
 export function fetchParcelle(farmId: string, parcelleId: string): Promise<Parcelle> {

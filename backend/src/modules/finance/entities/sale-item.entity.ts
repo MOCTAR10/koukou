@@ -17,6 +17,7 @@ import { Sale } from './sale.entity.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { SlaughterOrder } from '../../slaughter/entities/slaughter-order.entity.js';
 import { InputLot } from '../../inputs/entities/input-lot.entity.js';
+import { Parcelle } from '../../agriculture/entities/parcelle.entity.js';
 
 @Entity('sale_items')
 export class SaleItem {
@@ -84,6 +85,15 @@ export class SaleItem {
   @Column({ name: 'stock_transfer_id', type: 'uuid', nullable: true })
   @Index()
   stockTransferId: string | null;
+
+  /** Parcelle source pour une vente RECOLTE au point de vente Ferme. */
+  @ManyToOne(() => Parcelle, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'parcelle_id' })
+  parcelle: Parcelle | null;
+
+  @Column({ name: 'parcelle_id', type: 'uuid', nullable: true })
+  @Index()
+  parcelleId: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

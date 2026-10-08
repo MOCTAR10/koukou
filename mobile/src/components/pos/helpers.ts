@@ -59,6 +59,8 @@ export function buildPosSaleItems(lines: PosLine[]): SaleItemPayload[] {
       ...(line.weightKg != null ? { weightKg: line.weightKg } : {}),
       ...(line.slaughterOrderId ? { sourceSlaughterOrderId: line.slaughterOrderId } : {}),
       ...(line.transferId ? { stockTransferId: line.transferId } : {}),
+      ...(line.parcelleId ? { parcelleId: line.parcelleId } : {}),
+      ...(line.label ? { label: line.label } : {}),
       ...(line.unit ? { unit: line.unit } : {}),
     });
     if ('item' in built) {

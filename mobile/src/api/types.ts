@@ -312,6 +312,32 @@ export interface Parcelle {
   updatedAt: string;
 }
 
+export type RecolteUnit = 'KG' | 'PIECE' | 'SAC';
+
+/** Entrée du journal des récoltes (alimente le stock vendable au POS Ferme). */
+export interface Recolte {
+  id: string;
+  farmId: string;
+  parcelleId: string;
+  harvestDate: string;
+  quantity: number;
+  unit: RecolteUnit;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Stock disponible par (parcelle, unité) : récolté − vendu (POS Ferme). */
+export interface ParcelleStock {
+  parcelleId: string;
+  parcelleName: string;
+  cultureName: string | null;
+  unit: RecolteUnit;
+  harvested: number;
+  sold: number;
+  available: number;
+}
+
 export interface ProductionBatch {
   id: string;
   farmId: string;

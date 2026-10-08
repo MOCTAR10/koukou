@@ -93,6 +93,7 @@ const ITEM_LABELS: Record<SaleItemProductType, string> = {
   ABATTU_KG: 'Poulet abattu (au kilo)',
   OEUFS: 'Œufs (alvéoles)',
   PROVENDE: 'Provende',
+  RECOLTE: 'Récolte de la parcelle',
   AUTRE: 'Article divers',
 };
 const CANAL_LABELS: Record<OrderCanal, string> = {

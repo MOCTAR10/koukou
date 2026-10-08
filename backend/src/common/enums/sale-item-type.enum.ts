@@ -7,6 +7,8 @@ export enum SaleItemProductType {
   ABATTU_KG = 'ABATTU_KG',
   OEUFS = 'OEUFS',
   PROVENDE = 'PROVENDE',
+  /** Récolte agricole vendue au point de vente Ferme (stock rattaché à une parcelle). */
+  RECOLTE = 'RECOLTE',
   AUTRE = 'AUTRE',
 }
 

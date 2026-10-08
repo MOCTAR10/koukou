@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { CalendarDays, ChevronRight, Layers3, Map, Plus } from 'lucide-react-native';
+import { CalendarDays, ChevronRight, Layers3, Map } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -105,13 +105,6 @@ export default function ParcellesScreen() {
         <ScreenHeader
           title="Parcelles"
           subtitle="Terres & cultures de la ferme"
-          right={
-            canManage ? (
-              <Pressable onPress={openCreate} style={styles.addBtn} accessibilityRole="button">
-                <Plus size={18} color={color.surface} strokeWidth={2.6} />
-              </Pressable>
-            ) : null
-          }
         />
       }>
       <View style={styles.actionsRow}>
@@ -437,13 +430,5 @@ const styles = StyleSheet.create({
     width: 9,
     height: 9,
     borderRadius: 5,
-  },
-  addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: palette.green[600],
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

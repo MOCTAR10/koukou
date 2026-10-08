@@ -293,6 +293,7 @@ function NavTab({
 
 function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void }) {
   const isAgri = mode === 'agriculture';
+  const fabBg = isAgri ? palette.green[600] : color.brand[600];
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const ringOpacity = useSharedValue(0);
@@ -335,7 +336,7 @@ function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void })
       accessibilityRole="button"
       accessibilityLabel={isAgri ? 'Nouvelle parcelle' : 'Ajouter'}>
       <View style={styles.fabContainer}>
-        <Animated.View style={[styles.fabRing, ringStyle]} />
+        <Animated.View style={[styles.fabRing, ringStyle, { backgroundColor: fabBg }]} />
         <Animated.View style={[styles.fabOuter, outerStyle]}>
           <Svg width={RING_SIZE} height={RING_SIZE} style={styles.fabRimSvg}>
             <Circle
@@ -357,12 +358,8 @@ function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void })
               />
             ))}
           </Svg>
-          <Animated.View style={[styles.fab, fabStyle]}>
-            {isAgri ? (
-              <Sprout size={27} color={color.surface} strokeWidth={2.6} />
-            ) : (
-              <Plus size={28} color={color.surface} strokeWidth={2.6} />
-            )}
+          <Animated.View style={[styles.fab, { backgroundColor: fabBg }, fabStyle]}>
+            <Plus size={28} color={color.surface} strokeWidth={2.6} />
           </Animated.View>
         </Animated.View>
       </View>
@@ -441,14 +438,12 @@ const styles = StyleSheet.create({
   fabRing: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: FAB_R,
-    backgroundColor: color.brand[600],
     opacity: 0,
   },
   fab: {
     width: FAB_SIZE,
     height: FAB_SIZE,
     borderRadius: FAB_R,
-    backgroundColor: color.brand[600],
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow.fab,

@@ -36,6 +36,8 @@ import { SlaughterType } from '../../common/enums/slaughter-type.enum.js';
 import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
 import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
 import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
+import { Recolte } from '../agriculture/entities/recolte.entity.js';
+import { Parcelle } from '../agriculture/entities/parcelle.entity.js';
 import { PointOfSaleKind } from '../../common/enums/point-of-sale-kind.enum.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { Customer } from './entities/customer.entity.js';
@@ -66,6 +68,7 @@ const ITEM_LABELS: Record<SaleItemProductType, string> = {
   ABATTU_KG: 'Poulet abattu (au kilo)',
   OEUFS: 'Œufs (alvéoles)',
   PROVENDE: 'Provende',
+  RECOLTE: 'Récolte de la parcelle',
   AUTRE: 'Article divers',
 };
 
@@ -161,6 +164,23 @@ export class SalesService {
         ];
         for (const batchId of toLock) {
           await this.loadBatch(batchRepo, farmId, batchId);
+        }
+      }
+
+      // Verrouille en amont les parcelles impliquées (ventes RECOLTE), dans un
+      // ordre trié, pour sérialiser les débits de stock par parcelle — même
+      // discipline que le pré-verrouillage des lots ci-dessus.
+      const involvedParcelleIds = [
+        ...new Set(
+          dto.items
+            .map((i) => i.parcelleId)
+            .filter((p): p is string => Boolean(p)),
+        ),
+      ].sort();
+      if (involvedParcelleIds.length > 0) {
+        const parcelleRepo = em.getRepository(Parcelle);
+        for (const parcelleId of involvedParcelleIds) {
+          await this.loadParcelle(parcelleRepo, farmId, parcelleId);
         }
       }
 
@@ -388,6 +408,7 @@ export class SalesService {
       inputLotId?: string;
       sourceSlaughterOrderId?: string;
       stockTransferId?: string;
+      parcelleId?: string;
     },
     pos?: { id: string; kind: PointOfSaleKind } | null,
   ): Promise<SaleItem> {
@@ -607,6 +628,38 @@ export class SalesService {
         }
         batchId = dto.batchId ?? lot.batchId ?? null;
       }
+    } else if (productType === SaleItemProductType.RECOLTE) {
+      // Récolte de parcelle vendue au point de vente Ferme : le stock est
+      // dérivé (Σ récoltes − Σ déjà vendues) et sérialisé par le
+      // pré-verrouillage de la parcelle effectué dans create().
+      if (pos?.kind === PointOfSaleKind.BOUTIQUE) {
+        throw new BadRequestException(
+          'La récolte de parcelle ne peut être vendue qu’au point de vente Ferme.',
+        );
+      }
+      if (unit !== SaleItemUnit.KG && unit !== SaleItemUnit.PIECE && unit !== SaleItemUnit.SAC) {
+        throw new BadRequestException(
+          'Pour une vente de récolte, l’unité doit être KG, PIECE ou SAC.',
+        );
+      }
+      if (!dto.parcelleId) {
+        throw new BadRequestException(
+          'Vente de récolte : indiquer la parcelle source (parcelleId) pour suivre le stock.',
+        );
+      }
+      await this.assertParcelleInFarm(em, farmId, dto.parcelleId);
+      const available = await this.availableRecolte(
+        em,
+        farmId,
+        dto.parcelleId,
+        unit,
+      );
+      if (quantity > available) {
+        throw new BadRequestException(
+          `Stock de récolte insuffisant : ${available} disponible(s) sur cette parcelle (récolté − vendu), vente demandée ${quantity}.`,
+        );
+      }
+      batchId = null;
     } else {
       // AUTRE : aucune contrainte d'inventaire.
       batchId = dto.batchId ?? null;
@@ -633,6 +686,7 @@ export class SalesService {
         inputLotId,
         sourceSlaughterOrderId,
         stockTransferId: pendingStockTransferId,
+        parcelleId: dto.parcelleId ?? null,
       }),
     );
 
@@ -668,6 +722,8 @@ export class SalesService {
         return SaleItemUnit.ALVEOLES;
       case SaleItemProductType.PROVENDE:
         return SaleItemUnit.SAC;
+      case SaleItemProductType.RECOLTE:
+        return SaleItemUnit.KG;
       default:
         return SaleItemUnit.UNITE;
     }
@@ -728,6 +784,75 @@ export class SalesService {
         'Lot fini : toutes les volailles ont été vendues, aucune vente supplémentaire possible.',
       );
     }
+  }
+
+  /** Charge une parcelle (verrou en écriture) appartenant à la ferme. */
+  private async loadParcelle(
+    repo: Repository<Parcelle>,
+    farmId: string,
+    parcelleId: string,
+  ): Promise<Parcelle> {
+    const parcelle = await repo
+      .createQueryBuilder('p')
+      .setLock('pessimistic_write')
+      .where('p.id = :id', { id: parcelleId })
+      .andWhere('p.farm_id = :farmId', { farmId })
+      .getOne();
+    if (!parcelle)
+      throw new BadRequestException(
+        'Parcelle introuvable dans cette ferme.',
+      );
+    return parcelle;
+  }
+
+  private async assertParcelleInFarm(
+    em: EntityManager,
+    farmId: string,
+    parcelleId: string,
+  ): Promise<Parcelle> {
+    const parcelle = await em.getRepository(Parcelle).findOne({
+      where: { id: parcelleId, farmId },
+    });
+    if (!parcelle)
+      throw new BadRequestException(
+        'Parcelle introuvable dans cette ferme.',
+      );
+    return parcelle;
+  }
+
+  /**
+   * Quantité récoltée encore vendable sur une parcelle (unité donnée) :
+   * Σ récoltes − Σ déjà vendues (ventes non annulées). Le décompte « vendu »
+   * inclut aussi les quantités scindées par prix/produit sur la même parcelle.
+   */
+  private async availableRecolte(
+    em: EntityManager,
+    farmId: string,
+    parcelleId: string,
+    unit: SaleItemUnit,
+  ): Promise<number> {
+    const harvested = await em
+      .getRepository(Recolte)
+      .createQueryBuilder('r')
+      .where('r.farmId = :farmId', { farmId })
+      .andWhere('r.parcelleId = :parcelleId', { parcelleId })
+      .andWhere('r.unit = :unit', { unit })
+      .select('COALESCE(SUM(r.quantity), 0)', 'total')
+      .getRawOne<{ total: string }>();
+    const sold = await em
+      .getRepository(SaleItem)
+      .createQueryBuilder('i')
+      .innerJoin('i.sale', 's')
+      .where('i.parcelleId = :parcelleId', { parcelleId })
+      .andWhere('i.productType = :productType', {
+        productType: SaleItemProductType.RECOLTE,
+      })
+      .andWhere('i.unit = :unit', { unit })
+      .andWhere('s.farm_id = :farmId', { farmId })
+      .andWhere('s.status != :status', { status: SaleStatus.CANCELLED })
+      .select('COALESCE(SUM(i.quantity), 0)', 'total')
+      .getRawOne<{ total: string }>();
+    return (Number(harvested?.total ?? 0) - Number(sold?.total ?? 0)) || 0;
   }
 
   /** Décrémente le cheptel vivant (vente sur pied ou abattage direct au comptoir). */

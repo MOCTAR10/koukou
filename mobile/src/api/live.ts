@@ -70,6 +70,8 @@ import type {
   Species,
   Culture,
   Parcelle,
+  ParcelleStock,
+  Recolte,
   CropCategory,
 } from './types';
 
@@ -758,6 +760,14 @@ export class LiveApi {
 
   async fetchParcelles(farmId: string): Promise<Parcelle[]> {
     return apiFetch<Parcelle[]>(`/farms/${farmId}/parcelles`);
+  }
+
+  async fetchRecoltes(farmId: string): Promise<Recolte[]> {
+    return apiFetch<Recolte[]>(`/farms/${farmId}/recoltes`);
+  }
+
+  async fetchRecolteStock(farmId: string): Promise<ParcelleStock[]> {
+    return apiFetch<ParcelleStock[]>(`/farms/${farmId}/recoltes/stock`);
   }
 
   async fetchParcelle(farmId: string, parcelleId: string): Promise<Parcelle> {

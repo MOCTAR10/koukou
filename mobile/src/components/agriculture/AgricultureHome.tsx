@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Banknote, ChevronDown, ChevronRight, Layers3, MapPin, ShieldCheck, Sprout, Store } from 'lucide-react-native';
+import { Banknote, ChevronDown, ChevronRight, Layers3, MapPin, PiggyBank, ShieldCheck, Sprout, Store } from 'lucide-react-native';
 
 import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -16,9 +16,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { MetricTile } from '@/components/ui/MetricTile';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
-import { fetchCaisseCurrent, fetchParcelles } from '@/api';
+import { fetchCaisseCurrent, fetchParcelles, fetchRecolteStock, fetchRentabiliteOverview } from '@/api';
 import { givenName } from '@/api/format';
-import type { Parcelle } from '@/api/types';
+import type { OverviewPnl, Parcelle } from '@/api/types';
 import {
   CROP_CATEGORY_LABELS,
   CULTURE_EMOJI,
@@ -36,6 +36,7 @@ export function AgricultureHome() {
   const { hasPermission } = useFarmProfile();
   const canManage = hasPermission('agri:gerer');
   const canCaisse = hasPermission('caisse:lire');
+  const canRapports = hasPermission('compta:rapports');
   const [farmSelectOpen, setFarmSelectOpen] = useState(false);
 
   const farm = farms.find((f) => f.id === farmId) ?? farms[0] ?? null;
@@ -59,6 +60,26 @@ export function AgricultureHome() {
       .filter((m) => m.type === 'IN' && (m.movementDate ?? '').slice(0, 10) === today)
       .reduce((s, m) => s + m.amountFcfa, 0);
   }, [caisseQuery.data]);
+
+  // Marge du domaine = P&L ferme (ventes − dépenses) sur le mois courant,
+  // réutilisé comme « stat marge » de l'agriculture.
+  const pnlMonth = useMemo(() => monthWindow(new Date()), []);
+  const pnlQuery = useQuery({
+    queryKey: ['rentabilite', farmId, pnlMonth.from, pnlMonth.to],
+    queryFn: () => fetchRentabiliteOverview(farmId, pnlMonth.from, pnlMonth.to),
+    enabled: canRapports,
+    staleTime: 30_000,
+  });
+  const pnl: OverviewPnl | undefined = pnlQuery.data;
+
+  // Stock de récoltes vendable au POS Ferme (récolté − vendu).
+  const recolteStockQuery = useQuery({
+    queryKey: ['recoltes-stock', farmId],
+    queryFn: () => fetchRecolteStock(farmId),
+    enabled: parcelles.some((p) => p.status === 'ACTIVE'),
+    staleTime: 30_000,
+  });
+  const recolteStock = recolteStockQuery.data ?? [];
 
   const stats = useMemo(() => {
     const actives = parcelles.filter(
@@ -91,8 +112,12 @@ export function AgricultureHome() {
   return (
     <Screen
       bottomPad={112}
-      refreshing={parcellesQuery.isFetching}
-      onRefresh={() => parcellesQuery.refetch()}
+      refreshing={parcellesQuery.isFetching || pnlQuery.isFetching || recolteStockQuery.isFetching}
+      onRefresh={() => {
+        void parcellesQuery.refetch();
+        if (canRapports) void pnlQuery.refetch();
+        void recolteStockQuery.refetch();
+      }}
       header={
         <>
           <View style={styles.topRow}>
@@ -216,6 +241,32 @@ export function AgricultureHome() {
             />
           </View>
 
+          {/* ── Marge du mois ── */}
+          {canRapports ? <MargeCard pnl={pnl} loading={pnlQuery.isLoading} onOpenRapports={() => router.push('/rapports')} /> : null}
+
+          {/* ── Stock récoltes vendable (POS Ferme) ── */}
+          {recolteStock.length > 0 ? (
+            <Card tone="green" style={styles.harvestCard}>
+              <View style={styles.harvestRow}>
+                <View style={styles.tileIcon}>
+                  <PiggyBank size={18} color={palette.green[600]} strokeWidth={2.2} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <AppText size="caption" weight="bold" color="muted">Récoltes vendables (POS Ferme)</AppText>
+                  <AppText size="body" weight="bold" color="text" numberOfLines={1}>
+                    {fmtStockLines(recolteStock)}
+                  </AppText>
+                  <AppText size="small" color="muted" numberOfLines={2}>
+                    {recolteStock.length} ligne{recolteStock.length > 1 ? 's' : ''} de stock — récolté moins vendu, vendu via l’article « Récolte ».
+                  </AppText>
+                </View>
+                <Pressable onPress={() => router.push('/recoltes')} hitSlop={8} accessibilityRole="button">
+                  <ChevronRight size={20} color={palette.green[600]} strokeWidth={2.6} />
+                </Pressable>
+              </View>
+            </Card>
+          ) : null}
+
           {/* ── Prochaine échéance + conseil ── */}
           <NextHarvestCard parcelles={parcelles} />
 
@@ -304,6 +355,70 @@ function NextHarvestCard({ parcelles }: { parcelles: Parcelle[] }) {
   );
 }
 
+/** Carte Marge du mois : résultat net = ventes − dépenses (P&L ferme). */
+function MargeCard({
+  pnl,
+  loading,
+  onOpenRapports,
+}: {
+  pnl: OverviewPnl | undefined;
+  loading: boolean;
+  onOpenRapports: () => void;
+}) {
+  if (loading) {
+    return (
+      <Card tone="default" style={styles.margeCard}>
+        <AppText size="caption" weight="bold" color="muted">MARGE (MOIS EN COURS)</AppText>
+        <AppText size="caption" color="faint">Chargement…</AppText>
+      </Card>
+    );
+  }
+  if (!pnl) return null;
+  const top = [...pnl.breakdown.byProduct]
+    .sort((a, b) => b.amountFcfa - a.amountFcfa)
+    .slice(0, 2);
+  return (
+    <Card tone="default" style={styles.margeCard}>
+      <View style={styles.margeHead}>
+        <View style={styles.margeLabel}>
+          <PiggyBank size={13} color={palette.green[700]} strokeWidth={2.2} />
+          <AppText size="caption" weight="bold" color="muted">MARGE (MOIS EN COURS)</AppText>
+        </View>
+        <Pressable onPress={onOpenRapports} hitSlop={8} accessibilityRole="button">
+          <AppText size="caption" weight="bold" color="brand">Détails</AppText>
+        </Pressable>
+      </View>
+      <View style={styles.margeRow}>
+        <View style={styles.margeItem}>
+          <AppText size="caption" color="muted">Marge nette</AppText>
+          <AppText
+            size="bodyM"
+            weight="bold"
+            color={pnl.netFcfa >= 0 ? 'success' : 'danger'}>
+            {pnl.netFcfa >= 0 ? '+' : ''}{fmtFcfa(pnl.netFcfa)}
+          </AppText>
+        </View>
+        <View style={styles.margeItem}>
+          <AppText size="caption" color="muted">Ventes</AppText>
+          <AppText size="bodyM" weight="bold" color="text">{fmtFcfa(pnl.sales.totalFcfa)}</AppText>
+          <AppText size="caption" color="faint">{pnl.sales.count} vente{pnl.sales.count > 1 ? 's' : ''}</AppText>
+        </View>
+        <View style={styles.margeItem}>
+          <AppText size="caption" color="muted">Charges</AppText>
+          <AppText size="bodyM" weight="bold" color="text">{fmtFcfa(pnl.expenses.totalFcfa)}</AppText>
+          <AppText size="caption" color="faint">{pnl.expenses.count} dépense{pnl.expenses.count > 1 ? 's' : ''}</AppText>
+        </View>
+      </View>
+      {top.length > 0 ? (
+        <AppText size="caption" color="faint" numberOfLines={1}>
+          Top vente{top.length > 1 ? 's' : ''} :{' '}
+          {top.map((p) => `${p.label} (${fmtFcfa(p.amountFcfa)})`).join(' · ')}
+        </AppText>
+      ) : null}
+    </Card>
+  );
+}
+
 function StatusDot({ status }: { status: Parcelle['status'] }) {
   const dot = {
     ACTIVE: palette.green[500],
@@ -327,6 +442,23 @@ function fmtM2(totalHa: number): string {
 /** Date locale ISO (AAAA-MM-JJ). */
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Fenêtre du mois calendaire courant (1er → aujourd'hui) pour la marge. */
+function monthWindow(now: Date): { from: string; to: string } {
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  return { from: toDateStr(first), to: toDateStr(now) };
+}
+
+/** Résumé du stock récolté, ligne la plus fournie d'abord. */
+function fmtStockLines(stock: { parcelleName: string; unit: string; available: number }[]): string {
+  const lines = [...stock].sort((a, b) => b.available - a.available).slice(0, 2);
+  const unitLabel = (u: string) => (u === 'KG' ? 'kg' : u === 'SAC' ? 'sac(s)' : 'pièce(s)');
+  const parts = lines.map(
+    (l) => `${l.parcelleName}: ${l.available.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ${unitLabel(l.unit)}`,
+  );
+  if (stock.length > lines.length) parts.push(`+ ${stock.length - lines.length} autre${stock.length - lines.length > 1 ? 's' : ''}`);
+  return parts.join(' · ');
 }
 
 /** Aire au format ha + m² lisible (ex. « 1,5 ha · 15 000 m² »). */
@@ -426,6 +558,24 @@ const styles = StyleSheet.create({
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   harvestCard: { marginTop: 14, padding: 12 },
   harvestRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  margeCard: { marginTop: 14, padding: 12, gap: 8 },
+  margeHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  margeLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  margeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  margeItem: { flex: 1, gap: 1 },
   statusWrap: { alignItems: 'center', gap: 4 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   cta: { marginTop: 14 },
