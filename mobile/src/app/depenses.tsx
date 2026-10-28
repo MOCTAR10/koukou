@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Info, Pencil, Plus, ReceiptText, Trash2 } from 'lucide-react-native';
 
@@ -196,14 +197,9 @@ export default function DepensesScreen() {
   };
 
   const confirmDelete = (e: Expense) => {
-    Alert.alert(
-      'Supprimer cette dépense ?',
-      `${fmtFcfa(e.amountFcfa)}${e.label ? ` — ${e.label}` : ''}.\n\nL’écriture comptable sera contre-passée.`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => void doDelete(e) },
-      ],
-    );
+    void confirm({ title: 'Supprimer cette dépense ?', message: `${fmtFcfa(e.amountFcfa)}${e.label ? ` — ${e.label}` : ''}.\n\nL’écriture comptable sera contre-passée.`, cancelLabel: 'Annuler', confirmLabel: 'Supprimer', destructive: true }).then((ok) => {
+      if (ok) void doDelete(e);
+    });
   };
 
   const doDelete = async (e: Expense) => {
@@ -212,7 +208,7 @@ export default function DepensesScreen() {
       await deleteExpense(farmId ?? '', e.id);
       refresh();
     } catch (err) {
-      Alert.alert('Suppression impossible', err instanceof Error ? err.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', err instanceof Error ? err.message : 'Erreur inattendue.');
     } finally {
       setDeletingId(null);
     }
@@ -224,16 +220,13 @@ export default function DepensesScreen() {
       const result = await syncExpenses(farmId ?? '');
       const total = result.batchesSynced + result.inputsSynced;
       if (total > 0) {
-        Alert.alert(
-          'Synchronisation terminée',
-          `${result.batchesSynced} lot(s) et ${result.inputsSynced} intrant(s) synchronisés.`,
-        );
+        toast.success('Synchronisation terminée', `${result.batchesSynced} lot(s) et ${result.inputsSynced} intrant(s) synchronisés.`);
       } else {
-        Alert.alert('Synchronisation terminée', 'Toutes les dépenses sont déjà synchronisées.');
+        toast.success('Synchronisation terminée', 'Toutes les dépenses sont déjà synchronisées.');
       }
       refresh();
     } catch (err) {
-      Alert.alert('Erreur', err instanceof Error ? err.message : 'Erreur lors de la synchronisation.');
+      toast.error('Erreur', err instanceof Error ? err.message : 'Erreur lors de la synchronisation.');
     } finally {
       setSyncing(false);
     }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { toast } from '@/components/ui/Feedback';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Download, ReceiptText, ShieldCheck } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
@@ -40,19 +41,16 @@ export function ReceiptPreviewSheet({ visible, sale, farmName, pdvName, onClose 
     try {
       const res = await downloadPdf(`/farms/${sale.farmId}/sales/${sale.id}/receipt`, `${sale.referenceNumber}.pdf`);
       if (res.platform === 'android' && !res.savedToDownloads) {
-        Alert.alert(
-          'Téléchargement annulé',
-          'Accès au dossier de fichiers refusé. Le PDF n’a pas été enregistré. Réessayez et autorisez le dossier Téléchargements.',
-        );
+        toast.info('Téléchargement annulé', 'Accès au dossier de fichiers refusé. Le PDF n’a pas été enregistré. Réessayez et autorisez le dossier Téléchargements.');
       } else if (res.platform === 'android') {
-        Alert.alert('Reçu enregistré', `« ${sale.referenceNumber}.pdf » enregistré dans Téléchargements.`);
+        toast.success('Reçu enregistré', `« ${sale.referenceNumber}.pdf » enregistré dans Téléchargements.`);
       } else if (res.platform === 'ios') {
-        Alert.alert('Reçu partagé', 'Choisissez « Enregistrer dans Fichiers » pour le conserver sur l’appareil.');
+        toast.success('Reçu partagé', 'Choisissez « Enregistrer dans Fichiers » pour le conserver sur l’appareil.');
       } else {
-        Alert.alert('Reçu téléchargé', `« ${sale.referenceNumber}.pdf » téléchargé.`);
+        toast.success('Reçu téléchargé', `« ${sale.referenceNumber}.pdf » téléchargé.`);
       }
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setDownloading(false);
     }

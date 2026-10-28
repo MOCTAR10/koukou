@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
+import { toast } from '@/components/ui/Feedback';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -549,8 +550,8 @@ export default function LotDetailScreen() {
     setPdfBusy(true);
     try {
       await downloadPdf(`/farms/${farmId}/batches/${batchId}/passeport`, `passeport-${batchId}.pdf`);
-      Alert.alert('Passeport sanitaire', 'PDF prêt.');
-    } catch (e) { Alert.alert('Erreur', e instanceof Error ? e.message : 'Inattendue.'); }
+      toast.success('Passeport sanitaire', 'PDF prêt.');
+    } catch (e) { toast.error('Erreur', e instanceof Error ? e.message : 'Inattendue.'); }
     finally { setPdfBusy(false); }
   };
 

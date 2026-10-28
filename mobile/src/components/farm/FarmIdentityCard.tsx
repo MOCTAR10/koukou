@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { confirm } from '@/components/ui/Feedback';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
 
@@ -116,14 +117,9 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
   };
 
   const confirmRemoveLogo = () => {
-    Alert.alert(
-      'Retirer le logo',
-      'La ferme repassera au logo Fermia par défaut. Confirmer ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Retirer', style: 'destructive', onPress: () => void removeLogo() },
-      ],
-    );
+    void confirm({ title: 'Retirer le logo', message: 'La ferme repassera au logo Fermia par défaut. Confirmer ?', cancelLabel: 'Annuler', confirmLabel: 'Retirer', destructive: true }).then((ok) => {
+      if (ok) void removeLogo();
+    });
   };
 
   return (

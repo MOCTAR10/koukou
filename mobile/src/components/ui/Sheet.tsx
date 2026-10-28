@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText } from './AppText';
+import { ToastViewport } from './Feedback';
 import { color, palette, layout, radii, shadow } from '@/constants/theme';
 
 interface SheetProps {
@@ -140,6 +141,8 @@ export function Sheet({ visible, title, subtitle, icon, accentColor, footer, sti
           {footer ? <View style={styles.footer}>{footer}</View> : null}
         </Animated.View>
       </View>
+      {/* Toasts fired while this sheet is open render above it. */}
+      {mounted ? <ToastViewport /> : null}
     </Modal>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -414,53 +415,42 @@ export default function CommandeDetailScreen() {
   };
 
   const doCancel = () => {
-    Alert.alert('Annuler la commande', `${order.referenceNumber} sera passée « Annulée ». Confirmer ?`, [
-      { text: 'Retour', style: 'cancel' },
-      {
-        text: 'Annuler',
-        style: 'destructive',
-        onPress: () => {
-          setBusy(true);
-          cancelOrderQueued(farmId, order.id, 'Annulée sur demande de la ferme')
-            .then(async () => {
-              await invalidateFarmQueries(queryClient, { farmId });
-              await orderQuery.refetch();
-            })
-            .catch((e) => Alert.alert('Annulation impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
-            .finally(() => setBusy(false));
-        },
-      },
-    ]);
+    void confirm({ title: 'Annuler la commande', message: `${order.referenceNumber} sera passée « Annulée ». Confirmer ?`, cancelLabel: 'Retour', confirmLabel: 'Annuler', destructive: true }).then((ok) => {
+      if (!ok) return;
+      setBusy(true);
+      cancelOrderQueued(farmId, order.id, 'Annulée sur demande de la ferme')
+        .then(async () => {
+          await invalidateFarmQueries(queryClient, { farmId });
+          await orderQuery.refetch();
+        })
+        .catch((e) => toast.error('Annulation impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
+        .finally(() => setBusy(false));
+    });
   };
 
   const doDeliver = () => {
     if (order.status !== 'CONFIRMED') {
-      Alert.alert('Impossible', 'Encoder un acompte (→ Confirmer) avant de livrer.');
+      toast.error('Impossible', 'Encoder un acompte (→ Confirmer) avant de livrer.');
       return;
     }
-    Alert.alert('Livrer la commande', 'Le cheptel sera décrémenté et le bon de commande PDF généré. Confirmer ?', [
-      { text: 'Retour', style: 'cancel' },
-      {
-        text: 'Livrer',
-        onPress: () => {
-          setBusy(true);
-          deliverOrderQueued(farmId, order.id)
-            .then(async () => {
-              await invalidateFarmQueries(queryClient, { farmId });
-              await orderQuery.refetch();
-              Alert.alert('Commande livrée', `${order.referenceNumber} : cheptel mis à jour et bon de commande généré.`);
-            })
-            .catch((e) => Alert.alert('Livraison impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
-            .finally(() => setBusy(false));
-        },
-      },
-    ]);
+    void confirm({ title: 'Livrer la commande', message: 'Le cheptel sera décrémenté et le bon de commande PDF généré. Confirmer ?', cancelLabel: 'Retour', confirmLabel: 'Livrer' }).then((ok) => {
+      if (!ok) return;
+      setBusy(true);
+      deliverOrderQueued(farmId, order.id)
+        .then(async () => {
+          await invalidateFarmQueries(queryClient, { farmId });
+          await orderQuery.refetch();
+          toast.success('Commande livrée', `${order.referenceNumber} : cheptel mis à jour et bon de commande généré.`);
+        })
+        .catch((e) => toast.error('Livraison impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
+        .finally(() => setBusy(false));
+    });
   };
 
   const doPdf = () => {
     downloadPdf(`/farms/${farmId}/orders/${order.id}/bon-de-commande`, `${order.referenceNumber}.pdf`)
-      .then(() => Alert.alert('Bon de commande', `« ${order.referenceNumber}.pdf » enregistré sur votre appareil.`))
-      .catch((e) => Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.'));
+      .then(() => toast.success('Bon de commande', `« ${order.referenceNumber}.pdf » enregistré sur votre appareil.`))
+      .catch((e) => toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.'));
   };
 
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);

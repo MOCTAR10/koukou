@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Download, Scale, CircleCheck, CircleAlert, Lock, Boxes } from 'lucide-react-native';
 
@@ -140,9 +141,9 @@ export default function ComptabiliteScreen() {
     mutationFn: () => initializeAccounting(farmId),
     onSuccess: () => {
       invalidate();
-      Alert.alert('Comptabilité à jour', 'Plan comptable et historique passés en écritures.');
+      toast.success('Comptabilité à jour', 'Plan comptable et historique passés en écritures.');
     },
-    onError: (e: Error) => Alert.alert('Synchronisation impossible', e.message),
+    onError: (e: Error) => toast.error('Synchronisation impossible', e.message),
   });
 
   const exportPdf = async () => {
@@ -151,9 +152,9 @@ export default function ComptabiliteScreen() {
         `/farms/${farmId}/accounting/export?report=${tab}&format=pdf`,
         `fermia-${tab}.pdf`,
       );
-      Alert.alert('Rapport téléchargé', `${REPORT_NAME[tab]} exporté (PDF).`);
+      toast.success('Rapport téléchargé', `${REPORT_NAME[tab]} exporté (PDF).`);
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     }
   };
 
@@ -170,23 +171,15 @@ export default function ComptabiliteScreen() {
       } else if (res.resultatFcfa < 0) {
         details.push(`Perte de ${fmtFcfa(Math.abs(res.resultatFcfa))} reportée à nouveau (12/129).`);
       }
-      Alert.alert(
-        'Exercice clôturé',
-        `${res.exercice.label} est clôturé. ${res.next.label} est ouvert.${details.length ? `\n${details.join('\n')}` : ''}`,
-      );
+      toast.success('Exercice clôturé', `${res.exercice.label} est clôturé. ${res.next.label} est ouvert.${details.length ? `\n${details.join('\n')}` : ''}`);
     },
-    onError: (e: Error) => Alert.alert('Clôture impossible', e.message),
+    onError: (e: Error) => toast.error('Clôture impossible', e.message),
   });
 
   const confirmClose = (ex: ExerciceInfo) => {
-    Alert.alert(
-      'Clôturer l’exercice',
-      `${ex.label} (${ex.startDate} → ${ex.endDate})\nLe stock final sera valorisé (311/603) et le résultat reporté à nouveau. Le jour de clôture est irréversible.`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Clôturer', style: 'destructive', onPress: () => closeMutation.mutate(ex.id) },
-      ],
-    );
+    void confirm({ title: 'Clôturer l’exercice', message: `${ex.label} (${ex.startDate} → ${ex.endDate})\nLe stock final sera valorisé (311/603) et le résultat reporté à nouveau. Le jour de clôture est irréversible.`, cancelLabel: 'Annuler', confirmLabel: 'Clôturer', destructive: true }).then((ok) => {
+      if (ok) closeMutation.mutate(ex.id);
+    });
   };
 
   const exportable = tab === 'journal' || tab === 'balance' || tab === 'resultat' || tab === 'bilan';
@@ -621,10 +614,10 @@ function RegularisationSheet({
       queryClient.invalidateQueries({ queryKey: ['accounting-balance', farmId] });
       queryClient.invalidateQueries({ queryKey: ['accounting-resultat', farmId] });
       queryClient.invalidateQueries({ queryKey: ['accounting-bilan', farmId] });
-      Alert.alert('Écriture posée', 'La régularisation équilibrée a été enregistrée au journal.');
+      toast.success('Écriture posée', 'La régularisation équilibrée a été enregistrée au journal.');
       onDone();
     },
-    onError: (e: Error) => Alert.alert('Écriture refusée', e.message),
+    onError: (e: Error) => toast.error('Écriture refusée', e.message),
   });
 
   return (

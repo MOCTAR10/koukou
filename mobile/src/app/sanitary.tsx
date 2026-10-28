@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -755,16 +756,8 @@ export default function SanitaryScreen() {
 
   const deleteScheduleEvent = (e: ProphylaxisEvent) => {
     if (!batchId) return;
-    Alert.alert(
-      'Supprimer le soin',
-      'Cette échéance sera supprimée (action Propriétaire). Le stock est restitué si une sortie « Sortir du stock » y était liée.',
-      [
-        { text: 'Non', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () =>
-            void (async () => {
+    void confirm({ title: 'Supprimer le soin', message: 'Cette échéance sera supprimée (action Propriétaire). Le stock est restitué si une sortie « Sortir du stock » y était liée.', cancelLabel: 'Non', confirmLabel: 'Supprimer', destructive: true }).then((ok) => {
+      if (ok) void (async () => {
               setBusy(e.id);
               setError(null);
               try {
@@ -775,10 +768,8 @@ export default function SanitaryScreen() {
               } finally {
                 setBusy(null);
               }
-            })(),
-        },
-      ],
-    );
+            })();
+    });
   };
 
   const invalidate = async (b: string) => {
@@ -803,10 +794,9 @@ export default function SanitaryScreen() {
     if (!batchId) return;
     setError(null);
     if (action === 'cancel') {
-      Alert.alert('Annuler le soin', 'Le soin ne sera pas réalisé. Confirmer ?', [
-        { text: 'Non', style: 'cancel' },
-        { text: 'Annuler le soin', style: 'destructive', onPress: () => void run() },
-      ]);
+      void confirm({ title: 'Annuler le soin', message: 'Le soin ne sera pas réalisé. Confirmer ?', cancelLabel: 'Non', confirmLabel: 'Annuler le soin', destructive: true }).then((ok) => {
+      if (ok) void run();
+    });
       return;
     }
     await run();
@@ -915,12 +905,11 @@ export default function SanitaryScreen() {
         const birds = Math.floor(qty);
         const lotName = lotNow.batchName ?? 'ce lot';
         const remaining = Math.max(0, (lotNow.quantityAlive ?? 0) - birds);
-        Alert.alert(
+        toast.info(
           'Effectif du lot mis à jour',
           kind === 'REFORME'
             ? `${birds} oiseaux abattus (réforme sanitaire) retirés de « ${lotName} ».\nEffectif vivant restant estimé : ${remaining} oiseaux.\nMaintenez la surveillance : eau et aliment à volonté pour le reste du lot, isolez tout sujet affaibli.`
             : `${birds} oiseaux morts enregistrés sur « ${lotName} ».\nEffectif vivant restant estimé : ${remaining} oiseaux.\nEn cas de pic de mortalité répété (> 1 % du lot), renforcez la surveillance ; au-delà de 5 %, contactez un vétérinaire.`,
-          [{ text: 'OK', style: 'cancel' }],
         );
       }
     } catch (e) {
@@ -946,33 +935,23 @@ export default function SanitaryScreen() {
 
   const removeHealth = async (e: HealthEvent) => {
     if (!batchId) return;
-    Alert.alert(
-      'Supprimer l’événement',
-      e.kind === 'REFORME'
+    void confirm({ title: 'Supprimer l’événement', message: e.kind === 'REFORME'
         ? 'La suppression d’un abattage réintègre l’effectif vivant. Continuer ?'
-        : 'Cet événement sanitaire sera supprimé. Continuer ?',
-      [
-        { text: 'Non', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setError(null);
-              setBusy(`del-${e.id}`);
-              try {
-                await deleteHealthEvent(farmId, batchId, e.id);
-                await invalidate(batchId);
-              } catch (err) {
-                setError(err instanceof Error ? err.message : 'Erreur lors de la suppression.');
-              } finally {
-                setBusy(null);
-              }
-            })();
-          },
-        },
-      ],
-    );
+        : 'Cet événement sanitaire sera supprimé. Continuer ?', cancelLabel: 'Non', confirmLabel: 'Supprimer', destructive: true }).then((ok) => {
+      if (!ok) return;
+        void (async () => {
+          setError(null);
+          setBusy(`del-${e.id}`);
+          try {
+            await deleteHealthEvent(farmId, batchId, e.id);
+            await invalidate(batchId);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erreur lors de la suppression.');
+          } finally {
+            setBusy(null);
+          }
+        })();
+    });
   };
 
   return (
@@ -1505,10 +1484,7 @@ function CreateScheduleWizard({
         for (const lid of selLots) {
           await invalidateFarmQueries(queryClient, { farmId, batchId: lid });
         }
-        Alert.alert(
-          'Programme appliqué',
-          `${res.planned} soin(s) planifié(s)${res.skipped > 0 ? ` · ${res.skipped} étape(s) sautée(s) (dates déjà passées ou déjà réalisées)` : ''}${res.programName ? `\n${res.programName}` : ''}.`,
-        );
+        toast.success('Programme appliqué', `${res.planned} soin(s) planifié(s)${res.skipped > 0 ? ` · ${res.skipped} étape(s) sautée(s) (dates déjà passées ou déjà réalisées)` : ''}${res.programName ? `\n${res.programName}` : ''}.`);
       } else {
         const payload: CreateManualScheduleInput = {
           lotIds: selLots,
@@ -1532,10 +1508,7 @@ function CreateScheduleWizard({
         for (const lid of selLots) {
           await invalidateFarmQueries(queryClient, { farmId, batchId: lid });
         }
-        Alert.alert(
-          'Soin planifié',
-          `${selLots.length} lot(s) concerné(s)${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`,
-        );
+        toast.success('Soin planifié', `${selLots.length} lot(s) concerné(s)${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`);
       }
       onClose();
     } catch (e) {
@@ -1990,7 +1963,7 @@ function EditScheduleSheet({
         scheduledDate: date,
       });
       await invalidateFarmQueries(queryClient, { farmId, batchId: event.batchId });
-      Alert.alert('Soin mis à jour', 'La nouvelle date reprogramme l’échéance si nécessaire.');
+      toast.success('Soin mis à jour', 'La nouvelle date reprogramme l’échéance si nécessaire.');
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Édition impossible (soin réalisé ?).');

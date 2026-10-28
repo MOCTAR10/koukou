@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowUpFromLine, Coins, FolderClosed, FolderOpen, Pencil, Trash2 } from 'lucide-react-native';
 
@@ -224,14 +225,9 @@ export function CaisseTab({ farmId, current, loading, canManage, onChanged }: Ca
 
   const confirmDelete = (m: CashMovement) => {
     const line = `${m.type === 'OUT' ? 'Sortie' : 'Entrée'} de ${fmtFcfa(m.amountFcfa)}${m.reason ? ` — ${m.reason}` : ''}.`;
-    Alert.alert(
-      'Supprimer ce mouvement ?',
-      `${line}\n\nL’écriture comptable sera contre-passée.`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => void doDelete(m) },
-      ],
-    );
+    void confirm({ title: 'Supprimer ce mouvement ?', message: `${line}\n\nL’écriture comptable sera contre-passée.`, cancelLabel: 'Annuler', confirmLabel: 'Supprimer', destructive: true }).then((ok) => {
+      if (ok) void doDelete(m);
+    });
   };
 
   const doDelete = async (m: CashMovement) => {
@@ -240,7 +236,7 @@ export function CaisseTab({ farmId, current, loading, canManage, onChanged }: Ca
       await deleteCashMovement(farmId, m.id);
       onChanged();
     } catch (e) {
-      Alert.alert('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setDeletingId(null);
     }

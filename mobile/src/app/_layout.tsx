@@ -15,6 +15,7 @@ import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { QuickCaptureProvider } from '@/components/capture/QuickCaptureProvider';
 import { CreateCenterProvider } from '@/components/create/CreateCenter';
 import { OfflineAutoSync } from '@/components/OfflineAutoSync';
+import { FeedbackHost } from '@/components/ui/Feedback';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { palette } from '@/constants/theme';
 
@@ -92,6 +93,7 @@ export default function RootLayout() {
               <OfflineAutoSync />
               <StatusBar style="dark" />
               <RootNavigator />
+              <FeedbackHost />
             </CreateCenterProvider>
           </QuickCaptureProvider>
         </AuthProvider>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building, Check, FileText, Printer, Scale, Truck } from 'lucide-react-native';
 
@@ -117,9 +118,9 @@ export default function SlaughterScreen() {
     setBusy(order.id);
     try {
       await downloadPdf(`/farms/${farmId}/slaughter-orders/${order.id}/bordereau`, `${order.referenceNumber}.pdf`);
-      Alert.alert('Bordereau téléchargé', `Partagez « ${order.referenceNumber}.pdf » avec l’abattoir.`);
+      toast.success('Bordereau téléchargé', `Partagez « ${order.referenceNumber}.pdf » avec l’abattoir.`);
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setBusy(null);
     }
@@ -129,9 +130,9 @@ export default function SlaughterScreen() {
     setBusy(b.id);
     try {
       await downloadPdf(`/farms/${farmId}/batches/${b.id}/passeport`, `passeport-${b.batchName ?? b.id}.pdf`);
-      Alert.alert('Passeport sanitaire', `« passeport-${b.batchName ?? b.id}.pdf » enregistré : il certifie la conformité sanitaire du lot pour l’abattoir.`);
+      toast.success('Passeport sanitaire', `« passeport-${b.batchName ?? b.id}.pdf » enregistré : il certifie la conformité sanitaire du lot pour l’abattoir.`);
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setBusy(null);
     }
@@ -219,10 +220,9 @@ export default function SlaughterScreen() {
   };
 
   const cancelOrder = async (order: SlaughterOrder) => {
-    Alert.alert('Annuler l’ordre', `${order.referenceNumber} sera annulé. Confirmer ?`, [
-      { text: 'Non', style: 'cancel' },
-      { text: 'Annuler', style: 'destructive', onPress: () => void doCancel(order) },
-    ]);
+    void confirm({ title: 'Annuler l’ordre', message: `${order.referenceNumber} sera annulé. Confirmer ?`, cancelLabel: 'Non', confirmLabel: 'Annuler', destructive: true }).then((ok) => {
+      if (ok) void doCancel(order);
+    });
   };
 
   const drafts = orders.filter((o) => o.status === 'DRAFT');

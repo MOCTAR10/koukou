@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { toast } from '@/components/ui/Feedback';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Download, FileBarChart2, PieChart, Receipt, Store, TrendingUp, Wallet, TrendingDown } from 'lucide-react-native';
 
@@ -126,9 +127,9 @@ export default function RapportsScreen() {
     const query = from ? `?from=${from}${to ? `&to=${to}` : ''}` : '';
     try {
       await downloadPdf(`/farms/${farmId}/rentabilite/overview/export${query}`, 'rapport-pnl.pdf');
-      Alert.alert('Rapport téléchargé', 'P&L de période exporté (PDF).');
+      toast.success('Rapport téléchargé', 'P&L de période exporté (PDF).');
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     }
   };
 
@@ -136,9 +137,9 @@ export default function RapportsScreen() {
     if (!batchId) return;
     try {
       await downloadPdf(`/farms/${farmId}/rentabilite/batches/${batchId}/export`, `pnl-lot-${batchId}.pdf`);
-      Alert.alert('Rapport téléchargé', 'P&L du lot exporté (PDF).');
+      toast.success('Rapport téléchargé', 'P&L du lot exporté (PDF).');
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     }
   };
 

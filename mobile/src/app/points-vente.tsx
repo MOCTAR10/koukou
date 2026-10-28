@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { toast } from '@/components/ui/Feedback';
+import { Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronDown, Map as MapIcon, MapPin, Plus, Star, Store, Trash2, TrendingUp, X, House } from 'lucide-react-native';
 
@@ -502,13 +503,10 @@ export default function PointsVenteScreen() {
       const res = await deletePointOfSaleQueued(farmId, confirmDelete.id);
       invalidateFarmQueries(queryClient, { farmId });
       setConfirmDelete(null);
-      Alert.alert(
-        'Point de vente supprimé',
-        res.status === 'queued' ? 'Suppression mise en file, synchronisation en attente.' : 'Le point de vente a été retiré de la liste.',
-      );
+      toast.success('Point de vente supprimé', res.status === 'queued' ? 'Suppression mise en file, synchronisation en attente.' : 'Le point de vente a été retiré de la liste.');
     } catch (e) {
       setConfirmDelete(null);
-      Alert.alert('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setDeleting(false);
     }
