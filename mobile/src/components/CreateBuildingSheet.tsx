@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sheet } from './ui/Sheet';
 import { AppText } from './ui/AppText';
 import { Button } from './ui/Button';
-import { color, palette, radii, fontFamily } from '@/constants/theme';
+import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { createBuilding } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
@@ -203,10 +203,10 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
           {/* ── Density advisory ── */}
           {densityLevel === 'warn' && (
             <View style={[styles.advisory, styles.advisoryWarn]}>
-              <AppText size='small' weight='semibold' color={palette.amber[600]}>
+              <AppText size='small' weight='semibold' color={semantic.warnText}>
                 Densité {density!.toFixed(1)} oiseaux/m² — seuil d&apos;alerte
               </AppText>
-              <AppText size='small' color={palette.amber[700]}>
+              <AppText size='small' color={semantic.warnText}>
                 {selectedType === 'CHAIR'
                   ? `La norme Chair recommande <= ${DENSITY_CHAIR} oiseaux/m². Surveillez ventilation et litière.`
                   : `La norme Pondeuse recommande <= ${DENSITY_PONDEUSE} oiseaux/m². Espace au sol insuffisant.`}
@@ -215,20 +215,20 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
           )}
           {densityLevel === 'critical' && (
             <View style={[styles.advisory, styles.advisoryCritical]}>
-              <AppText size='small' weight='semibold' color={palette.red[600]}>
+              <AppText size='small' weight='semibold' color={semantic.dangerText}>
                 Densité {density!.toFixed(1)} oiseaux/m² — seuil critique
               </AppText>
-              <AppText size='small' color={palette.red[700]}>
+              <AppText size='small' color={semantic.dangerText}>
                 Risque sanitaire et de stress thermique élevé en zone tropicale. Réduisez le cheptel ou augmentez la surface.
               </AppText>
             </View>
           )}
           {kgPerM2Level === 'critical' && (
             <View style={[styles.advisory, styles.advisoryCritical]}>
-              <AppText size='small' weight='semibold' color={palette.red[600]}>
+              <AppText size='small' weight='semibold' color={semantic.dangerText}>
                 {kgPerM2!.toFixed(1)} kg/m² — dépasse le standard tropical
               </AppText>
-              <AppText size='small' color={palette.red[700]}>
+              <AppText size='small' color={semantic.dangerText}>
                 En zone tropicale (Gabon), ne jamais dépasser 20-25 kg de viande/m² en fin d&apos;élevage.
               </AppText>
             </View>

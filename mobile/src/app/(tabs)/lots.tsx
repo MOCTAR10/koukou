@@ -52,7 +52,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PulsarDot } from '@/components/ui/PulsarDot';
 import { Sheet } from '@/components/ui/Sheet';
 import { PeriodBar, periodWindow, toDateStr, type PeriodBarHandle, type PeriodWindow } from '@/components/ui/PeriodBar';
-import { color, fmt, palette, radii, fontFamily } from '@/constants/theme';
+import { color, fmt, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
@@ -731,13 +731,13 @@ export default function LotsScreen() {
               <View style={[styles.slimTileIcon, { backgroundColor: 'rgba(96, 160, 64, 0.12)' }]}>
                 <Bird size={15} color={palette.green[600]} />
               </View>
-              <AppText style={styles.slimTileTitle} color={palette.green[700]}>Volaille</AppText>
+              <AppText style={styles.slimTileTitle} color={semantic.successText}>Volaille</AppText>
             </View>
             <View style={[styles.slimTileCount, { borderColor: palette.green[600] + '45', backgroundColor: palette.green[600] + '12' }]}>
-              <AppText style={styles.slimTileCountText} color={palette.green[700]}>{farmStats.activeCount + farmStats.sellingCount} lots</AppText>
+              <AppText style={styles.slimTileCountText} color={semantic.successText}>{farmStats.activeCount + farmStats.sellingCount} lots</AppText>
             </View>
           </View>
-          <AppText style={styles.slimTileValue} color={palette.green[700]}>{fmt(farmStats.totalBirds)}</AppText>
+          <AppText style={styles.slimTileValue} color={semantic.successText}>{fmt(farmStats.totalBirds)}</AppText>
           <AppText style={styles.slimTileCaption} color="muted">
             {farmStats.readyBirds > 0
               ? `oiseaux vivants · ${fmt(farmStats.readyBirds)} prêts`
@@ -761,13 +761,13 @@ export default function LotsScreen() {
                 {farmStats.chairCount > 0 && (
                   <View style={styles.slimTileLegendItem}>
                     <View style={[styles.slimTileLegendDot, { backgroundColor: palette.green[500] }]} />
-                    <AppText style={styles.slimTileLegendText} color={palette.green[700]}>{fmt(farmStats.chairCount)} chair</AppText>
+                    <AppText style={styles.slimTileLegendText} color={semantic.successText}>{fmt(farmStats.chairCount)} chair</AppText>
                   </View>
                 )}
                 {farmStats.pondeuseCount > 0 && (
                   <View style={styles.slimTileLegendItem}>
                     <View style={[styles.slimTileLegendDot, { backgroundColor: palette.accent[500] }]} />
-                    <AppText style={styles.slimTileLegendText} color={palette.accent[700]}>{fmt(farmStats.pondeuseCount)} pondeuse</AppText>
+                    <AppText style={styles.slimTileLegendText} color={semantic.accentText}>{fmt(farmStats.pondeuseCount)} pondeuse</AppText>
                   </View>
                 )}
               </View>
@@ -782,10 +782,10 @@ export default function LotsScreen() {
               <View style={[styles.slimTileIcon, { backgroundColor: 'rgba(240, 128, 16, 0.13)' }]}>
                 <Egg size={15} color={palette.accent[500]} />
               </View>
-              <AppText style={styles.slimTileTitle} color={palette.accent[700]}>Œufs</AppText>
+              <AppText style={styles.slimTileTitle} color={semantic.accentText}>Œufs</AppText>
             </View>
             <View style={[styles.slimTileCount, { borderColor: palette.accent[500] + '45', backgroundColor: palette.accent[500] + '12' }]}>
-              <AppText style={styles.slimTileCountText} color={palette.accent[700]}>
+              <AppText style={styles.slimTileCountText} color={semantic.accentText}>
                 {farmStats.totalEggs >= 30
                   ? `${fmt(farmStats.totalAlveoles)} alvéole${farmStats.totalAlveoles !== 1 ? 's' : ''}`
                   : farmStats.totalEggs > 0
@@ -794,7 +794,7 @@ export default function LotsScreen() {
               </AppText>
             </View>
           </View>
-          <AppText style={styles.slimTileValue} color={palette.accent[600]}>{farmStats.totalEggs > 0 ? fmt(farmStats.totalEggs) : '—'}</AppText>
+          <AppText style={styles.slimTileValue} color={semantic.accentText}>{farmStats.totalEggs > 0 ? fmt(farmStats.totalEggs) : '—'}</AppText>
           <AppText style={styles.slimTileCaption} color="muted">récolte cumulée</AppText>
           <View style={styles.slimTileDivider} />
           {farmStats.avgLayRatePondeuse != null ? (
@@ -808,7 +808,7 @@ export default function LotsScreen() {
               <View style={styles.slimTileLegend}>
                 <View style={styles.slimTileLegendItem}>
                   <View style={[styles.slimTileLegendDot, { backgroundColor: palette.accent[500] }]} />
-                  <AppText style={styles.slimTileLegendText} color={palette.accent[700]}>{farmStats.avgLayRatePondeuse.toFixed(0)} % ponte</AppText>
+                  <AppText style={styles.slimTileLegendText} color={semantic.accentText}>{farmStats.avgLayRatePondeuse.toFixed(0)} % ponte</AppText>
                 </View>
               </View>
             </>
@@ -1266,7 +1266,7 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
         {buildingName && (
           <View style={[styles.buildingChip, { backgroundColor: palette.brand[50], borderColor: palette.brand[200] }]}>
             <Building2 size={12} color={palette.brand[700]} />
-            <AppText size="small" weight="bold" color={palette.brand[700]} numberOfLines={1} style={styles.buildingChipText}>
+            <AppText size="small" weight="bold" color={semantic.primaryText} numberOfLines={1} style={styles.buildingChipText}>
               {buildingName}
             </AppText>
           </View>
@@ -1709,7 +1709,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
           )}
           <AppText size="caption" weight="semibold" color="muted">{overviewLive ? 'En direct' : 'Date'}</AppText>
           <View style={styles.ovMetaDivider} />
-          <AppText size="caption" weight="bold" color={palette.brand[700]}>{dateFr(overviewDate)}</AppText>
+          <AppText size="caption" weight="bold" color={semantic.primaryText}>{dateFr(overviewDate)}</AppText>
         </View>
       </View>
 
@@ -1756,19 +1756,19 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
         {summary.redCount > 0 && (
           <View style={[styles.alertChip, { backgroundColor: palette.red[50], borderColor: palette.red[200] }]}>
             <AlertTriangle size={12} color={palette.red[500]} />
-            <AppText size="small" weight="bold" color={palette.red[500]}>{summary.redCount} critique(s)</AppText>
+            <AppText size="small" weight="bold" color={semantic.dangerText}>{summary.redCount} critique(s)</AppText>
           </View>
         )}
         {summary.yellowCount > 0 && (
           <View style={[styles.alertChip, { backgroundColor: palette.amber[50], borderColor: palette.amber[200] }]}>
             <Info size={12} color={palette.amber[500]} />
-            <AppText size="small" weight="bold" color={palette.amber[500]}>{summary.yellowCount} à surveiller</AppText>
+            <AppText size="small" weight="bold" color={semantic.warnText}>{summary.yellowCount} à surveiller</AppText>
           </View>
         )}
         {summary.redCount === 0 && summary.yellowCount === 0 && (
           <View style={[styles.alertChip, { backgroundColor: palette.green[50], borderColor: palette.green[200] }]}>
             <BadgeCheck size={12} color={palette.green[600]} />
-            <AppText size="small" weight="bold" color={palette.green[600]}>Tout est OK</AppText>
+            <AppText size="small" weight="bold" color={semantic.successText}>Tout est OK</AppText>
           </View>
         )}
       </View>
@@ -1803,7 +1803,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
           </AppText>
           {summary.readyCount > 0 && onShowSelling && (
             <View style={styles.readyGoto}>
-              <AppText size="caption" weight="bold" color={palette.brand[600]}>Voir</AppText>
+              <AppText size="caption" weight="bold" color={semantic.primaryText}>Voir</AppText>
               <ChevronRight size={12} color={palette.brand[600]} />
             </View>
           )}
@@ -1815,7 +1815,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
           <Wallet size={14} color={palette.brand[600]} />
         </View>
         <View style={{ flex: 1, gap: 1 }}>
-          <AppText size="body" weight="bold" color={palette.brand[700]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+          <AppText size="body" weight="bold" color={semantic.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {revenueFcfa != null ? `${compactFcfa(revenueFcfa)} FCFA` : '—'}
           </AppText>
           <AppText size="caption" color="muted" numberOfLines={1}>Revenus · {revenueLabel}</AppText>
@@ -1827,14 +1827,14 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
         <DetailSectionTitle label="Consommation alimentaire" color={palette.brand[600]} icon={Wheat} />
         <View style={styles.ovFeedRow}>
           <View style={styles.ovFeedStat}>
-            <AppText size="body" weight="bold" color={palette.brand[700]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            <AppText size="body" weight="bold" color={semantic.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {summary.totalFeedKg > 0 ? `${fmt(summary.totalFeedKg)} kg` : '—'}
             </AppText>
             <AppText size="caption" color="muted" numberOfLines={1}>aliment distribué</AppText>
           </View>
           <View style={styles.ovFeedDivider} />
           <View style={styles.ovFeedStat}>
-            <AppText size="body" weight="bold" color={palette.brand[700]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            <AppText size="body" weight="bold" color={semantic.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
               {feedPerBirdDay != null ? `${feedPerBirdDay.toFixed(0)} g` : '—'}
             </AppText>
             <AppText size="caption" color="muted" numberOfLines={1}>par oiseau / jour</AppText>
@@ -1883,7 +1883,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
                   <View style={[styles.speciesChipDot, { backgroundColor: fg }]} />
                 )}
                 <AppText size="small" weight="bold" color="text" style={{ flexShrink: 1 }}>{g.label}</AppText>
-                <AppText size="caption" weight="bold" color={palette.brand[700]}>{fmt(g.birds)}</AppText>
+                <AppText size="caption" weight="bold" color={semantic.primaryText}>{fmt(g.birds)}</AppText>
                 <AppText size="caption" weight="semibold" color="faint">{Math.round((g.birds / liveBirds) * 100)}%</AppText>
               </View>
               <View style={styles.ovSpeciesEggs}>
@@ -1920,7 +1920,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
         <View style={styles.speciesWrap}>
           <View style={styles.speciesSectionTitle}>
             <Egg size={12} color={palette.accent[500]} />
-            <AppText size="caption" weight="bold" color={palette.accent[600]}>Œufs par espèce</AppText>
+            <AppText size="caption" weight="bold" color={semantic.accentText}>Œufs par espèce</AppText>
           </View>
           <View style={styles.eggDistBar}>
             {summary.speciesGroups.map((g, i) =>
@@ -1942,7 +1942,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
                 <View key={g.label} style={styles.speciesChip}>
                   <View style={[styles.speciesChipDot, { backgroundColor: DIST_COLORS[i % DIST_COLORS.length] }]} />
                   <AppText size="caption" weight="semibold" color="muted" numberOfLines={1} style={{ flexShrink: 1 }}>{g.label}</AppText>
-                  <AppText size="caption" weight="bold" color={palette.accent[600]}>{fmt(g.eggs)}</AppText>
+                  <AppText size="caption" weight="bold" color={semantic.accentText}>{fmt(g.eggs)}</AppText>
                   <AppText size="caption" weight="semibold" color="faint">{g.layRate != null ? `${g.layRate.toFixed(0)}% ponte` : '—'}</AppText>
                 </View>
               ))}
@@ -1957,19 +1957,19 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
           {lateTotal > 0 && (
             <View style={[styles.alertChip, { backgroundColor: palette.red[50], borderColor: palette.red[200] }]}>
               <AlertTriangle size={12} color={palette.red[500]} />
-              <AppText size="small" weight="bold" color={palette.red[500]}>{lateTotal} à traiter</AppText>
+              <AppText size="small" weight="bold" color={semantic.dangerText}>{lateTotal} à traiter</AppText>
             </View>
           )}
           {dueTotal > 0 && (
             <View style={[styles.alertChip, { backgroundColor: palette.amber[50], borderColor: palette.amber[200] }]}>
               <Info size={12} color={palette.amber[500]} />
-              <AppText size="small" weight="bold" color={palette.amber[500]}>{dueTotal} à prévoir (7 j)</AppText>
+              <AppText size="small" weight="bold" color={semantic.warnText}>{dueTotal} à prévoir (7 j)</AppText>
             </View>
           )}
           {lateTotal === 0 && dueTotal === 0 && (
             <View style={[styles.alertChip, { backgroundColor: palette.green[50], borderColor: palette.green[200] }]}>
               <BadgeCheck size={12} color={palette.green[600]} />
-              <AppText size="small" weight="bold" color={palette.green[600]}>Tout est à jour</AppText>
+              <AppText size="small" weight="bold" color={semantic.successText}>Tout est à jour</AppText>
             </View>
           )}
         </View>
@@ -2040,10 +2040,10 @@ function PonteMetric({ label = 'Taux de ponte', value, onPress }: { label?: stri
       style={({ pressed }) => [styles.layMetricBlock, pressed && styles.layMetricPressed]}
     >
       <Egg size={11} color={palette.accent[500]} />
-      <AppText size="caption" weight="bold" color={palette.accent[600]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{value}</AppText>
+      <AppText size="caption" weight="bold" color={semantic.accentText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{value}</AppText>
       <AppText size="caption" color="muted" numberOfLines={1}>{label}</AppText>
       <View style={styles.layMetricCta}>
-        <AppText size="label" weight="bold" color={palette.accent[600]}>Répartition</AppText>
+        <AppText size="label" weight="bold" color={semantic.accentText}>Répartition</AppText>
         <ChevronRight size={9} color={palette.accent[600]} />
       </View>
     </Pressable>
@@ -2445,7 +2445,7 @@ function PlanCareButton({ onPress }: { onPress: () => void }) {
           <Syringe size={13} color={palette.green[600]} />
         </Animated.View>
         <View style={{ flex: 1, gap: 1 }}>
-          <AppText size="label" weight="bold" color={palette.green[800]}>
+          <AppText size="label" weight="bold" color={semantic.successText}>
             Aucun soin planifié pour ce lot
           </AppText>
           <AppText size="caption" color="muted">
@@ -2453,7 +2453,7 @@ function PlanCareButton({ onPress }: { onPress: () => void }) {
           </AppText>
         </View>
         <View style={styles.planCareCta}>
-          <AppText size="label" weight="bold" color={palette.brand[600]}>Planifier</AppText>
+          <AppText size="label" weight="bold" color={semantic.primaryText}>Planifier</AppText>
           <ChevronRight size={12} color={palette.brand[600]} />
         </View>
       </Animated.View>
@@ -2502,7 +2502,7 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
               accessibilityRole="button"
             >
               <ClipboardList size={15} color={palette.brand[600]} />
-              <AppText size="small" weight="bold" color={palette.brand[600]}>Saisir aujourd&apos;hui</AppText>
+              <AppText size="small" weight="bold" color={semantic.primaryText}>Saisir aujourd&apos;hui</AppText>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -2513,7 +2513,7 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
               accessibilityRole="button"
             >
               <ShoppingCart size={15} color={palette.accent[600]} />
-              <AppText size="small" weight="bold" color={palette.accent[600]}>Vendre</AppText>
+              <AppText size="small" weight="bold" color={semantic.accentText}>Vendre</AppText>
             </Pressable>
           </View>
           <Pressable
@@ -2638,7 +2638,7 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
       >
         <AppText size="small" weight="bold" color="text" style={{ flex: 1 }}>Répartition des œufs par catégorie</AppText>
         <View style={styles.eggSheetLinkTag}>
-          <AppText size="label" weight="bold" color={palette.accent[600]}>Ouvrir</AppText>
+          <AppText size="label" weight="bold" color={semantic.accentText}>Ouvrir</AppText>
           <ChevronRight size={9} color={palette.accent[600]} />
         </View>
       </Pressable>

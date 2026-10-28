@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { AppText } from './ui/AppText';
 import { Card } from './ui/Card';
 import { toDateStr } from './ui/PeriodBar';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, semantic } from '@/constants/theme';
 import { EGGS_PER_ALVEOL } from '@/constants/stock';
 
 interface DailyCount {
@@ -160,7 +160,7 @@ export function EggStockCard({
         <View style={styles.bigBlock}>
           <AppText size='small' weight='semibold' color='muted'>En stock</AppText>
           <View style={styles.valueRow}>
-            <AppText size='h1' weight='bold' color={palette.brand[600]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+            <AppText size='h1' weight='bold' color={semantic.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
               {displayValue.toLocaleString('fr-FR')}
             </AppText>
             <AppText size='body' weight='medium' color='muted'>

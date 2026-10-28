@@ -8,7 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { Sheet } from './ui/Sheet';
 import { AppText } from './ui/AppText';
 import { Button } from './ui/Button';
-import { color, palette, radii, fontFamily } from '@/constants/theme';
+import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES } from '@/constants/breedImages';
 import { useAuth } from '@/auth/AuthContext';
@@ -1129,7 +1129,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
             <View style={styles.lifecycleNote}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Lightbulb size={14} color={palette.brand[600]} />
-                <AppText size='small' weight='semibold' color={palette.brand[600]}>
+                <AppText size='small' weight='semibold' color={semantic.primaryText}>
                   Conseil fin de cycle
                 </AppText>
               </View>
@@ -1250,7 +1250,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
               }
               return (
                 <View style={[styles.insightTip, { marginTop: 2 }]}>
-                  <AppText size='small' color={palette.amber[700]}>
+                  <AppText size='small' color={semantic.warnText}>
                     Vide sanitaire datant de {vsDays} jours — prévoir 14 à 21 jours de vide avant d&apos;installer le lot.
                   </AppText>
                 </View>

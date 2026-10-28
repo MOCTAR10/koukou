@@ -4,7 +4,7 @@ import { AlertTriangle, Bird } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Card } from '@/components/ui/Card';
-import { color, palette } from '@/constants/theme';
+import { color, palette, semantic } from '@/constants/theme';
 import type { LotSlaughterSummary } from '@/utils/slaughterInsights';
 
 /** Petit badge de carte de lot : activité d'abattage en un coup d'œil. */
@@ -67,7 +67,7 @@ export function SlaughterInfoCard({ summary, showEmpty }: { summary: LotSlaughte
         {over ? (
           <View style={[styles.overPill, { backgroundColor: palette.red[50] }]}>
             <AlertTriangle size={11} color={palette.red[600]} />
-            <AppText size="small" weight="bold" color={palette.red[600]}>Surcapacité</AppText>
+            <AppText size="small" weight="bold" color={semantic.dangerText}>Surcapacité</AppText>
           </View>
         ) : (
           <AppText size="small" color="muted" style={{ marginLeft: 'auto' }}>
@@ -97,7 +97,7 @@ export function SlaughterInfoCard({ summary, showEmpty }: { summary: LotSlaughte
         {over ? (
           <>
             <AlertTriangle size={12} color={palette.red[600]} />
-            <AppText size="small" color={palette.red[700]}>
+            <AppText size="small" color={semantic.dangerText}>
               {summary.pendingBirds} réservés &gt; {summary.alive} vivants — traitez les ordres en cours avant d’en créer de nouveaux.
             </AppText>
           </>

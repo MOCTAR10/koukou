@@ -16,14 +16,15 @@ import { EggStockCard } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
 import { FarmSelector } from '@/components/ui/FarmSelector';
 import { FarmModeSwitch } from '@/components/FarmModeSwitch';
-import { HomeHero } from '@/components/home/HomeHero';
+import { GRADE_LABEL, GRADE_ON_DARK, HomeHero, MORTALITY_ON_DARK } from '@/components/home/HomeHero';
 import { AgricultureHome } from '@/components/agriculture/AgricultureHome';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { givenName, speciesLabel } from '@/api/format';
 import { color, fmt, fmtFcfa, layout, palette, radii } from '@/constants/theme';
-import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders, fetchCustomersSummary, fetchRentabiliteOverview } from '@/api';
+import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
+import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders, fetchCustomersSummary, fetchRentabiliteOverview } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { BrandLoader } from '@/components/ui/BrandLoader';
 import { MetricInfoSheet } from '@/components/MetricInfoSheet';
@@ -318,21 +319,34 @@ export default function AccueilScreen() {
             farmName={farm?.name ?? '—'}
             verified={!!farm?.isVerified}
             onFarmPress={() => setFarmSelectOpen(true)}
-            liveStock={d.liveStock}
-            activeLots={d.batches.actif}
-            lotsForSale={d.batches.enVente}
-            onCheptelPress={() => setCheptelOpen(true)}
-            collectedLabel={isToday ? "Encaissé aujourd'hui" : `Encaissé le ${formatDayShort(window.to ? new Date(window.to) : liveNow)}`}
-            collectedFcfa={d.collectedTodayFcfa ?? 0}
-            canCaisse={canCaisse}
-            onCaissePress={() => router.push('/caisse')}
-            healthScore={d.health.score}
-            grade={d.health.grade}
-            onHealthPress={() => router.push('/sanitary')}
-            mortalityPercent={d.mortalityPercent ?? null}
-            mortalityStatus={mortalityStatus}
+            headline={{
+              eyebrow: 'CHEPTEL VIVANT',
+              value: fmt(d.liveStock),
+              sub: `${d.batches.actif} lot${d.batches.actif > 1 ? 's' : ''} actif${d.batches.actif > 1 ? 's' : ''}${d.batches.enVente > 0 ? ` · ${d.batches.enVente} en vente` : ''}`,
+              onPress: () => setCheptelOpen(true),
+              accessibilityLabel: `${fmt(d.liveStock)} oiseaux vivants, voir le cheptel`,
+            }}
+            stats={[
+              {
+                label: isToday ? "Encaissé aujourd'hui" : `Encaissé le ${formatDayShort(window.to ? new Date(window.to) : liveNow)}`,
+                value: fmtFcfa(d.collectedTodayFcfa ?? 0),
+                onPress: canCaisse ? () => router.push('/caisse') : undefined,
+              },
+              {
+                label: 'Santé',
+                value: `${Math.max(0, Math.min(100, Math.round(d.health.score)))}%`,
+                dot: GRADE_ON_DARK[d.health.grade],
+                suffix: GRADE_LABEL[d.health.grade],
+                onPress: () => router.push('/sanitary'),
+              },
+              {
+                label: 'Mortalité',
+                value: d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—',
+                tint: MORTALITY_ON_DARK[mortalityStatus],
+              },
+            ]}
             weather={d.weather}
-            weatherHint={d.weather ? weatherHint(d.weather) : undefined}
+            hint={d.weather ? weatherHint(d.weather) : undefined}
           />
           {/* ── Santé : alertes + mortalité ── */}
           <Card style={styles.healthCard}>

@@ -42,7 +42,7 @@ import { AlertCard } from '@/components/AlertCard';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
-import { color, palette, radii, fmt, fmtFcfa } from '@/constants/theme';
+import { color, palette, radii, fmt, fmtFcfa, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { breedImageForLot } from '@/constants/breedImages';
 import { EGGS_PER_ALVEOL } from '@/constants/stock';
@@ -605,7 +605,7 @@ export default function LotDetailScreen() {
               </View>
               {buildingName && (
                 <View style={styles.heroBuildingBadge}>
-                  <AppText size="caption" weight="bold" color={palette.brand[700]} numberOfLines={1} style={styles.heroBuildingText}>
+                  <AppText size="caption" weight="bold" color={semantic.primaryText} numberOfLines={1} style={styles.heroBuildingText}>
                     {buildingName}
                   </AppText>
                 </View>

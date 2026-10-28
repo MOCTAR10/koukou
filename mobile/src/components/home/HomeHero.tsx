@@ -6,52 +6,70 @@ import * as Haptics from 'expo-haptics';
 
 import { AppText } from '@/components/ui/AppText';
 import { WeatherIcon } from '@/components/ui/WeatherIcon';
-import { fmt, fmtFcfa, palette, radii, semantic } from '@/constants/theme';
+import { palette, radii, semantic } from '@/constants/theme';
 import type { HealthGrade, MortalityStatus } from '@/api/types';
 
-/** Grade tints readable on the navy hero (light steps of each ramp). */
-const GRADE_ON_DARK: Record<HealthGrade, string> = {
-  EXCELLENT: palette.green[300],
-  BON: palette.green[300],
-  MOYEN: palette.amber[300],
-  CRITIQUE: palette.red[300],
+/** Label tint on the navy surface (≈ 9:1). */
+export const HERO_LABEL = palette.brand[200];
+
+/** Light steps of each ramp: readable status colours on the navy hero. */
+export const HERO_TINT = {
+  good: palette.green[300],
+  warn: palette.amber[300],
+  bad: palette.red[300],
+} as const;
+
+export const GRADE_ON_DARK: Record<HealthGrade, string> = {
+  EXCELLENT: HERO_TINT.good,
+  BON: HERO_TINT.good,
+  MOYEN: HERO_TINT.warn,
+  CRITIQUE: HERO_TINT.bad,
 };
-const GRADE_LABEL: Record<HealthGrade, string> = {
+export const GRADE_LABEL: Record<HealthGrade, string> = {
   EXCELLENT: 'Excellent',
   BON: 'Bon',
   MOYEN: 'Moyen',
   CRITIQUE: 'Critique',
 };
-const MORTALITY_ON_DARK: Record<MortalityStatus, string> = {
-  normal: palette.green[300],
-  elevated: palette.amber[300],
-  critical: palette.red[300],
+export const MORTALITY_ON_DARK: Record<MortalityStatus, string> = {
+  normal: HERO_TINT.good,
+  elevated: HERO_TINT.warn,
+  critical: HERO_TINT.bad,
 };
 
-const LABEL = palette.brand[200];
+export interface HeroStat {
+  label: string;
+  value: string;
+  /** Value colour; white by default. */
+  tint?: string;
+  /** Small coloured dot before the value (status). */
+  dot?: string;
+  /** Short qualifier after the value (e.g. grade). */
+  suffix?: string;
+  onPress?: () => void;
+  accessibilityLabel?: string;
+}
 
 interface HomeHeroProps {
+  /** Domain cue: the glow turns green for agriculture. */
+  domain?: 'aviculture' | 'agriculture';
   farmName: string;
   verified: boolean;
   onFarmPress: () => void;
-  liveStock: number;
-  activeLots: number;
-  lotsForSale: number;
-  onCheptelPress: () => void;
-  collectedLabel: string;
-  collectedFcfa: number;
-  canCaisse: boolean;
-  onCaissePress: () => void;
-  healthScore: number;
-  grade: HealthGrade;
-  onHealthPress: () => void;
-  mortalityPercent: number | null;
-  mortalityStatus: MortalityStatus;
+  headline: {
+    eyebrow: string;
+    value: string;
+    sub?: string;
+    onPress?: () => void;
+    accessibilityLabel?: string;
+  };
+  stats: HeroStat[];
   weather?: { condition?: string | null; temperatureC?: number | null; humidityPct?: number | null } | null;
-  weatherHint?: string;
+  hint?: string;
 }
 
-function tap(fn: () => void) {
+function tap(fn?: () => void) {
+  if (!fn) return undefined;
   return () => {
     Haptics.selectionAsync().catch(() => {});
     fn();
@@ -59,55 +77,56 @@ function tap(fn: () => void) {
 }
 
 /**
- * "Today at a glance": the one dark surface on the home screen. It carries
- * the three numbers a farmer checks first (live birds, cash in, health), so
- * everything below it can stay quiet.
+ * "Today at a glance": the one dark surface of a home screen. It carries the
+ * headline number and up to three quiet stats, so everything below it can
+ * stay light. Shared by the livestock and agriculture homes.
  */
-export function HomeHero(p: HomeHeroProps) {
-  const gradeTint = GRADE_ON_DARK[p.grade];
-  const score = Math.max(0, Math.min(100, Math.round(p.healthScore)));
+export function HomeHero({ domain = 'aviculture', farmName, verified, onFarmPress, headline, stats, weather, hint }: HomeHeroProps) {
+  const glow = domain === 'agriculture' ? palette.green[400] : palette.brand[400];
+  const gradId = `heroBg-${domain}`;
+  const glowId = `heroGlow-${domain}`;
 
   return (
     <View style={styles.card}>
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
         <Defs>
-          <LinearGradient id="heroBg" x1="0" y1="0" x2="1" y2="1">
+          <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={palette.brand[800]} />
             <Stop offset="1" stopColor={palette.brand[950]} />
           </LinearGradient>
-          <RadialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
-            <Stop offset="0" stopColor={palette.brand[400]} stopOpacity={0.35} />
-            <Stop offset="1" stopColor={palette.brand[400]} stopOpacity={0} />
+          <RadialGradient id={glowId} cx="50%" cy="50%" r="50%">
+            <Stop offset="0" stopColor={glow} stopOpacity={0.35} />
+            <Stop offset="1" stopColor={glow} stopOpacity={0} />
           </RadialGradient>
         </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroBg)" />
-        <Circle cx="92%" cy="8%" r="120" fill="url(#heroGlow)" />
+        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradId})`} />
+        <Circle cx="92%" cy="8%" r="120" fill={`url(#${glowId})`} />
       </Svg>
 
       {/* Farm + weather */}
       <View style={styles.topRow}>
         <Pressable
-          onPress={tap(p.onFarmPress)}
+          onPress={tap(onFarmPress)}
           style={({ pressed }) => [styles.farmPill, pressed && styles.pressed]}
           accessibilityRole="button"
-          accessibilityLabel={`Ferme ${p.farmName}, changer de ferme`}>
-          {p.verified ? <ShieldCheck size={13} color={palette.green[300]} strokeWidth={2.2} /> : null}
-          <AppText size="small" weight="semibold" color={palette.brand[50]} numberOfLines={1} style={styles.farmName}>
-            {p.farmName}
+          accessibilityLabel={`Ferme ${farmName}, changer de ferme`}>
+          {verified ? <ShieldCheck size={13} color={HERO_TINT.good} strokeWidth={2.2} /> : null}
+          <AppText size="small" weight="semibold" color={palette.brand[50]} numberOfLines={1} style={styles.shrink}>
+            {farmName}
           </AppText>
-          <ChevronDown size={14} color={LABEL} strokeWidth={2.2} />
+          <ChevronDown size={14} color={HERO_LABEL} strokeWidth={2.2} />
         </Pressable>
-        {p.weather ? (
-          <View style={styles.weather}>
-            <WeatherIcon condition={p.weather.condition} size={16} />
+        {weather ? (
+          <View style={styles.inline}>
+            <WeatherIcon condition={weather.condition} size={16} />
             <AppText size="small" weight="semibold" color={palette.brand[50]}>
-              {p.weather.temperatureC ?? '—'}°
+              {weather.temperatureC ?? '—'}°
             </AppText>
-            {p.weather.humidityPct != null ? (
+            {weather.humidityPct != null ? (
               <>
-                <Droplets size={11} color={LABEL} />
-                <AppText size="small" color={LABEL}>
-                  {p.weather.humidityPct}%
+                <Droplets size={11} color={HERO_LABEL} />
+                <AppText size="small" color={HERO_LABEL}>
+                  {weather.humidityPct}%
                 </AppText>
               </>
             ) : null}
@@ -117,75 +136,71 @@ export function HomeHero(p: HomeHeroProps) {
 
       {/* Headline number */}
       <Pressable
-        onPress={tap(p.onCheptelPress)}
+        onPress={tap(headline.onPress)}
+        disabled={!headline.onPress}
         style={({ pressed }) => [styles.headline, pressed && styles.pressed]}
-        accessibilityRole="button"
-        accessibilityLabel={`${fmt(p.liveStock)} oiseaux vivants, voir le cheptel`}>
-        <AppText size="label" color={LABEL} style={styles.eyebrow}>
-          CHEPTEL VIVANT
+        accessibilityRole={headline.onPress ? 'button' : 'summary'}
+        accessibilityLabel={headline.accessibilityLabel ?? `${headline.eyebrow} ${headline.value}`}>
+        <AppText size="label" color={HERO_LABEL} style={styles.eyebrow}>
+          {headline.eyebrow}
         </AppText>
         <View style={styles.headlineRow}>
-          <AppText size="display" weight="bold" color={semantic.textOnFill} numberOfLines={1} adjustsFontSizeToFit>
-            {fmt(p.liveStock)}
+          <AppText size="display" weight="bold" color={semantic.textOnFill} numberOfLines={1} adjustsFontSizeToFit style={styles.shrink}>
+            {headline.value}
           </AppText>
-          <ChevronRight size={20} color={LABEL} style={styles.headlineChevron} />
+          {headline.onPress ? <ChevronRight size={20} color={HERO_LABEL} style={styles.headlineChevron} /> : null}
         </View>
-        <AppText size="caption" color={LABEL}>
-          {p.activeLots} lot{p.activeLots > 1 ? 's' : ''} actif{p.activeLots > 1 ? 's' : ''}
-          {p.lotsForSale > 0 ? ` · ${p.lotsForSale} en vente` : ''}
-        </AppText>
+        {headline.sub ? (
+          <AppText size="caption" color={HERO_LABEL}>
+            {headline.sub}
+          </AppText>
+        ) : null}
       </Pressable>
 
-      <View style={styles.divider} />
-
-      {/* Three quiet stats */}
-      <View style={styles.statsRow}>
-        <Pressable
-          onPress={p.canCaisse ? tap(p.onCaissePress) : undefined}
-          disabled={!p.canCaisse}
-          style={({ pressed }) => [styles.stat, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel={`${p.collectedLabel} : ${fmtFcfa(p.collectedFcfa)}`}>
-          <AppText size="small" color={LABEL} numberOfLines={1}>
-            {p.collectedLabel}
-          </AppText>
-          <AppText size="bodyM" weight="semibold" color={semantic.textOnFill} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {fmtFcfa(p.collectedFcfa)}
-          </AppText>
-        </Pressable>
-        <View style={styles.statDivider} />
-        <Pressable
-          onPress={tap(p.onHealthPress)}
-          style={({ pressed }) => [styles.stat, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel={`Santé ${score} %, ${GRADE_LABEL[p.grade]}`}>
-          <AppText size="small" color={LABEL}>
-            Santé
-          </AppText>
-          <View style={styles.inline}>
-            <View style={[styles.dot, { backgroundColor: gradeTint }]} />
-            <AppText size="bodyM" weight="semibold" color={semantic.textOnFill}>
-              {score}%
-            </AppText>
-            <AppText size="small" color={gradeTint} numberOfLines={1}>
-              {GRADE_LABEL[p.grade]}
-            </AppText>
+      {stats.length > 0 ? (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.statsRow}>
+            {stats.map((s, i) => (
+              <React.Fragment key={s.label}>
+                {i > 0 ? <View style={styles.statDivider} /> : null}
+                <Pressable
+                  onPress={tap(s.onPress)}
+                  disabled={!s.onPress}
+                  style={({ pressed }) => [styles.stat, i === 0 && stats.length > 2 && styles.statWide, pressed && styles.pressed]}
+                  accessibilityRole={s.onPress ? 'button' : 'text'}
+                  accessibilityLabel={s.accessibilityLabel ?? `${s.label} : ${s.value}${s.suffix ? `, ${s.suffix}` : ''}`}>
+                  <AppText size="small" color={HERO_LABEL} numberOfLines={1}>
+                    {s.label}
+                  </AppText>
+                  <View style={styles.inline}>
+                    {s.dot ? <View style={[styles.dot, { backgroundColor: s.dot }]} /> : null}
+                    <AppText
+                      size="bodyM"
+                      weight="semibold"
+                      color={s.tint ?? semantic.textOnFill}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                      style={styles.shrink}>
+                      {s.value}
+                    </AppText>
+                    {s.suffix ? (
+                      <AppText size="small" color={s.dot ?? HERO_LABEL} numberOfLines={1}>
+                        {s.suffix}
+                      </AppText>
+                    ) : null}
+                  </View>
+                </Pressable>
+              </React.Fragment>
+            ))}
           </View>
-        </Pressable>
-        <View style={styles.statDivider} />
-        <View style={[styles.stat, styles.statNarrow]}>
-          <AppText size="small" color={LABEL}>
-            Mortalité
-          </AppText>
-          <AppText size="bodyM" weight="semibold" color={MORTALITY_ON_DARK[p.mortalityStatus]}>
-            {p.mortalityPercent != null ? `${p.mortalityPercent.toFixed(1)}%` : '—'}
-          </AppText>
-        </View>
-      </View>
+        </>
+      ) : null}
 
-      {p.weatherHint ? (
-        <AppText size="small" color={LABEL} numberOfLines={2} style={styles.hint}>
-          {p.weatherHint}
+      {hint ? (
+        <AppText size="small" color={HERO_LABEL} numberOfLines={2} style={styles.hint}>
+          {hint}
         </AppText>
       ) : null}
     </View>
@@ -220,13 +235,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
-  farmName: {
+  shrink: {
     flexShrink: 1,
   },
-  weather: {
+  inline: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
   },
   headline: {
     marginTop: 16,
@@ -253,23 +268,17 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   stat: {
-    flex: 1.3,
+    flex: 1,
     gap: 3,
     paddingRight: 8,
   },
-  statNarrow: {
-    flex: 0.9,
-    paddingRight: 0,
+  statWide: {
+    flex: 1.3,
   },
   statDivider: {
     width: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255,255,255,0.16)',
     marginRight: 12,
-  },
-  inline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
   dot: {
     width: 7,

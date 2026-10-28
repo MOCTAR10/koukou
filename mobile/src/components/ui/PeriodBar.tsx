@@ -6,7 +6,7 @@ import { CalendarRange, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, In
 
 import { AppText } from '@/components/ui/AppText';
 import { Sheet } from '@/components/ui/Sheet';
-import { palette, radii } from '@/constants/theme';
+import { palette, radii, semantic } from '@/constants/theme';
 
 // ── Fenêtre de période exposée au parent ──
 export interface PeriodWindow {
@@ -230,7 +230,7 @@ export function PeriodBar({ defaultSpan = 30, onChange, onApplied, onPickerClose
         <View style={styles.orientRow}>
           <View style={[styles.orientChip, styles.orientChipFiltered]}>
             <Info size={12} color={palette.amber[500]} />
-            <AppText size="caption" weight="semibold" color={palette.amber[600]} numberOfLines={1} style={styles.orientText}>
+            <AppText size="caption" weight="semibold" color={semantic.warnText} numberOfLines={1} style={styles.orientText}>
               {rangeFrom
                 ? `Période du ${formatDateFull(rangeFrom)} au ${formatDateFull(selectedAt)}`
                 : `Jour du ${formatDateFull(selectedAt)}`}
