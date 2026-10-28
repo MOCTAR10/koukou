@@ -84,7 +84,8 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 
 ### Advisory & alerts
 - **Advisory only, never blocking** — including HACCP and sanitary. Emit a red alert + recommendation + trace; the farmer decides. Water is the #1 indicator (drop in water + rising mortality → combined `MALADIE` RED/YELLOW). One daily entry per batch per date (upsert on `(batch, entryDate)`).
-- Alert lifecycle: `ACTIVE → RESOLU` when risk clears; manual `ACKNOWLEDGE` → `ACQUITTEE`, re-raised if the risk persists.
+- Alert lifecycle: `ACTIVE → RESOLU` when risk clears; manual `ACKNOWLEDGE` → `ACQUITTEE`, re-raised if the risk persists. Periodic re-evaluations pass `raise(..., { keepAcknowledgedIfUnchanged: true })` so an acknowledged alert only comes back when its `context` changes (keep that context single-key: jsonb reorders keys).
+- **Overdue tasks** (`TACHE`): `TasksService.sweepOverdue()` runs at boot and hourly (plain `setInterval`, no `@nestjs/schedule`), plus on task mutations and on `GET /tasks`. `TASK_SWEEP_DISABLED=true` turns the timer off (set in `test/e2e-setup.ts`; tests call `sweepOverdue()` directly).
 - **Readiness is computed on read** in `MetricsService.compute()` (`readyForSale`/`readyReason`) and cached onto `ProductionBatch.readyForSaleAt` by `batches.service.afterChange`. `BatchStatus.EN_VENTE` is only a manual escape hatch.
 
 ### SYSCOHADA accounting
