@@ -35,13 +35,19 @@ import { DatabaseModule } from './database/database.module.js';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot([
-      {
-        name: 'default',
-        ttl: 60_000,
-        limit: 120,
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'default',
+          ttl: 60_000,
+          limit: 120,
+        },
+      ],
+      // Test-only escape hatch: the e2e suite logs in hundreds of times from
+      // one IP and would trip the auth limits (5-10/min). Set only by
+      // test/e2e-setup.ts; never set it in a deployed environment.
+      skipIf: () => process.env.THROTTLE_DISABLED === 'true',
+    }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => {

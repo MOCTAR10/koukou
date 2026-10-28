@@ -1,3 +1,6 @@
+// The whole suite runs from one IP; disable rate limiting (see app.module.ts).
+process.env.THROTTLE_DISABLED = 'true';
+
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status: 200,

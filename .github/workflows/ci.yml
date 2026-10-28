@@ -1,12 +1,12 @@
-# KouKou Ferme — CI (fast checks)
+# Fermia — CI (fast checks)
 #
 # What this runs, and nothing more:
 #   backend : TypeScript compile + oxlint + unit tests (vitest)
 #   web     : tsc --noEmit + vite build + oxlint
-#   mobile  : tsc --noEmit + eslint + unit tests (vitest)
+#   mobile  : tsc --noEmit + eslint + unit tests (vitest) + Android bundle
 #
 # The backend e2e suite is NOT here on purpose: it needs PostgreSQL and runs
-# 29 specs sequentially (~10 min). It gets its own workflow file later.
+# ~28 specs sequentially (~10 min). It lives in `e2e.yml` (PRs, main, nightly).
 #
 # Node is pinned to 22 because the Expo app has a Node 22 specific quirk.
 # If you upgrade Node locally, change `node-version` in all three jobs.
@@ -27,10 +27,16 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege: these jobs only read the code.
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend (build + lint + test)
     runs-on: ubuntu-latest
+    # A hung install or test should fail fast, not burn 6 hours of minutes.
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -64,6 +70,8 @@ jobs:
   web:
     name: Web (build + lint)
     runs-on: ubuntu-latest
+    # A hung install or test should fail fast, not burn 6 hours of minutes.
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: web
@@ -89,8 +97,9 @@ jobs:
         run: npm run lint
 
   mobile:
-    name: Mobile (typecheck + lint + test)
+    name: Mobile (typecheck + lint + test + bundle)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: mobile
@@ -118,3 +127,11 @@ jobs:
 
       - name: Unit tests
         run: npm run test
+
+      # Bundles the real app with Metro, the way a device build would. tsc does
+      # not see assets: a missing image or font (`require('...png')`), a broken
+      # asset path in app.json or a Metro resolution error only shows up here.
+      - name: Bundle (Android, Metro)
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/expo-export"
+        env:
+          CI: 1

@@ -1,6 +1,6 @@
-# KouKou Ferme — AGENTS
+# Fermia (formerly KouKou Ferme) — AGENTS
 
-Offline-first poultry SaaS (multi-species) for Gabon. Repo: https://github.com/MoctarSidibe/koukou
+Offline-first farm SaaS (poultry first, multi-species, crops) for Gabon. Brand renamed KouKou → **Fermia**: user-visible text only — storage keys (`koukou.*`), DB name `koukou_ferme` and Expo slug `koukou-mobile` are intentionally unchanged (renaming storage keys would drop unsynced offline cash ops and log users out). Repo: https://github.com/MoctarSidibe/koukou
 
 ## Repo shape
 
@@ -8,7 +8,7 @@ Offline-first poultry SaaS (multi-species) for Gabon. Repo: https://github.com/M
 
 **No root `package.json`, no workspaces, no root lockfile.** Three independent npm projects — every command runs from its own directory. There is **no root README**: `backend/README.md` and `mobile/README.md` are upstream boilerplate (Nest / create-expo-app) — ignore them, this file is the real map.
 
-CI exists (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. backend = build+lint+test, web = build+lint, mobile = typecheck+lint+test. **No e2e.** `concurrency` cancels superseded runs. Node pinned to 22 (Expo quirk) — change all three jobs together.
+CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. backend = build+lint+test, web = build+lint, mobile = typecheck+lint+test+`expo export` Android bundle (catches missing assets/Metro errors tsc cannot see). **E2E** (`.github/workflows/e2e.yml`): PRs to `main`, pushes to `main`, nightly 02:00 UTC and manual; PostGIS service container with the default `postgres/postgres` credentials. `concurrency` cancels superseded runs. Node pinned to 22 (Expo quirk) — change all three jobs together.
 
 ## Commands
 
@@ -39,6 +39,7 @@ CI exists (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `mai
 - **Entity circular imports + `emitDecoratorMetadata`** can cause TDZ crashes. Break cycles with `import type` and relation-by-**name** (`@ManyToOne('JournalEntry')`) — never mutual value imports.
 - **No migrations.** `synchronize` comes from `DB_SYNCHRONIZE` (default `'true'`) in `app.module.ts`; schema is rebuilt at boot, so **column changes need no migration file** but also can't be rolled back. Seeding is idempotent from `onApplicationBootstrap` in `src/database/database-seed.service.ts` (~2560 lines). Enums live in `src/common/enums/` (34 files) — don't inline string unions.
 - **`.env` is gitignored and there is no `.env.example`** (`.gitignore` has `!.env.example`, so one *would* be tracked — it just doesn't exist). Every `DB_*`, `PORT`, `SWAGGER_PATH`, `JWT_EXPIRES_IN` has an inline default, so the app boots without `.env`. The one that matters: **`JWT_SECRET`** — `auth/auth.secret.ts` falls back to a random 48-byte secret per boot (and treats `''` / `koukou_ferme_change_me_in_production` as placeholders), which **silently invalidates all sessions on every restart**. Optional `PLATFORM_ADMIN_EMAIL/PHONE/PASSWORD` (+`PLATFORM_ADMIN_NAME`, default "Administrateur Plateforme") seed the platform admin; absent → warning, no admin created. `UPLOADS_DIR` overrides the farm-logo upload dir (default `backend/uploads`, gitignored).
+- **Rate limiting is off in e2e only**: `test/e2e-setup.ts` sets `THROTTLE_DISABLED=true`, read by `ThrottlerModule.skipIf` in `app.module.ts` (auth allows 5 logins/min per IP, the suite does hundreds). Never set it in a deployed environment.
 - **e2e needs a live local PostgreSQL** on `DB_HOST:DB_PORT` reading the same `.env`. Each spec boots the full app with synchronize on. Use unique IDs/timestamps and `*.e2e.ga` emails. `globalThis.fetch` is mocked in `test/e2e-setup.ts` (weather returns THI<75 comfort forecast to keep every other spec deterministic and offline); only `weather.e2e-spec.ts` overrides and restores it. Unmatched URLs resolve to a 404 stub.
 - **Auth**: `@Public()` exists on exactly two routes — `auth.controller.ts:13` and `:20` (`/auth/register`, `/auth/login`). Everything else is JwtAuthGuard → RolesGuard → PermissionsGuard. Phone + code secret, 7d token. Swagger at `/api-docs` (3000).
 - **DB naming**: snake_case columns, camelCase TS. **Error messages and all user-facing text are French.**
@@ -136,7 +137,7 @@ CI exists (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `mai
 
 ## Not built
 
-PostGIS · FinTech/Mobile Money (escrow) · KouKou Market marketplace (the backend `orders` module is delivered, but there is no public client channel).
+PostGIS · FinTech/Mobile Money (escrow) · Fermia Market marketplace (the backend `orders` module is delivered, but there is no public client channel).
 
 ## OpenCode (native subagents)
 

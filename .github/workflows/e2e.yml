@@ -1,0 +1,84 @@
+# Fermia — Backend e2e regression suite
+#
+# Boots the whole NestJS app against a real PostgreSQL and runs every
+# `backend/test/*.e2e-spec.ts` sequentially (~10 min). Too slow for every push,
+# so it runs on pull requests to main, on main itself, nightly, and by hand.
+#
+# The database is a throwaway service container with the backend's default
+# credentials (postgres/postgres@localhost:5432/koukou_ferme), so no secrets
+# are needed. `synchronize` builds the schema at boot; the seed runs on start.
+
+name: E2E
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Every night at 02:00 UTC (03:00 Libreville): catches drift even on quiet days.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-e2e:
+    name: Backend e2e (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        # PostGIS image: the app enables the extension when it can and falls
+        # back to JS geometry otherwise; CI exercises the PostGIS path.
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: koukou_ferme
+        ports:
+          - 5432:5432
+        # Wait until Postgres accepts connections before the steps start.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: koukou_ferme
+      DB_SYNCHRONIZE: "true"
+      # Fixed test secret so tokens survive the whole run (the fallback is a
+      # random secret per boot). Not a real credential.
+      JWT_SECRET: ci-e2e-only-not-a-secret-7f3c9a1e5b
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Specs are forced sequential in vitest.config.e2e.ts (one shared DB).
+      - name: E2E tests
+        run: npm run test:e2e
