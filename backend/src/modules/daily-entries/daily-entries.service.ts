@@ -73,11 +73,14 @@ export class DailyEntriesService {
       .transaction(async (em) => {
         // Lock order batch → feed lot, same as POS sales (which pre-lock
         // batches first): avoids a lock-order inversion with the feed lot
-        // lock taken in assertConsumptionAvailable.
-        await em.getRepository(ProductionBatch).findOne({
-          where: { id: batch.id },
-          lock: { mode: 'pessimistic_write' },
-        });
+        // lock taken in assertConsumptionAvailable. Query builder, not
+        // findOne: the eager `breed` join would make Postgres reject FOR UPDATE.
+        await em
+          .getRepository(ProductionBatch)
+          .createQueryBuilder('batch')
+          .setLock('pessimistic_write')
+          .where('batch.id = :id', { id: batch.id })
+          .getOne();
         const entryRepo = em.getRepository(DailyEntry);
         const existing = await entryRepo.findOne({
           where: { batchId, entryDate: dto.entryDate },
