@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
-import { PulsarDot } from '@/components/ui/PulsarDot';
+import { AuthHero } from '@/components/auth/AuthHero';
 import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
 import { roleLabel } from '@/api/roles';
-import { color, palette } from '@/constants/theme';
+import { palette, radii, semantic, shadow } from '@/constants/theme';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 
 export default function LoginScreen() {
@@ -31,7 +30,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: keyboardInset + 24 }]}
         keyboardShouldPersistTaps="handled"
@@ -39,23 +38,15 @@ export default function LoginScreen() {
         automaticallyAdjustKeyboardInsets={false}
         showsVerticalScrollIndicator={false}
       >
-          <View style={styles.hero}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.logo}
-              contentFit="contain"
-              accessibilityLabel="Logo KouKou"
-            />
-            <View style={styles.titleRow}>
-              <AppText size="h1" weight="bold" color={color.accent[500]}>
-                KouKou
-              </AppText>
-              <PulsarDot />
-            </View>
-            <AppText size="bodyM" align="center" color="muted" style={{ marginTop: 8 }}>
-              Votre élevage avicole, piloté au quotidien.
-            </AppText>
-          </View>
+          <AuthHero subtitle="Élevage et cultures, pilotés au quotidien." />
+
+          <View style={styles.sheet}>
+          <AppText size="h2" weight="bold" color="text">
+            {signedIn ? 'Bon retour' : 'Connexion'}
+          </AppText>
+          <AppText size="caption" color="muted" style={styles.sheetSub}>
+            {signedIn ? 'Votre session est active sur cet appareil.' : 'Votre numéro de téléphone et votre code secret.'}
+          </AppText>
 
           {signedIn ? (
             <View style={{ gap: 10 }}>
@@ -108,10 +99,10 @@ export default function LoginScreen() {
               <View style={{ gap: 10, marginTop: 2 }}>
                 <Button
                   label="Se connecter"
-                  tone="success"
+                  tone="primary"
                   size="lg"
                   labelSize="body"
-                  image={require('@/assets/images/logo-white.png')}
+                  icon={ArrowRight}
                   loading={busy}
                   disabled={!canSubmit}
                   onPress={submit}
@@ -128,6 +119,7 @@ export default function LoginScreen() {
               </Pressable>
             </View>
           )}
+          </View>
         </ScrollView>
     </View>
   );
@@ -136,27 +128,25 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.bg,
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
   },
-  hero: {
-    alignItems: 'center',
+  // Form card overlaps the hero: one raised surface, the brand behind it.
+  sheet: {
+    marginTop: -40,
+    marginHorizontal: 16,
+    padding: 20,
+    gap: 4,
+    backgroundColor: semantic.surface,
+    borderRadius: radii.xxl,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...shadow.raised,
+  },
+  sheetSub: {
     marginBottom: 14,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
-  },
-  logo: {
-    width: 118,
-    height: 118,
   },
   registerLink: {
     paddingVertical: 12,

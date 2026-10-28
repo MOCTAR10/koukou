@@ -71,7 +71,7 @@ export function Shell() {
         <div className="flex items-center gap-2 px-5 py-5">
           <Logo className="h-9 w-auto" />
           <div>
-            <p className="text-sm font-bold text-white">KouKou</p>
+            <p className="text-sm font-bold text-white">Fermia</p>
             <p className="text-[11px] text-slate-400">Console pilote</p>
           </div>
           <button

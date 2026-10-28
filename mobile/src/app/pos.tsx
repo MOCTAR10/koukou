@@ -459,7 +459,7 @@ export default function PosScreen() {
               <ChevronLeft size={22} color={color.ink[700]} />
             </Pressable>
           ) : null}
-          <Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo KouKou" />
+          <Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />
           <View style={{ flex: 1 }}>
             <AppText size="h2" weight="bold" color="text">
               Point de vente

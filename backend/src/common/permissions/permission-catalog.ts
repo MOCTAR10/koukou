@@ -2,7 +2,7 @@ import { FarmStaffRole } from '../enums/farm-staff-role.enum.js';
 
 /**
  * Catalogue des permissions accordables par le Propriétaire à un
- * « Administrateur KouKou ». C'est la source de vérité exposée via
+ * « Administrateur Fermia ». C'est la source de vérité exposée via
  * GET /farms/:farmId/permissions (et utilisée par le PermissionsGuard).
  */
 export const PERMISSION_GROUPS = [
@@ -209,7 +209,7 @@ export function isPermissionCode(value: unknown): value is PermissionCode {
   return typeof value === 'string' && ALL_PERMISSIONS.has(value as PermissionCode);
 }
 
-/** Droits FIXES de l'Éleveur Koukou (terrain) — jamais modifiables. */
+/** Droits FIXES de l'Éleveur Fermia (terrain) — jamais modifiables. */
 export const ELEVEUR_DEFAULT_PERMISSIONS: ReadonlySet<PermissionCode> = new Set([
   'saisie:creer',
   'vente:creer',
@@ -217,7 +217,7 @@ export const ELEVEUR_DEFAULT_PERMISSIONS: ReadonlySet<PermissionCode> = new Set(
   'sanitaire:lecture',
 ]);
 
-/** Droits de base accordés à un nouveau « Administrateur KouKou » (le Propriétaire affine). */
+/** Droits de base accordés à un nouveau « Administrateur Fermia » (le Propriétaire affine). */
 export const ADMIN_DEFAULT_PERMISSIONS: ReadonlySet<PermissionCode> = new Set([
   'saisie:creer',
   'caisse:lire',
@@ -233,8 +233,8 @@ export function defaultPermissionsFor(role: FarmStaffRole): PermissionCode[] {
 }
 
 export const FARM_STAFF_ROLE_LABELS: Record<FarmStaffRole, string> = {
-  [FarmStaffRole.ADMIN]: 'Administrateur KouKou',
-  [FarmStaffRole.ELEVEUR]: 'Éleveur Koukou',
+  [FarmStaffRole.ADMIN]: 'Administrateur Fermia',
+  [FarmStaffRole.ELEVEUR]: 'Éleveur Fermia',
 };
 
 /** Modèle de profil métier : remplit rôle + permissions d'un coup à l'embauche. */

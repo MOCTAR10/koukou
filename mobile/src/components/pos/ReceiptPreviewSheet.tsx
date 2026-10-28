@@ -84,7 +84,7 @@ export function ReceiptPreviewSheet({ visible, sale, farmName, pdvName, onClose 
           <View style={styles.ticketHead}>
             <View style={{ flex: 1, gap: 2 }}>
               <AppText size="body" weight="bold" color="text" numberOfLines={1}>
-                {farmName ?? 'KouKou Ferme'}
+                {farmName ?? 'Fermia'}
               </AppText>
               <AppText size="label" color="muted">
                 REÇU DE VENTE · VENTE CONFIRMÉE
@@ -137,7 +137,7 @@ export function ReceiptPreviewSheet({ visible, sale, farmName, pdvName, onClose 
           <View style={styles.dash} />
 
           <AppText size="caption" color="faint">
-            Pièce justificative générée par KouKou. Conservez ce document pour vos dossiers. En cas de litige, présentez la référence ci-dessus + le numéro du reçu PDF.
+            Pièce justificative générée par Fermia. Conservez ce document pour vos dossiers. En cas de litige, présentez la référence ci-dessus + le numéro du reçu PDF.
           </AppText>
         </View>
       ) : (

@@ -709,7 +709,7 @@ export default function LotsScreen() {
           <ScreenHeader
             title="Lots"
             subtitle={`${batches.data?.length ?? 0} lot(s) · suivi zootechnique`}
-            left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo KouKou" />}
+            left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
             right={
               <Pressable onPress={openCreate} style={styles.createBtn} accessibilityRole='button'>
                 <Plus size={18} color={palette.brand[50]} />

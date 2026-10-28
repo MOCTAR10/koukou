@@ -230,7 +230,7 @@ function PdvForm({
           icon={<Store size={18} color={color.ink[400]} />}
           value={name}
           onChangeText={setName}
-          placeholder={isDefault ? 'Ex. Ferme KouKou' : 'Ex. Point de vente Occéan'}
+          placeholder={isDefault ? 'Ex. Ferme Fermia' : 'Ex. Point de vente Occéan'}
           autoCapitalize="words"
         />
         <FieldLabel>LOCALISATION</FieldLabel>
@@ -617,7 +617,7 @@ export default function PointsVenteScreen() {
           title="Points de vente"
           subtitle="Vue d’ensemble & gestion"
           back
-          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo KouKou" />}
+          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
           right={
             canManage ? (
               <Pressable onPress={openNew} style={styles.addBtn} accessibilityRole="button">

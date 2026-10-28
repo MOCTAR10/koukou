@@ -120,7 +120,7 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
         items={items}
         onPick={(key) => handlePick(key as CreateKey)}
         onClose={close}
-        hubLabel={farm?.name ?? 'KouKou'}
+        hubLabel={farm?.name ?? 'Fermia'}
         hub={<FarmLogo farm={farm} size={58} tone="brand" />}
       />
     </CreateCenterContext.Provider>

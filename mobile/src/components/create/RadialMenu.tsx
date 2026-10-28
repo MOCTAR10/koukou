@@ -80,7 +80,7 @@ export function RadialMenu({
   onClose: () => void;
   /** Texte sous le logo (nom de la ferme). */
   hubLabel: string;
-  /** Logo du hub : la marque KouKou, ou le logo de la ferme si elle en a un. */
+  /** Logo du hub : la marque Fermia, ou le logo de la ferme si elle en a un. */
   hub: React.ReactNode;
 }) {
   const { width, height } = useWindowDimensions();

@@ -13,7 +13,7 @@ export default function MarcheScreen() {
   const router = useRouter();
 
   return (
-    <Screen bottomPad={120} header={<ScreenHeader title="Marché" subtitle="KouKou Market — votre vitrine" />}>
+    <Screen bottomPad={120} header={<ScreenHeader title="Marché" subtitle="Fermia Market — votre vitrine" />}>
       <View style={{ gap: 12 }}>
         <EmptyState
           icon={ShoppingBasket}

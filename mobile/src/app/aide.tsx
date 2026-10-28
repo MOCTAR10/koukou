@@ -121,7 +121,7 @@ export default function AideScreen() {
       <View style={styles.footer}>
         <LifeBuoy size={16} color={color.ink[300]} />
         <AppText size="small" color="faint" style={styles.footerText}>
-          Besoin d’aide ? Contactez l’équipe KouKou via la console web (support).
+          Besoin d’aide ? Contactez l’équipe Fermia via la console web (support).
         </AppText>
       </View>
     </Screen>

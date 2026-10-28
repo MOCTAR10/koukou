@@ -350,7 +350,7 @@ export class FarmsService {
     return saved;
   }
 
-  /** Retire le logo personnalisé (retour au logo KouKou par défaut). */
+  /** Retire le logo personnalisé (retour au logo Fermia par défaut). */
   async clearFarmLogo(farm: Farm): Promise<Farm> {
     const previous = farm.logoUrl;
     farm.logoUrl = null;
@@ -387,7 +387,7 @@ export class FarmsService {
     if (dto.permissions !== undefined) {
       if (role !== FarmStaffRole.ADMIN) {
         throw new BadRequestException(
-          'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+          'Les permissions ne se règlent que pour un Administrateur Fermia (rôle Éleveur = droits fixes).',
         );
       }
       const invalid = dto.permissions.filter((c) => !isPermissionCode(c));
@@ -446,7 +446,7 @@ export class FarmsService {
     if (!employee) throw new NotFoundException('Employé introuvable.');
     if (employee.role !== UserRole.ELEVEUR) {
       throw new BadRequestException(
-        'Seul un compte de la ferme peut être rattaché (Administrateur KouKou ou Éleveur Koukou).',
+        'Seul un compte de la ferme peut être rattaché (Administrateur Fermia ou Éleveur Fermia).',
       );
     }
     const existing = await this.employeeRepo.findOne({
@@ -531,7 +531,7 @@ export class FarmsService {
     if (dto.permissions !== undefined) {
       if (link.role !== FarmStaffRole.ADMIN) {
         throw new BadRequestException(
-          'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+          'Les permissions ne se règlent que pour un Administrateur Fermia (rôle Éleveur = droits fixes).',
         );
       }
       const invalid = dto.permissions.filter((c) => !isPermissionCode(c));

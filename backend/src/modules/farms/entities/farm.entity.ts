@@ -42,7 +42,7 @@ export class Farm {
   defaultSacKg: number;
 
   /** Chemin public du logo de la ferme (ex. « /uploads/logos/<farmId>.png »),
-   *  servi par les assets statiques de l'API. Null = logo KouKou par défaut. */
+   *  servi par les assets statiques de l'API. Null = logo Fermia par défaut. */
   @Column({ name: 'logo_url', type: 'varchar', nullable: true })
   logoUrl: string | null;
 

@@ -51,7 +51,7 @@ export class CreateElevageDto {
   @ApiPropertyOptional({
     enum: FarmStaffRole,
     description:
-      'Rôle : Administrateur KouKou (droits flexibles) ou Éleveur Koukou (droits fixes). Défaut : Éleveur.',
+      'Rôle : Administrateur Fermia (droits flexibles) ou Éleveur Fermia (droits fixes). Défaut : Éleveur.',
   })
   @IsOptional()
   @IsEnum(FarmStaffRole, {
@@ -74,7 +74,7 @@ export class CreateElevageDto {
 
   @ApiPropertyOptional({
     description:
-      'Permissions accordées (Administrateur KouKou uniquement). Défaut : permissions de base du rôle.',
+      'Permissions accordées (Administrateur Fermia uniquement). Défaut : permissions de base du rôle.',
   })
   @IsOptional()
   @IsArray()

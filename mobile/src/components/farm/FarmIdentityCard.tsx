@@ -27,7 +27,7 @@ interface FarmIdentityCardProps {
   canEdit: boolean;
 }
 
-/** Nom de la ferme + logo (upload ou marque KouKou blanche par défaut). */
+/** Nom de la ferme + logo (upload ou marque Fermia blanche par défaut). */
 export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
   const { refreshFarms } = useAuth();
   const [editing, setEditing] = useState(false);
@@ -118,7 +118,7 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
   const confirmRemoveLogo = () => {
     Alert.alert(
       'Retirer le logo',
-      'La ferme repassera au logo KouKou par défaut. Confirmer ?',
+      'La ferme repassera au logo Fermia par défaut. Confirmer ?',
       [
         { text: 'Annuler', style: 'cancel' },
         { text: 'Retirer', style: 'destructive', onPress: () => void removeLogo() },
@@ -236,7 +236,7 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
 
       {!farm.logoUrl ? (
         <AppText size="small" color="faint">
-          Sans logo, c’est la marque KouKou blanche qui s’affiche sur vos écrans.
+          Sans logo, c’est la marque Fermia blanche qui s’affiche sur vos écrans.
         </AppText>
       ) : null}
 

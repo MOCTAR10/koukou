@@ -241,7 +241,7 @@ function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]} accessibilityRole="button">
       <View style={styles.memberHead}>
         <View style={[styles.avatar, isAdmin && { backgroundColor: color.accent[600] }]}>
-          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <View style={styles.titleRow}>
@@ -602,7 +602,7 @@ export default function EquipeScreen() {
                 <Card tone="green" style={styles.card}>
                   <View style={styles.memberHead}>
                     <View style={[styles.avatar, { backgroundColor: color.green[600] }]}>
-                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
                       </View>
                     <View style={{ flex: 1, gap: 2 }}>
                       <View style={styles.titleRow}>

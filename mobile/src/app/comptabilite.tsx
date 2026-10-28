@@ -149,7 +149,7 @@ export default function ComptabiliteScreen() {
     try {
       await downloadPdf(
         `/farms/${farmId}/accounting/export?report=${tab}&format=pdf`,
-        `koukou-${tab}.pdf`,
+        `fermia-${tab}.pdf`,
       );
       Alert.alert('Rapport téléchargé', `${REPORT_NAME[tab]} exporté (PDF).`);
     } catch (e) {

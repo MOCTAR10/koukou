@@ -473,7 +473,7 @@ export default function CommandeDetailScreen() {
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={styles.avatar}>
-              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
             </View>
             <View style={{ flex: 1 }}>
               <AppText size="h3" weight="bold" color="text">

@@ -85,7 +85,7 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
   },
 ];
 
-/** Permissions de base d'un nouvel Administrateur KouKou (miroir serveur `ADMIN_DEFAULT_PERMISSIONS`). */
+/** Permissions de base d'un nouvel Administrateur Fermia (miroir serveur `ADMIN_DEFAULT_PERMISSIONS`). */
 export const CREATE_ADMIN_DEFAULT_PERMISSIONS: string[] = [
   'saisie:creer',
   'caisse:lire',

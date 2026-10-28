@@ -57,7 +57,7 @@ export class TasksService {
       user,
       farmId,
     );
-    // Éleveur Koukou : uniquement ses propres tâches ; Propriétaire /
+    // Éleveur Fermia : uniquement ses propres tâches ; Propriétaire /
     // Administrateur : toutes les tâches de l'équipe.
     const onlyMine =
       resolution !== 'ALL' && resolution?.role === FarmStaffRole.ELEVEUR;

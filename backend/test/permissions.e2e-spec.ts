@@ -62,7 +62,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({
         phone: phone(2),
-        fullName: 'Admin KouKou',
+        fullName: 'Admin Fermia',
         code: 'secret456',
         role: 'ADMIN',
         jobTitle: 'Comptable',
@@ -200,7 +200,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .send({ permissions: ['equipe:gerer'] })
       .expect(400);
     expect(res.body.message).toBe(
-      'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+      'Les permissions ne se règlent que pour un Administrateur Fermia (rôle Éleveur = droits fixes).',
     );
   });
 
@@ -250,7 +250,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       })
       .expect(400);
     expect(res.body.message).toBe(
-      'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+      'Les permissions ne se règlent que pour un Administrateur Fermia (rôle Éleveur = droits fixes).',
     );
   });
 

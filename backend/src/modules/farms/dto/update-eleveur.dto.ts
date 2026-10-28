@@ -49,7 +49,7 @@ export class UpdateEleveurDto {
   active?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Permissions accordées (Administrateur KouKou uniquement).',
+    description: 'Permissions accordées (Administrateur Fermia uniquement).',
   })
   @IsOptional()
   @IsArray()

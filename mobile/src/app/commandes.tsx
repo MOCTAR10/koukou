@@ -447,7 +447,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
           {client ? (
             <Card tone="brand" style={styles.orderClient}>
               <View style={styles.avatar}>
-                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
               </View>
               <View style={{ flex: 1, gap: 1 }}>
                 <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
@@ -659,7 +659,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
           ) : (
             <Card tone="default" style={[styles.lotPanel, styles.lotPanelEmpty]}>
               <View style={styles.avatar}>
-                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
               </View>
               <AppText size="body" weight="semibold" color="muted">
                 Sélectionner un lot
@@ -1079,7 +1079,7 @@ function OrderCard({ order }: { order: OrderFull }) {
     <Card onPress={() => router.push({ pathname: '/commande/[id]', params: { id: order.id } })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <View style={styles.avatar}>
-          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
         </View>
         <View style={{ flex: 1 }}>
           <AppText size="body" weight="bold" color="text" numberOfLines={1}>

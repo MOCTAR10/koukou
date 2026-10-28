@@ -32,7 +32,7 @@ export class FarmEmployee {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  /** Rôle au sein de la ferme : Administrateur KouKou (droits flexibles) ou Éleveur Koukou (droits fixes). */
+  /** Rôle au sein de la ferme : Administrateur Fermia (droits flexibles) ou Éleveur Fermia (droits fixes). */
   @Column({ type: 'enum', enum: FarmStaffRole, default: FarmStaffRole.ELEVEUR })
   role: FarmStaffRole;
 
@@ -40,7 +40,7 @@ export class FarmEmployee {
   @Column({ name: 'job_title', type: 'varchar', nullable: true })
   jobTitle: string | null;
 
-  /** Permissions accordées (Administrateur KouKou). Ignorées pour l'Éleveur (droits fixes en code). */
+  /** Permissions accordées (Administrateur Fermia). Ignorées pour l'Éleveur (droits fixes en code). */
   @Column({ type: 'jsonb', default: '[]' })
   permissions: string[];
 

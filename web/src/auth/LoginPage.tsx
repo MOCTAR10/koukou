@@ -51,7 +51,7 @@ export function LoginPage() {
         <div className="mb-5 flex flex-col items-center gap-2 text-center">
           <Logo className="h-24 w-auto" />
           <div>
-            <h1 className="text-lg font-bold text-slate-900">KouKou</h1>
+            <h1 className="text-lg font-bold text-slate-900">Fermia</h1>
             <p className="text-[13px] text-slate-500">
               Console Administrateur Plateforme
             </p>

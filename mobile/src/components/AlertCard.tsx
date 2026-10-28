@@ -143,7 +143,7 @@ export function AlertCard({ alert, busy = false, onPrimary, onOpenLot, showWhy =
           <Pressable onPress={() => setOpen((o) => !o)} style={styles.whyToggle} accessibilityRole="button">
             <Info size={13} color={palette.ink[400]} />
             <AppText size="small" weight="semibold" color="muted">
-              Pourquoi KouKou dit ça ?
+              Pourquoi Fermia dit ça ?
             </AppText>
             <View style={open && styles.rotated}>
               <ChevronDown size={15} color={palette.ink[400]} />

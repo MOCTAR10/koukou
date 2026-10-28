@@ -381,7 +381,7 @@ function CollectSheet({
         {customer ? (
           <Card tone="brand" style={styles.collectClient}>
             <View style={styles.avatar}>
-              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
             </View>
             <View style={{ flex: 1, gap: 1 }}>
               <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
@@ -618,7 +618,7 @@ export default function ClientsScreen() {
           title="Clients & crédit"
           subtitle={farms[0]?.name ?? 'Ferme'}
           back
-          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo KouKou" />}
+          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
           right={<UserRound size={18} color={color.ink[300]} />}
         />
       }>
@@ -711,7 +711,7 @@ export default function ClientsScreen() {
                     <Pressable onPress={() => setOpenId(open ? null : c.id)} accessibilityRole="button">
                       <View style={styles.head}>
 <View style={styles.avatar}>
-                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
                       </View>
                         <View style={{ flex: 1, gap: 3 }}>
                           <View style={styles.rowBetween}>
