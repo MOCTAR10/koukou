@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
-import { BatchStatus } from '../../common/enums/batch-type.enum.js';
+import { BatchStatus, BatchType } from '../../common/enums/batch-type.enum.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { Building } from '../buildings/entities/building.entity.js';
 import { AlertsService } from '../alerts/alerts.service.js';
@@ -595,7 +595,16 @@ export class AdvisoryEngine {
     farmId: string,
     batchId: string,
   ) {
-    if (metrics.ipe == null || metrics.ageDays < 14) {
+    // The IPE has no absolute scale (≈ 250–400 for broilers, species- and
+    // age-dependent): it is judged against the breed curve at the weighing
+    // age. Meat lots only; no standard → no judgement.
+    if (
+      batch.type !== BatchType.CHAIR ||
+      metrics.ipe == null ||
+      metrics.ipeTarget == null ||
+      metrics.ipeTarget <= 0 ||
+      (metrics.lastWeighingAgeDays ?? 0) < 14
+    ) {
       await this.alertsService.clearKind(farmId, batchId, AlertKind.IPE);
       return;
     }
@@ -603,15 +612,17 @@ export class AdvisoryEngine {
       ReferenceKey.IPE_DEVIATION_WARN_PCT,
       10,
     );
-    if (metrics.ipe < 100 * (1 - warnPct / 100)) {
+    const deviationPct =
+      ((metrics.ipe - metrics.ipeTarget) / metrics.ipeTarget) * 100;
+    if (deviationPct < -warnPct) {
       await this.alertsService.raise(
         {
           kind: AlertKind.IPE,
           level: AlertLevel.JAUNE,
-          message: `IPE faible (${metrics.ipe.toFixed(1)}) sur le lot ${batch.batchName}. Performance en retrait.`,
+          message: `IPE en retrait sur le lot ${batch.batchName} : ${metrics.ipe.toFixed(0)} vs ${metrics.ipeTarget.toFixed(0)} attendu pour la souche (${deviationPct.toFixed(0)} %).`,
           recommendation:
-            'Revoir la ration alimentaire, la densité et les conditions d’ambiance.',
-          context: { ipe: metrics.ipe },
+            'Poids ou indice de consommation en retard sur la souche : revoir la ration alimentaire, la densité et les conditions d’ambiance.',
+          context: { ipeDeviationPct: Math.round(deviationPct) },
         },
         { farmId, batchId },
       );

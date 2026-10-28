@@ -697,7 +697,7 @@ export default function LotDetailScreen() {
           {/* Metric tiles */}
           <View style={styles.metricGrid}>
             <MetricTile label="GMQ" value={m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'} icon={TrendingUp} tone="brand" threeCol />
-            <MetricTile label="IPE" value={(m?.ipe ?? 0).toLocaleString('fr-FR')} icon={Activity} tone="accent" threeCol />
+            <MetricTile label={m?.ipeTarget != null ? `IPE (cible ${Math.round(m.ipeTarget)})` : 'IPE'} value={m?.ipe != null ? String(Math.round(m.ipe)) : '—'} icon={Activity} tone="accent" threeCol labelLines={2} />
             <MetricTile label="Viabilité" value={`${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`} icon={HeartPulse} tone={(m?.viabilityPercent ?? 100) >= 95 ? 'green' : 'amber'} threeCol />
             <MetricTile label="Poids moyen" value={avgWeightKg != null ? `${avgWeightKg.toFixed(1)} kg` : '—'} icon={Weight} tone="brand" threeCol labelLines={2} />
             <MetricTile label="Aliment/bird" value={healthQ.data?.feedPerBirdGrams != null && healthQ.data.feedPerBirdGrams > 0 ? `${Math.round(healthQ.data.feedPerBirdGrams)} g/j` : '—'} icon={Wheat} tone="default" threeCol labelLines={2} />
