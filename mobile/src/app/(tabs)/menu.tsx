@@ -8,6 +8,7 @@ import {
   BookOpen,
   Briefcase,
   ClipboardList,
+  ChevronRight,
   Coins,
   FileBarChart2,
   HandCoins,
@@ -20,6 +21,8 @@ import {
   Sprout,
   Stethoscope,
   Store,
+  Tractor,
+  Drumstick,
   User,
   Users,
   Wheat,
@@ -39,8 +42,7 @@ import type { PermissionCode } from '@/api/types';
 interface MenuItem {
   key: string;
   label: string;
-  icon: React.ReactNode;
-  bg: string;
+  icon: LucideIcon;
   href: Href;
   /** Droits (au moins un) requis pour afficher la tuile ; absent = visible par tous. */
   perms?: PermissionCode[];
@@ -51,10 +53,13 @@ interface MenuGroup {
   title: string;
   subtitle: string;
   icon: LucideIcon;
+  /** One tint per section: icons read as a family, colour = domain. */
   iconColor: string;
   iconBg: string;
   items: MenuItem[];
 }
+
+const ADMIN_TINT = { iconColor: palette.ink[600], iconBg: palette.surfaceAlt };
 
 const ICON = 24;
 
@@ -90,20 +95,8 @@ function GroundHome() {
   ];
 
   const links: MenuItem[] = [
-    {
-      key: 'profil',
-      label: 'Mon profil',
-      icon: <User size={ICON} color={color.brand[600]} />,
-      bg: color.brand[50],
-      href: '/reglages',
-    },
-    {
-      key: 'lots',
-      label: 'Mes lots',
-      icon: <Bird size={ICON} color={color.brand[600]} />,
-      bg: color.brand[50],
-      href: '/lots',
-    },
+    { key: 'profil', label: 'Mon profil', icon: User, href: '/reglages' },
+    { key: 'lots', label: 'Mes lots', icon: Bird, href: '/lots' },
   ];
 
   return (
@@ -136,7 +129,7 @@ function GroundHome() {
       <SectionHeader title="Comptes & suivi" subtitle="Profil et bandes en cours" icon={Settings} />
       <View style={styles.grid}>
         {links.map((item) => (
-          <MenuTile key={item.key} item={item} onPress={() => router.push(item.href)} />
+          <MenuTile key={item.key} item={item} tint={palette.brand[600]} soft={palette.brand[50]} onPress={() => router.push(item.href)} />
         ))}
       </View>
     </Screen>
@@ -160,10 +153,10 @@ export default function MenuScreen() {
       iconColor: palette.brand[600],
       iconBg: palette.brand[50],
       items: [
-        { key: 'activites', label: 'Activités', icon: <Activity size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/activites' },
-        { key: 'sanitaire', label: 'Sanitaire', icon: <Stethoscope size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/sanitary', perms: ['sanitaire:lecture'] },
-        { key: 'stock', label: 'Stock & provendes', icon: <Wheat size={ICON} color={color.amber[600]} />, bg: color.amber[50], href: '/provende', perms: ['stock:gerer'] },
-        { key: 'abattage', label: 'Abattage', icon: <Bird size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/slaughter', perms: ['production:abattage'] },
+        { key: 'activites', label: 'Activités', icon: Activity, href: '/activites' },
+        { key: 'sanitaire', label: 'Sanitaire', icon: Stethoscope, href: '/sanitary', perms: ['sanitaire:lecture'] },
+        { key: 'stock', label: 'Stock & provendes', icon: Wheat, href: '/provende', perms: ['stock:gerer'] },
+        { key: 'abattage', label: 'Abattage', icon: Drumstick, href: '/slaughter', perms: ['production:abattage'] },
       ],
     },
     {
@@ -171,11 +164,11 @@ export default function MenuScreen() {
       title: 'Agriculture',
       subtitle: 'Parcelles, récoltes & terres',
       icon: Sprout,
-      iconColor: palette.green[600],
+      iconColor: palette.green[700],
       iconBg: palette.green[50],
       items: [
-        { key: 'parcelles', label: 'Parcelles', icon: <Sprout size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/parcelles' },
-        { key: 'recoltes', label: 'Récoltes', icon: <Activity size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/recoltes' },
+        { key: 'parcelles', label: 'Parcelles', icon: Sprout, href: '/parcelles' },
+        { key: 'recoltes', label: 'Récoltes', icon: Tractor, href: '/recoltes' },
       ],
     },
     {
@@ -183,14 +176,14 @@ export default function MenuScreen() {
       title: 'Comptoir',
       subtitle: 'Caisse, ventes, clients & points de vente',
       icon: HandCoins,
-      iconColor: palette.accent[500],
+      iconColor: palette.accent[700],
       iconBg: palette.accent[50],
       items: [
-        { key: 'caisse', label: 'Caisse', icon: <Coins size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/pos?tab=CAISSE', perms: ['caisse:lire'] },
-        { key: 'commandes', label: 'Commandes', icon: <ClipboardList size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/commandes', perms: ['vente:commande'] },
-        { key: 'clients', label: 'Clients', icon: <Handshake size={ICON} color={color.accent[600]} />, bg: color.accent[50], href: '/clients', perms: ['compta:client'] },
-        { key: 'pointsvente', label: 'Points de vente', icon: <MapPin size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/points-vente', perms: ['pdv:gerer'] },
-        { key: 'marche', label: 'Marché', icon: <Store size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/marche', perms: ['vente:creer'] },
+        { key: 'caisse', label: 'Caisse', icon: Coins, href: '/pos?tab=CAISSE', perms: ['caisse:lire'] },
+        { key: 'commandes', label: 'Commandes', icon: ClipboardList, href: '/commandes', perms: ['vente:commande'] },
+        { key: 'clients', label: 'Clients', icon: Handshake, href: '/clients', perms: ['compta:client'] },
+        { key: 'pointsvente', label: 'Points de vente', icon: MapPin, href: '/points-vente', perms: ['pdv:gerer'] },
+        { key: 'marche', label: 'Marché', icon: Store, href: '/marche', perms: ['vente:creer'] },
       ],
     },
     {
@@ -198,12 +191,12 @@ export default function MenuScreen() {
       title: 'Finances',
       subtitle: 'Rentabilité, écritures & bilans',
       icon: FileBarChart2,
-      iconColor: palette.green[600],
-      iconBg: palette.green[50],
+      iconColor: palette.amber[700],
+      iconBg: palette.amber[50],
       items: [
-        { key: 'rapports', label: 'Rentabilité', icon: <FileBarChart2 size={ICON} color={color.green[600]} />, bg: color.green[50], href: '/rapports', perms: ['compta:rapports'] },
-        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: <Landmark size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/comptabilite', perms: ['compta:rapports'] },
-        { key: 'depenses', label: 'Dépenses', icon: <ReceiptText size={ICON} color={color.red[600]} />, bg: color.red[50], href: '/depenses', perms: ['compta:depense'] },
+        { key: 'rapports', label: 'Rentabilité', icon: FileBarChart2, href: '/rapports', perms: ['compta:rapports'] },
+        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'] },
+        { key: 'depenses', label: 'Dépenses', icon: ReceiptText, href: '/depenses', perms: ['compta:depense'] },
       ],
     },
     {
@@ -211,12 +204,11 @@ export default function MenuScreen() {
       title: 'Administration',
       subtitle: 'Équipe, profil & paramètres',
       icon: Settings,
-      iconColor: palette.brand[600],
-      iconBg: palette.brand[50],
+      ...ADMIN_TINT,
       items: [
-        { key: 'equipe', label: 'Équipe', icon: <Users size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/equipe', perms: ['equipe:gerer'] },
-        { key: 'rh', label: 'Dossiers RH', icon: <Briefcase size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/rh', perms: ['rh:lire', 'equipe:gerer'] },
-        { key: 'profil', label: 'Profil', icon: <User size={ICON} color={color.brand[600]} />, bg: color.brand[50], href: '/reglages' },
+        { key: 'equipe', label: 'Équipe', icon: Users, href: '/equipe', perms: ['equipe:gerer'] },
+        { key: 'rh', label: 'Dossiers RH', icon: Briefcase, href: '/rh', perms: ['rh:lire', 'equipe:gerer'] },
+        { key: 'profil', label: 'Profil', icon: User, href: '/reglages' },
       ],
     },
   ];
@@ -292,7 +284,7 @@ function MenuSection({ group, onPick }: { group: MenuGroup; onPick: (href: Href)
       <SectionHeader title={group.title} subtitle={group.subtitle} icon={group.icon} iconColor={group.iconColor} iconBg={group.iconBg} />
       <View style={styles.grid}>
         {group.items.map((item) => (
-          <MenuTile key={item.key} item={item} onPress={() => onPick(item.href)} />
+          <MenuTile key={item.key} item={item} tint={group.iconColor} soft={group.iconBg} onPress={() => onPick(item.href)} />
         ))}
       </View>
     </View>
@@ -300,19 +292,23 @@ function MenuSection({ group, onPick }: { group: MenuGroup; onPick: (href: Href)
 }
 
 /** Tuile « tuile colorée + libellé » : grille de navigation des écrans pro. */
-function MenuTile({ item, onPress }: { item: MenuItem; onPress: () => void }) {
+function MenuTile({ item, tint, soft, onPress }: { item: MenuItem; tint: string; soft: string; onPress: () => void }) {
+  const Icon = item.icon;
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
       accessibilityRole="menuitem"
       accessibilityLabel={item.label}>
-      <View style={[styles.tileIcon, { backgroundColor: item.bg }]}>{item.icon}</View>
+      <View style={[styles.tileIcon, { backgroundColor: soft }]}>
+        <Icon size={ICON - 2} color={tint} strokeWidth={2} />
+      </View>
       <View style={styles.tileCol}>
         <AppText size="bodyM" weight="semibold" color="text" numberOfLines={2}>
           {item.label}
         </AppText>
       </View>
+      <ChevronRight size={16} color={palette.ink[300]} />
     </Pressable>
   );
 }
@@ -371,7 +367,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: palette.border,
-    padding: 10,
+    paddingVertical: 12,
+    paddingLeft: 12,
+    paddingRight: 8,
   },
   tilePressed: {
     backgroundColor: palette.surfaceAlt,
@@ -383,7 +381,7 @@ const styles = StyleSheet.create({
   tileIcon: {
     width: 40,
     height: 40,
-    borderRadius: 13,
+    borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
