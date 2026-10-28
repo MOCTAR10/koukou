@@ -703,6 +703,11 @@ export default function LotDetailScreen() {
             <MetricTile label="Aliment/bird" value={healthQ.data?.feedPerBirdGrams != null && healthQ.data.feedPerBirdGrams > 0 ? `${Math.round(healthQ.data.feedPerBirdGrams)} g/j` : '—'} icon={Wheat} tone="default" threeCol labelLines={2} />
             <MetricTile label="Densité" value={m?.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : '—'} icon={Layers} tone="default" threeCol />
           </View>
+          {m?.lastWeighingDate ? (
+            <AppText size="caption" color="faint">
+              GMQ, IC et IPE calculés à la dernière pesée ({m.lastWeighingDate.split('-').reverse().join('/')}, J{m.lastWeighingAgeDays}).
+            </AppText>
+          ) : null}
 
           {/* ── ABATTAGE — synthèse ordres ── */}
           <SlaughterInfoCard summary={slaughterSummary} showEmpty />
@@ -856,7 +861,7 @@ export default function LotDetailScreen() {
               </View>
               {breedStatus.actualAvgWeightKg != null && breedStatus.targetAvgWeightKg != null && (
                 <View style={styles.tipRow}>
-                  <AppText size="small" color="muted" style={{ flex: 1 }}>Poids (réel {breedStatus.actualAvgWeightKg} kg / cible {breedStatus.targetAvgWeightKg} kg)</AppText>
+                  <AppText size="small" color="muted" style={{ flex: 1 }}>Poids (réel {breedStatus.actualAvgWeightKg} kg / cible {breedStatus.targetAvgWeightKg} kg{breedStatus.weighingWeek != null && breedStatus.weighingWeek !== breedStatus.week ? ` à S${breedStatus.weighingWeek}` : ''})</AppText>
                   <AppText size="body" weight="bold" color={breedStatus.avgWeightDeviationPct != null && breedStatus.avgWeightDeviationPct < 0 ? 'danger' : 'success'}>
                     {breedStatus.avgWeightDeviationPct != null ? `${breedStatus.avgWeightDeviationPct > 0 ? '+' : ''}${breedStatus.avgWeightDeviationPct.toFixed(1)} %` : '—'}
                   </AppText>

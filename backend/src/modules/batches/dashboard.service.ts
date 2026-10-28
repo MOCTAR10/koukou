@@ -45,9 +45,15 @@ import { StockTransferStatus } from '../../common/enums/stock-transfer-status.en
 import { ProductionBatch } from './entities/production-batch.entity.js';
 import { BatchesService } from './batches.service.js';
 import { BreedStatus, MetricsService } from './metrics.service.js';
+import {
+  FlockTimeline,
+  performanceAtLastWeighing,
+  waterPerBirdOn,
+} from './flock-performance.js';
+import { FlockReconciliationService } from './flock-reconciliation.service.js';
+import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { FarmWeather, WeatherService } from '../weather/weather.service.js';
 
-const DAY1_WEIGHT_KG = 0.045;
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -222,6 +228,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     private readonly metricsService: MetricsService,
     private readonly constants: ReferenceConstantsService,
     private readonly weatherService: WeatherService,
+    private readonly flockReconciliation: FlockReconciliationService,
   ) {}
 
   onModuleInit() {
@@ -841,25 +848,42 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const weeks = [...byWeek.values()].sort((a, b) =>
       a.weekStart.localeCompare(b.weekStart),
     );
+    // Same population / weighing rules as the batch metrics, so the curve's
+    // last FCR point matches the FCR shown on the lot.
+    const d1 = day1WeightKg(batch.species);
+    const timeline: FlockTimeline = {
+      integrationDate: batch.integrationDate,
+      quantityAtStart: batch.quantityAtStart,
+      day1WeightKg: d1,
+      entries,
+      removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+    };
 
     let accumulatedFeed = 0;
     const weekly: CurveWeek[] = weeks.map((w) => {
       accumulatedFeed += w.feedKg;
-      const weightGainKg =
+      const weekEnd = addDays(w.weekStart, 6);
+      const perf =
         w.lastAvgWeightKg != null
-          ? (w.lastAvgWeightKg - DAY1_WEIGHT_KG) * liveCount
-          : 0;
-      const fcrCumulative =
-        weightGainKg > 0 && accumulatedFeed > 0
-          ? round2(accumulatedFeed / weightGainKg)
+          ? performanceAtLastWeighing(timeline, weekEnd)
           : null;
+      const fcrCumulative = perf?.fcr != null ? round2(perf.fcr) : null;
+      let waterPerBird = 0;
+      let waterDays = 0;
+      for (const e of entries) {
+        if (e.entryDate < w.weekStart || e.entryDate > weekEnd) continue;
+        const v = waterPerBirdOn(timeline, e);
+        if (v == null) continue;
+        waterPerBird += v;
+        waterDays += 1;
+      }
       return {
         weekStart: w.weekStart,
         avgWeightKg:
           w.weightCount > 0 ? round2(w.weightSum / w.weightCount) : null,
         feedKg: round2(w.feedKg),
         waterL: round2(w.waterL),
-        waterLPerBird: liveCount > 0 ? round2(w.waterL / liveCount) : null,
+        waterLPerBird: waterDays > 0 ? round2(waterPerBird) : null,
         deaths: w.deaths,
         cumFeedKg: round2(accumulatedFeed),
         fcrCumulative,
@@ -869,7 +893,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     return {
       batchId,
       liveCount,
-      startWeightKg: DAY1_WEIGHT_KG,
+      startWeightKg: d1,
       weekly,
     };
   }

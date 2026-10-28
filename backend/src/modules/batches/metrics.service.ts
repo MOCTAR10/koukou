@@ -30,6 +30,11 @@ import { ReferenceConstantsService } from '../reference-constants/reference-cons
 import { ProductionBatch } from './entities/production-batch.entity.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import {
+  avgDailyWaterPerBird,
+  FlockTimeline,
+  performanceAtLastWeighing,
+} from './flock-performance.js';
+import {
   BatchMetrics,
   ReadyReason,
 } from './models/batch-metrics.model.js';
@@ -111,6 +116,8 @@ export interface BreedStatus {
   breedCode: string | null;
   breedType: BatchType;
   week: number;
+  /** Age week of the last weighing (weight / FCR targets are taken there). */
+  weighingWeek: number | null;
   targetAvgWeightKg: number | null;
   actualAvgWeightKg: number | null;
   avgWeightDeviationPct: number | null;
@@ -158,7 +165,7 @@ export class MetricsService {
       minVenteAgeDays,
       fcrDeviationMaxPct,
       reformeLayRateFallPct,
-      standard,
+      standards,
       alertsCount,
       activeSanitaryAlerts,
     ] = await Promise.all([
@@ -172,7 +179,7 @@ export class MetricsService {
       this.constants.get(ReferenceKey.VENTE_AGE_MIN_DAYS, 35),
       this.constants.get(ReferenceKey.VENTE_FCR_DEV_MAX_PCT, 10),
       this.constants.get(ReferenceKey.REFORME_LAY_RATE_FALL_PCT, 15),
-      this.findStandard(batch, refDate),
+      this.loadStandards(batch),
       this.alertRepo.count({
         where: { batchId: batch.id, status: AlertStatus.ACTIVE },
       }),
@@ -191,6 +198,11 @@ export class MetricsService {
     const entries = historical
       ? entriesRaw.filter((e) => e.entryDate <= asOf)
       : entriesRaw;
+    const standard = this.pickStandard(
+      standards,
+      batch.integrationDate,
+      refDate,
+    );
     const ageDays = this.ageDaysOn(batch.integrationDate, refDate);
     const totalDeaths = entries.reduce((s, e) => s + e.deaths, 0);
     // quantityAlive est la source de vérité (décréments POS/abattage + reconcilées).
@@ -233,30 +245,23 @@ export class MetricsService {
     const totalFeedKg = entries.reduce((s, e) => s + e.feedQuantity, 0);
     const totalWaterL = entries.reduce((s, e) => s + e.waterL, 0);
 
-    const latestWeight =
-      [...entries]
-        .reverse()
-        .find((e) => e.avgWeightKg != null && e.avgWeightKg > 0)?.avgWeightKg ??
-      null;
-
-    const d1WeightKg = day1WeightKg(batch.species);
-    const totalWeightGainKg =
-      latestWeight != null ? (latestWeight - d1WeightKg) * liveCount : null;
-
-    const fcr =
-      totalWeightGainKg != null && totalWeightGainKg > 0
-        ? totalFeedKg / totalWeightGainKg
-        : null;
-
-    const gmqGramsPerDay =
-      latestWeight != null && ageDays > 0
-        ? ((latestWeight - d1WeightKg) * 1000) / ageDays
-        : null;
-
-    const ipe =
-      latestWeight != null && fcr != null && fcr > 0 && ageDays > 0
-        ? (latestWeight * viabilityPercent * 100) / (ageDays * fcr)
-        : null;
+    // FCR / GMQ / IPE at the last weighing, over every bird the feed went
+    // into (present, sold, slaughtered, culled, dead) — see flock-performance.
+    const timeline: FlockTimeline = {
+      integrationDate: batch.integrationDate,
+      quantityAtStart: batch.quantityAtStart,
+      day1WeightKg: day1WeightKg(batch.species),
+      entries,
+      removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+    };
+    const perf = performanceAtLastWeighing(timeline, refDate);
+    const totalWeightGainKg = perf ? perf.biomassGainKg : null;
+    const fcr = perf?.fcr ?? null;
+    const gmqGramsPerDay = perf?.gmqGramsPerDay ?? null;
+    const ipe = perf?.ipe ?? null;
+    const fcrStandard = perf
+      ? this.pickStandard(standards, batch.integrationDate, perf.weighingDate)
+      : null;
 
     const eggsCollectedTotal = entries.reduce((s, e) => s + e.eggsCollected, 0);
     const eggBreakdown = {
@@ -337,7 +342,7 @@ export class MetricsService {
       isClosed: batch.status === BatchStatus.CLOTURE,
       ageDays,
       mortalityPercent,
-      fcrDeviationPct: deviationPct(fcr, standard?.targetFcr ?? null),
+      fcrDeviationPct: deviationPct(fcr, fcrStandard?.targetFcr ?? null),
       layRateDeviationPct: deviationPct(
         layRatePercent,
         standard?.targetLayRatePercent ?? null,
@@ -357,11 +362,18 @@ export class MetricsService {
       liveCount,
       totalFeedKg,
       totalWaterL,
-      waterLPerBird: liveCount > 0 ? totalWaterL / liveCount : null,
+      waterLPerBird: avgDailyWaterPerBird(
+        timeline,
+        addDaysIso(refDate, -7),
+        refDate,
+      ),
       totalWeightGainKg,
       fcr,
       gmqGramsPerDay,
       ipe,
+      lastWeighingDate: perf?.weighingDate ?? null,
+      lastWeighingAgeDays: perf?.ageDays ?? null,
+      lastWeighingAvgWeightKg: perf?.avgWeightKg ?? null,
       eggsCollectedTotal,
       eggBreakdown,
       eggStockAvailableEggs,
@@ -376,22 +388,26 @@ export class MetricsService {
     };
   }
 
-  /** Semaine d'âge courante du lot → dernière entrée du référentiel de la souche. */
-  private async findStandard(
-    batch: ProductionBatch,
-    refDate: string,
-  ): Promise<BreedStandard | null> {
-    if (!batch.breed) return null;
-    const standards = await this.standardRepo.find({
+  private async loadStandards(batch: ProductionBatch): Promise<BreedStandard[]> {
+    if (!batch.breed) return [];
+    return this.standardRepo.find({
       where: { breedId: batch.breed.id },
       order: { week: 'ASC' },
     });
-    if (standards.length === 0) return null;
+  }
 
-    const ageDays = this.ageDaysOn(batch.integrationDate, refDate);
-    const ageWeek = Math.floor(ageDays / 7) + 1;
+  /** Standard row for the age week on `date` (last row once past the curve). */
+  private pickStandard(
+    standards: BreedStandard[],
+    integrationDate: string,
+    date: string,
+  ): BreedStandard | null {
+    if (standards.length === 0) return null;
+    const ageWeek = Math.floor(this.ageDaysOn(integrationDate, date) / 7) + 1;
     const applicable = standards.filter((s) => s.week <= ageWeek);
-    return applicable.length > 0 ? applicable[applicable.length - 1]! : standards[0];
+    return applicable.length > 0
+      ? applicable[applicable.length - 1]!
+      : standards[0];
   }
 
   /**
@@ -401,15 +417,30 @@ export class MetricsService {
    * la souche n'a pas de référentiel (souche personnalisée).
    */
   async breedStatus(batch: ProductionBatch): Promise<BreedStatus | null> {
-    const standard = await this.findStandard(batch, todayIso());
+    const standards = await this.loadStandards(batch);
+    const standard = this.pickStandard(
+      standards,
+      batch.integrationDate,
+      todayIso(),
+    );
     if (!standard) return null;
 
     const metrics = await this.compute(batch);
-    const ageDays = this.ageDaysOn(batch.integrationDate, todayIso());
+    // Weight and FCR are measured at the last weighing: compare them with the
+    // curve at THAT age, not at today's week.
+    const atWeighing = metrics.lastWeighingDate
+      ? this.pickStandard(
+          standards,
+          batch.integrationDate,
+          metrics.lastWeighingDate,
+        )
+      : null;
     const actualAvgWeightKg =
-      metrics.gmqGramsPerDay != null
-        ? round2(day1WeightKg(batch.species) + (metrics.gmqGramsPerDay * ageDays) / 1000)
+      metrics.lastWeighingAvgWeightKg != null
+        ? round2(metrics.lastWeighingAvgWeightKg)
         : null;
+    const targetAvgWeightKg = atWeighing?.targetAvgWeightKg ?? null;
+    const targetFcr = atWeighing?.targetFcr ?? null;
 
     return {
       breedId: batch.breed!.id,
@@ -417,15 +448,13 @@ export class MetricsService {
       breedCode: batch.breed!.refCode ?? null,
       breedType: batch.breed!.type,
       week: standard.week,
-      targetAvgWeightKg: standard.targetAvgWeightKg,
+      weighingWeek: atWeighing?.week ?? null,
+      targetAvgWeightKg,
       actualAvgWeightKg,
-      avgWeightDeviationPct: deviationPct(
-        actualAvgWeightKg,
-        standard.targetAvgWeightKg,
-      ),
-      targetFcr: standard.targetFcr,
+      avgWeightDeviationPct: deviationPct(actualAvgWeightKg, targetAvgWeightKg),
+      targetFcr,
       actualFcr: metrics.fcr,
-      fcrDeviationPct: deviationPct(metrics.fcr, standard.targetFcr),
+      fcrDeviationPct: deviationPct(metrics.fcr, targetFcr),
       targetLayRatePercent: standard.targetLayRatePercent,
       actualLayRatePercent: metrics.layRatePercent,
       layRateDeviationPct: deviationPct(
