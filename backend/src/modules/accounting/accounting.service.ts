@@ -4,7 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Like, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  LessThanOrEqual,
+  Like,
+  Repository,
+} from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { PaymentStatus } from '../../common/enums/payment-method.enum.js';
 import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
@@ -1068,9 +1075,48 @@ export class AccountingService {
       exerciceStart,
       asOf,
     );
-    const resultatFcfa = resultat.resultatFcfa;
+
+    // Feed stock is only booked (311 / 603) at the closing. Until then the
+    // ledger shows every purchase as a charge and no stock: value the stock
+    // on hand at `asOf` (same rule as the closing) and recognise it as an
+    // asset and as a stock variation in the result, so the bilan of an open
+    // exercice is not understated. Skipped once the closing entry exists.
+    const closingBooked =
+      exercice?.status === ExerciceStatus.CLOSED && asOf >= exercice.endDate;
+    let variationStockFcfa = 0;
+    if (!closingBooked) {
+      const farm = await em
+        .getRepository(Farm)
+        .findOne({ where: { id: farmId } });
+      const stock = await this.valeurStockProvende(
+        em,
+        farmId,
+        farm?.defaultSacKg ?? 50,
+        asOf,
+      );
+      variationStockFcfa = stock.totalValueFcfa;
+      if (variationStockFcfa > 0) {
+        const existing = actif.find((a) => a.code === '311');
+        if (existing) {
+          existing.soldeFcfa += variationStockFcfa;
+        } else {
+          actif.push({
+            code: '311',
+            label: 'Provende et aliments (inventaire estimé)',
+            classe: 3,
+            nature: 'ACTIF',
+            debitTotalFcfa: 0,
+            creditTotalFcfa: 0,
+            soldeFcfa: variationStockFcfa,
+          });
+        }
+      }
+    }
+
+    const resultatFcfa = resultat.resultatFcfa + variationStockFcfa;
+    // Prior results from the ledger only (the stock estimate is this year's).
     const reportANouveauFcfa =
-      ranComptesFcfa + (resultatCumuleFcfa - resultatFcfa);
+      ranComptesFcfa + (resultatCumuleFcfa - resultat.resultatFcfa);
     if (reportANouveauFcfa !== 0) {
       capitaux.push({
         code: '13',
@@ -1106,6 +1152,8 @@ export class AccountingService {
       resultatNegatif: resultatFcfa < 0,
       capitauxApportsFcfa,
       reportANouveauFcfa,
+      /** Feed stock on hand not yet booked (included in actif and résultat). */
+      variationStockFcfa,
       totalActif,
       totalPassifExterne,
       totalCapitaux,
@@ -1127,13 +1175,25 @@ export class AccountingService {
     return this.valeurStockProvende(this.dataSource.manager, farmId, sacKg);
   }
 
+  /**
+   * Feed stock value on `asOf` (default: now): only receptions, consumption,
+   * losses and sales dated on or before that day count. Used for the
+   * year-end closing (at the exercice end date, not at the closing day) and
+   * for the bilan of an exercice still open.
+   */
   private async valeurStockProvende(
     em: EntityManager,
     farmId: string,
     sacKg: number,
+    asOf?: string,
   ) {
+    const upTo = asOf ? LessThanOrEqual(asOf) : undefined;
     const lots = await em.getRepository(InputLot).find({
-      where: { farmId, kind: InputKind.ALIMENT },
+      where: {
+        farmId,
+        kind: InputKind.ALIMENT,
+        ...(upTo ? { receivedDate: upTo } : {}),
+      },
       order: { receivedDate: 'ASC', createdAt: 'ASC' },
     });
     const lotsDetail: Array<{
@@ -1151,15 +1211,15 @@ export class AccountingService {
         (lot.unit === FeedUnit.KG ? lot.quantity : lot.quantity * sacKg) || 0;
       if (receivedKg <= 0 || totalValue <= 0) continue;
       const [entries, losses, sales] = await Promise.all([
-        em
-          .getRepository(DailyEntry)
-          .find({ where: { inputLotId: lot.id } }),
-        em
-          .getRepository(FeedStockLoss)
-          .find({ where: { inputLotId: lot.id } }),
-        em
-          .getRepository(FeedStockSale)
-          .find({ where: { inputLotId: lot.id } }),
+        em.getRepository(DailyEntry).find({
+          where: { inputLotId: lot.id, ...(upTo ? { entryDate: upTo } : {}) },
+        }),
+        em.getRepository(FeedStockLoss).find({
+          where: { inputLotId: lot.id, ...(upTo ? { occurredAt: upTo } : {}) },
+        }),
+        em.getRepository(FeedStockSale).find({
+          where: { inputLotId: lot.id, ...(upTo ? { soldAt: upTo } : {}) },
+        }),
       ]);
       const usedKg = entries.reduce((s, e) => s + e.feedQuantity, 0);
       const lostKg = losses.reduce((s, l) => s + l.quantityKg, 0);
@@ -1233,7 +1293,13 @@ export class AccountingService {
         where: { id: farmId },
       });
       const sacKg = farm?.defaultSacKg ?? 50;
-      const stock = await this.valeurStockProvende(em, farmId, sacKg);
+      // Stock at the exercice end date, whenever the closing is run.
+      const stock = await this.valeurStockProvende(
+        em,
+        farmId,
+        sacKg,
+        ex.endDate,
+      );
       const posted: string[] = [];
 
       if (stock.totalValueFcfa > 0) {
