@@ -162,6 +162,12 @@ export const PERMISSION_GROUPS = [
         label: 'Voir le sanitaire',
         description: 'Alertes, passeports sanitaires et historique santé.',
       },
+      {
+        code: 'sanitaire:signaler',
+        label: 'Signaler un événement',
+        description:
+          'Déclarer un symptôme, un soin ou une vaccination observés sur le terrain (sans suppression).',
+      },
     ],
   },
   {
@@ -215,6 +221,7 @@ export const ELEVEUR_DEFAULT_PERMISSIONS: ReadonlySet<PermissionCode> = new Set(
   'vente:creer',
   'caisse:lire',
   'sanitaire:lecture',
+  'sanitaire:signaler',
 ]);
 
 /** Droits de base accordés à un nouveau « Administrateur Fermia » (le Propriétaire affine). */
@@ -222,6 +229,7 @@ export const ADMIN_DEFAULT_PERMISSIONS: ReadonlySet<PermissionCode> = new Set([
   'saisie:creer',
   'caisse:lire',
   'sanitaire:lecture',
+  'sanitaire:signaler',
 ]);
 
 export function defaultPermissionsFor(role: FarmStaffRole): PermissionCode[] {

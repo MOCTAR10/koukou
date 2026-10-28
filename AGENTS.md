@@ -52,6 +52,7 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - `FarmStaffRole` is **per farm link**, distinct from `UserRole`: `ADMIN` (flexible, per-link permission list) vs `ELEVEUR` (fixed).
 - Effective permissions resolve in `farms.service.ts` (`assertAccessible`/`profileOf`): owner and PLATFORM_ADMIN get `ALL`/`['*']`; `ADMIN` gets **exactly the stored `link.permissions` filtered by `isPermissionCode` — there is no default set, so an empty list means no permissions**; `ELEVEUR` always gets `ELEVEUR_DEFAULT_PERMISSIONS`. A `permissions` payload is refused for ELEVEUR.
 - Suspended farm → sales blocked (400). Suspended user → login 401.
+- `sanitaire:signaler` (default for ELEVEUR and new ADMIN): create a health event or a single vaccine schedule; generate/edit/delete stay `sanitaire:gerer`.
 - **Authz is two layers**: broad `@Roles(...)` plus fine-grained `@Permissions('code', ...)`; owner/PLATFORM_ADMIN bypass both. The catalog is the single source of truth: `src/common/permissions/permission-catalog.ts` (`PERMISSION_GROUPS`). **Never invent a permission code** — gate new routes with existing ones or add to the catalog. Mobile gates with `useFarmProfile().hasPermission()`; per-code constants are mirrored in `mobile/src/constants/permissions.ts`.
 
 ## Module map (`backend/src/modules/`)
@@ -63,7 +64,7 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 ### Feed stock / finance
 - **FEFO auto-assignment**, stock never negative. Quantity by `entryType`: `BULKER`/`MATIERE_PREMIERE` = `tonnageMt×1000` kg; `BAG` = `nBags×bagSizeKg`; `MEDICAMENT` excluded from kg autonomy.
 - Feed autonomy thresholds are **seeded reference constants**, not hardcoded: `FEED_STOCK_CRITICAL_DAYS`=3 (RED), `FEED_STOCK_WARN_DAYS`=5 (YELLOW), `FEED_ORDER_TARGET_DAYS`=7. Read them via `constants.get(...)`. Change the seed, not `feed-stock.service.ts`.
-- **Cash only** (no Mobile Money). **Integer FCFA.** Caisse never negative. P&L auto-deducts chick + feed costs — do **not** re-enter them as manual expenses. Sale cancellation needs pessimistic locks + an open caisse + sufficient balance. Customers are find-or-create by phone (non-blocking). Promotion codes are uppercased and unique per farm (409 on duplicate).
+- **Cash only** (no Mobile Money). **Integer FCFA.** Caisse never negative. Lot creation (`chickUnitPriceFcfa`) and input receptions **auto-create expenses** (6010/6011 ↔ 401); `Expense.inputLotId` links reception expenses to their lot. The batch P&L counts those costs **once**: it adds `enrichment.chickCostFcfa`/`feedLotsCostFcfa` only when no matching expense exists (legacy data). Do **not** re-enter them as manual expenses. `inputValueFcfa` = unit price × (`numberOfBags` ?? `quantity`). Sale cancellation needs pessimistic locks + an open caisse + sufficient balance. Customers are find-or-create by phone (non-blocking). Promotion codes are uppercased and unique per farm (409 on duplicate).
 - Sale types: `POULET_PIECE` requires integer qty; `PROVENDE` requires `inputLotId` (HACCP); `POULET_KG` requires `pieceCount` and decrements `quantityAlive`.
 
 ### Points of sale / stock-transfers

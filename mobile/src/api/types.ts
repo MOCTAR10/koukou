@@ -96,6 +96,7 @@ export type PermissionCode =
   | 'production:abattage'
   | 'sanitaire:gerer'
   | 'sanitaire:lecture'
+  | 'sanitaire:signaler'
   | 'reglages:ferme'
   | 'rh:lire'
   | 'rh:gerer'

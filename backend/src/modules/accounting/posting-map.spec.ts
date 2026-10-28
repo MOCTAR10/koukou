@@ -111,6 +111,10 @@ describe('posting-map', () => {
       expect(
         inputValueFcfa({ totalCostFcfa: null, costPerMtFcfa: null, tonnageMt: null, unitPriceFcfa: null, numberOfBags: 3, quantity: 150, bagSizeKg: 50 }),
       ).toBe(0);
+      // Sans nombre de sacs : prix unitaire × quantité reçue (2 SAC à 15 000).
+      expect(
+        inputValueFcfa({ totalCostFcfa: null, costPerMtFcfa: null, tonnageMt: null, unitPriceFcfa: 15000, numberOfBags: null, quantity: 2, bagSizeKg: null }),
+      ).toBe(30000);
     });
   });
 

@@ -187,10 +187,12 @@ describe('Audit — robustesse finance/inventaire/sécurité (e2e, passe 2)', ()
     expect(res.body.kgSold).toBe(20);
     expect(res.body.birdsSold).toBe(5);
     expect(res.body.revenueFcfa).toBe(55000);
-    expect(res.body.expensesFcfa).toBe(1000);
+    // Lot creation and feed reception generate their own expenses
+    // (poussins 300000 + aliment 2 SAC × 15000) next to the manual 1000.
+    expect(res.body.expensesFcfa).toBe(1000 + 300000 + 30000);
     expect(res.body.enrichment.chickCostFcfa).toBe(300000);
     expect(res.body.enrichment.feedLotsCostFcfa).toBe(30000);
-    // 55000 − 1000 − 300000 − 30000
+    // Counted once: 55000 − 1000 − 300000 − 30000
     expect(res.body.netFcfa).toBe(-276000);
     expect(res.body.costPerKgFcfa).toBe(16550);
     expect(res.body.marginPct).toBeLessThan(0);

@@ -216,6 +216,7 @@ export class InputsService {
             label: `Réception ${lot.productName}`,
             supplier: lot.supplier || null,
             notes: `[Auto] Intrant ${lot.kind} — lot ${lot.supplierLotNumber}`,
+            inputLotId: lot.id,
             paidByCaisse: false,
             createdById: user.id,
           }),

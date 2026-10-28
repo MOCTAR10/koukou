@@ -43,11 +43,12 @@ export function useCreateCenter(): CreateCenterApi {
  * `short` est ce qui s'affiche sous l'icône ; il faut tenir dans ~100pt entre
  * deux nœuds voisins, donc on abrège (« Lot », pas « Nouveau lot »).
  */
-const CREATE_ACTIONS: (RadialItem & { key: CreateKey; perm: PermissionCode })[] = [
+// `perm` accepts several codes: the entry shows if the user holds any of them.
+const CREATE_ACTIONS: (RadialItem & { key: CreateKey; perm: PermissionCode | PermissionCode[] })[] = [
   { key: 'daily', label: 'Saisie du jour', short: 'Saisie', hint: 'Morts, aliments, eau', icon: BookOpen, bg: color.green[50], fg: color.green[600], perm: 'saisie:creer' },
   { key: 'lot', label: 'Nouveau lot', short: 'Lot', hint: 'Bande de poulets', icon: Bird, bg: color.brand[50], fg: color.brand[600], perm: 'production:gerer' },
   { key: 'feed', label: 'Entrée provende', short: 'Provende', hint: 'Nouveau lot HACCP', icon: PackageOpen, bg: color.surfaceAlt, fg: color.ink[600], perm: 'stock:gerer' },
-  { key: 'care', label: 'Soin', short: 'Soin', hint: 'Protocole sanitaire', icon: Syringe, bg: color.brand[50], fg: color.brand[700], perm: 'sanitaire:lecture' },
+  { key: 'care', label: 'Soin', short: 'Soin', hint: 'Protocole sanitaire', icon: Syringe, bg: color.brand[50], fg: color.brand[700], perm: ['sanitaire:signaler', 'sanitaire:gerer'] },
   { key: 'building', label: 'Bâtiment', short: 'Bâtiment', hint: 'Infrastructure', icon: Building2, bg: color.brand[50], fg: color.brand[700], perm: 'production:gerer' },
   { key: 'sale', label: 'Encaisser', short: 'Encaisser', hint: 'POS espèces', icon: HandCoins, bg: color.accent[50], fg: color.accent[600], perm: 'vente:creer' },
 ];
@@ -72,7 +73,7 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
 
   const items = useMemo(
     () =>
-      CREATE_ACTIONS.filter((a) => hasPermission(a.perm)).map(
+      CREATE_ACTIONS.filter((a) => (Array.isArray(a.perm) ? a.perm : [a.perm]).some((code) => hasPermission(code))).map(
         ({ perm: _perm, ...item }): RadialItem => item,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps

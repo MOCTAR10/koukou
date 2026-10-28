@@ -398,8 +398,12 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
     expect(overview.body.sales.totalFcfa).toBe(260000);
     expect(overview.body.collectedFcfa).toBe(260000);
     expect(overview.body.outstandingFcfa).toBe(0);
-    expect(overview.body.expenses.totalFcfa).toBe(26000);
-    expect(overview.body.netFcfa).toBe(260000 - 26000);
+    // Manual 1000 + 25000, plus the expenses generated automatically by lot
+    // creation (poussins 300 × 1000 and 5 × 800) and the feed reception
+    // (10 SAC × 500).
+    const expensesTotal = 1000 + 25000 + 300 * 1000 + 5 * 800 + 10 * 500;
+    expect(overview.body.expenses.totalFcfa).toBe(expensesTotal);
+    expect(overview.body.netFcfa).toBe(260000 - expensesTotal);
   });
 
   it('reçu PDF avec QR : contenu %PDF', async () => {
