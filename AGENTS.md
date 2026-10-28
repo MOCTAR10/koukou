@@ -79,7 +79,7 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 
 ### Slaughter / sanitary
 - `DRAFT→SENT→PROCESSED|CANCELLED` (terminal states immutable). `birdCount ≤ quantityAlive` checked at send **and** at process. Active RED `DELAI_ATTENTE`/`PROPHYLAXIE` blocks shipment. Carcass weight ≤ live weight.
-- **All date comparisons in UTC.** REFORME/MORTALITE health events decrement `quantityAlive` immediately.
+- **All date comparisons in UTC.** REFORME/MORTALITE health events decrement `quantityAlive` immediately and re-run the batch advisory. MORTALITE events are deaths **not** typed in the daily entries: every mortality figure (metrics, dashboard, curve, health trends, viability) adds `FlockReconciliationService.deathEvents()` to the entry deaths — but live-count reconciliation already subtracts them via `netSanitaryRemovedBirds`, so never subtract them twice.
 - Pre-loaded `vacc-*` programs are **species- and type-specific**; the server rejects mismatches (400). Never ship a POULET program onto a non-POULET lot.
 
 ### Advisory & alerts

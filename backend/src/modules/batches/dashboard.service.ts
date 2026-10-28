@@ -54,8 +54,12 @@ import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { FarmWeather, WeatherService } from '../weather/weather.service.js';
 
-
 const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/** A MORTALITE health event (deaths not typed in the daily entries). */
+type DeathEvent = Awaited<
+  ReturnType<FlockReconciliationService['deathEvents']>
+>[number];
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -317,11 +321,17 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     );
     const liveStock = activeBatches.reduce((s, b) => s + b.quantityAlive, 0);
     let entries: DailyEntry[] = [];
+    // MORTALITE health events: deaths not typed in the daily entries.
+    let deathEvents: DeathEvent[] = [];
     if (batches.length > 0) {
-      entries = await this.entryRepo.find({
-        where: { batchId: In(batches.map((b) => b.id)) },
-      });
-      totalDeaths = entries.reduce((s, e) => s + e.deaths, 0);
+      const batchIds = batches.map((b) => b.id);
+      [entries, deathEvents] = await Promise.all([
+        this.entryRepo.find({ where: { batchId: In(batchIds) } }),
+        this.flockReconciliation.deathEvents(batchIds),
+      ]);
+      totalDeaths =
+        entries.reduce((s, e) => s + e.deaths, 0) +
+        deathEvents.reduce((s, d) => s + d.quantity, 0);
       totalStart = batches.reduce((s, b) => s + b.quantityAtStart, 0);
     }
 
@@ -348,11 +358,12 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     );
 
     const health = this.computeHealth(alerts, missingEntries);
-    const deltas = this.computeDeltas(batches, entries, refDate);
+    const deltas = this.computeDeltas(batches, entries, deathEvents, refDate);
     const leaderboard = await this.computeLeaderboard(user, farmId);
     const healthOverview = await this.computeHealthOverview(
       batches,
       entries,
+      deathEvents,
       alerts,
       refDate,
     );
@@ -630,6 +641,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   private async computeHealthOverview(
     batches: ProductionBatch[],
     entries: DailyEntry[],
+    deathEvents: DeathEvent[],
     alerts: Alert[],
     refDate: string,
   ): Promise<HealthOverviewRow[]> {
@@ -639,7 +651,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
     for (const b of batches) {
       const bEntries = entries.filter((e) => e.batchId === b.id);
-      const totalDeaths = bEntries.reduce((s, e) => s + e.deaths, 0);
+      const bDeathEvents = deathEvents.filter((d) => d.batchId === b.id);
+      const totalDeaths =
+        bEntries.reduce((s, e) => s + e.deaths, 0) +
+        bDeathEvents.reduce((s, d) => s + d.quantity, 0);
       const sorted = [...bEntries].sort((x, y) =>
         x.entryDate.localeCompare(y.entryDate),
       );
@@ -670,9 +685,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         customSpecies: b.species === Species.AUTRE ? b.customSpecies : undefined,
         ageDays,
         liveCount: Math.max(0, b.quantityAlive),
-        weekDeaths: bEntries
-          .filter((e) => e.entryDate >= weekStart)
-          .reduce((s, e) => s + e.deaths, 0),
+        weekDeaths:
+          bEntries
+            .filter((e) => e.entryDate >= weekStart)
+            .reduce((s, e) => s + e.deaths, 0) +
+          bDeathEvents
+            .filter((d) => d.date >= weekStart && d.date <= refDate)
+            .reduce((s, d) => s + d.quantity, 0),
         mortalityPercent:
           b.quantityAtStart > 0
             ? round2((totalDeaths / b.quantityAtStart) * 100)
@@ -732,6 +751,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   private computeDeltas(
     batches: ProductionBatch[],
     entries: DailyEntry[],
+    deathEvents: DeathEvent[],
     refDate: string,
   ): WeeklyDeltas {
     const thisWeekStart = isoWeekStart(refDate);
@@ -744,8 +764,15 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const sum = (rows: DailyEntry[], f: (e: DailyEntry) => number) =>
       rows.reduce((s, e) => s + f(e), 0);
 
-    const mortalityThisWeek = sum(thisWeek, (e) => e.deaths);
-    const mortalityPrevWeek = sum(prevWeek, (e) => e.deaths);
+    const eventDeaths = (from: string, to: string) =>
+      deathEvents
+        .filter((d) => d.date >= from && d.date < to)
+        .reduce((s, d) => s + d.quantity, 0);
+    const mortalityThisWeek =
+      sum(thisWeek, (e) => e.deaths) +
+      eventDeaths(thisWeekStart, addDays(refDate, 1));
+    const mortalityPrevWeek =
+      sum(prevWeek, (e) => e.deaths) + eventDeaths(prevWeekStart, thisWeekStart);
     const feedThisWeekKg = sum(thisWeek, (e) => e.feedQuantity);
     const feedPrevWeekKg = sum(prevWeek, (e) => e.feedQuantity);
 
@@ -843,6 +870,22 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         group.lastAvgWeightKg = e.avgWeightKg;
       }
     }
+    // MORTALITE health events are deaths too (absent from the entries).
+    const deathEvents = await this.flockReconciliation.deathEvents([batch.id]);
+    for (const d of deathEvents) {
+      const weekStart = isoWeekStart(d.date);
+      const group = byWeek.get(weekStart) ?? {
+        weekStart,
+        weightSum: 0,
+        weightCount: 0,
+        feedKg: 0,
+        waterL: 0,
+        deaths: 0,
+        lastAvgWeightKg: null,
+      };
+      group.deaths += d.quantity;
+      byWeek.set(weekStart, group);
+    }
 
     const liveCount = Math.max(0, batch.quantityAlive);
     const weeks = [...byWeek.values()].sort((a, b) =>
@@ -857,6 +900,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       day1WeightKg: d1,
       entries,
       removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+      deathEventsByDate: new Map(deathEvents.map((d) => [d.date, d.quantity])),
     };
 
     let accumulatedFeed = 0;

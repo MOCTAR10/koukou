@@ -85,6 +85,21 @@ describe('flock-performance', () => {
     expect(p.viabilityPercent).toBe(90);
   });
 
+  it('morts déclarées en événement sanitaire : retirées une fois, comptées en viabilité', () => {
+    const t = timeline({
+      removalsByDate: new Map([['2026-01-15', 100]]),
+      deathEventsByDate: new Map([['2026-01-15', 100]]),
+      entries: [
+        entry('2026-01-15', { feedQuantity: 1000 }),
+        entry('2026-01-29', { avgWeightKg: 1.445 }),
+      ],
+    });
+    const p = performanceAtLastWeighing(t)!;
+    expect(p.population).toBe(900);
+    expect(p.biomassGainKg).toBeCloseTo(900 * 1.4 + 100 * 0.7, 6);
+    expect(p.viabilityPercent).toBe(90);
+  });
+
   it('asOf : pesée la plus récente avant la date ; aucune pesée → null', () => {
     expect(performanceAtLastWeighing(timeline(), '2026-01-20')).toBeNull();
     expect(

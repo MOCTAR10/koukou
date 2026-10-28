@@ -12,6 +12,8 @@ import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
+import { BatchesService } from '../batches/batches.service.js';
+import { FlockReconciliationService } from '../batches/flock-reconciliation.service.js';
 import { MetricsService } from '../batches/metrics.service.js';
 import type { BatchMetrics } from '../batches/models/batch-metrics.model.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
@@ -59,18 +61,21 @@ export class HealthService {
     private readonly constants: ReferenceConstantsService,
     private readonly metrics: MetricsService,
     private readonly dataSource: DataSource,
+    private readonly flockReconciliation: FlockReconciliationService,
+    private readonly batchesService: BatchesService,
   ) {}
 
   async getHealth(user: AuthUser, farmId: string, batchId: string) {
     await this.farmsService.assertAccessible(user, farmId);
     const batch = await this.assertBatchInFarm(farmId, batchId);
-    const [m, breed, entries] = await Promise.all([
+    const [m, breed, entries, deathEvents] = await Promise.all([
       this.metrics.compute(batch),
       this.metrics.breedStatus(batch),
       this.entriesRepo.find({
         where: { batchId: batch.id },
         order: { entryDate: 'ASC' },
       }),
+      this.flockReconciliation.deathEvents([batch.id]),
     ]);
 
     const waterNormL =
@@ -90,7 +95,7 @@ export class HealthService {
       batchType: batch.type,
     });
 
-      const trends = this.buildTrends(entries);
+    const trends = this.buildTrends(entries, deathEvents);
 
     return {
       farmId,
@@ -197,6 +202,9 @@ export class HealthService {
       quantity > 0
     ) {
       await this.applyCulling(farmId, batchId, quantity);
+      // Mortality / density / water alerts depend on these birds: re-evaluate
+      // now instead of waiting for the next daily entry.
+      await this.batchesService.runAdvisoryForBatch(batchId);
     }
 
     return saved;
@@ -238,6 +246,7 @@ export class HealthService {
     await this.eventRepo.remove(event);
     if (alreadyApplied) {
       await this.restoreCulling(farmId, batchId, event.quantity);
+      await this.batchesService.runAdvisoryForBatch(batchId);
     }
     return { deleted: true };
   }
@@ -356,6 +365,7 @@ export class HealthService {
 
   private buildTrends(
     entries: DailyEntry[],
+    deathEvents: Array<{ date: string; quantity: number }>,
   ): {
     dates: string[];
     mortality: number[];
@@ -369,7 +379,13 @@ export class HealthService {
       const day = addDaysIso(start, i);
       const e = entries.find((x) => x.entryDate === day);
       dates.push(day);
-      mortality.push(e?.deaths ?? 0);
+      // Daily-entry deaths + MORTALITE health events of that day.
+      mortality.push(
+        (e?.deaths ?? 0) +
+          deathEvents
+            .filter((d) => d.date === day)
+            .reduce((s, d) => s + d.quantity, 0),
+      );
       eggs.push(e?.eggsCollected ?? 0);
     }
     return { dates, mortality, eggs };

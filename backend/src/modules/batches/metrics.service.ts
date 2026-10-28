@@ -205,7 +205,15 @@ export class MetricsService {
       refDate,
     );
     const ageDays = this.ageDaysOn(batch.integrationDate, refDate);
-    const totalDeaths = entries.reduce((s, e) => s + e.deaths, 0);
+    const entryDeaths = entries.reduce((s, e) => s + e.deaths, 0);
+    // Deaths declared as MORTALITE health events are not in the daily
+    // entries: the mortality rate needs both.
+    const deathEventsByDate = new Map<string, number>();
+    for (const d of await this.flockReconciliation.deathEvents([batch.id])) {
+      if (d.date <= refDate) deathEventsByDate.set(d.date, d.quantity);
+    }
+    const totalDeaths =
+      entryDeaths + [...deathEventsByDate.values()].reduce((s, n) => s + n, 0);
     // quantityAlive est la source de vérité (décréments POS/abattage + reconcilées).
     // En mode « as-of » (date passée) : le cheptel est reconstitué avec la même
     // réconciliation que recomputeLiveCount, bornée à la date demandée — cohérent
@@ -229,8 +237,9 @@ export class MetricsService {
         ]);
       liveCount = Math.max(
         0,
+        // MORTALITE events are inside sanitaryRemovedBirds.
         batch.quantityAtStart -
-          totalDeaths -
+          entryDeaths -
           soldBirds -
           slaughteredBirds -
           sanitaryRemovedBirds,
@@ -254,6 +263,7 @@ export class MetricsService {
       day1WeightKg: day1WeightKg(batch.species),
       entries,
       removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+      deathEventsByDate,
     };
     const perf = performanceAtLastWeighing(timeline, refDate);
     const totalWeightGainKg = perf ? perf.biomassGainKg : null;

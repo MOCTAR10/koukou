@@ -64,6 +64,34 @@ export class FlockReconciliationService {
     return out;
   }
 
+  /**
+   * Deaths declared as MORTALITE health events (they are NOT also typed in
+   * the daily entries). Every mortality figure must add them to the
+   * daily-entry deaths. Dates are YYYY-MM-DD.
+   */
+  async deathEvents(
+    batchIds: string[],
+  ): Promise<Array<{ batchId: string; date: string; quantity: number }>> {
+    if (batchIds.length === 0) return [];
+    const rows = await this.healthEventRepo
+      .createQueryBuilder('event')
+      .select('event.batch_id', 'batchId')
+      .addSelect("TO_CHAR(event.occurred_at, 'YYYY-MM-DD')", 'date')
+      .addSelect('COALESCE(SUM(event.quantity), 0)', 'quantity')
+      .where('event.batch_id IN (:...batchIds)', { batchIds })
+      .andWhere('event.kind = :kind', { kind: HealthEventKind.MORTALITE })
+      .groupBy('event.batch_id')
+      .addGroupBy('event.occurred_at')
+      .getRawMany<{ batchId: string; date: string; quantity: string }>();
+    return rows
+      .map((r) => ({
+        batchId: r.batchId,
+        date: r.date,
+        quantity: Number(r.quantity) || 0,
+      }))
+      .filter((r) => r.quantity > 0);
+  }
+
   private soldQuery(batchId: string, em?: EntityManager) {
     const repo = em ? em.getRepository(SaleItem) : this.saleItemRepo;
     return repo

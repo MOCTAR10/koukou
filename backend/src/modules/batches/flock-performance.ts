@@ -27,6 +27,11 @@ export interface FlockTimeline {
   entries: FlockEntry[];
   /** Birds removed per date (sales, slaughter, sanitary culls). */
   removalsByDate: Map<string, number>;
+  /**
+   * The MORTALITE health events among `removalsByDate` (deaths not typed in
+   * the daily entries): counted again only for viability.
+   */
+  deathEventsByDate?: Map<string, number>;
 }
 
 export interface PerformanceAtWeighing {
@@ -135,6 +140,9 @@ export function performanceAtLastWeighing(
   for (const [d, n] of t.removalsByDate) {
     if (d > date || n <= 0) continue;
     removedGainKg += n * (weightOn(t, d) - t.day1WeightKg);
+  }
+  for (const [d, n] of t.deathEventsByDate ?? []) {
+    if (d <= date) deaths += n;
   }
   const biomassGainKg =
     population * (kg - t.day1WeightKg) + Math.max(0, removedGainKg);
