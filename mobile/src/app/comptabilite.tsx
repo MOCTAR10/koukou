@@ -460,6 +460,9 @@ function BilanBlock({ data, loading }: { data: BilanData | undefined; loading: b
         <Row label="Total passif externe" value={fmtFcfa(data.totalPassifExterne)} muted wide />
         <Row label="Total capitaux propres" value={fmtFcfa(data.totalCapitaux)} muted wide />
         <Row label="Capitaux apportés" value={fmtFcfa(data.capitauxApportsFcfa)} muted />
+        {data.variationStockFcfa ? (
+          <Row label="Dont stock provende (inventaire estimé)" value={fmtFcfa(data.variationStockFcfa)} muted />
+        ) : null}
         <Row label="Écart bilan" value={fmtFcfa(data.ecartFcfa)} wide />
       </Card>
     </>

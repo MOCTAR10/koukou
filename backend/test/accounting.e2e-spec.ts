@@ -516,6 +516,29 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       availableKg: 2000,
       valueFcfa: 1000000,
     });
+
+    // Open exercice: the unconsumed feed is an asset, not a pure charge.
+    const bilan = await request(server)
+      .get(`/farms/${stockFarmId}/accounting/bilan`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(bilan.body.variationStockFcfa).toBe(1000000);
+    const stock311 = (bilan.body.actif as any[]).find((a) => a.code === '311');
+    expect(stock311.soldeFcfa).toBe(1000000);
+    expect(bilan.body.totalActif).toBe(1000000);
+    expect(bilan.body.totalPassifExterne).toBe(1000000);
+    // −1 000 000 purchase + 1 000 000 stock variation.
+    expect(bilan.body.resultatFcfa).toBe(0);
+    expect(bilan.body.ecartFcfa).toBe(0);
+
+    // Before the reception: nothing to value.
+    const before = await request(server)
+      .get(`/farms/${stockFarmId}/accounting/bilan`)
+      .set('Authorization', `Bearer ${token}`)
+      .query({ to: '2020-12-31' })
+      .expect(200);
+    expect(before.body.variationStockFcfa).toBe(0);
+    expect(before.body.ecartFcfa).toBe(0);
   });
 
   it('clôture : exercice passé, résultat perdu reporté à nouveau (12/129), idempotent', async () => {
@@ -752,6 +775,23 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
     expect(bilan2025.body.totalActif).toBe(500000);
     expect(bilan2025.body.totalPassifExterne).toBe(500000);
     expect(bilan2025.body.ecartFcfa).toBe(0);
+    // Closed at year end: the booked 311 is used, no extra estimate.
+    expect(bilan2025.body.variationStockFcfa).toBe(0);
+
+    // Next (open) exercice: the reprise emptied 311 and charged 603; the
+    // feed still on hand is re-estimated, so the stock stays on the bilan
+    // and the result is neutral.
+    const bilanNow = await request(server)
+      .get(`/farms/${closeFarmId}/accounting/bilan`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(bilanNow.body.variationStockFcfa).toBe(500000);
+    expect(
+      (bilanNow.body.actif as any[]).find((a) => a.code === '311').soldeFcfa,
+    ).toBe(500000);
+    expect(bilanNow.body.resultatFcfa).toBe(0);
+    expect(bilanNow.body.reportANouveauFcfa).toBe(0);
+    expect(bilanNow.body.ecartFcfa).toBe(0);
 
     const stock = await request(server)
       .get(`/farms/${closeFarmId}/accounting/stock`)

@@ -410,6 +410,15 @@ export class AccountingController {
                   : 'Résultat de l’exercice',
                 String(bilan.resultatFcfa),
               ],
+              ...(bilan.variationStockFcfa > 0
+                ? [
+                    [
+                      '',
+                      'dont variation de stock provende (inventaire estimé, non comptabilisé)',
+                      String(bilan.variationStockFcfa),
+                    ],
+                  ]
+                : []),
             ],
             totals: [
               {
@@ -571,6 +580,17 @@ export class AccountingController {
             libelle: 'Résultat de l’exercice',
             montant: bilan.resultatFcfa,
           },
+          ...(bilan.variationStockFcfa > 0
+            ? [
+                {
+                  rubrique: 'Capitaux propres',
+                  compte: '',
+                  libelle:
+                    'dont variation de stock provende (inventaire estimé, non comptabilisé)',
+                  montant: bilan.variationStockFcfa,
+                },
+              ]
+            : []),
         ],
       );
     }

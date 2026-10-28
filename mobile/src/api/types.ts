@@ -1481,6 +1481,8 @@ export interface BilanData {
   resultatNegatif: boolean;
   capitauxApportsFcfa: number;
   reportANouveauFcfa: number;
+  /** Feed stock on hand not yet booked (open exercice): in actif and résultat. */
+  variationStockFcfa?: number;
   totalActif: number;
   totalPassifExterne: number;
   totalCapitaux: number;
