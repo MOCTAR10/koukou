@@ -16,10 +16,17 @@ import { Farm } from '../../farms/entities/farm.entity.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { FeedProduct } from '../../feed-stock/entities/feed-product.entity.js';
 
+@Index('UQ_input_lots_farm_idem', ['farmId', 'idempotencyKey'], {
+  unique: true,
+})
 @Entity('input_lots')
 export class InputLot {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /** Offline replay key: a second create with it returns this lot. */
+  @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
+  idempotencyKey: string | null;
 
   @ManyToOne(() => Farm, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'farm_id' })

@@ -167,7 +167,13 @@ export function recordStockLossQueued(farmId: string, payload: RecordFeedLossInp
   return lossQueued(farmId, payload);
 }
 
-async function createInputQueued(farmId: string, payload: CreateInputLotInput): Promise<SendResult> {
+// Creations below send idempotencyKey = op.id both live and on replay: a
+// request that reached the server but whose response was lost is never
+// recorded twice (duplicate lot/expense, double stock decrement...).
+
+async function createInputQueued(farmId: string, input: CreateInputLotInput): Promise<SendResult> {
+  const opId = nextId('feed-input');
+  const payload: CreateInputLotInput = { ...input, idempotencyKey: input.idempotencyKey ?? opId };
   try {
     await createInput(farmId, payload);
     void flushQueue();
@@ -175,7 +181,7 @@ async function createInputQueued(farmId: string, payload: CreateInputLotInput): 
   } catch (e) {
     if (shouldQueue(e)) {
       enqueueOp({
-        id: nextId('feed-input'),
+        id: opId,
         kind: 'feed-input',
         farmId,
         payload,
@@ -187,7 +193,9 @@ async function createInputQueued(farmId: string, payload: CreateInputLotInput): 
   }
 }
 
-async function lossQueued(farmId: string, payload: RecordFeedLossInput): Promise<SendResult> {
+async function lossQueued(farmId: string, input: RecordFeedLossInput): Promise<SendResult> {
+  const opId = nextId('stock-loss');
+  const payload: RecordFeedLossInput = { ...input, idempotencyKey: input.idempotencyKey ?? opId };
   try {
     await recordFeedLoss(farmId, payload);
     void flushQueue();
@@ -195,7 +203,7 @@ async function lossQueued(farmId: string, payload: RecordFeedLossInput): Promise
   } catch (e) {
     if (shouldQueue(e)) {
       enqueueOp({
-        id: nextId('stock-loss'),
+        id: opId,
         kind: 'stock-loss',
         farmId,
         payload,
@@ -336,17 +344,19 @@ export async function cancelOrderQueued(farmId: string, orderId: string, reason:
 // ── Points de vente (configuration) ──────────────────────────
 
 export async function createPointOfSaleQueued(farmId: string, input: PointOfSaleInput): Promise<SendResult> {
+  const opId = nextId('pdv-create');
+  const payload = { ...input, idempotencyKey: opId };
   try {
-    await createPointOfSale(farmId, input);
+    await createPointOfSale(farmId, payload);
     void flushQueue();
     return { status: 'sent' };
   } catch (e) {
     if (shouldQueue(e)) {
       enqueueOp({
-        id: nextId('pdv-create'),
+        id: opId,
         kind: 'pdv-create',
         farmId,
-        payload: input,
+        payload,
         createdAt: new Date().toISOString(),
       });
       return { status: 'queued' };
@@ -405,17 +415,19 @@ export async function createStockTransferQueued(
   farmId: string,
   input: StockTransferInput,
 ): Promise<SendResult> {
+  const opId = nextId('stock-transfer-create');
+  const payload: StockTransferInput = { ...input, idempotencyKey: input.idempotencyKey ?? opId };
   try {
-    await createStockTransfer(farmId, input);
+    await createStockTransfer(farmId, payload);
     void flushQueue();
     return { status: 'sent' };
   } catch (e) {
     if (shouldQueue(e)) {
       enqueueOp({
-        id: nextId('stock-transfer-create'),
+        id: opId,
         kind: 'stock-transfer-create',
         farmId,
-        payload: input,
+        payload,
         createdAt: new Date().toISOString(),
       });
       return { status: 'queued' };
@@ -449,14 +461,20 @@ export async function cancelStockTransferQueued(
 
 type ProcessResult = 'ok' | 'retry' | 'dropped' | 'rejected' | 'skip';
 
+/** Ops queued before keys existed fall back to op.id (stable across replays). */
+function keyed<T extends { idempotencyKey?: string }>(op: OfflineOp): T {
+  const payload = op.payload as T;
+  return { ...payload, idempotencyKey: payload.idempotencyKey ?? op.id };
+}
+
 async function processOne(op: OfflineOp): Promise<ProcessResult> {
   try {
     if (op.kind === 'daily-entry') {
       await createDailyEntry(op.farmId, op.batchId ?? '', op.payload as DailyEntryPayload);
     } else if (op.kind === 'feed-input') {
-      await createInput(op.farmId, op.payload as CreateInputLotInput);
+      await createInput(op.farmId, keyed<CreateInputLotInput>(op));
     } else if (op.kind === 'stock-loss') {
-      await recordFeedLoss(op.farmId, op.payload as RecordFeedLossInput);
+      await recordFeedLoss(op.farmId, keyed<RecordFeedLossInput>(op));
     } else if (op.kind === 'order-create') {
       if (isCashOp(op)) await ensureCashOpenOrRetry(op.farmId);
       await createOrder(op.farmId, op.payload as CreateOrderInput);
@@ -474,14 +492,14 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       const p = op.payload as { orderId: string; reason: string };
       await cancelOrder(op.farmId, p.orderId, p.reason);
     } else if (op.kind === 'pdv-create') {
-      await createPointOfSale(op.farmId, op.payload as PointOfSaleInput);
+      await createPointOfSale(op.farmId, keyed<PointOfSaleInput & { idempotencyKey?: string }>(op));
     } else if (op.kind === 'pdv-update') {
       const p = op.payload as { pointOfSaleId: string; input: Partial<PointOfSaleInput> };
       await updatePointOfSale(op.farmId, p.pointOfSaleId, p.input);
     } else if (op.kind === 'pdv-delete') {
       await deletePointOfSale(op.farmId, (op.payload as { pointOfSaleId: string }).pointOfSaleId);
     } else if (op.kind === 'stock-transfer-create') {
-      await createStockTransfer(op.farmId, op.payload as StockTransferInput);
+      await createStockTransfer(op.farmId, keyed<StockTransferInput>(op));
     } else if (op.kind === 'stock-transfer-cancel') {
       await cancelStockTransfer(op.farmId, (op.payload as { transferId: string }).transferId);
     } else {

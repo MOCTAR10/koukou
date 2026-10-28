@@ -17,10 +17,18 @@ import { SlaughterOrder } from '../../slaughter/entities/slaughter-order.entity.
 import { User } from '../../users/entities/user.entity.js';
 import { PointOfSale } from './point-of-sale.entity.js';
 
+@Index('UQ_stock_transfers_farm_idem', ['farmId', 'idempotencyKey'], {
+  unique: true,
+})
 @Entity('stock_transfers')
 export class StockTransfer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /** Offline replay key: a second create with it returns this transfer
+   *  instead of decrementing the source stock again. */
+  @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
+  idempotencyKey: string | null;
 
   @ManyToOne(() => Farm, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'farm_id' })
