@@ -217,24 +217,38 @@ export class FeedStockService {
       );
     }
 
-    const quantityKg = computeLossKg(
-      dto.quantity,
-      dto.unit,
-      farm.defaultSacKg ?? 50,
-    );
+    const sacKg = farm.defaultSacKg ?? 50;
+    const quantityKg = computeLossKg(dto.quantity, dto.unit, sacKg);
+    if (!(quantityKg > 0)) {
+      throw new BadRequestException('La quantité perdue doit être positive.');
+    }
 
-    const loss = await this.lossRepo.save(
-      this.lossRepo.create({
-        farmId,
-        inputLotId: lot.id,
-        batchId: lot.batchId,
-        quantityKg,
-        reason: dto.reason,
-        occurredAt: dto.occurredAt ?? todayStr(),
-        notes: dto.notes ?? null,
-        createdById: user.id,
-      }),
-    );
+    // A loss cannot exceed what the lot still holds (stock never negative).
+    const loss = await this.lossRepo.manager.transaction(async (em) => {
+      await em.getRepository(InputLot).findOne({
+        where: { id: lot.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const availableKg = await this.availableKgOf(lot.id, sacKg, em);
+      if (quantityKg > availableKg + 1e-6) {
+        throw new BadRequestException(
+          `Perte supérieure au stock du lot : disponible ${round(availableKg, 2)} kg, perte déclarée ${round(quantityKg, 2)} kg.`,
+        );
+      }
+      const repo = em.getRepository(FeedStockLoss);
+      return repo.save(
+        repo.create({
+          farmId,
+          inputLotId: lot.id,
+          batchId: lot.batchId,
+          quantityKg,
+          reason: dto.reason,
+          occurredAt: dto.occurredAt ?? todayStr(),
+          notes: dto.notes ?? null,
+          createdById: user.id,
+        }),
+      );
+    });
     await this.evaluateStockAlerts(farmId);
     return loss;
   }
@@ -317,9 +331,14 @@ export class FeedStockService {
     quantityKg: number,
     sacKg: number,
   ): Promise<void> {
-    const lot = await (
-      em ? em.getRepository(InputLot) : this.inputRepo
-    ).findOne({ where: { id: inputLotId } });
+    // Row lock inside the caller's transaction: two tills selling the last
+    // sacks of a lot must not both see them available.
+    const lot = em
+      ? await em.getRepository(InputLot).findOne({
+          where: { id: inputLotId },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : await this.inputRepo.findOne({ where: { id: inputLotId } });
     if (!lot || lot.kind !== InputKind.ALIMENT) {
       throw new BadRequestException(
         'Lot d’intrant alimentaire introuvable dans cette ferme (catégorie ALIMENT uniquement).',
@@ -363,6 +382,7 @@ export class FeedStockService {
     feedPhase: FeedPhase | null | undefined,
     inputLotId: string | null | undefined,
     em?: EntityManager,
+    requiredKg = 0,
   ): Promise<string | null> {
     const inputRepo = em ? em.getRepository(InputLot) : this.inputRepo;
 
@@ -394,16 +414,27 @@ export class FeedStockService {
       where: { farmId, kind: InputKind.ALIMENT },
       order: { receivedDate: 'ASC', createdAt: 'ASC' },
     });
+    // FEFO: first-expiring first; lots without expiry last, then by reception.
+    lots.sort((a, b) =>
+      (a.expirationDate ?? '9999-12-31').localeCompare(
+        b.expirationDate ?? '9999-12-31',
+      ),
+    );
     const today = todayStr();
+    let fallback: string | null = null;
     for (const lot of lots) {
       if (!FEED_KG_ENTRY_TYPES.includes(lot.entryType)) continue;
       const key = feedPhaseKeyOf(lot);
       if (key == null || !targets.has(key)) continue;
       if (lot.expirationDate != null && lot.expirationDate < today) continue;
       const availableKg = await this.availableKgOf(lot.id, sacKg, em);
-      if (availableKg > 0) return lot.id;
+      if (availableKg <= 0) continue;
+      // Prefer the first lot that covers the whole consumption, so a nearly
+      // empty lot does not reject an entry another lot could serve.
+      if (availableKg + 1e-6 >= requiredKg) return lot.id;
+      fallback ??= lot.id;
     }
-    return null;
+    return fallback;
   }
 
   /** Disponible réel (réception − conso − pertes − ventes), plafonné à 0. */
@@ -444,6 +475,13 @@ export class FeedStockService {
     em?: EntityManager,
   ): Promise<void> {
     if (quantityKg <= 0) return;
+    // Serialise concurrent consumptions/sales on the same lot (see above).
+    if (em) {
+      await em.getRepository(InputLot).findOne({
+        where: { id: inputLotId },
+        lock: { mode: 'pessimistic_write' },
+      });
+    }
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     const sacKg = farm?.defaultSacKg ?? 50;
     const availableKg = await this.availableKgOf(inputLotId, sacKg, em);
@@ -984,7 +1022,7 @@ export class FeedStockService {
     }
     if (lot.entryType === FeedEntryType.BAG) {
       if (lot.unitPriceFcfa == null || lot.unitPriceFcfa <= 0) return null;
-      const size = lot.bagSizeKg ?? lot.unit === 'KG' ? null : sacKg;
+      const size = lot.bagSizeKg ?? (lot.unit === 'KG' ? null : sacKg);
       if (size == null || size <= 0) return null;
       return round(lot.unitPriceFcfa / size, 3);
     }

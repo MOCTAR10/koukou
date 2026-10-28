@@ -18,7 +18,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { fetchBatches, fetchSlaughterOrders } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { downloadPdf } from '@/api/pdf';
-import { canManageFarm } from '@/api/roles';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { speciesLabel } from '@/api/format';
 import { breedImageForLot } from '@/constants/breedImages';
 import {
@@ -76,8 +76,9 @@ function DestOption({
 }
 
 export default function SlaughterScreen() {
-  const { farms, user, farmId } = useAuth();
-  const canManage = canManageFarm(user.role);
+  const { farms, farmId } = useAuth();
+  const farmName = farms.find((f) => f.id === farmId)?.name ?? 'Ferme';
+  const canManage = useFarmProfile().hasPermission('production:abattage');
   const queryClient = useQueryClient();
 
   const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
@@ -247,7 +248,7 @@ export default function SlaughterScreen() {
   );
 
   return (
-    <Screen header={<ScreenHeader title="Abattage & passeport" subtitle={farms[0]?.name ?? 'Ferme'} back right={<Scale size={18} color={color.ink[300]} />} />}>
+    <Screen header={<ScreenHeader title="Abattage & passeport" subtitle={farmName} back right={<Scale size={18} color={color.ink[300]} />} />}>
       {canManage ? (
         <View style={styles.tabWrap}>
           <Segmented

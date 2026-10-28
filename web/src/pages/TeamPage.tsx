@@ -5,6 +5,15 @@ import type { PublicUser } from '../api/types';
 import { useFarm } from '../app/FarmContext';
 import { Card, EmptyState, PageHeader, StatusBadge, Th, Td } from '../components/ui';
 
+/** One farm employment link (GET /farms/:id/eleveurs), user nested. */
+interface TeamMember {
+  id: string;
+  role: 'ADMIN' | 'ELEVEUR';
+  active: boolean;
+  jobTitle: string | null;
+  user: PublicUser;
+}
+
 const inputCls =
   'w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
 
@@ -14,7 +23,7 @@ export function TeamPage() {
 
   const team = useQuery({
     queryKey: ['eleveurs', farmId],
-    queryFn: () => api.get<PublicUser[]>(`/farms/${farmId}/eleveurs`),
+    queryFn: () => api.get<TeamMember[]>(`/farms/${farmId}/eleveurs`),
     enabled: !!farmId,
   });
 
@@ -101,15 +110,18 @@ export function TeamPage() {
               </tr>
             </thead>
             <tbody>
-              {(team.data ?? []).map((u) => (
-                <tr key={u.id} className="border-t border-slate-100">
-                  <Td className="font-medium">{u.fullName}</Td>
-                  <Td>
-                    <div>{u.phone}</div>
-                    {u.email ? <div className="text-xs text-slate-400">{u.email}</div> : null}
+              {(team.data ?? []).map((m) => (
+                <tr key={m.id} className="border-t border-slate-100">
+                  <Td className="font-medium">
+                    {m.user.fullName}
+                    {m.jobTitle ? <div className="text-xs font-normal text-slate-400">{m.jobTitle}</div> : null}
                   </Td>
-                  <Td><StatusBadge status={u.role} /></Td>
-                  <Td><StatusBadge status={u.active ? 'active' : 'inactive'} /></Td>
+                  <Td>
+                    <div>{m.user.phone}</div>
+                    {m.user.email ? <div className="text-xs text-slate-400">{m.user.email}</div> : null}
+                  </Td>
+                  <Td><StatusBadge status={m.role} /></Td>
+                  <Td><StatusBadge status={m.active ? 'active' : 'inactive'} /></Td>
                 </tr>
               ))}
               {!team.data?.length ? (

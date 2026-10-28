@@ -71,6 +71,13 @@ export class DailyEntriesService {
 
     return this.dataSource
       .transaction(async (em) => {
+        // Lock order batch → feed lot, same as POS sales (which pre-lock
+        // batches first): avoids a lock-order inversion with the feed lot
+        // lock taken in assertConsumptionAvailable.
+        await em.getRepository(ProductionBatch).findOne({
+          where: { id: batch.id },
+          lock: { mode: 'pessimistic_write' },
+        });
         const entryRepo = em.getRepository(DailyEntry);
         const existing = await entryRepo.findOne({
           where: { batchId, entryDate: dto.entryDate },
@@ -89,7 +96,7 @@ export class DailyEntriesService {
         const prevFeedKg = existing?.feedQuantity ?? 0;
         let newFeedKg = prevFeedKg;
         if (feedProvided) {
-          newFeedKg = this.toKg(dto, batch);
+          newFeedKg = this.toKg(dto, batch, existing);
           data.feedQuantity = newFeedKg;
         }
         if (dto.feedUnit !== undefined) data.feedUnit = dto.feedUnit ?? null;
@@ -121,31 +128,41 @@ export class DailyEntriesService {
         const deltaFeedKg = newFeedKg - prevFeedKg;
         if (skipDeduction) {
           data.inputLotId = null;
-        } else if (deltaFeedKg > 0) {
-          const entryPhase = entryPhaseKeyOf({
-            feedPhase: dto.feedPhase,
-            feedType: dto.feedType,
-          });
-          const resolvedLotId = await this.feedStock.resolveConsumptionLot(
-            farmId,
-            entryPhase,
-            dto.inputLotId ?? existing?.inputLotId,
-            em,
-          );
-          if (resolvedLotId == null) {
-            data.inputLotId = dto.inputLotId ?? existing?.inputLotId ?? null;
-            await this.feedStock.raiseNoFeedAlert(farmId, entryPhase);
-          } else {
-            data.inputLotId = resolvedLotId;
-            await this.feedStock.assertConsumptionAvailable(
+        } else {
+          const prevLotId = existing?.inputLotId ?? null;
+          const lotSwitch =
+            dto.inputLotId != null &&
+            dto.inputLotId !== '' &&
+            dto.inputLotId !== prevLotId;
+          if (deltaFeedKg > 0 || (lotSwitch && newFeedKg > 0)) {
+            const entryPhase = entryPhaseKeyOf({
+              feedPhase: dto.feedPhase ?? existing?.feedPhase,
+              feedType: dto.feedType ?? existing?.feedType,
+            });
+            const resolvedLotId = await this.feedStock.resolveConsumptionLot(
               farmId,
-              resolvedLotId,
-              deltaFeedKg,
+              entryPhase,
+              dto.inputLotId ?? prevLotId,
               em,
+              newFeedKg,
             );
+            if (resolvedLotId == null) {
+              data.inputLotId = dto.inputLotId ?? prevLotId;
+              await this.feedStock.raiseNoFeedAlert(farmId, entryPhase);
+            } else {
+              data.inputLotId = resolvedLotId;
+              // Same lot: only the increase is new consumption. Another lot:
+              // the whole entry moves onto it and must fit its stock.
+              await this.feedStock.assertConsumptionAvailable(
+                farmId,
+                resolvedLotId,
+                resolvedLotId === prevLotId ? deltaFeedKg : newFeedKg,
+                em,
+              );
+            }
+          } else if (dto.inputLotId !== undefined) {
+            data.inputLotId = dto.inputLotId ?? null;
           }
-        } else if (dto.inputLotId !== undefined) {
-          data.inputLotId = dto.inputLotId ?? null;
         }
         if (dto.waterL !== undefined) data.waterL = dto.waterL;
         if (dto.avgWeightKg !== undefined)
@@ -180,18 +197,29 @@ export class DailyEntriesService {
 
   async listForBatch(user: AuthUser, farmId: string, batchId: string) {
     await this.farmsService.assertAccessible(user, farmId);
+    const batch = await this.batchRepo.findOne({
+      where: { id: batchId, farmId },
+    });
+    if (!batch) throw new NotFoundException('Lot introuvable dans cette ferme.');
     return this.entryRepo.find({
       where: { batchId },
       order: { entryDate: 'ASC' },
     });
   }
 
-  private toKg(dto: CreateDailyEntryDto, batch: ProductionBatch): number {
+  private toKg(
+    dto: CreateDailyEntryDto,
+    batch: ProductionBatch,
+    existing?: DailyEntry | null,
+  ): number {
     const qty = dto.feedQuantity ?? dto.feedBags ?? 0;
-    if (dto.feedUnit === FeedUnit.KG) {
+    // A correction without feedUnit keeps the unit the entry was saved with.
+    const unit = dto.feedUnit ?? existing?.feedUnit ?? null;
+    if (unit === FeedUnit.KG) {
       return qty;
     }
-    const sacKg = dto.bagSizeKg ?? batch.feedUnitSacKg ?? 50;
+    const sacKg =
+      dto.bagSizeKg ?? existing?.bagSizeKg ?? batch.feedUnitSacKg ?? 50;
     const bags = dto.feedBags ?? qty;
     return bags * sacKg;
   }

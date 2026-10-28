@@ -77,3 +77,41 @@ export function clearQueue(): void {
   persist([]);
   notify();
 }
+
+/* ── Rejected ops: refused by the server but kept (cash must never vanish) ── */
+
+export interface RejectedOp extends OfflineOp {
+  rejectedAt: string;
+  /** French server message (why it was refused). */
+  reason: string;
+}
+
+const REJECTED_KEY = 'koukou.offline.rejected';
+
+export function loadRejected(): RejectedOp[] {
+  const raw = storage.getItem(REJECTED_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as RejectedOp[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Moves an op from the queue to the rejected list (single notify). */
+export function rejectOp(op: OfflineOp, reason: string): void {
+  const rejected = loadRejected();
+  rejected.push({ ...op, rejectedAt: new Date().toISOString(), reason });
+  storage.setItem(REJECTED_KEY, JSON.stringify(rejected));
+  persist(loadOps().filter((o) => o.id !== op.id));
+  notify();
+}
+
+export function dismissRejected(id: string): void {
+  storage.setItem(
+    REJECTED_KEY,
+    JSON.stringify(loadRejected().filter((o) => o.id !== id)),
+  );
+  notify();
+}

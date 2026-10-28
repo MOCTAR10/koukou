@@ -90,7 +90,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
 
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  // Nest sends `null` (e.g. GET caisse/current with no open session) as an
+  // empty 200 body: res.json() would throw "Unexpected end of JSON input".
+  const text = await res.text();
+  return (text ? JSON.parse(text) : null) as T;
 }
 
 export const api = {

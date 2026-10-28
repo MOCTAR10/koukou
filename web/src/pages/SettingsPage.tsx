@@ -34,7 +34,6 @@ export function SettingsPage() {
                   <Th>Clé</Th>
                   <Th>Libellé</Th>
                   <Th>Valeur</Th>
-                  <Th>Unité</Th>
                 </tr>
               </thead>
               <tbody>
@@ -44,9 +43,8 @@ export function SettingsPage() {
                   .map((c) => (
                     <tr key={c.key} className="border-t border-slate-100">
                       <Td className="font-mono text-xs">{c.key}</Td>
-                      <Td>{c.label ?? '—'}</Td>
+                      <Td>{c.description ?? '—'}</Td>
                       <Td className="font-semibold">{num(c.value)}</Td>
-                      <Td className="text-slate-400">{c.unit ?? '—'}</Td>
                     </tr>
                   ))}
                 {!constants.data?.length ? (

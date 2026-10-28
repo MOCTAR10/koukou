@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TextInput, View, StyleSheet, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
 
 import { AppText } from './AppText';
@@ -28,6 +28,11 @@ function sanitize(raw: string, decimal: boolean): string {
   return raw.replace(/\D/g, '');
 }
 
+function numericOf(text: string): number {
+  const n = parseFloat(text);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function NumberInput({
   value,
   onChangeText,
@@ -40,11 +45,20 @@ export function NumberInput({
   style,
   inputStyle,
 }: NumberInputProps) {
+  // Parents often store the parsed number and pass back String(n), which
+  // drops an in-progress "2." (typing "2,5" became 25). Keep the raw draft
+  // while it still denotes the same number as `value`.
+  const [draft, setDraft] = useState(value);
+  const shown = numericOf(draft) === numericOf(value) ? draft : value;
   return (
     <View style={[styles.wrap, style]}>
       <TextInput
-        value={value}
-        onChangeText={(t) => onChangeText(sanitize(t, decimal))}
+        value={shown}
+        onChangeText={(t) => {
+          const clean = sanitize(t, decimal);
+          setDraft(clean);
+          onChangeText(clean);
+        }}
         placeholder={placeholder}
         placeholderTextColor={color.ink[300]}
         keyboardType={decimal ? 'decimal-pad' : 'number-pad'}

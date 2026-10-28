@@ -109,11 +109,15 @@ interface CaisseTabProps {
   farmId: string;
   current: CaisseSummary | null;
   loading: boolean;
+  /** Manual movements (owner-only server-side). */
   canManage: boolean;
+  /** `caisse:ouvrir` / `caisse:fermer` farm permissions. */
+  canOpen: boolean;
+  canClose: boolean;
   onChanged: () => void;
 }
 
-export function CaisseTab({ farmId, current, loading, canManage, onChanged }: CaisseTabProps) {
+export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClose, onChanged }: CaisseTabProps) {
   const sessions = useQuery({ queryKey: ['caisse-sessions', farmId], queryFn: () => fetchCaisseSessions(farmId) });
 
   const [amount, setAmount] = useState('');
@@ -131,6 +135,7 @@ export function CaisseTab({ farmId, current, loading, canManage, onChanged }: Ca
   const [mvType, setMvType] = useState<CashMovementType>('IN');
 
   const hasOpen = !!current?.session;
+  const canOpenClose = hasOpen ? canClose : canOpen;
   const movements = current?.movements ?? [];
   const history = sessions.data ?? [];
 
@@ -272,7 +277,7 @@ export function CaisseTab({ farmId, current, loading, canManage, onChanged }: Ca
             </Card>
           ) : null}
 
-          {canManage ? (
+          {canOpenClose ? (
             <Card tone="default" style={styles.card}>
               <AppText size="label" color="muted" style={{ marginBottom: 6 }}>
                 {hasOpen ? 'CLÔTURE DE CAISSE' : 'OUVERTURE DE CAISSE'}
@@ -309,7 +314,7 @@ export function CaisseTab({ farmId, current, loading, canManage, onChanged }: Ca
                 OUVERTURE / CLÔTURE DE CAISSE
               </AppText>
               <AppText size="body" color="muted">
-                Réservé au propriétaire. Vous pouvez consulter le statut de la caisse, les mouvements du jour et l’historique des sessions.
+                Vous n’avez pas le droit d’{hasOpen ? 'clôturer' : 'ouvrir'} la caisse : demandez au propriétaire. Vous pouvez consulter le statut de la caisse, les mouvements du jour et l’historique des sessions.
               </AppText>
             </Card>
           )}

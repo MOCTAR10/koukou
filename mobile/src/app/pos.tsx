@@ -48,6 +48,7 @@ import {
 } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { SPECIES_ICONS, speciesLabel } from '@/api/format';
 import { todayStr, type InvoiceFields } from '@/api/mutations';
 import type { BatchWithMetrics, CaisseSummary, SaleSummary, StockTransfer } from '@/api/types';
@@ -66,7 +67,9 @@ export default function PosScreen() {
   const [activeTab, setActiveTab] = useState<'ENCAISSER' | 'CAISSE' | 'RECUS'>('ENCAISSER');
   const autoOpenDone = useRef(false);
   const today = todayStr();
+  // Manual cash movements are owner-only server-side (@Roles PROPRIETAIRE).
   const canManage = canManageFarm(user.role);
+  const profile = useFarmProfile();
 
   useEffect(() => {
     const p = String(tabParam ?? '').toUpperCase();
@@ -927,6 +930,8 @@ export default function PosScreen() {
           current={caisseCurrent}
           loading={caisseQuery.isLoading}
           canManage={canManage}
+          canOpen={profile.hasPermission('caisse:ouvrir')}
+          canClose={profile.hasPermission('caisse:fermer')}
           onChanged={refreshCaisse}
         />
       ) : null}

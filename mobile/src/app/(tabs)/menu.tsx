@@ -35,7 +35,7 @@ import { color, layout, palette, radii, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
-import { useOfflineQueue } from '@/offline';
+import { dismissRejected, useOfflineQueue, type RejectedOp } from '@/offline';
 import { farmRoleLabel } from '@/api/roles';
 import type { PermissionCode } from '@/api/types';
 
@@ -238,7 +238,7 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
   const profileHook = useFarmProfile();
   const offline = useOfflineQueue(farmId);
   const pending = offline.pending.length;
-  const farm = farms[0];
+  const farm = farms.find((f) => f.id === farmId) ?? farms[0];
 
   return (
     <View style={styles.header}>
@@ -266,15 +266,59 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
           </AppText>
         </View>
         {pending > 0 ? (
-          <View style={[styles.metaChip, styles.syncChip]}>
+          <Pressable
+            onPress={() => void offline.flush()}
+            disabled={offline.syncing}
+            accessibilityRole="button"
+            accessibilityLabel={`${pending} opérations en attente, synchroniser maintenant`}
+            style={[styles.metaChip, styles.syncChip]}>
             <AppText size="small" weight="semibold" color="warn">
-              {pending} en attente
+              {offline.syncing ? 'Synchronisation…' : `${pending} en attente · Synchroniser`}
             </AppText>
-          </View>
+          </Pressable>
         ) : null}
       </View>
+      {offline.rejected.length > 0 ? (
+        <View style={styles.rejectedBox}>
+          <AppText size="small" weight="semibold" color="danger">
+            {offline.rejected.length} encaissement(s) refusé(s) par le serveur
+          </AppText>
+          <AppText size="small" color="muted">
+            L’argent a été encaissé mais l’opération n’a pas pu être enregistrée. Ressaisissez-la puis effacez la ligne.
+          </AppText>
+          {offline.rejected.map((op) => (
+            <View key={op.id} style={styles.rejectedRow}>
+              <AppText size="small" color="text" style={styles.rejectedText}>
+                {op.createdAt.slice(0, 16).replace('T', ' ')} · {rejectedAmountLabel(op)} — {op.reason}
+              </AppText>
+              <Pressable
+                onPress={() => dismissRejected(op.id)}
+                accessibilityRole="button"
+                accessibilityLabel="Effacer cette opération refusée">
+                <AppText size="small" weight="semibold" color="brand">
+                  Effacer
+                </AppText>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
+}
+
+/** Amount collected by a rejected cash op, for display. */
+function rejectedAmountLabel(op: RejectedOp): string {
+  const p = op.payload as {
+    amountFcfa?: number;
+    payments?: { amountFcfa: number }[];
+    deposit?: { amountFcfa: number };
+  };
+  const amount =
+    p.amountFcfa ??
+    p.deposit?.amountFcfa ??
+    (p.payments ?? []).reduce((s, x) => s + x.amountFcfa, 0);
+  return `${amount.toLocaleString('fr-FR')} FCFA`;
 }
 
 /** Une catégorie du menu : titre + grille de tuiles. */
@@ -346,6 +390,21 @@ const styles = StyleSheet.create({
   syncChip: {
     backgroundColor: semantic.warnSoft,
     borderColor: palette.amber[200],
+  },
+  rejectedBox: {
+    marginTop: 10,
+    padding: 10,
+    gap: 6,
+    borderRadius: radii.md,
+    backgroundColor: semantic.dangerSoft,
+  },
+  rejectedRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  rejectedText: {
+    flex: 1,
   },
   section: {
     marginTop: 4,

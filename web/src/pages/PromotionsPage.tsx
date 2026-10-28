@@ -47,20 +47,31 @@ export function PromotionsPage() {
           className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6"
           onSubmit={(e) => {
             e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            createP.mutate({
-              code: String(f.get('code')),
+            const form = e.currentTarget;
+            const f = new FormData(form);
+            const code = String(f.get('code')).trim().toUpperCase();
+            const label = String(f.get('label') ?? '').trim();
+            createP.mutate(
+              {
+              code,
+              // The backend requires a label: default to the code.
+              label: label || code,
               type: f.get('type'),
               value: Number(f.get('value')),
               minSubtotalFcfa: f.get('minSubtotalFcfa') ? Number(f.get('minSubtotalFcfa')) : undefined,
               active: true,
-            });
-            e.currentTarget.reset();
+              },
+              { onSuccess: () => form.reset() },
+            );
           }}
         >
           <label className="block text-xs">
             <span className="mb-1 block font-medium text-slate-600">Code *</span>
             <input name="code" required className={inputCls} placeholder="PROMO10" />
+          </label>
+          <label className="block text-xs">
+            <span className="mb-1 block font-medium text-slate-600">Libellé</span>
+            <input name="label" className={inputCls} placeholder="Remise fidélité" />
           </label>
           <label className="block text-xs">
             <span className="mb-1 block font-medium text-slate-600">Type</span>

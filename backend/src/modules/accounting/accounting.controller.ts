@@ -469,7 +469,14 @@ export class AccountingController {
         })),
       );
       return this.csvService.toCsvObject(
-        ['Date', 'Référence', 'Libellé', 'Compte', 'Débit', 'Crédit'],
+        [
+          ['date', 'Date'],
+          ['reference', 'Référence'],
+          ['label', 'Libellé'],
+          ['account', 'Compte'],
+          ['debit', 'Débit'],
+          ['credit', 'Crédit'],
+        ],
         rows,
       );
     }
@@ -491,12 +498,27 @@ export class AccountingController {
         })),
       );
       return this.csvService.toCsvObject(
-        ['Compte', 'Libellé compte', 'Date', 'Référence', 'Libellé', 'Débit', 'Crédit', 'Solde'],
+        [
+          ['compte', 'Compte'],
+          ['libelle_compte', 'Libellé compte'],
+          ['date', 'Date'],
+          ['reference', 'Référence'],
+          ['libelle', 'Libellé'],
+          ['debit', 'Débit'],
+          ['credit', 'Crédit'],
+          ['solde', 'Solde'],
+        ],
         rows,
       );
     }
 
-    const headers = ['Compte', 'Libellé', 'Débit', 'Crédit', 'Solde'];
+    const headers = [
+      ['compte', 'Compte'],
+      ['libelle', 'Libellé'],
+      ['debit', 'Débit'],
+      ['credit', 'Crédit'],
+      ['solde', 'Solde'],
+    ] as const;
     const rows = soldes.map((s) => ({
       compte: s.code,
       libelle: s.label,

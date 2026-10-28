@@ -1,8 +1,4 @@
-interface KvStore {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+import { persistentKv, type KvStore } from './persistent-kv';
 
 const memory = new Map<string, string>();
 
@@ -11,20 +7,28 @@ function webStore(): KvStore | null {
   return g.localStorage ?? null;
 }
 
-/** Clé/valeur : `localStorage` sur web, mémoire par session sur natif (comme `token.ts`). */
+/** Durable store: `localStorage` on web, document-dir files on native; null in tests. */
+function durable(): KvStore | null {
+  return webStore() ?? persistentKv;
+}
+
+/**
+ * Clé/valeur : `localStorage` sur web, fichiers persistants sur natif (la file
+ * hors-ligne survit à un redémarrage), mémoire en tests.
+ */
 export const storage: KvStore = {
   getItem(key) {
-    const store = webStore();
+    const store = durable();
     if (store) return store.getItem(key);
     return memory.get(key) ?? null;
   },
   setItem(key, value) {
-    const store = webStore();
+    const store = durable();
     if (store) store.setItem(key, value);
     else memory.set(key, value);
   },
   removeItem(key) {
-    const store = webStore();
+    const store = durable();
     if (store) store.removeItem(key);
     else memory.delete(key);
   },

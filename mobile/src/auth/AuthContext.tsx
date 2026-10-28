@@ -3,7 +3,8 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch, ApiError } from '@/api/client';
 import { clearSession, loadSession, saveSession, type StoredSession } from '@/api/token';
-import { clearQueue } from '@/offline';
+import { clearQueue, loadOps } from '@/offline';
+import { confirm } from '@/components/ui/Feedback';
 import type { Farm, PublicUser } from '@/api/types';
 
 const EMPTY_USER: PublicUser = { id: '', fullName: '', phone: '', role: 'PROPRIETAIRE' };
@@ -26,7 +27,7 @@ interface AuthContextValue {
   setFarmMode: (farmMode: FarmMode) => void;
   signIn: (phone: string, code: string) => Promise<boolean>;
   signUp: (phone: string, fullName: string, code: string, farmName?: string) => Promise<boolean>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
   /** Recharge /farms et met à jour la session (après renommage / logo). */
   refreshFarms: () => Promise<void>;
 }
@@ -107,7 +108,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient],
   );
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    // The queue may hold unsynced cash sales: never wipe it silently.
+    const pending = loadOps().length;
+    if (pending > 0) {
+      const ok = await confirm({
+        title: 'Opérations non synchronisées',
+        message: `${pending} opération(s) (ventes, saisies…) n’ont pas encore été envoyées au serveur. Elles seront perdues si vous vous déconnectez maintenant.\n\nReconnectez-vous à Internet et attendez la synchronisation, ou confirmez la déconnexion.`,
+        cancelLabel: 'Rester connecté',
+        confirmLabel: 'Se déconnecter',
+        destructive: true,
+      });
+      if (!ok) return;
+    }
     clearSession();
     clearQueue();
     setSession(null);

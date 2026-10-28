@@ -10,7 +10,7 @@ import { Button } from '../ui/Button';
 import { NumberInput } from '../ui/NumberInput';
 import { Chip } from '../ui/Chip';
 import { useAuth } from '@/auth/AuthContext';
-import { createRecolte } from '@/api/mutations';
+import { createRecolte, localYmd } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { Parcelle, RecolteUnit } from '@/api/types';
 import { CULTURE_EMOJI } from '@/constants/agriculture';
@@ -53,7 +53,7 @@ export function RecolteSheet({ visible, parcelles, onClose }: RecolteSheetProps)
       const qty = parseFloat(quantity.replace(',', '.'));
       return createRecolte(farmId, {
         parcelleId,
-        harvestDate: harvestDate.toISOString().slice(0, 10),
+        harvestDate: localYmd(harvestDate),
         quantity: qty,
         unit,
         ...(notes.trim() ? { notes: notes.trim() } : {}),

@@ -29,10 +29,16 @@ const HEALTH_LABEL: Record<string, string> = {
   CRITIQUE: 'Critique',
 };
 
+/** Local calendar date (Gabon is UTC+1: toISOString is "yesterday" before 01:00). */
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function DashboardPage() {
   const { farmId } = useFarm();
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const isToday = selectedDate === new Date().toISOString().slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState(localToday);
+  const isToday = selectedDate === localToday();
   const dash = useQuery({
     queryKey: ['dashboard', farmId, selectedDate],
     queryFn: () => api.get<DashboardData>(`/farms/${farmId}/dashboard?date=${selectedDate}`),
@@ -41,20 +47,31 @@ export function DashboardPage() {
   });
   const [curveBatchId, setCurveBatchId] = useState<string>('');
 
-  const curve = useQuery({
-    queryKey: ['curve', farmId, curveBatchId],
-    queryFn: () => api.get<BatchCurve>(`/farms/${farmId}/batches/${curveBatchId}/curve`),
-    enabled: !!farmId && !!curveBatchId,
-  });
-
   const activeBatches = useMemo(
     () =>
       dash.data?.healthOverview.filter((b) => b.status !== 'CLOTURE') ?? [],
     [dash.data],
   );
 
-  const selectedCurveBatch = curveBatchId || activeBatches[0]?.batchId || '';
+  // Default to the first active lot, and ignore a choice left over from
+  // another farm (it would request that farm's batch under this one).
+  const selectedCurveBatch = activeBatches.some((b) => b.batchId === curveBatchId)
+    ? curveBatchId
+    : (activeBatches[0]?.batchId ?? '');
 
+  const curve = useQuery({
+    queryKey: ['curve', farmId, selectedCurveBatch],
+    queryFn: () => api.get<BatchCurve>(`/farms/${farmId}/batches/${selectedCurveBatch}/curve`),
+    enabled: !!farmId && !!selectedCurveBatch,
+  });
+
+  if (dash.isError) {
+    return (
+      <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
+        Impossible de charger le tableau de bord : {(dash.error as Error).message}
+      </p>
+    );
+  }
   if (dash.isLoading || !dash.data) {
     return <Loading label="Chargement du tableau de bord…" />;
   }
@@ -75,13 +92,13 @@ export function DashboardPage() {
           <input
             type="date"
             value={selectedDate}
-            max={new Date().toISOString().slice(0, 10)}
+            max={localToday()}
             onChange={(e) => setSelectedDate(e.target.value)}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-sky-500"
           />
           {!isToday && (
             <button
-              onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+              onClick={() => setSelectedDate(localToday())}
               className="rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
             >
               Aujourd'hui

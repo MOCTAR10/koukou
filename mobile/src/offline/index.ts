@@ -24,10 +24,19 @@ import {
   type FlushSummary,
   type SendResult,
 } from './engine';
-import { clearQueue, getQueueVersion, loadOps, subscribeQueue, type OfflineOp } from './store';
+import {
+  clearQueue,
+  dismissRejected,
+  getQueueVersion,
+  loadOps,
+  loadRejected,
+  subscribeQueue,
+  type OfflineOp,
+  type RejectedOp,
+} from './store';
 
-export { clearQueue, flushQueue };
-export type { FlushSummary, OfflineOp, SendResult };
+export { clearQueue, dismissRejected, flushQueue, loadOps, loadRejected };
+export type { FlushSummary, OfflineOp, RejectedOp, SendResult };
 
 export {
   cancelOrderQueued,
@@ -49,6 +58,8 @@ export {
 
 export interface OfflineQueueState {
   pending: OfflineOp[];
+  /** Cash ops the server refused, kept so the money is never lost silently. */
+  rejected: RejectedOp[];
   syncing: boolean;
   last: FlushSummary | null;
   flush: () => Promise<void>;
@@ -60,6 +71,7 @@ export function useOfflineQueue(farmId: string): OfflineQueueState {
   const [syncing, setSyncing] = useState(false);
   const [last, setLast] = useState<FlushSummary | null>(null);
   const pending = loadOps();
+  const rejected = loadRejected();
 
   const flush = async () => {
     setSyncing(true);
@@ -72,7 +84,7 @@ export function useOfflineQueue(farmId: string): OfflineQueueState {
     }
   };
 
-  return { pending, syncing, last, flush };
+  return { pending, rejected, syncing, last, flush };
 }
 
 export function queueDailyEntry(farmId: string, batchId: string, payload: DailyEntryPayload): Promise<SendResult> {

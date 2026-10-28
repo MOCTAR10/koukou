@@ -1,3 +1,4 @@
+import { persistentKv } from '@/offline/persistent-kv';
 import type { Farm, PublicUser } from './types';
 
 export interface StoredSession {
@@ -20,7 +21,8 @@ interface WebStorage {
 
 function webStore(): WebStorage | null {
   const g = globalThis as unknown as { localStorage?: WebStorage };
-  return g.localStorage ?? null;
+  // Native: persist the session on disk so an app restart doesn't log out.
+  return g.localStorage ?? persistentKv;
 }
 
 export function saveSession(session: StoredSession | null): void {

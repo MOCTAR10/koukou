@@ -12,7 +12,7 @@ import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES } from '@/constants/breedImages';
 import { useAuth } from '@/auth/AuthContext';
-import { createBatch, createTreatment } from '@/api/mutations';
+import { createBatch, createTreatment, localYmd } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { fetchBuildings, fetchBreeds, fetchBreedStandards, fetchProtocols, fetchSanitaryProgram } from '@/api';
 import type { BatchType, Building, FeedPhase, Species } from '@/api/types';
@@ -34,6 +34,11 @@ type BatchInput = {
   chickUnitPriceFcfa?: number;
   quantityAlive?: number;
 };
+
+/** Integer fields: drop spaces, dots and commas ("3 000" / "1.500" → "3000" / "1500"). */
+function digitsOnly(text: string): string {
+  return text.replace(/\D/g, '');
+}
 
 function addDaysToDate(base: Date, days: number): Date {
   const d = new Date(base);
@@ -519,7 +524,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
               productName: step.name,
               dosage: step.dosage ?? undefined,
               route: step.route ?? undefined,
-              administeredAt: addDaysToDate(integrationDate, step.dayFrom).toISOString().slice(0, 10),
+              administeredAt: localYmd(addDaysToDate(integrationDate, step.dayFrom)),
               withdrawalDays: step.withdrawalDays || undefined,
               notes: `Renseigné lors de l'ajout du lot en cours (âge ${formatAge(currentAgeDays) || '0 j'})`,
             })
@@ -573,7 +578,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     const payload: BatchInput = {
       batchName: batchName.trim(),
-      integrationDate: integrationDate.toISOString().slice(0, 10),
+      integrationDate: localYmd(integrationDate),
       quantityAtStart: parseInt(quantityAtStart, 10),
       type,
       species,
@@ -590,7 +595,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
     if (selectedBuildingId) payload.buildingId = selectedBuildingId;
     if (couvoirSupplier.trim()) payload.couvoirSupplier = couvoirSupplier.trim();
     if (chickLotNumber.trim()) payload.chickLotNumber = chickLotNumber.trim();
-    if (hatchDate) payload.hatchDate = hatchDate.toISOString().slice(0, 10);
+    if (hatchDate) payload.hatchDate = localYmd(hatchDate);
     if (chickUnitPrice.trim()) payload.chickUnitPriceFcfa = parseInt(chickUnitPrice, 10);
     createMutation.mutate(payload);
   };
@@ -809,14 +814,14 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
 
       {/* ── Quantité poussins ── */}
       <Field label={isRunning ? "Quantité d'origine *" : "Quantité de poussins *"}>
-        <TextInput value={quantityAtStart} onChangeText={setQuantityAtStart} placeholder='Ex : 3000' keyboardType='numeric' />
+        <TextInput value={quantityAtStart} onChangeText={(t) => setQuantityAtStart(digitsOnly(t))} placeholder='Ex : 3000' keyboardType='numeric' />
       </Field>
 
       {/* ── Running lot: current stock + age ── */}
       {isRunning && (
         <>
           <Field label='Effectif vivant actuel *'>
-            <TextInput value={quantityAlive} onChangeText={setQuantityAlive} placeholder='Ex : 2850' keyboardType='numeric' />
+            <TextInput value={quantityAlive} onChangeText={(t) => setQuantityAlive(digitsOnly(t))} placeholder='Ex : 2850' keyboardType='numeric' />
           </Field>
           {quantityAtStart.trim() && quantityAlive.trim() && parseInt(quantityAtStart, 10) > 0 && (
             <View style={styles.runningInsight}>
@@ -1312,7 +1317,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
         )}
       </Field>
       <Field label='Prix poussin (FCFA)'>
-        <TextInput value={chickUnitPrice} onChangeText={setChickUnitPrice} placeholder='Ex : 1500' keyboardType='numeric' />
+        <TextInput value={chickUnitPrice} onChangeText={(t) => setChickUnitPrice(digitsOnly(t))} placeholder='Ex : 1500' keyboardType='numeric' />
       </Field>
 
       {/* ── Running lot: Review summary ── */}

@@ -3,6 +3,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { BatchesService } from '../batches/batches.service.js';
 import { FeedStockService } from '../feed-stock/feed-stock.service.js';
@@ -20,6 +21,7 @@ export class DailyEntriesController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('saisie:creer')
   @ApiOperation({
     summary:
       'Saisie journalière (< 1 min) — morts, aliments (sacs/kg), eau, poids, œufs',

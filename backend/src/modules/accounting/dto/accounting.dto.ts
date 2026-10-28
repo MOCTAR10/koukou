@@ -1,12 +1,15 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
+  IsArray,
+  IsDateString,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 export class RegularisationLineDto {
@@ -32,8 +35,7 @@ export class RegularisationLineDto {
 }
 
 export class CreateRegularisationDto {
-  @IsString()
-  @IsNotEmpty()
+  @IsDateString({}, { message: 'Date invalide (format AAAA-MM-JJ).' })
   date: string;
 
   @IsString()
@@ -41,7 +43,11 @@ export class CreateRegularisationDto {
   @MaxLength(200)
   label: string;
 
+  // Without @ValidateNested the line validators never ran: negative debit /
+  // credit pairs passed the zero-sum balance check.
+  @IsArray()
   @ArrayMinSize(2)
+  @ValidateNested({ each: true })
   @Type(() => RegularisationLineDto)
   lines: RegularisationLineDto[];
 }

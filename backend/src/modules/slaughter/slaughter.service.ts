@@ -98,6 +98,11 @@ export class SlaughterService {
       throw new BadRequestException(
         'Lot de production introuvable dans cette ferme.',
       );
+    if (batch.status === BatchStatus.CLOTURE) {
+      throw new BadRequestException(
+        'Lot clôturé : impossible de créer un ordre d’abattage.',
+      );
+    }
 
     const order = this.orderRepo.create({
       farmId,
@@ -275,13 +280,18 @@ export class SlaughterService {
         );
       }
       order = locked;
+      if (batch.status === BatchStatus.CLOTURE) {
+        throw new BadRequestException(
+          'Lot clôturé : abattage impossible (immuabilité du lot et de son bilan).',
+        );
+      }
       if (order.birdCount > batch.quantityAlive) {
         throw new BadRequestException(
           `Cheptel insuffisant pour l'abattage : il reste ${batch.quantityAlive} oiseau(x) vivant(s) sur le lot, ordre de ${order.birdCount}.`,
         );
       }
       batch.quantityAlive -= order.birdCount;
-      if (batch.quantityAlive <= 0 && batch.status !== BatchStatus.CLOTURE) {
+      if (batch.quantityAlive <= 0) {
         batch.status = BatchStatus.FINI;
       }
       await em.getRepository(ProductionBatch).save(batch);
@@ -453,6 +463,9 @@ export class SlaughterService {
 
   private async assertLotEligibleForSend(order: SlaughterOrder): Promise<void> {
     const batch = order.batch;
+    if (batch.status === BatchStatus.CLOTURE) {
+      throw new BadRequestException('Lot clôturé : envoi à l’abattage impossible.');
+    }
     // Synchronisation du stock : on n'envoie que les oiseaux réellement
     // présents sur le lot (toutes les sorties doivent rester cohérentes).
     if (order.birdCount > batch.quantityAlive) {

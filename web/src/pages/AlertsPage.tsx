@@ -12,7 +12,7 @@ export function AlertsPage() {
 
   const active = useQuery({
     queryKey: ['alerts', farmId, 'active'],
-    queryFn: () => api.get<Alert[]>(`/farms/${farmId}/alerts`),
+    queryFn: () => api.get<Alert[]>(`/farms/${farmId}/alerts?status=ACTIVE`),
     enabled: !!farmId,
     refetchInterval: 60_000,
   });
