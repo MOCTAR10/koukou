@@ -47,10 +47,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 32,
     paddingHorizontal: 24,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: radii.xl,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     gap: 10,
   },
   emojiCircle: {

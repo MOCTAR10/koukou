@@ -31,7 +31,7 @@ import {
 import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { SectionHeader } from '@/components/ui/SectionHeader';
-import { color, layout, palette, radii } from '@/constants/theme';
+import { color, layout, palette, radii, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
@@ -59,7 +59,7 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-const ADMIN_TINT = { iconColor: palette.ink[600], iconBg: palette.surfaceAlt };
+const ADMIN_TINT = { iconColor: palette.ink[600], iconBg: semantic.surfaceAlt };
 
 const ICON = 24;
 
@@ -129,7 +129,7 @@ function GroundHome() {
       <SectionHeader title="Comptes & suivi" subtitle="Profil et bandes en cours" icon={Settings} />
       <View style={styles.grid}>
         {links.map((item) => (
-          <MenuTile key={item.key} item={item} tint={palette.brand[600]} soft={palette.brand[50]} onPress={() => router.push(item.href)} />
+          <MenuTile key={item.key} item={item} tint={semantic.primary} soft={semantic.primarySoft} onPress={() => router.push(item.href)} />
         ))}
       </View>
     </Screen>
@@ -150,8 +150,8 @@ export default function MenuScreen() {
       title: 'Élevage',
       subtitle: 'Suivi sanitaire, soins & stocks',
       icon: Activity,
-      iconColor: palette.brand[600],
-      iconBg: palette.brand[50],
+      iconColor: semantic.primary,
+      iconBg: semantic.primarySoft,
       items: [
         { key: 'activites', label: 'Activités', icon: Activity, href: '/activites' },
         { key: 'sanitaire', label: 'Sanitaire', icon: Stethoscope, href: '/sanitary', perms: ['sanitaire:lecture'] },
@@ -165,7 +165,7 @@ export default function MenuScreen() {
       subtitle: 'Parcelles, récoltes & terres',
       icon: Sprout,
       iconColor: palette.green[700],
-      iconBg: palette.green[50],
+      iconBg: semantic.successSoft,
       items: [
         { key: 'parcelles', label: 'Parcelles', icon: Sprout, href: '/parcelles' },
         { key: 'recoltes', label: 'Récoltes', icon: Tractor, href: '/recoltes' },
@@ -177,7 +177,7 @@ export default function MenuScreen() {
       subtitle: 'Caisse, ventes, clients & points de vente',
       icon: HandCoins,
       iconColor: palette.accent[700],
-      iconBg: palette.accent[50],
+      iconBg: semantic.accentSoft,
       items: [
         { key: 'caisse', label: 'Caisse', icon: Coins, href: '/pos?tab=CAISSE', perms: ['caisse:lire'] },
         { key: 'commandes', label: 'Commandes', icon: ClipboardList, href: '/commandes', perms: ['vente:commande'] },
@@ -192,7 +192,7 @@ export default function MenuScreen() {
       subtitle: 'Rentabilité, écritures & bilans',
       icon: FileBarChart2,
       iconColor: palette.amber[700],
-      iconBg: palette.amber[50],
+      iconBg: semantic.warnSoft,
       items: [
         { key: 'rapports', label: 'Rentabilité', icon: FileBarChart2, href: '/rapports', perms: ['compta:rapports'] },
         { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'] },
@@ -333,9 +333,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   syncChip: {
-    backgroundColor: palette.amber[50],
+    backgroundColor: semantic.warnSoft,
     borderColor: palette.amber[200],
   },
   section: {
@@ -363,16 +363,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     width: '48%',
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     paddingVertical: 12,
     paddingLeft: 12,
     paddingRight: 8,
   },
   tilePressed: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   tileCol: {
     flex: 1,

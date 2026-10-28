@@ -25,7 +25,7 @@ import {
   formatHarvestDate,
   PARCELLE_STATUS_LABELS,
 } from '@/constants/agriculture';
-import { color, palette, radii, shadow } from '@/constants/theme';
+import { color, palette, radii, shadow, semantic } from '@/constants/theme';
 
 const STATUS_CHIP_TONE: Record<Parcelle['status'], 'green' | 'amber' | 'neutral' | 'red'> = {
   ACTIVE: 'green',
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   viewSwitch: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     borderRadius: radii.md,
     padding: 3,
   },
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: radii.md,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
   mapSection: {
     gap: 12,

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
+import { toast } from '@/components/ui/Feedback';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import {
@@ -41,7 +42,7 @@ import { AlertCard } from '@/components/AlertCard';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
-import { color, palette, radii, fmt, fmtFcfa } from '@/constants/theme';
+import { color, palette, radii, fmt, fmtFcfa, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { breedImageForLot } from '@/constants/breedImages';
 import { EGGS_PER_ALVEOL } from '@/constants/stock';
@@ -549,8 +550,8 @@ export default function LotDetailScreen() {
     setPdfBusy(true);
     try {
       await downloadPdf(`/farms/${farmId}/batches/${batchId}/passeport`, `passeport-${batchId}.pdf`);
-      Alert.alert('Passeport sanitaire', 'PDF prêt.');
-    } catch (e) { Alert.alert('Erreur', e instanceof Error ? e.message : 'Inattendue.'); }
+      toast.success('Passeport sanitaire', 'PDF prêt.');
+    } catch (e) { toast.error('Erreur', e instanceof Error ? e.message : 'Inattendue.'); }
     finally { setPdfBusy(false); }
   };
 
@@ -604,7 +605,7 @@ export default function LotDetailScreen() {
               </View>
               {buildingName && (
                 <View style={styles.heroBuildingBadge}>
-                  <AppText size="caption" weight="bold" color={palette.brand[700]} numberOfLines={1} style={styles.heroBuildingText}>
+                  <AppText size="caption" weight="bold" color={semantic.primaryText} numberOfLines={1} style={styles.heroBuildingText}>
                     {buildingName}
                   </AppText>
                 </View>
@@ -670,7 +671,7 @@ export default function LotDetailScreen() {
           <AppText size="small" color="muted">{cycleInfo.pct.toFixed(0)} % du cycle</AppText>
         </View>
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${cycleInfo.pct}%`, backgroundColor: isLayer ? palette.accent[500] : palette.brand[600] }]} />
+          <View style={[styles.progressFill, { width: `${cycleInfo.pct}%`, backgroundColor: isLayer ? palette.accent[500] : semantic.primary }]} />
         </View>
       </View>
 
@@ -681,7 +682,7 @@ export default function LotDetailScreen() {
           const Icon = t.icon;
           return (
             <Pressable key={t.key} onPress={() => setMainTab(t.key)} style={[styles.tabBtn, active && styles.tabBtnActive]} accessibilityRole="tab">
-              <Icon size={16} color={active ? palette.brand[600] : color.ink[400]} />
+              <Icon size={16} color={active ? semantic.primary : color.ink[400]} />
               <AppText size="small" weight={active ? 'bold' : 'medium'} color={active ? 'brand' : 'muted'}>{t.label}</AppText>
             </Pressable>
           );
@@ -794,13 +795,13 @@ export default function LotDetailScreen() {
           {(weightPoints.length >= 2 || layRatePoints.length >= 2) && (
             <Card style={styles.miniChartCard}>
               <View style={styles.healthHeader}>
-                {isLayer ? <Egg size={16} color={palette.accent[500]} /> : <Weight size={16} color={palette.brand[600]} />}
+                {isLayer ? <Egg size={16} color={palette.accent[500]} /> : <Weight size={16} color={semantic.primary} />}
                 <AppText size="body" weight="bold" color="brand">{isLayer ? 'Ponte par semaine' : 'Poids moyen par semaine'}</AppText>
                 {!isLayer && avgWeightKg != null && (
                   <AppText size="small" weight="bold" color="brand" style={{ marginLeft: 'auto' }}>{avgWeightKg.toFixed(1)} kg</AppText>
                 )}
               </View>
-              <LineChart points={isLayer ? layRatePoints : weightPoints} height={110} stroke={isLayer ? palette.accent[500] : palette.brand[600]} unit={isLayer ? 'taux de ponte %' : 'poids (kg)'} format={(v) => (isLayer ? `${v.toFixed(0)}%` : v.toFixed(1))} />
+              <LineChart points={isLayer ? layRatePoints : weightPoints} height={110} stroke={isLayer ? palette.accent[500] : semantic.primary} unit={isLayer ? 'taux de ponte %' : 'poids (kg)'} format={(v) => (isLayer ? `${v.toFixed(0)}%` : v.toFixed(1))} />
             </Card>
           )}
 
@@ -834,7 +835,7 @@ export default function LotDetailScreen() {
           {healthQ.data && (
             <Card style={{ gap: 6 }}>
               <View style={styles.healthHeader}>
-                <HeartPulse size={16} color={palette.brand[600]} />
+                <HeartPulse size={16} color={semantic.primary} />
                 <AppText size="body" weight="bold" color="brand">Conseils & alertes</AppText>
               </View>
               {healthQ.data.tips.slice(0, 3).map((tip, i) => (
@@ -850,7 +851,7 @@ export default function LotDetailScreen() {
           {breedStatus && (
             <Card style={{ gap: 8 }}>
               <View style={styles.healthHeader}>
-                <Target size={16} color={palette.brand[600]} />
+                <Target size={16} color={semantic.primary} />
                 <AppText size="body" weight="bold" color="brand">Référence souche — Semaine {breedStatus.week}</AppText>
               </View>
               {breedStatus.actualAvgWeightKg != null && breedStatus.targetAvgWeightKg != null && (
@@ -928,7 +929,7 @@ export default function LotDetailScreen() {
           {lotFeedLots.length > 0 && (
             <Card style={{ gap: 8 }}>
               <View style={styles.healthHeader}>
-                <Warehouse size={16} color={palette.brand[600]} />
+                <Warehouse size={16} color={semantic.primary} />
                 <AppText size="body" weight="bold" color="brand">Stock aliment lot</AppText>
               </View>
               {lotFeedLots.map((lot) => (
@@ -1026,7 +1027,7 @@ export default function LotDetailScreen() {
                     {i < filteredHistory.length - 1 && <View style={styles.timelineLine} />}
                     <View style={styles.timelineContent}>
                       <View style={styles.timelineHeader}>
-                        <Icon size={14} color={item.tone === 'red' ? palette.red[500] : item.tone === 'amber' ? palette.amber[500] : item.tone === 'green' ? palette.green[500] : palette.brand[600]} />
+                        <Icon size={14} color={item.tone === 'red' ? palette.red[500] : item.tone === 'amber' ? palette.amber[500] : item.tone === 'green' ? palette.green[500] : semantic.primary} />
                         <AppText size="body" weight="semibold" color="text" style={{ flex: 1 }}>{item.label}</AppText>
                         <AppText size="small" color="faint">{item.date}</AppText>
                       </View>
@@ -1064,7 +1065,7 @@ export default function LotDetailScreen() {
           {healthQ.data && (
             <Card style={{ gap: 8 }}>
               <View style={styles.healthHeader}>
-                <HeartPulse size={16} color={palette.brand[600]} />
+                <HeartPulse size={16} color={semantic.primary} />
                 <AppText size="body" weight="bold" color="brand">Score santé : {healthQ.data.healthScore}/100</AppText>
               </View>
               <View style={styles.healthGrid}>
@@ -1124,7 +1125,7 @@ export default function LotDetailScreen() {
               return (
                 <Card key={t.key} tone={t.chipTone === 'red' ? 'alert' : t.chipTone === 'amber' ? 'warn' : t.chipTone === 'green' ? 'green' : 'default'} style={{ gap: 4 }}>
                   <View style={styles.eventHeader}>
-                    <Icon size={14} color={t.chipTone === 'red' ? palette.red[500] : t.chipTone === 'amber' ? palette.amber[500] : t.chipTone === 'green' ? palette.green[500] : palette.brand[600]} />
+                    <Icon size={14} color={t.chipTone === 'red' ? palette.red[500] : t.chipTone === 'amber' ? palette.amber[500] : t.chipTone === 'green' ? palette.green[500] : semantic.primary} />
                     <AppText size="body" weight="semibold" color="text" style={{ flex: 1 }}>{t.title}</AppText>
                     <Chip label={t.chipLabel} tone={t.chipTone} />
                   </View>
@@ -1195,7 +1196,7 @@ const styles = StyleSheet.create({
   heroTypeBadge: { borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
   heroTypeBadgeChair: { backgroundColor: palette.brand[100], borderColor: palette.brand[200] },
   heroTypeBadgeLayer: { backgroundColor: color.accent[50], borderColor: color.accent[100] },
-  heroBuildingBadge: { borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, backgroundColor: palette.brand[50], borderColor: palette.brand[200] },
+  heroBuildingBadge: { borderRadius: radii.pill, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, backgroundColor: semantic.primarySoft, borderColor: palette.brand[200] },
   heroBuildingText: { maxWidth: 150, flexShrink: 1 },
   heroTitleSep: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(12,35,49,0.18)' },
   heroMainRow: { flexDirection: 'row', alignItems: 'stretch' },
@@ -1204,14 +1205,14 @@ const styles = StyleSheet.create({
   heroValue: { fontSize: 20, lineHeight: 24 },
   heroValueSmall: { fontSize: 16, lineHeight: 20 },
   healthStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(12,35,49,0.08)' },
-  healthScorePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.pill, backgroundColor: palette.surface },
+  healthScorePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.pill, backgroundColor: semantic.surface },
   heroActions: { flexDirection: 'row', gap: 8, marginLeft: 'auto', flexShrink: 1, flexWrap: 'wrap', justifyContent: 'flex-end' },
   heroPassportRow: { marginTop: 4, alignItems: 'flex-start' },
 
   // Cycle progress
   cycleCard: { gap: 6 },
   cycleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  progressTrack: { height: 8, borderRadius: 4, backgroundColor: palette.surfaceAlt, overflow: 'hidden' },
+  progressTrack: { height: 8, borderRadius: 4, backgroundColor: semantic.surfaceAlt, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 4 },
 
   // Mini chart
@@ -1228,8 +1229,8 @@ const styles = StyleSheet.create({
 
   // Main tabs
   tabRow: { flexDirection: 'row', gap: 4, marginTop: 12, marginBottom: 8 },
-  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: radii.md, backgroundColor: palette.surfaceAlt },
-  tabBtnActive: { backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[200] },
+  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: radii.md, backgroundColor: semantic.surfaceAlt },
+  tabBtnActive: { backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[200] },
 
   // Metrics grid
   metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
@@ -1237,15 +1238,15 @@ const styles = StyleSheet.create({
 
   // History filter
   filterRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  filterBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.pill, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border },
-  filterBtnActive: { backgroundColor: palette.brand[600], borderColor: palette.brand[600] },
+  filterBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
+  filterBtnActive: { backgroundColor: semantic.primary, borderColor: semantic.primary },
   filterBtnPressed: { opacity: 0.75, transform: [{ scale: 0.97 }] },
 
   // Timeline
   timeline: { gap: 0 },
   timelineItem: { flexDirection: 'row', position: 'relative', paddingLeft: 20, paddingBottom: 16 },
   timelineDot: { position: 'absolute', left: 0, top: 4, width: 10, height: 10, borderRadius: 5 },
-  timelineLine: { position: 'absolute', left: 4, top: 14, bottom: 0, width: 2, backgroundColor: palette.border },
+  timelineLine: { position: 'absolute', left: 4, top: 14, bottom: 0, width: 2, backgroundColor: semantic.border },
   timelineContent: { flex: 1, gap: 2 },
   timelineHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 
@@ -1257,12 +1258,12 @@ const styles = StyleSheet.create({
   // Œufs
   eggCard: { gap: 10 },
   eggEmpty: { alignItems: 'center', gap: 4, paddingVertical: 12 },
-  eggSegBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: palette.accent[50] },
+  eggSegBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: semantic.accentSoft },
   eggSegFill: { height: '100%' },
   eggRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eggRowDot: { width: 10, height: 10, borderRadius: 5 },
   eggRowPct: { width: 40, textAlign: 'right' },
-  eggMiniBar: { height: 4, borderRadius: 999, overflow: 'hidden', backgroundColor: palette.border },
+  eggMiniBar: { height: 4, borderRadius: 999, overflow: 'hidden', backgroundColor: semantic.border },
   eggMiniFill: { height: 4, borderRadius: 999 },
 
   // Tips

@@ -27,7 +27,7 @@ import {
   PARCELLE_STATUS_LABELS,
   waterNeedLabel,
 } from '@/constants/agriculture';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, semantic } from '@/constants/theme';
 
 export const RECOLTE_UNIT_LABELS: Record<Recolte['unit'], string> = {
   KG: 'kg',
@@ -361,7 +361,7 @@ function PlanningCard({ parcelle, stage }: { parcelle: Parcelle; stage: ReturnTy
       {advice ? (
         <View style={styles.advice}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Lightbulb size={13} color={palette.brand[600]} />
+            <Lightbulb size={13} color={semantic.primary} />
             <AppText size="caption" weight="bold" color="brand">Conseil</AppText>
           </View>
           <AppText size="small" color="muted">{advice}</AppText>
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: radii.md,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     borderWidth: 1,
     borderColor: palette.green[200],
     borderRadius: radii.sm,
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: radii.md,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: palette.green[600],
+    backgroundColor: semantic.successFill,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 999,
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   advice: {
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderLeftWidth: 3,
     borderLeftColor: palette.brand[500],
     borderRadius: radii.sm,

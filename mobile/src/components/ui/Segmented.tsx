@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, View, type LayoutChangeEvent }
 import * as Haptics from 'expo-haptics';
 
 import { AppText } from './AppText';
-import { color, palette, radii } from '@/constants/theme';
+import { color, radii, semantic } from '@/constants/theme';
 
 export interface SegmentedOption<T extends string> {
   key: T;
@@ -47,7 +47,7 @@ export function Segmented<T extends string>({ options, value, onChange, haptic =
 
   const activeKey = value;
   const target = metrics[activeKey];
-  const activeTint = options.find((o) => o.key === value)?.tint ?? palette.brand[600];
+  const activeTint = options.find((o) => o.key === value)?.tint ?? semantic.primary;
 
   useEffect(() => {
     const t = target;
@@ -94,7 +94,7 @@ export function Segmented<T extends string>({ options, value, onChange, haptic =
       />
       {options.map((o) => {
         const active = o.key === value;
-        const tint = o.tint ?? palette.brand[600];
+        const tint = o.tint ?? semantic.primary;
         return (
           <React.Fragment key={o.key}>
             <Pressable

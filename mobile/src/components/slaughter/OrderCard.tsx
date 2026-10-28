@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { NumberInput } from '@/components/ui/NumberInput';
-import { color, palette } from '@/constants/theme';
+import { color, palette, semantic } from '@/constants/theme';
 import type { SlaughterDestination, SlaughterOrder, SlaughterStatus, SlaughterType } from '@/api/types';
 
 const TYPE_LABEL: Record<SlaughterType, string> = {
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     borderColor: palette.green[600],
   },
   stepDotCurrent: {
-    borderColor: palette.brand[600],
+    borderColor: semantic.primary,
     borderWidth: 2,
     backgroundColor: palette.brand[500],
   },

@@ -10,7 +10,7 @@ import { Spinner } from '../ui/Spinner';
 import { fetchCustomers } from '@/api';
 import type { Customer } from '@/api/types';
 import { customerTypeLabel } from '@/constants/customers';
-import { color, palette, radii, spacing, fmtFcfa, fontFamily } from '@/constants/theme';
+import { color, radii, spacing, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 
 interface ClientPickerSheetProps {
   visible: boolean;
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 12,
     fontSize: 15,

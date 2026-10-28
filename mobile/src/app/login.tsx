@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     backgroundColor: semantic.surface,
     borderRadius: radii.xxl,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     ...shadow.raised,
   },
   sheetSub: {

@@ -8,7 +8,7 @@ import { Chip } from '@/components/ui/Chip';
 import { MetricTile } from '@/components/ui/MetricTile';
 import { pipelineOrders, reserveCarcasses, slaughterRefs, type Horizon, type HorizonKind } from '@/utils/slaughterInsights';
 import type { SlaughterOrder } from '@/api/types';
-import { color, palette, spacing, fontFamily } from '@/constants/theme';
+import { color, spacing, fontFamily, semantic } from '@/constants/theme';
 
 const SCOPE_OPTIONS: readonly { key: HorizonKind; label: string }[] = [
   { key: 'today', label: "Aujourd'hui" },
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderWidth: 1,
     borderRadius: 12,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     paddingHorizontal: 12,
     fontSize: 13,
     color: color.ink[800],

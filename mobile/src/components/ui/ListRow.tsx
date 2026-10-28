@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 
 import { AppText } from './AppText';
-import { color, palette, radii } from '@/constants/theme';
+import { color, radii, semantic } from '@/constants/theme';
 
 interface ListRowProps {
   icon: React.ReactNode;
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     paddingHorizontal: 14,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: color.border,

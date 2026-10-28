@@ -21,7 +21,7 @@ import { createCustomer } from '@/api/mutations';
 import { queueCustomerPayment } from '@/offline';
 import type { Customer, CustomerSegment, CustomerSummary, CustomerType, SaleFull } from '@/api/types';
 import { CUSTOMER_TYPES, customerTypeLabel } from '@/constants/customers';
-import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing, fontFamily } from '@/constants/theme';
+import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 
 const SEGMENT_LABEL: Record<CustomerSegment, string> = {
   NOUVEAU: 'Nouveau',
@@ -79,7 +79,7 @@ function KpiHero({ summary }: { summary: CustomerSummary }) {
           <AppText size="label" style={{ color: palette.brand[200] }}>
             PORTEFEUILLE
           </AppText>
-          <AppText size="h1" weight="bold" style={{ color: palette.surface }}>
+          <AppText size="h1" weight="bold" style={{ color: semantic.surface }}>
             {summary.total}
           </AppText>
           <AppText size="caption" style={{ color: palette.brand[200] }}>
@@ -103,7 +103,7 @@ function KpiHero({ summary }: { summary: CustomerSummary }) {
           <AppText size="label" style={{ color: palette.brand[200] }}>
             RECOUVRÉ
           </AppText>
-          <AppText size="h2" weight="bold" style={{ color: palette.surface }}>
+          <AppText size="h2" weight="bold" style={{ color: semantic.surface }}>
             {totalInvoiced > 0 ? `${Math.round(rate * 100)} %` : '—'}
           </AppText>
           <AppText size="caption" style={{ color: palette.brand[200] }}>
@@ -129,7 +129,7 @@ function SegmentPill({ label, count }: { label: string; count: number }) {
       <AppText size="caption" weight="semibold" style={{ color: palette.brand[200] }}>
         {label}
       </AppText>
-      <AppText size="bodyM" weight="bold" style={{ color: palette.surface }}>
+      <AppText size="bodyM" weight="bold" style={{ color: semantic.surface }}>
         {count}
       </AppText>
     </View>
@@ -188,8 +188,8 @@ function CreateClientSheet({
       visible={visible}
       title="Nouveau client"
       subtitle="La fiche sera rattachée au point de vente."
-      icon={<UserPlus size={20} color={palette.brand[600]} />}
-      accentColor={palette.brand[600]}
+      icon={<UserPlus size={20} color={semantic.primary} />}
+      accentColor={semantic.primary}
       onClose={onClose}
       footer={
         <Button
@@ -641,8 +641,8 @@ export default function ClientsScreen() {
               />
             </View>
             <Pressable onPress={() => setCreateOpen(true)} style={styles.addBtn} accessibilityRole="button">
-              <Plus size={18} color={palette.surface} strokeWidth={2.6} />
-              <AppText size="bodyM" weight="semibold" style={{ color: palette.surface }}>
+              <Plus size={18} color={semantic.surface} strokeWidth={2.6} />
+              <AppText size="bodyM" weight="semibold" style={{ color: semantic.surface }}>
                 Ajouter
               </AppText>
             </Pressable>
@@ -958,7 +958,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
   },
   recRow: {
@@ -991,7 +991,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
   },
   searchInput: {
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
   },
   chipRow: {
     gap: 6,
@@ -1028,7 +1028,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
   },
   avatarLogo: {
     width: 24,
@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
   detail: {
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: semantic.border,
     paddingTop: 10,
     marginTop: 4,
   },
@@ -1063,13 +1063,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: semantic.border,
   },
   input: {
     fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     fontSize: 15,
@@ -1114,7 +1114,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.brand[50],
   },
   actionPrimary: {
-    backgroundColor: palette.green[600],
+    backgroundColor: semantic.successFill,
   },
   cashRow: {
     flexDirection: 'row',
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
   },
   collectClient: {
@@ -1146,7 +1146,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surfaceAlt,
   },
   savedWrap: {
@@ -1161,7 +1161,7 @@ const styles = StyleSheet.create({
     borderRadius: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     marginBottom: spacing.sm,
   },
   headerLogo: {

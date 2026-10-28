@@ -14,7 +14,7 @@ export function Card({
   return (
     <div
       className={classNames(
-        'rounded-xl border border-slate-200 bg-white shadow-sm',
+        'rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,34,47,0.04)]',
         className,
       )}
     >
@@ -35,7 +35,7 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
         {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
@@ -61,7 +61,7 @@ export function StatCard({
     good: 'text-emerald-600',
     bad: 'text-red-600',
     warn: 'text-amber-600',
-    accent: 'text-sky-600',
+    accent: 'text-accent-700',
   };
   return (
     <Card className="p-4">
@@ -70,7 +70,7 @@ export function StatCard({
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
             {label}
           </p>
-          <p className={classNames('mt-1 truncate text-2xl font-bold', tones[tone])}>
+          <p className={classNames('mt-1 truncate text-2xl font-bold tracking-tight tabular-nums', tones[tone])}>
             {value}
           </p>
           {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}

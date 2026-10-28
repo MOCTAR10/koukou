@@ -7,7 +7,7 @@ import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, semantic } from '@/constants/theme';
 
 export default function MarcheScreen() {
   const router = useRouter();
@@ -70,9 +70,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.lg,
     paddingVertical: 12,
     paddingHorizontal: 12,

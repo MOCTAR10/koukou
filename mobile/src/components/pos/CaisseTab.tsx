@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowUpFromLine, Coins, FolderClosed, FolderOpen, Pencil, Trash2 } from 'lucide-react-native';
 
@@ -13,7 +14,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { fetchCaisseSessions } from '@/api';
 import { closeCaisse, createCashMovement, deleteCashMovement, openCaisse, updateCashMovement } from '@/api/mutations';
 import type { CashMovement, CashMovementType, CashSession, CaisseSummary } from '@/api/types';
-import { color, fmtFcfa, palette, radii, spacing, fontFamily } from '@/constants/theme';
+import { color, fmtFcfa, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 
 export const SOURCE_LABEL: Record<string, string> = {
   SALE_PAYMENT: 'Vente',
@@ -224,14 +225,9 @@ export function CaisseTab({ farmId, current, loading, canManage, onChanged }: Ca
 
   const confirmDelete = (m: CashMovement) => {
     const line = `${m.type === 'OUT' ? 'Sortie' : 'Entrée'} de ${fmtFcfa(m.amountFcfa)}${m.reason ? ` — ${m.reason}` : ''}.`;
-    Alert.alert(
-      'Supprimer ce mouvement ?',
-      `${line}\n\nL’écriture comptable sera contre-passée.`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => void doDelete(m) },
-      ],
-    );
+    void confirm({ title: 'Supprimer ce mouvement ?', message: `${line}\n\nL’écriture comptable sera contre-passée.`, cancelLabel: 'Annuler', confirmLabel: 'Supprimer', destructive: true }).then((ok) => {
+      if (ok) void doDelete(m);
+    });
   };
 
   const doDelete = async (m: CashMovement) => {
@@ -240,7 +236,7 @@ export function CaisseTab({ farmId, current, loading, canManage, onChanged }: Ca
       await deleteCashMovement(farmId, m.id);
       onChanged();
     } catch (e) {
-      Alert.alert('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setDeletingId(null);
     }
@@ -520,7 +516,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: semantic.border,
   },
   mvBadge: {
     width: 32,
@@ -585,12 +581,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     fontSize: 15,
     color: color.ink[800],
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     marginBottom: 10,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { toast } from '@/components/ui/Feedback';
+import { Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronDown, Map as MapIcon, MapPin, Plus, Star, Store, Trash2, TrendingUp, X, House } from 'lucide-react-native';
 
@@ -20,7 +21,7 @@ import { createPointOfSaleQueued, deletePointOfSaleQueued, updatePointOfSaleQueu
 import { transferRemaining } from '@/components/pos/catalog';
 import { canManageFarm } from '@/api/roles';
 import type { PointOfSale, SaleSummary } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
 
@@ -190,7 +191,7 @@ function PdvForm({
 
   const isBoutique = kind === 'BOUTIQUE';
   const isDefault = initial?.isDefault === true;
-  const kindBg = isBoutique ? palette.accent[50] : palette.brand[50];
+  const kindBg = isBoutique ? semantic.accentSoft : semantic.primarySoft;
 
   const onAddressPick = (r: GeoSuggest) => {
     setAddress(r.label);
@@ -210,7 +211,7 @@ function PdvForm({
     <View style={{ gap: spacing.md }}>
       <Card tone={isBoutique ? 'accent' : 'brand'} padding={false} style={styles.hintCard}>
         <View style={[styles.hintIcon, { backgroundColor: kindBg }]}>
-          {isBoutique ? <Store size={18} color={palette.accent[700]} /> : <House size={18} color={palette.brand[600]} />}
+          {isBoutique ? <Store size={18} color={palette.accent[700]} /> : <House size={18} color={semantic.primary} />}
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <AppText size="small" weight="semibold" color={isBoutique ? 'accent' : 'brand'}>
@@ -287,7 +288,7 @@ function PdvForm({
               accessibilityRole="button"
               style={[
                 styles.inputWrap,
-                province === p.name ? { borderColor: palette.brand[600], backgroundColor: palette.brand[50] } : undefined,
+                province === p.name ? { borderColor: semantic.primary, backgroundColor: semantic.primarySoft } : undefined,
               ]}>
               <View style={{ flex: 1, gap: 1, paddingLeft: 14, height: 42, justifyContent: 'center' }}>
                 <AppText size="body" weight={province === p.name ? 'bold' : 'semibold'} color={province === p.name ? 'brand' : 'text'}>
@@ -298,7 +299,7 @@ function PdvForm({
                 </AppText>
               </View>
               {province === p.name ? (
-                <Check size={18} color={palette.brand[600]} style={{ paddingRight: 14 }} />
+                <Check size={18} color={semantic.primary} style={{ paddingRight: 14 }} />
               ) : (
                 <View style={{ width: 18, paddingRight: 14 }} />
               )}
@@ -502,13 +503,10 @@ export default function PointsVenteScreen() {
       const res = await deletePointOfSaleQueued(farmId, confirmDelete.id);
       invalidateFarmQueries(queryClient, { farmId });
       setConfirmDelete(null);
-      Alert.alert(
-        'Point de vente supprimé',
-        res.status === 'queued' ? 'Suppression mise en file, synchronisation en attente.' : 'Le point de vente a été retiré de la liste.',
-      );
+      toast.success('Point de vente supprimé', res.status === 'queued' ? 'Suppression mise en file, synchronisation en attente.' : 'Le point de vente a été retiré de la liste.');
     } catch (e) {
       setConfirmDelete(null);
-      Alert.alert('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setDeleting(false);
     }
@@ -534,8 +532,8 @@ export default function PointsVenteScreen() {
     return (
       <Card key={p.id} onPress={() => openEdit(p)} style={styles.pdvCard}>
         <View style={styles.cardHeader}>
-          <View style={[styles.emojiTile, { backgroundColor: isBoutique ? palette.accent[50] : palette.brand[50] }]}>
-            {isBoutique ? <Store size={20} color={palette.accent[700]} /> : <House size={20} color={palette.brand[600]} />}
+          <View style={[styles.emojiTile, { backgroundColor: isBoutique ? semantic.accentSoft : semantic.primarySoft }]}>
+            {isBoutique ? <Store size={20} color={palette.accent[700]} /> : <House size={20} color={semantic.primary} />}
           </View>
           <View style={{ flex: 1, gap: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -549,7 +547,7 @@ export default function PointsVenteScreen() {
             </AppText>
           </View>
           <View style={{ alignItems: 'flex-end', gap: 4 }}>
-            <View style={[styles.statusPill, { backgroundColor: p.isActive ? palette.green[50] : palette.surfaceAlt }]}>
+            <View style={[styles.statusPill, { backgroundColor: p.isActive ? semantic.successSoft : semantic.surfaceAlt }]}>
               <View style={[styles.statusDot, { backgroundColor: p.isActive ? palette.green[600] : palette.ink[300] }]} />
               <AppText size="small" weight="semibold" color={p.isActive ? 'success' : 'muted'}>
                 {p.isActive ? 'Actif' : 'Pause'}
@@ -816,7 +814,7 @@ export default function PointsVenteScreen() {
                 Afficher les points de vente de tout le pays
               </AppText>
             </View>
-            {filterProvince == null ? <Check size={18} color={palette.brand[600]} /> : null}
+            {filterProvince == null ? <Check size={18} color={semantic.primary} /> : null}
           </Pressable>
           {GABON_PROVINCES.map((p) => (
             <Pressable
@@ -832,7 +830,7 @@ export default function PointsVenteScreen() {
                   {p.capital}
                 </AppText>
               </View>
-              {filterProvince === p.name ? <Check size={18} color={palette.brand[600]} /> : null}
+              {filterProvince === p.name ? <Check size={18} color={semantic.primary} /> : null}
             </Pressable>
           ))}
         </View>
@@ -873,7 +871,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     backgroundColor: color.surface,
   },
@@ -910,7 +908,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     borderRadius: radii.md,
     padding: 10,
   },
@@ -929,10 +927,10 @@ const styles = StyleSheet.create({
   },
   statusTileOn: {
     borderColor: palette.green[300],
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
   },
   statusTileOff: {
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
   },
   statusCheck: {
@@ -952,7 +950,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
   },
   summaryCard: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     borderRadius: radii.lg,
     padding: 10,
   },
@@ -998,7 +996,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1017,7 +1015,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     borderRadius: radii.pill,
     paddingHorizontal: 9,
     paddingVertical: 3,
@@ -1027,13 +1025,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     padding: 10,
   },
   provRowOn: {
-    borderColor: palette.brand[600],
-    backgroundColor: palette.brand[50],
+    borderColor: semantic.primary,
+    backgroundColor: semantic.primarySoft,
   },
   heroCard: {
     gap: 10,
@@ -1056,7 +1054,7 @@ const styles = StyleSheet.create({
   },
   heroDivider: {
     height: 1,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1072,7 +1070,7 @@ const styles = StyleSheet.create({
   },
   cardDivider: {
     height: 1,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
     marginVertical: 10,
   },
   statusPill: {

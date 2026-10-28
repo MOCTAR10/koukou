@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -91,15 +92,15 @@ import type {
   SanitaryProtocolWithSteps,
   TreatmentRecord,
 } from '@/api/types';
-import { color, palette, fontFamily } from '@/constants/theme';
+import { color, palette, fontFamily, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements';
 
 const TAB_OPTIONS: { key: TabKey; label: string; icon: (active: boolean) => React.ReactNode; description: string; tint?: 'green' | 'red' }[] = [
-  { key: 'sante', label: 'Santé', icon: (active) => <HeartPulse size={22} color={active ? palette.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Score, métriques, mortalité' },
-  { key: 'check', label: 'Check', icon: (active) => <Activity size={22} color={active ? palette.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Analyse & recommandations' },
-  { key: 'maladies', label: 'Maladies', icon: (active) => <Stethoscope size={22} color={active ? palette.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Événements & symptômes', tint: 'red' as const },
-  { key: 'traitements', label: 'Traitements', icon: (active) => <Syringe size={22} color={active ? palette.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Calendrier & soins' },
+  { key: 'sante', label: 'Santé', icon: (active) => <HeartPulse size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Score, métriques, mortalité' },
+  { key: 'check', label: 'Check', icon: (active) => <Activity size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Analyse & recommandations' },
+  { key: 'maladies', label: 'Maladies', icon: (active) => <Stethoscope size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Événements & symptômes', tint: 'red' as const },
+  { key: 'traitements', label: 'Traitements', icon: (active) => <Syringe size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Calendrier & soins' },
 ];
 
 const CARE_TYPE_LABEL: Record<CareType, string> = {
@@ -414,7 +415,7 @@ function CheckRow({
   return (
     <Pressable onPress={onToggle} style={styles.checkRow} accessibilityRole="checkbox" accessibilityState={{ checked }}>
       <View style={[styles.checkbox, checked && styles.checkboxOn]}>
-        {checked ? <Check size={12} color={palette.surface} /> : null}
+        {checked ? <Check size={12} color={semantic.surface} /> : null}
       </View>
       <AppText size="body" color="text" style={{ flex: 1 }}>
         {label}
@@ -755,16 +756,8 @@ export default function SanitaryScreen() {
 
   const deleteScheduleEvent = (e: ProphylaxisEvent) => {
     if (!batchId) return;
-    Alert.alert(
-      'Supprimer le soin',
-      'Cette échéance sera supprimée (action Propriétaire). Le stock est restitué si une sortie « Sortir du stock » y était liée.',
-      [
-        { text: 'Non', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () =>
-            void (async () => {
+    void confirm({ title: 'Supprimer le soin', message: 'Cette échéance sera supprimée (action Propriétaire). Le stock est restitué si une sortie « Sortir du stock » y était liée.', cancelLabel: 'Non', confirmLabel: 'Supprimer', destructive: true }).then((ok) => {
+      if (ok) void (async () => {
               setBusy(e.id);
               setError(null);
               try {
@@ -775,10 +768,8 @@ export default function SanitaryScreen() {
               } finally {
                 setBusy(null);
               }
-            })(),
-        },
-      ],
-    );
+            })();
+    });
   };
 
   const invalidate = async (b: string) => {
@@ -803,10 +794,9 @@ export default function SanitaryScreen() {
     if (!batchId) return;
     setError(null);
     if (action === 'cancel') {
-      Alert.alert('Annuler le soin', 'Le soin ne sera pas réalisé. Confirmer ?', [
-        { text: 'Non', style: 'cancel' },
-        { text: 'Annuler le soin', style: 'destructive', onPress: () => void run() },
-      ]);
+      void confirm({ title: 'Annuler le soin', message: 'Le soin ne sera pas réalisé. Confirmer ?', cancelLabel: 'Non', confirmLabel: 'Annuler le soin', destructive: true }).then((ok) => {
+      if (ok) void run();
+    });
       return;
     }
     await run();
@@ -915,12 +905,11 @@ export default function SanitaryScreen() {
         const birds = Math.floor(qty);
         const lotName = lotNow.batchName ?? 'ce lot';
         const remaining = Math.max(0, (lotNow.quantityAlive ?? 0) - birds);
-        Alert.alert(
+        toast.info(
           'Effectif du lot mis à jour',
           kind === 'REFORME'
             ? `${birds} oiseaux abattus (réforme sanitaire) retirés de « ${lotName} ».\nEffectif vivant restant estimé : ${remaining} oiseaux.\nMaintenez la surveillance : eau et aliment à volonté pour le reste du lot, isolez tout sujet affaibli.`
             : `${birds} oiseaux morts enregistrés sur « ${lotName} ».\nEffectif vivant restant estimé : ${remaining} oiseaux.\nEn cas de pic de mortalité répété (> 1 % du lot), renforcez la surveillance ; au-delà de 5 %, contactez un vétérinaire.`,
-          [{ text: 'OK', style: 'cancel' }],
         );
       }
     } catch (e) {
@@ -946,33 +935,23 @@ export default function SanitaryScreen() {
 
   const removeHealth = async (e: HealthEvent) => {
     if (!batchId) return;
-    Alert.alert(
-      'Supprimer l’événement',
-      e.kind === 'REFORME'
+    void confirm({ title: 'Supprimer l’événement', message: e.kind === 'REFORME'
         ? 'La suppression d’un abattage réintègre l’effectif vivant. Continuer ?'
-        : 'Cet événement sanitaire sera supprimé. Continuer ?',
-      [
-        { text: 'Non', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setError(null);
-              setBusy(`del-${e.id}`);
-              try {
-                await deleteHealthEvent(farmId, batchId, e.id);
-                await invalidate(batchId);
-              } catch (err) {
-                setError(err instanceof Error ? err.message : 'Erreur lors de la suppression.');
-              } finally {
-                setBusy(null);
-              }
-            })();
-          },
-        },
-      ],
-    );
+        : 'Cet événement sanitaire sera supprimé. Continuer ?', cancelLabel: 'Non', confirmLabel: 'Supprimer', destructive: true }).then((ok) => {
+      if (!ok) return;
+        void (async () => {
+          setError(null);
+          setBusy(`del-${e.id}`);
+          try {
+            await deleteHealthEvent(farmId, batchId, e.id);
+            await invalidate(batchId);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erreur lors de la suppression.');
+          } finally {
+            setBusy(null);
+          }
+        })();
+    });
   };
 
   return (
@@ -1172,7 +1151,7 @@ export default function SanitaryScreen() {
                 title="Calendrier de soins"
                 icon={Calendar}
                 iconColor={palette.green[600]}
-                iconBg={palette.green[50]}
+                iconBg={semantic.successSoft}
               />
               <Pressable
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}); openCreateWizard(); }}
@@ -1183,14 +1162,14 @@ export default function SanitaryScreen() {
                   <Syringe size={20} color={palette.green[600]} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <AppText size="bodyM" weight="bold" color={palette.surface}>
+                  <AppText size="bodyM" weight="bold" color={semantic.surface}>
                     Planifier un soin
                   </AppText>
                   <AppText size="small" color={palette.green[100]} numberOfLines={1} adjustsFontSizeToFit>
                     Vaccination Gabon · manuel · multi-lots
                   </AppText>
                 </View>
-                <Plus size={22} color={palette.surface} strokeWidth={2.6} />
+                <Plus size={22} color={semantic.surface} strokeWidth={2.6} />
               </Pressable>
               {calendar.isLoading ? (
                 <Spinner label="Lecture du calendrier…" />
@@ -1235,7 +1214,7 @@ export default function SanitaryScreen() {
                 subtitle={lot?.batchName ?? ''}
                 icon={History}
                 iconColor={palette.green[600]}
-                iconBg={palette.green[50]}
+                iconBg={semantic.successSoft}
                 right={
                   <Pressable
                     onPress={() => setTreatFilterOpen((o) => !o)}
@@ -1306,7 +1285,7 @@ export default function SanitaryScreen() {
 function WizardHeader({ title, step, total }: { title: string; step?: number; total?: number }) {
   return (
     <View style={styles.formTitleRow}>
-      <View style={[styles.badge, { backgroundColor: palette.green[50] }]}>
+      <View style={[styles.badge, { backgroundColor: semantic.successSoft }]}>
         <Syringe size={16} color={palette.green[600]} />
       </View>
       <View style={{ flex: 1 }}>
@@ -1505,10 +1484,7 @@ function CreateScheduleWizard({
         for (const lid of selLots) {
           await invalidateFarmQueries(queryClient, { farmId, batchId: lid });
         }
-        Alert.alert(
-          'Programme appliqué',
-          `${res.planned} soin(s) planifié(s)${res.skipped > 0 ? ` · ${res.skipped} étape(s) sautée(s) (dates déjà passées ou déjà réalisées)` : ''}${res.programName ? `\n${res.programName}` : ''}.`,
-        );
+        toast.success('Programme appliqué', `${res.planned} soin(s) planifié(s)${res.skipped > 0 ? ` · ${res.skipped} étape(s) sautée(s) (dates déjà passées ou déjà réalisées)` : ''}${res.programName ? `\n${res.programName}` : ''}.`);
       } else {
         const payload: CreateManualScheduleInput = {
           lotIds: selLots,
@@ -1532,10 +1508,7 @@ function CreateScheduleWizard({
         for (const lid of selLots) {
           await invalidateFarmQueries(queryClient, { farmId, batchId: lid });
         }
-        Alert.alert(
-          'Soin planifié',
-          `${selLots.length} lot(s) concerné(s)${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`,
-        );
+        toast.success('Soin planifié', `${selLots.length} lot(s) concerné(s)${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`);
       }
       onClose();
     } catch (e) {
@@ -1649,7 +1622,7 @@ function CreateScheduleWizard({
                       accessibilityState={{ selected }}
                       style={({ pressed }) => [
                         styles.wizLotCard,
-                        selected && { borderColor: palette.green[500], backgroundColor: palette.green[50] },
+                        selected && { borderColor: palette.green[500], backgroundColor: semantic.successSoft },
                         pressed && { opacity: 0.8 },
                       ]}
                     >
@@ -1708,7 +1681,7 @@ function CreateScheduleWizard({
           {activeMode === 'programme' ? (
             <Card tone="brand" style={[{ marginTop: 10 }]}>
               <View style={styles.head}>
-                <Info size={15} color={palette.brand[600]} />
+                <Info size={15} color={semantic.primary} />
                 <AppText size="label" weight="bold" color="brand" style={{ flex: 1 }}>
                   C&apos;est quoi un programme pré-chargé ?
                 </AppText>
@@ -1990,7 +1963,7 @@ function EditScheduleSheet({
         scheduledDate: date,
       });
       await invalidateFarmQueries(queryClient, { farmId, batchId: event.batchId });
-      Alert.alert('Soin mis à jour', 'La nouvelle date reprogramme l’échéance si nécessaire.');
+      toast.success('Soin mis à jour', 'La nouvelle date reprogramme l’échéance si nécessaire.');
       onClose();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Édition impossible (soin réalisé ?).');
@@ -2094,7 +2067,7 @@ function CareStatusCard({ events, integrationDate }: { events: ProphylaxisEvent[
   const s = careStatus(events, integrationDate);
   const total = (events ?? []).filter((p) => p.status !== 'ANNULE').length;
   const fg = s.lateCount > 0 ? palette.red[500] : s.pendingCount > 0 ? palette.amber[600] : palette.green[600];
-  const bg = s.lateCount > 0 ? palette.red[50] : s.pendingCount > 0 ? palette.amber[50] : palette.green[50];
+  const bg = s.lateCount > 0 ? semantic.dangerSoft : s.pendingCount > 0 ? semantic.warnSoft : semantic.successSoft;
 
   return (
     <Card tone="default" style={styles.tipsCard}>
@@ -2107,11 +2080,11 @@ function CareStatusCard({ events, integrationDate }: { events: ProphylaxisEvent[
           <AppText size="caption" color="muted">Prophylaxie du lot · reflétée dans le Score santé</AppText>
         </View>
         {s.lateCount > 0 ? (
-          <View style={[styles.carePill, { backgroundColor: palette.red[50], borderColor: palette.red[200] }]}>
+          <View style={[styles.carePill, { backgroundColor: semantic.dangerSoft, borderColor: palette.red[200] }]}>
             <AppText size="label" weight="bold" color="danger">{s.lateCount} en retard</AppText>
           </View>
         ) : (
-          <View style={[styles.carePill, { backgroundColor: palette.green[50], borderColor: palette.green[200] }]}>
+          <View style={[styles.carePill, { backgroundColor: semantic.successSoft, borderColor: palette.green[200] }]}>
             <ShieldCheck size={12} color={palette.green[600]} />
             <AppText size="label" weight="bold" color="success">À jour</AppText>
           </View>
@@ -2435,7 +2408,7 @@ function MaladiesTab({
           accessibilityRole="button"
           accessibilityState={{ expanded: formOpen }}>
           <Animated.View style={{ transform: [{ rotate: iconRotation }] }}>
-            <Plus size={20} color={formOpen ? palette.red[600] : palette.surface} strokeWidth={2.4} />
+            <Plus size={20} color={formOpen ? palette.red[600] : semantic.surface} strokeWidth={2.4} />
           </Animated.View>
           <AppText size="body" weight="bold" color={formOpen ? 'danger' : 'card'} style={{ flex: 1 }}>
             {formOpen ? 'Fermer' : 'Ajouter un événement'}
@@ -2446,7 +2419,7 @@ function MaladiesTab({
       {formOpen ? (
         <Card tone="default" style={styles.formCard}>
           <View style={styles.formTitleRow}>
-            <View style={[styles.badge, { backgroundColor: palette.red[50] }]}>
+            <View style={[styles.badge, { backgroundColor: semantic.dangerSoft }]}>
               <ClipboardPlus size={18} color={palette.red[600]} />
             </View>
             <View style={{ flex: 1 }}>
@@ -2685,7 +2658,7 @@ const styles = StyleSheet.create({
   scoreDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
     marginVertical: 10,
   },
   viabilityBadge: {
@@ -2733,13 +2706,13 @@ const styles = StyleSheet.create({
     gap: 4,
     padding: 8,
     borderRadius: 12,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 2,
-    borderColor: palette.border,
+    borderColor: semantic.border,
   },
   lotCarouselItemActive: {
-    borderColor: palette.brand[600],
-    backgroundColor: palette.brand[50],
+    borderColor: semantic.primary,
+    backgroundColor: semantic.primarySoft,
   },
   lotCarouselItemPressed: {
     opacity: 0.7,
@@ -2751,7 +2724,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   lotCarouselImgImg: {
     width: '100%',
@@ -2788,7 +2761,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2824,16 +2797,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surfaceAlt,
   },
   cardTabActive: {
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     borderColor: palette.green[300],
     borderWidth: 1.5,
   },
   cardTabActiveRed: {
-    backgroundColor: palette.red[50],
+    backgroundColor: semantic.dangerSoft,
     borderColor: palette.red[300],
     borderWidth: 1.5,
   },
@@ -2845,11 +2818,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     marginBottom: 2,
   },
   cardTabIconActive: {
-    backgroundColor: palette.green[600],
+    backgroundColor: semantic.successFill,
     borderColor: palette.green[700],
   },
   cardTabIconActiveRed: {
@@ -2915,13 +2888,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: semantic.border,
   },
   input: {
     fontFamily: fontFamily.regular,
     height: 46,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     fontSize: 15,
@@ -2939,7 +2912,7 @@ const styles = StyleSheet.create({
     height: 62,
     paddingHorizontal: 16,
     borderRadius: 18,
-    backgroundColor: palette.green[600],
+    backgroundColor: semantic.successFill,
     shadowColor: palette.green[900],
     shadowOpacity: 0.4,
     shadowRadius: 12,
@@ -2955,7 +2928,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2964,14 +2937,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterBtnActive: {
     borderColor: palette.green[300],
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
   },
   addBtnInner: {
     flexDirection: 'row',
@@ -3056,7 +3029,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 7,
     borderWidth: 1.5,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3083,7 +3056,7 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
   },
   wizLotImg: {
@@ -3096,7 +3069,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
   },
   wizBanner: {
     gap: 6,

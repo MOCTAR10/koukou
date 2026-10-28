@@ -16,7 +16,7 @@ import { AppText } from '../ui/AppText';
 import { useAuth, type FarmMode } from '@/auth/AuthContext';
 import { useOfflineQueue } from '@/offline';
 import { useCreateCenter } from '../create/CreateCenter';
-import { color, palette, shadow } from '@/constants/theme';
+import { color, palette, shadow, semantic } from '@/constants/theme';
 
 type TabRoute = { key: string; name: string };
 
@@ -244,7 +244,7 @@ function NavTab({
   if (!meta) return null;
 
   const Icon = meta.icon;
-  const iconColor = focused ? palette.brand[600] : palette.ink[400];
+  const iconColor = focused ? semantic.primary : palette.ink[400];
   const badgeBg = badgeTone === 'amber' ? palette.amber[500] : palette.red[500];
 
   return (
@@ -329,7 +329,7 @@ function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void })
               cy={RING_SIZE / 2}
               r={WHITE_R}
               fill="none"
-              stroke={palette.surface}
+              stroke={semantic.surface}
               strokeWidth={WHITE_W}
             />
             <Circle

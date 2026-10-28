@@ -46,7 +46,7 @@ import type {
   FeedStockSummary,
   FeedTypeStock,
 } from '@/api/types';
-import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 import { FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 
 const MOVEMENT_TYPE_LABEL: Record<FeedMovementType, string> = {
@@ -217,7 +217,7 @@ function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]
     <Card tone={cardTone} style={styles.insightCard}>
       <View style={styles.insightHead}>
         <View style={styles.insightIcon}>
-          <TrendingUp size={16} color={palette.brand[600]} strokeWidth={2.3} />
+          <TrendingUp size={16} color={semantic.primary} strokeWidth={2.3} />
         </View>
         <View style={{ flex: 1, gap: 1 }}>
           <AppText size="body" weight="bold" color="text">Consommation & couverture</AppText>
@@ -480,7 +480,7 @@ export default function ProvendeScreen() {
           }}
           style={styles.cta}>
             <View style={styles.ctaBadge}>
-              <Plus size={18} color={palette.surface} />
+              <Plus size={18} color={semantic.surface} />
             </View>
             <View style={{ flex: 1 }}>
               <AppText size="body" weight="semibold" color="text" numberOfLines={1}>
@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surfaceAlt,
   },
   typeStatIcon: {
@@ -842,7 +842,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     marginBottom: 2,
   },
   cta: {
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
   summaryDivider: {
     width: 1,
     alignSelf: 'stretch',
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
   suggestion: {
     flexDirection: 'row',
@@ -945,10 +945,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 24,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
   },
   lotsRow: {
     flexDirection: 'row',
@@ -960,7 +960,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 12,
     fontSize: 15,

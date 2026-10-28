@@ -12,7 +12,7 @@ import type { InvoiceFields } from '@/api/mutations';
 import type { Customer, Promotion } from '@/api/types';
 import type { SendResult } from '@/offline';
 import { customerTypeLabel } from '@/constants/customers';
-import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 
 import { findPromotion, totalsFor } from './helpers';
 import type { PosLine } from './types';
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   },
   sectionDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
     marginVertical: 2,
   },
   exactBtn: {
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 12,
     fontSize: 15,
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.border,
+    borderTopColor: semantic.border,
     paddingTop: 10,
     marginTop: 4,
   },

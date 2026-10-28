@@ -2,7 +2,7 @@ import React, { forwardRef, useState, useEffect } from 'react';
 import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { CheckCircle2 } from 'lucide-react-native';
 
-import { color, palette, fontFamily } from '@/constants/theme';
+import { color, palette, fontFamily, semantic } from '@/constants/theme';
 import { GABON_FLAG, GABON_PREFIX, isGabonPhoneValid, normalizeGabonPhone } from '@/constants/phone';
 
 export interface PhoneInputProps extends Omit<TextInputProps, 'value' | 'onChangeText' | 'keyboardType' | 'maxLength' | 'textContentType'> {
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     gap: 12,
     height: 52,
     borderRadius: 18,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: color.border,

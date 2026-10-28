@@ -3,7 +3,7 @@ import { Animated, Easing, Modal, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 
 import { AppText } from '@/components/ui/AppText';
-import { palette } from '@/constants/theme';
+import { palette, semantic } from '@/constants/theme';
 
 interface BrandLoaderProps {
   /** Renders as a full-screen modal on top of the current screen. */
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 36,
     paddingVertical: 32,
     borderRadius: 24,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,

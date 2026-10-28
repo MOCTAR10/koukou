@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { toast } from '@/components/ui/Feedback';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Download, FileBarChart2, PieChart, Receipt, Store, TrendingUp, Wallet, TrendingDown } from 'lucide-react-native';
 
@@ -17,7 +18,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { fetchBatches, fetchPointsOfSale, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales } from '@/api';
 import { downloadPdf } from '@/api/pdf';
 import type { BatchPnl, BatchStatus } from '@/api/types';
-import { color, fmt, fmtFcfa, palette, radii } from '@/constants/theme';
+import { color, fmt, fmtFcfa, palette, radii, semantic } from '@/constants/theme';
 import { BreakdownBars, CollectionBar } from '@/components/finance/BreakdownBars';
 import { PnlHero } from '@/components/finance/PnlHero';
 import {
@@ -126,9 +127,9 @@ export default function RapportsScreen() {
     const query = from ? `?from=${from}${to ? `&to=${to}` : ''}` : '';
     try {
       await downloadPdf(`/farms/${farmId}/rentabilite/overview/export${query}`, 'rapport-pnl.pdf');
-      Alert.alert('Rapport téléchargé', 'P&L de période exporté (PDF).');
+      toast.success('Rapport téléchargé', 'P&L de période exporté (PDF).');
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     }
   };
 
@@ -136,9 +137,9 @@ export default function RapportsScreen() {
     if (!batchId) return;
     try {
       await downloadPdf(`/farms/${farmId}/rentabilite/batches/${batchId}/export`, `pnl-lot-${batchId}.pdf`);
-      Alert.alert('Rapport téléchargé', 'P&L du lot exporté (PDF).');
+      toast.success('Rapport téléchargé', 'P&L du lot exporté (PDF).');
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     }
   };
 
@@ -221,7 +222,7 @@ export default function RapportsScreen() {
               subtitle={productRows.length > 0 ? `Répartition sur ${fmtFcfa(sumFcfa(ov.breakdown?.byProduct))}` : undefined}
               icon={TrendingUp}
               iconColor={palette.green[600]}
-              iconBg={palette.green[50]}
+              iconBg={semantic.successSoft}
             />
             <Card tone="default" style={styles.card}>
               <BreakdownBars
@@ -238,7 +239,7 @@ export default function RapportsScreen() {
               subtitle={expenseRows.length > 0 ? `Postes de dépense sur ${fmtFcfa(expenses)}` : undefined}
               icon={Wallet}
               iconColor={palette.amber[600]}
-              iconBg={palette.amber[50]}
+              iconBg={semantic.warnSoft}
             />
             <Card tone="default" style={styles.card}>
               <BreakdownBars
@@ -260,7 +261,7 @@ export default function RapportsScreen() {
                   {canalRows.map((r) => (
                     <View key={r.pdv.id} style={styles.canalRow}>
                       <View style={styles.canalIcon}>
-                        <Store size={14} color={palette.brand[600]} />
+                        <Store size={14} color={semantic.primary} />
                       </View>
                       <View style={{ flex: 1, gap: 5 }}>
                         <View style={styles.canalHead}>
@@ -476,7 +477,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: radii.sm,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -488,7 +489,7 @@ const styles = StyleSheet.create({
   canalTrack: {
     height: 5,
     borderRadius: radii.pill,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     overflow: 'hidden',
   },
   canalFill: {
@@ -511,14 +512,14 @@ const styles = StyleSheet.create({
   },
   kvDivider: {
     height: 1,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
     marginVertical: 2,
   },
   marginBlock: {
     gap: 7,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: semantic.border,
   },
   marginHead: {
     flexDirection: 'row',
@@ -528,7 +529,7 @@ const styles = StyleSheet.create({
   marginTrack: {
     height: 6,
     borderRadius: radii.pill,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     overflow: 'hidden',
   },
   marginFill: {
@@ -539,6 +540,6 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 12,
     borderRadius: radii.md,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
 });

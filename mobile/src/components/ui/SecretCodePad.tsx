@@ -13,7 +13,7 @@ import { Check, Delete } from 'lucide-react-native';
 import { AppText } from './AppText';
 import { TapScale } from './motion/TapScale';
 import { appendCodeDigit, CODE_MAX, CODE_MIN, removeCodeDigit } from './secretCodePad.logic';
-import { color, palette, radii, shadow, spacing } from '@/constants/theme';
+import { color, palette, radii, shadow, spacing, semantic } from '@/constants/theme';
 import { durations, easing, enter, reduceMotion } from '@/constants/motion';
 
 const ROWS: readonly string[][] = [
@@ -221,7 +221,7 @@ export function SecretCodePad({
                 { width: s.badge, height: s.badge, borderRadius: s.badge / 2 },
                 canSubmit && styles.submitBadgeOn,
               ]}>
-              <Check size={s.key * 0.36} color={canSubmit ? palette.surface : palette.ink[300]} strokeWidth={2.6} />
+              <Check size={s.key * 0.36} color={canSubmit ? semantic.surface : palette.ink[300]} strokeWidth={2.6} />
             </View>
           </PadKey>
         </View>
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   dotEmpty: {
     borderWidth: 1.5,
     borderColor: color.brand[200],
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
   },
   dotNext: {
     borderColor: color.brand[400],
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   submitBadge: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   submitBadgeOn: {
     backgroundColor: color.brand[600],

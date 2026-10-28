@@ -27,7 +27,7 @@ import {
   type StatusFilter,
 } from '@/api/alerts.filters';
 import type { Alert } from '@/api/types';
-import { color, gradeColor, palette, radii, fontFamily } from '@/constants/theme';
+import { color, gradeColor, palette, radii, fontFamily, semantic } from '@/constants/theme';
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -383,10 +383,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 14,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     padding: 12,
   },
   score: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   error: {
-    backgroundColor: palette.red[50],
+    backgroundColor: semantic.dangerSoft,
     borderWidth: 1,
     borderColor: palette.red[100],
     borderRadius: radii.md,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: color.border,
     borderRadius: radii.md,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     paddingHorizontal: 12,
     marginBottom: 4,
   },
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: color.border,
     borderRadius: radii.md,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,

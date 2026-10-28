@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 
 import { AppText } from './AppText';
-import { palette } from '@/constants/theme';
+import { semantic } from '@/constants/theme';
 
 interface SectionHeaderProps {
   title: string;
@@ -20,8 +20,8 @@ export function SectionHeader({ title, subtitle, right, icon: Icon, iconColor, i
       <View style={styles.textWrap}>
         <View style={styles.titleRow}>
           {Icon ? (
-            <View style={[styles.iconChip, { backgroundColor: iconBg ?? palette.brand[50] }]}>
-              <Icon size={18} color={iconColor ?? palette.brand[600]} strokeWidth={2.4} />
+            <View style={[styles.iconChip, { backgroundColor: iconBg ?? semantic.primarySoft }]}>
+              <Icon size={18} color={iconColor ?? semantic.primary} strokeWidth={2.4} />
             </View>
           ) : null}
           <AppText size="h3" weight="bold">
@@ -62,6 +62,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
 });

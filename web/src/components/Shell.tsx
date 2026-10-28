@@ -61,10 +61,10 @@ export function Shell() {
   const reduced = useReducedMotion();
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-slate-50">
       <aside
         className={classNames(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-slate-900 text-slate-200 transition-transform lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 transition-transform lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -72,10 +72,10 @@ export function Shell() {
           <Logo className="h-9 w-auto" />
           <div>
             <p className="text-sm font-bold text-white">Fermia</p>
-            <p className="text-[11px] text-slate-400">Console pilote</p>
+            <p className="text-[11px] text-brand-200">Console pilote</p>
           </div>
           <button
-            className="ml-auto rounded p-1 text-slate-400 hover:text-white lg:hidden"
+            className="ml-auto rounded p-1 text-brand-200 hover:text-white lg:hidden"
             onClick={() => setMobileOpen(false)}
             aria-label="Fermer le menu"
           >
@@ -85,11 +85,11 @@ export function Shell() {
 
         {!onPlatform ? (
           <div className="px-3">
-            <label className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-slate-500">
+            <label className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">
               {isAdmin ? 'Ferme à consulter' : 'Ferme active'}
             </label>
             <select
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-2 text-sm text-slate-100 outline-none focus:border-brand-500"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-sm text-white outline-none focus:border-brand-400 [&>option]:text-slate-900"
               value={farmId ?? ''}
               onChange={(e) => setFarm(e.target.value)}
             >
@@ -106,7 +106,7 @@ export function Shell() {
         <nav className="mt-5 flex-1 overflow-y-auto px-3">
           {NAV.map((group) => (
             <div key={group.title} className="mb-4">
-              <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300">
                 {group.title}
               </p>
               <div className="space-y-0.5">
@@ -119,8 +119,8 @@ export function Shell() {
                       classNames(
                         'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm',
                         isActive
-                          ? 'bg-sky-600 font-medium text-white'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                          ? 'bg-white/12 font-semibold text-white shadow-[inset_3px_0_0_var(--color-emerald-400)]'
+                          : 'text-brand-100 hover:bg-white/5 hover:text-white',
                       )
                     }
                   >
@@ -133,7 +133,7 @@ export function Shell() {
           ))}
           {isAdmin ? (
             <div>
-              <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300">
                 Plateforme
               </p>
               <div className="space-y-0.5">
@@ -144,8 +144,8 @@ export function Shell() {
                     classNames(
                       'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm',
                       isActive
-                        ? 'bg-sky-600 font-medium text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white',
+                        ? 'bg-white/12 font-semibold text-white shadow-[inset_3px_0_0_var(--color-emerald-400)]'
+                        : 'text-brand-100 hover:bg-white/5 hover:text-white',
                     )
                   }
                 >
@@ -157,22 +157,22 @@ export function Shell() {
           ) : null}
         </nav>
 
-        <div className="border-t border-slate-800 px-3 py-3">
-          <div className="flex items-center gap-2.5 rounded-lg bg-slate-800 px-2.5 py-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-700 text-xs font-semibold text-white">
+        <div className="border-t border-white/10 px-3 py-3">
+          <div className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-700 text-xs font-semibold text-white">
               {user ? initials(user.fullName) : '?'}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-white">
                 {user?.fullName}
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-brand-200">
                 {user ? statusLabel(user.role) : ''}
               </p>
             </div>
             <button
               onClick={logout}
-              className="rounded p-1 text-slate-400 hover:text-white"
+              className="rounded p-1 text-brand-200 hover:text-white"
               title="Se déconnecter"
             >
               <LogOut className="h-4 w-4" />
@@ -183,13 +183,13 @@ export function Shell() {
 
       {mobileOpen ? (
         <div
-          className="fixed inset-0 z-30 bg-slate-900/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-brand-950/50 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       ) : null}
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
           <button
             className="rounded p-1 text-slate-500 hover:bg-slate-100 lg:hidden"
             onClick={() => setMobileOpen(true)}

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building, Check, FileText, Printer, Scale, Truck } from 'lucide-react-native';
 
@@ -29,7 +30,7 @@ import {
 } from '@/api/mutations';
 import { lotAvailability, projectOrder, slaughterRefs, type Horizon } from '@/utils/slaughterInsights';
 import type { ProductionBatch, SlaughterDestination, SlaughterOrder, SlaughterType } from '@/api/types';
-import { color, palette, fontFamily } from '@/constants/theme';
+import { color, palette, fontFamily, semantic } from '@/constants/theme';
 
 type SubView = 'new' | 'orders';
 
@@ -117,9 +118,9 @@ export default function SlaughterScreen() {
     setBusy(order.id);
     try {
       await downloadPdf(`/farms/${farmId}/slaughter-orders/${order.id}/bordereau`, `${order.referenceNumber}.pdf`);
-      Alert.alert('Bordereau téléchargé', `Partagez « ${order.referenceNumber}.pdf » avec l’abattoir.`);
+      toast.success('Bordereau téléchargé', `Partagez « ${order.referenceNumber}.pdf » avec l’abattoir.`);
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setBusy(null);
     }
@@ -129,9 +130,9 @@ export default function SlaughterScreen() {
     setBusy(b.id);
     try {
       await downloadPdf(`/farms/${farmId}/batches/${b.id}/passeport`, `passeport-${b.batchName ?? b.id}.pdf`);
-      Alert.alert('Passeport sanitaire', `« passeport-${b.batchName ?? b.id}.pdf » enregistré : il certifie la conformité sanitaire du lot pour l’abattoir.`);
+      toast.success('Passeport sanitaire', `« passeport-${b.batchName ?? b.id}.pdf » enregistré : il certifie la conformité sanitaire du lot pour l’abattoir.`);
     } catch (e) {
-      Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
     } finally {
       setBusy(null);
     }
@@ -219,10 +220,9 @@ export default function SlaughterScreen() {
   };
 
   const cancelOrder = async (order: SlaughterOrder) => {
-    Alert.alert('Annuler l’ordre', `${order.referenceNumber} sera annulé. Confirmer ?`, [
-      { text: 'Non', style: 'cancel' },
-      { text: 'Annuler', style: 'destructive', onPress: () => void doCancel(order) },
-    ]);
+    void confirm({ title: 'Annuler l’ordre', message: `${order.referenceNumber} sera annulé. Confirmer ?`, cancelLabel: 'Non', confirmLabel: 'Annuler', destructive: true }).then((ok) => {
+      if (ok) void doCancel(order);
+    });
   };
 
   const drafts = orders.filter((o) => o.status === 'DRAFT');
@@ -625,13 +625,13 @@ const styles = StyleSheet.create({
     gap: 3,
     padding: 8,
     borderRadius: 12,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 2,
-    borderColor: palette.border,
+    borderColor: semantic.border,
   },
   lotCarouselItemActive: {
-    borderColor: palette.brand[600],
-    backgroundColor: palette.brand[50],
+    borderColor: semantic.primary,
+    backgroundColor: semantic.primarySoft,
   },
   lotCarouselItemPressed: {
     opacity: 0.7,
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   lotCarouselImgImg: {
     width: '100%',
@@ -667,10 +667,10 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: palette.surface,
+    borderColor: semantic.surface,
   },
   lotBadgeSelling: {
-    backgroundColor: palette.green[600],
+    backgroundColor: semantic.successFill,
   },
   lotBadgeReady: {
     backgroundColor: palette.amber[500],
@@ -697,13 +697,13 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
+    borderColor: semantic.border,
+    backgroundColor: semantic.surface,
   },
   destOptionActive: {
-    borderColor: palette.brand[600],
-    backgroundColor: palette.brand[50],
-    shadowColor: palette.brand[600],
+    borderColor: semantic.primary,
+    backgroundColor: semantic.primarySoft,
+    shadowColor: semantic.primary,
     shadowOpacity: 0.16,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: color.surfaceAlt,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
   },
   availRow: {
     flexDirection: 'row',
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     fontSize: 15,

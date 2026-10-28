@@ -16,7 +16,7 @@ import { createParcelle, deleteParcelle, fetchCultures, updateParcelle } from '@
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { Culture, Parcelle, ParcelleStatus } from '@/api/types';
 import { PARCELLE_STATUS_LABELS, cultureStage, formatHarvestDate, waterNeedLabel } from '@/constants/agriculture';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, semantic } from '@/constants/theme';
 
 interface ParcelleSheetProps {
   visible: boolean;
@@ -30,20 +30,20 @@ const STATUS_META: Record<ParcelleStatus, { label: string; description: string; 
   PREPARATION: {
     label: PARCELLE_STATUS_LABELS.PREPARATION,
     description: 'Sol en préparation — plantation à venir.',
-    color: palette.accent[600],
-    bg: palette.accent[50],
+    color: semantic.accentText,
+    bg: semantic.accentSoft,
   },
   ACTIVE: {
     label: PARCELLE_STATUS_LABELS.ACTIVE,
     description: 'Culture en place, le cycle est suivi.',
-    color: palette.green[600],
-    bg: palette.green[50],
+    color: semantic.successText,
+    bg: semantic.successSoft,
   },
   JACHERE: {
     label: PARCELLE_STATUS_LABELS.JACHERE,
     description: 'Parcelle au repos, non cultivée.',
-    color: palette.amber[600],
-    bg: palette.amber[50],
+    color: semantic.warnText,
+    bg: semantic.warnSoft,
   },
   CLOTURE: {
     label: PARCELLE_STATUS_LABELS.CLOTURE,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

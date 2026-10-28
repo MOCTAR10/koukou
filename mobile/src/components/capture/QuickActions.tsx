@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { BookOpen, Coins, FileBarChart2, HandCoins, Syringe, Wheat } from 'lucide-react-native';
 
 import { AppText } from '../ui/AppText';
-import { color, palette, radii } from '@/constants/theme';
+import { color, radii, semantic } from '@/constants/theme';
 
 interface QuickActionsProps {
   onPick: (key: 'saisie' | 'vente' | 'soin' | 'provende' | 'caisse' | 'rapports') => void;
@@ -55,15 +55,15 @@ const styles = StyleSheet.create({
   },
   tile: {
     width: '47%',
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     padding: 12,
     gap: 4,
   },
   pressed: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   iconWrap: {
     width: 36,

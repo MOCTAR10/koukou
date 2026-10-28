@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { toast, confirm } from '@/components/ui/Feedback';
+import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -39,7 +40,7 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import { cancelOrderQueued, deliverOrderQueued, recordOrderPaymentQueued } from '@/offline/engine';
 import type { OrderFull, OrderPassport } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 
 function OrderItems({ order }: { order: OrderFull }) {
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
@@ -137,10 +138,10 @@ function PassportCard({ passport }: { passport: OrderPassport }) {
         : palette.amber[600];
   const bannerBg =
     bannerTone === 'green'
-      ? palette.green[50]
+      ? semantic.successSoft
       : bannerTone === 'red'
-        ? palette.red[50]
-        : palette.amber[50];
+        ? semantic.dangerSoft
+        : semantic.warnSoft;
   const lastVaccine = passport.vaccinations.last;
 
   return (
@@ -228,7 +229,7 @@ function PassportCard({ passport }: { passport: OrderPassport }) {
             RETRAITS EN COURS (CARENCE)
           </AppText>
           {passport.withdrawals.map((w) => (
-            <View key={`${w.productName}-${w.withdrawalEndDate}`} style={[styles.passportBanner, { backgroundColor: palette.amber[50] }]}>
+            <View key={`${w.productName}-${w.withdrawalEndDate}`} style={[styles.passportBanner, { backgroundColor: semantic.warnSoft }]}>
               <Clock size={16} color={palette.amber[600]} />
               <AppText size="small" color="text" style={{ flex: 1 }}>
                 {w.productName} ({w.careTypeLabel}) — retrait jusqu’au {passportDate(w.withdrawalEndDate)}
@@ -246,7 +247,7 @@ function PassportCard({ passport }: { passport: OrderPassport }) {
           {passport.sanitary.alerts.map((a) => (
             <View
               key={`${a.kind}-${a.message}`}
-              style={[styles.passportBanner, { backgroundColor: a.level === 'ROUGE' ? palette.red[50] : palette.amber[50] }]}>
+              style={[styles.passportBanner, { backgroundColor: a.level === 'ROUGE' ? semantic.dangerSoft : semantic.warnSoft }]}>
               {a.level === 'ROUGE' ? (
                 <AlertTriangle size={16} color={palette.red[500]} />
               ) : (
@@ -414,53 +415,42 @@ export default function CommandeDetailScreen() {
   };
 
   const doCancel = () => {
-    Alert.alert('Annuler la commande', `${order.referenceNumber} sera passée « Annulée ». Confirmer ?`, [
-      { text: 'Retour', style: 'cancel' },
-      {
-        text: 'Annuler',
-        style: 'destructive',
-        onPress: () => {
-          setBusy(true);
-          cancelOrderQueued(farmId, order.id, 'Annulée sur demande de la ferme')
-            .then(async () => {
-              await invalidateFarmQueries(queryClient, { farmId });
-              await orderQuery.refetch();
-            })
-            .catch((e) => Alert.alert('Annulation impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
-            .finally(() => setBusy(false));
-        },
-      },
-    ]);
+    void confirm({ title: 'Annuler la commande', message: `${order.referenceNumber} sera passée « Annulée ». Confirmer ?`, cancelLabel: 'Retour', confirmLabel: 'Annuler', destructive: true }).then((ok) => {
+      if (!ok) return;
+      setBusy(true);
+      cancelOrderQueued(farmId, order.id, 'Annulée sur demande de la ferme')
+        .then(async () => {
+          await invalidateFarmQueries(queryClient, { farmId });
+          await orderQuery.refetch();
+        })
+        .catch((e) => toast.error('Annulation impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
+        .finally(() => setBusy(false));
+    });
   };
 
   const doDeliver = () => {
     if (order.status !== 'CONFIRMED') {
-      Alert.alert('Impossible', 'Encoder un acompte (→ Confirmer) avant de livrer.');
+      toast.error('Impossible', 'Encoder un acompte (→ Confirmer) avant de livrer.');
       return;
     }
-    Alert.alert('Livrer la commande', 'Le cheptel sera décrémenté et le bon de commande PDF généré. Confirmer ?', [
-      { text: 'Retour', style: 'cancel' },
-      {
-        text: 'Livrer',
-        onPress: () => {
-          setBusy(true);
-          deliverOrderQueued(farmId, order.id)
-            .then(async () => {
-              await invalidateFarmQueries(queryClient, { farmId });
-              await orderQuery.refetch();
-              Alert.alert('Commande livrée', `${order.referenceNumber} : cheptel mis à jour et bon de commande généré.`);
-            })
-            .catch((e) => Alert.alert('Livraison impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
-            .finally(() => setBusy(false));
-        },
-      },
-    ]);
+    void confirm({ title: 'Livrer la commande', message: 'Le cheptel sera décrémenté et le bon de commande PDF généré. Confirmer ?', cancelLabel: 'Retour', confirmLabel: 'Livrer' }).then((ok) => {
+      if (!ok) return;
+      setBusy(true);
+      deliverOrderQueued(farmId, order.id)
+        .then(async () => {
+          await invalidateFarmQueries(queryClient, { farmId });
+          await orderQuery.refetch();
+          toast.success('Commande livrée', `${order.referenceNumber} : cheptel mis à jour et bon de commande généré.`);
+        })
+        .catch((e) => toast.error('Livraison impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
+        .finally(() => setBusy(false));
+    });
   };
 
   const doPdf = () => {
     downloadPdf(`/farms/${farmId}/orders/${order.id}/bon-de-commande`, `${order.referenceNumber}.pdf`)
-      .then(() => Alert.alert('Bon de commande', `« ${order.referenceNumber}.pdf » enregistré sur votre appareil.`))
-      .catch((e) => Alert.alert('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.'));
+      .then(() => toast.success('Bon de commande', `« ${order.referenceNumber}.pdf » enregistré sur votre appareil.`))
+      .catch((e) => toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.'));
   };
 
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
@@ -546,7 +536,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
   },
   avatarLogo: {
     width: 26,
@@ -566,7 +556,7 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 14,
     fontSize: 16,
@@ -610,6 +600,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
 });

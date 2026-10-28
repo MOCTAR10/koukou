@@ -38,7 +38,7 @@ import { FEED_ENTRY_TYPE_LABELS, FEED_PHASE_LABELS } from '@/api/format';
 import { todayStr, type CreateInputLotInput } from '@/api/mutations';
 import type { FeedEntryType, FeedPhase, FeedTypeStock } from '@/api/types';
 import { createFeedInputQueued } from '@/offline';
-import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 
 interface FeedEntrySheetProps {
@@ -424,7 +424,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
     return (
       <View style={styles.savedWrap}>
         <View style={styles.savedBadge}>
-          <Check size={30} color={palette.surface} strokeWidth={3} />
+          <Check size={30} color={semantic.surface} strokeWidth={3} />
         </View>
         <AppText size="h3" weight="bold" color="text">
           Entrée enregistrée
@@ -454,7 +454,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}>
                 <View style={[styles.typeIconBadge, active && styles.typeIconBadgeActive]}>
-                  <Icon size={22} color={active ? palette.surface : color.ink[500]} strokeWidth={2.2} />
+                  <Icon size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />
                 </View>
                 <AppText size="small" weight={active ? 'semibold' : 'medium'} color={active ? 'accent' : 'muted'} align="center">
                   {FEED_ENTRY_TYPE_LABELS[t]}
@@ -893,7 +893,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
                           color={active ? 'brand' : 'text'}>
                           {o.label}
                         </AppText>
-                        {active ? <Check size={18} color={palette.brand[600]} /> : null}
+                        {active ? <Check size={18} color={semantic.primary} /> : null}
                       </Pressable>
                     );
                   })}
@@ -942,7 +942,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
                           color={active ? 'brand' : 'text'}>
                           {o.label}
                         </AppText>
-                        {active ? <Check size={18} color={palette.brand[600]} /> : null}
+                        {active ? <Check size={18} color={semantic.primary} /> : null}
                       </Pressable>
                     );
                   })}
@@ -991,7 +991,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
                           color={active ? 'brand' : 'text'}>
                           {o.label}
                         </AppText>
-                        {active ? <Check size={18} color={palette.brand[600]} /> : null}
+                        {active ? <Check size={18} color={semantic.primary} /> : null}
                       </Pressable>
                     );
                   })}
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surfaceAlt,
   },
   typeTabActive: {
@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     marginBottom: 2,
   },
   typeIconBadgeActive: {
@@ -1119,7 +1119,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: radii.md,
     borderWidth: 1.5,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surfaceAlt,
   },
   bagSizeCardActive: {
@@ -1152,7 +1152,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 12,
     backgroundColor: color.surface,
@@ -1173,7 +1173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
   },
   dateBtnSet: {
@@ -1230,7 +1230,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: color.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
   },
   pickerBackdrop: {
     flex: 1,
@@ -1239,7 +1239,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   pickerPanel: {
-    backgroundColor: palette.paper,
+    backgroundColor: semantic.bg,
     borderRadius: radii.lg,
     padding: 16,
     maxHeight: 460,
@@ -1264,6 +1264,6 @@ const styles = StyleSheet.create({
   },
   pickerRowActive: {
     borderColor: palette.brand[200],
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
 });

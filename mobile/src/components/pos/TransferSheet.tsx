@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View, type ImageSourcePropType } from 'react-native';
+import { confirm } from '@/components/ui/Feedback';
+import { Image, Pressable, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { ArrowRightLeft, Check, RotateCcw, Store, Package } from 'lucide-react-native';
 
 import { AppText } from '../ui/AppText';
@@ -382,27 +383,23 @@ export function TransferSheet({
 
   const cancelTransfer = (transfer: StockTransfer) => {
     const remaining = transferRemaining(transfer.quantity, transfer.quantitySold);
-    Alert.alert(
-      'Annuler ce transfert ?',
-      `${fmt(remaining)} ${transferUnitSuffix(transfer)} non vendu(s) retourneront au stock source.`,
-      [
-        { text: 'Retour' },
-        {
-          text: 'Annuler le transfert',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              try {
-                await cancelStockTransferQueued(farmId, transfer.id);
-                onChanged();
-              } catch (e) {
-                setError(e instanceof Error ? e.message : 'Erreur lors de l’annulation.');
-              }
-            })();
-          },
-        },
-      ],
-    );
+    void confirm({
+      title: 'Annuler ce transfert ?',
+      message: `${fmt(remaining)} ${transferUnitSuffix(transfer)} non vendu(s) retourneront au stock source.`,
+      cancelLabel: 'Retour',
+      confirmLabel: 'Annuler le transfert',
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void (async () => {
+        try {
+          await cancelStockTransferQueued(farmId, transfer.id);
+          onChanged();
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Erreur lors de l’annulation.');
+        }
+      })();
+    });
   };
 
   const sourceSelector = (() => {

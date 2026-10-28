@@ -7,11 +7,11 @@ type Tone = 'default' | 'brand' | 'accent' | 'alert' | 'warn' | 'green' | 'plain
 
 const TONES: Record<Tone, { bg: string; bd: string }> = {
   default: { bg: semantic.surface, bd: semantic.border },
-  brand: { bg: palette.brand[50], bd: palette.brand[100] },
-  accent: { bg: palette.accent[50], bd: palette.accent[100] },
-  alert: { bg: palette.red[50], bd: palette.red[100] },
-  warn: { bg: palette.amber[50], bd: palette.amber[100] },
-  green: { bg: palette.green[50], bd: palette.green[100] },
+  brand: { bg: semantic.primarySoft, bd: palette.brand[100] },
+  accent: { bg: semantic.accentSoft, bd: palette.accent[100] },
+  alert: { bg: semantic.dangerSoft, bd: palette.red[100] },
+  warn: { bg: semantic.warnSoft, bd: palette.amber[100] },
+  green: { bg: semantic.successSoft, bd: palette.green[100] },
   plain: { bg: 'transparent', bd: 'transparent' },
   hero: { bg: semantic.heroBg, bd: semantic.heroBg },
 };

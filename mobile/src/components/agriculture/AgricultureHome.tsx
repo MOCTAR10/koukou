@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Banknote, ChevronDown, ChevronRight, Layers3, MapPin, PiggyBank, ShieldCheck, Sprout, Store } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { ChevronRight, PiggyBank, Plus, Sprout } from 'lucide-react-native';
 
 import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -13,7 +14,7 @@ import { FarmModeSwitch } from '@/components/FarmModeSwitch';
 import { FarmSelector } from '@/components/ui/FarmSelector';
 import { BrandLoader } from '@/components/ui/BrandLoader';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { MetricTile } from '@/components/ui/MetricTile';
+import { HomeHero } from '@/components/home/HomeHero';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchCaisseCurrent, fetchParcelles, fetchRecolteStock, fetchRentabiliteOverview } from '@/api';
@@ -27,7 +28,7 @@ import {
   cultureStage,
   formatHarvestDate,
 } from '@/constants/agriculture';
-import { color, fmtFcfa, palette, radii, shadow } from '@/constants/theme';
+import { fmtFcfa, palette, radii, semantic } from '@/constants/theme';
 
 /** Accueil du domaine Agriculture : parcelles, surfaces, cultures en cours. */
 export function AgricultureHome() {
@@ -119,77 +120,17 @@ export function AgricultureHome() {
         void recolteStockQuery.refetch();
       }}
       header={
-        <>
-          <View style={styles.topRow}>
-            <View style={styles.avatar}>
-              <AppText style={{ fontSize: 18 }}>🌱</AppText>
-            </View>
-            <View style={styles.greetCol}>
-              <AppText size="body" weight="bold" color="text">
-                Bonjour, {givenName(user.fullName)}
-              </AppText>
-              <AppText size="caption" color="muted">
-                Domaine Agriculture
-              </AppText>
-            </View>
+        <View style={styles.topRow}>
+          <Image source={require('@/assets/images/logo-nav.png')} style={styles.avatarLogo} contentFit="contain" accessibilityLabel="Logo" />
+          <View style={styles.greetCol}>
+            <AppText size="h3" weight="bold" color="text" numberOfLines={1}>
+              Bonjour, {givenName(user.fullName)}
+            </AppText>
+            <AppText size="small" color="muted" numberOfLines={1} style={styles.dateLine}>
+              {todayLabel()}
+            </AppText>
           </View>
-          <View style={styles.headerTiles}>
-            <Pressable
-              onPress={() => setFarmSelectOpen(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Ma ferme"
-              style={({ pressed }) => [styles.headerTile, pressed && styles.headerTilePressed]}>
-              <View style={[styles.tileIcon, { backgroundColor: palette.brand[50], borderColor: palette.brand[200] }]}>
-                <Store size={16} color={palette.brand[600]} strokeWidth={2.2} />
-              </View>
-              <View style={styles.tileBody}>
-                <AppText size="label" color="muted">
-                  Ma ferme
-                </AppText>
-                <AppText size="body" weight="bold" color="text" numberOfLines={1}>
-                  {farm?.name ?? '—'}
-                </AppText>
-                {farm?.isVerified ? (
-                  <View style={styles.tileSubRow}>
-                    <View style={styles.verifiedChip}>
-                      <ShieldCheck size={11} color={palette.green[600]} />
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-              <ChevronDown size={16} color={palette.ink[400]} strokeWidth={2.2} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                if (!canCaisse) return;
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                router.push('/caisse');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Encaisser"
-              disabled={!canCaisse}
-              style={({ pressed }) => [styles.headerTile, !canCaisse && styles.headerTileMuted, pressed && canCaisse && styles.headerTilePressed]}>
-              <View style={[styles.tileIcon, { backgroundColor: palette.accent[50], borderColor: palette.accent[200] }]}>
-                <Banknote size={16} color={palette.accent[600]} strokeWidth={2.2} />
-              </View>
-              <View style={styles.tileBody}>
-                <AppText size="label" color="muted">
-                  Encaissé aujourd&apos;hui
-                </AppText>
-                <AppText size="body" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                  {fmtFcfa(collectedTodayFcfa)}
-                </AppText>
-                {!canCaisse ? (
-                  <AppText size="caption" color="faint" numberOfLines={1}>
-                    Consultation seule
-                  </AppText>
-                ) : null}
-              </View>
-              {canCaisse ? <ChevronRight size={18} color={palette.accent[600]} strokeWidth={2.4} /> : null}
-            </Pressable>
-          </View>
-        </>
+        </View>
       }>
       <View style={styles.modeRow}>
         <FarmModeSwitch />
@@ -207,39 +148,36 @@ export function AgricultureHome() {
         />
       ) : (
         <>
-          {/* ── Métriques ── */}
-          <View style={styles.metricGrid}>
-            <MetricTile
-              label="Parcelles actives"
-              value={String(stats.actives)}
-              sub={stats.actives > 1 ? 'en exploitation' : 'en exploitation'}
-              tone="green"
-              icon={Layers3}
-              threeCol
-              labelLines={2}
-              onPress={() => openParcelles(false)}
-            />
-            <MetricTile
-              label="Superficie totale"
-              value={`${stats.totalHa.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ha`}
-              sub={fmtM2(stats.totalHa)}
-              tone="brand"
-              icon={MapPin}
-              threeCol
-              labelLines={2}
-              onPress={() => openParcelles(false)}
-            />
-            <MetricTile
-              label="Cultures en cours"
-              value={String(stats.culturesEnCours)}
-              sub="plantées"
-              tone="accent"
-              icon={Sprout}
-              threeCol
-              labelLines={2}
-              onPress={() => openParcelles(false)}
-            />
-          </View>
+          <HomeHero
+            domain="agriculture"
+            farmName={farm?.name ?? '—'}
+            verified={!!farm?.isVerified}
+            onFarmPress={() => setFarmSelectOpen(true)}
+            headline={{
+              eyebrow: 'SURFACE EXPLOITÉE',
+              value: `${stats.totalHa.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ha`,
+              sub: fmtM2(stats.totalHa),
+              onPress: () => openParcelles(false),
+              accessibilityLabel: `${stats.totalHa.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} hectares, voir les parcelles`,
+            }}
+            stats={[
+              {
+                label: "Encaissé aujourd'hui",
+                value: canCaisse ? fmtFcfa(collectedTodayFcfa) : '—',
+                onPress: canCaisse ? () => router.push('/caisse') : undefined,
+              },
+              {
+                label: 'Parcelles actives',
+                value: String(stats.actives),
+                onPress: () => openParcelles(false),
+              },
+              {
+                label: 'Cultures',
+                value: String(stats.culturesEnCours),
+                suffix: 'en cours',
+              },
+            ]}
+          />
 
           {/* ── Marge du mois ── */}
           {canRapports ? <MargeCard pnl={pnl} loading={pnlQuery.isLoading} onOpenRapports={() => router.push('/rapports')} /> : null}
@@ -248,8 +186,8 @@ export function AgricultureHome() {
           {recolteStock.length > 0 ? (
             <Card tone="green" style={styles.harvestCard}>
               <View style={styles.harvestRow}>
-                <View style={styles.tileIcon}>
-                  <PiggyBank size={18} color={palette.green[600]} strokeWidth={2.2} />
+                <View style={styles.harvestIcon}>
+                  <PiggyBank size={18} color={semantic.successText} strokeWidth={2.2} />
                 </View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <AppText size="caption" weight="bold" color="muted">Récoltes vendables (POS Ferme)</AppText>
@@ -261,7 +199,7 @@ export function AgricultureHome() {
                   </AppText>
                 </View>
                 <Pressable onPress={() => router.push('/recoltes')} hitSlop={8} accessibilityRole="button">
-                  <ChevronRight size={20} color={palette.green[600]} strokeWidth={2.6} />
+                  <ChevronRight size={20} color={semantic.successText} strokeWidth={2.4} />
                 </Pressable>
               </View>
             </Card>
@@ -274,7 +212,7 @@ export function AgricultureHome() {
           <View style={styles.sectionRow}>
             <AppText size="body" weight="bold" color="text">Dernières parcelles</AppText>
             <Pressable onPress={() => openParcelles(false)} hitSlop={8} accessibilityRole="button">
-              <ChevronRight size={18} color={palette.green[600]} strokeWidth={2.4} />
+              <ChevronRight size={18} color={semantic.successText} strokeWidth={2.4} />
             </Pressable>
           </View>
           <View style={styles.list}>
@@ -305,7 +243,7 @@ export function AgricultureHome() {
 
           {canManage && (
             <View style={styles.cta}>
-              <Button label="Nouvelle parcelle" tone="success" onPress={() => openParcelles(true)} />
+              <Button label="Nouvelle parcelle" icon={Plus} onPress={() => openParcelles(true)} />
             </View>
           )}
         </>
@@ -348,7 +286,7 @@ function NextHarvestCard({ parcelles }: { parcelles: Parcelle[] }) {
           </AppText>
         </View>
         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push('/recoltes'); }} hitSlop={8} accessibilityRole="button">
-          <ChevronRight size={20} color={palette.green[600]} strokeWidth={2.6} />
+          <ChevronRight size={20} color={semantic.successText} strokeWidth={2.4} />
         </Pressable>
       </View>
     </Card>
@@ -381,7 +319,7 @@ function MargeCard({
     <Card tone="default" style={styles.margeCard}>
       <View style={styles.margeHead}>
         <View style={styles.margeLabel}>
-          <PiggyBank size={13} color={palette.green[700]} strokeWidth={2.2} />
+          <PiggyBank size={13} color={semantic.successText} strokeWidth={2.2} />
           <AppText size="caption" weight="bold" color="muted">MARGE (MOIS EN COURS)</AppText>
         </View>
         <Pressable onPress={onOpenRapports} hitSlop={8} accessibilityRole="button">
@@ -439,6 +377,11 @@ function fmtM2(totalHa: number): string {
   return m2 > 0 ? `${m2.toLocaleString('fr-FR')} m²` : '0 m²';
 }
 
+/** « mardi 28 octobre » — module scope keeps render pure. */
+function todayLabel(): string {
+  return new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
 /** Date locale ISO (AAAA-MM-JJ). */
 function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -472,71 +415,19 @@ function formatArea(p: Parcelle): string {
 }
 
 const styles = StyleSheet.create({
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: palette.green[50],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  greetCol: { flex: 1, gap: 0 },
-  headerTiles: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-  },
-  headerTile: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: color.border,
-    borderRadius: radii.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    ...shadow.card,
-  },
-  headerTilePressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.99 }],
-  },
-  headerTileMuted: {
-    opacity: 0.82,
-  },
-  tileIcon: {
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarLogo: { width: 36, height: 36 },
+  greetCol: { flex: 1, flexShrink: 1 },
+  dateLine: { textTransform: 'capitalize' },
+  harvestIcon: {
     width: 34,
     height: 34,
     borderRadius: 11,
-    borderWidth: 1,
+    backgroundColor: semantic.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tileBody: {
-    flex: 1,
-    gap: 1,
-  },
-  tileSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  verifiedChip: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: palette.green[50],
-    borderWidth: 1,
-    borderColor: palette.green[200],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 2,
-  },
-  modeRow: { marginVertical: 12 },
-  metricGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  modeRow: { marginTop: 4, marginBottom: 10 },
   sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -551,7 +442,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.md,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

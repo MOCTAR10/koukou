@@ -54,7 +54,7 @@ import type { BatchWithMetrics, CaisseSummary, SaleSummary, StockTransfer } from
 import { queueCreditSale, queueSale, useOfflineQueue } from '@/offline';
 import { breedImageForLot } from '@/constants/breedImages';
 import { EGGS_PER_ALVEOL } from '@/constants/stock';
-import { color, palette, radii, spacing, fmt, fmtFcfa } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, semantic } from '@/constants/theme';
 
 /** Formatage œufs → alvéoles : "2 alvéoles", "1 alvéole + 5 œufs",
  *  "moins d'une alvéole" (reliquat < 30 œufs encore visible). */
@@ -994,7 +994,7 @@ export default function PosScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: palette.paper,
+    backgroundColor: semantic.bg,
   },
   header: {
     paddingHorizontal: spacing.lg,
@@ -1241,7 +1241,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
   },
   bottomBarTotal: {
     flex: 1,

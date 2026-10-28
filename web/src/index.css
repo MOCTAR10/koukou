@@ -1,32 +1,113 @@
 @import "tailwindcss";
 
+/*
+ * Fermia palette (mirrors mobile/src/constants/theme.ts). The stock Tailwind
+ * scales used across the pages are remapped here so the whole console follows
+ * the brand from one place: slate -> ink, sky -> brand, emerald/amber -> the
+ * brand green/amber shifted one step darker from 500 up (their 600 text steps
+ * reach AA on white), red -> brand red.
+ */
 @theme {
-  --color-brand-50: #eef4f8;
-  --color-brand-100: #d6e6ef;
-  --color-brand-200: #afcbe1;
-  --color-brand-300: #82adce;
-  --color-brand-400: #4e88b3;
-  --color-brand-500: #30749f;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+
+  --color-brand-50: #ebf4fa;
+  --color-brand-100: #d4e6f3;
+  --color-brand-200: #a8cbdf;
+  --color-brand-300: #7badc6;
+  --color-brand-400: #4f94be;
+  --color-brand-500: #2f81ab;
   --color-brand-600: #206080;
-  --color-brand-700: #1d536f;
-  --color-brand-800: #1b465d;
-  --color-brand-900: #16394c;
+  --color-brand-700: #1b4f6b;
+  --color-brand-800: #163e57;
+  --color-brand-900: #112e41;
   --color-brand-950: #0c2331;
+
+  --color-accent-50: #fef3e7;
+  --color-accent-100: #fce4c8;
+  --color-accent-200: #fbc792;
+  --color-accent-300: #f9a85c;
+  --color-accent-400: #f78d2b;
   --color-accent-500: #f08010;
-  --color-accent-600: #d96f00;
+  --color-accent-600: #e07210;
+  --color-accent-700: #c25f0e;
+  --color-accent-800: #9b4c0b;
+  --color-accent-900: #753908;
+
+  --color-slate-50: #f7f9fa;
+  --color-slate-100: #eef3f6;
+  --color-slate-200: #dde7ec;
+  --color-slate-300: #cddbe3;
+  --color-slate-400: #7a96a8;
+  --color-slate-500: #58788c;
+  --color-slate-600: #3c5a6e;
+  --color-slate-700: #23485e;
+  --color-slate-800: #163a4e;
+  --color-slate-900: #10222f;
+  --color-slate-950: #0c2331;
+
+  --color-sky-50: #ebf4fa;
+  --color-sky-100: #d4e6f3;
+  --color-sky-200: #a8cbdf;
+  --color-sky-300: #7badc6;
+  --color-sky-400: #4f94be;
+  --color-sky-500: #2f81ab;
+  --color-sky-600: #206080;
+  --color-sky-700: #1b4f6b;
+  --color-sky-800: #163e57;
+  --color-sky-900: #112e41;
+
+  --color-emerald-50: #f0f7ec;
+  --color-emerald-100: #e0efda;
+  --color-emerald-200: #c1deb2;
+  --color-emerald-300: #9fcc8c;
+  --color-emerald-400: #7db868;
+  --color-emerald-500: #60a040;
+  --color-emerald-600: #4c8a33;
+  --color-emerald-700: #3d6e2b;
+  --color-emerald-800: #315724;
+  --color-emerald-900: #26451c;
+
+  --color-amber-50: #fbf7e9;
+  --color-amber-100: #f6edca;
+  --color-amber-200: #ecd890;
+  --color-amber-300: #e3c45e;
+  --color-amber-400: #e0a400;
+  --color-amber-500: #c08d00;
+  --color-amber-600: #997100;
+  --color-amber-700: #735600;
+  --color-amber-800: #533f00;
+  --color-amber-900: #3d2e00;
+
+  --color-red-50: #fbf0ee;
+  --color-red-100: #f8e0db;
+  --color-red-200: #efbfb6;
+  --color-red-300: #e79a8d;
+  --color-red-400: #dd7362;
+  --color-red-500: #d5432b;
+  --color-red-600: #b93a26;
+  --color-red-700: #99301f;
+  --color-red-800: #7a271a;
+  --color-red-900: #5c1e14;
 }
 
 html {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
 }
 
 body {
-  background-color: #f1f5f9;
-  color: #0f172a;
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-900);
+}
+
+/* Figures line up in tables and stat tiles. */
+td,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 :focus-visible {
-  outline: 2px solid #0284c7;
+  outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
 }

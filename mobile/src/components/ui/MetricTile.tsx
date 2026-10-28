@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react-native';
 
 import { AppText } from './AppText';
 import { Card } from './Card';
-import { palette, radii } from '@/constants/theme';
+import { palette, radii, semantic } from '@/constants/theme';
 import type { LucideIcon } from 'lucide-react-native';
 
 interface MetricTileProps {
@@ -36,7 +36,7 @@ const TONES = {
   green: palette.green[600],
   amber: palette.amber[500],
   red: palette.red[500],
-  brand: palette.brand[600],
+  brand: semantic.primary,
   accent: palette.accent[500],
 } as const;
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { confirm } from '@/components/ui/Feedback';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
 
@@ -11,7 +12,7 @@ import { FarmLogo } from '@/components/ui/FarmLogo';
 import { updateFarmSettings, uploadFarmLogo, deleteFarmLogo } from '@/api/mutations';
 import { useAuth } from '@/auth/AuthContext';
 import type { Farm } from '@/api/types';
-import { color, palette, radii, fontFamily } from '@/constants/theme';
+import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { Camera, Check, Pencil, Trash2, X } from 'lucide-react-native';
 
 const LOGO_MIME: Record<string, string> = {
@@ -116,14 +117,9 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
   };
 
   const confirmRemoveLogo = () => {
-    Alert.alert(
-      'Retirer le logo',
-      'La ferme repassera au logo Fermia par défaut. Confirmer ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Retirer', style: 'destructive', onPress: () => void removeLogo() },
-      ],
-    );
+    void confirm({ title: 'Retirer le logo', message: 'La ferme repassera au logo Fermia par défaut. Confirmer ?', cancelLabel: 'Annuler', confirmLabel: 'Retirer', destructive: true }).then((ok) => {
+      if (ok) void removeLogo();
+    });
   };
 
   return (
@@ -266,7 +262,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 40,
     borderRadius: radii.md,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
     borderColor: color.border,
     paddingHorizontal: 12,
@@ -277,7 +273,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: radii.md,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -315,7 +311,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: color.brand[200],
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
   },
   removeBtn: {
     width: 40,
