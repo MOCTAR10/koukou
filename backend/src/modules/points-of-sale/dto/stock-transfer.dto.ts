@@ -1,7 +1,8 @@
 import { IsEnum, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
 import { StockTransferProductType } from '../../../common/enums/stock-transfer-product-type.enum.js';
+import { IdempotentDto } from '../../../common/utils/idempotency.js';
 
-export class CreateStockTransferDto {
+export class CreateStockTransferDto extends IdempotentDto {
   @IsEnum(StockTransferProductType, {
     message: 'Type de produit de transfert invalide.',
   })

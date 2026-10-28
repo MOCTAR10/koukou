@@ -13,8 +13,9 @@ import { FeedUnit, FoodType } from '../../../common/enums/food-type.enum.js';
 import { FeedEntryType } from '../../../common/enums/feed-entry-type.enum.js';
 import { FeedPhase } from '../../../common/enums/feed-phase.enum.js';
 import { InputKind } from '../../../common/enums/input-kind.enum.js';
+import { IdempotentDto } from '../../../common/utils/idempotency.js';
 
-export class CreateInputLotDto {
+export class CreateInputLotDto extends IdempotentDto {
   @ApiPropertyOptional({ description: 'Lot de production lié (optionnel)' })
   @IsOptional()
   @IsString()

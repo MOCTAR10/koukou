@@ -7,8 +7,9 @@ import {
   Matches,
 } from 'class-validator';
 import { PointOfSaleKind } from '../../../common/enums/point-of-sale-kind.enum.js';
+import { IdempotentDto } from '../../../common/utils/idempotency.js';
 
-export class CreatePointOfSaleDto {
+export class CreatePointOfSaleDto extends IdempotentDto {
   @IsEnum(PointOfSaleKind, { message: 'Type de point de vente invalide.' })
   kind: PointOfSaleKind;
 

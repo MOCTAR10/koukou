@@ -12,10 +12,17 @@ import { PointOfSaleKind } from '../../../common/enums/point-of-sale-kind.enum.j
 import { Farm } from '../../farms/entities/farm.entity.js';
 
 /** Point de vente (point de vente ferme par défaut + boutiques géolocalisées). */
+@Index('UQ_points_of_sale_farm_idem', ['farmId', 'idempotencyKey'], {
+  unique: true,
+})
 @Entity('points_of_sale')
 export class PointOfSale {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /** Offline replay key: a second create with it returns this point of sale. */
+  @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
+  idempotencyKey: string | null;
 
   @ManyToOne(() => Farm, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'farm_id' })

@@ -209,7 +209,39 @@ describe('capture hors-ligne — enfile et rejette', () => {
     expect(res).toEqual({ status: 'queued' });
     const [op] = loadOps();
     expect(op.kind).toBe('stock-transfer-create');
-    expect(op.payload).toEqual({ productType: 'ABATTU', slaughterOrderId: 'ab-1', pointOfSaleId: 'pdv-2', quantity: 12 });
+    expect(op.payload).toEqual({
+      productType: 'ABATTU',
+      slaughterOrderId: 'ab-1',
+      pointOfSaleId: 'pdv-2',
+      quantity: 12,
+      idempotencyKey: op.id,
+    });
+  });
+
+  it('création hors-ligne : même idempotencyKey en direct et au rejeu (pas de doublon serveur)', async () => {
+    // Live POST reached the server but the response was lost (timeout).
+    const live = stubFetch(networkError);
+    await createStockTransferQueued('f-1', { productType: 'PROVENDE', inputLotId: 'l-1', pointOfSaleId: 'pdv-2', unit: 'SAC', quantity: 2 });
+    const liveKey = JSON.parse(readCall(live).init.body as string).idempotencyKey;
+    const [op] = loadOps();
+    expect(liveKey).toBe(op.id);
+
+    const replay = stubFetch(async () => jsonResponse(201, { id: 'tr-1' }));
+    await flushQueue();
+    expect(JSON.parse(readCall(replay).init.body as string).idempotencyKey).toBe(liveKey);
+  });
+
+  it('op ancienne sans clé : rejouée avec op.id comme clé', async () => {
+    enqueueOp({
+      id: 'off-stock-loss-legacy',
+      kind: 'stock-loss',
+      farmId: 'f-1',
+      payload: { inputLotId: 'l-1', quantity: 1, unit: 'SAC', reason: 'HUMIDITE' },
+      createdAt: '2026-10-01T00:00:00.000Z',
+    });
+    const fetchMock = stubFetch(async () => jsonResponse(201, { id: 'loss-1' }));
+    await flushQueue();
+    expect(JSON.parse(readCall(fetchMock).init.body as string).idempotencyKey).toBe('off-stock-loss-legacy');
   });
 
   it('cancelStockTransferQueued : réseau → mis en attente', async () => {

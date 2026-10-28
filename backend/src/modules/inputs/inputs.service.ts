@@ -13,7 +13,11 @@ import { FeedProduct } from '../feed-stock/entities/feed-product.entity.js';
 import { Expense } from '../finance/entities/expense.entity.js';
 import { InputLot } from './entities/input-lot.entity.js';
 import { AccountingService } from '../accounting/accounting.service.js';
-import { inputAccountForKind, inputValueFcfa } from '../accounting/posting-map.js';
+import {
+  inputAccountForKind,
+  inputValueFcfa,
+} from '../accounting/posting-map.js';
+import { createOnce } from '../../common/utils/idempotency.js';
 
 const FEED_PHASE_TO_FOOD_TYPE: Record<string, FoodType> = {
   POUSSIN: FoodType.DEMARRAGE,
@@ -52,6 +56,7 @@ export interface CreateInputLotInput {
   doseUnit?: string | null;
   additiveName?: string | null;
   notes?: string | null;
+  idempotencyKey?: string | null;
 }
 
 /** Map InputKind → ExpenseCategory for auto-created expense records. */
@@ -164,73 +169,78 @@ export class InputsService {
       unit = input.unit ?? null;
     }
 
-    return this.dataSource.transaction(async (em) => {
-      const lot = await em.getRepository(InputLot).save(
-        em.getRepository(InputLot).create({
-          farmId: input.farmId,
-          batchId: input.batchId ?? null,
-          kind: input.kind,
-          foodType,
-          productId,
-          productName: input.productName,
-          supplier: input.supplier,
-          supplierLotNumber: input.supplierLotNumber,
-          expirationDate: input.expirationDate ?? null,
-          receivedDate:
-            input.receivedDate ?? new Date().toISOString().slice(0, 10),
-          quantity,
-          unit,
-          unitPriceFcfa,
-          entryType,
-          feedPhase,
-          customFeedPhaseName,
-          bagSizeKg,
-          numberOfBags: input.numberOfBags ?? null,
-          tonnageMt: input.tonnageMt ?? null,
-          costPerMtFcfa: input.costPerMtFcfa ?? null,
-          totalCostFcfa: input.totalCostFcfa ?? null,
-          doseQuantity: input.doseQuantity ?? null,
-          doseUnit: input.doseUnit ?? null,
-          additiveName: input.additiveName ?? null,
-        }),
-      );
-
-      // Comptabilité : réception d'intrant valorisée → charge / Fournisseurs.
-      const value = inputValueFcfa(lot);
-      if (value > 0) {
-        await this.accountingService.post(em, {
-          farmId: input.farmId,
-          date: lot.receivedDate,
-          label: `Réception intrant ${lot.productName} — lot fournisseur ${lot.supplierLotNumber}`,
-          source: 'INPUT',
-          sourceId: `input:${lot.id}`,
-          lines: [
-            { account: inputAccountForKind(lot.kind), debit: value },
-            { account: '401', credit: value },
-          ],
-          operatorId: user.id,
-        });
-
-        // Expense record for Dépenses screen visibility (accounting already posted above via INPUT source).
-        const expCategory = expenseCategoryForInputKind(lot.kind);
-        await em.getRepository(Expense).save(
-          em.getRepository(Expense).create({
+    // Offline replay: same key → the lot already received, no second
+    // lot/expense/journal entry.
+    return createOnce(this.inputRepo, input.farmId, input.idempotencyKey, () =>
+      this.dataSource.transaction(async (em) => {
+        const lot = await em.getRepository(InputLot).save(
+          em.getRepository(InputLot).create({
+            idempotencyKey: input.idempotencyKey ?? null,
             farmId: input.farmId,
             batchId: input.batchId ?? null,
-            expenseDate: lot.receivedDate,
-            category: expCategory,
-            amountFcfa: value,
-            label: `Réception ${lot.productName}`,
-            supplier: lot.supplier || null,
-            notes: `[Auto] Intrant ${lot.kind} — lot ${lot.supplierLotNumber}`,
-            inputLotId: lot.id,
-            paidByCaisse: false,
-            createdById: user.id,
+            kind: input.kind,
+            foodType,
+            productId,
+            productName: input.productName,
+            supplier: input.supplier,
+            supplierLotNumber: input.supplierLotNumber,
+            expirationDate: input.expirationDate ?? null,
+            receivedDate:
+              input.receivedDate ?? new Date().toISOString().slice(0, 10),
+            quantity,
+            unit,
+            unitPriceFcfa,
+            entryType,
+            feedPhase,
+            customFeedPhaseName,
+            bagSizeKg,
+            numberOfBags: input.numberOfBags ?? null,
+            tonnageMt: input.tonnageMt ?? null,
+            costPerMtFcfa: input.costPerMtFcfa ?? null,
+            totalCostFcfa: input.totalCostFcfa ?? null,
+            doseQuantity: input.doseQuantity ?? null,
+            doseUnit: input.doseUnit ?? null,
+            additiveName: input.additiveName ?? null,
           }),
         );
-      }
-      return lot;
-    });
+
+        // Comptabilité : réception d'intrant valorisée → charge / Fournisseurs.
+        const value = inputValueFcfa(lot);
+        if (value > 0) {
+          await this.accountingService.post(em, {
+            farmId: input.farmId,
+            date: lot.receivedDate,
+            label: `Réception intrant ${lot.productName} — lot fournisseur ${lot.supplierLotNumber}`,
+            source: 'INPUT',
+            sourceId: `input:${lot.id}`,
+            lines: [
+              { account: inputAccountForKind(lot.kind), debit: value },
+              { account: '401', credit: value },
+            ],
+            operatorId: user.id,
+          });
+
+          // Expense record for Dépenses screen visibility (accounting already posted above via INPUT source).
+          const expCategory = expenseCategoryForInputKind(lot.kind);
+          await em.getRepository(Expense).save(
+            em.getRepository(Expense).create({
+              farmId: input.farmId,
+              batchId: input.batchId ?? null,
+              expenseDate: lot.receivedDate,
+              category: expCategory,
+              amountFcfa: value,
+              label: `Réception ${lot.productName}`,
+              supplier: lot.supplier || null,
+              notes: `[Auto] Intrant ${lot.kind} — lot ${lot.supplierLotNumber}`,
+              inputLotId: lot.id,
+              paidByCaisse: false,
+              createdById: user.id,
+            }),
+          );
+        }
+        return lot;
+      }),
+    );
   }
 
   async listForFarm(user: AuthUser, farmId: string): Promise<InputLot[]> {

@@ -121,7 +121,7 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - Reanimated 4's `withSpring` config is a discriminated union — pass a concrete config, never spread a `Partial`.
 
 ### Offline sync (`mobile/src/offline/`)
-- Custom FIFO engine, zero dependencies (`engine.ts`/`storage.ts`/`store.ts`). Network failure (`TypeError` or `ApiError ≥ 500`) → enqueue; 4xx propagates and drops. Sales send `idempotencyKey = op.id`.
+- Custom FIFO engine, zero dependencies (`engine.ts`/`storage.ts`/`store.ts`). Network failure (`TypeError` or `ApiError ≥ 500`) → enqueue; 4xx propagates and drops. Every queued **creation** (sale, order, payments, feed input, feed loss, point of sale, stock transfer) sends `idempotencyKey = op.id` on the live attempt *and* on replay; the server returns the existing row via `createOnce()` (`backend/src/common/utils/idempotency.ts`, unique `(farmId, idempotencyKey)`). Daily entries are an upsert on `(batch, entryDate)`; state transitions (deliver/cancel/delete) answer a replay with 4xx, which drops the op harmlessly.
 - `flushQueue()` returns `{synced, dropped, remaining}` and is guarded by a **mutex** promise so concurrent callers share one pass (no double-POST). `runFlush()` **re-loops up to 20 rounds** (`engine.ts:515`) while new ops arrive — never snapshot the queue.
 - **Cash ops (`sale`, `order-payment`, `customer-payment`) must never be dropped.** `ensureCashOpenOrRetry()` deliberately rethrows a plain `Error` (not `ApiError`) so a 4xx from the caisse step maps to *retry*, not *drop*.
 - `OfflineAutoSync` (mounted in `_layout.tsx`) flushes on reconnect/pending-op, ref-guarded. Invalidate via `invalidateFarmQueries()`.

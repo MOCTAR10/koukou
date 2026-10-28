@@ -779,6 +779,8 @@ export interface CreateInputLotInput {
   doseUnit?: string;
   additiveName?: string;
   notes?: string;
+  /** Offline replay key (set by the queue). */
+  idempotencyKey?: string;
 }
 
 export function createInput(farmId: string, input: CreateInputLotInput): Promise<unknown> {
@@ -795,6 +797,8 @@ export interface RecordFeedLossInput {
   reason: FeedLossReason;
   occurrenceDate?: string;
   notes?: string;
+  /** Offline replay key (set by the queue). */
+  idempotencyKey?: string;
 }
 
 export function recordFeedLoss(farmId: string, input: RecordFeedLossInput): Promise<unknown> {
@@ -807,6 +811,7 @@ export function recordFeedLoss(farmId: string, input: RecordFeedLossInput): Prom
       reason: input.reason,
       occurredAt: input.occurrenceDate,
       notes: input.notes ?? null,
+      idempotencyKey: input.idempotencyKey,
     },
   });
 }
@@ -890,7 +895,10 @@ export interface PointOfSaleInput {
   isActive?: boolean;
 }
 
-export function createPointOfSale(farmId: string, input: PointOfSaleInput): Promise<unknown> {
+export function createPointOfSale(
+  farmId: string,
+  input: PointOfSaleInput & { idempotencyKey?: string },
+): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/points-of-sale`, {
     method: 'POST',
     body: input,
@@ -920,6 +928,8 @@ export interface StockTransferInput {
   inputLotId?: string;
   unit?: string;
   quantity: number;
+  /** Offline replay key (set by the queue). */
+  idempotencyKey?: string;
 }
 
 export function createStockTransfer(farmId: string, input: StockTransferInput): Promise<unknown> {

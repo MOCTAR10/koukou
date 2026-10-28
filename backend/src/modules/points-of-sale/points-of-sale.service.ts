@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { PointOfSaleKind } from '../../common/enums/point-of-sale-kind.enum.js';
+import { createOnce } from '../../common/utils/idempotency.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { PointOfSale } from './entities/point-of-sale.entity.js';
@@ -105,31 +106,34 @@ export class PointsOfSaleService {
     dto: CreatePointOfSaleDto,
   ): Promise<PointOfSale> {
     await this.farmsService.assertAccessible(user, farmId);
-    if (dto.kind === PointOfSaleKind.FERME) {
-      const existing = await this.repo.findOne({
-        where: { farmId, kind: PointOfSaleKind.FERME },
-      });
-      if (existing) {
-        throw new BadRequestException(
-          'Un point de vente ferme par défaut existe déjà pour cette ferme.',
-        );
+    return createOnce(this.repo, farmId, dto.idempotencyKey, async () => {
+      if (dto.kind === PointOfSaleKind.FERME) {
+        const existing = await this.repo.findOne({
+          where: { farmId, kind: PointOfSaleKind.FERME },
+        });
+        if (existing) {
+          throw new BadRequestException(
+            'Un point de vente ferme par défaut existe déjà pour cette ferme.',
+          );
+        }
       }
-    }
-    return this.repo.save(
-      this.repo.create({
-        farmId,
-        kind: dto.kind,
-        name: dto.name,
-        address: dto.address ?? null,
-        city: dto.city ?? null,
-        province: dto.province ?? null,
-        latitude: dto.latitude ?? null,
-        longitude: dto.longitude ?? null,
-        isActive: dto.isActive ?? true,
-        isDefault: dto.kind === PointOfSaleKind.FERME,
-        createdById: user.id,
-      }),
-    );
+      return this.repo.save(
+        this.repo.create({
+          idempotencyKey: dto.idempotencyKey ?? null,
+          farmId,
+          kind: dto.kind,
+          name: dto.name,
+          address: dto.address ?? null,
+          city: dto.city ?? null,
+          province: dto.province ?? null,
+          latitude: dto.latitude ?? null,
+          longitude: dto.longitude ?? null,
+          isActive: dto.isActive ?? true,
+          isDefault: dto.kind === PointOfSaleKind.FERME,
+          createdById: user.id,
+        }),
+      );
+    });
   }
 
   async update(

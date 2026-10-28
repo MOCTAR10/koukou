@@ -32,6 +32,7 @@ import {
 } from './entities/feed-stock-loss.entity.js';
 import { FeedStockSale } from './entities/feed-stock-sale.entity.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
+import { createOnce } from '../../common/utils/idempotency.js';
 
 const CONSUMPTION_WINDOW_DAYS = 3;
 
@@ -76,7 +77,8 @@ export function feedPhaseKeyOf(lot: {
   foodType: FoodType | null;
 }): FeedPhase | null {
   if (lot.feedPhase != null) return lot.feedPhase;
-  if (lot.foodType != null) return FOOD_TYPE_TO_FEED_PHASE[lot.foodType] ?? null;
+  if (lot.foodType != null)
+    return FOOD_TYPE_TO_FEED_PHASE[lot.foodType] ?? null;
   return null;
 }
 
@@ -224,31 +226,39 @@ export class FeedStockService {
     }
 
     // A loss cannot exceed what the lot still holds (stock never negative).
-    const loss = await this.lossRepo.manager.transaction(async (em) => {
-      await em.getRepository(InputLot).findOne({
-        where: { id: lot.id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      const availableKg = await this.availableKgOf(lot.id, sacKg, em);
-      if (quantityKg > availableKg + 1e-6) {
-        throw new BadRequestException(
-          `Perte supérieure au stock du lot : disponible ${round(availableKg, 2)} kg, perte déclarée ${round(quantityKg, 2)} kg.`,
-        );
-      }
-      const repo = em.getRepository(FeedStockLoss);
-      return repo.save(
-        repo.create({
-          farmId,
-          inputLotId: lot.id,
-          batchId: lot.batchId,
-          quantityKg,
-          reason: dto.reason,
-          occurredAt: dto.occurredAt ?? todayStr(),
-          notes: dto.notes ?? null,
-          createdById: user.id,
+    // Offline replay with the same key returns the loss already recorded.
+    const loss = await createOnce(
+      this.lossRepo,
+      farmId,
+      dto.idempotencyKey,
+      () =>
+        this.lossRepo.manager.transaction(async (em) => {
+          await em.getRepository(InputLot).findOne({
+            where: { id: lot.id },
+            lock: { mode: 'pessimistic_write' },
+          });
+          const availableKg = await this.availableKgOf(lot.id, sacKg, em);
+          if (quantityKg > availableKg + 1e-6) {
+            throw new BadRequestException(
+              `Perte supérieure au stock du lot : disponible ${round(availableKg, 2)} kg, perte déclarée ${round(quantityKg, 2)} kg.`,
+            );
+          }
+          const repo = em.getRepository(FeedStockLoss);
+          return repo.save(
+            repo.create({
+              idempotencyKey: dto.idempotencyKey ?? null,
+              farmId,
+              inputLotId: lot.id,
+              batchId: lot.batchId,
+              quantityKg,
+              reason: dto.reason,
+              occurredAt: dto.occurredAt ?? todayStr(),
+              notes: dto.notes ?? null,
+              createdById: user.id,
+            }),
+          );
         }),
-      );
-    });
+    );
     await this.evaluateStockAlerts(farmId);
     return loss;
   }
@@ -507,7 +517,7 @@ export class FeedStockService {
   ): Promise<void> {
     const lot = await this.inputRepo.findOne({ where: { id: inputLotId } });
     const phaseLabel = lot
-      ? TYPE_LABELS[feedPhaseKeyOf(lot) ?? ''] ?? lot.productName ?? 'ce lot'
+      ? (TYPE_LABELS[feedPhaseKeyOf(lot) ?? ''] ?? lot.productName ?? 'ce lot')
       : 'ce lot';
     await this.alertsService.raise(
       {
@@ -530,9 +540,7 @@ export class FeedStockService {
     feedPhase: FeedPhase | null | undefined,
   ): Promise<void> {
     const label =
-      feedPhase != null
-        ? TYPE_LABELS[feedPhase] ?? feedPhase
-        : 'aliment';
+      feedPhase != null ? (TYPE_LABELS[feedPhase] ?? feedPhase) : 'aliment';
     await this.alertsService.raise(
       {
         kind: AlertKind.ALIMENT,
@@ -557,14 +565,16 @@ export class FeedStockService {
     const lotPhase = new Map<string, string | null>(
       lots.map((l) => [l.id, l.feedPhase ?? l.foodType]),
     );
-    const lotName = new Map<string, string>(lots.map((l) => [l.id, l.productName]));
-    const lotPricePerKg = new Map<string, number | null>(
-      lots.map((l) => [
-        l.id,
-        this.lotPricePerKg(l, sacKg),
-      ]),
+    const lotName = new Map<string, string>(
+      lots.map((l) => [l.id, l.productName]),
     );
-    const valueFor = (inputLotId: string | null, quantityKg: number): number | null => {
+    const lotPricePerKg = new Map<string, number | null>(
+      lots.map((l) => [l.id, this.lotPricePerKg(l, sacKg)]),
+    );
+    const valueFor = (
+      inputLotId: string | null,
+      quantityKg: number,
+    ): number | null => {
       if (inputLotId == null) return null;
       const price = lotPricePerKg.get(inputLotId);
       if (price == null) return null;
@@ -755,7 +765,12 @@ export class FeedStockService {
             `${TYPE_LABELS[t.feedPhase] ?? t.feedPhase} (${t.autonomyDays} j)`,
         )
         .join(', ');
-      const reorder = this.suggestReorder(stock, mostUrgent.feedPhase, targetDays, sacKg);
+      const reorder = this.suggestReorder(
+        stock,
+        mostUrgent.feedPhase,
+        targetDays,
+        sacKg,
+      );
       await this.alertsService.raise(
         {
           kind: AlertKind.ALIMENT,
@@ -772,7 +787,12 @@ export class FeedStockService {
       );
     } else if (warning.length > 0) {
       const next = warning[0];
-      const reorder = this.suggestReorder(stock, next.feedPhase, targetDays, sacKg);
+      const reorder = this.suggestReorder(
+        stock,
+        next.feedPhase,
+        targetDays,
+        sacKg,
+      );
       await this.alertsService.raise(
         {
           kind: AlertKind.ALIMENT,
@@ -899,7 +919,9 @@ export class FeedStockService {
           const sum = windowEntries
             .filter(
               (e) =>
-                (e.feedPhase ?? FOOD_TYPE_TO_FEED_PHASE[e.feedType ?? ''] ?? null) === phase,
+                (e.feedPhase ??
+                  FOOD_TYPE_TO_FEED_PHASE[e.feedType ?? ''] ??
+                  null) === phase,
             )
             .reduce((s, e) => s + e.feedQuantity, 0);
           if (sum > 0) {
@@ -912,7 +934,8 @@ export class FeedStockService {
     const byType: FeedTypeStock[] = [];
     // Aliment consommable par phase (BULKER + BAG + MATIERE_PREMIERE).
     const feedLotsByPhase = new Map<FeedPhase, FeedLotStock[]>();
-    for (const phase of Object.values(FeedPhase)) feedLotsByPhase.set(phase, []);
+    for (const phase of Object.values(FeedPhase))
+      feedLotsByPhase.set(phase, []);
     for (const s of lotStocks) {
       if (!FEED_KG_ENTRY_TYPES.includes(s.entryType)) continue;
       const key = feedPhaseKeyOf(s) ?? null;
@@ -944,8 +967,7 @@ export class FeedStockService {
       const dailyAvg = dailyAvgByPhase.get(phase) ?? 0;
       const autonomyDays =
         dailyAvg > 0 ? round(availableKg / dailyAvg, 1) : null;
-      const suggested =
-        this.suggestFeedLot(typedLots, today) ?? null;
+      const suggested = this.suggestFeedLot(typedLots, today) ?? null;
       byType.push({
         feedPhase: phase,
         foodType: typedLots[0]?.foodType ?? null,
@@ -974,7 +996,9 @@ export class FeedStockService {
     today: string,
   ): FeedLotStock | undefined {
     const usable = lots.filter(
-      (l) => l.availableKg > 0 && !(l.expirationDate != null && l.expirationDate < today),
+      (l) =>
+        l.availableKg > 0 &&
+        !(l.expirationDate != null && l.expirationDate < today),
     );
     if (usable.length === 0) return undefined;
     return usable.sort((a, b) => {

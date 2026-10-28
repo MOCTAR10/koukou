@@ -10,8 +10,9 @@ import {
 } from 'class-validator';
 import { FeedUnit } from '../../../common/enums/food-type.enum.js';
 import { FeedLossReason } from '../../../common/enums/feed-loss-reason.enum.js';
+import { IdempotentDto } from '../../../common/utils/idempotency.js';
 
-export class CreateLossDto {
+export class CreateLossDto extends IdempotentDto {
   @ApiProperty({
     description: "Lot d'intrant alimentaire affecté (traçabilité HACCP)",
   })

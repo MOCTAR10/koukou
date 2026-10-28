@@ -16,6 +16,7 @@ import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
+import { createOnce } from '../../common/utils/idempotency.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { Farm } from '../farms/entities/farm.entity.js';
@@ -84,159 +85,171 @@ export class StockTransfersService {
     dto: CreateStockTransferDto,
   ): Promise<StockTransfer> {
     const farm = await this.farmsService.assertAccessible(user, farmId);
-    const id = await this.dataSource.transaction(async (em) => {
-      const pos = await em.getRepository(PointOfSale).findOne({
-        where: { id: dto.pointOfSaleId, farmId },
-      });
-      if (!pos) {
-        throw new BadRequestException(
-          'Point de vente introuvable dans cette ferme.',
-        );
-      }
-      if (pos.kind !== PointOfSaleKind.BOUTIQUE) {
-        throw new BadRequestException(
-          'Seule une boutique (point de vente externe) peut recevoir un transfert : la ferme vend directement son stock.',
-        );
-      }
-      if (pos.isActive === false) {
-        throw new BadRequestException(
-          'Point de vente inactif (boutique désactivée).',
-        );
-      }
-      const sourcePos = await em.getRepository(PointOfSale).findOne({
-        where: { farmId, kind: PointOfSaleKind.FERME },
-      });
-      if (!sourcePos) {
-        throw new BadRequestException(
-          'Aucun point « ferme » dans cette exploitation : créez-le avant tout transfert.',
-        );
-      }
+    // Offline replay with the same key returns the existing transfer and
+    // never decrements the source stock a second time.
+    const created = await createOnce(
+      this.repo,
+      farmId,
+      dto.idempotencyKey,
+      () =>
+        this.dataSource.transaction(async (em) => {
+          const pos = await em.getRepository(PointOfSale).findOne({
+            where: { id: dto.pointOfSaleId, farmId },
+          });
+          if (!pos) {
+            throw new BadRequestException(
+              'Point de vente introuvable dans cette ferme.',
+            );
+          }
+          if (pos.kind !== PointOfSaleKind.BOUTIQUE) {
+            throw new BadRequestException(
+              'Seule une boutique (point de vente externe) peut recevoir un transfert : la ferme vend directement son stock.',
+            );
+          }
+          if (pos.isActive === false) {
+            throw new BadRequestException(
+              'Point de vente inactif (boutique désactivée).',
+            );
+          }
+          const sourcePos = await em.getRepository(PointOfSale).findOne({
+            where: { farmId, kind: PointOfSaleKind.FERME },
+          });
+          if (!sourcePos) {
+            throw new BadRequestException(
+              'Aucun point « ferme » dans cette exploitation : créez-le avant tout transfert.',
+            );
+          }
 
-      let slaughterOrderId: string | null = null;
-      let batchId: string | null = null;
-      let inputLotId: string | null = null;
-      let unit: string | null = null;
+          let slaughterOrderId: string | null = null;
+          let batchId: string | null = null;
+          let inputLotId: string | null = null;
+          let unit: string | null = null;
 
-      if (dto.productType === StockTransferProductType.ABATTU) {
-        if (!dto.slaughterOrderId) {
-          throw new BadRequestException(
-            'Transfert de carcasses : indiquer l’ordre d’abattage source.',
-          );
-        }
-        const order = await em
-          .getRepository(SlaughterOrder)
-          .createQueryBuilder('o')
-          .setLock('pessimistic_write')
-          .where('o.id = :id', { id: dto.slaughterOrderId })
-          .andWhere('o.farm_id = :farmId', { farmId })
-          .getOne();
-        if (!order) {
-          throw new BadRequestException(
-            'Ordre d’abattage introuvable dans cette ferme (source carcasse).',
-          );
-        }
-        if (order.status !== SlaughterStatus.PROCESSED) {
-          throw new BadRequestException(
-            'Cet ordre d’abattage doit être traité (PROCESSED) avant tout transfert de carcasses.',
-          );
-        }
-        if (order.slaughterType !== SlaughterType.ABATTU) {
-          throw new BadRequestException(
-            'Cet ordre d’abattage est « vivant » : aucune carcasse à transférer.',
-          );
-        }
-        if (order.carcassesAvailable < dto.quantity) {
-          throw new BadRequestException(
-            `Carcasses insuffisantes : ${order.carcassesAvailable} carcasse(s) disponible(s) sur cet ordre, transfert demandé ${dto.quantity}.`,
-          );
-        }
-        order.carcassesAvailable -= dto.quantity;
-        await em.getRepository(SlaughterOrder).save(order);
-        slaughterOrderId = order.id;
-        batchId = order.batchId;
-        unit = 'PIECE';
-      } else if (dto.productType === StockTransferProductType.OEUFS) {
-        if (!dto.batchId) {
-          throw new BadRequestException(
-            'Transfert d’œufs : indiquer le lot de production d’origine.',
-          );
-        }
-        const batch = await em.getRepository(ProductionBatch).findOne({
-          where: { id: dto.batchId, farmId },
-        });
-        if (!batch) {
-          throw new BadRequestException(
-            'Lot de production introuvable dans cette ferme.',
-          );
-        }
-        await this.assertEggsAvailable(em, farmId, dto.quantity);
-        const batchEggAlveoles = await this.availableBatchEggAlveoles(em, farmId, batch.id);
-        if (dto.quantity > batchEggAlveoles) {
-          throw new BadRequestException(
-            `Stock d’œufs insuffisant sur ce lot : ${batchEggAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), transfert demandé ${dto.quantity}.`,
-          );
-        }
-        batchId = batch.id;
-        unit = 'ALVEOLES';
-      } else {
-        // PROVENDE
-        if (!dto.inputLotId) {
-          throw new BadRequestException(
-            'Transfert de provende : indiquer le lot d’intrant alimentaire d’origine.',
-          );
-        }
-        if (dto.unit !== FeedUnit.SAC && dto.unit !== FeedUnit.KG) {
-          throw new BadRequestException(
-            'Pour la provende, l’unité doit être SAC ou KG.',
-          );
-        }
-        const lot = await em
-          .getRepository(InputLot)
-          .createQueryBuilder('l')
-          .setLock('pessimistic_write')
-          .where('l.id = :id', { id: dto.inputLotId })
-          .andWhere('l.farm_id = :farmId', { farmId })
-          .getOne();
-        if (!lot || lot.kind !== InputKind.ALIMENT) {
-          throw new BadRequestException(
-            'Lot d’intrant alimentaire introuvable dans cette ferme (catégorie ALIMENT uniquement).',
-          );
-        }
-        const sacKg = farm.defaultSacKg ?? 50;
-        const quantityKg =
-          dto.unit === FeedUnit.SAC ? dto.quantity * sacKg : dto.quantity;
-        const availableKg = await this.feedAvailableKg(em, lot, sacKg);
-if (quantityKg > availableKg + 1e-6) {
-          throw new BadRequestException(
-            `Stock d'aliment insuffisant sur ce lot : disponible ${round2(Math.max(0, availableKg))} kg, transfert demandé ${round2(quantityKg)} kg.`,
-          );
-        }
-        lot.quantity -= toLotUnits(lot, dto.quantity, dto.unit, sacKg);
-        await em.getRepository(InputLot).save(lot);
-        inputLotId = lot.id;
-        batchId = lot.batchId ?? null;
-        unit = dto.unit;
-      }
+          if (dto.productType === StockTransferProductType.ABATTU) {
+            if (!dto.slaughterOrderId) {
+              throw new BadRequestException(
+                'Transfert de carcasses : indiquer l’ordre d’abattage source.',
+              );
+            }
+            const order = await em
+              .getRepository(SlaughterOrder)
+              .createQueryBuilder('o')
+              .setLock('pessimistic_write')
+              .where('o.id = :id', { id: dto.slaughterOrderId })
+              .andWhere('o.farm_id = :farmId', { farmId })
+              .getOne();
+            if (!order) {
+              throw new BadRequestException(
+                'Ordre d’abattage introuvable dans cette ferme (source carcasse).',
+              );
+            }
+            if (order.status !== SlaughterStatus.PROCESSED) {
+              throw new BadRequestException(
+                'Cet ordre d’abattage doit être traité (PROCESSED) avant tout transfert de carcasses.',
+              );
+            }
+            if (order.slaughterType !== SlaughterType.ABATTU) {
+              throw new BadRequestException(
+                'Cet ordre d’abattage est « vivant » : aucune carcasse à transférer.',
+              );
+            }
+            if (order.carcassesAvailable < dto.quantity) {
+              throw new BadRequestException(
+                `Carcasses insuffisantes : ${order.carcassesAvailable} carcasse(s) disponible(s) sur cet ordre, transfert demandé ${dto.quantity}.`,
+              );
+            }
+            order.carcassesAvailable -= dto.quantity;
+            await em.getRepository(SlaughterOrder).save(order);
+            slaughterOrderId = order.id;
+            batchId = order.batchId;
+            unit = 'PIECE';
+          } else if (dto.productType === StockTransferProductType.OEUFS) {
+            if (!dto.batchId) {
+              throw new BadRequestException(
+                'Transfert d’œufs : indiquer le lot de production d’origine.',
+              );
+            }
+            const batch = await em.getRepository(ProductionBatch).findOne({
+              where: { id: dto.batchId, farmId },
+            });
+            if (!batch) {
+              throw new BadRequestException(
+                'Lot de production introuvable dans cette ferme.',
+              );
+            }
+            await this.assertEggsAvailable(em, farmId, dto.quantity);
+            const batchEggAlveoles = await this.availableBatchEggAlveoles(
+              em,
+              farmId,
+              batch.id,
+            );
+            if (dto.quantity > batchEggAlveoles) {
+              throw new BadRequestException(
+                `Stock d’œufs insuffisant sur ce lot : ${batchEggAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), transfert demandé ${dto.quantity}.`,
+              );
+            }
+            batchId = batch.id;
+            unit = 'ALVEOLES';
+          } else {
+            // PROVENDE
+            if (!dto.inputLotId) {
+              throw new BadRequestException(
+                'Transfert de provende : indiquer le lot d’intrant alimentaire d’origine.',
+              );
+            }
+            if (dto.unit !== FeedUnit.SAC && dto.unit !== FeedUnit.KG) {
+              throw new BadRequestException(
+                'Pour la provende, l’unité doit être SAC ou KG.',
+              );
+            }
+            const lot = await em
+              .getRepository(InputLot)
+              .createQueryBuilder('l')
+              .setLock('pessimistic_write')
+              .where('l.id = :id', { id: dto.inputLotId })
+              .andWhere('l.farm_id = :farmId', { farmId })
+              .getOne();
+            if (!lot || lot.kind !== InputKind.ALIMENT) {
+              throw new BadRequestException(
+                'Lot d’intrant alimentaire introuvable dans cette ferme (catégorie ALIMENT uniquement).',
+              );
+            }
+            const sacKg = farm.defaultSacKg ?? 50;
+            const quantityKg =
+              dto.unit === FeedUnit.SAC ? dto.quantity * sacKg : dto.quantity;
+            const availableKg = await this.feedAvailableKg(em, lot, sacKg);
+            if (quantityKg > availableKg + 1e-6) {
+              throw new BadRequestException(
+                `Stock d'aliment insuffisant sur ce lot : disponible ${round2(Math.max(0, availableKg))} kg, transfert demandé ${round2(quantityKg)} kg.`,
+              );
+            }
+            lot.quantity -= toLotUnits(lot, dto.quantity, dto.unit, sacKg);
+            await em.getRepository(InputLot).save(lot);
+            inputLotId = lot.id;
+            batchId = lot.batchId ?? null;
+            unit = dto.unit;
+          }
 
-      const transfer = await em.getRepository(StockTransfer).save(
-        em.getRepository(StockTransfer).create({
-          farmId,
-          productType: dto.productType,
-          sourcePosId: sourcePos.id,
-          pointOfSaleId: pos.id,
-          slaughterOrderId,
-          batchId,
-          inputLotId,
-          unit,
-          quantity: dto.quantity,
-          quantitySold: 0,
-          status: StockTransferStatus.TRANSFERRED,
-          createdById: user.id,
+          return em.getRepository(StockTransfer).save(
+            em.getRepository(StockTransfer).create({
+              idempotencyKey: dto.idempotencyKey ?? null,
+              farmId,
+              productType: dto.productType,
+              sourcePosId: sourcePos.id,
+              pointOfSaleId: pos.id,
+              slaughterOrderId,
+              batchId,
+              inputLotId,
+              unit,
+              quantity: dto.quantity,
+              quantitySold: 0,
+              status: StockTransferStatus.TRANSFERRED,
+              createdById: user.id,
+            }),
+          );
         }),
-      );
-      return transfer.id;
-    });
-    return this.mustGet(farmId, id);
+    );
+    return this.mustGet(farmId, created.id);
   }
 
   /**
@@ -358,10 +371,7 @@ if (quantityKg > availableKg + 1e-6) {
           productType: SaleItemProductType.OEUFS,
         },
       });
-      soldEggs = eggItems.reduce(
-        (s, i) => s + i.quantity * EGGS_PER_ALVEOL,
-        0,
-      );
+      soldEggs = eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
     }
     const transfers = await em.getRepository(StockTransfer).find({
       where: {
@@ -451,12 +461,8 @@ if (quantityKg > availableKg + 1e-6) {
   ): Promise<number> {
     const [entries, losses, feedSales] = await Promise.all([
       em.getRepository(DailyEntry).find({ where: { inputLotId: lot.id } }),
-      em
-        .getRepository(FeedStockLoss)
-        .find({ where: { inputLotId: lot.id } }),
-      em
-        .getRepository(FeedStockSale)
-        .find({ where: { inputLotId: lot.id } }),
+      em.getRepository(FeedStockLoss).find({ where: { inputLotId: lot.id } }),
+      em.getRepository(FeedStockSale).find({ where: { inputLotId: lot.id } }),
     ]);
     const receivedKg =
       (lot.unit === 'KG' ? lot.quantity : lot.quantity * sacKg) || 0;
