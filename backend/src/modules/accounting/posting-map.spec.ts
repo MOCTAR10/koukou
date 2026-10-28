@@ -11,6 +11,7 @@ import {
   revenueAccountForProduct,
   cashAccountForMethod,
 } from './posting-map.js';
+import { ACCOUNT_PLAN } from './account-plan.data.js';
 
 describe('posting-map', () => {
   describe('revenueAccountForProduct', () => {
@@ -85,6 +86,19 @@ describe('posting-map', () => {
       // Classe 65 — Autres charges
       expect(expenseAccountForCategory(ExpenseCategory.AUTRE)).toBe('65');
     });
+
+    it('ne renvoie que des comptes présents dans le plan (sinon post() échoue)', () => {
+      const plan = new Set(ACCOUNT_PLAN.map((a) => a.code));
+      for (const category of Object.values(ExpenseCategory)) {
+        expect(plan.has(expenseAccountForCategory(category))).toBe(true);
+      }
+      for (const kind of Object.values(InputKind)) {
+        expect(plan.has(inputAccountForKind(kind))).toBe(true);
+      }
+      for (const type of Object.values(SaleItemProductType)) {
+        expect(plan.has(revenueAccountForProduct(type))).toBe(true);
+      }
+    });
   });
 
   describe('inputAccountForKind', () => {
@@ -115,6 +129,10 @@ describe('posting-map', () => {
       expect(
         inputValueFcfa({ totalCostFcfa: null, costPerMtFcfa: null, tonnageMt: null, unitPriceFcfa: 15000, numberOfBags: null, quantity: 2, bagSizeKg: null }),
       ).toBe(30000);
+      // Sacs saisis au tonnage (quantity en kg) : 2 t / 50 kg = 40 sacs.
+      expect(
+        inputValueFcfa({ totalCostFcfa: null, costPerMtFcfa: null, tonnageMt: 2, unitPriceFcfa: 15000, numberOfBags: null, quantity: 2000, bagSizeKg: 50 }),
+      ).toBe(600000);
     });
   });
 

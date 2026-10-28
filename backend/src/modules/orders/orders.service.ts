@@ -563,9 +563,14 @@ export class OrdersService {
           item.productType === SaleItemProductType.POULET_PIECE ||
           item.productType === SaleItemProductType.ABATTU_PIECE;
         if (isPieceKind) {
+          if (!Number.isInteger(o.quantity)) {
+            throw new BadRequestException(
+              'Vente à la pièce : la quantité livrée doit être un nombre entier.',
+            );
+          }
           // À la pièce, la quantité finale EST le nombre d'oiseaux : on
           // resynchronise pieceCount pour éviter un sous-décrément du cheptel.
-          item.pieceCount = Math.ceil(o.quantity);
+          item.pieceCount = o.quantity;
         } else if (o.pieceCount != null) {
           item.pieceCount = o.pieceCount;
         }
@@ -592,7 +597,12 @@ export class OrdersService {
           // et ne doivent pas compter comme « déjà vendus » contre eux-mêmes.
           await this.assertEggsAvailable(em, farmId, item.quantity, sale.id);
           if (item.batchId) {
-            const batchAlveoles = await this.availableBatchEggAlveoles(em, farmId, item.batchId);
+            const batchAlveoles = await this.availableBatchEggAlveoles(
+              em,
+              farmId,
+              item.batchId,
+              sale.id,
+            );
             if (item.quantity > batchAlveoles) {
               throw new BadRequestException(
                 `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), livraison demandée ${item.quantity}.`,
@@ -1265,6 +1275,7 @@ export class OrdersService {
     em: EntityManager,
     farmId: string,
     batchId: string,
+    excludeSaleId?: string,
   ): Promise<number> {
     const entries = await em.getRepository(DailyEntry).find({
       where: { batchId },
@@ -1279,7 +1290,7 @@ export class OrdersService {
           e.eggsDirty),
       0,
     );
-    const soldEggs = await this.batchSoldEggs(em, farmId, batchId);
+    const soldEggs = await this.batchSoldEggs(em, farmId, batchId, excludeSaleId);
     const transfers = await em.getRepository(StockTransfer).find({
       where: {
         farmId,
@@ -1301,19 +1312,21 @@ export class OrdersService {
     em: EntityManager,
     farmId: string,
     batchId: string,
+    excludeSaleId?: string,
   ): Promise<number> {
-    const sales = await em.getRepository(Sale).find({
-      where: { farmId, status: Not(SaleStatus.CANCELLED) },
-    });
-    if (sales.length === 0) return 0;
-    const eggItems = await em.getRepository(SaleItem).find({
-      where: {
-        saleId: In(sales.map((s) => s.id)),
-        productType: SaleItemProductType.OEUFS,
-        batchId,
-      },
-    });
-    return eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
+    // One aggregate instead of loading every sale id of the farm into In(...).
+    const qb = em
+      .getRepository(SaleItem)
+      .createQueryBuilder('i')
+      .innerJoin(Sale, 's', 's.id = i.sale_id')
+      .select('COALESCE(SUM(i.quantity), 0)', 'alveoles')
+      .where('s.farm_id = :farmId', { farmId })
+      .andWhere('s.status <> :cancelled', { cancelled: SaleStatus.CANCELLED })
+      .andWhere('i.product_type = :oeufs', { oeufs: SaleItemProductType.OEUFS })
+      .andWhere('i.batch_id = :batchId', { batchId });
+    if (excludeSaleId) qb.andWhere('s.id <> :excludeSaleId', { excludeSaleId });
+    const row = await qb.getRawOne<{ alveoles: string | number }>();
+    return Number(row?.alveoles ?? 0) * EGGS_PER_ALVEOL;
   }
 
   /** Trouve ou crée le client (jamais bloquant : la commande aboutit toujours). */

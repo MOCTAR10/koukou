@@ -23,6 +23,7 @@ export class BatchesController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('production:gerer')
   @ApiOperation({ summary: 'Créer un lot (Créer un lot)' })
   @ApiParam({ name: 'farmId' })
   create(

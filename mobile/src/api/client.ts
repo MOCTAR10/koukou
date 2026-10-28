@@ -36,6 +36,13 @@ function extractMessage(body: unknown): string | null {
   return null;
 }
 
+/**
+ * Request timed out: treated like a network failure (TypeError) so the offline
+ * engine queues the op under the same idempotency key instead of letting the
+ * user re-submit it as a new sale.
+ */
+export class NetworkTimeoutError extends TypeError {}
+
 interface ApiInit {
   method?: string;
   body?: unknown;
@@ -63,7 +70,7 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
     });
   } catch (e: unknown) {
     if (controller.signal.aborted) {
-      throw new Error('Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
+      throw new NetworkTimeoutError('Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
     }
     throw e;
   } finally {
@@ -109,7 +116,7 @@ export async function apiUpload<T>(
     });
   } catch (e: unknown) {
     if (controller.signal.aborted) {
-      throw new Error('Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
+      throw new NetworkTimeoutError('Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
     }
     throw e;
   } finally {

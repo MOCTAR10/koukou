@@ -8,7 +8,7 @@ import { AppText } from './ui/AppText';
 import { Button } from './ui/Button';
 import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
-import { createBuilding } from '@/api/mutations';
+import { createBuilding, localYmd } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 
 /**
@@ -78,7 +78,7 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
         name: name.trim(),
         buildingAreaM2: areaNum > 0 ? areaNum : undefined,
         capacity: effectiveCapacity > 0 ? effectiveCapacity : undefined,
-        lastVideSanitaireAt: lastVideDate ? lastVideDate.toISOString().slice(0, 10) : undefined,
+        lastVideSanitaireAt: lastVideDate ? localYmd(lastVideDate) : undefined,
       });
     },
     onSuccess: () => {

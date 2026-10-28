@@ -10,7 +10,7 @@ import { classNames, dateFr, statusLabel } from '../lib/format';
 interface ProphylaxisEvent {
   id: string;
   protocolStepId: string | null;
-  careName: string;
+  name: string;
   scheduledDate: string;
   status: string;
 }
@@ -42,7 +42,8 @@ const STATUS_IDX: Record<string, number> = { PLANIFIE: 0, EN_RETARD: 1, FAIT: 2,
 export function SanitaryPage() {
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
-  const [batchId, setBatchId] = useState('');
+  const [pickedBatchId, setBatchId] = useState('');
+  const [protocolId, setProtocolId] = useState('');
 
   const batches = useQuery({
     queryKey: ['batches', farmId],
@@ -50,11 +51,22 @@ export function SanitaryPage() {
     enabled: !!farmId,
   });
   const activeBatches = (batches.data ?? []).filter((b) => b.status !== 'CLOTURE');
+  // A lot chosen on another farm is not valid here (farm switch).
+  const batch = activeBatches.find((b) => b.id === pickedBatchId) ?? null;
+  const batchId = batch?.id ?? '';
 
+  // Only programs matching the lot's species and type: a POULET program must
+  // never be generated on a PINTADE or laying lot.
   const protocols = useQuery({
-    queryKey: ['protocols'],
-    queryFn: () => api.get<Protocol[]>('/sanitary/protocols'),
+    queryKey: ['protocols', batch?.species, batch?.type],
+    queryFn: () =>
+      api.get<Protocol[]>(
+        `/sanitary/protocols?species=${encodeURIComponent(batch!.species)}&type=${encodeURIComponent(batch!.type)}`,
+      ),
+    enabled: !!batch,
   });
+  const protocol =
+    protocols.data?.find((p) => p.id === protocolId) ?? protocols.data?.[0] ?? null;
 
   const events = useQuery({
     queryKey: ['prophylaxis', farmId, batchId],
@@ -133,14 +145,27 @@ export function SanitaryPage() {
               >
                 <ShieldPlus className="h-4 w-4" /> Générer calendrier standard
               </button>
-              {protocols.data?.length ? (
-                <button
-                  onClick={() => genCalendar.mutate(protocols.data[0].id)}
-                  disabled={genCalendar.isPending}
-                  className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Générer ({protocols.data[0].name})
-                </button>
+              {protocol && protocols.data ? (
+                <>
+                  <select
+                    className={classNames(inputCls, 'sm:max-w-[240px]')}
+                    value={protocol.id}
+                    onChange={(e) => setProtocolId(e.target.value)}
+                  >
+                    {protocols.data.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => genCalendar.mutate(protocol.id)}
+                    disabled={genCalendar.isPending}
+                    className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Générer ce programme
+                  </button>
+                </>
               ) : null}
             </>
           ) : null}
@@ -182,7 +207,7 @@ export function SanitaryPage() {
                     )
                     .map((e) => (
                       <tr key={e.id} className="border-t border-slate-100">
-                        <Td className="font-medium">{e.careName}</Td>
+                        <Td className="font-medium">{e.name}</Td>
                         <Td>{dateFr(e.scheduledDate)}</Td>
                         <Td><StatusBadge status={e.status} /></Td>
                         <Td>
@@ -279,8 +304,8 @@ export function SanitaryPage() {
                 <select name="careType" required className={inputCls} defaultValue="ANTIBIOTIQUE">
                   <option value="ANTIBIOTIQUE">Antibiotique</option>
                   <option value="VACCIN">Vaccin</option>
+                  <option value="MEDICAMENT">Médicament</option>
                   <option value="VITAMINE">Vitamine</option>
-                  <option value="PROBIOTIQUE">Probiotique</option>
                   <option value="AUTRE">Autre</option>
                 </select>
                 <input name="productName" required placeholder="Produit *" className={inputCls} />

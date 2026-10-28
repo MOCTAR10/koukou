@@ -114,22 +114,16 @@ export class SanitaryService {
   }
 
   /**
-   * Protocole par défaut pour une espèce/type donné. Pour les espèces sans
-   * protocole dédié (Pintade, Dinde, Caille…), on retombe sur le protocole
-   * POULET générique du type — jamais bloquant pour l'éleveur.
+   * Protocole par défaut pour une espèce/type donné. Pas de repli sur le
+   * protocole POULET : un programme vaccinal est propre à l'espèce (règle
+   * « jamais de programme POULET sur un lot non-POULET »).
    */
   private async resolveDefaultProtocol(
     species: Species,
     type: BatchType,
   ): Promise<SanitaryProtocol | null> {
-    const exact = await this.protocolRepo.findOne({
-      where: { species, type, isDefault: true },
-      order: { createdAt: 'ASC' },
-    });
-    if (exact) return exact;
-    if (species === Species.POULET) return null;
     return this.protocolRepo.findOne({
-      where: { species: Species.POULET, type, isDefault: true },
+      where: { species, type, isDefault: true },
       order: { createdAt: 'ASC' },
     });
   }
@@ -175,7 +169,12 @@ export class SanitaryService {
       : await this.resolveDefaultProtocol(batch.species, batch.type);
     if (!protocol) {
       throw new BadRequestException(
-        'Aucun protocole sanitaire défini pour ce type de lot (espèce/type). Créez-en un d’abord.',
+        `Aucun protocole sanitaire par défaut pour les ${SPECIES_LABELS[batch.species]} ${BATCH_TYPE_LABELS[batch.type]}. Choisissez ou créez un programme adapté à cette espèce.`,
+      );
+    }
+    if (protocol.species !== batch.species || protocol.type !== batch.type) {
+      throw new BadRequestException(
+        `Le programme « ${protocol.name} » est destiné aux ${SPECIES_LABELS[protocol.species]} ${BATCH_TYPE_LABELS[protocol.type]} : il ne peut pas s'appliquer à un lot ${SPECIES_LABELS[batch.species]} ${BATCH_TYPE_LABELS[batch.type]}.`,
       );
     }
     const steps = await this.stepRepo.find({
@@ -299,8 +298,9 @@ export class SanitaryService {
     }
     await this.eventRepo.save(event);
 
-    // Un soin antibiotique avec délai d'attente ouvre un suivi HACCP.
-    if (event.careType === CareType.ANTIBIOTIQUE && event.withdrawalDays > 0) {
+    // Tout soin avec délai d'attente (antibiotique, médicament…) ouvre un
+    // suivi HACCP : c'est le délai qui protège le consommateur, pas le type.
+    if (event.withdrawalDays > 0) {
       await this.treatmentRepo.save(
         this.treatmentRepo.create({
           farmId,

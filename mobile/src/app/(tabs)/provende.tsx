@@ -35,6 +35,7 @@ import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchFeedMovements, fetchFeedStock } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
+import { localYmd } from '@/api/mutations';
 import { FEED_ENTRY_TYPE_LABELS, FEED_PHASE_LABELS } from '@/api/format';
 import { recordStockLossQueued } from '@/offline';
 import type {
@@ -160,7 +161,7 @@ function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]
     const t = new Date();
     return new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
   }, [refDate]);
-  const dayStr = (d: Date) => d.toISOString().slice(0, 10);
+  const dayStr = (d: Date) => localYmd(d);
   const d7 = dayStr(new Date(today.getTime() - 7 * 86_400_000));
   const d14 = dayStr(new Date(today.getTime() - 14 * 86_400_000));
 

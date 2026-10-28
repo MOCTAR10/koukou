@@ -97,7 +97,8 @@ export class InputsService {
         );
     }
 
-    let entryType = input.entryType ?? FeedEntryType.BAG;
+    let entryType: FeedEntryType | null = input.entryType ?? null;
+    let bagSizeKg = input.bagSizeKg ?? null;
 
     let foodType = input.foodType ?? null;
     let unitPriceFcfa = input.unitPriceFcfa ?? null;
@@ -120,9 +121,11 @@ export class InputsService {
       if (customFeedPhaseName == null)
         customFeedPhaseName = product.customFeedPhaseName;
       if (entryType == null) entryType = product.entryType;
+      if (bagSizeKg == null) bagSizeKg = product.defaultBagSizeKg ?? null;
     } else if (productId != null) {
       productId = null;
     }
+    entryType ??= FeedEntryType.BAG;
 
     if (feedPhase != null && foodType == null) {
       foodType = FEED_PHASE_TO_FOOD_TYPE[feedPhase] ?? FoodType.DEMARRAGE;
@@ -136,16 +139,20 @@ export class InputsService {
       quantity = mt * 1000;
       unit = FeedUnit.KG;
     } else if (entryType === FeedEntryType.BAG) {
+      // Quantities derived from tonnage or bag count are kg: store unit KG so
+      // stock readers do not multiply them by the sack size a second time.
       if (input.tonnageMt != null && input.tonnageMt > 0) {
         quantity = input.tonnageMt * 1000;
+        unit = FeedUnit.KG;
       } else if (input.numberOfBags != null && input.numberOfBags > 0) {
-        const sizeKg = input.bagSizeKg ?? 50;
-        quantity = input.numberOfBags * sizeKg;
+        bagSizeKg ??= 50;
+        quantity = input.numberOfBags * bagSizeKg;
+        unit = FeedUnit.KG;
       } else {
         // Compatibilité : saisie historique transmettant directement quantité/unité.
         quantity = input.quantity ?? 0;
+        unit = input.unit === FeedUnit.KG ? FeedUnit.KG : FeedUnit.SAC;
       }
-      unit = FeedUnit.SAC;
     } else if (entryType === FeedEntryType.MATIERE_PREMIERE) {
       const mt = input.tonnageMt ?? 0;
       quantity = mt * 1000;
@@ -176,8 +183,8 @@ export class InputsService {
           unitPriceFcfa,
           entryType,
           feedPhase,
-          customFeedPhaseName: input.customFeedPhaseName ?? null,
-          bagSizeKg: input.bagSizeKg ?? null,
+          customFeedPhaseName,
+          bagSizeKg,
           numberOfBags: input.numberOfBags ?? null,
           tonnageMt: input.tonnageMt ?? null,
           costPerMtFcfa: input.costPerMtFcfa ?? null,

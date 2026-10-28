@@ -66,7 +66,7 @@ import {
   fetchSlaughterOrders,
   fetchTreatments,
 } from '@/api';
-import { acknowledgeAlert } from '@/api/mutations';
+import { acknowledgeAlert, todayStr } from '@/api/mutations';
 import { downloadPdf } from '@/api/pdf';
 import type {
   Alert as LotAlert,
@@ -141,7 +141,7 @@ function deriveCareAlerts(
   ageDays: number,
 ): CareAlertItem[] {
   const items: CareAlertItem[] = [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
 
   // L'état « en retard » provient du serveur (EN_RETARD, bascule après le
   // délai de grâce utilité du statut officiel) — pas d'une dérivation locale

@@ -15,7 +15,7 @@ import { AlertCard } from '@/components/AlertCard';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { fetchAdvisory, fetchAlertHistory } from '@/api';
-import { acknowledgeAlert, completeProphylaxis } from '@/api/mutations';
+import { acknowledgeAlert, completeProphylaxis, todayStr } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import {
   filterAlerts,
@@ -30,7 +30,7 @@ import type { Alert } from '@/api/types';
 import { color, gradeColor, palette, radii, fontFamily, semantic } from '@/constants/theme';
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayStr();
 }
 
 /** Date strictement valide AAAA-MM-JJ (et pas une date impossible comme 2026-02-31). */

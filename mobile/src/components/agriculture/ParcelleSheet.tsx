@@ -14,6 +14,7 @@ import { CulturePicker } from './CulturePicker';
 import { useAuth } from '@/auth/AuthContext';
 import { createParcelle, deleteParcelle, fetchCultures, updateParcelle } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
+import { localYmd } from '@/api/mutations';
 import type { Culture, Parcelle, ParcelleStatus } from '@/api/types';
 import { PARCELLE_STATUS_LABELS, cultureStage, formatHarvestDate, waterNeedLabel } from '@/constants/agriculture';
 import { color, palette, radii, semantic } from '@/constants/theme';
@@ -98,7 +99,7 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
           cultureId: cultureId || parcelle.cultureId,
           areaHa: area,
           status,
-          plantedAt: plantedDate ? plantedDate.toISOString().slice(0, 10) : null,
+          plantedAt: plantedDate ? localYmd(plantedDate) : null,
         });
       }
       return createParcelle(farmId, {
@@ -106,7 +107,7 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
         cultureId,
         areaHa: area,
         status,
-        plantedAt: plantedDate ? plantedDate.toISOString().slice(0, 10) : undefined,
+        plantedAt: plantedDate ? localYmd(plantedDate) : undefined,
       });
     },
     onSuccess: () => {
@@ -256,7 +257,7 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
       {/* ── Stade estimé (calculé depuis plantedAt + cycle, lecture seule) ── */}
       {(() => {
         if (!plantedDate || !selectedCulture?.defaultCycleDays) return null;
-        const iso = plantedDate.toISOString().slice(0, 10);
+        const iso = localYmd(plantedDate);
         const stage = cultureStage(iso, selectedCulture.defaultCycleDays);
         if (!stage) return null;
         const pct = stage.key === 'A_RECOLTER' ? 100 : Math.min(100, Math.round(stage.progress * 100));

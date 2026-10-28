@@ -35,7 +35,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { fetchFeedStock } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { FEED_ENTRY_TYPE_LABELS, FEED_PHASE_LABELS } from '@/api/format';
-import { todayStr, type CreateInputLotInput } from '@/api/mutations';
+import { localYmd, todayStr, type CreateInputLotInput } from '@/api/mutations';
 import type { FeedEntryType, FeedPhase, FeedTypeStock } from '@/api/types';
 import { createFeedInputQueued } from '@/offline';
 import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
@@ -294,7 +294,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
   const onExpiryChange = (_event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') setShowExpiryPicker(false);
     if (date) {
-      setExpirationDate(date.toISOString().slice(0, 10));
+      setExpirationDate(localYmd(date));
     }
   };
 

@@ -27,7 +27,7 @@ import { fetchBatches, fetchOrders, fetchPointsOfSale } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { createOrderQueued } from '@/offline/engine';
 import { DEFAULT_AVG_WEIGHT_KG, type SaleProductType, type SaleUnit } from '@/api/mutations';
-import { canManageFarm } from '@/api/roles';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { SPECIES_ICONS } from '@/api/format';
 import { breedImageForLot } from '@/constants/breedImages';
 import { customerTypeLabel } from '@/constants/customers';
@@ -966,8 +966,8 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
 }
 
 export default function CommandesScreen() {
-  const { farmId, user } = useAuth();
-  const canManage = canManageFarm(user.role);
+  const { farmId } = useAuth();
+  const canManage = useFarmProfile().hasPermission('vente:creer');
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);

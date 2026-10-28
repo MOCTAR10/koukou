@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Plus, RotateCcw, ShoppingCart, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
-import type { BatchWithMetrics, Sale } from '../api/types';
+import type { BatchWithMetrics, Promotion, Sale } from '../api/types';
 import { useFarm } from '../app/FarmContext';
 import { Card, EmptyState, Loading, PageHeader, StatusBadge, Th, Td } from '../components/ui';
 import { classNames, dateFr, fcfa, num } from '../lib/format';
@@ -21,6 +21,8 @@ interface Line {
   unitPriceFcfa: string;
   batchId: string;
   inputLotId: string;
+  /** POULET_KG only: number of birds sold. */
+  pieceCount?: string;
 }
 
 const inputCls =
@@ -100,14 +102,35 @@ export function SalesPage() {
     onSuccess: () => refreshFarm(),
   });
 
+  const promotions = useQuery({
+    queryKey: ['promotions', farmId],
+    queryFn: () => api.get<Promotion[]>(`/farms/${farmId}/promotions`),
+    enabled: !!farmId,
+  });
+
+  // Same rounding as the backend (per line, integer FCFA).
   const subtotal = useMemo(
     () =>
       lines.reduce(
-        (sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unitPriceFcfa) || 0),
+        (sum, l) => sum + Math.round((Number(l.quantity) || 0) * (Number(l.unitPriceFcfa) || 0)),
         0,
       ),
     [lines],
   );
+
+  // Preview of the server-side discount, so the cash payment equals the net
+  // total (paying the gross subtotal was rejected as "montant > dû").
+  const discount = useMemo(() => {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return 0;
+    const p = (promotions.data ?? []).find((x) => x.code === code && x.active);
+    if (!p) return 0;
+    if (p.minSubtotalFcfa != null && subtotal < p.minSubtotalFcfa) return 0;
+    return p.type === 'PCT'
+      ? Math.min(Math.round((subtotal * Math.min(p.value, 100)) / 100), subtotal)
+      : Math.min(p.value, subtotal);
+  }, [promoCode, promotions.data, subtotal]);
+  const total = subtotal - discount;
 
   const submit = () => {
     const items = lines
@@ -121,18 +144,26 @@ export function SalesPage() {
           unitPriceFcfa: Number(l.unitPriceFcfa),
           batchId: l.batchId || undefined,
           inputLotId: l.inputLotId || undefined,
-          // La vente au kilo requiert le nombre de pièces (nb de poulets).
+          // La vente au kilo requiert le nombre de poulets (décrémente le cheptel).
           pieceCount:
-            l.productType === 'POULET_KG' ? Math.ceil(Number(l.quantity)) : undefined,
+            l.productType === 'POULET_KG' ? Number(l.pieceCount) || undefined : undefined,
         };
       });
     if (!items.length) return;
+    if (items.some((it) => it.productType === 'POULET_KG' && !it.pieceCount)) {
+      alert('Vente au kilo : indiquez le nombre de poulets vendus.');
+      return;
+    }
+    if (items.some((it) => !Number.isInteger(it.unitPriceFcfa))) {
+      alert('Le prix unitaire doit être un nombre entier de FCFA.');
+      return;
+    }
     createSale.mutate({
       customerPhone: customerPhone || undefined,
       customerName: customerName || undefined,
       promoCode: promoCode || undefined,
       items,
-      payments: [{ method: 'CASH', amountFcfa: subtotal }],
+      payments: total > 0 ? [{ method: 'CASH', amountFcfa: total }] : [],
     });
   };
 
@@ -223,6 +254,19 @@ export function SalesPage() {
                 ) : (
                   <div className="hidden lg:block" />
                 )}
+                {l.productType === 'POULET_KG' ? (
+                  <input
+                    className={inputCls}
+                    placeholder="Nb de poulets"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={l.pieceCount ?? ''}
+                    onChange={(e) =>
+                      setLines((ls) => ls.map((x, j) => (j === i ? { ...x, pieceCount: e.target.value } : x)))
+                    }
+                  />
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}
@@ -262,7 +306,12 @@ export function SalesPage() {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
           <div className="text-sm text-slate-500">
             Total à encaisser :{' '}
-            <span className="text-lg font-bold text-slate-900">{fcfa(subtotal)}</span>
+            <span className="text-lg font-bold text-slate-900">{fcfa(total)}</span>
+            {discount > 0 ? (
+              <span className="ml-2 text-xs text-emerald-700">
+                (remise {fcfa(discount)} sur {fcfa(subtotal)})
+              </span>
+            ) : null}
           </div>
           <button
             onClick={submit}

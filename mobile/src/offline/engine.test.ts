@@ -4,7 +4,7 @@ import { jsonResponse, readCall, stubFetch, stubFetchSequence } from '@/api/test
 import { clearSession } from '@/api/token';
 
 import { cancelStockTransferQueued, createCreditSaleQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue, recordCustomerPaymentQueued } from './engine';
-import { clearQueue, enqueueOp, getQueueVersion, loadOps, removeOp, subscribeQueue } from './store';
+import { clearQueue, dismissRejected, enqueueOp, getQueueVersion, loadOps, loadRejected, removeOp, subscribeQueue } from './store';
 
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: '192.168.1.10:8081' } },
@@ -19,6 +19,7 @@ const networkError = () => {
 
 beforeEach(() => {
   clearQueue();
+  loadRejected().forEach((op) => dismissRejected(op.id));
   clearSession();
   vi.unstubAllGlobals();
 });
@@ -242,7 +243,7 @@ describe('flushQueue — synchronisation FIFO', () => {
     ]);
 
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 2, dropped: 0, remaining: 0 });
+    expect(summary).toEqual({ synced: 2, dropped: 0, rejected: 0, remaining: 0 });
     expect(loadOps()).toEqual([]);
 
     const url = (i: number) => readCall(fetchMock, i).url;
@@ -257,7 +258,7 @@ describe('flushQueue — synchronisation FIFO', () => {
 
     const fetchMock = stubFetch(async () => jsonResponse(201, { id: 'tr-1' }));
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 1, dropped: 0, remaining: 0 });
+    expect(summary).toEqual({ synced: 1, dropped: 0, rejected: 0, remaining: 0 });
     expect(loadOps()).toEqual([]);
     expect(readCall(fetchMock).url).toBe('http://192.168.1.10:3000/farms/f-1/stock-transfers');
   });
@@ -268,7 +269,7 @@ describe('flushQueue — synchronisation FIFO', () => {
 
     stubFetch(networkError);
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 0, dropped: 0, remaining: 1 });
+    expect(summary).toEqual({ synced: 0, dropped: 0, rejected: 0, remaining: 1 });
     expect(loadOps()).toHaveLength(1);
   });
 
@@ -282,10 +283,61 @@ describe('flushQueue — synchronisation FIFO', () => {
       jsonResponse(200, { id: 'e-2' }),
     ]);
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 1, dropped: 1, remaining: 0 });
+    expect(summary).toEqual({ synced: 1, dropped: 1, rejected: 0, remaining: 0 });
     const [op] = loadOps();
     expect(op).toBeUndefined();
     const entries = loadOps();
     expect(entries.filter((o) => o.id.includes('-2')).length).toBe(0);
+  });
+
+  it('ne perd jamais une vente encaissée refusée (4xx) : mise de côté', async () => {
+    stubFetch(networkError);
+    await createSaleQueued('f-1', '2026-08-28', [], 5000);
+
+    stubFetchSequence([
+      jsonResponse(200, { session: {} }), // caisse/current : ouverte
+      jsonResponse(400, { message: 'Stock insuffisant.' }),
+    ]);
+    const summary = await flushQueue();
+    expect(summary).toEqual({ synced: 0, dropped: 0, rejected: 1, remaining: 0 });
+    const [rej] = loadRejected();
+    expect(rej.kind).toBe('sale');
+    expect(rej.reason).toBe('Stock insuffisant.');
+  });
+
+  it('garde en file une op sur 401 (jeton expiré hors ligne)', async () => {
+    stubFetch(networkError);
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28' });
+
+    stubFetchSequence([jsonResponse(401, { message: 'Unauthorized' })]);
+    const summary = await flushQueue();
+    expect(summary.remaining).toBe(1);
+    expect(summary.dropped).toBe(0);
+  });
+
+  it('caisse impossible à ouvrir : la vente reste en file, la suite part', async () => {
+    stubFetch(networkError);
+    await createSaleQueued('f-1', '2026-08-28', [], 5000);
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28' });
+
+    stubFetchSequence([
+      jsonResponse(200, null), // caisse/current : fermée
+      jsonResponse(403, { message: 'Permission requise.' }), // caisse/open
+      jsonResponse(200, { id: 'e-1' }), // saisie journalière
+    ]);
+    const summary = await flushQueue();
+    expect(summary.synced).toBe(1);
+    expect(loadOps().map((o) => o.kind)).toEqual(['sale']);
+  });
+
+  it('rejoue une vente à crédit sans exiger la caisse', async () => {
+    stubFetch(networkError);
+    await createCreditSaleQueued('f-1', '2026-08-28', [], { customerId: 'c-1' });
+
+    const fetchMock = stubFetchSequence([jsonResponse(201, { sale: { referenceNumber: 'V-1' } })]);
+    const summary = await flushQueue();
+    expect(summary.synced).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(readCall(fetchMock).url).toBe('http://192.168.1.10:3000/farms/f-1/sales');
   });
 });

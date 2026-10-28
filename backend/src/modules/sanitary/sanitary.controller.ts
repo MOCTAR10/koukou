@@ -3,6 +3,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { SanitaryService } from './sanitary.service.js';
 import { CancelProphylaxisDto } from './dto/cancel-prophylaxis.dto.js';
@@ -34,6 +35,7 @@ export class SanitaryController {
 
   @Post('prophylaxis/generate')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({
     summary:
       'Générer automatiquement le calendrier de vaccination/traitement standard (protocole par défaut de l’espèce/type, ou protocole choisi)',
@@ -56,6 +58,7 @@ export class SanitaryController {
 
   @Post('prophylaxis/:eventId/complete')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer', 'sanitaire:signaler')
   @ApiOperation({ summary: 'Marquer un soin comme réalisé (FAIT)' })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'batchId' })
@@ -78,6 +81,7 @@ export class SanitaryController {
 
   @Post('prophylaxis/:eventId/cancel')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({ summary: 'Annuler un soin planifié' })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'batchId' })
@@ -100,6 +104,7 @@ export class SanitaryController {
 
   @Patch('prophylaxis/:eventId')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer')
   @ApiOperation({ summary: 'Reporter/planifier un soin (nouvelle date)' })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'batchId' })
@@ -122,6 +127,7 @@ export class SanitaryController {
 
   @Post('treatments')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('sanitaire:gerer', 'sanitaire:signaler')
   @ApiOperation({
     summary:
       'Enregistrer un traitement (antibiotique/vitamine…) — ouvre un délai d’attente HACCP',

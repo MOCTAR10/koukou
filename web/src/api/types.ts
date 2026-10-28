@@ -342,9 +342,9 @@ export interface RuleResistryEntry {
 
 export interface ReferenceConstant {
   key: string;
-  label: string | null;
   value: number;
-  unit: string | null;
+  /** What the threshold means (and its unit), as seeded. */
+  description: string | null;
   isEditable: boolean;
 }
 

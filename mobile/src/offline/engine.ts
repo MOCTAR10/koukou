@@ -25,7 +25,7 @@ import {
   type SalePayload,
 } from '@/api/mutations';
 
-import { enqueueOp, loadOps, removeOp, type OfflineKind, type OfflineOp } from './store';
+import { enqueueOp, loadOps, rejectOp, removeOp, type OfflineKind, type OfflineOp } from './store';
 
 let counter = 0;
 
@@ -42,10 +42,28 @@ function shouldQueue(e: unknown): boolean {
   return false;
 }
 
-/** Erreur applicative (4xx) → on abandonne l'opération (donnée invalide). */
+/**
+ * Erreur applicative (4xx) → on abandonne l'opération (donnée invalide).
+ * 401 excepté : jeton expiré pendant la période hors ligne → on réessaie après
+ * reconnexion plutôt que de perdre la saisie.
+ */
 function shouldDrop(e: unknown): boolean {
-  return e instanceof ApiError && e.status >= 400 && e.status < 500;
+  return e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 401;
 }
+
+/** Ops carrying collected cash: refused ones are kept aside, never deleted. */
+function isCashOp(op: OfflineOp): boolean {
+  if (op.kind === 'sale') {
+    return ((op.payload as SalePayload).payments ?? []).length > 0;
+  }
+  if (op.kind === 'order-create') {
+    return ((op.payload as CreateOrderInput).deposit?.amountFcfa ?? 0) > 0;
+  }
+  return op.kind === 'order-payment' || op.kind === 'customer-payment';
+}
+
+/** Raised when the caisse can't be opened for a cash op: skip it, keep it queued. */
+class CashBlockedError extends Error {}
 
 export type SendResult = { status: 'sent'; reference?: string } | { status: 'queued' };
 
@@ -204,6 +222,8 @@ export async function createOrderQueued(
     idempotencyKey: input.idempotencyKey ?? opId,
   };
   try {
+    // A deposit is a cash payment: the server needs an open caisse session.
+    if (payload.deposit && payload.deposit.amountFcfa > 0) await ensureCashOpen(farmId);
     await createOrder(farmId, payload);
     void flushQueue();
     return { status: 'sent' };
@@ -427,7 +447,9 @@ export async function cancelStockTransferQueued(
   }
 }
 
-async function processOne(op: OfflineOp): Promise<'ok' | 'retry' | 'dropped'> {
+type ProcessResult = 'ok' | 'retry' | 'dropped' | 'rejected' | 'skip';
+
+async function processOne(op: OfflineOp): Promise<ProcessResult> {
   try {
     if (op.kind === 'daily-entry') {
       await createDailyEntry(op.farmId, op.batchId ?? '', op.payload as DailyEntryPayload);
@@ -436,6 +458,7 @@ async function processOne(op: OfflineOp): Promise<'ok' | 'retry' | 'dropped'> {
     } else if (op.kind === 'stock-loss') {
       await recordFeedLoss(op.farmId, op.payload as RecordFeedLossInput);
     } else if (op.kind === 'order-create') {
+      if (isCashOp(op)) await ensureCashOpenOrRetry(op.farmId);
       await createOrder(op.farmId, op.payload as CreateOrderInput);
     } else if (op.kind === 'order-payment') {
       const p = op.payload as { orderId: string; amountFcfa: number; idempotencyKey?: string };
@@ -462,12 +485,20 @@ async function processOne(op: OfflineOp): Promise<'ok' | 'retry' | 'dropped'> {
     } else if (op.kind === 'stock-transfer-cancel') {
       await cancelStockTransfer(op.farmId, (op.payload as { transferId: string }).transferId);
     } else {
-      await ensureCashOpenOrRetry(op.farmId);
+      // Credit sale (no payment): no caisse needed, same as the live path.
+      if (isCashOp(op)) await ensureCashOpenOrRetry(op.farmId);
       await createSale(op.farmId, op.payload as SalePayload);
     }
     return 'ok';
   } catch (e) {
-    if (shouldDrop(e)) return 'dropped';
+    if (e instanceof CashBlockedError) return 'skip';
+    if (shouldDrop(e)) {
+      if (isCashOp(op)) {
+        rejectOp(op, (e as ApiError).message);
+        return 'rejected';
+      }
+      return 'dropped';
+    }
     return 'retry';
   }
 }
@@ -482,15 +513,19 @@ async function processOne(op: OfflineOp): Promise<'ok' | 'retry' | 'dropped'> {
 async function ensureCashOpenOrRetry(farmId: string): Promise<void> {
   try {
     await ensureCashOpen(farmId);
-  } catch {
-    // Plain Error (et non ApiError) : shouldDrop() ne le matche pas → 'retry'.
-    throw new Error('opération en espèces en attente : session de caisse non ouverte');
+  } catch (e) {
+    // Network failure: plain retry. Caisse refused (closed, no permission):
+    // skip this op but keep flushing the rest of the queue behind it.
+    if (shouldQueue(e)) throw e;
+    throw new CashBlockedError('opération en espèces en attente : session de caisse non ouverte');
   }
 }
 
 export interface FlushSummary {
   synced: number;
   dropped: number;
+  /** Cash ops refused by the server, kept in the rejected list. */
+  rejected: number;
   remaining: number;
 }
 
@@ -508,15 +543,17 @@ export function flushQueue(): Promise<FlushSummary> {
 }
 
 async function runFlush(): Promise<FlushSummary> {
-  const total = { synced: 0, dropped: 0 };
+  const total = { synced: 0, dropped: 0, rejected: 0 };
   // Si de nouvelles opérations sont enfilées PENDANT une passe (réseau
   // instable), on relance tant que la file est stabilisée, sans jamais
   // bloquer une opération entrée après le snapshot initial.
+  const skipped = new Set<string>();
   for (let round = 0; round < 20; round++) {
-    const ops = loadOps();
+    const ops = loadOps().filter((op) => !skipped.has(op.id));
     if (ops.length === 0) break;
     let roundSynced = 0;
     let roundDropped = 0;
+    let roundRejected = 0;
     for (const op of ops) {
       const result = await processOne(op);
       if (result === 'ok') {
@@ -525,13 +562,18 @@ async function runFlush(): Promise<FlushSummary> {
       } else if (result === 'dropped') {
         removeOp(op.id);
         roundDropped += 1;
+      } else if (result === 'rejected') {
+        roundRejected += 1; // already moved by rejectOp()
+      } else if (result === 'skip') {
+        skipped.add(op.id);
       } else {
         break;
       }
     }
     total.synced += roundSynced;
     total.dropped += roundDropped;
-    if (roundSynced === 0 && roundDropped === 0) break;
+    total.rejected += roundRejected;
+    if (roundSynced === 0 && roundDropped === 0 && roundRejected === 0) break;
   }
-  return { synced: total.synced, dropped: total.dropped, remaining: loadOps().length };
+  return { ...total, remaining: loadOps().length };
 }

@@ -263,20 +263,22 @@ export class CaisseService {
         nextAmount > movement.amountFcfa
       ) {
         // Re-vérifie le « jamais négatif » hors ce mouvement.
-        const movements = await em.getRepository(CashMovement).find({
-          where: { cashSessionId: session.id },
-        });
-        let inFcfa = 0;
-        let outFcfa = 0;
-        for (const m of movements) {
-          if (m.id === movement.id) continue;
-          if (m.type === CashMovementType.IN) inFcfa += m.amountFcfa;
-          else outFcfa += m.amountFcfa;
-        }
-        const available = session.openingBalanceFcfa + inFcfa - outFcfa;
+        const available = await this.balanceExcluding(em, session, movement.id);
         if (nextAmount > available) {
           throw new BadRequestException(
             `Sortie de ${nextAmount} FCFA refusée : solde de caisse disponible ${available} FCFA. Une caisse ne peut pas être négative.`,
+          );
+        }
+      }
+      if (
+        movement.type === CashMovementType.IN &&
+        nextAmount < movement.amountFcfa
+      ) {
+        // Lowering an entry the cash was already spent from would go negative.
+        const available = await this.balanceExcluding(em, session, movement.id);
+        if (available + nextAmount < 0) {
+          throw new BadRequestException(
+            `Entrée ramenée à ${nextAmount} FCFA refusée : la caisse deviendrait négative (${available + nextAmount} FCFA).`,
           );
         }
       }
@@ -317,6 +319,23 @@ export class CaisseService {
     });
   }
 
+  /** Session balance (opening + IN − OUT) ignoring one movement. */
+  private async balanceExcluding(
+    em: EntityManager,
+    session: CashSession,
+    movementId: string,
+  ): Promise<number> {
+    const movements = await em.getRepository(CashMovement).find({
+      where: { cashSessionId: session.id },
+    });
+    let balance = session.openingBalanceFcfa;
+    for (const m of movements) {
+      if (m.id === movementId) continue;
+      balance += m.type === CashMovementType.IN ? m.amountFcfa : -m.amountFcfa;
+    }
+    return balance;
+  }
+
   async deleteMovement(
     user: AuthUser,
     farmId: string,
@@ -343,6 +362,14 @@ export class CaisseService {
         throw new BadRequestException(
           'Session de caisse clôturée : les mouvements sont immuables.',
         );
+      }
+      if (movement.type === CashMovementType.IN) {
+        const available = await this.balanceExcluding(em, session, movement.id);
+        if (available < 0) {
+          throw new BadRequestException(
+            `Suppression refusée : cette entrée a déjà été dépensée, la caisse deviendrait négative (${available} FCFA).`,
+          );
+        }
       }
       // Comptabilité : contrepassation de l'écriture de mouvement manuel.
       await this.accountingService.post(em, {

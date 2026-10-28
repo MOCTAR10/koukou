@@ -1,13 +1,11 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
-import { UserRole } from '../../common/enums/role.enum.js';
 import { AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { DiseaseSeverity } from '../../common/enums/disease-severity.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
@@ -225,11 +223,8 @@ export class HealthService {
     batchId: string,
     eventId: string,
   ): Promise<{ deleted: boolean }> {
-    if (user.role !== UserRole.PROPRIETAIRE) {
-      throw new ForbiddenException(
-        'Seul le propriétaire peut supprimer un événement sanitaire.',
-      );
-    }
+    // Gated by @Permissions('sanitaire:gerer') on the route (owner, platform
+    // admin and ADMIN staff holding it), not by the global user role.
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     const event = await this.eventRepo.findOne({

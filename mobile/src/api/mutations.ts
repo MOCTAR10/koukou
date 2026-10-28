@@ -20,8 +20,20 @@ import type {
   StockTransferProductType,
 } from './types';
 
+/**
+ * Local calendar date YYYY-MM-DD. Never `toISOString()` for a user-facing
+ * date: Gabon is UTC+1, so a date picked at local midnight (or "today"
+ * between 00:00 and 01:00) would shift to the previous day.
+ */
+export function localYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localYmd(new Date());
 }
 
 export interface DailyEntryPayload {

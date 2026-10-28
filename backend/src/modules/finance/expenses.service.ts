@@ -194,6 +194,17 @@ export class ExpensesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!expense) throw new NotFoundException('Dépense introuvable.');
+      // Reception expenses are booked under the input lot (input:<lotId>), not
+      // expense:<id>: re-posting here would count the cost twice.
+      if (
+        expense.inputLotId != null &&
+        dto.category != null &&
+        dto.category !== expense.category
+      ) {
+        throw new BadRequestException(
+          'Dépense liée à une réception d’intrant : sa catégorie suit le type de l’intrant et ne peut pas être modifiée ici.',
+        );
+      }
 
       const oldCategory = expense.category;
       if (dto.category != null) expense.category = dto.category;
@@ -263,6 +274,11 @@ export class ExpensesService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!expense) throw new NotFoundException('Dépense introuvable.');
+      if (expense.inputLotId != null) {
+        throw new BadRequestException(
+          'Dépense liée à une réception d’intrant : elle ne peut pas être supprimée seule (l’écriture est portée par le lot d’intrant).',
+        );
+      }
 
       if (expense.cashMovementId != null) {
         const movement = await em.getRepository(CashMovement).findOne({

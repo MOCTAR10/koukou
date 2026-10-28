@@ -146,7 +146,12 @@ export function inputValueFcfa(input: {
   if (input.unitPriceFcfa != null && input.unitPriceFcfa > 0) {
     // Price per bag when bags are given, otherwise per unit of `quantity`
     // (SAC, KG, PIECE…). Falling back to 1 under-valued multi-unit lots.
-    const count = input.numberOfBags ?? input.quantity ?? 1;
+    // A tonnage-only bag lot stores kg in `quantity`: convert back to bags.
+    const count =
+      input.numberOfBags ??
+      (input.tonnageMt != null && input.tonnageMt > 0
+        ? (input.tonnageMt * 1000) / (input.bagSizeKg ?? 50)
+        : (input.quantity ?? 1));
     return Math.round(input.unitPriceFcfa * count);
   }
   return 0;

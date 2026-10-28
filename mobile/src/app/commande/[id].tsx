@@ -37,7 +37,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { fetchOrder, fetchPointsOfSale } from '@/api';
 import { downloadPdf } from '@/api/pdf';
 import { invalidateFarmQueries } from '@/api/invalidate';
-import { canManageFarm } from '@/api/roles';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { cancelOrderQueued, deliverOrderQueued, recordOrderPaymentQueued } from '@/offline/engine';
 import type { OrderFull, OrderPassport } from '@/api/types';
 import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
@@ -388,10 +388,10 @@ function DepositSheet({ order, onClose }: { order: OrderFull; onClose: () => voi
 }
 
 export default function CommandeDetailScreen() {
-  const { farmId, user } = useAuth();
+  const { farmId } = useAuth();
   const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const canManage = canManageFarm(user.role);
+  const canManage = useFarmProfile().hasPermission('vente:commande');
 
   const orderQuery = useQuery({ queryKey: ['order', farmId, id], queryFn: () => fetchOrder(farmId, id) });
   const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId), enabled: !!orderQuery.data?.pointOfSaleId });

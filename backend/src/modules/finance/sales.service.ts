@@ -59,6 +59,7 @@ import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
 import { CreatePaymentDto } from './dto/payment.dto.js';
 import { CreateSaleDto } from './dto/sale.dto.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
+import { Farm } from '../farms/entities/farm.entity.js';
 
 const SALE_PREFIX = 'VTE';
 const ITEM_LABELS: Record<SaleItemProductType, string> = {
@@ -455,12 +456,18 @@ export class SalesService {
       boutiqueTransfer &&
       unit === SaleItemUnit.PIECE
     ) {
-      const birds = Math.ceil(quantity);
+      if (!Number.isInteger(quantity)) {
+        throw new BadRequestException(
+          'Vente à la pièce : la quantité doit être un nombre entier.',
+        );
+      }
+      const birds = quantity;
       const t = await this.decrementStockTransfer(
         em,
         farmId,
         pendingStockTransferId!,
         birds,
+        { pointOfSaleId: pos!.id, productType: StockTransferProductType.ABATTU },
       );
       sourceSlaughterOrderId = null;
       batchId = t.batchId ?? null;
@@ -526,6 +533,7 @@ export class SalesService {
           farmId,
           pendingStockTransferId!,
           dto.pieceCount,
+          { pointOfSaleId: pos!.id, productType: StockTransferProductType.ABATTU },
         );
         sourceSlaughterOrderId = null;
         batchId = t.batchId ?? null;
@@ -583,6 +591,7 @@ export class SalesService {
           farmId,
           pendingStockTransferId!,
           quantity,
+          { pointOfSaleId: pos!.id, productType: StockTransferProductType.OEUFS },
         );
         batchId = t.batchId ?? batchId;
       } else {
@@ -608,6 +617,11 @@ export class SalesService {
           farmId,
           pendingStockTransferId!,
           quantity,
+          {
+            pointOfSaleId: pos!.id,
+            productType: StockTransferProductType.PROVENDE,
+            unit,
+          },
         );
         inputLotId = null;
         batchId = null;
@@ -935,7 +949,17 @@ export class SalesService {
     farmId: string,
     transferId: string,
     count: number,
+    expected: {
+      pointOfSaleId: string;
+      productType: StockTransferProductType;
+      unit?: string;
+    },
   ): Promise<StockTransfer> {
+    if (!Number.isInteger(count)) {
+      throw new BadRequestException(
+        'Vente sur réserve de transfert : la quantité doit être un nombre entier.',
+      );
+    }
     const transfer = await em
       .getRepository(StockTransfer)
       .createQueryBuilder('t')
@@ -951,6 +975,22 @@ export class SalesService {
     if (transfer.status !== StockTransferStatus.TRANSFERRED) {
       throw new BadRequestException(
         'Ce transfert est annulé : la vente sur sa réserve est impossible.',
+      );
+    }
+    // A boutique may only sell its own reserve, of the matching product/unit.
+    if (transfer.pointOfSaleId !== expected.pointOfSaleId) {
+      throw new BadRequestException(
+        'Ce transfert a été envoyé à une autre boutique.',
+      );
+    }
+    if (transfer.productType !== expected.productType) {
+      throw new BadRequestException(
+        'Le produit vendu ne correspond pas au produit de ce transfert.',
+      );
+    }
+    if (expected.unit != null && transfer.unit != null && transfer.unit !== expected.unit) {
+      throw new BadRequestException(
+        `Unité incohérente : ce transfert est en ${transfer.unit}, vente demandée en ${expected.unit}.`,
       );
     }
     const remaining = transfer.quantity - transfer.quantitySold;
@@ -978,11 +1018,39 @@ export class SalesService {
       .where('t.id = :id', { id: transferId })
       .andWhere('t.farm_id = :farmId', { farmId })
       .getOne();
-    if (!transfer || transfer.status !== StockTransferStatus.TRANSFERRED) {
+    if (!transfer) return;
+    if (transfer.status === StockTransferStatus.TRANSFERRED) {
+      transfer.quantitySold = Math.max(0, transfer.quantitySold - delta);
+      await em.getRepository(StockTransfer).save(transfer);
       return;
     }
-    transfer.quantitySold = Math.max(0, transfer.quantitySold - delta);
-    await em.getRepository(StockTransfer).save(transfer);
+    // Transfer already cancelled: its cancel only returned the unsold part, so
+    // the units of this sale go straight back to the transfer's source.
+    if (
+      transfer.productType === StockTransferProductType.ABATTU &&
+      transfer.slaughterOrderId
+    ) {
+      await this.restoreCarcassPool(em, farmId, transfer.slaughterOrderId, delta);
+    } else if (
+      transfer.productType === StockTransferProductType.PROVENDE &&
+      transfer.inputLotId
+    ) {
+      const lot = await em
+        .getRepository(InputLot)
+        .createQueryBuilder('l')
+        .setLock('pessimistic_write')
+        .where('l.id = :id', { id: transfer.inputLotId })
+        .andWhere('l.farm_id = :farmId', { farmId })
+        .getOne();
+      if (lot) {
+        const farm = await em.getRepository(Farm).findOne({ where: { id: farmId } });
+        const sacKg = farm?.defaultSacKg ?? 50;
+        const kg = transfer.unit === FeedUnit.SAC ? delta * sacKg : delta;
+        lot.quantity += lot.unit === FeedUnit.KG ? kg : kg / sacKg;
+        await em.getRepository(InputLot).save(lot);
+      }
+    }
+    // OEUFS: the reservation is derived, nothing to restore.
   }
 
   /**
@@ -1317,8 +1385,14 @@ export class SalesService {
           item.batchId
         ) {
           // Commande par bon de commande : le cheptel n'a jamais été décrémenté
-          // à la création, aucune réintégration nécessaire.
-          if (!skipStockRestore && !item.sourceSlaughterOrderId) {
+          // à la création, aucune réintégration nécessaire. Une vente boutique
+          // sur réserve de transfert (stockTransferId) n'a pas touché le cheptel
+          // non plus : sa réserve a été réintégrée ci-dessus.
+          if (
+            !skipStockRestore &&
+            !item.sourceSlaughterOrderId &&
+            !item.stockTransferId
+          ) {
             const batch = await batchRepo
               .createQueryBuilder('batch')
               .setLock('pessimistic_write')

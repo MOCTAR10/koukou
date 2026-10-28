@@ -20,14 +20,15 @@ export class CsvService {
     return Buffer.from('\uFEFF' + lines.join('\r\n'), 'utf8');
   }
 
-  toCsvObject(
-    headers: string[],
-    rows: Record<string, unknown>[],
+  /** `columns` maps each row key to its display header (keys ≠ headers). */
+  toCsvObject<T extends Record<string, unknown>>(
+    columns: ReadonlyArray<readonly [keyof T & string, string]>,
+    rows: T[],
     options?: { separator?: string },
   ): Buffer {
     return this.toCsv(
-      headers,
-      rows.map((row) => headers.map((h) => row[h])),
+      columns.map(([, header]) => header),
+      rows.map((row) => columns.map(([key]) => row[key])),
       options,
     );
   }

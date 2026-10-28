@@ -18,6 +18,7 @@ import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
+import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { FeedStockLoss } from '../feed-stock/entities/feed-stock-loss.entity.js';
 import { FeedStockSale } from '../feed-stock/entities/feed-stock-sale.entity.js';
@@ -31,6 +32,17 @@ import { PointOfSale } from './entities/point-of-sale.entity.js';
 
 function round2(v: number): number {
   return Math.round(v * 100) / 100;
+}
+
+/** Converts a transfer quantity (SAC or KG) into the unit the lot is stored in. */
+function toLotUnits(
+  lot: InputLot,
+  quantity: number,
+  unit: string | null,
+  sacKg: number,
+): number {
+  const kg = unit === FeedUnit.SAC ? quantity * sacKg : quantity;
+  return lot.unit === FeedUnit.KG ? kg : kg / sacKg;
 }
 
 @Injectable()
@@ -199,7 +211,7 @@ if (quantityKg > availableKg + 1e-6) {
             `Stock d'aliment insuffisant sur ce lot : disponible ${round2(Math.max(0, availableKg))} kg, transfert demandé ${round2(quantityKg)} kg.`,
           );
         }
-        lot.quantity -= dto.quantity;
+        lot.quantity -= toLotUnits(lot, dto.quantity, dto.unit, sacKg);
         await em.getRepository(InputLot).save(lot);
         inputLotId = lot.id;
         batchId = lot.batchId ?? null;
@@ -289,7 +301,15 @@ if (quantityKg > availableKg + 1e-6) {
               'Lot d’intrant source introuvable (transfert orphelin).',
             );
           }
-          lot.quantity += remaining;
+          const farm = await em
+            .getRepository(Farm)
+            .findOne({ where: { id: farmId } });
+          lot.quantity += toLotUnits(
+            lot,
+            remaining,
+            transfer.unit,
+            farm?.defaultSacKg ?? 50,
+          );
           await em.getRepository(InputLot).save(lot);
         }
         // OEUFS : la réserve est dérivée — l'annulation libère simplement les alvéoles.

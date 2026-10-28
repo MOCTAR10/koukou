@@ -706,6 +706,15 @@ export class AccountingService {
     lines: { account: string; label?: string | null; debitFcfa?: number; creditFcfa?: number }[];
   }) {
     await this.farmsService.assertAccessible(user, farmId);
+    for (const l of dto.lines) {
+      const hasDebit = (l.debitFcfa ?? 0) > 0;
+      const hasCredit = (l.creditFcfa ?? 0) > 0;
+      if (hasDebit === hasCredit) {
+        throw new BadRequestException(
+          `Ligne ${l.account} : indiquer soit un débit, soit un crédit (strictement positif), pas les deux.`,
+        );
+      }
+    }
     const entry = await this.dataSource.transaction(async (em) => {
       await this.ensureAccounts(em, farmId);
       return this.post(em, {

@@ -28,6 +28,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException('Utilisateur introuvable.');
     }
+    // A suspended account loses access immediately, not at token expiry.
+    if (user.active === false) {
+      throw new UnauthorizedException('Compte suspendu.');
+    }
     return { id: user.id, role: user.role };
   }
 }

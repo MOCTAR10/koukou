@@ -28,6 +28,7 @@ import {
   initializeAccounting,
 } from '@/api';
 import { downloadPdf } from '@/api/pdf';
+import { localYmd } from '@/api/mutations';
 import type { AccountSoldes, BalanceData, BilanData, CompteResultatData, ExerciceInfo, JournalData, StockProvende } from '@/api/types';
 import { color, radii, fmtFcfa, fontFamily } from '@/constants/theme';
 
@@ -52,7 +53,7 @@ const REPORT_NAME: Record<Tab, string> = {
 };
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localYmd(new Date());
 }
 
 function Row({ label, value, muted, wide }: { label: string; value: string; muted?: boolean; wide?: boolean }) {

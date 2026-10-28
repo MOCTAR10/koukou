@@ -16,14 +16,18 @@ interface DailyEntry {
   feedBags: number;
   feedQuantity: number;
   feedUnit: string;
-  waterLiters: number | null;
+  waterL: number | null;
   avgWeightKg: number | null;
   eggsCollected: number;
   eggsCracked: number;
   eggsSmall: number;
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+/** Local calendar date (toISOString would give yesterday before 01:00 in Gabon, UTC+1). */
+const todayIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 export function BatchesPage() {
   const { farmId } = useFarm();
@@ -274,7 +278,10 @@ export function BatchesPage() {
                     <ActionBtn
                       color="emerald"
                       onClick={() => {
-                        void api.post(`/farms/${farmId}/batches/${selected.id}/vente`).then(invalidate);
+                        void api
+                          .post(`/farms/${farmId}/batches/${selected.id}/vente`)
+                          .then(invalidate)
+                          .catch((err: Error) => alert(err.message));
                       }}
                     >
                       <TrendingUp className="h-4 w-4" /> Passer en vente
@@ -285,7 +292,10 @@ export function BatchesPage() {
                       color="slate"
                       onClick={() => {
                         if (confirm('Clôturer ce lot ? Cette action est irréversible.')) {
-                          void api.post(`/farms/${farmId}/batches/${selected.id}/cloture`).then(invalidate);
+                          void api
+                            .post(`/farms/${farmId}/batches/${selected.id}/cloture`)
+                            .then(invalidate)
+                            .catch((err: Error) => alert(err.message));
                         }
                       }}
                     >
@@ -301,19 +311,29 @@ export function BatchesPage() {
                   className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    addEntry.mutate({
-                      entryDate: String(f.get('entryDate')),
-                      deaths: Number(f.get('deaths') ?? 0) || 0,
-                      feedQuantity: Number(f.get('feedQuantity') ?? 0) || 0,
-                      feedUnit: 'KG',
-                      waterLiters: Number(f.get('waterLiters') ?? 0) || 0,
-                      avgWeightKg: f.get('avgWeightKg') ? Number(f.get('avgWeightKg')) : undefined,
-                      eggsCollected: Number(f.get('eggsCollected') ?? 0) || 0,
-                      eggsCracked: Number(f.get('eggsCracked') ?? 0) || 0,
-                      eggsSmall: Number(f.get('eggsSmall') ?? 0) || 0,
-                    });
-                    e.currentTarget.reset();
+                    const form = e.currentTarget;
+                    const f = new FormData(form);
+                    // Blank field = not sent: the backend upsert keeps the value
+                    // already saved for that date (e.g. from mobile) instead of 0.
+                    const n = (k: string) => {
+                      const v = String(f.get(k) ?? '').trim();
+                      return v === '' ? undefined : Number(v);
+                    };
+                    const feedQuantity = n('feedQuantity');
+                    addEntry.mutate(
+                      {
+                        entryDate: String(f.get('entryDate')),
+                        deaths: n('deaths'),
+                        feedQuantity,
+                        feedUnit: feedQuantity !== undefined ? 'KG' : undefined,
+                        waterL: n('waterL'),
+                        avgWeightKg: n('avgWeightKg'),
+                        eggsCollected: n('eggsCollected'),
+                        eggsCracked: n('eggsCracked'),
+                        eggsSmall: n('eggsSmall'),
+                      },
+                      { onSuccess: () => form.reset() },
+                    );
                   }}
                 >
                   <label className="block text-xs">
@@ -322,7 +342,7 @@ export function BatchesPage() {
                   </label>
                   <Field name="deaths" type="number" label="Morts" />
                   <Field name="feedQuantity" type="number" label="Aliment (kg)" />
-                  <Field name="waterLiters" type="number" label="Eau (L)" />
+                  <Field name="waterL" type="number" step="0.1" label="Eau (L)" />
                   <Field name="avgWeightKg" type="number" step="0.01" label="Poids moyen (kg)" />
                   <Field name="eggsCollected" type="number" label="Œufs collectés" />
                   <Field name="eggsCracked" type="number" label="Œufs fêlés" />
@@ -384,7 +404,7 @@ export function BatchesPage() {
                             <Td>
                               {num(e.feedQuantity)} kg
                             </Td>
-                            <Td>{e.waterLiters != null ? num(e.waterLiters) : '—'}</Td>
+                            <Td>{e.waterL != null ? num(e.waterL) : '—'}</Td>
                             <Td>{e.avgWeightKg != null ? e.avgWeightKg.toFixed(2) : '—'}</Td>
                             <Td>
                               {e.eggsCollected > 0

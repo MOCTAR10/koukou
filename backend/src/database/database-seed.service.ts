@@ -2244,7 +2244,32 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     await this.seedGabonPrograms();
     await this.seedPaymentMethods();
     await this.seedCultures();
+    await this.repairBagLotUnits();
     this.logger.log('Semence des données de référence terminée.');
+  }
+
+  /**
+   * One-off repair, idempotent: BAG lots used to store a kg quantity with
+   * unit SAC, so stock was counted ×bagSize. Only rows whose quantity exactly
+   * equals bags × bagSize or tonnage × 1000 are touched.
+   */
+  private async repairBagLotUnits(): Promise<void> {
+    const rows: Array<{ n: number }> = await this.usersRepo.manager.query(`
+      WITH fixed AS (
+        UPDATE input_lots SET unit = 'KG'
+        WHERE entry_type = 'BAG' AND unit = 'SAC' AND (
+          (number_of_bags > 0
+            AND ABS(quantity - number_of_bags * COALESCE(bag_size_kg, 50)) < 0.001)
+          OR (tonnage_mt > 0 AND ABS(quantity - tonnage_mt * 1000) < 0.001)
+        )
+        RETURNING id
+      )
+      SELECT COUNT(*)::int AS n FROM fixed
+    `);
+    const n = rows[0]?.n ?? 0;
+    if (n > 0) {
+      this.logger.warn(`Lots d'intrants réparés (unité SAC → KG) : ${n}`);
+    }
   }
 
   /** Compte administrateur plateforme (env uniquement, aucun défaut en clair). */

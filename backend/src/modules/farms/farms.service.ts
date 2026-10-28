@@ -366,6 +366,42 @@ export class FarmsService {
     return saved;
   }
 
+  /**
+   * Anti-escalation for team management by a non-owner ADMIN: cannot edit
+   * their own link, cannot grant a permission they do not hold, and HR fields
+   * need `rh:gerer`. Owner / platform admin ('ALL') are unrestricted.
+   */
+  private async assertCanDelegate(
+    auth: AuthUser,
+    farmId: string,
+    granted: readonly string[],
+    opts: { targetUserId?: string; touchesHr?: boolean },
+  ): Promise<void> {
+    const eff = await this.resolveEffectivePermissions(auth, farmId);
+    if (eff === 'ALL') return;
+    if (eff == null) {
+      throw new ForbiddenException('Accès refusé à cette ferme.');
+    }
+    if (opts.targetUserId === auth.id) {
+      throw new ForbiddenException(
+        'Vous ne pouvez pas modifier votre propre rôle ou vos propres droits.',
+      );
+    }
+    const missing = granted.filter(
+      (c) => !eff.permissions.has(c as PermissionCode),
+    );
+    if (missing.length > 0) {
+      throw new ForbiddenException(
+        `Vous ne pouvez pas accorder des droits que vous n’avez pas : ${missing.join(', ')}.`,
+      );
+    }
+    if (opts.touchesHr && !eff.permissions.has('rh:gerer')) {
+      throw new ForbiddenException(
+        'Le dossier RH (contrat, salaire…) requiert la permission « rh:gerer ».',
+      );
+    }
+  }
+
   async createEmployee(owner: AuthUser, farmId: string, dto: CreateElevageDto) {
     await this.assertAccessible(owner, farmId);
     const existing = await this.userRepo.findOne({
@@ -398,6 +434,18 @@ export class FarmsService {
       }
       permissions = dto.permissions as PermissionCode[];
     }
+    await this.assertCanDelegate(
+      owner,
+      farmId,
+      permissions ?? profile?.permissions ?? defaultPermissionsFor(role),
+      {
+        touchesHr:
+          dto.contractType != null ||
+          dto.salaryFcfa != null ||
+          dto.hireDate != null ||
+          dto.endDate != null,
+      },
+    );
     const employee = await this.userRepo.save(
       this.userRepo.create({
         phone: dto.phone,
@@ -484,6 +532,18 @@ export class FarmsService {
     if (!link) {
       throw new NotFoundException('Membre introuvable dans cette ferme.');
     }
+    const touchesHr =
+      dto.department !== undefined ||
+      dto.contractType !== undefined ||
+      dto.hireDate !== undefined ||
+      dto.endDate !== undefined ||
+      dto.salaryFcfa !== undefined ||
+      dto.notes !== undefined;
+    // Self-edit and HR checks up front; granted permissions re-checked below.
+    await this.assertCanDelegate(auth, farmId, [], {
+      targetUserId: link.userId,
+      touchesHr,
+    });
 
     if (dto.jobTitle !== undefined) link.jobTitle = dto.jobTitle;
     if (dto.buildingAssignment !== undefined) {
@@ -541,6 +601,15 @@ export class FarmsService {
         );
       }
       link.permissions = dto.permissions;
+    }
+    // Whatever path set them (profile, role switch, explicit list), the caller
+    // must hold every permission the member ends up with.
+    if (
+      profile ||
+      dto.role !== undefined ||
+      dto.permissions !== undefined
+    ) {
+      await this.assertCanDelegate(auth, farmId, link.permissions ?? [], {});
     }
 
     // Normalise les anciens rattachements sans rôle (colonne ajoutée plus tard).

@@ -390,7 +390,7 @@ export function PlatformPage() {
                 <tr>
                   <Th>Clé</Th>
                   <Th>Valeur</Th>
-                  <Th>Unité</Th>
+                  <Th>Description</Th>
                   <Th></Th>
                 </tr>
               </thead>
@@ -399,28 +399,40 @@ export function PlatformPage() {
                   <tr key={c.key} className="border-t border-slate-100">
                     <Td className="font-mono text-xs">{c.key}</Td>
                     <Td><b>{num(c.value)}</b></Td>
-                    <Td className="text-slate-400">{c.unit ?? '—'}</Td>
+                    <Td className="text-xs text-slate-400">{c.description ?? '—'}</Td>
                     <Td>
-                      <form
-                        className="flex items-center gap-2"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          const f = new FormData(e.currentTarget);
-                          const v = Number(f.get('v'));
-                          if (v > 0) patchConstant.mutate({ key: c.key, value: v });
-                        }}
-                      >
-                        <input
-                          type="number"
-                          name="v"
-                          min={1}
-                          defaultValue={c.value}
-                          className="w-28 rounded-lg border border-slate-300 px-2 py-1 text-xs"
-                        />
-                        <button className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700">
-                          <KeyRound className="h-3.5 w-3.5" />
-                        </button>
-                      </form>
+                      {c.isEditable ? (
+                        <form
+                          className="flex items-center gap-2"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            const f = new FormData(e.currentTarget);
+                            const v = Number(f.get('v'));
+                            if (v > 0) patchConstant.mutate({ key: c.key, value: v });
+                          }}
+                        >
+                          {/* step="any": thresholds such as 0.2 L/oiseau/j are fractional. */}
+                          <input
+                            type="number"
+                            name="v"
+                            min={0}
+                            step="any"
+                            defaultValue={c.value}
+                            className="w-28 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                          />
+                          <button
+                            disabled={patchConstant.isPending}
+                            className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" />
+                          </button>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-slate-400">Non modifiable</span>
+                      )}
+                      {patchConstant.isError && patchConstant.variables?.key === c.key ? (
+                        <p className="mt-1 text-xs text-red-600">{(patchConstant.error as Error).message}</p>
+                      ) : null}
                     </Td>
                   </tr>
                 ))}

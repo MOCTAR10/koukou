@@ -49,7 +49,7 @@ import { MetricTile } from '@/components/ui/MetricTile';
 import { PeriodBar, periodWindow, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { LineChart } from '@/components/ui/LineChart';
 import { useAuth } from '@/auth/AuthContext';
-import { canManageFarm } from '@/api/roles';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import {
   fetchBatches,
@@ -626,9 +626,10 @@ function FadeIn({ children }: { children: React.ReactNode }) {
 
 export default function SanitaryScreen() {
   const router = useRouter();
-  const { farmId, user } = useAuth();
+  const { farmId } = useAuth();
   const queryClient = useQueryClient();
-  const isProprietaire = canManageFarm(user?.role);
+  // Delete actions are gated server-side by `sanitaire:gerer`, not the global role.
+  const isProprietaire = useFarmProfile().hasPermission('sanitaire:gerer');
 
   const [window, setWindow] = useState<PeriodWindow>(() => periodWindow('all'));
   const firstWindowRef = useRef(true);

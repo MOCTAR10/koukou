@@ -18,13 +18,17 @@ export function useFarmProfile() {
   });
 
   const profile = query.data as FarmMemberProfile | undefined;
+  // First fetch in flight: grant nothing yet (buttons used to flash, then 403).
+  // If the fetch failed (offline start) stay permissive: the server enforces.
+  const pending = !profile && query.isLoading;
 
-  const isOwner = profile?.role === 'PROPRIETAIRE' || profile === undefined;
+  const isOwner = profile?.role === 'PROPRIETAIRE' || (profile === undefined && !pending);
   const farmRole = profile?.role ?? 'PROPRIETAIRE';
   const hasAll = profile?.permissions.includes('*') === true;
   const active = profile?.active !== false;
 
   function hasPermission(code: PermissionCode): boolean {
+    if (pending) return false;
     if (!profile) return true;
     if (hasAll) return true;
     return profile.permissions.includes(code);
