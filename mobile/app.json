@@ -45,7 +45,8 @@
           "backgroundColor": "#FFFFFF",
           "barStyle": "dark"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
