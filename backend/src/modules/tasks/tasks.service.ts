@@ -2,12 +2,19 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Not, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
-import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
+import {
+  AlertKind,
+  AlertLevel,
+  AlertStatus,
+} from '../../common/enums/alert-level.enum.js';
 import { TaskStatus } from '../../common/enums/task-status.enum.js';
 import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
 import { AlertsService } from '../alerts/alerts.service.js';
@@ -18,8 +25,19 @@ import { FarmTask } from './entities/farm-task.entity.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
 
+const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Due dates are compared in UTC, like every other date in the backend. */
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 @Injectable()
-export class TasksService {
+export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly logger = new Logger(TasksService.name);
+  private sweepTimer: NodeJS.Timeout | null = null;
+  private sweeping = false;
+
   constructor(
     @InjectRepository(FarmTask)
     private readonly taskRepo: Repository<FarmTask>,
@@ -65,6 +83,8 @@ export class TasksService {
       farmId,
       ...(onlyMine ? { assigneeId: user.id } : {}),
     };
+    // Opening the list reflects tasks that went overdue since the last sweep.
+    await this.refreshOverdueAlerts(farmId);
     return this.taskRepo.find({
       where,
       order: { dueDate: 'ASC', createdAt: 'DESC' },
@@ -217,28 +237,93 @@ export class TasksService {
     }
   }
 
+  /**
+   * Overdue sweep: a task passes its due date without any mutation, so the
+   * TACHE alert can't rely on create/update/delete only. Runs at boot, then
+   * hourly, over every farm with an overdue open task or an open TACHE
+   * alert (to resolve it once nothing is late anymore).
+   */
+  async sweepOverdue(): Promise<number> {
+    if (this.sweeping) return 0;
+    this.sweeping = true;
+    try {
+      const today = todayUtc();
+      const rows: Array<{ farm_id: string }> = await this.taskRepo.query(
+        `SELECT DISTINCT farm_id FROM farm_tasks
+          WHERE due_date < $1 AND status NOT IN ($2, $3)
+         UNION
+         SELECT DISTINCT farm_id FROM alerts
+          WHERE kind = $4 AND status IN ($5, $6)
+            AND batch_id IS NULL AND building_id IS NULL`,
+        [
+          today,
+          TaskStatus.FAIT,
+          TaskStatus.ANNULEE,
+          AlertKind.TACHE,
+          AlertStatus.ACTIVE,
+          AlertStatus.ACQUITTEE,
+        ],
+      );
+      for (const { farm_id } of rows) {
+        try {
+          await this.refreshOverdueAlerts(farm_id);
+        } catch (err) {
+          this.logger.error(`Tâches en retard (ferme ${farm_id})`, err);
+        }
+      }
+      return rows.length;
+    } finally {
+      this.sweeping = false;
+    }
+  }
+
+  onApplicationBootstrap() {
+    if (process.env.TASK_SWEEP_DISABLED === 'true') return;
+    const run = () =>
+      void this.sweepOverdue().catch((err) =>
+        this.logger.error('Balayage des tâches en retard', err),
+      );
+    run();
+    this.sweepTimer = setInterval(run, SWEEP_INTERVAL_MS);
+    // Never keep the process alive just for the sweep.
+    this.sweepTimer.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.sweepTimer) clearInterval(this.sweepTimer);
+  }
+
   private async refreshOverdueAlerts(farmId: string): Promise<void> {
-    const today = new Date().toISOString().slice(0, 10);
-    const overdue = await this.taskRepo.count({
+    const overdue = await this.taskRepo.find({
       where: {
         farmId,
-        dueDate: LessThan(today),
+        dueDate: LessThan(todayUtc()),
         status: Not(In([TaskStatus.FAIT, TaskStatus.ANNULEE])),
       },
+      order: { dueDate: 'ASC', createdAt: 'ASC' },
     });
-    if (overdue > 0) {
-      await this.alertsService.raise(
-        {
-          kind: AlertKind.TACHE,
-          level: AlertLevel.ROUGE,
-          message: `${overdue} tâche(s) de l’équipe sont en retard sur l’échéance prévue.`,
-          recommendation:
-            'Consulter la liste des tâches, réassigner ou reporter l’échéance, puis notifier l’éleveur concerné.',
-        },
-        { farmId, batchId: null },
-      );
-    } else {
+    if (overdue.length === 0) {
       await this.alertsService.clearKind(farmId, null, AlertKind.TACHE);
+      return;
     }
+    const listed = overdue
+      .slice(0, 3)
+      .map((t) => `« ${t.title} » (échéance ${t.dueDate})`)
+      .join(', ');
+    const more = overdue.length > 3 ? ` et ${overdue.length - 3} autre(s)` : '';
+    await this.alertsService.raise(
+      {
+        kind: AlertKind.TACHE,
+        level: AlertLevel.ROUGE,
+        message: `${overdue.length} tâche(s) de l’équipe en retard : ${listed}${more}.`,
+        recommendation:
+          'Consulter la liste des tâches, réassigner ou reporter l’échéance, puis notifier l’éleveur concerné.',
+        // Single key: jsonb reorders object keys, the sorted id list stays
+        // comparable for keepAcknowledgedIfUnchanged.
+        context: { taskIds: overdue.map((t) => t.id).sort() },
+      },
+      { farmId, batchId: null },
+      { keepAcknowledgedIfUnchanged: true },
+    );
   }
 }

@@ -38,7 +38,18 @@ export class AlertsService {
    * ne garder qu'une alerte active par risque, tout en préservant l'historique
    * des alertes résolues.
    */
-  async raise(candidate: AlertCandidate, ctx: AlertsContext): Promise<Alert> {
+  async raise(
+    candidate: AlertCandidate,
+    ctx: AlertsContext,
+    opts: {
+      /**
+       * Periodic re-evaluations: leave an ACQUITTEE alert alone while its
+       * context is unchanged, so the farmer's acknowledgement isn't undone
+       * on every pass. A changed context (new risk) reactivates it.
+       */
+      keepAcknowledgedIfUnchanged?: boolean;
+    } = {},
+  ): Promise<Alert> {
     const where: FindOptionsWhere<Alert> = {
       farmId: ctx.farmId,
       kind: candidate.kind,
@@ -57,6 +68,15 @@ export class AlertsService {
       where.buildingId = IsNull();
     }
     const existing = await this.alertRepo.findOne({ where });
+    if (
+      existing &&
+      opts.keepAcknowledgedIfUnchanged &&
+      existing.status === AlertStatus.ACQUITTEE &&
+      JSON.stringify(existing.context ?? null) ===
+        JSON.stringify(candidate.context ?? null)
+    ) {
+      return existing;
+    }
     if (existing) {
       existing.status = AlertStatus.ACTIVE;
       existing.resolvedAt = null;

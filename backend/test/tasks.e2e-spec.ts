@@ -2,7 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { TasksService } from './../src/modules/tasks/tasks.service.js';
 
 function today(offsetDays = 0): string {
   const d = new Date();
@@ -235,5 +237,75 @@ describe('Tâches & équipe — module Tâches (e2e)', () => {
       .get(`/farms/${farmId}/tasks`)
       .set('Authorization', `Bearer ${otherToken}`)
       .expect(403);
+  });
+
+  // ---- Balayage périodique des tâches en retard ----
+
+  async function openTacheAlert() {
+    const res = await request(server)
+      .get(`/farms/${farmId}/alerts`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    return (res.body as any[]).find(
+      (a) =>
+        a.kind === 'TACHE' &&
+        (a.status === 'ACTIVE' || a.status === 'ACQUITTEE'),
+    );
+  }
+
+  /** Simulates time passing: the due date moves without any API mutation. */
+  async function setDueDate(taskId: string, dueDate: string) {
+    await app
+      .get(DataSource)
+      .query('UPDATE farm_tasks SET due_date = $1 WHERE id = $2', [
+        dueDate,
+        taskId,
+      ]);
+  }
+
+  let sweptTaskId: string;
+
+  it('échéance dépassée sans aucune modification → le balayage lève l’alerte', async () => {
+    const res = await request(server)
+      .post(`/farms/${farmId}/tasks`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ title: 'Vidanger les abreuvoirs', dueDate: today() })
+      .expect(201);
+    sweptTaskId = res.body.id;
+    expect(await openTacheAlert()).toBeUndefined();
+
+    await setDueDate(sweptTaskId, today(-1));
+    // Nothing raised it yet: no mutation happened after the date passed.
+    expect(await openTacheAlert()).toBeUndefined();
+
+    await app.get(TasksService).sweepOverdue();
+    const alert = await openTacheAlert();
+    expect(alert?.status).toBe('ACTIVE');
+    expect(alert?.message).toContain('Vidanger les abreuvoirs');
+  });
+
+  it('alerte acquittée : laissée telle quelle tant que rien ne change, réactivée sur un nouveau retard', async () => {
+    const alert = await openTacheAlert();
+    await request(server)
+      .post(`/farms/${farmId}/alerts/${alert.id}/acknowledge`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(201);
+
+    await app.get(TasksService).sweepOverdue();
+    expect((await openTacheAlert())?.status).toBe('ACQUITTEE');
+
+    await setDueDate(unassignedTaskId, today(-3));
+    await app.get(TasksService).sweepOverdue();
+    const reraised = await openTacheAlert();
+    expect(reraised?.status).toBe('ACTIVE');
+    expect(reraised?.message).toMatch(/^2 tâche\(s\)/);
+    expect(reraised?.message).toContain('Nettoyer le bâtiment 2');
+  });
+
+  it('plus aucune tâche en retard → le balayage résout l’alerte', async () => {
+    await setDueDate(sweptTaskId, today(3));
+    await setDueDate(unassignedTaskId, today(3));
+    await app.get(TasksService).sweepOverdue();
+    expect(await openTacheAlert()).toBeUndefined();
   });
 });
