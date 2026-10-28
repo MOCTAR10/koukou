@@ -97,7 +97,7 @@ export class FarmsController {
   @Permissions('reglages:ferme')
   @ApiOperation({
     summary:
-      'Retirer le logo personnalisé de la ferme — retour au logo KouKou par défaut.',
+      'Retirer le logo personnalisé de la ferme — retour au logo Fermia par défaut.',
   })
   async removeLogo(
     @CurrentUser() user: AuthUser,
@@ -111,7 +111,7 @@ export class FarmsController {
   @Permissions('equipe:gerer')
   @ApiOperation({
     summary:
-      'Créer un compte membre (Administrateur KouKou ou Éleveur Koukou) et le lier à la ferme',
+      'Créer un compte membre (Administrateur Fermia ou Éleveur Fermia) et le lier à la ferme',
   })
   createEleveur(
     @CurrentUser() owner: AuthUser,

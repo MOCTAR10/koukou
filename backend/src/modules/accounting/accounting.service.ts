@@ -726,6 +726,7 @@ export class AccountingService {
     return this.entryRepo.findOne({
       where: { id: entry?.id },
       relations: { lines: true },
+      order: { lines: { debitFcfa: 'DESC', accountCode: 'ASC' } },
     });
   }
 
@@ -749,7 +750,11 @@ export class AccountingService {
       .leftJoinAndSelect('entry.lines', 'line')
       .where('entry.farm_id = :farmId', { farmId })
       .orderBy('entry.entry_date', 'ASC')
-      .addOrderBy('entry.created_at', 'ASC');
+      .addOrderBy('entry.created_at', 'ASC')
+      // Lines have no natural order in SQL: show debits first, then credits,
+      // each by account code (accounting convention, stable for clients).
+      .addOrderBy('line.debitFcfa', 'DESC')
+      .addOrderBy('line.accountCode', 'ASC');
     if (from) qb.andWhere('entry.entry_date >= :from', { from });
     if (to) qb.andWhere('entry.entry_date <= :to', { to });
     const entries = await qb.getMany();

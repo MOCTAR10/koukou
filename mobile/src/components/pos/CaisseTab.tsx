@@ -13,7 +13,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { fetchCaisseSessions } from '@/api';
 import { closeCaisse, createCashMovement, deleteCashMovement, openCaisse, updateCashMovement } from '@/api/mutations';
 import type { CashMovement, CashMovementType, CashSession, CaisseSummary } from '@/api/types';
-import { color, fmtFcfa, palette, radii, spacing } from '@/constants/theme';
+import { color, fmtFcfa, palette, radii, spacing, fontFamily } from '@/constants/theme';
 
 export const SOURCE_LABEL: Record<string, string> = {
   SALE_PAYMENT: 'Vente',
@@ -582,6 +582,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
     borderColor: palette.border,

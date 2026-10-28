@@ -61,24 +61,9 @@ const RING_R = RING_SIZE / 2 - 2.5;
 const RING_W = 4;
 const WHITE_R = FAB_R + 1.5;
 const WHITE_W = 2;
-const RIM_COLORS = [palette.brand[600], palette.green[600], palette.accent[500]];
-
-// Trois arcs de 120° (haut → bas-droite → bas-gauche → haut) formant un anneau continu.
-const RIM_PATHS = (() => {
-  const cx = RING_SIZE / 2;
-  const cy = RING_SIZE / 2;
-  const r = RING_R;
-  const k = Math.sqrt(3) / 2;
-  const top = `${cx},${cy - r}`;
-  const br = `${cx + k * r},${cy + r / 2}`;
-  const bl = `${cx - k * r},${cy + r / 2}`;
-  const a = `A ${r},${r} 0 0 1`;
-  return [
-    `M ${top} ${a} ${br}`,
-    `M ${br} ${a} ${bl}`,
-    `M ${bl} ${a} ${top}`,
-  ];
-})();
+// One tonal rim per domain: the FAB reads as a single object, not a
+// three-colour badge.
+const RIM = { aviculture: palette.brand[200], agriculture: palette.green[200] } as const;
 
 const SLOT_MAP = [0, 1, 3, 4];
 
@@ -259,7 +244,7 @@ function NavTab({
   if (!meta) return null;
 
   const Icon = meta.icon;
-  const iconColor = focused ? palette.brand[600] : palette.ink[300];
+  const iconColor = focused ? palette.brand[600] : palette.ink[400];
   const badgeBg = badgeTone === 'amber' ? palette.amber[500] : palette.red[500];
 
   return (
@@ -293,7 +278,7 @@ function NavTab({
 
 function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void }) {
   const isAgri = mode === 'agriculture';
-  const fabBg = isAgri ? palette.green[600] : color.brand[600];
+  const fabBg = isAgri ? palette.green[700] : color.brand[600];
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const ringOpacity = useSharedValue(0);
@@ -347,16 +332,14 @@ function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void })
               stroke={palette.surface}
               strokeWidth={WHITE_W}
             />
-            {RIM_COLORS.map((c, i) => (
-              <Path
-                key={i}
-                d={RIM_PATHS[i]}
-                fill="none"
-                stroke={c}
-                strokeWidth={RING_W}
-                strokeLinecap="round"
-              />
-            ))}
+            <Circle
+              cx={RING_SIZE / 2}
+              cy={RING_SIZE / 2}
+              r={RING_R}
+              fill="none"
+              stroke={RIM[mode]}
+              strokeWidth={RING_W}
+            />
           </Svg>
           <Animated.View style={[styles.fab, { backgroundColor: fabBg }, fabStyle]}>
             <Plus size={28} color={color.surface} strokeWidth={2.6} />

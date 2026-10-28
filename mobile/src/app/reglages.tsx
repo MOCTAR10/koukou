@@ -159,7 +159,7 @@ export default function ReglagesScreen() {
           </View>
           <View style={styles.heroIdentity}>
             <AppText size="h2" weight="bold" style={{ color: palette.surface }} numberOfLines={2}>
-              {user.fullName || 'Compte Koukou'}
+              {user.fullName || 'Compte Fermia'}
             </AppText>
             <AppText size="caption" style={{ color: palette.brand[200] }} numberOfLines={1}>
               {farmRoleLabel(profile?.role, farm?.name)}
@@ -223,7 +223,7 @@ export default function ReglagesScreen() {
                   <View style={styles.noteRow}>
                     <Lock size={14} color={color.brand[600]} />
                     <AppText size="caption" color="brand" style={{ flex: 1 }}>
-                      Droits fixes de terrain, définis par KouKou. Seuls les droits accordés ci-dessous s’appliquent.
+                      Droits fixes de terrain, définis par Fermia. Seuls les droits accordés ci-dessous s’appliquent.
                     </AppText>
                   </View>
                 </Card>

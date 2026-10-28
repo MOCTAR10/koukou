@@ -13,7 +13,7 @@ import { FarmsService } from '../../modules/farms/farms.service.js';
 /**
  * Garde de permissions (ferme-scope) : applique les @Permissions(...).
  * Le Propriétaire de la ferme et l'administrateur plateforme passent toujours ;
- * un membre (Administrateur KouKou / Éleveur Koukou) doit détenir une des
+ * un membre (Administrateur Fermia / Éleveur Fermia) doit détenir une des
  * permissions requises à travers son rattachement (FarmEmployee) actif.
  */
 @Injectable()

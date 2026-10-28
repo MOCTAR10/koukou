@@ -50,7 +50,8 @@ export class HealthController {
   }
 
   @Post('health-events')
-  @Permissions('sanitaire:gerer')
+  // Field staff report what they see; editing and deleting stay with managers.
+  @Permissions('sanitaire:gerer', 'sanitaire:signaler')
   @ApiOperation({
     summary:
       "Enregistrer un événement sanitaire (maladie, mortalité, réforme/culling, symptôme, visite vétérinaire) ; une réforme décrémente l'effectif vivant",

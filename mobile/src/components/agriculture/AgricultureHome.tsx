@@ -199,7 +199,7 @@ export function AgricultureHome() {
         <BrandLoader />
       ) : parcelles.length === 0 ? (
         <EmptyState
-          emoji="🌱"
+          icon={Sprout}
           title="Bienvenue dans Agriculture"
           description="Enregistrez vos parcelles et leurs cultures pour suivre votre exploitation."
           actionLabel={canManage ? 'Nouvelle parcelle' : undefined}

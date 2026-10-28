@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet, type StyleProp, type TextProps, type TextStyle } from 'react-native';
 
-import { resolveWeight, typography, tone, type ColorToken, type TextSize, type TextWeight } from '@/constants/theme';
+import { fontFor, typography, tone, type ColorToken, type TextSize, type TextWeight } from '@/constants/theme';
 
 interface AppTextProps extends TextProps {
   size?: TextSize;
@@ -9,6 +9,15 @@ interface AppTextProps extends TextProps {
   color?: string;
   align?: TextStyle['textAlign'];
   style?: StyleProp<TextStyle>;
+}
+
+// Tabular figures everywhere: amounts and counters keep a stable width when
+// they change, which matters on a data-heavy farm dashboard.
+const NUMERIC: TextStyle = { fontVariant: ['tabular-nums'] };
+
+function baseStyle(size: TextSize, weight: TextWeight): TextStyle {
+  const t = typography[size];
+  return { fontSize: t.fontSize, lineHeight: t.lineHeight, letterSpacing: t.letterSpacing, ...fontFor(weight), ...NUMERIC };
 }
 
 export function AppText({
@@ -19,13 +28,12 @@ export function AppText({
   style,
   ...rest
 }: AppTextProps) {
-  const resolved = tint.startsWith('#') ? tint : tone(tint as ColorToken);
+  const resolved = tint.startsWith('#') || tint.startsWith('rgb') ? tint : tone(tint as ColorToken);
   return (
     <Text
       {...rest}
       style={[
-        { fontSize: typography[size].fontSize, lineHeight: typography[size].lineHeight },
-        { fontWeight: resolveWeight(weight) },
+        baseStyle(size, weight),
         { color: resolved },
         align ? { textAlign: align } : null,
         style,
@@ -35,10 +43,9 @@ export function AppText({
 }
 
 export function appTextStyles(size: TextSize, weight: TextWeight, tint: string, align?: TextStyle['textAlign']) {
-  const resolved = tint.startsWith('#') ? tint : tone(tint as ColorToken);
+  const resolved = tint.startsWith('#') || tint.startsWith('rgb') ? tint : tone(tint as ColorToken);
   return StyleSheet.flatten([
-    { fontSize: typography[size].fontSize, lineHeight: typography[size].lineHeight },
-    { fontWeight: resolveWeight(weight) },
+    baseStyle(size, weight),
     { color: resolved },
     align ? { textAlign: align } : null,
   ]);

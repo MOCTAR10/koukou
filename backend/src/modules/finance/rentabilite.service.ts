@@ -12,6 +12,7 @@ import {
   SaleItemUnit,
 } from '../../common/enums/sale-item-type.enum.js';
 import { InputKind } from '../../common/enums/input-kind.enum.js';
+import { ExpenseCategory } from '../../common/enums/expense-category.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
@@ -356,7 +357,28 @@ export class RentabiliteService {
       );
       feedLotsCostFcfa = total > 0 ? total : null;
     }
-    const inputsCostFcfa = (chickCostFcfa ?? 0) + (feedLotsCostFcfa ?? 0);
+    // Since lots and input receptions create their own expenses, those costs
+    // are already inside `expensesFcfa`: only add input costs that have no
+    // matching expense (batches/lots recorded before auto-expenses existed).
+    // `enrichment` keeps reporting the gross values for display.
+    const chickExpensed = expenses.some(
+      (e) => e.category === ExpenseCategory.ACHAT_POUSSINS,
+    );
+    const expensedLotIds = new Set(
+      expenses.map((e) => e.inputLotId).filter((id): id is string => !!id),
+    );
+    const legacyLotExpensed = (lot: InputLot) =>
+      expenses.some(
+        (e) =>
+          e.inputLotId == null &&
+          (e.notes ?? '').startsWith('[Auto] Intrant') &&
+          (e.notes ?? '').endsWith(`lot ${lot.supplierLotNumber}`),
+      );
+    const unexpensedFeedFcfa = feedLots
+      .filter((l) => !expensedLotIds.has(l.id) && !legacyLotExpensed(l))
+      .reduce((s, l) => s + l.quantity * (l.unitPriceFcfa ?? 0), 0);
+    const inputsCostFcfa =
+      (chickExpensed ? 0 : (chickCostFcfa ?? 0)) + unexpensedFeedFcfa;
     const totalCostFcfa = expensesFcfa + inputsCostFcfa;
 
     const netFcfa = revenueFcfa - totalCostFcfa;

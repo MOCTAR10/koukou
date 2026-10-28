@@ -64,7 +64,7 @@ export function ParcelleMap({ farm, parcelles, height = 320, selectedId, onSelec
           Carte disponible sur mobile
         </AppText>
         <AppText size="small" color="muted" align="center">
-          Ouvrez KouKou sur votre téléphone pour visualiser vos parcelles sur fond OpenStreetMap.
+          Ouvrez Fermia sur votre téléphone pour visualiser vos parcelles sur fond OpenStreetMap.
         </AppText>
       </View>
     );

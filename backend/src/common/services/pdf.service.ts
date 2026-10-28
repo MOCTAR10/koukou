@@ -203,7 +203,7 @@ export class PdfService {
           margin: [0, 14, 0, 0],
         },
         {
-          text: "Vérifiez l'authenticité de ce reçu en scannant le code QR.\nKouKou Ferme — reçu généré par l'appareil.",
+          text: "Vérifiez l'authenticité de ce reçu en scannant le code QR.\nFermia — reçu généré par l'appareil.",
           style: 'footer',
         },
       ],
@@ -437,7 +437,7 @@ export class PdfService {
           margin: [0, 6, 0, 0],
         },
         {
-          text: `Document généré le ${data.createdAtLabel}.\nKouKou Ferme — abattage & traçabilité.`,
+          text: `Document généré le ${data.createdAtLabel}.\nFermia — abattage & traçabilité.`,
           style: 'footer',
         },
       ],
@@ -556,7 +556,7 @@ export class PdfService {
           margin: [0, 14, 0, 0],
         },
         {
-          text: `Généré le ${data.generatedAtLabel}.\nKouKou Ferme — passeport sanitaire généré par l’appareil.`,
+          text: `Généré le ${data.generatedAtLabel}.\nFermia — passeport sanitaire généré par l’appareil.`,
           style: 'footer',
         },
       ],
@@ -750,7 +750,7 @@ export class PdfService {
           margin: [0, 14, 0, 0],
         },
         {
-          text: "Vérifiez l'authenticité de ce bon de commande en scannant le code QR.\nKouKou Ferme — bon de commande généré par l'appareil.",
+          text: "Vérifiez l'authenticité de ce bon de commande en scannant le code QR.\nFermia — bon de commande généré par l'appareil.",
           style: 'footer',
         },
       ],

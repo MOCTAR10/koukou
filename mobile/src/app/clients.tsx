@@ -21,7 +21,7 @@ import { createCustomer } from '@/api/mutations';
 import { queueCustomerPayment } from '@/offline';
 import type { Customer, CustomerSegment, CustomerSummary, CustomerType, SaleFull } from '@/api/types';
 import { CUSTOMER_TYPES, customerTypeLabel } from '@/constants/customers';
-import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing } from '@/constants/theme';
+import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing, fontFamily } from '@/constants/theme';
 
 const SEGMENT_LABEL: Record<CustomerSegment, string> = {
   NOUVEAU: 'Nouveau',
@@ -381,7 +381,7 @@ function CollectSheet({
         {customer ? (
           <Card tone="brand" style={styles.collectClient}>
             <View style={styles.avatar}>
-              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
             </View>
             <View style={{ flex: 1, gap: 1 }}>
               <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
@@ -435,7 +435,7 @@ function CollectSheet({
           </AppText>
           {amount > 0 && amount <= due ? (
             <AppText size="small" weight="semibold" color={remaining === 0 ? 'success' : 'muted'}>
-              {remaining === 0 ? 'Soldé 🎉' : `Restant ${fmtFcfa(remaining)}`}
+              {remaining === 0 ? 'Soldé ✓' : `Restant ${fmtFcfa(remaining)}`}
             </AppText>
           ) : null}
         </View>
@@ -618,7 +618,7 @@ export default function ClientsScreen() {
           title="Clients & crédit"
           subtitle={farms[0]?.name ?? 'Ferme'}
           back
-          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo KouKou" />}
+          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
           right={<UserRound size={18} color={color.ink[300]} />}
         />
       }>
@@ -711,7 +711,7 @@ export default function ClientsScreen() {
                     <Pressable onPress={() => setOpenId(open ? null : c.id)} accessibilityRole="button">
                       <View style={styles.head}>
 <View style={styles.avatar}>
-                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
                       </View>
                         <View style={{ flex: 1, gap: 3 }}>
                           <View style={styles.rowBetween}>
@@ -995,6 +995,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
   },
   searchInput: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 15,
     color: color.ink[800],
@@ -1065,6 +1066,7 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.border,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
     borderColor: palette.border,

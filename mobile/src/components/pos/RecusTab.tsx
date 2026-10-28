@@ -26,7 +26,7 @@ export function RecusTab({ sales, subtitle, onSelectSale }: RecusTabProps) {
       {sales.length === 0 ? (
         <Card tone="default">
           <EmptyState
-            emoji="🧾"
+            icon={ReceiptText}
             title="Aucun reçu aujourd’hui"
             description="Les tickets d’encaissement du jour apparaîtront ici. Touchez un ticket pour l’apercevoir et télécharger son PDF."
           />

@@ -648,7 +648,7 @@ export function recordCustomerPayment(
   });
 }
 
-/** Crée un compte membre (Administrateur KouKou / Éleveur Koukou) et le lie à la ferme. */
+/** Crée un compte membre (Administrateur Fermia / Éleveur Fermia) et le lie à la ferme. */
 export interface CreateFarmMemberInput {
   fullName: string;
   phone: string;
@@ -736,7 +736,7 @@ export function uploadFarmLogo(
   return apiUpload<Farm>(`/farms/${farmId}/logo`, form);
 }
 
-/** Retire le logo personnalisé — la ferme repasse au logo KouKou par défaut. */
+/** Retire le logo personnalisé — la ferme repasse au logo Fermia par défaut. */
 export function deleteFarmLogo(farmId: string): Promise<Farm> {
   return apiFetch<Farm>(`/farms/${farmId}/logo`, { method: 'DELETE' });
 }

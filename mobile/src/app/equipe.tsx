@@ -20,7 +20,7 @@ import { canManageFarm, farmRoleLabel } from '@/api/roles';
 import type { ContractType, FarmMember, PermissionCatalog, PermissionCode, StaffProfile } from '@/api/types';
 import { CREATE_ADMIN_DEFAULT_PERMISSIONS, LOCAL_PERMISSION_GROUPS, STAFF_PROFILES_LOCAL } from '@/constants/permissions';
 import { CONTRACT_TYPES, contractTypeLabel } from '@/constants/hr';
-import { color, fmt, palette } from '@/constants/theme';
+import { color, fmt, palette, fontFamily } from '@/constants/theme';
 
 /** Clé du profil « sur mesure » (non fourni par le serveur) : rôle Admin, droits à cocher. */
 const CUSTOM_PROFILE_KEY = '__custom__';
@@ -241,7 +241,7 @@ function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]} accessibilityRole="button">
       <View style={styles.memberHead}>
         <View style={[styles.avatar, isAdmin && { backgroundColor: color.accent[600] }]}>
-          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <View style={styles.titleRow}>
@@ -602,7 +602,7 @@ export default function EquipeScreen() {
                 <Card tone="green" style={styles.card}>
                   <View style={styles.memberHead}>
                     <View style={[styles.avatar, { backgroundColor: color.green[600] }]}>
-                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                        <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
                       </View>
                     <View style={{ flex: 1, gap: 2 }}>
                       <View style={styles.titleRow}>
@@ -938,6 +938,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
     borderColor: palette.border,

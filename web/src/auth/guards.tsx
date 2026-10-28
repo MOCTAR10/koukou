@@ -33,7 +33,7 @@ function MobileOnlyScreen() {
           <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
           <span>
             Bonjour {user?.fullName}. Les comptes Propriétaire et Éleveur se connectent via{' '}
-            <b>l'application mobile KouKou</b>. Cette console web est réservée à
+            <b>l'application mobile Fermia</b>. Cette console web est réservée à
             l'administrateur plateforme.
           </span>
         </p>

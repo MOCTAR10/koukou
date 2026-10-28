@@ -62,7 +62,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({
         phone: phone(2),
-        fullName: 'Admin KouKou',
+        fullName: 'Admin Fermia',
         code: 'secret456',
         role: 'ADMIN',
         jobTitle: 'Comptable',
@@ -103,7 +103,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     expect(adminMe.body.role).toBe('ADMIN');
     expect(adminMe.body.jobTitle).toBe('Comptable');
     expect(adminMe.body.buildingAssignment).toBe('B1');
-    expect(adminMe.body.permissions.sort()).toEqual(['caisse:lire', 'saisie:creer', 'sanitaire:lecture']);
+    expect(adminMe.body.permissions.sort()).toEqual(['caisse:lire', 'saisie:creer', 'sanitaire:lecture', 'sanitaire:signaler']);
 
     const eleveurMe = await request(server)
       .get(`/farms/${farmId}/me`)
@@ -115,6 +115,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       'caisse:lire',
       'saisie:creer',
       'sanitaire:lecture',
+      'sanitaire:signaler',
       'vente:creer',
     ]);
   });
@@ -200,7 +201,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .send({ permissions: ['equipe:gerer'] })
       .expect(400);
     expect(res.body.message).toBe(
-      'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+      'Les permissions ne se règlent que pour un Administrateur Fermia (rôle Éleveur = droits fixes).',
     );
   });
 
@@ -250,7 +251,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       })
       .expect(400);
     expect(res.body.message).toBe(
-      'Les permissions ne se règlent que pour un Administrateur KouKou (rôle Éleveur = droits fixes).',
+      'Les permissions ne se règlent que pour un Administrateur Fermia (rôle Éleveur = droits fixes).',
     );
   });
 
@@ -281,7 +282,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .set('Authorization', `Bearer ${eleveurToken}`)
       .expect(200);
     expect(me.body.role).toBe('ADMIN');
-    expect(me.body.permissions.sort()).toEqual(['caisse:lire', 'saisie:creer', 'sanitaire:lecture']);
+    expect(me.body.permissions.sort()).toEqual(['caisse:lire', 'saisie:creer', 'sanitaire:lecture', 'sanitaire:signaler']);
   });
 
   it('basculer Admin → Éleveur, puis tenter de re-gruder des droits fixes', async () => {
@@ -300,6 +301,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       'caisse:lire',
       'saisie:creer',
       'sanitaire:lecture',
+      'sanitaire:signaler',
       'vente:creer',
     ]);
 

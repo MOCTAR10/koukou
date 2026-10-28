@@ -22,7 +22,7 @@ interface FarmLogoProps {
   farm: Pick<Farm, 'id' | 'name' | 'logoUrl'> | null | undefined;
   /** Diamètre du cercle en px. */
   size?: number;
-  /** `brand` = fond bleu KouKou (défaut) ; `plain` = fond blanc pour poser le logo sur un hero coloré. */
+  /** `brand` = fond bleu Fermia (défaut) ; `plain` = fond blanc pour poser le logo sur un hero coloré. */
   tone?: 'brand' | 'plain';
   /** Affiche une bordure fine claire (utile sur fond coloré). */
   ring?: boolean;
@@ -31,7 +31,7 @@ interface FarmLogoProps {
 
 /**
  * Logo circulaire d'une ferme : le logo uploaded par le propriétaire, ou à
- * défaut la marque KouKou blanche (asset officiel, pas de dessin à la main).
+ * défaut la marque Fermia blanche (asset officiel, pas de dessin à la main).
  */
 export function FarmLogo({ farm, size = 44, tone = 'brand', ring = false, style }: FarmLogoProps) {
   const uri = farmLogoUri(farm);
@@ -41,7 +41,7 @@ export function FarmLogo({ farm, size = 44, tone = 'brand', ring = false, style 
     <View
       accessible
       accessibilityRole="image"
-      accessibilityLabel={farm?.name ? `Logo de ${farm.name}` : 'Logo KouKou'}
+      accessibilityLabel={farm?.name ? `Logo de ${farm.name}` : 'Logo Fermia'}
       style={[
         styles.circle,
         {

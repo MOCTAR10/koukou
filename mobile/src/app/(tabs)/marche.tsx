@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowRight, ClipboardList, MapPin, Store } from 'lucide-react-native';
+import { ArrowRight, ClipboardList, MapPin, Store, ShoppingBasket } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -13,10 +13,10 @@ export default function MarcheScreen() {
   const router = useRouter();
 
   return (
-    <Screen bottomPad={120} header={<ScreenHeader title="Marché" subtitle="KouKou Market — votre vitrine" />}>
+    <Screen bottomPad={120} header={<ScreenHeader title="Marché" subtitle="Fermia Market — votre vitrine" />}>
       <View style={{ gap: 12 }}>
         <EmptyState
-          emoji="🛒"
+          icon={ShoppingBasket}
           title="Le Marché arrive bientôt"
           description="Vous pourrez publier ici poulets, œufs et provende, et vos clients passeront commande en ligne. Le back-office des bons de commande est déjà prêt — la vitrine client arrive dans une prochaine version."
         />

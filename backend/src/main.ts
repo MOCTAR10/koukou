@@ -35,7 +35,7 @@ async function bootstrap() {
   });
 
   const config = new DocumentBuilder()
-    .setTitle('KouKou Ferme API')
+    .setTitle('Fermia API')
     .setDescription(
       'API de gestion avicole offline-first pour le Gabon — Module 1 : Gestion des Lots',
     )
@@ -52,7 +52,7 @@ async function bootstrap() {
   const port = configService.get('PORT', 3000);
   await app.listen(port);
   // eslint-disable-next-line no-console
-  console.log(`KouKou Ferme API démarré sur http://localhost:${port}`);
+  console.log(`Fermia API démarré sur http://localhost:${port}`);
   // eslint-disable-next-line no-console
   console.log(
     `Swagger disponible sur http://localhost:${port}/${configService.get(

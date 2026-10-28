@@ -93,7 +93,8 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
         couvoirSupplier: 'Canabec',
         chickLotNumber: `CL-${stamp}`,
         hatchDate: today(),
-        chickUnitPriceFcfa: 1000,
+        // No chick price here: the purchase entry (6010/401) would shift every
+        // figure below. It has its own test at the end of the file.
       })
       .expect(201);
     batchId = batch.body.id;
@@ -672,5 +673,39 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(stock.body.totalValueFcfa).toBe(500000);
+  });
+
+  it('création de lot avec prix poussins → achat 6010 / fournisseur 401', async () => {
+    const lot = await request(server)
+      .post(`/farms/${authzFarmId}/batches`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        batchName: 'Lot Poussins Payants',
+        integrationDate: today(),
+        quantityAtStart: 300,
+        type: 'CHAIR',
+        chickUnitPriceFcfa: 1000,
+      })
+      .expect(201);
+
+    const journal = await request(server)
+      .get(`/farms/${authzFarmId}/accounting/journal`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const expenses = await request(server)
+      .get(`/farms/${authzFarmId}/expenses`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const chickExpense = (expenses.body as any[]).find(
+      (e) => e.batchId === lot.body.id && e.category === 'ACHAT_POUSSINS',
+    );
+    expect(chickExpense.amountFcfa).toBe(300000);
+    const entry = (journal.body.entries as any[]).find(
+      (e) => e.sourceId === `expense:${chickExpense.id}`,
+    );
+    expect(entry.lines).toEqual([
+      expect.objectContaining({ accountCode: '6010', debitFcfa: 300000 }),
+      expect.objectContaining({ accountCode: '401', creditFcfa: 300000 }),
+    ]);
   });
 });

@@ -40,7 +40,8 @@ export class VaccineSchedulesController {
 
   @Post('vaccine-schedules/manual')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('sanitaire:gerer')
+  // Field staff may schedule a single vaccination; programs/edit/delete stay 'gerer'.
+  @Permissions('sanitaire:gerer', 'sanitaire:signaler')
   @ApiOperation({
     summary:
       'Planifier un soin unique (vaccin ou médicament) sur un ou plusieurs lots — option « Sortir du stock » pour un médicament (jamais de quantité négative)',

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { Download, FileBarChart2, PieChart, Receipt, Store, TrendingUp, Wallet } from 'lucide-react-native';
+import { Download, FileBarChart2, PieChart, Receipt, Store, TrendingUp, Wallet, TrendingDown } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -159,7 +159,7 @@ export default function RapportsScreen() {
           <Spinner label="Calcul du P&L…" />
         ) : overviewQuery.isError ? (
           <EmptyState
-            emoji="📉"
+            icon={TrendingDown}
             title="P&L indisponible"
             description="Le calcul du compte de résultat n’a pas pu aboutir. Vérifiez la connexion au serveur puis réessayez."
           />

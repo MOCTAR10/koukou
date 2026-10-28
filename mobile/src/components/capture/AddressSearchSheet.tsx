@@ -7,7 +7,7 @@ import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
 import { Spinner } from '../ui/Spinner';
 import { suggestGabonAddress, type GeoSuggest } from '@/utils/geocode';
-import { color, palette, radii, spacing } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
 
 interface AddressSearchSheetProps {
   visible: boolean;
@@ -144,6 +144,7 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   input: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     height: 42,
     paddingHorizontal: 10,

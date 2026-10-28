@@ -3,9 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { AlertTriangle, Wheat, Banknote, BarChart3, ShieldCheck, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Droplets, Building, ArrowRight, Stethoscope, Users } from 'lucide-react-native';
+import { Bell, Wheat, Banknote, BarChart3, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Building, Stethoscope, Users } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Svg, { Circle } from 'react-native-svg';
 
 import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -17,12 +16,13 @@ import { EggStockCard } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
 import { FarmSelector } from '@/components/ui/FarmSelector';
 import { FarmModeSwitch } from '@/components/FarmModeSwitch';
+import { HomeHero } from '@/components/home/HomeHero';
 import { AgricultureHome } from '@/components/agriculture/AgricultureHome';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { givenName, speciesLabel } from '@/api/format';
-import { color, emoji, fmt, fmtFcfa, gradeColor, layout, palette, radii, shadow } from '@/constants/theme';
+import { color, fmt, fmtFcfa, layout, palette, radii } from '@/constants/theme';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders, fetchCustomersSummary, fetchRentabiliteOverview } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { BrandLoader } from '@/components/ui/BrandLoader';
@@ -30,7 +30,7 @@ import { MetricInfoSheet } from '@/components/MetricInfoSheet';
 import type { MetricKey } from '@/components/MetricInfoSheet';
 import { CheptelModal } from '@/components/CheptelModal';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
-import type { BatchWithMetrics, FarmWeather, HealthGrade } from '@/api/types';
+import type { BatchWithMetrics, FarmWeather } from '@/api/types';
 
 function weatherHint(w: FarmWeather): string {
   const t = w.temperatureC ?? 0;
@@ -160,6 +160,8 @@ export default function AccueilScreen() {
 
 
   const loading = dashboard.isLoading || advisory.isLoading;
+  const alertCount = (d?.alerts.rouge ?? 0) + (d?.alerts.jaune ?? 0);
+  const mortalityStatus = d ? normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) : 'normal';
 
   // --- Compute weighted averages from active batches ---
   const batches = batchesQuery.data ?? [];
@@ -264,93 +266,36 @@ export default function AccueilScreen() {
       refreshing={!!d && (dashboard.isFetching || advisory.isFetching || batchesQuery.isFetching)}
       onRefresh={refresh}
       header={
-        <>
-          <View style={styles.topRow}>
-            <View style={styles.avatar}>
-              <Image
-                source={require('@/assets/images/logo-nav.png')}
-                style={styles.avatarLogo}
-                contentFit='contain'
-                accessibilityLabel='Logo KouKou'
-              />
-            </View>
-            <View style={styles.greetCol}>
-              <AppText size='body' weight='bold' color='text'>
-                Bonjour, {givenName(user.fullName)}
-              </AppText>
-            </View>
-            {(d?.alerts.rouge ?? 0) + (d?.alerts.jaune ?? 0) > 0 && (
-              <Pressable onPress={() => router.push('/alerts')} accessibilityRole='button' style={styles.alertBtn}>
-                <AlertTriangle size={18} color={palette.amber[500]} />
-                <View style={styles.alertBadge}>
-                  <AppText size='small' weight='bold' color='surface'>
-                    {(d?.alerts.rouge ?? 0) + (d?.alerts.jaune ?? 0)}
-                  </AppText>
-                </View>
-              </Pressable>
-            )}
+        <View style={styles.topRow}>
+          <Image
+            source={require('@/assets/images/logo-nav.png')}
+            style={styles.avatarLogo}
+            contentFit='contain'
+            accessibilityLabel='Logo'
+          />
+          <View style={styles.greetCol}>
+            <AppText size='h3' weight='bold' color='text' numberOfLines={1}>
+              Bonjour, {givenName(user.fullName)}
+            </AppText>
+            <AppText size='small' color='muted' numberOfLines={1} style={styles.dateLine}>
+              {liveNow.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </AppText>
           </View>
-          <View style={styles.headerTiles}>
-            <Pressable
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                setFarmSelectOpen(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Ma ferme"
-              style={({ pressed }) => [styles.headerTile, pressed && styles.headerTilePressed]}>
-              <View style={[styles.tileIcon, { backgroundColor: palette.brand[50], borderColor: palette.brand[200] }]}>
-                <Store size={16} color={palette.brand[600]} strokeWidth={2.2} />
-              </View>
-              <View style={styles.tileBody}>
-                <AppText size="label" color="muted">
-                  Ma ferme
+          <Pressable
+            onPress={() => router.push('/alerts')}
+            accessibilityRole='button'
+            accessibilityLabel={alertCount > 0 ? `${alertCount} alertes actives` : 'Alertes'}
+            style={({ pressed }) => [styles.alertBtn, alertCount > 0 && styles.alertBtnActive, pressed && styles.headerTilePressed]}>
+            <Bell size={19} color={alertCount > 0 ? palette.amber[700] : palette.ink[600]} strokeWidth={2} />
+            {alertCount > 0 ? (
+              <View style={styles.alertBadge}>
+                <AppText size='label' weight='bold' color='surface'>
+                  {alertCount}
                 </AppText>
-                <AppText size="body" weight="bold" color="text">
-                  {farm?.name ?? '—'}
-                </AppText>
-                {farm?.isVerified ? (
-                  <View style={styles.tileSubRow}>
-                    <View style={styles.verifiedChip}>
-                      <ShieldCheck size={11} color={palette.green[600]} />
-                    </View>
-                  </View>
-                ) : null}
               </View>
-              <ChevronDown size={16} color={palette.ink[400]} strokeWidth={2.2} />
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                if (!canCaisse) return;
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-                router.push('/caisse');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Encaisser"
-              disabled={!canCaisse}
-              style={({ pressed }) => [styles.headerTile, !canCaisse && styles.headerTileMuted, pressed && canCaisse && styles.headerTilePressed]}>
-              <View style={[styles.tileIcon, { backgroundColor: palette.accent[50], borderColor: palette.accent[200] }]}>
-                <Banknote size={16} color={palette.accent[600]} strokeWidth={2.2} />
-              </View>
-              <View style={styles.tileBody}>
-                <AppText size="label" color="muted">
-                  {isToday ? "Encaissé aujourd'hui" : `Encaissé le ${formatDayShort(window.to ? new Date(window.to) : liveNow)}`}
-                </AppText>
-                <AppText size="body" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                  {fmtFcfa(d?.collectedTodayFcfa ?? 0)}
-                </AppText>
-                {!canCaisse ? (
-                  <AppText size="caption" color="faint" numberOfLines={1}>
-                    Consultation seule
-                  </AppText>
-                ) : null}
-              </View>
-              {canCaisse ? <ChevronRight size={18} color={palette.accent[600]} strokeWidth={2.4} /> : null}
-            </Pressable>
-          </View>
-          <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
-        </>
+            ) : null}
+          </Pressable>
+        </View>
       }
     >
 
@@ -367,92 +312,70 @@ export default function AccueilScreen() {
         <>
           {/* ── Bascule Élevage / Agriculture ── */}
           <FarmModeSwitch />
-          {/* ── Cheptel + Lots ── */}
-          <View style={styles.metricGrid}>
-            <MetricTile label='Cheptel vivant' value={fmt(d.liveStock)} sub={`${d.batches.actif} lot${d.batches.actif > 1 ? 's' : ''}`} tone='green' iconImage={require('@/assets/images/chiken.jpg')} narrowStats onPress={() => setCheptelOpen(true)} compact />
-            <MetricTile label='Lots actifs' value={String(d.batches.actif)} sub={`${d.batches.enVente} en vente`} tone='brand' iconImage={require('@/assets/images/poussin33.jpg')} onPress={() => router.push('/lots')} compact />
-          </View>
-          {/* ── Health card — Pro View ── */}
-          <View style={styles.healthCard}>
-            <View style={styles.healthTopRow}>
-              <HealthRing score={d.health.score} grade={d.health.grade} />
-              <View style={styles.healthTopInfo}>
-                <View style={styles.healthTitleRow}>
-                  <AppText size="body" weight="bold" color="text">Santé</AppText>
-                  <View style={{ flex: 1 }} />
-                  <Pressable
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); router.push('/sanitary'); }}
-                    accessibilityRole="button"
-                    style={({ pressed }) => [styles.healthSanitaireBtn, pressed && { opacity: 0.7 }]}
-                  >
-                    <Stethoscope size={13} color={palette.surface} strokeWidth={2.4} />
-                    <AppText size='small' weight='semibold' color='surface' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Centre Sanitaire</AppText>
-                    <ArrowRight size={12} color={palette.surface} />
-                  </Pressable>
-                </View>
-                {/* Grade label */}
-                <AppText size="small" weight="semibold" style={{ color: gradeColor[d.health.grade] }}>
-                  {d.health.grade === 'EXCELLENT' ? '🟢 Excellent' : d.health.grade === 'BON' ? '🟢 Bon' : d.health.grade === 'MOYEN' ? '🟡 Moyen' : '🔴 Critique'}
-                </AppText>
+          <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
+          {/* ── Hero : l'essentiel du jour ── */}
+          <HomeHero
+            farmName={farm?.name ?? '—'}
+            verified={!!farm?.isVerified}
+            onFarmPress={() => setFarmSelectOpen(true)}
+            liveStock={d.liveStock}
+            activeLots={d.batches.actif}
+            lotsForSale={d.batches.enVente}
+            onCheptelPress={() => setCheptelOpen(true)}
+            collectedLabel={isToday ? "Encaissé aujourd'hui" : `Encaissé le ${formatDayShort(window.to ? new Date(window.to) : liveNow)}`}
+            collectedFcfa={d.collectedTodayFcfa ?? 0}
+            canCaisse={canCaisse}
+            onCaissePress={() => router.push('/caisse')}
+            healthScore={d.health.score}
+            grade={d.health.grade}
+            onHealthPress={() => router.push('/sanitary')}
+            mortalityPercent={d.mortalityPercent ?? null}
+            mortalityStatus={mortalityStatus}
+            weather={d.weather}
+            weatherHint={d.weather ? weatherHint(d.weather) : undefined}
+          />
+          {/* ── Santé : alertes + mortalité ── */}
+          <Card style={styles.healthCard}>
+            <View style={styles.healthTitleRow}>
+              <AppText size='bodyM' weight='semibold' color='text'>Santé du cheptel</AppText>
+              <View style={{ flex: 1 }} />
+              <Pressable
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); router.push('/sanitary'); }}
+                accessibilityRole='button'
+                hitSlop={8}
+                style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.6 }]}>
+                <Stethoscope size={14} color={palette.brand[600]} strokeWidth={2.2} />
+                <AppText size='small' weight='semibold' color='brand'>Centre sanitaire</AppText>
+                <ChevronRight size={14} color={palette.brand[600]} />
+              </Pressable>
+            </View>
+            <View style={styles.healthAlertRow}>
+              <View style={[styles.healthAlertBadge, { backgroundColor: palette.red[50], borderColor: palette.red[100] }]}>
+                <View style={[styles.healthAlertDot, { backgroundColor: palette.red[500] }]} />
+                <AppText size='bodyM' weight='semibold' color='danger'>{d.health.breakdown.rouge}</AppText>
+                <AppText size='small' color='muted'>Rouges</AppText>
+              </View>
+              <View style={[styles.healthAlertBadge, { backgroundColor: palette.amber[50], borderColor: palette.amber[100] }]}>
+                <View style={[styles.healthAlertDot, { backgroundColor: palette.amber[500] }]} />
+                <AppText size='bodyM' weight='semibold' color='warn'>{d.health.breakdown.jaune}</AppText>
+                <AppText size='small' color='muted'>Jaunes</AppText>
               </View>
             </View>
-            {/* Alert badges row */}
-            <View style={styles.healthAlertRow}>
-              <View style={[styles.healthAlertBadge, { backgroundColor: palette.red[50], borderColor: palette.red[200] }]}>
-                <View style={[styles.healthAlertDot, { backgroundColor: palette.red[500] }]} />
-                <AppText size="small" weight="semibold" color="danger">{d.health.breakdown.rouge}</AppText>
-                <AppText size="small" color="muted">Rouge</AppText>
-              </View>
-              <View style={[styles.healthAlertBadge, { backgroundColor: palette.amber[50], borderColor: palette.amber[200] }]}>
-                <View style={[styles.healthAlertDot, { backgroundColor: palette.amber[500] }]} />
-                <AppText size="small" weight="semibold" color="warn">{d.health.breakdown.jaune}</AppText>
-                <AppText size="small" color="muted">Jaune</AppText>
-              </View>
-              <View style={[styles.healthAlertBadge, {
-                backgroundColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[50] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[50] : palette.red[50],
-                borderColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[200] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[200] : palette.red[200],
-              }]}>
-                <View style={[styles.healthAlertDot, {
-                  backgroundColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[500] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[500] : palette.red[500],
-                }]} />
-                <AppText size="small" weight="semibold"
-                  color={normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? 'success' : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? 'warn' : 'danger'}>
+            <View style={styles.healthMortalityBar}>
+              <View style={styles.healthMortalityHead}>
+                <AppText size='small' color='muted'>Mortalité cumulée</AppText>
+                <AppText size='small' weight='semibold' color={mortalityStatus === 'normal' ? 'success' : mortalityStatus === 'elevated' ? 'warn' : 'danger'}>
                   {d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—'}
                 </AppText>
-                <AppText size="small" color="muted">Mort.</AppText>
               </View>
-            </View>
-            {/* Mortality progress bar */}
-            <View style={styles.healthMortalityBar}>
               <View style={styles.healthMortalityTrack}>
                 <View style={[styles.healthMortalityFill, {
                   width: `${Math.min(100, (d.mortalityPercent ?? 0) / 10 * 100)}%`,
-                  backgroundColor: normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'normal' ? palette.green[500] : normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) === 'elevated' ? palette.amber[500] : palette.red[500],
+                  backgroundColor: mortalityStatus === 'normal' ? palette.green[500] : mortalityStatus === 'elevated' ? palette.amber[500] : palette.red[500],
                 }]} />
               </View>
-              <AppText size="small" color="muted">Mortalité</AppText>
             </View>
-            {/* Météo — pleine largeur avec un conseil lié au climat */}
-            {d?.weather && (
-              <View style={styles.healthWeatherRow}>
-                <AppText style={{ fontSize: 15 }}>{emoji(d.weather.condition ?? '')}</AppText>
-                <View style={{ flex: 1, gap: 1 }}>
-                  <View style={styles.weatherMainRow}>
-                    <AppText size='small' weight='bold' color='text'>{d.weather.temperatureC ?? '—'}°C</AppText>
-                    {d.weather.humidityPct != null && (
-                      <View style={styles.weatherHumidity}>
-                        <Droplets size={9} color={palette.brand[500]} />
-                        <AppText size='small' weight='semibold' color='brand'>{d.weather.humidityPct}%</AppText>
-                      </View>
-                    )}
-                  </View>
-                  <AppText size="small" color="muted" numberOfLines={2}>
-                    {weatherHint(d.weather)}
-                  </AppText>
-                </View>
-              </View>
-            )}
-          </View>
+          </Card>
           <SectionHeader
             title='Statistiques'
             right={
@@ -470,7 +393,7 @@ export default function AccueilScreen() {
             <MetricTile
               label='IC (FCR)'
               value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
-              sub={avgFcr != null && avgFcr > 2.2 ? '⚠ Élevé' : avgFcr != null && avgFcr < 1.8 ? 'Excellent' : 'Conforme'}
+              sub={avgFcr != null && avgFcr > 2.2 ? 'Élevé' : avgFcr != null && avgFcr < 1.8 ? 'Excellent' : 'Conforme'}
               tone={avgFcr != null && avgFcr > 2.2 ? 'red' : avgFcr != null && avgFcr < 1.8 ? 'green' : 'default'}
               icon={Activity}
               onPress={() => setMetricInfo('IC')}
@@ -488,7 +411,7 @@ export default function AccueilScreen() {
             <MetricTile
               label='IPE'
               value={avgIpe != null && avgIpe > 0 ? fmt(Math.round(avgIpe)) : '—'}
-              sub={avgIpe != null && avgIpe > 350 ? '⚠ Coût élevé' : avgIpe != null ? 'Coût maîtrisé' : undefined}
+              sub={avgIpe != null && avgIpe > 350 ? 'Coût élevé' : avgIpe != null ? 'Coût maîtrisé' : undefined}
               tone={avgIpe != null && avgIpe > 350 ? 'amber' : avgIpe != null ? 'green' : 'default'}
               icon={Scale}
               onPress={() => setMetricInfo('IPE')}
@@ -650,7 +573,7 @@ export default function AccueilScreen() {
                       </AppText>
                     </View>
                     <AppText size='small' color='faint'>
-                      {d.waterDropPercent != null ? (d.waterDropPercent > 25 ? '⚠ Chute critique' : d.waterDropPercent > 10 ? '⚠ Baisse' : d.waterDropPercent < -5 ? '↑ Hausse' : 'Stable') : 'Pas de données'}
+                      {d.waterDropPercent != null ? (d.waterDropPercent > 25 ? 'Chute critique' : d.waterDropPercent > 10 ? 'En baisse' : d.waterDropPercent < -5 ? '↑ Hausse' : 'Stable') : 'Pas de données'}
                     </AppText>
                   </View>
                 </View>
@@ -777,7 +700,7 @@ export default function AccueilScreen() {
           <View style={styles.metricGrid}>
             {topPerf && (
               <MetricTile
-                label='🏆 Meilleur lot'
+                label='Meilleur lot'
                 value={topPerf.batchName ?? '—'}
                 sub={`${topPerf.species && topPerf.species !== 'POULET' ? `${topPerf.species === 'AUTRE' && topPerf.customSpecies ? topPerf.customSpecies : speciesLabel(topPerf.species)} · ` : ''}${topPerf.type === 'CHAIR' && topPerf.ipe != null ? `IPE ${fmt(Math.round(topPerf.ipe))}` : topPerf.layRatePercent != null ? `Ponte ${topPerf.layRatePercent.toFixed(0)}%` : `IC ${topPerf.fcr?.toFixed(2) ?? '—'}`}`}
                 tone='green'
@@ -810,68 +733,38 @@ export default function AccueilScreen() {
   );
 }
 
-function HealthRing({ score, grade }: { score: number; grade: HealthGrade }) {
-  const size = 48;
-  const stroke = 5;
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const pct = Math.max(0, Math.min(100, Math.round(score)));
-  const strokeDashoffset = circumference * (1 - pct / 100);
-  const ringColor = gradeColor[grade];
-  return (
-    <View style={styles.ring}>
-      <Svg width={size} height={size}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={color.border} strokeWidth={stroke} fill="none" />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={ringColor}
-          strokeWidth={stroke}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={strokeDashoffset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </Svg>
-      <View style={styles.ringCenter}>
-        <AppText size="small" weight="bold" style={{ color: ringColor, fontSize: 13, lineHeight: 16 }}>
-          {pct}%
-        </AppText>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
+  gradeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  gradeDot: { width: 8, height: 8, borderRadius: 4 },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
   avatarLogo: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+  },
+  dateLine: {
+    textTransform: 'capitalize',
   },
   greetCol: {
     flex: 1,
     flexShrink: 1,
   },
   alertBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: palette.amber[50],
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: palette.amber[200],
+    borderColor: color.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  alertBtnActive: {
+    backgroundColor: palette.amber[50],
+    borderColor: palette.amber[200],
   },
   alertBadge: {
     position: 'absolute',
@@ -885,58 +778,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
   },
-  headerTiles: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-  },
-  headerTile: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: color.border,
-    borderRadius: radii.lg,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    ...shadow.card,
-  },
   headerTilePressed: {
     opacity: 0.85,
     transform: [{ scale: 0.99 }],
-  },
-  headerTileMuted: {
-    opacity: 0.82,
-  },
-  tileIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tileBody: {
-    flex: 1,
-    gap: 1,
-  },
-  tileSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  verifiedChip: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: palette.green[50],
-    borderWidth: 1,
-    borderColor: palette.green[200],
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 2,
   },
 
   metricGrid: {
@@ -956,23 +800,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   healthCard: {
-    marginTop: 4,
-    backgroundColor: palette.surface,
-    borderWidth: 1,
-    borderColor: color.border,
-    borderRadius: radii.xl,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  healthTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginTop: 12,
     gap: 12,
   },
-  healthTopInfo: {
-    flex: 1,
-    gap: 2,
+  linkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  healthMortalityHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   healthTitleRow: {
     flexDirection: 'row',
@@ -987,9 +825,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: radii.md,
     borderWidth: 1,
   },
@@ -999,60 +837,17 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   healthMortalityBar: {
-    gap: 2,
+    gap: 6,
   },
   healthMortalityTrack: {
-    height: 3,
-    borderRadius: 2,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: palette.ink[100],
     overflow: 'hidden',
   },
   healthMortalityFill: {
-    height: 3,
-    borderRadius: 2,
-  },
-  healthWeatherRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: palette.brand[50],
-    borderRadius: radii.md,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  weatherMainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  weatherHumidity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: palette.brand[100],
-    borderRadius: radii.pill,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  healthSanitaireBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-    backgroundColor: palette.green[600],
-  },
-  ring: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ringCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 6,
+    borderRadius: 3,
   },
 
   expandBtn: {

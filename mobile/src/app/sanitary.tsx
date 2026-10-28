@@ -91,7 +91,7 @@ import type {
   SanitaryProtocolWithSteps,
   TreatmentRecord,
 } from '@/api/types';
-import { color, palette } from '@/constants/theme';
+import { color, palette, fontFamily } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements';
 
@@ -2918,6 +2918,7 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.border,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 46,
     borderWidth: 1,
     borderColor: palette.border,

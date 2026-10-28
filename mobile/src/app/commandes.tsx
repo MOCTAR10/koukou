@@ -34,7 +34,7 @@ import { customerTypeLabel } from '@/constants/customers';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
 import type { Customer, OrderFull, OrderStatus } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa, Fonts } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, Fonts, fontFamily } from '@/constants/theme';
 import { durations, easing, enter, layout, staggeredEnter, timed } from '@/constants/motion';
 
 const FILTERS: { key: OrderStatus | 'ALL'; label: string }[] = [
@@ -447,7 +447,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
           {client ? (
             <Card tone="brand" style={styles.orderClient}>
               <View style={styles.avatar}>
-                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
               </View>
               <View style={{ flex: 1, gap: 1 }}>
                 <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
@@ -659,7 +659,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
           ) : (
             <Card tone="default" style={[styles.lotPanel, styles.lotPanelEmpty]}>
               <View style={styles.avatar}>
-                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+                <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
               </View>
               <AppText size="body" weight="semibold" color="muted">
                 Sélectionner un lot
@@ -1079,7 +1079,7 @@ function OrderCard({ order }: { order: OrderFull }) {
     <Card onPress={() => router.push({ pathname: '/commande/[id]', params: { id: order.id } })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
         <View style={styles.avatar}>
-          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+          <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
         </View>
         <View style={{ flex: 1 }}>
           <AppText size="body" weight="bold" color="text" numberOfLines={1}>
@@ -1179,6 +1179,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
   },
   searchInput: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 15,
     color: color.ink[800],
@@ -1207,6 +1208,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
     borderColor: palette.border,
@@ -1245,6 +1247,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   depositInput: {
+    fontFamily: fontFamily.regular,
     fontSize: 13,
   },
   rowWrap: {
@@ -1282,7 +1285,7 @@ const styles = StyleSheet.create({
   priceInput: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     color: color.ink[900],
     textAlign: 'right',
     paddingVertical: 0,

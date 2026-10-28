@@ -39,7 +39,7 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import { cancelOrderQueued, deliverOrderQueued, recordOrderPaymentQueued } from '@/offline/engine';
 import type { OrderFull, OrderPassport } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily } from '@/constants/theme';
 
 function OrderItems({ order }: { order: OrderFull }) {
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
@@ -473,7 +473,7 @@ export default function CommandeDetailScreen() {
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={styles.avatar}>
-              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo KouKou" />
+              <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
             </View>
             <View style={{ flex: 1 }}>
               <AppText size="h3" weight="bold" color="text">
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     paddingHorizontal: 14,
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     color: color.ink[800],
     backgroundColor: color.surface,
   },

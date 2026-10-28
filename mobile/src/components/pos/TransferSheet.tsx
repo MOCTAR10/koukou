@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View, type ImageSourcePropType } from 'react-native';
-import { ArrowRightLeft, Check, RotateCcw, Store } from 'lucide-react-native';
+import { ArrowRightLeft, Check, RotateCcw, Store, Package } from 'lucide-react-native';
 
 import { AppText } from '../ui/AppText';
 import { Button } from '../ui/Button';
@@ -622,7 +622,7 @@ export function TransferSheet({
               <View style={styles.rowWrap}>
                 {boutiques.map((b) => (
                   <Pressable key={b.id} onPress={() => setBoutiqueId(b.id)} accessibilityRole="button">
-                    <Chip label={`🏪 ${b.name}`} tone="accent" selected={b.id === boutiqueId} />
+                    <Chip label={b.name} tone="accent" selected={b.id === boutiqueId} />
                   </Pressable>
                 ))}
                 {boutiques.length === 0 ? (
@@ -728,7 +728,7 @@ export function TransferSheet({
           ) : (
             <Card tone="default">
               <EmptyState
-                emoji="📦"
+                icon={Package}
                 title="Aucune réserve active"
                 description="Transférez du stock depuis la ferme (carcasses, œufs ou provende) pour le vendre en boutique."
               />

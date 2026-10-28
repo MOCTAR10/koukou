@@ -63,6 +63,7 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
     items: [
       { code: 'sanitaire:gerer', label: 'Protocoles & soins' },
       { code: 'sanitaire:lecture', label: 'Voir le sanitaire' },
+      { code: 'sanitaire:signaler', label: 'Signaler un événement' },
     ],
   },
   {
@@ -85,11 +86,12 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
   },
 ];
 
-/** Permissions de base d'un nouvel Administrateur KouKou (miroir serveur `ADMIN_DEFAULT_PERMISSIONS`). */
+/** Permissions de base d'un nouvel Administrateur Fermia (miroir serveur `ADMIN_DEFAULT_PERMISSIONS`). */
 export const CREATE_ADMIN_DEFAULT_PERMISSIONS: string[] = [
   'saisie:creer',
   'caisse:lire',
   'sanitaire:lecture',
+  'sanitaire:signaler',
 ];
 
 export function permissionLabel(code: PermissionCode | string): string {
@@ -151,7 +153,7 @@ export const STAFF_PROFILES_LOCAL: StaffProfile[] = [
     label: 'Vétérinaire',
     role: 'ADMIN',
     jobTitle: 'Vétérinaire',
-    permissions: ['sanitaire:gerer', 'sanitaire:lecture', 'saisie:creer', 'stock:gerer'],
+    permissions: ['sanitaire:gerer', 'sanitaire:lecture', 'sanitaire:signaler', 'saisie:creer', 'stock:gerer'],
   },
   {
     key: 'rh',
@@ -186,7 +188,7 @@ export const STAFF_PROFILES_LOCAL: StaffProfile[] = [
     label: 'Éleveur terrain',
     role: 'ELEVEUR',
     jobTitle: 'Éleveur',
-    permissions: ['saisie:creer', 'vente:creer', 'caisse:lire', 'sanitaire:lecture'],
+    permissions: ['saisie:creer', 'vente:creer', 'caisse:lire', 'sanitaire:lecture', 'sanitaire:signaler'],
   },
 ];
 

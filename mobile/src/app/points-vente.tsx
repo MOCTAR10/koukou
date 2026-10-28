@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, Check, ChevronDown, Map as MapIcon, MapPin, Plus, Star, Store, Trash2, TrendingUp, X } from 'lucide-react-native';
+import { ArrowRightLeft, Check, ChevronDown, Map as MapIcon, MapPin, Plus, Star, Store, Trash2, TrendingUp, X, House } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
@@ -20,7 +20,7 @@ import { createPointOfSaleQueued, deletePointOfSaleQueued, updatePointOfSaleQueu
 import { transferRemaining } from '@/components/pos/catalog';
 import { canManageFarm } from '@/api/roles';
 import type { PointOfSale, SaleSummary } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily } from '@/constants/theme';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
 
@@ -210,7 +210,7 @@ function PdvForm({
     <View style={{ gap: spacing.md }}>
       <Card tone={isBoutique ? 'accent' : 'brand'} padding={false} style={styles.hintCard}>
         <View style={[styles.hintIcon, { backgroundColor: kindBg }]}>
-          <AppText>{isBoutique ? '🏪' : '🏡'}</AppText>
+          {isBoutique ? <Store size={18} color={palette.accent[700]} /> : <House size={18} color={palette.brand[600]} />}
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <AppText size="small" weight="semibold" color={isBoutique ? 'accent' : 'brand'}>
@@ -230,7 +230,7 @@ function PdvForm({
           icon={<Store size={18} color={color.ink[400]} />}
           value={name}
           onChangeText={setName}
-          placeholder={isDefault ? 'Ex. Ferme KouKou' : 'Ex. Point de vente Occéan'}
+          placeholder={isDefault ? 'Ex. Ferme Fermia' : 'Ex. Point de vente Occéan'}
           autoCapitalize="words"
         />
         <FieldLabel>LOCALISATION</FieldLabel>
@@ -351,7 +351,7 @@ function PdvForm({
             Type
           </AppText>
           <AppText size="caption" weight="semibold" color="text">
-            {isDefault ? '🏡 Ferme (mère)' : '🏪 Point de vente'}
+            {isDefault ? 'Ferme (mère)' : 'Point de vente'}
           </AppText>
         </View>
         <View style={styles.summaryRow}>
@@ -535,7 +535,7 @@ export default function PointsVenteScreen() {
       <Card key={p.id} onPress={() => openEdit(p)} style={styles.pdvCard}>
         <View style={styles.cardHeader}>
           <View style={[styles.emojiTile, { backgroundColor: isBoutique ? palette.accent[50] : palette.brand[50] }]}>
-            <AppText>{isBoutique ? '🏪' : '🏡'}</AppText>
+            {isBoutique ? <Store size={20} color={palette.accent[700]} /> : <House size={20} color={palette.brand[600]} />}
           </View>
           <View style={{ flex: 1, gap: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -570,7 +570,7 @@ export default function PointsVenteScreen() {
         <View style={styles.cardDivider} />
 
         <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
-          <Text style={{ fontWeight: '700', color: accent, fontSize: 16 }}>{fmt(range.revenue)} FCFA</Text>
+          <Text style={{ fontFamily: fontFamily.bold, color: accent, fontSize: 16 }}>{fmt(range.revenue)} FCFA</Text>
           {'  '}
           {fmt(range.count)} ticket(s) · {PERIOD_LABEL[period]}
         </AppText>
@@ -602,7 +602,7 @@ export default function PointsVenteScreen() {
           ) : (
           <View style={styles.contextRow}>
             <AppText size="caption" color="brand" numberOfLines={1} style={{ flexShrink: 1 }}>
-              🏡 Mère — vivant, abattu, œufs & provende
+              Mère — vivant, abattu, œufs & provende
             </AppText>
           </View>
         )}
@@ -617,7 +617,7 @@ export default function PointsVenteScreen() {
           title="Points de vente"
           subtitle="Vue d’ensemble & gestion"
           back
-          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo KouKou" />}
+          left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
           right={
             canManage ? (
               <Pressable onPress={openNew} style={styles.addBtn} accessibilityRole="button">
@@ -632,7 +632,7 @@ export default function PointsVenteScreen() {
         <Spinner label="Chargement des points de vente…" />
       ) : pdvs.length === 0 ? (
         <EmptyState
-          emoji="🏪"
+          icon={Store}
           title="Aucun point de vente"
           description="La ferme est votre point de vente mère. Ajoutez ensuite des points de vente partout au Gabon."
           actionLabel={canManage ? 'Créer un point de vente' : undefined}
@@ -693,8 +693,8 @@ export default function PointsVenteScreen() {
             <View style={styles.heroDivider} />
             <AppText size="small" weight="semibold" color="brand">
               {topPdvToday
-                ? `⭐ Meilleur canal aujourd’hui : ${topPdvToday.pdv.name} · ${fmtFcfa(topPdvToday.revenue)}`
-                : '⭐ Aucune vente enregistrée aujourd’hui'}
+                ? `Meilleur canal aujourd’hui : ${topPdvToday.pdv.name} · ${fmtFcfa(topPdvToday.revenue)}`
+                : 'Aucune vente enregistrée aujourd’hui'}
             </AppText>
             <AppText size="caption" color="faint">
               Ferme mère → points de vente rattachés, partout au Gabon · vivant, abattu, œufs & provende — le système conseille sans bloquer.
@@ -783,7 +783,7 @@ export default function PointsVenteScreen() {
             <Card tone="default">
               <View style={{ gap: spacing.sm }}>
                 <AppText size="bodyM" weight="semibold" color="text">
-                  🏪 Ouvrez un point de vente près de vos clients
+                  Ouvrez un point de vente près de vos clients
                 </AppText>
                 <AppText size="caption" color="muted">
                   Mêmes produits qu’à la ferme : vivant, abattu, œufs & provende — partout au Gabon.
@@ -881,6 +881,7 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   input: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     height: 42,
     paddingHorizontal: 10,

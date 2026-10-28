@@ -68,7 +68,7 @@ export function BrandLoader({ overlay = false }: BrandLoaderProps) {
           />
         </View>
       </View>
-      <AppText size='body' weight='bold' color='text'>KouKou</AppText>
+      <AppText size='body' weight='bold' color='text'>Fermia</AppText>
       <AppText size='small' color='muted'>Prépare votre ferme…</AppText>
     </>
   );

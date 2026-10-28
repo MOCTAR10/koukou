@@ -30,7 +30,7 @@ import { createTask, updateTask, deleteTask, type TaskStatusValue } from '@/api/
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import type { FarmTask, TaskStatus } from '@/api/types';
-import { color, palette, radii, spacing } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   A_FAIRE: 'À faire',
@@ -317,8 +317,8 @@ function TaskCard({
             {task.title}
           </AppText>
           <AppText size="caption" color="muted" numberOfLines={1}>
-            {assigneeName ? `👤 ${assigneeName}` : 'Tâche libre'}
-            {batchName ? ` · 🏠 ${batchName}` : ''}
+            {assigneeName ? assigneeName : 'Tâche libre'}
+            {batchName ? ` · ${batchName}` : ''}
           </AppText>
         </View>
         <Chip label={STATUS_LABELS[task.status]} tone={STATUS_TONES[task.status]} />
@@ -492,7 +492,7 @@ export default function TasksScreen() {
           {filtered.length === 0 ? (
             <Card tone="default">
               <EmptyState
-                emoji="📋"
+                icon={ClipboardList}
                 title={filter === 'OPEN' ? 'Aucune tâche en attente' : 'Aucune tâche ici'}
                 description={
                   filter === 'OPEN'
@@ -559,6 +559,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
     borderColor: palette.border,
@@ -569,6 +570,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
   },
   notesInput: {
+    fontFamily: fontFamily.regular,
     height: 90,
     paddingTop: 12,
     paddingBottom: 12,

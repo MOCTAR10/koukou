@@ -12,7 +12,7 @@ import type { InvoiceFields } from '@/api/mutations';
 import type { Customer, Promotion } from '@/api/types';
 import type { SendResult } from '@/offline';
 import { customerTypeLabel } from '@/constants/customers';
-import { color, palette, radii, spacing, fmt, fmtFcfa } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily } from '@/constants/theme';
 
 import { findPromotion, totalsFor } from './helpers';
 import type { PosLine } from './types';
@@ -520,6 +520,7 @@ const styles = StyleSheet.create({
     borderColor: color.brand[200],
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
     borderColor: palette.border,

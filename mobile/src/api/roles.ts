@@ -11,8 +11,8 @@ export function roleLabel(role: string | undefined): string {
 /** Libellé d'un rôle de staff ferme (PROPRIETAIRE / ADMIN / ELEVEUR), avec le nom de la ferme quand disponible. */
 export function farmRoleLabel(role: string | undefined, farmName?: string): string {
   if (role === 'PROPRIETAIRE') return 'Propriétaire';
-  if (role === 'ADMIN') return farmName ? `Administrateur · ${farmName}` : 'Administrateur KouKou';
-  if (role === 'ELEVEUR') return farmName ? `Éleveur · ${farmName}` : 'Éleveur Koukou';
+  if (role === 'ADMIN') return farmName ? `Administrateur · ${farmName}` : 'Administrateur Fermia';
+  if (role === 'ELEVEUR') return farmName ? `Éleveur · ${farmName}` : 'Éleveur Fermia';
   return 'Membre';
 }
 

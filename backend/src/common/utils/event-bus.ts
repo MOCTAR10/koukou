@@ -26,7 +26,7 @@ export const KOUKOU_EVENTS = {
   SALE_CHANGED: 'sale.changed',
 } as const;
 
-class KoukouBus extends EventEmitter {}
+class FermiaBus extends EventEmitter {}
 
-export const koukouBus = new KoukouBus();
+export const koukouBus = new FermiaBus();
 koukouBus.setMaxListeners(50);

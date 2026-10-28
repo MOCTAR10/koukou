@@ -161,7 +161,7 @@ describe('Identité de ferme — nom & logo (e2e)', () => {
       .expect(400);
   });
 
-  it('retrait du logo : retour au logo KouKou par défaut', async () => {
+  it('retrait du logo : retour au logo Fermia par défaut', async () => {
     const res = await request(server)
       .delete(`/farms/${farmId}/logo`)
       .set('Authorization', `Bearer ${token}`)

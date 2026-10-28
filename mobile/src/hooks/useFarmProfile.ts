@@ -37,7 +37,7 @@ export function useFarmProfile() {
     hasAll,
     active,
     hasPermission,
-    /** Compte de terrain dédié : Éleveur Koukou actif sur la ferme. */
+    /** Compte de terrain dédié : Éleveur Fermia actif sur la ferme. */
     isGroundEleveur: profile?.role === 'ELEVEUR' && profile.active !== false,
     isLoading: query.isLoading,
     refetch: query.refetch,

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { ArrowRight, Plus, Tractor } from 'lucide-react-native';
+import { ArrowRight, Plus, Tractor, Wheat, Droplets, Lightbulb } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -226,7 +226,7 @@ export default function RecoltesScreen() {
           {/* ── Titre section ── */}
           {parcelles.length === 0 ? (
             <EmptyState
-              emoji="🚜"
+              icon={Tractor}
               title="Aucune parcelle à suivre"
               description="Enregistrez vos parcelles et leurs cultures : vous verrez ici les stades de croissance, les échéances de récolte et des conseils adaptés."
               actionLabel={canManage ? 'Ajouter une parcelle' : undefined}
@@ -269,7 +269,7 @@ export default function RecoltesScreen() {
           }}
           style={styles.fab}
           accessibilityRole="button">
-          <AppText style={{ fontSize: 18 }}>🌾</AppText>
+          <Wheat size={18} color="#fff" strokeWidth={2.2} />
           <AppText size="small" weight="bold" color="#fff">Journaliser une récolte</AppText>
         </Pressable>
       ) : null}
@@ -284,7 +284,7 @@ function RecolteRow({ recolte, parcelleName }: { recolte: Recolte; parcelleName:
     <Card style={styles.recolteCard}>
       <View style={styles.recolteHead}>
         <View style={styles.recolteIcon}>
-          <AppText style={{ fontSize: 16 }}>🌾</AppText>
+          <Wheat size={18} color={palette.green[700]} strokeWidth={2} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <AppText size="body" weight="bold" color="text" numberOfLines={1}>
@@ -349,13 +349,21 @@ function PlanningCard({ parcelle, stage }: { parcelle: Parcelle; stage: ReturnTy
                 ? 'Date de plantation à renseigner'
                 : 'À préparer pour la plantation'}
           </AppText>
-          {water ? <AppText size="caption" color="faint">💧 {water}</AppText> : null}
+          {water ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Droplets size={12} color={palette.brand[500]} />
+              <AppText size="caption" color="faint">{water}</AppText>
+            </View>
+          ) : null}
         </View>
       </View>
 
       {advice ? (
         <View style={styles.advice}>
-          <AppText size="caption" weight="bold" color="brand">💡 Conseil</AppText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Lightbulb size={13} color={palette.brand[600]} />
+            <AppText size="caption" weight="bold" color="brand">Conseil</AppText>
+          </View>
           <AppText size="small" color="muted">{advice}</AppText>
         </View>
       ) : null}

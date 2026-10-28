@@ -1,18 +1,17 @@
 import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
-import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { ArrowLeft, Tractor, User } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Check, Tractor, User } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
-import { PulsarDot } from '@/components/ui/PulsarDot';
+import { AuthHero } from '@/components/auth/AuthHero';
 import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
 import { isGabonPhoneValid } from '@/constants/phone';
-import { color, palette } from '@/constants/theme';
+import { color, palette, fontFamily, radii, semantic, shadow } from '@/constants/theme';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 
 type Step = 1 | 2;
@@ -75,7 +74,7 @@ export default function RegisterScreen() {
   if (step === 1) {
     return (
       <View style={styles.root}>
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
           <ScrollView
             contentContainerStyle={[styles.scroll, { paddingBottom: keyboardInset + 24 }]}
             keyboardShouldPersistTaps="handled"
@@ -83,25 +82,12 @@ export default function RegisterScreen() {
             automaticallyAdjustKeyboardInsets={false}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.heroBig}>
-              <Image
-                source={require('@/assets/images/logo.png')}
-                style={styles.logoBig}
-                contentFit="contain"
-                accessibilityLabel="Logo KouKou"
-              />
-              <View style={styles.titleRow}>
-                <AppText size="h1" weight="bold" color={color.accent[500]}>
-                  KouKou
-                </AppText>
-                <PulsarDot />
-              </View>
-              <AppText size="bodyM" align="center" color="muted" style={{ marginTop: 8 }}>
-                Votre élevage avicole, piloté au quotidien.
-              </AppText>
-            </View>
+            <AuthHero subtitle="Élevage et cultures, pilotés au quotidien." />
 
-            <View style={{ gap: 12 }}>
+            <View style={styles.sheet}>
+              <AppText size="label" color="brand" style={styles.stepEyebrow}>ÉTAPE 1 SUR 2</AppText>
+              <AppText size="h2" weight="bold" color="text">Créer mon compte</AppText>
+              <AppText size="caption" color="muted" style={styles.sheetSub}>Votre nom et celui de votre ferme.</AppText>
               <View style={styles.field}>
                 <User size={16} color={color.brand[600]} />
                 <TextInput
@@ -156,7 +142,7 @@ export default function RegisterScreen() {
                 tone="primary"
                 size="lg"
                 labelSize="body"
-                image={require('@/assets/images/logo-white.png')}
+                icon={ArrowRight}
                 disabled={!canContinue}
                 onPress={() => setStep(2)}
               />
@@ -169,7 +155,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: keyboardInset + 24 }]}
         keyboardShouldPersistTaps="handled"
@@ -177,17 +163,12 @@ export default function RegisterScreen() {
         automaticallyAdjustKeyboardInsets={false}
         showsVerticalScrollIndicator={false}
       >
-          <View style={styles.hero}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.logoSmall}
-              contentFit="contain"
-              accessibilityLabel="Logo KouKou"
-            />
-            <AppText size="h1" weight="bold" color={color.accent[500]} style={{ marginTop: 6 }}>
-              Créer mon compte
-            </AppText>
-          </View>
+          <AuthHero compact />
+
+          <View style={styles.sheet}>
+          <AppText size="label" color="brand" style={styles.stepEyebrow}>ÉTAPE 2 SUR 2</AppText>
+          <AppText size="h2" weight="bold" color="text">Votre accès</AppText>
+          <AppText size="caption" color="muted" style={styles.sheetSub}>Votre numéro et un code secret pour vous connecter.</AppText>
 
           <Pressable onPress={() => setStep(1)} style={styles.backLink} accessibilityRole="link">
             <ArrowLeft size={15} color={palette.ink[400]} />
@@ -261,10 +242,10 @@ export default function RegisterScreen() {
             <View style={{ gap: 8, marginTop: 4 }}>
               <Button
                 label="Créer mon compte"
-                tone="success"
+                tone="primary"
                 size="lg"
                 labelSize="body"
-                image={require('@/assets/images/logo-white.png')}
+                icon={Check}
                 loading={busy}
                 disabled={!canSubmit}
                 onPress={submit}
@@ -272,6 +253,7 @@ export default function RegisterScreen() {
             </View>
 
             {signInLink}
+          </View>
           </View>
         </ScrollView>
     </View>
@@ -281,35 +263,28 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.bg,
   },
   scroll: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
   },
-  heroBig: {
-    alignItems: 'center',
-    marginBottom: 16,
+  sheet: {
+    marginTop: -40,
+    marginHorizontal: 16,
+    padding: 20,
+    gap: 12,
+    backgroundColor: semantic.surface,
+    borderRadius: radii.xxl,
+    borderWidth: 1,
+    borderColor: palette.border,
+    ...shadow.raised,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
+  stepEyebrow: {
+    letterSpacing: 1,
+    marginBottom: -8,
   },
-  logoBig: {
-    width: 160,
-    height: 160,
-  },
-  hero: {
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  logoSmall: {
-    width: 110,
-    height: 110,
+  sheetSub: {
+    marginTop: -8,
   },
   phaseRow: {
     flexDirection: 'row',
@@ -341,6 +316,7 @@ const styles = StyleSheet.create({
     borderColor: color.border,
   },
   input: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 15,
     color: palette.ink[900],
@@ -355,6 +331,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   registerLink: {
+    fontFamily: fontFamily.regular,
     paddingVertical: 12,
     alignItems: 'center',
   },

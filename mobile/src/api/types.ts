@@ -63,7 +63,7 @@ export interface Farm {
   defaultSacKg: number;
   isVerified: boolean;
   active: boolean;
-  /** Chemin public du logo (ex. « /uploads/logos/<farmId>.png ») ; null = logo KouKou par défaut. */
+  /** Chemin public du logo (ex. « /uploads/logos/<farmId>.png ») ; null = logo Fermia par défaut. */
   logoUrl: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -71,7 +71,7 @@ export interface Farm {
 
 export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN';
 
-/** Rôle de membre du staff ferme (Administrateur KouKou / Éleveur Koukou). */
+/** Rôle de membre du staff ferme (Administrateur Fermia / Éleveur Fermia). */
 export type FarmStaffRole = 'ADMIN' | 'ELEVEUR';
 
 /** Catalogue des permissions accordables (câblées côté serveur via @Permissions). */
@@ -96,6 +96,7 @@ export type PermissionCode =
   | 'production:abattage'
   | 'sanitaire:gerer'
   | 'sanitaire:lecture'
+  | 'sanitaire:signaler'
   | 'reglages:ferme'
   | 'rh:lire'
   | 'rh:gerer'
