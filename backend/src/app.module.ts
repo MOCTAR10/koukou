@@ -28,6 +28,7 @@ import { PlatformModule } from './modules/platform/platform.module.js';
 import { AdvisoryModule } from './modules/advisory/advisory.module.js';
 import { AgricultureModule } from './modules/agriculture/agriculture.module.js';
 import { SpatialModule } from './modules/spatial/spatial.module.js';
+import { PushModule } from './modules/push/push.module.js';
 import { DatabaseModule } from './database/database.module.js';
 
 @Module({
@@ -91,6 +92,7 @@ import { DatabaseModule } from './database/database.module.js';
     AdvisoryModule,
     SpatialModule,
     AgricultureModule,
+    PushModule,
     DatabaseModule,
   ],
   controllers: [AppController],

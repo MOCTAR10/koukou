@@ -5,6 +5,7 @@ import { apiFetch, ApiError } from '@/api/client';
 import { clearSession, loadSession, saveSession, type StoredSession } from '@/api/token';
 import { clearQueue, loadOps } from '@/offline';
 import { confirm } from '@/components/ui/Feedback';
+import { unregisterForPush } from '@/notifications/push';
 import type { Farm, PublicUser } from '@/api/types';
 
 const EMPTY_USER: PublicUser = { id: '', fullName: '', phone: '', role: 'PROPRIETAIRE' };
@@ -121,6 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (!ok) return;
     }
+    // While the session token is still there: stop push for this account.
+    await unregisterForPush();
     clearSession();
     clearQueue();
     setSession(null);

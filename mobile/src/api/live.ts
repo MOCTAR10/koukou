@@ -720,6 +720,14 @@ export class LiveApi {
     return apiFetch<FarmTask[]>(`/farms/${farmId}/tasks`);
   }
 
+  async registerPushDevice(token: string, platform: 'ios' | 'android'): Promise<void> {
+    await apiFetch<null>('/push/devices', { method: 'POST', body: { token, platform } });
+  }
+
+  async unregisterPushDevice(token: string): Promise<void> {
+    await apiFetch<null>(`/push/devices/${encodeURIComponent(token)}`, { method: 'DELETE' });
+  }
+
   async fetchAssignableTeam(farmId: string): Promise<AssignableTeamMember[]> {
     return apiFetch<AssignableTeamMember[]>(`/farms/${farmId}/team`);
   }

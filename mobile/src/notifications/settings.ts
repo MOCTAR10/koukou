@@ -4,23 +4,24 @@ import { DEFAULT_REMINDER_SETTINGS, type ReminderSettings } from './plan';
 /** Per-device preference (not per account): the phone owns its reminders. */
 const KEY = 'koukou.reminders';
 
-let memory: string | null = null;
+const memory = new Map<string, string>();
 
-function read(): string | null {
-  if (persistentKv) return persistentKv.getItem(KEY);
-  if (typeof localStorage !== 'undefined') return localStorage.getItem(KEY);
-  return memory;
+/** Per-device value: file store on native, localStorage on web, else memory. */
+export function readDeviceValue(key: string): string | null {
+  if (persistentKv) return persistentKv.getItem(key);
+  if (typeof localStorage !== 'undefined') return localStorage.getItem(key);
+  return memory.get(key) ?? null;
 }
 
-function write(value: string): void {
-  if (persistentKv) persistentKv.setItem(KEY, value);
-  else if (typeof localStorage !== 'undefined') localStorage.setItem(KEY, value);
-  else memory = value;
+export function writeDeviceValue(key: string, value: string): void {
+  if (persistentKv) persistentKv.setItem(key, value);
+  else if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+  else memory.set(key, value);
 }
 
 export function loadReminderSettings(): ReminderSettings {
   try {
-    const raw = read();
+    const raw = readDeviceValue(KEY);
     if (!raw) return DEFAULT_REMINDER_SETTINGS;
     const parsed = JSON.parse(raw) as Partial<ReminderSettings>;
     return { ...DEFAULT_REMINDER_SETTINGS, ...parsed };
@@ -30,7 +31,7 @@ export function loadReminderSettings(): ReminderSettings {
 }
 
 export function saveReminderSettings(settings: ReminderSettings): void {
-  write(JSON.stringify(settings));
+  writeDeviceValue(KEY, JSON.stringify(settings));
 }
 
 type Listener = () => void;

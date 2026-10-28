@@ -6,6 +6,11 @@ import {
   AlertLevel,
   AlertStatus,
 } from '../../common/enums/alert-level.enum.js';
+import {
+  AlertRaisedEvent,
+  KOUKOU_EVENTS,
+  koukouBus,
+} from '../../common/utils/event-bus.js';
 import { Alert } from './entities/alert.entity.js';
 
 export interface AlertCandidate {
@@ -78,13 +83,18 @@ export class AlertsService {
       return existing;
     }
     if (existing) {
+      const escalated =
+        existing.level !== AlertLevel.ROUGE &&
+        candidate.level === AlertLevel.ROUGE;
       existing.status = AlertStatus.ACTIVE;
       existing.resolvedAt = null;
       existing.level = candidate.level;
       existing.message = candidate.message;
       existing.recommendation = candidate.recommendation ?? null;
       existing.context = candidate.context ?? null;
-      return this.alertRepo.save(existing);
+      const saved = await this.alertRepo.save(existing);
+      if (escalated) this.emitRaised(saved);
+      return saved;
     }
     // L'alerte est scoped bâtiment : on stocke batchId null pour que la
     // déduplication et le clearKind (batchId IsNull) restent cohérents.
@@ -101,7 +111,23 @@ export class AlertsService {
       recommendation: candidate.recommendation ?? null,
       context: candidate.context ?? null,
     });
-    return this.alertRepo.save(alert);
+    const saved = await this.alertRepo.save(alert);
+    if (saved.level === AlertLevel.ROUGE) this.emitRaised(saved);
+    return saved;
+  }
+
+  /**
+   * Push trigger: only a new red alert or an escalation to red. Periodic
+   * re-evaluations that merely refresh an existing alert stay silent.
+   */
+  private emitRaised(alert: Alert): void {
+    const event: AlertRaisedEvent = {
+      farmId: alert.farmId,
+      alertId: alert.id,
+      kind: alert.kind,
+      message: alert.message,
+    };
+    koukouBus.emit(KOUKOU_EVENTS.ALERT_RAISED, event);
   }
 
   /** Marque l'alerte active correspondante comme résolue (fin du risque). */

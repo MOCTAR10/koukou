@@ -332,6 +332,14 @@ export function fetchTasks(farmId: string): Promise<FarmTask[]> {
   return live.fetchTasks(farmId);
 }
 
+export function registerPushDevice(token: string, platform: 'ios' | 'android'): Promise<void> {
+  return live.registerPushDevice(token, platform);
+}
+
+export function unregisterPushDevice(token: string): Promise<void> {
+  return live.unregisterPushDevice(token);
+}
+
 export function fetchAssignableTeam(farmId: string): Promise<AssignableTeamMember[]> {
   return live.fetchAssignableTeam(farmId);
 }

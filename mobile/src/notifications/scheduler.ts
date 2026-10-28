@@ -88,12 +88,28 @@ export async function clearReminders(): Promise<void> {
   lastSignature = null;
 }
 
-/** Route attached to a tapped reminder, if any. */
+function routeOf(response: Notifications.NotificationResponse | null): string | null {
+  const route = response?.notification.request.content.data?.route;
+  return typeof route === 'string' ? route : null;
+}
+
+/**
+ * Route attached to a tapped notification (local reminder or server push),
+ * including the tap that launched the app from a cold start.
+ */
 export function onReminderTapped(cb: (route: string) => void): () => void {
   if (!remindersSupported()) return () => {};
+  const launch = routeOf(Notifications.getLastNotificationResponse());
+  if (launch) {
+    // Consumed once, so reopening the app doesn't navigate again.
+    Notifications.clearLastNotificationResponse();
+    // Let the root navigator finish mounting first.
+    setTimeout(() => cb(launch), 0);
+  }
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const route = response.notification.request.content.data?.route;
-    if (typeof route === 'string') cb(route);
+    const route = routeOf(response);
+    if (route) cb(route);
+    Notifications.clearLastNotificationResponse();
   });
   return () => sub.remove();
 }
