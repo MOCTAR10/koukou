@@ -71,9 +71,14 @@ Dans l'écran, un badge « X j stock » affiche l'autonomie de la phase choisie
 
 ## Indices de performance dérivés
 
-- **IPE** (Indice de Performance Européen) : évalué à partir de
-  J14 ; écart > 10 % en retrait (`IPE_DEVIATION_WARN_PCT`) = JAUNE.
-  Un IPE faible signale une ration, une densité ou une ambiance à revoir.
+- **IPE** (Indice de Performance Européen) = poids (kg) × viabilité (%) ×
+  100 / (âge (j) × IC), calculé à la dernière pesée. Pas d'échelle absolue
+  (≈ 250–400 pour un poulet de chair, variable selon l'espèce et l'âge) : il
+  est comparé à l'IPE de la courbe de la souche à l'âge de la pesée
+  (poids et IC cibles, viabilité du lot). Lots CHAIR avec référentiel
+  uniquement, pesée à J14 ou plus ; retrait > 10 %
+  (`IPE_DEVIATION_WARN_PCT`) = JAUNE. Un IPE en retrait signale une ration,
+  une densité ou une ambiance à revoir (la mortalité a ses propres alertes).
 - **GMQ** (Gain Moyen Quotidien) : baisse >= 10 %
   (`GMQ_DEVIATION_WARN_PCT`) vs la pesée précédente = croissance ralentie.
   Le lot sert de référence à lui-même (pas de comparaison inter-lots).

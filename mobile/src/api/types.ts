@@ -222,6 +222,8 @@ export interface BatchMetrics {
   fcr: number | null;
   gmqGramsPerDay: number | null;
   ipe: number | null;
+  /** IPE of the breed curve at the weighing age (null without a standard). */
+  ipeTarget: number | null;
   lastWeighingDate: string | null;
   lastWeighingAgeDays: number | null;
   eggsCollectedTotal: number;

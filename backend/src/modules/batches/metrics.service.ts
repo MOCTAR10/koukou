@@ -32,6 +32,7 @@ import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import {
   avgDailyWaterPerBird,
   FlockTimeline,
+  ipeOf,
   performanceAtLastWeighing,
 } from './flock-performance.js';
 import {
@@ -374,6 +375,18 @@ export class MetricsService {
       lastWeighingDate: perf?.weighingDate ?? null,
       lastWeighingAgeDays: perf?.ageDays ?? null,
       lastWeighingAvgWeightKg: perf?.avgWeightKg ?? null,
+      // Breed curve at the weighing age, at the lot's own viability: the gap
+      // with `ipe` isolates growth and feed efficiency (mortality has its own
+      // alerts).
+      ipeTarget:
+        perf && fcrStandard?.targetAvgWeightKg != null
+          ? ipeOf(
+              fcrStandard.targetAvgWeightKg,
+              perf.viabilityPercent,
+              perf.ageDays,
+              fcrStandard.targetFcr,
+            )
+          : null,
       eggsCollectedTotal,
       eggBreakdown,
       eggStockAvailableEggs,

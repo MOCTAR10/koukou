@@ -131,4 +131,76 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
     // Last 7 days: one reading, 150 L for 600 birds.
     expect(m.waterLPerBird).toBeCloseTo(0.25, 4);
   });
+
+  it('IPE jugé contre la souche à l’âge de la pesée (pas un seuil absolu)', async () => {
+    const breeds = await request(server)
+      .get('/breeds')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const cobbId = (breeds.body as any[]).find((b) => b.name === 'Cobb 500').id;
+    const standards = await request(server)
+      .get(`/breeds/${cobbId}/standards`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    // Weighing at 28 days → age week 5.
+    const w5 = (standards.body.standards as any[]).find((s) => s.week === 5);
+    const targetIpe = (w5.targetAvgWeightKg * 100 * 100) / (28 * w5.targetFcr);
+
+    const lot = async (name: string, weightKg: number) => {
+      const b = await request(server)
+        .post(`/farms/${farmId}/batches`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          batchName: name,
+          integrationDate: daysAgo(30),
+          quantityAtStart: 1000,
+          type: 'CHAIR',
+          breedId: cobbId,
+        })
+        .expect(201);
+      // Feed sized so a lot at the target weight has exactly the target FCR.
+      await request(server)
+        .post(`/farms/${farmId}/batches/${b.body.id}/daily-entries`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          entryDate: daysAgo(2),
+          deaths: 0,
+          feedUnit: 'KG',
+          feedType: 'CROISSANCE',
+          feedQuantity: Math.round(
+            w5.targetFcr * 1000 * (w5.targetAvgWeightKg - 0.045),
+          ),
+          avgWeightKg: weightKg,
+        })
+        .expect(201);
+      const batch = await request(server)
+        .get(`/farms/${farmId}/batches/${b.body.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      const alerts = await request(server)
+        .get(`/farms/${farmId}/alerts`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      return {
+        m: batch.body.metrics,
+        ipeAlert: (alerts.body as any[]).find(
+          (a) => a.batchId === b.body.id && a.kind === 'IPE' && a.status === 'ACTIVE',
+        ),
+      };
+    };
+
+    // On the curve: IPE ≈ 300+, far above the old absolute threshold of 90,
+    // and no alert.
+    const good = await lot('Bande IPE conforme', w5.targetAvgWeightKg);
+    expect(good.m.ipeTarget).toBeCloseTo(targetIpe, 1);
+    expect(good.m.ipe).toBeCloseTo(targetIpe, 0);
+    expect(good.ipeAlert).toBeUndefined();
+
+    // 30 % under the target weight with the same feed: IPE well behind.
+    const late = await lot('Bande IPE en retard', w5.targetAvgWeightKg * 0.7);
+    expect(late.m.ipe).toBeLessThan(late.m.ipeTarget * 0.9);
+    expect(late.ipeAlert).toBeDefined();
+    expect(late.ipeAlert.level).toBe('JAUNE');
+    expect(late.ipeAlert.message).toContain('attendu pour la souche');
+  });
 });

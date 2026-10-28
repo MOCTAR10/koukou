@@ -44,6 +44,23 @@ export interface PerformanceAtWeighing {
   ipe: number | null;
 }
 
+/**
+ * Indice de Performance Européen:
+ * poids (kg) × viabilité (%) × 100 / (âge (j) × IC).
+ * Scale is roughly 250–400 for a normal broiler lot, so it can only be judged
+ * against a reference computed the same way (see `ipeTarget` in metrics).
+ */
+export function ipeOf(
+  weightKg: number,
+  viabilityPercent: number,
+  ageDays: number,
+  fcr: number | null,
+): number | null {
+  return fcr != null && fcr > 0 && ageDays > 0
+    ? (weightKg * viabilityPercent * 100) / (ageDays * fcr)
+    : null;
+}
+
 export function daysBetween(from: string, to: string): number {
   const a = Date.parse(`${from}T00:00:00Z`);
   const b = Date.parse(`${to}T00:00:00Z`);
@@ -129,10 +146,7 @@ export function performanceAtLastWeighing(
     t.quantityAtStart > 0
       ? Math.max(0, 100 - (deaths / t.quantityAtStart) * 100)
       : 100;
-  const ipe =
-    fcr != null && fcr > 0 && ageDays > 0
-      ? (kg * viabilityPercent * 100) / (ageDays * fcr)
-      : null;
+  const ipe = ipeOf(kg, viabilityPercent, ageDays, fcr);
 
   return {
     weighingDate: date,
