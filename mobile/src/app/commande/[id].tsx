@@ -338,7 +338,7 @@ function DepositSheet({ order, onClose }: { order: OrderFull; onClose: () => voi
   };
 
   return (
-    <Sheet visible onClose={onClose} title="Encaisser un acompte" subtitle={`Reste dû : ${fmtFcfa(remaining)}`} icon={<Wallet size={22} color={color.brand[600]} />}>
+    <Sheet visible onClose={onClose} title={order.status === 'PENDING' ? 'Encaisser un acompte' : 'Encaisser un paiement'} subtitle={`Reste dû : ${fmtFcfa(remaining)}`} icon={<Wallet size={22} color={color.brand[600]} />}>
       <View style={{ gap: spacing.lg }}>
         <TextInput
           value={amount > 0 ? String(amount) : ''}
@@ -429,11 +429,16 @@ export default function CommandeDetailScreen() {
   };
 
   const doDeliver = () => {
-    if (order.status !== 'CONFIRMED') {
-      toast.error('Impossible', 'Encoder un acompte (→ Confirmer) avant de livrer.');
-      return;
-    }
-    void confirm({ title: 'Livrer la commande', message: 'Le cheptel sera décrémenté et le bon de commande PDF généré. Confirmer ?', cancelLabel: 'Retour', confirmLabel: 'Livrer' }).then((ok) => {
+    const due = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
+    const message =
+      due > 0
+        ? `Le cheptel sera décrémenté et le bon de commande PDF généré.
+
+Reste dû : ${fmtFcfa(due)}. Si le client paie maintenant, touchez d’abord « Encaisser » ; sinon le solde restera à régler sur sa fiche client.
+
+Livrer ?`
+        : 'Le cheptel sera décrémenté et le bon de commande PDF généré. Confirmer ?';
+    void confirm({ title: 'Livrer la commande', message, cancelLabel: 'Retour', confirmLabel: 'Livrer' }).then((ok) => {
       if (!ok) return;
       setBusy(true);
       deliverOrderQueued(farmId, order.id)
@@ -454,8 +459,10 @@ export default function CommandeDetailScreen() {
   };
 
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
-  const canLivrer = order.status === 'CONFIRMED';
-  const canCancel = order.status === 'PENDING' || order.status === 'CONFIRMED';
+  // No deposit needed: an order can be paid on delivery or on credit.
+  const isOpen = order.status === 'PENDING' || order.status === 'CONFIRMED';
+  const canLivrer = isOpen;
+  const canCancel = isOpen;
 
   return (
     <Screen header={<ScreenHeader title="Commande" subtitle={order.referenceNumber} back />} bottomPad={128} refreshing={orderQuery.isFetching} onRefresh={() => void pulldown()}>
@@ -495,8 +502,13 @@ export default function CommandeDetailScreen() {
         {order.passport ? <PassportCard passport={order.passport} /> : null}
 
         <View style={{ gap: spacing.sm }}>
-          {order.status === 'PENDING' ? (
-            <Button label={`Encaisser un acompte · reste ${fmtFcfa(remaining)}`} tone="brand" disabled={busy || remaining <= 0} onPress={() => setDepositOpen(true)} />
+          {isOpen && remaining > 0 ? (
+            <Button
+              label={`${order.status === 'PENDING' ? 'Encaisser un acompte' : 'Encaisser un paiement'} · reste ${fmtFcfa(remaining)}`}
+              tone="brand"
+              disabled={busy}
+              onPress={() => setDepositOpen(true)}
+            />
           ) : null}
           {canLivrer ? (
             <Button label={`Livrer la commande · reste ${fmtFcfa(remaining)}`} tone="accent" loading={busy} onPress={doDeliver} />

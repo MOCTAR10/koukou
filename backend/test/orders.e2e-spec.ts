@@ -298,6 +298,70 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
     expect(batch.body.quantityAlive).toBe(290);
   });
 
+  it('livraison sans acompte : payée à la livraison ou à crédit', async () => {
+    const order = (items: number) =>
+      request(server)
+        .post(`/farms/${farmId}/orders`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          canal: 'FERME',
+          expectedDate: today(),
+          customerId,
+          items: [
+            {
+              productType: 'POULET_PIECE',
+              quantity: items,
+              unit: 'PIECE',
+              unitPriceFcfa: 3000,
+              batchId,
+            },
+          ],
+        })
+        .expect(201);
+
+    // Paid in full at delivery.
+    const paidOnDelivery = await order(5);
+    expect(paidOnDelivery.body.status).toBe('PENDING');
+    const delivered = await request(server)
+      .post(`/farms/${farmId}/orders/${paidOnDelivery.body.id}/livrer`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ payment: { method: 'CASH', amountFcfa: 15000 } })
+      .expect(201);
+    expect(delivered.body.status).toBe('LIVRE');
+    expect(delivered.body.depositFcfa).toBe(15000);
+    expect(delivered.body.sale.status).toBe('SETTLED');
+
+    // On credit: delivered, balance still due on the sale.
+    const onCredit = await order(3);
+    const credit = await request(server)
+      .post(`/farms/${farmId}/orders/${onCredit.body.id}/livrer`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+      .expect(201);
+    expect(credit.body.status).toBe('LIVRE');
+    expect(credit.body.depositFcfa).toBe(0);
+    expect(credit.body.sale.status).toBe('OUTSTANDING');
+
+    const batch = await request(server)
+      .get(`/farms/${farmId}/batches/${batchId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(batch.body.quantityAlive).toBe(290 - 5 - 3);
+
+    // Delivered or cancelled orders stay closed.
+    await request(server)
+      .post(`/farms/${farmId}/orders/${onCredit.body.id}/livrer`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+      .expect(400);
+    const cancelled = await request(server)
+      .post(`/farms/${farmId}/orders/${secondOrderId}/livrer`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+      .expect(400);
+    expect(cancelled.body.message).toContain('annulée');
+  });
+
   it('commande d’œufs sans production → 400 (stock insuffisant)', async () => {
     await request(server)
       .post(`/farms/${farmId}/orders`)
