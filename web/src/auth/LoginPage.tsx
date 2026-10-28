@@ -6,7 +6,6 @@ import { useAuth } from './AuthContext';
 import { ApiError } from '../api/client';
 import { getStoredUser } from '../api/client';
 import { useEffect } from 'react';
-import { Logo } from '../components/Logo';
 import { EASE, durations } from '../lib/motion';
 
 export function LoginPage() {
@@ -41,21 +40,20 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white p-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-brand-800 to-brand-950 p-4">
+      <div aria-hidden className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-brand-400/30 blur-3xl" />
+      <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="relative mb-6 h-20 w-auto" />
       <motion.div
-        className="w-full max-w-xs rounded-2xl border border-slate-100 bg-white p-6 shadow-sm"
+        className="relative w-full max-w-sm rounded-2xl bg-white p-7 shadow-2xl shadow-brand-950/40"
         initial={reduced ? false : { opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: durations.base, ease: EASE }}
       >
-        <div className="mb-5 flex flex-col items-center gap-2 text-center">
-          <Logo className="h-24 w-auto" />
-          <div>
-            <h1 className="text-lg font-bold text-slate-900">Fermia</h1>
-            <p className="text-[13px] text-slate-500">
-              Console Administrateur Plateforme
-            </p>
-          </div>
+        <div className="mb-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-600">
+            Console plateforme
+          </p>
+          <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Connexion</h1>
         </div>
 
         {error ? (
@@ -73,7 +71,7 @@ export function LoginPage() {
             <div className="relative">
               <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+241 6x xx xx xx"
@@ -91,7 +89,7 @@ export function LoginPage() {
               <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="password"
-                className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="••••••"
@@ -104,7 +102,7 @@ export function LoginPage() {
             type="submit"
             disabled={submitting}
             whileTap={{ scale: 0.99 }}
-            className="w-full rounded-lg bg-brand-600 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
+            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
           >
             {submitting ? 'Connexion…' : 'Se connecter'}
           </motion.button>
