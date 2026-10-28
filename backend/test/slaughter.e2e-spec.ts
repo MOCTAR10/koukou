@@ -77,7 +77,9 @@ describe('Module 5 — Abattage & Traçabilité (+ passeport sanitaire, e2e)', (
       .send({
         batchName: 'Lot abattage',
         integrationDate: today(),
-        quantityAtStart: 300,
+        // 120 (internal, stays SENT) + 180 + later orders: the flock must
+        // cover every SENT order, so keep headroom above 300.
+        quantityAtStart: 400,
         type: 'CHAIR',
         couvoirSupplier: 'Canabec',
         chickLotNumber: `CL-${Date.now()}`,
