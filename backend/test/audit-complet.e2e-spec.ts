@@ -324,12 +324,12 @@ describe('Audit complet — immuabilité, stocks, alertes, métriques (e2e)', ()
     await request(server)
       .post('/breeds')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name, type: 'CHAIR' })
+      .send({ name, type: 'CHAIR', farmId })
       .expect(201);
     await request(server)
       .post('/breeds')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name, type: 'CHAIR' })
+      .send({ name, type: 'CHAIR', farmId })
       .expect(409);
     await app.get(DataSource).getRepository(Breed).delete({ name });
   });

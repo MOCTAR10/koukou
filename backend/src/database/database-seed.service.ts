@@ -2,7 +2,7 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { BatchType } from '../common/enums/batch-type.enum.js';
 import { Species } from '../common/enums/species.enum.js';
 import { CropCategory } from '../common/enums/crop-category.enum.js';
@@ -2247,6 +2247,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     await this.seedCultures();
     await this.repairBagLotUnits();
     await this.repairClosedBatchAlerts();
+    await this.assignLegacyCustomResources();
     this.logger.log('Semence des données de référence terminée.');
   }
 
@@ -2311,6 +2312,66 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     }
   }
 
+  /**
+   * Idempotent repair: custom breeds / cultures / programs used to be shared
+   * by every farm. Each legacy custom row used by exactly one farm becomes
+   * that farm's own; rows used by none or by several farms stay shared.
+   */
+  private async assignLegacyCustomResources(): Promise<void> {
+    const m = this.usersRepo.manager;
+    const assign = async (sql: string): Promise<number> => {
+      const rows: Array<{ n: number }> = await m.query(sql);
+      return rows[0]?.n ?? 0;
+    };
+    const breeds = await assign(`
+      WITH owner AS (
+        SELECT breed_id AS id, MIN(farm_id::text)::uuid AS farm_id
+        FROM production_batches WHERE breed_id IS NOT NULL
+        GROUP BY breed_id HAVING COUNT(DISTINCT farm_id) = 1
+      ), fixed AS (
+        UPDATE breeds b SET farm_id = owner.farm_id FROM owner
+        WHERE b.id = owner.id AND b.is_custom AND b.farm_id IS NULL
+        RETURNING b.id
+      )
+      SELECT COUNT(*)::int AS n FROM fixed
+    `);
+    const cultures = await assign(`
+      WITH owner AS (
+        SELECT culture_id AS id, MIN(farm_id::text)::uuid AS farm_id
+        FROM parcelles GROUP BY culture_id
+        HAVING COUNT(DISTINCT farm_id) = 1
+      ), fixed AS (
+        UPDATE cultures c SET farm_id = owner.farm_id FROM owner
+        WHERE c.id = owner.id AND c.is_custom AND c.farm_id IS NULL
+        RETURNING c.id
+      )
+      SELECT COUNT(*)::int AS n FROM fixed
+    `);
+    const programs = await assign(`
+      WITH owner AS (
+        SELECT s.protocol_id AS id, MIN(b.farm_id::text)::uuid AS farm_id
+        FROM prophylaxis_events e
+        JOIN protocol_steps s ON s.id = e.protocol_step_id
+        JOIN production_batches b ON b.id = e.batch_id
+        GROUP BY s.protocol_id HAVING COUNT(DISTINCT b.farm_id) = 1
+      ), fixed AS (
+        UPDATE sanitary_protocols p SET farm_id = owner.farm_id FROM owner
+        WHERE p.id = owner.id AND NOT p.is_default AND p.is_editable
+          AND p.farm_id IS NULL
+          AND p.code NOT IN (${[...DEFAULT_PROTOCOLS, ...GABON_VACC_PROTOCOLS]
+            .map((x) => `'${x.code.replace(/'/g, "''")}'`)
+            .join(', ')})
+        RETURNING p.id
+      )
+      SELECT COUNT(*)::int AS n FROM fixed
+    `);
+    if (breeds + cultures + programs > 0) {
+      this.logger.warn(
+        `Éléments personnalisés rattachés à leur ferme : ${breeds} souche(s), ${cultures} culture(s), ${programs} programme(s).`,
+      );
+    }
+  }
+
   /** Compte administrateur plateforme (env uniquement, aucun défaut en clair). */
   private async seedPlatformAdmin(): Promise<void> {
     const email = this.config.get('PLATFORM_ADMIN_EMAIL');
@@ -2353,7 +2414,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   private async seedBreeds() {
     for (const b of DEFAULT_BREEDS) {
       const existing = await this.breedRepo.findOne({
-        where: { name: b.name },
+        where: { name: b.name, farmId: IsNull() },
       });
       if (!existing) {
         await this.breedRepo.save(
@@ -2375,7 +2436,9 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   /** Courbes zootechniques de référence des souches par défaut (idempotent). */
   private async seedBreedStandards() {
     for (const [name, standards] of Object.entries(DEFAULT_BREED_STANDARDS)) {
-      const breed = await this.breedRepo.findOne({ where: { name } });
+      const breed = await this.breedRepo.findOne({
+        where: { name, farmId: IsNull() },
+      });
       if (!breed) continue;
       const alreadySeeded = await this.standardRepo.count({
         where: { breedId: breed.id },
@@ -2393,7 +2456,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   private async seedCultures() {
     for (const c of DEFAULT_CULTURES) {
       const existing = await this.cultureRepo.findOne({
-        where: { name: c.name },
+        where: { name: c.name, farmId: IsNull() },
       });
       if (!existing) {
         await this.cultureRepo.save(
@@ -2599,7 +2662,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   private async seedProtocols() {
     for (const protocol of DEFAULT_PROTOCOLS) {
       const existing = await this.protocolRepo.findOne({
-        where: { code: protocol.code },
+        where: { code: protocol.code, farmId: IsNull() },
       });
       if (existing) continue;
       const saved = await this.protocolRepo.save(
@@ -2639,7 +2702,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   private async seedGabonPrograms() {
     for (const program of GABON_VACC_PROTOCOLS) {
       const existing = await this.protocolRepo.findOne({
-        where: { code: program.code },
+        where: { code: program.code, farmId: IsNull() },
       });
       if (existing) continue;
       const saved = await this.protocolRepo.save(

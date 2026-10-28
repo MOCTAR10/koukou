@@ -125,7 +125,7 @@ describe('Référentiel souches & aperçu santé (Breed Intelligence) (e2e)', ()
     const custom = await request(server)
       .post('/breeds')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: `Maxi Chair Gabon ${Date.now()}`, type: 'CHAIR' })
+      .send({ name: `Maxi Chair Gabon ${Date.now()}`, type: 'CHAIR', farmId })
       .expect(201);
     const res = await request(server)
       .get(`/breeds/${custom.body.id}/standards`)
@@ -137,7 +137,10 @@ describe('Référentiel souches & aperçu santé (Breed Intelligence) (e2e)', ()
       .get('/breeds/00000000-0000-4000-8000-000000000000/standards')
       .set('Authorization', `Bearer ${token}`)
       .expect(404);
-    await app.get(DataSource).getRepository(Breed).delete({ id: custom.body.id });
+    await app
+      .get(DataSource)
+      .getRepository(Breed)
+      .delete({ id: custom.body.id });
   });
 
   it('aperçu santé : lot pondeuse comparé à la courbe ISA Brown (Breed Intelligence)', async () => {

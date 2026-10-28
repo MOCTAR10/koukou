@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -68,6 +69,14 @@ export class ProtocolStepInput {
 }
 
 export class CreateSanitaryProtocolDto {
+  @ApiPropertyOptional({
+    description:
+      'Ferme propriétaire du programme (omis : référentiel commun, administrateur plateforme uniquement)',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'Identifiant de ferme invalide.' })
+  farmId?: string;
+
   @ApiProperty({
     description: 'Nom du protocole (ex : Programme vaccinal poulet de chair)',
   })

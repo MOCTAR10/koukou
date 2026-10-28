@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { SpatialService } from '../spatial/spatial.service.js';
+import { CulturesService } from './cultures.service.js';
 import { CreateParcelleDto } from './dto/create-parcelle.dto.js';
 import { UpdateParcelleDto } from './dto/update-parcelle.dto.js';
 import { Parcelle } from './entities/parcelle.entity.js';
@@ -15,7 +20,18 @@ export class ParcellesService {
     private readonly parcelleRepo: Repository<Parcelle>,
     private readonly farmsService: FarmsService,
     private readonly spatialService: SpatialService,
+    private readonly culturesService: CulturesService,
   ) {}
+
+  /** The culture must be shared or this farm's own. */
+  private async assertCultureUsable(
+    farmId: string,
+    cultureId: string,
+  ): Promise<void> {
+    if (!(await this.culturesService.findUsable(cultureId, farmId))) {
+      throw new BadRequestException('Culture introuvable pour cette ferme.');
+    }
+  }
 
   async create(
     user: AuthUser,
@@ -23,6 +39,7 @@ export class ParcellesService {
     dto: CreateParcelleDto,
   ): Promise<Parcelle> {
     await this.farmsService.assertAccessible(user, farmId);
+    await this.assertCultureUsable(farmId, dto.cultureId);
     const areaHa = await this.resolveArea(dto.areaHa, dto.boundaryGeoJson);
     const parcelle = this.parcelleRepo.create({
       farmId,
@@ -78,7 +95,10 @@ export class ParcellesService {
     if (!parcelle)
       throw new NotFoundException('Parcelle introuvable dans cette ferme.');
     if (dto.name !== undefined) parcelle.name = dto.name;
-    if (dto.cultureId !== undefined) parcelle.cultureId = dto.cultureId;
+    if (dto.cultureId !== undefined && dto.cultureId !== parcelle.cultureId) {
+      await this.assertCultureUsable(farmId, dto.cultureId);
+      parcelle.cultureId = dto.cultureId;
+    }
     if (dto.boundaryGeoJson !== undefined)
       parcelle.boundaryGeoJson = dto.boundaryGeoJson ?? null;
     if (dto.plantedAt !== undefined) parcelle.plantedAt = dto.plantedAt ?? null;

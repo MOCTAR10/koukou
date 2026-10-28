@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
@@ -37,6 +37,7 @@ import {
 } from './dto/create-protocol.dto.js';
 import { CreateTreatmentDto } from './dto/create-treatment.dto.js';
 import { GenerateProgramDto } from './dto/generate-program.dto.js';
+import { sharedOrFarm } from '../../common/utils/farm-scope.js';
 import { CreateManualScheduleDto } from './dto/create-manual-schedule.dto.js';
 import { UpdateScheduleDto } from './dto/update-schedule.dto.js';
 
@@ -90,20 +91,38 @@ export class SanitaryService {
 
   // ---------- Protocoles sanitaire (données de référence) ----------
 
+  /** Shared programs plus the farm's own (shared only without a farm). */
   async listProtocols(
+    farmId: string | null,
     species?: string,
     type?: string,
   ): Promise<SanitaryProtocol[]> {
     const where: Record<string, string> = {};
     if (species) where.species = species;
     if (type) where.type = type;
-    return this.protocolRepo.find({ where, order: { name: 'ASC' } });
+    return this.protocolRepo.find({
+      where: sharedOrFarm<SanitaryProtocol>(farmId, where),
+      order: { name: 'ASC' },
+    });
+  }
+
+  /** A program the farm may use: shared or its own. */
+  private findUsableProtocol(
+    id: string,
+    farmId: string,
+  ): Promise<SanitaryProtocol | null> {
+    return this.protocolRepo.findOne({
+      where: sharedOrFarm<SanitaryProtocol>(farmId, { id }),
+    });
   }
 
   async findProtocol(
     id: string,
+    farmId: string | null,
   ): Promise<SanitaryProtocol & { steps: ProtocolStep[] }> {
-    const protocol = await this.protocolRepo.findOne({ where: { id } });
+    const protocol = await this.protocolRepo.findOne({
+      where: sharedOrFarm<SanitaryProtocol>(farmId, { id }),
+    });
     if (!protocol)
       throw new NotFoundException('Protocole sanitaire introuvable.');
     const steps = await this.stepRepo.find({
@@ -123,16 +142,19 @@ export class SanitaryService {
     type: BatchType,
   ): Promise<SanitaryProtocol | null> {
     return this.protocolRepo.findOne({
-      where: { species, type, isDefault: true },
+      where: { species, type, isDefault: true, farmId: IsNull() },
       order: { createdAt: 'ASC' },
     });
   }
 
   async createProtocol(
+    farmId: string | null,
     dto: CreateSanitaryProtocolDto,
   ): Promise<SanitaryProtocol & { steps: ProtocolStep[] }> {
     const code = dto.code ?? this.slugify(dto.name);
-    const existing = await this.protocolRepo.findOne({ where: { code } });
+    const existing = await this.protocolRepo.findOne({
+      where: sharedOrFarm<SanitaryProtocol>(farmId, { code }),
+    });
     if (existing)
       throw new BadRequestException('Un protocole existe déjà avec ce code.');
     const protocol = await this.protocolRepo.save(
@@ -143,10 +165,11 @@ export class SanitaryService {
         type: dto.type,
         isDefault: false,
         isEditable: true,
+        farmId,
       }),
     );
     await this.saveSteps(protocol.id, dto.steps);
-    return this.findProtocol(protocol.id);
+    return this.findProtocol(protocol.id, farmId);
   }
 
   // ---------- Calendrier prophylactique ----------
@@ -165,8 +188,13 @@ export class SanitaryService {
       throw new NotFoundException('Lot introuvable dans cette ferme.');
 
     const protocol = protocolId
-      ? await this.protocolRepo.findOne({ where: { id: protocolId } })
+      ? await this.findUsableProtocol(protocolId, farmId)
       : await this.resolveDefaultProtocol(batch.species, batch.type);
+    if (protocolId && !protocol) {
+      throw new NotFoundException(
+        'Programme sanitaire introuvable pour cette ferme.',
+      );
+    }
     if (!protocol) {
       throw new BadRequestException(
         `Aucun protocole sanitaire par défaut pour les ${SPECIES_LABELS[batch.species]} ${BATCH_TYPE_LABELS[batch.type]}. Choisissez ou créez un programme adapté à cette espèce.`,
@@ -448,9 +476,7 @@ export class SanitaryService {
     events: ProphylaxisEvent[];
   }> {
     await this.farmsService.assertAccessible(user, farmId);
-    const protocol = await this.protocolRepo.findOne({
-      where: { id: dto.protocolId },
-    });
+    const protocol = await this.findUsableProtocol(dto.protocolId, farmId);
     if (!protocol)
       throw new NotFoundException('Programme de vaccination introuvable.');
     const steps = await this.stepRepo.find({

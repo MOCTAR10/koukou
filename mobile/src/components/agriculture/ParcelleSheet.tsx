@@ -78,7 +78,7 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
     // Nouvelle parcelle : date par défaut = aujourd'hui pour que le stade s'affiche.
     setPlantedDate(parcelle?.plantedAt ? new Date(parcelle.plantedAt) : parcelle ? null : new Date());
     let cancelled = false;
-    fetchCultures()
+    fetchCultures(farmId)
       .then((list) => {
         if (cancelled) return;
         setCultures(list);
@@ -88,7 +88,7 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
     return () => {
       cancelled = true;
     };
-  }, [visible, parcelle]);
+  }, [visible, parcelle, farmId]);
 
   const saveMutation = useMutation({
     mutationFn: () => {

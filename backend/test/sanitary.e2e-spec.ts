@@ -263,6 +263,7 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
       .post('/sanitary/protocols')
       .set('Authorization', `Bearer ${token}`)
       .send({
+        farmId,
         name: 'Protocole test antibio',
         species: 'POULET',
         type: 'CHAIR',

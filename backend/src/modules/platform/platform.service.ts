@@ -21,6 +21,7 @@ import { Sale } from '../finance/entities/sale.entity.js';
 import { SanitaryProtocol } from '../sanitary/entities/sanitary-protocol.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { User } from '../users/entities/user.entity.js';
+import { sharedOrFarm } from '../../common/utils/farm-scope.js';
 
 export interface PublicUser {
   id: string;
@@ -313,7 +314,7 @@ export class PlatformService {
     if (!breed) throw new NotFoundException('Souche introuvable.');
     if (input.name != null && input.name !== breed.name) {
       const clash = await this.breedRepo.findOne({
-        where: { name: input.name },
+        where: sharedOrFarm<Breed>(breed.farmId, { name: input.name }),
       });
       if (clash)
         throw new ConflictException(

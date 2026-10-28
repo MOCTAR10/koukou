@@ -259,8 +259,8 @@ export default function LotDetailScreen() {
 
   // ── Protocol (soins dus / à venir) ──
   const protocolsQ = useQuery({
-    queryKey: ['sanitary-protocols', b?.species, b?.type],
-    queryFn: () => fetchProtocols(b?.species ?? 'POULET', b?.type ?? 'CHAIR'),
+    queryKey: ['sanitary-protocols', farmId, b?.species, b?.type],
+    queryFn: () => fetchProtocols(farmId, b?.species ?? 'POULET', b?.type ?? 'CHAIR'),
     staleTime: 60_000,
     enabled: !!b,
   });
@@ -277,8 +277,8 @@ export default function LotDetailScreen() {
     [prophylaxisQ.data, defaultProtocol?.id],
   );
   const programQ = useQuery({
-    queryKey: ['sanitary-program', appliedProgramId],
-    queryFn: () => fetchSanitaryProgram(appliedProgramId!),
+    queryKey: ['sanitary-program', farmId, appliedProgramId],
+    queryFn: () => fetchSanitaryProgram(farmId, appliedProgramId!),
     enabled: appliedProgramId != null,
     staleTime: 60_000,
   });

@@ -92,8 +92,8 @@ describe('facade @/api (100 % connecté)', () => {
   it('route sanitaire / abattage / clients / rentabilité vers live', async () => {
     expect(await fetchProphylaxis('f-demo', 'b-1')).toEqual([{ src: 'live' }]);
     expect(await fetchTreatments('f-demo', 'b-1')).toEqual([{ src: 'live' }]);
-    expect(await fetchProtocols('PINTADE', 'CHAIR')).toEqual([{ src: 'live' }]);
-    expect(await fetchSanitaryProgram('vacc-1')).toEqual({ src: 'live' });
+    expect(await fetchProtocols('f-demo', 'PINTADE', 'CHAIR')).toEqual([{ src: 'live' }]);
+    expect(await fetchSanitaryProgram('f-demo', 'vacc-1')).toEqual({ src: 'live' });
     expect(await fetchFarmInputs('f-demo')).toEqual([{ src: 'live' }]);
     expect(await fetchSlaughterOrders('f-demo')).toEqual([{ src: 'live' }]);
     expect(await fetchCustomers('f-demo')).toEqual([{ src: 'live' }]);
