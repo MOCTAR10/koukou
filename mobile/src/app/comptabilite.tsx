@@ -28,7 +28,7 @@ import {
 } from '@/api';
 import { downloadPdf } from '@/api/pdf';
 import type { AccountSoldes, BalanceData, BilanData, CompteResultatData, ExerciceInfo, JournalData, StockProvende } from '@/api/types';
-import { color, radii, fmtFcfa } from '@/constants/theme';
+import { color, radii, fmtFcfa, fontFamily } from '@/constants/theme';
 
 type Tab = 'journal' | 'balance' | 'resultat' | 'bilan' | 'stock' | 'exercices';
 
@@ -761,6 +761,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   input: {
+    fontFamily: fontFamily.regular,
     borderWidth: 1.5,
     borderColor: color.border,
     borderRadius: radii.md,

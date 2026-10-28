@@ -21,7 +21,7 @@ import { createCustomer } from '@/api/mutations';
 import { queueCustomerPayment } from '@/offline';
 import type { Customer, CustomerSegment, CustomerSummary, CustomerType, SaleFull } from '@/api/types';
 import { CUSTOMER_TYPES, customerTypeLabel } from '@/constants/customers';
-import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing } from '@/constants/theme';
+import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing, fontFamily } from '@/constants/theme';
 
 const SEGMENT_LABEL: Record<CustomerSegment, string> = {
   NOUVEAU: 'Nouveau',
@@ -435,7 +435,7 @@ function CollectSheet({
           </AppText>
           {amount > 0 && amount <= due ? (
             <AppText size="small" weight="semibold" color={remaining === 0 ? 'success' : 'muted'}>
-              {remaining === 0 ? 'Soldé 🎉' : `Restant ${fmtFcfa(remaining)}`}
+              {remaining === 0 ? 'Soldé ✓' : `Restant ${fmtFcfa(remaining)}`}
             </AppText>
           ) : null}
         </View>
@@ -995,6 +995,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
   },
   searchInput: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 15,
     color: color.ink[800],
@@ -1065,6 +1066,7 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.border,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
     borderColor: palette.border,

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { CalendarDays, Check } from 'lucide-react-native';
+import { CalendarDays, Check, CircleCheck, SearchX } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -27,7 +27,7 @@ import {
   type StatusFilter,
 } from '@/api/alerts.filters';
 import type { Alert } from '@/api/types';
-import { color, gradeColor, palette, radii } from '@/constants/theme';
+import { color, gradeColor, palette, radii, fontFamily } from '@/constants/theme';
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -278,13 +278,13 @@ export default function AlertsScreen() {
         </AppText>
       ) : base.length === 0 ? (
         <EmptyState
-          emoji="✅"
+          icon={CircleCheck}
           title="Tout est vert !"
           description="Aucune alerte active. Votre ferme fonctionne bien."
         />
       ) : filtered.length === 0 ? (
         <EmptyState
-          emoji="🔍"
+          icon={SearchX}
           title="Aucun résultat"
           description="Aucune alerte ne correspond à ces filtres."
         />
@@ -438,12 +438,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   input: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 16,
     color: color.ink[900],
     paddingVertical: 10,
   },
   notes: {
+    fontFamily: fontFamily.regular,
     minHeight: 84,
     borderWidth: 1.5,
     borderColor: color.border,

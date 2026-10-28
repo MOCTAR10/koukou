@@ -12,7 +12,7 @@ import { PulsarDot } from '@/components/ui/PulsarDot';
 import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
 import { isGabonPhoneValid } from '@/constants/phone';
-import { color, palette } from '@/constants/theme';
+import { color, palette, fontFamily } from '@/constants/theme';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 
 type Step = 1 | 2;
@@ -341,6 +341,7 @@ const styles = StyleSheet.create({
     borderColor: color.border,
   },
   input: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 15,
     color: palette.ink[900],
@@ -355,6 +356,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   registerLink: {
+    fontFamily: fontFamily.regular,
     paddingVertical: 12,
     alignItems: 'center',
   },

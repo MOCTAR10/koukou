@@ -14,8 +14,7 @@ import {
   ShoppingCart,
   Store,
   Trash2,
-  TrendingUp,
-} from 'lucide-react-native';
+  TrendingUp, Package } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/AppText';
@@ -438,7 +437,7 @@ export default function PosScreen() {
         {activePdvs.length === 0 ? (
           <Card tone="default">
             <EmptyState
-              emoji="🏪"
+              icon={Store}
               title="Aucun point de vente actif"
               description="Activez ou créez un point de vente pour commencer à encaisser."
             />
@@ -713,7 +712,7 @@ export default function PosScreen() {
                 {visibleReserves.length === 0 ? (
                   <Card tone="default">
                     <EmptyState
-                      emoji="📦"
+                      icon={Package}
                       title={activeReserves.length === 0 ? 'Aucun stock en boutique' : 'Aucune réserve dans ce filtre'}
                       description={
                         activeReserves.length === 0

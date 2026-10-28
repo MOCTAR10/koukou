@@ -98,44 +98,89 @@ export type ColorToken =
   | 'warn'
   | 'danger';
 
+/**
+ * Semantic roles. Components should reach for these instead of raw palette
+ * steps, so a palette change happens here once. Every `*Text` role reaches
+ * WCAG AA (4.5:1) on `surface` and `bg`; `*Fill` roles carry white labels
+ * (≥ 4.2:1, used with semibold text only).
+ */
+export const semantic = {
+  bg: palette.paper,
+  surface: palette.surface,
+  surfaceAlt: palette.surfaceAlt,
+  border: palette.border,
+  borderStrong: palette.ink[200],
+
+  text: palette.ink[900],
+  textMuted: palette.ink[600],
+  textFaint: palette.ink[500],
+  textOnFill: palette.surface,
+
+  primary: palette.brand[600],
+  primaryPressed: palette.brand[700],
+  primarySoft: palette.brand[50],
+  primaryText: palette.brand[600],
+
+  accentFill: palette.accent[700],
+  accentSoft: palette.accent[50],
+  accentText: palette.accent[700],
+  accentDecor: palette.accent[500],
+
+  successFill: palette.green[700],
+  successSoft: palette.green[50],
+  successText: palette.green[800],
+  successDecor: palette.green[500],
+
+  warnFill: palette.amber[500],
+  warnSoft: palette.amber[50],
+  warnText: palette.amber[700],
+
+  dangerFill: palette.red[600],
+  dangerSoft: palette.red[50],
+  dangerText: palette.red[600],
+
+  /** Dark hero surfaces (headers, splash, highlight cards). */
+  heroBg: palette.brand[950],
+  heroText: palette.brand[50],
+} as const;
+
 export function tone(t: ColorToken): string {
   switch (t) {
     case 'brand':
-      return palette.brand[600];
+      return semantic.primaryText;
     case 'accent':
-      return palette.accent[500];
+      return semantic.accentText;
     case 'success':
-      return palette.green[600];
+      return semantic.successText;
     case 'warn':
-      return palette.amber[500];
+      return semantic.warnText;
     case 'danger':
-      return palette.red[500];
+      return semantic.dangerText;
     case 'text':
-      return palette.ink[900];
+      return semantic.text;
     case 'muted':
-      return palette.ink[400];
+      return semantic.textMuted;
     case 'faint':
-      return palette.ink[300];
+      return semantic.textFaint;
     case 'bg':
-      return palette.paper;
+      return semantic.bg;
     case 'card':
-      return palette.surface;
     case 'surface':
-      return palette.surface;
+      return semantic.surface;
     case 'surfaceAlt':
-      return palette.surfaceAlt;
+      return semantic.surfaceAlt;
     case 'border':
-      return palette.border;
+      return semantic.border;
     default:
-      return palette.ink[900];
+      return semantic.text;
   }
 }
 
 export const gradeColor: Record<'EXCELLENT' | 'BON' | 'MOYEN' | 'CRITIQUE', string> = {
   EXCELLENT: palette.green[500],
-  BON: palette.green[600],
-  MOYEN: palette.amber[500],
-  CRITIQUE: palette.red[500],
+  BON: palette.green[700],
+  MOYEN: palette.amber[600],
+  CRITIQUE: palette.red[600],
 };
 
 export const spacing = {
@@ -181,16 +226,24 @@ export const Fonts = Platform.select({
   },
 });
 
+/** Brand typeface (Inter), one loaded face per weight. Loaded in `app/_layout.tsx`. */
+export const fontFamily = {
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+} as const;
+
 export const typography = {
-  display: { fontSize: 44, lineHeight: 48, fontWeight: '900' },
-  h1: { fontSize: 28, lineHeight: 34, fontWeight: '800' },
-  h2: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  h3: { fontSize: 18, lineHeight: 24, fontWeight: '700' },
-  body: { fontSize: 16, lineHeight: 22, fontWeight: '400' },
-  bodyM: { fontSize: 15, lineHeight: 21, fontWeight: '500' },
-  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
-  small: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
-  label: { fontSize: 11, lineHeight: 14, fontWeight: '700' },
+  display: { fontSize: 40, lineHeight: 46, fontWeight: '700', letterSpacing: -0.8 },
+  h1: { fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: -0.5 },
+  h2: { fontSize: 22, lineHeight: 28, fontWeight: '700', letterSpacing: -0.3 },
+  h3: { fontSize: 18, lineHeight: 24, fontWeight: '600', letterSpacing: -0.2 },
+  body: { fontSize: 16, lineHeight: 22, fontWeight: '400', letterSpacing: -0.1 },
+  bodyM: { fontSize: 15, lineHeight: 21, fontWeight: '500', letterSpacing: -0.1 },
+  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400', letterSpacing: 0 },
+  small: { fontSize: 12, lineHeight: 16, fontWeight: '500', letterSpacing: 0 },
+  label: { fontSize: 11, lineHeight: 14, fontWeight: '600', letterSpacing: 0.3 },
 } as const;
 
 export type TextSize = keyof typeof typography;
@@ -200,7 +253,7 @@ const weightMap: Record<TextWeight, '400' | '500' | '600' | '700' | '800' | '900
   regular: '400',
   medium: '500',
   semibold: '600',
-  bold: '800',
+  bold: '700',
 };
 
 type TextStyleWeight =
@@ -218,17 +271,44 @@ export function resolveWeight(weight: TextWeight): TextStyleWeight {
   return weightMap[weight];
 }
 
+/**
+ * Font props for a weight. Native platforms load one file per weight, so the
+ * weight lives in the family name and `fontWeight` must stay unset (Android
+ * falls back to the system font otherwise). The web keeps both.
+ */
+export function fontFor(weight: TextWeight): { fontFamily: string; fontWeight?: TextStyleWeight } {
+  return Platform.OS === 'web'
+    ? { fontFamily: fontFamily[weight], fontWeight: weightMap[weight] }
+    : { fontFamily: fontFamily[weight] };
+}
+
+/**
+ * Two elevation levels only. Resting surfaces (cards) rely on their border:
+ * Android `elevation` draws a grey halo that reads as cheap, so it stays 0.
+ */
 export const shadow = {
   card: Platform.select({
     default: {
       shadowColor: palette.brand[950],
-      shadowOpacity: 0.06,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 2,
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 0,
     },
     web: {
-      boxShadow: `0 4px 16px ${palette.brand[950]}0f`,
+      boxShadow: `0 3px 12px ${palette.brand[950]}0d`,
+    },
+  }),
+  raised: Platform.select({
+    default: {
+      shadowColor: palette.brand[950],
+      shadowOpacity: 0.14,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 6,
+    },
+    web: {
+      boxShadow: `0 8px 24px ${palette.brand[950]}24`,
     },
   }),
   fab: Platform.select({
@@ -277,13 +357,4 @@ export function fmt(n: number): string {
 
 export function fmtFcfa(n: number): string {
   return `${fmt(Math.round(n))} FCFA`;
-}
-
-export function emoji(cond?: string | null): string {
-  const c = (cond ?? '').toLowerCase();
-  if (c.includes('pluie')) return '🌧️';
-  if (c.includes('orage')) return '⛈️';
-  if (c.includes('nuage')) return '⛅';
-  if (c.includes('soleil') || c.includes('clair')) return '☀️';
-  return '🌤️';
 }

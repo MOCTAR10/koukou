@@ -18,7 +18,7 @@ import { fetchExpenses } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { createExpense, deleteExpense, syncExpenses, updateExpense } from '@/api/mutations';
 import type { Expense, ExpenseCategory } from '@/api/types';
-import { color, fmtFcfa, radii, spacing } from '@/constants/theme';
+import { color, fmtFcfa, radii, spacing, fontFamily } from '@/constants/theme';
 
 const CATEGORIES: { key: ExpenseCategory; label: string; account: string; tone: ChipTone }[] = [
   { key: 'ACHAT_POUSSINS', label: 'Achat poussins', account: '6010', tone: 'amber' },
@@ -603,6 +603,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   input: {
+    fontFamily: fontFamily.regular,
     borderWidth: 1.5,
     borderColor: color.border,
     borderRadius: radii.md,
@@ -614,6 +615,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   multiline: {
+    fontFamily: fontFamily.regular,
     minHeight: 70,
     textAlignVertical: 'top',
   },

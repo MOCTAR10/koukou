@@ -42,7 +42,7 @@ import { FEED_PHASE_LABELS } from '@/api/format';
 import { buildDailyEntryPayload, todayStr, type DailyEntryValues } from '@/api/mutations';
 import type { BatchWithMetrics, FeedPhase } from '@/api/types';
 import { queueDailyEntry } from '@/offline';
-import { color, palette, radii, spacing } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
 import { breedImageForLot } from '@/constants/breedImages';
 import { EGGS_PER_ALVEOL, FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 import { estimateDailyFeedPerBirdKg, type FeedRecommendation } from '@/zootechnics/feed-recommendation';
@@ -417,7 +417,7 @@ function FeedAdviceCard({
     <Card tone={cardTone} style={styles.corrCard}>
       <View style={styles.feedAdviceHead}>
         <Target size={15} color={color.brand[600]} strokeWidth={2.3} />
-        <AppText style={{ fontSize: 15, fontWeight: '600', color: color.ink[800], flex: 1 }}>
+        <AppText style={{ fontSize: 15, fontFamily: fontFamily.semibold, color: color.ink[800], flex: 1 }}>
           Recommandation du jour
         </AppText>
         <View style={styles.ageChip}>
@@ -1324,7 +1324,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
             <View style={styles.waterIcon}>
               <Droplets size={15} color="#2196D9" strokeWidth={2.3} />
             </View>
-            <AppText style={{ fontSize: 15, fontWeight: '600', color: color.ink[800], flex: 1 }}>Eau consommée</AppText>
+            <AppText style={{ fontSize: 15, fontFamily: fontFamily.semibold, color: color.ink[800], flex: 1 }}>Eau consommée</AppText>
           </View>
           <NumberInput
             value={values.waterL > 0 ? String(values.waterL) : ''}

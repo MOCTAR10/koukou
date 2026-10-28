@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { WeatherIcon } from '@/components/ui/WeatherIcon';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -22,7 +23,7 @@ import { AgricultureHome } from '@/components/agriculture/AgricultureHome';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { givenName, speciesLabel } from '@/api/format';
-import { color, emoji, fmt, fmtFcfa, gradeColor, layout, palette, radii, shadow } from '@/constants/theme';
+import { color, fmt, fmtFcfa, gradeColor, layout, palette, radii, shadow } from '@/constants/theme';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders, fetchCustomersSummary, fetchRentabiliteOverview } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { BrandLoader } from '@/components/ui/BrandLoader';
@@ -391,9 +392,12 @@ export default function AccueilScreen() {
                   </Pressable>
                 </View>
                 {/* Grade label */}
-                <AppText size="small" weight="semibold" style={{ color: gradeColor[d.health.grade] }}>
-                  {d.health.grade === 'EXCELLENT' ? '🟢 Excellent' : d.health.grade === 'BON' ? '🟢 Bon' : d.health.grade === 'MOYEN' ? '🟡 Moyen' : '🔴 Critique'}
-                </AppText>
+                <View style={styles.gradeRow}>
+                  <View style={[styles.gradeDot, { backgroundColor: gradeColor[d.health.grade] }]} />
+                  <AppText size="small" weight="semibold" style={{ color: gradeColor[d.health.grade] }}>
+                    {d.health.grade === 'EXCELLENT' ? 'Excellent' : d.health.grade === 'BON' ? 'Bon' : d.health.grade === 'MOYEN' ? 'Moyen' : 'Critique'}
+                  </AppText>
+                </View>
               </View>
             </View>
             {/* Alert badges row */}
@@ -435,7 +439,7 @@ export default function AccueilScreen() {
             {/* Météo — pleine largeur avec un conseil lié au climat */}
             {d?.weather && (
               <View style={styles.healthWeatherRow}>
-                <AppText style={{ fontSize: 15 }}>{emoji(d.weather.condition ?? '')}</AppText>
+                <WeatherIcon condition={d.weather.condition} size={18} />
                 <View style={{ flex: 1, gap: 1 }}>
                   <View style={styles.weatherMainRow}>
                     <AppText size='small' weight='bold' color='text'>{d.weather.temperatureC ?? '—'}°C</AppText>
@@ -470,7 +474,7 @@ export default function AccueilScreen() {
             <MetricTile
               label='IC (FCR)'
               value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
-              sub={avgFcr != null && avgFcr > 2.2 ? '⚠ Élevé' : avgFcr != null && avgFcr < 1.8 ? 'Excellent' : 'Conforme'}
+              sub={avgFcr != null && avgFcr > 2.2 ? 'Élevé' : avgFcr != null && avgFcr < 1.8 ? 'Excellent' : 'Conforme'}
               tone={avgFcr != null && avgFcr > 2.2 ? 'red' : avgFcr != null && avgFcr < 1.8 ? 'green' : 'default'}
               icon={Activity}
               onPress={() => setMetricInfo('IC')}
@@ -488,7 +492,7 @@ export default function AccueilScreen() {
             <MetricTile
               label='IPE'
               value={avgIpe != null && avgIpe > 0 ? fmt(Math.round(avgIpe)) : '—'}
-              sub={avgIpe != null && avgIpe > 350 ? '⚠ Coût élevé' : avgIpe != null ? 'Coût maîtrisé' : undefined}
+              sub={avgIpe != null && avgIpe > 350 ? 'Coût élevé' : avgIpe != null ? 'Coût maîtrisé' : undefined}
               tone={avgIpe != null && avgIpe > 350 ? 'amber' : avgIpe != null ? 'green' : 'default'}
               icon={Scale}
               onPress={() => setMetricInfo('IPE')}
@@ -650,7 +654,7 @@ export default function AccueilScreen() {
                       </AppText>
                     </View>
                     <AppText size='small' color='faint'>
-                      {d.waterDropPercent != null ? (d.waterDropPercent > 25 ? '⚠ Chute critique' : d.waterDropPercent > 10 ? '⚠ Baisse' : d.waterDropPercent < -5 ? '↑ Hausse' : 'Stable') : 'Pas de données'}
+                      {d.waterDropPercent != null ? (d.waterDropPercent > 25 ? 'Chute critique' : d.waterDropPercent > 10 ? 'En baisse' : d.waterDropPercent < -5 ? '↑ Hausse' : 'Stable') : 'Pas de données'}
                     </AppText>
                   </View>
                 </View>
@@ -777,7 +781,7 @@ export default function AccueilScreen() {
           <View style={styles.metricGrid}>
             {topPerf && (
               <MetricTile
-                label='🏆 Meilleur lot'
+                label='Meilleur lot'
                 value={topPerf.batchName ?? '—'}
                 sub={`${topPerf.species && topPerf.species !== 'POULET' ? `${topPerf.species === 'AUTRE' && topPerf.customSpecies ? topPerf.customSpecies : speciesLabel(topPerf.species)} · ` : ''}${topPerf.type === 'CHAIR' && topPerf.ipe != null ? `IPE ${fmt(Math.round(topPerf.ipe))}` : topPerf.layRatePercent != null ? `Ponte ${topPerf.layRatePercent.toFixed(0)}%` : `IC ${topPerf.fcr?.toFixed(2) ?? '—'}`}`}
                 tone='green'
@@ -845,6 +849,8 @@ function HealthRing({ score, grade }: { score: number; grade: HealthGrade }) {
 }
 
 const styles = StyleSheet.create({
+  gradeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  gradeDot: { width: 8, height: 8, borderRadius: 4 },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',

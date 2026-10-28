@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image, Modal, Platform, Pressable, StyleSheet, ScrollView, TextInput as RNTextInput, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowRight, Calendar, Check, ChevronDown, Clock, Eye, Wheat, Zap, ShieldCheck, Syringe, TrendingUp, Warehouse } from 'lucide-react-native';
+import { AlertTriangle, ArrowRight, Calendar, Check, ChevronDown, Clock, Eye, Wheat, Zap, ShieldCheck, Syringe, TrendingUp, Warehouse, Lightbulb } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { Sheet } from './ui/Sheet';
 import { AppText } from './ui/AppText';
 import { Button } from './ui/Button';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, fontFamily } from '@/constants/theme';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES } from '@/constants/breedImages';
 import { useAuth } from '@/auth/AuthContext';
@@ -263,17 +263,17 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
 
   // ── Feed phase options ──
   const CHAIR_FEED_PHASES: { key: FeedPhase; label: string; dayFrom: number; dayTo: number }[] = [
-    { key: 'POUSSIN', label: '🌾 Poussin (0–10 j)', dayFrom: 0, dayTo: 10 },
-    { key: 'DEMARRAGE', label: '🌾 Démarrage (11–24 j)', dayFrom: 11, dayTo: 24 },
-    { key: 'CROISSANCE', label: '🌾 Croissance (25–35 j)', dayFrom: 25, dayTo: 35 },
-    { key: 'FINITION', label: '🌾 Finition (36+ j)', dayFrom: 36, dayTo: 999 },
+    { key: 'POUSSIN', label: 'Poussin (0–10 j)', dayFrom: 0, dayTo: 10 },
+    { key: 'DEMARRAGE', label: 'Démarrage (11–24 j)', dayFrom: 11, dayTo: 24 },
+    { key: 'CROISSANCE', label: 'Croissance (25–35 j)', dayFrom: 25, dayTo: 35 },
+    { key: 'FINITION', label: 'Finition (36+ j)', dayFrom: 36, dayTo: 999 },
   ];
   const PONDEUSE_FEED_PHASES: { key: FeedPhase; label: string; dayFrom: number; dayTo: number }[] = [
-    { key: 'POUSSIN', label: '🌾 Poussin (0–10 j)', dayFrom: 0, dayTo: 10 },
-    { key: 'DEMARRAGE', label: '🌾 Démarrage (11–24 j)', dayFrom: 11, dayTo: 24 },
-    { key: 'CROISSANCE', label: '🌾 Croissance (25–112 j)', dayFrom: 25, dayTo: 112 },
-    { key: 'PRE_PONTE', label: '🌾 Pré-ponte (113–126 j)', dayFrom: 113, dayTo: 126 },
-    { key: 'PONTE_PHASE_1', label: '🌾 Ponte 1 (127+ j)', dayFrom: 127, dayTo: 999 },
+    { key: 'POUSSIN', label: 'Poussin (0–10 j)', dayFrom: 0, dayTo: 10 },
+    { key: 'DEMARRAGE', label: 'Démarrage (11–24 j)', dayFrom: 11, dayTo: 24 },
+    { key: 'CROISSANCE', label: 'Croissance (25–112 j)', dayFrom: 25, dayTo: 112 },
+    { key: 'PRE_PONTE', label: 'Pré-ponte (113–126 j)', dayFrom: 113, dayTo: 126 },
+    { key: 'PONTE_PHASE_1', label: 'Ponte 1 (127+ j)', dayFrom: 127, dayTo: 999 },
   ];
   const feedPhaseOptions = type === 'CHAIR' ? CHAIR_FEED_PHASES : PONDEUSE_FEED_PHASES;
 
@@ -1127,9 +1127,12 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
           {/* Pondeuse: transition advisory */}
           {type === 'PONDEUSE' && (
             <View style={styles.lifecycleNote}>
-              <AppText size='small' weight='semibold' color={palette.brand[600]}>
-                💡 Conseil fin de cycle
-              </AppText>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Lightbulb size={14} color={palette.brand[600]} />
+                <AppText size='small' weight='semibold' color={palette.brand[600]}>
+                  Conseil fin de cycle
+                </AppText>
+              </View>
               <AppText size='small' color='muted'>
                 Après {advisory.endCycleWeek ?? 72} semaines de ponte, les pondeuses peuvent être :
               </AppText>
@@ -1643,7 +1646,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: color.border, borderRadius: radii.md, backgroundColor: palette.surface,
   },
   inputWrapFocused: { borderColor: palette.brand[500], backgroundColor: palette.surface },
-  input: { paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: color.ink[900] },
+  input: { paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontFamily: fontFamily.regular, color: color.ink[900] },
   /* ── Building insight card ── */
   buildingInsight: {
     backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[100],

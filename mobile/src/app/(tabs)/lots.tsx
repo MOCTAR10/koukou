@@ -52,7 +52,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PulsarDot } from '@/components/ui/PulsarDot';
 import { Sheet } from '@/components/ui/Sheet';
 import { PeriodBar, periodWindow, toDateStr, type PeriodBarHandle, type PeriodWindow } from '@/components/ui/PeriodBar';
-import { color, fmt, palette, radii } from '@/constants/theme';
+import { color, fmt, palette, radii, fontFamily } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
@@ -1000,7 +1000,7 @@ export default function LotsScreen() {
           ))}
           {shown.length === 0 ? (
             <EmptyState
-              emoji="🐔"
+              icon={Bird}
               title={search.trim() ? `Aucun résultat pour « ${search.trim()} »` : `Aucun lot ${filter === 'all' ? 'enregistré' : filterLabel}`}
               description={search.trim() ? 'Vérifiez l’orthographe ou modifiez les filtres.' : filter === 'all' ? 'Créez un lot depuis le bouton +' : 'Retirez le filtre pour afficher tous les lots.'}
             />
@@ -2797,10 +2797,10 @@ const styles = StyleSheet.create({
   slimTileHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 4 },
   slimTileTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   slimTileIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  slimTileTitle: { fontSize: 9.5, lineHeight: 12, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  slimTileTitle: { fontSize: 9.5, lineHeight: 12, fontFamily: fontFamily.bold, letterSpacing: 0.8, textTransform: 'uppercase' },
   slimTileCount: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 1, borderRadius: radii.pill, borderWidth: 1 },
-  slimTileCountText: { fontSize: 9, lineHeight: 11, fontWeight: '700' },
-  slimTileValue: { fontSize: 26, lineHeight: 30, fontWeight: '800' },
+  slimTileCountText: { fontSize: 9, lineHeight: 11, fontFamily: fontFamily.bold },
+  slimTileValue: { fontSize: 26, lineHeight: 30, fontFamily: fontFamily.bold },
   slimTileCaption: { fontSize: 10, lineHeight: 13 },
   slimTileDivider: { height: 1, backgroundColor: palette.border, marginVertical: 8, alignSelf: 'stretch' },
   slimTileBar: { flexDirection: 'row', height: 6, borderRadius: radii.pill, overflow: 'hidden', backgroundColor: palette.border, marginBottom: 6 },
@@ -2808,7 +2808,7 @@ const styles = StyleSheet.create({
   slimTileLegend: { flexDirection: 'row', gap: 8 },
   slimTileLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   slimTileLegendDot: { width: 6, height: 6, borderRadius: 3 },
-  slimTileLegendText: { fontSize: 9.5, lineHeight: 12, fontWeight: '600' },
+  slimTileLegendText: { fontSize: 9.5, lineHeight: 12, fontFamily: fontFamily.semibold },
 
   // Stats panel (Vue d'ensemble)
   statsCard: { gap: 10, marginTop: 16, marginBottom: 8 },
@@ -2877,7 +2877,7 @@ const styles = StyleSheet.create({
 
   // Controls
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: radii.lg, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border },
-  searchInput: { flex: 1, fontSize: 14, color: color.ink[700], padding: 0 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: fontFamily.regular, color: color.ink[700], padding: 0 },
   controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   filterScrollView: { flex: 1 },
   filterScroll: { flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -46,7 +46,7 @@ import type {
   FeedStockSummary,
   FeedTypeStock,
 } from '@/api/types';
-import { color, palette, radii, spacing } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
 import { FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 
 const MOVEMENT_TYPE_LABEL: Record<FeedMovementType, string> = {
@@ -523,7 +523,7 @@ export default function ProvendeScreen() {
               sub={(() => {
                 const min = byType.filter((t) => t.autonomyDays != null).reduce((m, t) => Math.min(m, t.autonomyDays!), Infinity);
                 if (min === Infinity) return 'Suffisant';
-                return min < 3 ? '⚠ Critique' : min < 5 ? 'Stock bas' : 'Suffisant';
+                return min < 3 ? 'Critique' : min < 5 ? 'Stock bas' : 'Suffisant';
               })()}
               tone={(() => {
                 const min = byType.filter((t) => t.autonomyDays != null).reduce((m, t) => Math.min(m, t.autonomyDays!), Infinity);
@@ -957,6 +957,7 @@ const styles = StyleSheet.create({
   },
   lotChip: {},
   input: {
+    fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
     borderColor: palette.border,

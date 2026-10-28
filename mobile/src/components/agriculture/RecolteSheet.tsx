@@ -14,7 +14,7 @@ import { createRecolte } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { Parcelle, RecolteUnit } from '@/api/types';
 import { CULTURE_EMOJI } from '@/constants/agriculture';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, fontFamily } from '@/constants/theme';
 
 interface RecolteSheetProps {
   visible: boolean;
@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
   },
   dateCol: { flex: 1, gap: 0 },
   notesInput: {
+    fontFamily: fontFamily.regular,
     minHeight: 64,
     textAlignVertical: 'top',
   },

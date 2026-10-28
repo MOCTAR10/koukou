@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { TextField } from '@/components/ui/TextField';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CheckCircle2, ChevronDown, Map, Trash2 } from 'lucide-react-native';
+import { Calendar, CheckCircle2, ChevronDown, Map, Trash2, Droplets } from 'lucide-react-native';
 
 import { Sheet } from '../ui/Sheet';
 import { AppText } from '../ui/AppText';
@@ -141,7 +142,7 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
       onClose={onClose}>
       {/* ── Nom ── */}
       <Field label="Nom de la parcelle *">
-        <TextInput
+        <TextField
           value={name}
           onChangeText={setName}
           placeholder="Ex : Champ de plantain"
@@ -282,7 +283,12 @@ export function ParcelleSheet({ visible, parcelle, onClose }: ParcelleSheetProps
                     ? `Récolte estimée le ${formatHarvestDate(stage.harvestDate)}`
                     : 'Cycle libre'}
                 </AppText>
-                {water ? <AppText size="caption" color="faint">💧 {water}</AppText> : null}
+                {water ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Droplets size={12} color={palette.brand[500]} />
+                    <AppText size="caption" color="faint">{water}</AppText>
+                  </View>
+                ) : null}
               </View>
             </View>
           </Field>

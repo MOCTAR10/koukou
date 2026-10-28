@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Image, type ImageProps } from 'expo-image';
 
 import { AppText } from './AppText';
-import { color, palette, radii } from '@/constants/theme';
+import { radii, semantic } from '@/constants/theme';
 import type { TextSize } from '@/constants/theme';
 
 type ButtonTone = 'primary' | 'brand' | 'accent' | 'ghost' | 'danger' | 'success';
@@ -27,7 +27,7 @@ interface ButtonProps {
 export function Button({
   label,
   onPress,
-  tone = 'accent',
+  tone = 'primary',
   icon: Icon,
   image,
   size = 'lg',
@@ -37,16 +37,7 @@ export function Button({
   loading = false,
   style,
 }: ButtonProps) {
-  const stylesByTone: Record<ButtonTone, { bg: string; fg: string; border?: string }> = {
-    accent: { bg: color.accent[500], fg: color.surface },
-    brand: { bg: color.brand[600], fg: color.surface },
-    primary: { bg: color.brand[600], fg: color.surface },
-    success: { bg: palette.green[600], fg: palette.surface },
-    danger: { bg: color.red[500], fg: color.surface },
-    ghost: { bg: color.surfaceAlt, fg: color.ink[700], border: color.border },
-  };
-
-  const t = stylesByTone[tone];
+  const t = TONES[tone];
   const active = !disabled && !loading;
 
   return (
@@ -58,12 +49,14 @@ export function Button({
         block && styles.block,
         { backgroundColor: t.bg, borderColor: t.border ?? t.bg },
         size === 'lg' ? styles.lg : size === 'md' ? styles.md : size === 'sm' ? styles.sm : styles.xs,
-        tone !== 'ghost' && styles.shadow,
+        pressed && active && (tone === 'ghost' ? styles.ghostPressed : { backgroundColor: t.pressed }),
         pressed && active && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !active, busy: loading }}>
       {loading ? (
         <ActivityIndicator color={t.fg} />
       ) : (
@@ -86,37 +79,44 @@ export function Button({
   );
 }
 
+// Flat fills, no drop shadow: depth comes from colour, not from blur. Every
+// filled tone keeps a white label at >= 4.2:1 (semibold), see `semantic`.
+const TONES: Record<ButtonTone, { bg: string; fg: string; pressed: string; border?: string }> = {
+  primary: { bg: semantic.primary, fg: semantic.textOnFill, pressed: semantic.primaryPressed },
+  brand: { bg: semantic.primary, fg: semantic.textOnFill, pressed: semantic.primaryPressed },
+  accent: { bg: semantic.accentFill, fg: semantic.textOnFill, pressed: '#A9520C' },
+  success: { bg: semantic.successFill, fg: semantic.textOnFill, pressed: '#3D6E2B' },
+  danger: { bg: semantic.dangerFill, fg: semantic.textOnFill, pressed: '#99301F' },
+  ghost: { bg: semantic.surface, fg: semantic.text, pressed: semantic.surfaceAlt, border: semantic.borderStrong },
+};
+
 const styles = StyleSheet.create({
   button: {
-    borderRadius: radii.lg,
+    borderRadius: radii.md + 2,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  shadow: {
-    shadowColor: 'rgba(12, 35, 49, 0.35)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.14,
-    shadowRadius: 4,
-    elevation: 3,
   },
   block: {
     alignSelf: 'stretch',
   },
   lg: {
-    height: 50,
+    height: 52,
     paddingHorizontal: 20,
   },
   md: {
-    height: 42,
+    height: 44,
     paddingHorizontal: 16,
   },
   sm: {
-    height: 32,
+    height: 36,
     paddingHorizontal: 12,
+    borderRadius: radii.md,
   },
   xs: {
-    height: 26,
-    paddingHorizontal: 8,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: radii.sm + 2,
   },
   inner: {
     flexDirection: 'row',
@@ -142,10 +142,12 @@ const styles = StyleSheet.create({
     height: 16,
   },
   pressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
+    transform: [{ scale: 0.98 }],
+  },
+  ghostPressed: {
+    backgroundColor: semantic.surfaceAlt,
   },
   disabled: {
-    opacity: 0.45,
+    opacity: 0.4,
   },
 });

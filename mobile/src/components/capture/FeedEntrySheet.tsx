@@ -38,7 +38,7 @@ import { FEED_ENTRY_TYPE_LABELS, FEED_PHASE_LABELS } from '@/api/format';
 import { todayStr, type CreateInputLotInput } from '@/api/mutations';
 import type { FeedEntryType, FeedPhase, FeedTypeStock } from '@/api/types';
 import { createFeedInputQueued } from '@/offline';
-import { color, palette, radii, spacing } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 
 interface FeedEntrySheetProps {
@@ -1159,6 +1159,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   input: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 15,
     color: color.ink[800],

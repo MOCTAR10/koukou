@@ -29,7 +29,7 @@ import {
 } from '@/api/mutations';
 import { lotAvailability, projectOrder, slaughterRefs, type Horizon } from '@/utils/slaughterInsights';
 import type { ProductionBatch, SlaughterDestination, SlaughterOrder, SlaughterType } from '@/api/types';
-import { color, palette } from '@/constants/theme';
+import { color, palette, fontFamily } from '@/constants/theme';
 
 type SubView = 'new' | 'orders';
 
@@ -773,6 +773,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 44,
     borderWidth: 1,
     borderColor: palette.border,

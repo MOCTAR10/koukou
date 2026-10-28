@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Sheet } from './ui/Sheet';
 import { AppText } from './ui/AppText';
 import { Button } from './ui/Button';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, fontFamily } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { createBuilding } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
@@ -204,7 +204,7 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
           {densityLevel === 'warn' && (
             <View style={[styles.advisory, styles.advisoryWarn]}>
               <AppText size='small' weight='semibold' color={palette.amber[600]}>
-                ⚠ Densité {density!.toFixed(1)} oiseaux/m² — seuil d&apos;alerte
+                Densité {density!.toFixed(1)} oiseaux/m² — seuil d&apos;alerte
               </AppText>
               <AppText size='small' color={palette.amber[700]}>
                 {selectedType === 'CHAIR'
@@ -216,7 +216,7 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
           {densityLevel === 'critical' && (
             <View style={[styles.advisory, styles.advisoryCritical]}>
               <AppText size='small' weight='semibold' color={palette.red[600]}>
-                🔴 Densité {density!.toFixed(1)} oiseaux/m² — seuil critique
+                Densité {density!.toFixed(1)} oiseaux/m² — seuil critique
               </AppText>
               <AppText size='small' color={palette.red[700]}>
                 Risque sanitaire et de stress thermique élevé en zone tropicale. Réduisez le cheptel ou augmentez la surface.
@@ -226,7 +226,7 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
           {kgPerM2Level === 'critical' && (
             <View style={[styles.advisory, styles.advisoryCritical]}>
               <AppText size='small' weight='semibold' color={palette.red[600]}>
-                🔴 {kgPerM2!.toFixed(1)} kg/m² — dépasse le standard tropical
+                {kgPerM2!.toFixed(1)} kg/m² — dépasse le standard tropical
               </AppText>
               <AppText size='small' color={palette.red[700]}>
                 En zone tropicale (Gabon), ne jamais dépasser 20-25 kg de viande/m² en fin d&apos;élevage.
@@ -352,6 +352,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+    fontFamily: fontFamily.regular,
     color: color.ink[900],
   },
   /* ── Type selector ── */

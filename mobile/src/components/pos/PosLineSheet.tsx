@@ -21,7 +21,7 @@ import type {
   EggStockInfo,
   ParcelleStock,
 } from '@/api/types';
-import { color, palette, radii, spacing, fmt } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fontFamily } from '@/constants/theme';
 
 import { formatEggAlveoles, lineAmount } from './helpers';
 import { posCatalog, productMeta, transferRemaining } from './catalog';
@@ -1225,7 +1225,7 @@ const styles = StyleSheet.create({
   priceInput: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     color: color.ink[900],
     textAlign: 'right',
     paddingVertical: 0,

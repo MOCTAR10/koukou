@@ -2,7 +2,7 @@ import React from 'react';
 import { TextInput, View, StyleSheet, type StyleProp, type ViewStyle, type TextStyle } from 'react-native';
 
 import { AppText } from './AppText';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, fontFamily } from '@/constants/theme';
 
 interface NumberInputProps {
   value: string;
@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   input: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 16,
     color: color.ink[900],

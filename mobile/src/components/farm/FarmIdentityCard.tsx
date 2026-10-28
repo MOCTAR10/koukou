@@ -11,7 +11,7 @@ import { FarmLogo } from '@/components/ui/FarmLogo';
 import { updateFarmSettings, uploadFarmLogo, deleteFarmLogo } from '@/api/mutations';
 import { useAuth } from '@/auth/AuthContext';
 import type { Farm } from '@/api/types';
-import { color, palette, radii } from '@/constants/theme';
+import { color, palette, radii, fontFamily } from '@/constants/theme';
 import { Camera, Check, Pencil, Trash2, X } from 'lucide-react-native';
 
 const LOGO_MIME: Record<string, string> = {
@@ -263,6 +263,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 40,
     borderRadius: radii.md,
     backgroundColor: palette.surface,

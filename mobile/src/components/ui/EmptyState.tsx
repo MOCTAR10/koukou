@@ -3,21 +3,29 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { palette, radii } from '@/constants/theme';
+import type { LucideIcon } from 'lucide-react-native';
+import { palette, radii, semantic } from '@/constants/theme';
 
 interface EmptyStateProps {
-  emoji: string;
+  /** Preferred: a line icon, drawn in a soft brand disc. */
+  icon?: LucideIcon;
+  /** Domain pictogram (species, crop) when no line icon fits. */
+  emoji?: string;
   title: string;
   description?: string;
   actionLabel?: string;
   onAction?: () => void;
 }
 
-export function EmptyState({ emoji, title, description, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, emoji, title, description, actionLabel, onAction }: EmptyStateProps) {
   return (
     <View style={styles.wrap}>
       <View style={styles.emojiCircle}>
-        <AppText style={styles.emoji}>{emoji}</AppText>
+        {Icon ? (
+          <Icon size={28} color={semantic.primary} strokeWidth={1.8} />
+        ) : (
+          <AppText style={styles.emoji}>{emoji}</AppText>
+        )}
       </View>
       <AppText size="body" weight="semibold" color="text" style={styles.title}>
         {title}
@@ -49,7 +57,9 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.brand[100],
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -63,5 +73,6 @@ const styles = StyleSheet.create({
   desc: {
     textAlign: 'center',
     lineHeight: 20,
+    maxWidth: 300,
   },
 });

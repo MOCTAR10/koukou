@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { CalendarDays, ChevronRight, Layers3, Map } from 'lucide-react-native';
+import { CalendarDays, ChevronRight, Layers3, Map, Sprout } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -124,7 +124,7 @@ export default function ParcellesScreen() {
         <BrandLoader />
       ) : parcelles.length === 0 ? (
         <EmptyState
-          emoji="🌱"
+          icon={Sprout}
           title="Aucune parcelle"
           description={canManage ? 'Ajoutez votre première parcelle et choisissez sa culture.' : 'Aucune parcelle enregistrée pour le moment.'}
           actionLabel={canManage ? 'Nouvelle parcelle' : undefined}

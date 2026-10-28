@@ -2,7 +2,7 @@ import React, { forwardRef, useState, useEffect } from 'react';
 import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 import { CheckCircle2 } from 'lucide-react-native';
 
-import { color, palette } from '@/constants/theme';
+import { color, palette, fontFamily } from '@/constants/theme';
 import { GABON_FLAG, GABON_PREFIX, isGabonPhoneValid, normalizeGabonPhone } from '@/constants/phone';
 
 export interface PhoneInputProps extends Omit<TextInputProps, 'value' | 'onChangeText' | 'keyboardType' | 'maxLength' | 'textContentType'> {
@@ -57,6 +57,7 @@ export const PhoneInput = forwardRef<TextInput, PhoneInputProps>(
 
 const styles = StyleSheet.create({
   field: {
+    fontFamily: fontFamily.regular,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -68,6 +69,7 @@ const styles = StyleSheet.create({
     borderColor: color.border,
   },
   fieldCompact: {
+    fontFamily: fontFamily.regular,
     height: 44,
     borderRadius: 14,
     gap: 10,
@@ -75,7 +77,7 @@ const styles = StyleSheet.create({
   },
   prefix: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fontFamily.semibold,
     color: palette.ink[400],
   },
   prefixCompact: {

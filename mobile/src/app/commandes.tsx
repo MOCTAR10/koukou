@@ -34,7 +34,7 @@ import { customerTypeLabel } from '@/constants/customers';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
 import type { Customer, OrderFull, OrderStatus } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa, Fonts } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, Fonts, fontFamily } from '@/constants/theme';
 import { durations, easing, enter, layout, staggeredEnter, timed } from '@/constants/motion';
 
 const FILTERS: { key: OrderStatus | 'ALL'; label: string }[] = [
@@ -1179,6 +1179,7 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface,
   },
   searchInput: {
+    fontFamily: fontFamily.regular,
     flex: 1,
     fontSize: 15,
     color: color.ink[800],
@@ -1207,6 +1208,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   input: {
+    fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
     borderColor: palette.border,
@@ -1245,6 +1247,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   depositInput: {
+    fontFamily: fontFamily.regular,
     fontSize: 13,
   },
   rowWrap: {
@@ -1282,7 +1285,7 @@ const styles = StyleSheet.create({
   priceInput: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: fontFamily.bold,
     color: color.ink[900],
     textAlign: 'right',
     paddingVertical: 0,

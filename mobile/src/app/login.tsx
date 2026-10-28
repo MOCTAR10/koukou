@@ -11,7 +11,6 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { PulsarDot } from '@/components/ui/PulsarDot';
 import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
-import { API_BASE_URL } from '@/api/client';
 import { roleLabel } from '@/api/roles';
 import { color, palette } from '@/constants/theme';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
@@ -76,9 +75,6 @@ export default function LoginScreen() {
                   Ferme active : {farms[0].name}
                 </AppText>
               ) : null}
-              <AppText size="small" color="faint">
-                Serveur : {API_BASE_URL}
-              </AppText>
               <View style={{ gap: 8, marginTop: 4 }}>
                 <Button label="Continuer" tone="primary" icon={ArrowRight} onPress={() => router.replace('/')} />
                 <Button label="Se déconnecter" tone="ghost" icon={LogOut} onPress={() => signOut()} />
