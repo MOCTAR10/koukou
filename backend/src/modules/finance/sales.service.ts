@@ -31,6 +31,10 @@ import { InputKind } from '../../common/enums/input-kind.enum.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
+import {
+  batchReservation,
+  sentSlaughterBirds,
+} from '../orders/order-reservations.js';
 import { SlaughterStatus } from '../../common/enums/slaughter-status.enum.js';
 import { SlaughterType } from '../../common/enums/slaughter-type.enum.js';
 import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
@@ -510,6 +514,7 @@ export class SalesService {
             `Stock insuffisant : il reste ${batch.quantityAlive} poulet(s) vivant(s) sur le lot, vente demandée ${birds}.`,
           );
         }
+        await this.assertBirdsUncommitted(em, farmId, batch, birds);
         await this.persistFlockDecrement(batchRepo, batch, birds);
         pieceCount = birds;
         batchValidated = true;
@@ -573,6 +578,7 @@ export class SalesService {
             `Stock insuffisant : il reste ${batch.quantityAlive} poulet(s) vivant(s) sur le lot, vente demandée ${dto.pieceCount}.`,
           );
         }
+        await this.assertBirdsUncommitted(em, farmId, batch, dto.pieceCount);
         await this.persistFlockDecrement(batchRepo, batch, dto.pieceCount);
         pieceCount = dto.pieceCount;
         batchValidated = true;
@@ -870,6 +876,39 @@ export class SalesService {
   }
 
   /** Décrémente le cheptel vivant (vente sur pied ou abattage direct au comptoir). */
+  /**
+   * A walk-in sale can't take live birds promised to open customer orders
+   * (delivered alive later) or already sent to the abattoir. Called with the
+   * batch row locked, so order creation and slaughter processing (which lock
+   * it too) are serialized with this sale.
+   */
+  private async assertBirdsUncommitted(
+    em: EntityManager,
+    farmId: string,
+    batch: ProductionBatch,
+    birds: number,
+  ): Promise<void> {
+    const reservation = await batchReservation(em, farmId, batch.id);
+    const atAbattoir = await sentSlaughterBirds(em, farmId, batch.id);
+    const free = batch.quantityAlive - reservation.birds - atAbattoir;
+    if (birds <= free) return;
+    const parts: string[] = [];
+    if (reservation.birds > 0) {
+      const refs = reservation.orderRefs.slice(0, 3).join(', ');
+      const more =
+        reservation.orderRefs.length > 3
+          ? ` et ${reservation.orderRefs.length - 3} autre(s)`
+          : '';
+      parts.push(
+        `${reservation.birds} réservé(s) par des commandes clients (${refs}${more})`,
+      );
+    }
+    if (atAbattoir > 0) parts.push(`${atAbattoir} envoyé(s) à l’abattoir`);
+    throw new BadRequestException(
+      `Oiseaux déjà engagés sur ce lot : ${parts.join(' et ')} sur ${batch.quantityAlive} vivant(s), il en reste ${Math.max(0, free)} pour la vente directe, vente demandée ${birds}. Livrer ou annuler ces commandes pour libérer des oiseaux.`,
+    );
+  }
+
   private async persistFlockDecrement(
     repo: Repository<ProductionBatch>,
     batch: ProductionBatch,

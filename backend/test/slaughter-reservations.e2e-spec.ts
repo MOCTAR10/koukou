@@ -12,7 +12,7 @@ function today(): string {
  * Live birds promised to open customer orders (delivered alive) and birds
  * already sent to the abattoir are mutually exclusive commitments.
  */
-describe('Abattage ↔ réservations de commandes (e2e)', () => {
+describe('Abattage / vente POS ↔ réservations de commandes (e2e)', () => {
   let app: INestApplication<App>;
   let server: App;
   let token: string;
@@ -190,5 +190,55 @@ describe('Abattage ↔ réservations de commandes (e2e)', () => {
       .expect(400);
     expect(res.body.message).toMatch(/déjà envoyés à l’abattoir/);
     expect(res.body.message).toMatch(/il en reste 20/);
+  });
+
+  // ---- Vente directe au POS (même règle) ----
+  // State here: 50 alive, no open order, 30 birds SENT to the abattoir.
+
+  function posSale(item: Record<string, unknown>, amountFcfa: number) {
+    return request(server)
+      .post(`/farms/${farmId}/sales`)
+      .set(auth())
+      .send({
+        items: [{ unitPriceFcfa: 3000, batchId, ...item }],
+        payments: [{ method: 'CASH', amountFcfa }],
+      });
+  }
+
+  it('POS : vente refusée sur les oiseaux envoyés à l’abattoir', async () => {
+    await request(server)
+      .post(`/farms/${farmId}/caisse/open`)
+      .set(auth())
+      .send({ openingBalanceFcfa: 0 })
+      .expect(201);
+    const res = await posSale(
+      { productType: 'POULET_PIECE', quantity: 21, unit: 'PIECE' },
+      63000,
+    ).expect(400);
+    expect(res.body.message).toMatch(/30 envoyé\(s\) à l’abattoir/);
+    expect(res.body.message).toMatch(/il en reste 20/);
+  });
+
+  it('POS : vente refusée sur les oiseaux promis à une commande', async () => {
+    // 50 − 30 at abattoir = 20 free: an order takes 15 of them.
+    const order = await createOrder(15, `${Date.now()}`.slice(-7)).expect(201);
+    const res = await posSale(
+      { productType: 'POULET_PIECE', quantity: 6, unit: 'PIECE' },
+      18000,
+    ).expect(400);
+    expect(res.body.message).toContain(order.body.referenceNumber);
+    expect(res.body.message).toMatch(/il en reste 5/);
+  });
+
+  it('POS : vente au kilo acceptée dans la limite des oiseaux libres', async () => {
+    await posSale(
+      { productType: 'POULET_KG', quantity: 10, unit: 'KG', pieceCount: 5 },
+      30000,
+    ).expect(201);
+    const batch = await request(server)
+      .get(`/farms/${farmId}/batches/${batchId}`)
+      .set(auth())
+      .expect(200);
+    expect(batch.body.quantityAlive).toBe(45);
   });
 });
