@@ -7,6 +7,8 @@ import { isoWeekStart } from '../../common/utils/date.utils.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
+import { FlockTimeline, populationOn } from './flock-performance.js';
+import { FlockReconciliationService } from './flock-reconciliation.service.js';
 
 export interface PondageWeek {
   weekStart: string;
@@ -38,6 +40,12 @@ export interface PondageSummary {
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
+function addDaysIso(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 @Injectable()
 export class PondageService {
   constructor(
@@ -46,6 +54,7 @@ export class PondageService {
     @InjectRepository(ProductionBatch)
     private readonly batchRepo: Repository<ProductionBatch>,
     private readonly farmsService: FarmsService,
+    private readonly flockReconciliation: FlockReconciliationService,
   ) {}
 
   async summary(
@@ -90,13 +99,20 @@ export class PondageService {
         batch.type === BatchType.PONDEUSE && liveCount > 0
           ? round2((collected / liveCount) * 100)
           : null,
-      weekly: this.buildWeekly(entries, batch),
+      weekly: this.buildWeekly(entries, batch, {
+        integrationDate: batch.integrationDate,
+        quantityAtStart: batch.quantityAtStart,
+        day1WeightKg: 0,
+        entries,
+        removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+      }),
     };
   }
 
   private buildWeekly(
     entries: DailyEntry[],
     batch: ProductionBatch,
+    timeline: FlockTimeline,
   ): PondageWeek[] {
     type WeekGroup = {
       weekStart: string;
@@ -104,7 +120,6 @@ export class PondageService {
       sellable: number;
       cracked: number;
       small: number;
-      deaths: number;
       dates: Set<string>;
     };
     const byWeek = new Map<string, WeekGroup>();
@@ -119,7 +134,6 @@ export class PondageService {
           sellable: 0,
           cracked: 0,
           small: 0,
-          deaths: 0,
           dates: new Set(),
         };
         byWeek.set(weekStart, group);
@@ -128,16 +142,17 @@ export class PondageService {
       group.sellable += e.eggsSellable;
       group.cracked += e.eggsCracked;
       group.small += e.eggsSmall;
-      group.deaths += e.deaths;
       group.dates.add(e.entryDate);
     }
 
     const weeks = [...byWeek.values()].sort((a, b) =>
       a.weekStart.localeCompare(b.weekStart),
     );
-    let deathsBefore = 0;
     return weeks.map((w) => {
-      const hens = Math.max(0, batch.quantityAtStart - deathsBefore);
+      // Hens present at the start of the week: deaths, MORTALITE events,
+      // réformes and sales all leave the flock (selling half the hens must
+      // not halve the lay rate).
+      const hens = populationOn(timeline, addDaysIso(w.weekStart, -1));
       // Taux journalier moyen de la semaine, plafonné à 100 % (une poule ne
       // pond jamais plus d'un œuf/jour ; au-delà = saisie d'œufs incohérente).
       const rawLayRate =
@@ -148,7 +163,6 @@ export class PondageService {
         batch.type === BatchType.PONDEUSE && rawLayRate != null
           ? round2(Math.min(100, rawLayRate))
           : null;
-      deathsBefore += w.deaths;
       return {
         weekStart: w.weekStart,
         collected: w.collected,

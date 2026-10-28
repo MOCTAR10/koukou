@@ -132,6 +132,80 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
     expect(m.waterLPerBird).toBeCloseTo(0.25, 4);
   });
 
+  it('mortalité : les morts déclarées en événement sanitaire comptent partout, sans doublon', async () => {
+    const today = daysAgo(0);
+    const b = await request(server)
+      .post(`/farms/${farmId}/batches`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        batchName: 'Bande mortalité',
+        integrationDate: daysAgo(20),
+        quantityAtStart: 1000,
+        type: 'CHAIR',
+      })
+      .expect(201);
+    const id = b.body.id;
+    await request(server)
+      .post(`/farms/${farmId}/batches/${id}/daily-entries`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ entryDate: today, deaths: 10, feedUnit: 'KG', feedType: 'CROISSANCE', feedQuantity: 50 })
+      .expect(201);
+    await request(server)
+      .post(`/farms/${farmId}/batches/${id}/health-events`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        kind: 'MORTALITE',
+        occurredAt: today,
+        severity: 'ROUGE',
+        quantity: 30,
+        title: 'Pic de mortalité',
+      })
+      .expect(201);
+
+    const batch = await request(server)
+      .get(`/farms/${farmId}/batches/${id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    // Removed once from the live count, counted once in the rate.
+    expect(batch.body.quantityAlive).toBe(960);
+    expect(batch.body.metrics.liveCount).toBe(960);
+    expect(batch.body.metrics.totalDeaths).toBe(40);
+    expect(batch.body.metrics.mortalityPercent).toBeCloseTo(4, 6);
+    expect(batch.body.metrics.viabilityPercent).toBeCloseTo(96, 6);
+
+    // The alert is raised right after the event, not at the next entry.
+    const alerts = await request(server)
+      .get(`/farms/${farmId}/alerts`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const mortalite = (alerts.body as any[]).find(
+      (a) => a.batchId === id && a.kind === 'MORTALITE' && a.status === 'ACTIVE',
+    );
+    expect(mortalite).toBeDefined();
+    expect(mortalite.level).toBe('JAUNE');
+
+    const dash = await request(server)
+      .get(`/farms/${farmId}/dashboard`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const row = (dash.body.healthOverview as any[]).find((r) => r.batchId === id);
+    expect(row.mortalityPercent).toBe(4);
+    expect(row.weekDeaths).toBe(40);
+
+    const curve = await request(server)
+      .get(`/farms/${farmId}/batches/${id}/curve`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect((curve.body.weekly as any[]).reduce((s, w) => s + w.deaths, 0)).toBe(40);
+
+    const health = await request(server)
+      .get(`/farms/${farmId}/batches/${id}/health`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(health.body.totalDeaths).toBe(40);
+    expect(health.body.trends.mortality[health.body.trends.mortality.length - 1]).toBe(40);
+  });
+
   it('IPE jugé contre la souche à l’âge de la pesée (pas un seuil absolu)', async () => {
     const breeds = await request(server)
       .get('/breeds')
