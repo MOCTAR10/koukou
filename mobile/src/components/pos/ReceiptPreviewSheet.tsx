@@ -9,7 +9,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { downloadPdf } from '@/api/pdf';
 import type { SaleSummary } from '@/api/types';
 import { customerTypeLabel } from '@/constants/customers';
-import { color, fmt, fmtFcfa, palette, radii, spacing } from '@/constants/theme';
+import { color, fmt, fmtFcfa, palette, radii, spacing, semantic } from '@/constants/theme';
 
 interface ReceiptPreviewSheetProps {
   visible: boolean;
@@ -156,9 +156,9 @@ export function ReceiptPreviewSheet({ visible, sale, farmName, pdvName, onClose 
 
 const styles = StyleSheet.create({
   ticket: {
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.lg,
     padding: spacing.md,
     gap: spacing.xs,
@@ -172,13 +172,13 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dash: {
     height: 1,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
     marginVertical: spacing.xs,
   },
   row: {

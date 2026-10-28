@@ -17,7 +17,7 @@ import { fetchFarmMembers } from '@/api';
 import { canManageFarm } from '@/api/roles';
 import type { FarmMember } from '@/api/types';
 import { contractTypeLabel } from '@/constants/hr';
-import { color, fmt, fmtFcfa, palette } from '@/constants/theme';
+import { color, fmt, fmtFcfa, semantic } from '@/constants/theme';
 
 function DossierRow({ member }: { member: FarmMember }) {
   const role = member.jobTitle?.trim() || (member.role === 'ADMIN' ? 'Administrateur' : 'Éleveur');
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   metaRow: {
     gap: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.border,
+    borderTopColor: semantic.border,
     paddingTop: 8,
   },
   metaItem: {

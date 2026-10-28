@@ -13,7 +13,7 @@ export function SlaughterBadge({ summary }: { summary: LotSlaughterSummary }) {
   const over = summary.overbooked;
   const fg = over ? palette.red[700] : summary.pendingCount > 0 ? palette.amber[700] : palette.green[700];
   return (
-    <View style={[styles.badge, { backgroundColor: over ? palette.red[50] : summary.pendingCount > 0 ? palette.amber[50] : palette.green[50], borderColor: over ? palette.red[200] : summary.pendingCount > 0 ? palette.amber[200] : palette.green[200] }]}>
+    <View style={[styles.badge, { backgroundColor: over ? semantic.dangerSoft : summary.pendingCount > 0 ? semantic.warnSoft : semantic.successSoft, borderColor: over ? palette.red[200] : summary.pendingCount > 0 ? palette.amber[200] : palette.green[200] }]}>
       {over ? <AlertTriangle size={12} color={fg} /> : <Bird size={12} color={fg} />}
       <AppText size="small" weight="bold" color={fg}>
         {over
@@ -27,7 +27,7 @@ export function SlaughterBadge({ summary }: { summary: LotSlaughterSummary }) {
 }
 
 function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone: 'amber' | 'green' | 'brand' | 'default' }) {
-  const valueColor = tone === 'amber' ? palette.amber[600] : tone === 'green' ? palette.green[600] : tone === 'brand' ? palette.brand[600] : color.ink[500];
+  const valueColor = tone === 'amber' ? palette.amber[600] : tone === 'green' ? palette.green[600] : tone === 'brand' ? semantic.primary : color.ink[500];
   return (
     <View style={styles.stat}>
       <AppText size="small" color="muted">{label}</AppText>
@@ -46,8 +46,8 @@ export function SlaughterInfoCard({ summary, showEmpty }: { summary: LotSlaughte
     return (
       <Card style={styles.card}>
         <View style={styles.header}>
-          <View style={[styles.iconTile, { backgroundColor: palette.brand[50] }]}>
-            <Bird size={15} color={palette.brand[600]} />
+          <View style={[styles.iconTile, { backgroundColor: semantic.primarySoft }]}>
+            <Bird size={15} color={semantic.primary} />
           </View>
           <AppText size="body" weight="bold" color="brand">Abattage</AppText>
         </View>
@@ -60,12 +60,12 @@ export function SlaughterInfoCard({ summary, showEmpty }: { summary: LotSlaughte
   return (
     <Card style={styles.card}>
       <View style={styles.header}>
-        <View style={[styles.iconTile, { backgroundColor: palette.brand[50] }]}>
-          <Bird size={15} color={palette.brand[600]} />
+        <View style={[styles.iconTile, { backgroundColor: semantic.primarySoft }]}>
+          <Bird size={15} color={semantic.primary} />
         </View>
         <AppText size="body" weight="bold" color="brand">Abattage</AppText>
         {over ? (
-          <View style={[styles.overPill, { backgroundColor: palette.red[50] }]}>
+          <View style={[styles.overPill, { backgroundColor: semantic.dangerSoft }]}>
             <AlertTriangle size={11} color={palette.red[600]} />
             <AppText size="small" weight="bold" color={semantic.dangerText}>Surcapacité</AppText>
           </View>
@@ -93,7 +93,7 @@ export function SlaughterInfoCard({ summary, showEmpty }: { summary: LotSlaughte
         <Stat label="Rendement" value={summary.rendementPct != null ? `${summary.rendementPct.toFixed(1)} %` : '—'} tone="default" />
       </View>
 
-      <View style={[styles.foot, { backgroundColor: over ? palette.red[50] : palette.surfaceAlt }]}>
+      <View style={[styles.foot, { backgroundColor: over ? semantic.dangerSoft : semantic.surfaceAlt }]}>
         {over ? (
           <>
             <AlertTriangle size={12} color={palette.red[600]} />

@@ -7,7 +7,7 @@ import { AlertTriangle, CircleAlert, CircleCheck, Info, type LucideIcon } from '
 
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { palette, radii, semantic, shadow } from '@/constants/theme';
+import { radii, semantic, shadow } from '@/constants/theme';
 import { durations, reduceMotion } from '@/constants/motion';
 
 /*
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     backgroundColor: semantic.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     ...shadow.raised,
   },
   toastIcon: {

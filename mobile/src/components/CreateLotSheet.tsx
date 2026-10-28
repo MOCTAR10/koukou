@@ -556,7 +556,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
   };
 
   const isAutre = species === 'AUTRE';
-  const typeAccent = type === 'CHAIR' ? palette.accent[500] : palette.brand[600];
+  const typeAccent = type === 'CHAIR' ? palette.accent[500] : semantic.primary;
   const canSubmit =
     batchName.trim().length > 0 &&
     quantityAtStart.trim().length > 0 &&
@@ -836,7 +836,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
           {isRunning ? (
             currentAgeDays > 0 ? (
               <View style={styles.dateAgeChip}>
-                <Clock size={12} color={palette.brand[600]} />
+                <Clock size={12} color={semantic.primary} />
                 <AppText size='label' weight='bold' color='brand'>
                   {formatAge(currentAgeDays)}
                 </AppText>
@@ -921,7 +921,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
         <>
           <SectionTitle label='Soins prophylactiques réalisés' />
           <View style={styles.treatmentInfo}>
-            <ShieldCheck size={14} color={palette.brand[600]} />
+            <ShieldCheck size={14} color={semantic.primary} />
             <AppText size='small' color='muted' style={{ flex: 1 }}>
               Cochez les soins déjà administrés à ce lot. Ils seront enregistrés à leur jour planifié (date de mise en place + jour du protocole).
             </AppText>
@@ -934,7 +934,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
               accessibilityRole='checkbox'
               accessibilityState={{ checked: completedStepIds.has(step.id) }}>
               <View style={[styles.checkbox, completedStepIds.has(step.id) && styles.checkboxOn]}>
-                {completedStepIds.has(step.id) && <Check size={12} color={palette.surface} />}
+                {completedStepIds.has(step.id) && <Check size={12} color={semantic.surface} />}
               </View>
               <View style={{ flex: 1, gap: 1 }}>
                 <AppText size='body' weight='semibold' color={completedStepIds.has(step.id) ? 'brand' : 'text'}>
@@ -967,7 +967,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       {isRunning && (
         <View style={styles.ageAdvisoryCard}>
           <View style={styles.advisoryHeader}>
-            <Eye size={14} color={palette.brand[600]} />
+            <Eye size={14} color={semantic.primary} />
             <AppText size='body' weight='bold' color='brand'>Recommandations à {formatAge(currentAgeDays) || '0 j'}</AppText>
           </View>
 
@@ -991,7 +991,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
           {/* Upcoming treatments */}
           {upcomingSteps.length > 0 && (
             <View style={styles.advisoryItem}>
-              <Syringe size={14} color={palette.brand[600]} />
+              <Syringe size={14} color={semantic.primary} />
               <View style={{ flex: 1 }}>
                 <AppText size='small' weight='bold' color='text'>Prochains soins à planifier</AppText>
                 {upcomingSteps.slice(0, 3).map((step) => (
@@ -1071,7 +1071,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       {advisory && (
         <View style={styles.advisoryCard}>
           <View style={styles.advisoryHeader}>
-            <TrendingUp size={14} color={palette.brand[600]} />
+            <TrendingUp size={14} color={semantic.primary} />
             <View style={{ flex: 1 }}>
               <AppText size='body' weight='bold' color='brand'>Analyse & Conseils</AppText>
             </View>
@@ -1128,7 +1128,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
           {type === 'PONDEUSE' && (
             <View style={styles.lifecycleNote}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Lightbulb size={14} color={palette.brand[600]} />
+                <Lightbulb size={14} color={semantic.primary} />
                 <AppText size='small' weight='semibold' color={semantic.primaryText}>
                   Conseil fin de cycle
                 </AppText>
@@ -1182,7 +1182,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
         {selectedBuilding && (
           <View style={styles.buildingInsight}>
             <View style={styles.buildingInsightHeader}>
-              <Warehouse size={14} color={palette.brand[600]} />
+              <Warehouse size={14} color={semantic.primary} />
               <AppText size='body' weight='bold' color='brand'>Espace dans {selectedBuilding.name}</AppText>
             </View>
 
@@ -1282,7 +1282,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       <SectionTitle label='Traçabilité HACCP — très important' />
       <View style={styles.haccpNote}>
         <View style={styles.buildingInsightHeader}>
-          <ShieldCheck size={14} color={palette.brand[600]} />
+          <ShieldCheck size={14} color={semantic.primary} />
           <AppText size='small' weight='bold' color='brand'>Pourquoi renseigner ces informations ?</AppText>
         </View>
         <AppText size='small' color='muted'>
@@ -1438,7 +1438,7 @@ function PickerModal({ visible, onClose, title, options, selectedId, onSelect }:
                       <AppText size='small' color={o.disabled ? 'faint' : 'muted'}>{o.hint}</AppText>
                     ) : null}
                   </View>
-                  {active && <Check size={18} color={palette.brand[600]} />}
+                  {active && <Check size={18} color={semantic.primary} />}
                 </Pressable>
               );
             })}
@@ -1505,7 +1505,7 @@ const styles = StyleSheet.create({
   /* ── Running lot mode toggle (segmented control) ── */
   modeRow: {
     flexDirection: 'row', gap: 4, padding: 3, marginBottom: 10,
-    borderRadius: radii.pill, backgroundColor: palette.surfaceAlt,
+    borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt,
     borderWidth: 1, borderColor: color.border,
   },
   modeBtn: {
@@ -1513,7 +1513,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8, borderRadius: radii.pill,
   },
   modeBtnActive: {
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
     shadowColor: palette.brand[800], shadowOpacity: 0.28,
     shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
@@ -1524,16 +1524,16 @@ const styles = StyleSheet.create({
   },
   runningBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, paddingVertical: 8, paddingHorizontal: 10,
-    backgroundColor: palette.amber[50], borderRadius: radii.md, borderWidth: 1, borderColor: palette.amber[200],
+    backgroundColor: semantic.warnSoft, borderRadius: radii.md, borderWidth: 1, borderColor: palette.amber[200],
   },
   runningInsight: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, padding: 8,
-    backgroundColor: palette.surfaceAlt, borderRadius: radii.md,
+    backgroundColor: semantic.surfaceAlt, borderRadius: radii.md,
   },
   /* ── Lot type segmented control ── */
   typeRow: {
     flexDirection: 'row', gap: 3, padding: 3,
-    borderRadius: radii.pill, backgroundColor: palette.surfaceAlt,
+    borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt,
     borderWidth: 1, borderColor: color.border,
   },
   typeBtn: {
@@ -1560,14 +1560,14 @@ const styles = StyleSheet.create({
   },
   speciesCard: {
     width: 116, borderRadius: radii.lg, overflow: 'hidden',
-    backgroundColor: palette.surface, borderWidth: 2, borderColor: color.border,
+    backgroundColor: semantic.surface, borderWidth: 2, borderColor: color.border,
   },
   speciesCardImg: { width: '100%', height: 84 },
   speciesCardImgShiftLeft: { transform: [{ scale: 0.84 }, { translateX: -18 }] },
   speciesCardImgShiftFaisan: { transform: [{ scale: 0.8 }, { translateX: -18 }, { translateY: 6 }] },
   speciesCardPlaceholder: {
     width: '100%', height: 84, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
   speciesCardLabel: {
     paddingVertical: 8, paddingHorizontal: 6, alignItems: 'center',
@@ -1576,7 +1576,7 @@ const styles = StyleSheet.create({
   selectBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 12, paddingHorizontal: 14, borderRadius: radii.md,
-    backgroundColor: palette.surface, borderWidth: 1.5, borderColor: color.border,
+    backgroundColor: semantic.surface, borderWidth: 1.5, borderColor: color.border,
   },
   selectedBreedRow: {
     flexDirection: 'row',
@@ -1591,30 +1591,30 @@ const styles = StyleSheet.create({
     backgroundColor: palette.brand[100],
   },
   breedInfo: {
-    backgroundColor: palette.brand[50], borderRadius: radii.md, padding: 8, marginTop: 4,
+    backgroundColor: semantic.primarySoft, borderRadius: radii.md, padding: 8, marginTop: 4,
     borderLeftWidth: 3, borderLeftColor: palette.brand[500],
   },
   customBreedInput: {
     borderRadius: radii.md, borderWidth: 1.5, borderColor: color.border,
-    backgroundColor: palette.surface, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16,
+    backgroundColor: semantic.surface, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16,
     color: color.ink[900],
   },
   customBreedInputGap: { marginTop: 8 },
   dateBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
     paddingVertical: 12, paddingHorizontal: 14, borderRadius: radii.md,
-    backgroundColor: palette.surface, borderWidth: 1.5, borderColor: color.border,
+    backgroundColor: semantic.surface, borderWidth: 1.5, borderColor: color.border,
   },
   dateAgeChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingVertical: 3, paddingHorizontal: 8, borderRadius: radii.pill,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
   fieldHint: { marginTop: 6 },
   feedMismatch: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6,
     paddingVertical: 6, paddingHorizontal: 8, borderRadius: radii.md,
-    backgroundColor: palette.amber[50], borderWidth: 1, borderColor: palette.amber[200],
+    backgroundColor: semantic.warnSoft, borderWidth: 1, borderColor: palette.amber[200],
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   sectionTitleBar: { width: 4, height: 16, borderRadius: 2, backgroundColor: palette.brand[500] },
@@ -1625,7 +1625,7 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: 'rgba(9, 24, 40, 0.45)', justifyContent: 'center', padding: 24,
   },
   pickerPanel: {
-    backgroundColor: palette.paper, borderRadius: radii.lg, padding: 16,
+    backgroundColor: semantic.bg, borderRadius: radii.lg, padding: 16,
     maxHeight: 460, borderWidth: 1, borderColor: color.border,
   },
   pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
@@ -1633,36 +1633,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 12, paddingHorizontal: 12, borderRadius: radii.md, borderWidth: 1, borderColor: 'transparent',
   },
-  pickerRowActive: { borderColor: palette.brand[200], backgroundColor: palette.brand[50] },
+  pickerRowActive: { borderColor: palette.brand[200], backgroundColor: semantic.primarySoft },
   pickerRowDisabled: { opacity: 0.5 },
   pickerThumb: {
-    width: 44, height: 44, borderRadius: radii.md, backgroundColor: palette.brand[50],
+    width: 44, height: 44, borderRadius: radii.md, backgroundColor: semantic.primarySoft,
   },
   selectedBreedThumb: {
-    width: 34, height: 34, borderRadius: radii.sm, backgroundColor: palette.brand[50],
+    width: 34, height: 34, borderRadius: radii.sm, backgroundColor: semantic.primarySoft,
   },
   field: { gap: 6 },
   inputWrap: {
-    borderWidth: 1.5, borderColor: color.border, borderRadius: radii.md, backgroundColor: palette.surface,
+    borderWidth: 1.5, borderColor: color.border, borderRadius: radii.md, backgroundColor: semantic.surface,
   },
-  inputWrapFocused: { borderColor: palette.brand[500], backgroundColor: palette.surface },
+  inputWrapFocused: { borderColor: palette.brand[500], backgroundColor: semantic.surface },
   input: { paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, fontFamily: fontFamily.regular, color: color.ink[900] },
   /* ── Building insight card ── */
   buildingInsight: {
-    backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[100],
+    backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[100],
     borderRadius: radii.lg, padding: 14, gap: 8, marginTop: 6,
   },
   buildingInsightHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   insightRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   insightWarn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  insightTip: { borderRadius: radii.md, padding: 8, backgroundColor: palette.surface },
+  insightTip: { borderRadius: radii.md, padding: 8, backgroundColor: semantic.surface },
   haccpNote: {
-    backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[100],
+    backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[100],
     borderRadius: radii.lg, padding: 12, gap: 6, marginBottom: 4,
   },
   /* ── Advisory card ── */
   advisoryCard: {
-    backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[100],
+    backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[100],
     borderRadius: radii.lg, padding: 14, gap: 12,
   },
   advisoryHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -1674,7 +1674,7 @@ const styles = StyleSheet.create({
   },
   advisoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   advisoryTile: {
-    flexBasis: '45%', flexGrow: 1, gap: 2, backgroundColor: palette.surface,
+    flexBasis: '45%', flexGrow: 1, gap: 2, backgroundColor: semantic.surface,
     borderRadius: radii.md, padding: 8, borderWidth: 1, borderColor: palette.brand[100],
   },
   timeline: { gap: 8 },
@@ -1684,49 +1684,49 @@ const styles = StyleSheet.create({
   timelineDotMid: { backgroundColor: palette.brand[400] },
   timelineDotEnd: { backgroundColor: palette.amber[500] },
   lifecycleNote: {
-    backgroundColor: palette.surface, borderRadius: radii.md, padding: 10, gap: 4,
+    backgroundColor: semantic.surface, borderRadius: radii.md, padding: 10, gap: 4,
     borderWidth: 1, borderColor: palette.brand[100],
   },
   /* ── Running lot: feed phase suggest button ── */
   suggestBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, padding: 8,
-    backgroundColor: palette.amber[50], borderRadius: radii.md, borderWidth: 1, borderColor: palette.amber[200],
+    backgroundColor: semantic.warnSoft, borderRadius: radii.md, borderWidth: 1, borderColor: palette.amber[200],
   },
   /* ── Running lot: treatment checklist ── */
   treatmentInfo: {
     flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, marginBottom: 4,
-    backgroundColor: palette.brand[50], borderRadius: radii.md,
+    backgroundColor: semantic.primarySoft, borderRadius: radii.md,
   },
   treatmentRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, marginBottom: 6,
-    backgroundColor: palette.surface, borderRadius: radii.md, borderWidth: 1.5, borderColor: color.border,
+    backgroundColor: semantic.surface, borderRadius: radii.md, borderWidth: 1.5, borderColor: color.border,
   },
   treatmentRowDone: {
-    borderColor: palette.brand[300], backgroundColor: palette.brand[50],
+    borderColor: palette.brand[300], backgroundColor: semantic.primarySoft,
   },
   checkbox: {
     width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: color.ink[300],
     alignItems: 'center', justifyContent: 'center',
   },
   checkboxOn: {
-    backgroundColor: palette.brand[600], borderColor: palette.brand[600],
+    backgroundColor: semantic.primary, borderColor: semantic.primary,
   },
   treatmentSummary: {
     flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, marginTop: 4,
-    backgroundColor: palette.green[50], borderRadius: radii.md, borderWidth: 1, borderColor: palette.green[200],
+    backgroundColor: semantic.successSoft, borderRadius: radii.md, borderWidth: 1, borderColor: palette.green[200],
   },
   /* ── Running lot: age advisory ── */
   ageAdvisoryCard: {
-    backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[100],
+    backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[100],
     borderRadius: radii.lg, padding: 14, gap: 10, marginTop: 8,
   },
   advisoryItem: {
-    flexDirection: 'row', gap: 10, padding: 8, backgroundColor: palette.surface, borderRadius: radii.md,
+    flexDirection: 'row', gap: 10, padding: 8, backgroundColor: semantic.surface, borderRadius: radii.md,
     borderWidth: 1, borderColor: palette.brand[100],
   },
   /* ── Running lot review card ── */
   reviewCard: {
-    backgroundColor: palette.surfaceAlt, borderWidth: 1.5, borderColor: palette.green[200],
+    backgroundColor: semantic.surfaceAlt, borderWidth: 1.5, borderColor: palette.green[200],
     borderRadius: radii.lg, padding: 14, gap: 10, marginTop: 8,
   },
   reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1734,7 +1734,7 @@ const styles = StyleSheet.create({
   reviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   reviewWarn: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4,
-    backgroundColor: palette.amber[50], borderRadius: radii.md, padding: 8,
+    backgroundColor: semantic.warnSoft, borderRadius: radii.md, padding: 8,
     borderWidth: 1, borderColor: palette.amber[200],
   },
 });

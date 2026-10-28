@@ -40,7 +40,7 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import { cancelOrderQueued, deliverOrderQueued, recordOrderPaymentQueued } from '@/offline/engine';
 import type { OrderFull, OrderPassport } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 
 function OrderItems({ order }: { order: OrderFull }) {
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
@@ -138,10 +138,10 @@ function PassportCard({ passport }: { passport: OrderPassport }) {
         : palette.amber[600];
   const bannerBg =
     bannerTone === 'green'
-      ? palette.green[50]
+      ? semantic.successSoft
       : bannerTone === 'red'
-        ? palette.red[50]
-        : palette.amber[50];
+        ? semantic.dangerSoft
+        : semantic.warnSoft;
   const lastVaccine = passport.vaccinations.last;
 
   return (
@@ -229,7 +229,7 @@ function PassportCard({ passport }: { passport: OrderPassport }) {
             RETRAITS EN COURS (CARENCE)
           </AppText>
           {passport.withdrawals.map((w) => (
-            <View key={`${w.productName}-${w.withdrawalEndDate}`} style={[styles.passportBanner, { backgroundColor: palette.amber[50] }]}>
+            <View key={`${w.productName}-${w.withdrawalEndDate}`} style={[styles.passportBanner, { backgroundColor: semantic.warnSoft }]}>
               <Clock size={16} color={palette.amber[600]} />
               <AppText size="small" color="text" style={{ flex: 1 }}>
                 {w.productName} ({w.careTypeLabel}) — retrait jusqu’au {passportDate(w.withdrawalEndDate)}
@@ -247,7 +247,7 @@ function PassportCard({ passport }: { passport: OrderPassport }) {
           {passport.sanitary.alerts.map((a) => (
             <View
               key={`${a.kind}-${a.message}`}
-              style={[styles.passportBanner, { backgroundColor: a.level === 'ROUGE' ? palette.red[50] : palette.amber[50] }]}>
+              style={[styles.passportBanner, { backgroundColor: a.level === 'ROUGE' ? semantic.dangerSoft : semantic.warnSoft }]}>
               {a.level === 'ROUGE' ? (
                 <AlertTriangle size={16} color={palette.red[500]} />
               ) : (
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
   },
   avatarLogo: {
     width: 26,
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 14,
     fontSize: 16,
@@ -600,6 +600,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
 });

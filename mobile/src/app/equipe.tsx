@@ -20,7 +20,7 @@ import { canManageFarm, farmRoleLabel } from '@/api/roles';
 import type { ContractType, FarmMember, PermissionCatalog, PermissionCode, StaffProfile } from '@/api/types';
 import { CREATE_ADMIN_DEFAULT_PERMISSIONS, LOCAL_PERMISSION_GROUPS, STAFF_PROFILES_LOCAL } from '@/constants/permissions';
 import { CONTRACT_TYPES, contractTypeLabel } from '@/constants/hr';
-import { color, fmt, palette, fontFamily } from '@/constants/theme';
+import { color, fmt, palette, fontFamily, semantic } from '@/constants/theme';
 
 /** Clé du profil « sur mesure » (non fourni par le serveur) : rôle Admin, droits à cocher. */
 const CUSTOM_PROFILE_KEY = '__custom__';
@@ -770,8 +770,8 @@ export default function EquipeScreen() {
               value={editActive}
               onValueChange={setEditActive}
               disabled={busy}
-              trackColor={{ true: color.brand[600], false: palette.border }}
-              thumbColor={palette.surface}
+              trackColor={{ true: color.brand[600], false: semantic.border }}
+              thumbColor={semantic.surface}
             />
           </View>
 
@@ -894,10 +894,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     padding: 14,
     marginBottom: 12,
   },
@@ -941,12 +941,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     fontSize: 15,
     color: color.ink[800],
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
   },
   segmented: {
     flexDirection: 'row',
@@ -972,8 +972,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
+    borderColor: semantic.border,
+    backgroundColor: semantic.surface,
   },
   segOptionOn: {
     backgroundColor: color.brand[600],
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -1024,8 +1024,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
+    borderColor: semantic.border,
+    backgroundColor: semantic.surface,
   },
   profileChipOn: {
     backgroundColor: color.brand[600],
@@ -1036,7 +1036,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: palette.brand[100],
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 13,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1072,8 +1072,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
+    borderColor: semantic.border,
+    backgroundColor: semantic.surface,
   },
   miniChipOn: {
     backgroundColor: color.brand[600],

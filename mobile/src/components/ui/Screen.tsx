@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 
 import { AppText } from './AppText';
-import { color, palette, layout } from '@/constants/theme';
+import { color, layout, semantic } from '@/constants/theme';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -96,7 +96,7 @@ function PressableRadius({ children, onPress, style }: { children: React.ReactNo
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: palette.paper,
+    backgroundColor: semantic.bg,
   },
   scroll: {
     alignItems: 'center',
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   headerWrap: {
     width: '100%',
     alignItems: 'center',
-    backgroundColor: palette.paper,
+    backgroundColor: semantic.bg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.border,
   },

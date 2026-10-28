@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/ui/AppText';
-import { palette, radii } from '@/constants/theme';
+import { palette, radii, semantic } from '@/constants/theme';
 import type { Ranked } from './pnlAnalytics';
 
 /**
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   track: {
     height: 6,
     borderRadius: radii.pill,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     overflow: 'hidden',
   },
   fill: {
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: radii.sm,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     alignItems: 'center',
   },
   totalRow: {
@@ -156,6 +156,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     marginTop: 2,
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: semantic.border,
   },
 });

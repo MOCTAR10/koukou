@@ -3,7 +3,7 @@ import { Pressable, ScrollView, View, StyleSheet } from 'react-native';
 import { Check } from 'lucide-react-native';
 
 import { AppText } from './AppText';
-import { color, palette } from '@/constants/theme';
+import { color, palette, semantic } from '@/constants/theme';
 
 export interface StepDef {
   key: string;
@@ -30,7 +30,7 @@ export function StepProgress({ steps, activeIndex, completed, onSelect }: StepPr
         const active = i === activeIndex;
         const canTap = !!onSelect && done;
 
-        const circleBg = done ? palette.green[500] : active ? palette.accent[500] : palette.surfaceAlt;
+        const circleBg = done ? palette.green[500] : active ? palette.accent[500] : semantic.surfaceAlt;
         const circleBorder = done ? palette.green[600] : active ? palette.accent[600] : color.border;
 
         return (
@@ -45,9 +45,9 @@ export function StepProgress({ steps, activeIndex, completed, onSelect }: StepPr
               accessibilityRole="button"
               accessibilityLabel={s.label}>
               <View style={[styles.circle, { backgroundColor: circleBg, borderColor: circleBorder }]}>
-                {done ? <Check size={15} color={palette.surface} strokeWidth={3} /> : s.icon ?? null}
+                {done ? <Check size={15} color={semantic.surface} strokeWidth={3} /> : s.icon ?? null}
                 {!done && !s.icon ? (
-                  <AppText size="small" weight="bold" style={{ color: active ? palette.surface : color.ink[500] }}>
+                  <AppText size="small" weight="bold" style={{ color: active ? semantic.surface : color.ink[500] }}>
                     {i + 1}
                   </AppText>
                 ) : null}

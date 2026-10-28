@@ -134,17 +134,17 @@ type StatusPillTone = 'green' | 'red' | 'amber' | 'accent';
 type StatusPill = { tone: StatusPillTone; icon: typeof BadgeCheck; label: string } | null;
 
 const STATUS_PILL_TONES: Record<StatusPillTone, { fg: string; bg: string; border: string }> = {
-  green: { fg: palette.green[700], bg: palette.green[50], border: palette.green[200] },
-  red: { fg: palette.red[600], bg: palette.red[50], border: palette.red[200] },
-  amber: { fg: palette.amber[700], bg: palette.amber[50], border: palette.amber[200] },
-  accent: { fg: palette.accent[700], bg: palette.accent[50], border: palette.accent[200] },
+  green: { fg: palette.green[700], bg: semantic.successSoft, border: palette.green[200] },
+  red: { fg: palette.red[600], bg: semantic.dangerSoft, border: palette.red[200] },
+  amber: { fg: palette.amber[700], bg: semantic.warnSoft, border: palette.amber[200] },
+  accent: { fg: palette.accent[700], bg: semantic.accentSoft, border: palette.accent[200] },
 };
 
 const STAGE_CHIP_TONES: Record<StageTone, { fg: string; bg: string; border: string }> = {
-  brand: { fg: palette.brand[700], bg: palette.brand[50], border: palette.brand[200] },
-  accent: { fg: palette.accent[700], bg: palette.accent[50], border: palette.accent[200] },
-  green: { fg: palette.green[700], bg: palette.green[50], border: palette.green[200] },
-  amber: { fg: palette.amber[700], bg: palette.amber[50], border: palette.amber[200] },
+  brand: { fg: palette.brand[700], bg: semantic.primarySoft, border: palette.brand[200] },
+  accent: { fg: palette.accent[700], bg: semantic.accentSoft, border: palette.accent[200] },
+  green: { fg: palette.green[700], bg: semantic.successSoft, border: palette.green[200] },
+  amber: { fg: palette.amber[700], bg: semantic.warnSoft, border: palette.amber[200] },
 };
 
 function batchStatusPill(b: BatchWithMetrics): StatusPill {
@@ -712,7 +712,7 @@ export default function LotsScreen() {
             left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
             right={
               <Pressable onPress={openCreate} style={styles.createBtn} accessibilityRole='button'>
-                <Plus size={18} color={palette.brand[50]} />
+                <Plus size={18} color={semantic.primarySoft} />
                 <AppText size='small' weight='bold' color='surface'>Nouveau</AppText>
               </Pressable>
             }
@@ -754,7 +754,7 @@ export default function LotsScreen() {
                   <View style={[styles.slimTileBarSeg, { flex: farmStats.pondeuseCount, backgroundColor: palette.accent[500] }]} />
                 )}
                 {farmStats.chairCount === 0 && farmStats.pondeuseCount === 0 && (
-                  <View style={[styles.slimTileBarSeg, { flex: 1, backgroundColor: palette.border }]} />
+                  <View style={[styles.slimTileBarSeg, { flex: 1, backgroundColor: semantic.border }]} />
                 )}
               </View>
               <View style={styles.slimTileLegend}>
@@ -828,7 +828,7 @@ export default function LotsScreen() {
           accessibilityRole="button"
           accessibilityLabel="Finances — voir le détail en feuille">
           <View style={styles.financeHeadIcon}>
-            <Wallet size={15} color={palette.brand[600]} />
+            <Wallet size={15} color={semantic.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <AppText size="small" weight="bold" color="brand">Finance</AppText>
@@ -843,18 +843,18 @@ export default function LotsScreen() {
             accessibilityLabel="Aide — comprendre la Finance"
             hitSlop={8}
             style={({ pressed }) => [styles.financeHelpBtn, pressed && styles.financeHelpBtnPressed]}>
-            <Info size={14} color={palette.brand[600]} />
+            <Info size={14} color={semantic.primary} />
           </Pressable>
           <View style={styles.financeToggleBtn}>
             <AppText size="caption" weight="bold" color="brand">Détails</AppText>
-            <ChevronRight size={13} color={palette.brand[600]} />
+            <ChevronRight size={13} color={semantic.primary} />
           </View>
         </Pressable>
       </View>
 
       <Card padding={false} style={styles.financeCard} onPress={openFinanceSheet}>
         <View style={styles.financeStrip}>
-          <FinanceCell label="Recettes" value={compactFcfa(pnl.data?.sales.totalFcfa ?? 0)} sub={`${pnl.data?.sales.count ?? 0} vente(s)`} fg={palette.brand[600]} icon={Wallet} />
+          <FinanceCell label="Recettes" value={compactFcfa(pnl.data?.sales.totalFcfa ?? 0)} sub={`${pnl.data?.sales.count ?? 0} vente(s)`} fg={semantic.primary} icon={Wallet} />
           <View style={styles.financeDivider} />
           <FinanceCell label="Encaissé" value={compactFcfa(pnl.data?.collectedFcfa ?? 0)} sub="encaissé" fg={palette.green[600]} icon={Coins} />
           <View style={styles.financeDivider} />
@@ -974,7 +974,7 @@ export default function LotsScreen() {
           accessibilityLabel="Plus de filtres et tri"
           style={[styles.sortToggle, hasAdvancedFilters && styles.sortToggleActive]}>
           {hasAdvancedFilters ? <View style={styles.advancedDot} /> : null}
-          <SlidersHorizontal size={16} color={hasAdvancedFilters ? palette.brand[600] : color.ink[500]} />
+          <SlidersHorizontal size={16} color={hasAdvancedFilters ? semantic.primary : color.ink[500]} />
         </Pressable>
       </View>
 
@@ -1218,7 +1218,7 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
             <Image source={breedImageForLot(batch.breedName, batch.species)!} style={styles.speciesTileImg} resizeMode="cover" />
           ) : (
             <View style={[styles.speciesTileFallback, { backgroundColor: isLayer ? color.green[50] : color.brand[50] }]}>
-              <AppText size="small" weight="bold" color={isLayer ? palette.green[700] : palette.brand[600]} numberOfLines={2} style={styles.speciesTileText}>
+              <AppText size="small" weight="bold" color={isLayer ? palette.green[700] : semantic.primary} numberOfLines={2} style={styles.speciesTileText}>
                 {specLabel}
               </AppText>
             </View>
@@ -1235,7 +1235,7 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
         </View>
 
         <View style={styles.lotHeaderRight}>
-          <BadgeChip icon={CalendarDays} value={`J${m.ageDays}`} color={palette.brand[600]} />
+          <BadgeChip icon={CalendarDays} value={`J${m.ageDays}`} color={semantic.primary} />
           {healthScore != null && (
             <BadgeChip icon={HeartPulse} value={healthScore} color={healthColor} />
           )}
@@ -1264,7 +1264,7 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
           </AppText>
         </View>
         {buildingName && (
-          <View style={[styles.buildingChip, { backgroundColor: palette.brand[50], borderColor: palette.brand[200] }]}>
+          <View style={[styles.buildingChip, { backgroundColor: semantic.primarySoft, borderColor: palette.brand[200] }]}>
             <Building2 size={12} color={palette.brand[700]} />
             <AppText size="small" weight="bold" color={semantic.primaryText} numberOfLines={1} style={styles.buildingChipText}>
               {buildingName}
@@ -1285,7 +1285,7 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
 
       {/* ── PROCHAIN VACCIN (advice, calendrier déjà mis en place) ── */}
       {careData.length === 0 && hasCareCalendar && nextVaccine && (
-        <View style={[styles.nextVaccineRow, { backgroundColor: nextVaccine.tone === 'amber' ? palette.amber[50] : palette.accent[50], borderColor: nextVaccine.tone === 'amber' ? palette.amber[100] : palette.accent[100] }]}>
+        <View style={[styles.nextVaccineRow, { backgroundColor: nextVaccine.tone === 'amber' ? semantic.warnSoft : semantic.accentSoft, borderColor: nextVaccine.tone === 'amber' ? palette.amber[100] : palette.accent[100] }]}>
           <Syringe size={12} color={nextVaccine.tone === 'amber' ? palette.amber[600] : palette.accent[600]} />
           <View style={{ flex: 1, gap: 1 }}>
             <AppText size="label" weight="bold" color={nextVaccine.tone === 'amber' ? palette.amber[700] : palette.accent[800]}>
@@ -1331,8 +1331,8 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
           {m.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : ''}
           {m.totalFeedKg > 0 ? ` · ${m.totalFeedKg.toLocaleString('fr-FR')} kg` : ''}
         </AppText>
-        <View style={[styles.expandPill, { backgroundColor: palette.brand[600] }]}>
-          <ChevronRight size={16} color={palette.brand[50]} />
+        <View style={[styles.expandPill, { backgroundColor: semantic.primary }]}>
+          <ChevronRight size={16} color={semantic.primarySoft} />
           <AppText size="small" weight="bold" color="surface">Détails</AppText>
         </View>
       </Pressable>
@@ -1346,7 +1346,7 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
 
 function CareRow({ tone, label, pulse, eventId, onComplete }: { tone: 'red' | 'amber'; label: string; pulse: boolean; eventId?: string; onComplete?: (eventId: string) => void }) {
   const fg = tone === 'red' ? palette.red[600] : palette.amber[600];
-  const bg = tone === 'red' ? palette.red[50] : palette.amber[50];
+  const bg = tone === 'red' ? semantic.dangerSoft : semantic.warnSoft;
   return (
     <View style={[styles.careRow, { backgroundColor: bg }]}>
       {pulse && <PulsarDot color={palette.red[500]} size={12} />}
@@ -1368,8 +1368,8 @@ function CareRow({ tone, label, pulse, eventId, onComplete }: { tone: 'red' | 'a
 }
 
 function PanelCell({ value, label, sub, icon: Icon, tone }: { value: string; label: string; sub?: string; icon: typeof Clock; tone: 'brand' | 'accent' | 'green' | 'red' | 'amber' | 'muted' }) {
-  const fg = tone === 'accent' ? palette.accent[500] : tone === 'red' ? palette.red[500] : tone === 'amber' ? palette.amber[500] : tone === 'green' ? palette.green[600] : tone === 'muted' ? color.ink[400] : palette.brand[600];
-  const bg = tone === 'accent' ? palette.accent[50] : tone === 'red' ? palette.red[50] : tone === 'amber' ? palette.amber[50] : tone === 'green' ? palette.green[50] : tone === 'muted' ? palette.surfaceAlt : palette.brand[50];
+  const fg = tone === 'accent' ? palette.accent[500] : tone === 'red' ? palette.red[500] : tone === 'amber' ? palette.amber[500] : tone === 'green' ? palette.green[600] : tone === 'muted' ? color.ink[400] : semantic.primary;
+  const bg = tone === 'accent' ? semantic.accentSoft : tone === 'red' ? semantic.dangerSoft : tone === 'amber' ? semantic.warnSoft : tone === 'green' ? semantic.successSoft : tone === 'muted' ? semantic.surfaceAlt : semantic.primarySoft;
   const chipBg = tone === 'accent' ? palette.accent[100] : tone === 'red' ? palette.red[100] : tone === 'amber' ? palette.amber[100] : tone === 'green' ? palette.green[100] : tone === 'muted' ? palette.ink[200] : palette.brand[100];
   return (
     <View style={[styles.panelCell, { backgroundColor: bg }]}>
@@ -1404,7 +1404,7 @@ type OverviewSummary = {
   yellowCount: number;
 } | null;
 
-const DIST_COLORS = [palette.brand[600], palette.accent[500], palette.green[600], palette.amber[500], palette.red[500], palette.ink[400]];
+const DIST_COLORS = [semantic.primary, palette.accent[500], palette.green[600], palette.amber[500], palette.red[500], palette.ink[400]];
 
 function FilterPill({ label, count, active, onPress, dotColor, compact }: { label: string; count: number; active: boolean; onPress: () => void; dotColor?: string; compact?: boolean }) {
   return (
@@ -1443,8 +1443,8 @@ function FilterSortSheet({ visible, onClose, filter, setFilter, speciesFilter, s
       subtitle={hasAny ? 'filtres actifs' : 'affinez la liste des lots'}
       accentColor={palette.brand[500]}
       icon={
-        <View style={[styles.sheetIconTile, { backgroundColor: palette.brand[50] }]}>
-          <SlidersHorizontal size={18} color={palette.brand[600]} />
+        <View style={[styles.sheetIconTile, { backgroundColor: semantic.primarySoft }]}>
+          <SlidersHorizontal size={18} color={semantic.primary} />
         </View>
       }
       onClose={onClose}
@@ -1469,7 +1469,7 @@ function FilterSortSheet({ visible, onClose, filter, setFilter, speciesFilter, s
       }
     >
       <View style={styles.filterSection}>
-        <DetailSectionTitle label="Statut" icon={Bird} color={palette.brand[600]} />
+        <DetailSectionTitle label="Statut" icon={Bird} color={semantic.primary} />
         <View style={styles.chipWrap}>
           {FILTERS.map((f) => (
             <FilterPill key={f.key} label={f.label} count={f.key === 'all' ? filterCounts.total : filterCounts[f.key]} active={filter === f.key} onPress={() => { Haptics.selectionAsync().catch(() => {}); setFilter(f.key); }} />
@@ -1502,7 +1502,7 @@ function FilterSortSheet({ visible, onClose, filter, setFilter, speciesFilter, s
           {SORT_OPTIONS.map((s) => (
             <Pressable key={s.key} onPress={onSortToggle.bind(null, s.key)} style={[styles.sortChip, sortKey === s.key && styles.sortChipActive]}>
               <AppText size="small" weight={sortKey === s.key ? 'bold' : 'medium'} color={sortKey === s.key ? 'brand' : 'muted'}>{s.label}</AppText>
-              {sortKey === s.key && (sortDir === 'desc' ? <SortDesc size={12} color={palette.brand[600]} /> : <SortAsc size={12} color={palette.brand[600]} />)}
+              {sortKey === s.key && (sortDir === 'desc' ? <SortDesc size={12} color={semantic.primary} /> : <SortAsc size={12} color={semantic.primary} />)}
             </Pressable>
           ))}
         </View>
@@ -1518,7 +1518,7 @@ function StatsPanel({ summary, hasAnyBatch, filterLabel, onOpen }: { summary: Ov
         <View style={styles.financeHeaderRow}>
           <View style={styles.panelHeaderLeft}>
             <View style={styles.panelHeaderIcon}>
-              <Activity size={14} color={palette.brand[600]} />
+              <Activity size={14} color={semantic.primary} />
             </View>
             <AppText size="small" weight="bold" color="brand">Vue d’ensemble</AppText>
           </View>
@@ -1552,7 +1552,7 @@ function StatsPanel({ summary, hasAnyBatch, filterLabel, onOpen }: { summary: Ov
           <AppText size="caption" weight="bold" color="surface">{summary.count} lots · {summary.activeCount} actifs</AppText>
         </View>
         <View style={[styles.panelChevron, styles.panelChevronActive]}>
-          <ChevronUp size={14} color={palette.brand[50]} />
+          <ChevronUp size={14} color={semantic.primarySoft} />
         </View>
       </Pressable>
     </Card>
@@ -1693,7 +1693,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
       subtitle={`${filterLabel} · ${summary.count} lot(s) · ${fmt(summary.totalBirds)} oiseaux`}
       accentColor={palette.brand[700]}
       icon={
-        <View style={[styles.sheetIconTile, { backgroundColor: palette.brand[600] }]}>
+        <View style={[styles.sheetIconTile, { backgroundColor: semantic.primary }]}>
           <Image source={require('@/assets/images/logo-white.png')} style={styles.ovSheetLogo} resizeMode="contain" />
         </View>
       }
@@ -1705,7 +1705,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
           {overviewLive ? (
             <View style={styles.ovLiveDot} />
           ) : (
-            <CalendarDays size={12} color={palette.brand[600]} />
+            <CalendarDays size={12} color={semantic.primary} />
           )}
           <AppText size="caption" weight="semibold" color="muted">{overviewLive ? 'En direct' : 'Date'}</AppText>
           <View style={styles.ovMetaDivider} />
@@ -1754,19 +1754,19 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
       {/* ── ALERTES ── */}
       <View style={styles.alertStrip}>
         {summary.redCount > 0 && (
-          <View style={[styles.alertChip, { backgroundColor: palette.red[50], borderColor: palette.red[200] }]}>
+          <View style={[styles.alertChip, { backgroundColor: semantic.dangerSoft, borderColor: palette.red[200] }]}>
             <AlertTriangle size={12} color={palette.red[500]} />
             <AppText size="small" weight="bold" color={semantic.dangerText}>{summary.redCount} critique(s)</AppText>
           </View>
         )}
         {summary.yellowCount > 0 && (
-          <View style={[styles.alertChip, { backgroundColor: palette.amber[50], borderColor: palette.amber[200] }]}>
+          <View style={[styles.alertChip, { backgroundColor: semantic.warnSoft, borderColor: palette.amber[200] }]}>
             <Info size={12} color={palette.amber[500]} />
             <AppText size="small" weight="bold" color={semantic.warnText}>{summary.yellowCount} à surveiller</AppText>
           </View>
         )}
         {summary.redCount === 0 && summary.yellowCount === 0 && (
-          <View style={[styles.alertChip, { backgroundColor: palette.green[50], borderColor: palette.green[200] }]}>
+          <View style={[styles.alertChip, { backgroundColor: semantic.successSoft, borderColor: palette.green[200] }]}>
             <BadgeCheck size={12} color={palette.green[600]} />
             <AppText size="small" weight="bold" color={semantic.successText}>Tout est OK</AppText>
           </View>
@@ -1804,7 +1804,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
           {summary.readyCount > 0 && onShowSelling && (
             <View style={styles.readyGoto}>
               <AppText size="caption" weight="bold" color={semantic.primaryText}>Voir</AppText>
-              <ChevronRight size={12} color={palette.brand[600]} />
+              <ChevronRight size={12} color={semantic.primary} />
             </View>
           )}
         </View>
@@ -1812,7 +1812,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
 
       <View style={styles.ovRevenueCard}>
         <View style={styles.ovRevenueIcon}>
-          <Wallet size={14} color={palette.brand[600]} />
+          <Wallet size={14} color={semantic.primary} />
         </View>
         <View style={{ flex: 1, gap: 1 }}>
           <AppText size="body" weight="bold" color={semantic.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -1824,7 +1824,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
 
       {/* ── CONSOMMATION ALIMENTAIRE ── */}
       <View style={{ gap: 8 }}>
-        <DetailSectionTitle label="Consommation alimentaire" color={palette.brand[600]} icon={Wheat} />
+        <DetailSectionTitle label="Consommation alimentaire" color={semantic.primary} icon={Wheat} />
         <View style={styles.ovFeedRow}>
           <View style={styles.ovFeedStat}>
             <AppText size="body" weight="bold" color={semantic.primaryText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
@@ -1955,19 +1955,19 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
         <DetailSectionTitle label="Sanitaire" color={lateTotal > 0 ? palette.red[500] : dueTotal > 0 ? palette.amber[500] : palette.green[600]} icon={Syringe} />
         <View style={styles.alertStrip}>
           {lateTotal > 0 && (
-            <View style={[styles.alertChip, { backgroundColor: palette.red[50], borderColor: palette.red[200] }]}>
+            <View style={[styles.alertChip, { backgroundColor: semantic.dangerSoft, borderColor: palette.red[200] }]}>
               <AlertTriangle size={12} color={palette.red[500]} />
               <AppText size="small" weight="bold" color={semantic.dangerText}>{lateTotal} à traiter</AppText>
             </View>
           )}
           {dueTotal > 0 && (
-            <View style={[styles.alertChip, { backgroundColor: palette.amber[50], borderColor: palette.amber[200] }]}>
+            <View style={[styles.alertChip, { backgroundColor: semantic.warnSoft, borderColor: palette.amber[200] }]}>
               <Info size={12} color={palette.amber[500]} />
               <AppText size="small" weight="bold" color={semantic.warnText}>{dueTotal} à prévoir (7 j)</AppText>
             </View>
           )}
           {lateTotal === 0 && dueTotal === 0 && (
-            <View style={[styles.alertChip, { backgroundColor: palette.green[50], borderColor: palette.green[200] }]}>
+            <View style={[styles.alertChip, { backgroundColor: semantic.successSoft, borderColor: palette.green[200] }]}>
               <BadgeCheck size={12} color={palette.green[600]} />
               <AppText size="small" weight="bold" color={semantic.successText}>Tout est à jour</AppText>
             </View>
@@ -1977,7 +1977,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
           <View style={styles.ovSanCard}>
             <View style={styles.ovSanHead}>
               <View style={styles.ovSanHeadL}>
-                <Syringe size={13} color={palette.brand[600]} />
+                <Syringe size={13} color={semantic.primary} />
                 <AppText size="caption" weight="bold" color="text">Statut par lot</AppText>
               </View>
               <AppText size="caption" color="faint">{lots.length} lot{lots.length > 1 ? 's' : ''}</AppText>
@@ -1988,7 +1988,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
               const loading = prophylList[i].isLoading || (appliedProgramIds[i] != null && (programList[programIds.indexOf(appliedProgramIds[i]!)]?.isLoading ?? false));
               const tone = top?.tone ?? 'green';
               const fg = tone === 'red' ? palette.red[500] : tone === 'amber' ? palette.amber[500] : palette.green[600];
-              const bg = tone === 'red' ? palette.red[50] : tone === 'amber' ? palette.amber[50] : palette.green[50];
+              const bg = tone === 'red' ? semantic.dangerSoft : tone === 'amber' ? semantic.warnSoft : semantic.successSoft;
               const { action, detail } = top ? splitCareLabel(top.label) : { action: loading ? 'Chargement…' : 'À jour', detail: '' };
               return (
                 <View key={b.id} style={[styles.ovSanRow, i < lots.length - 1 && styles.ovSanRowBordered]}>
@@ -2020,8 +2020,8 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
 }
 
 function MetricBlock({ label, value, icon: Icon, tone, compact }: { label: string; value: string; icon: typeof Clock; tone: string; compact?: boolean }) {
-  const fg = tone === 'red' ? palette.red[500] : tone === 'amber' ? palette.amber[500] : tone === 'green' ? palette.green[600] : tone === 'accent' ? palette.accent[500] : palette.brand[600];
-  const bg = tone === 'red' ? palette.red[50] : tone === 'amber' ? palette.amber[50] : tone === 'green' ? palette.green[50] : tone === 'accent' ? palette.accent[50] : palette.brand[50];
+  const fg = tone === 'red' ? palette.red[500] : tone === 'amber' ? palette.amber[500] : tone === 'green' ? palette.green[600] : tone === 'accent' ? palette.accent[500] : semantic.primary;
+  const bg = tone === 'red' ? semantic.dangerSoft : tone === 'amber' ? semantic.warnSoft : tone === 'green' ? semantic.successSoft : tone === 'accent' ? semantic.accentSoft : semantic.primarySoft;
   return (
     <View style={[styles.metricBlock, compact && styles.metricBlockCompact, { backgroundColor: bg }]}>
       <Icon size={compact ? 16 : 14} color={fg} />
@@ -2131,7 +2131,7 @@ function FinanceBlock({ title, icon: Icon, count, children }: { title: string; i
     <View style={styles.financeBlock}>
       <View style={styles.financeBlockTitle}>
         <View style={styles.financeBlockIcon}>
-          <Icon size={13} color={palette.brand[600]} />
+          <Icon size={13} color={semantic.primary} />
         </View>
         <AppText size="small" weight="bold" color="text" style={{ flex: 1 }}>{title}</AppText>
         {count != null ? (
@@ -2188,8 +2188,8 @@ function FinanceSheet({ visible, pnl, sales, expenses, orders, finLabel, onClose
       subtitle={finLabel}
       accentColor={palette.brand[700]}
       icon={
-        <View style={[styles.sheetIconTile, { backgroundColor: palette.brand[600] }]}>
-          <Wallet size={18} color={palette.brand[50]} />
+        <View style={[styles.sheetIconTile, { backgroundColor: semantic.primary }]}>
+          <Wallet size={18} color={semantic.primarySoft} />
         </View>
       }
       onClose={onClose}
@@ -2198,7 +2198,7 @@ function FinanceSheet({ visible, pnl, sales, expenses, orders, finLabel, onClose
         {/* ── RÉSULTAT NET (hero) + les 3 autres KPI ── */}
         <View style={styles.sheetFinCard}>
           <View style={styles.sheetNetRow}>
-            <View style={[styles.sheetNetIcon, { backgroundColor: netFcfa >= 0 ? palette.green[50] : palette.red[50] }]}>
+            <View style={[styles.sheetNetIcon, { backgroundColor: netFcfa >= 0 ? semantic.successSoft : semantic.dangerSoft }]}>
               {netFcfa >= 0 ? <TrendingUp size={16} color={netColor} /> : <TrendingDown size={16} color={netColor} />}
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -2207,13 +2207,13 @@ function FinanceSheet({ visible, pnl, sales, expenses, orders, finLabel, onClose
                 {compactFcfa(netFcfa)} FCFA
               </AppText>
             </View>
-            <View style={[styles.sheetNetPill, { backgroundColor: netFcfa >= 0 ? palette.green[50] : palette.red[50], borderColor: netFcfa >= 0 ? palette.green[200] : palette.red[200] }]}>
+            <View style={[styles.sheetNetPill, { backgroundColor: netFcfa >= 0 ? semantic.successSoft : semantic.dangerSoft, borderColor: netFcfa >= 0 ? palette.green[200] : palette.red[200] }]}>
               <AppText size="caption" weight="bold" color={netColor}>{netFcfa >= 0 ? 'bénéfice' : 'déficit'}</AppText>
             </View>
           </View>
           <View style={styles.sheetFinDivider} />
           <View style={styles.financeStrip}>
-            <FinanceCell label="Recettes" value={compactFcfa(pnl?.sales.totalFcfa ?? 0)} sub={`${pnl?.sales.count ?? 0} vente(s)`} fg={palette.brand[600]} icon={Wallet} />
+            <FinanceCell label="Recettes" value={compactFcfa(pnl?.sales.totalFcfa ?? 0)} sub={`${pnl?.sales.count ?? 0} vente(s)`} fg={semantic.primary} icon={Wallet} />
             <View style={styles.financeDivider} />
             <FinanceCell label="Encaissé" value={compactFcfa(pnl?.collectedFcfa ?? 0)} sub="encaissé" fg={palette.green[600]} icon={Coins} />
             <View style={styles.financeDivider} />
@@ -2337,7 +2337,7 @@ function EggBreakdownSheet({ lot, onClose }: { lot: BatchWithMetrics | null; onC
       subtitle={lot ? `${lot.batchName ?? 'Lot'} · vie de la bande · J${lot.metrics.ageDays}` : undefined}
       accentColor={palette.accent[500]}
       icon={
-        <View style={[styles.sheetIconTile, { backgroundColor: palette.accent[50] }]}>
+        <View style={[styles.sheetIconTile, { backgroundColor: semantic.accentSoft }]}>
           <Egg size={20} color={palette.accent[500]} />
         </View>
       }
@@ -2430,7 +2430,7 @@ function PlanCareButton({ onPress }: { onPress: () => void }) {
     anim.start();
     return () => anim.stop();
   }, [pulse]);
-  const bg = pulse.interpolate({ inputRange: [0, 1], outputRange: [palette.green[50], palette.green[100]] });
+  const bg = pulse.interpolate({ inputRange: [0, 1], outputRange: [semantic.successSoft, palette.green[100]] });
   const border = pulse.interpolate({ inputRange: [0, 1], outputRange: [palette.green[200], palette.green[400]] });
   const iconBg = pulse.interpolate({ inputRange: [0, 1], outputRange: [palette.green[100], palette.green[200]] });
   return (
@@ -2454,7 +2454,7 @@ function PlanCareButton({ onPress }: { onPress: () => void }) {
         </View>
         <View style={styles.planCareCta}>
           <AppText size="label" weight="bold" color={semantic.primaryText}>Planifier</AppText>
-          <ChevronRight size={12} color={palette.brand[600]} />
+          <ChevronRight size={12} color={semantic.primary} />
         </View>
       </Animated.View>
     </Pressable>
@@ -2485,8 +2485,8 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
           <Image source={speciesImage} style={styles.sheetIcon} resizeMode="cover" />
         </View>
       ) : (
-        <View style={[styles.sheetIconTile, { backgroundColor: palette.brand[50] }]}>
-          <Bird size={20} color={palette.brand[600]} />
+        <View style={[styles.sheetIconTile, { backgroundColor: semantic.primarySoft }]}>
+          <Bird size={20} color={semantic.primary} />
         </View>
       )}
       onClose={onClose}
@@ -2501,7 +2501,7 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
               style={({ pressed }) => [styles.sheetActionBtn, pressed && { opacity: 0.8 }]}
               accessibilityRole="button"
             >
-              <ClipboardList size={15} color={palette.brand[600]} />
+              <ClipboardList size={15} color={semantic.primary} />
               <AppText size="small" weight="bold" color={semantic.primaryText}>Saisir aujourd&apos;hui</AppText>
             </Pressable>
             <Pressable
@@ -2523,7 +2523,7 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
           >
             <AppText size="body" weight="bold" color="surface">Ouvrir la fiche du lot</AppText>
             <View style={styles.sheetPrimaryBtnIcon}>
-              <ChevronRight size={16} color={palette.brand[600]} />
+              <ChevronRight size={16} color={semantic.primary} />
             </View>
           </Pressable>
         </View>
@@ -2556,8 +2556,8 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
   const pill = batchStatusPill(batch);
 
   const pillFg = pill ? STATUS_PILL_TONES[pill.tone].fg : color.ink[500];
-  const pillBg = pill ? STATUS_PILL_TONES[pill.tone].bg : palette.surfaceAlt;
-  const pillBorder = pill ? STATUS_PILL_TONES[pill.tone].border : palette.border;
+  const pillBg = pill ? STATUS_PILL_TONES[pill.tone].bg : semantic.surfaceAlt;
+  const pillBorder = pill ? STATUS_PILL_TONES[pill.tone].border : semantic.border;
   const PillIcon = pill ? pill.icon : Activity;
   const pillLabel = pill ? pill.label : 'En élevage';
 
@@ -2570,8 +2570,8 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
   const layTone = m.layRatePercent != null ? palette.accent[600] : color.ink[400];
 
   const readyTone = m.readyReason === 'READY' ? palette.green[600] : m.readyReason === 'SANITARY' ? palette.red[500] : m.readyReason === 'FCR' ? palette.amber[500] : color.ink[500];
-  const readyBg = m.readyReason === 'READY' ? palette.green[50] : m.readyReason === 'SANITARY' ? palette.red[50] : m.readyReason === 'FCR' ? palette.amber[50] : palette.surfaceAlt;
-  const readyBorder = m.readyReason === 'READY' ? palette.green[200] : m.readyReason === 'SANITARY' ? palette.red[200] : m.readyReason === 'FCR' ? palette.amber[200] : palette.border;
+  const readyBg = m.readyReason === 'READY' ? semantic.successSoft : m.readyReason === 'SANITARY' ? semantic.dangerSoft : m.readyReason === 'FCR' ? semantic.warnSoft : semantic.surfaceAlt;
+  const readyBorder = m.readyReason === 'READY' ? palette.green[200] : m.readyReason === 'SANITARY' ? palette.red[200] : m.readyReason === 'FCR' ? palette.amber[200] : semantic.border;
   const readyIconBg = m.readyReason === 'READY' ? palette.green[100] : m.readyReason === 'SANITARY' ? palette.red[100] : m.readyReason === 'FCR' ? palette.amber[100] : palette.ink[100];
   const readyIcon = m.readyForSale && m.readyReason === 'READY'
     ? <PackageCheck size={16} color={palette.green[600]} />
@@ -2591,10 +2591,10 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
             <PillIcon size={13} color={pillFg} />
             <AppText size="small" weight="bold" color={pillFg} numberOfLines={1} style={{ flexShrink: 1 }}>{pillLabel}</AppText>
           </View>
-          <BadgeChip icon={CalendarDays} value={`J${m.ageDays}`} color={palette.brand[600]} />
+          <BadgeChip icon={CalendarDays} value={`J${m.ageDays}`} color={semantic.primary} />
         </View>
         <View style={styles.heroMetrics}>
-          <HeroMetric label="Vivants" value={fmt(m.liveCount)} icon={Bird} tone={palette.brand[600]} />
+          <HeroMetric label="Vivants" value={fmt(m.liveCount)} icon={Bird} tone={semantic.primary} />
           <View style={styles.heroDivider} />
           <HeroMetric label="Mortalité" value={`${m.mortalityPercent.toLocaleString('fr-FR')} %`} icon={HeartPulse} tone={mortTone} />
           <View style={styles.heroDivider} />
@@ -2610,7 +2610,7 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
       <View style={styles.divider} />
 
       {/* ── INDICATEURS ── */}
-      <DetailSectionTitle label="Indicateurs" icon={Gauge} color={palette.brand[600]} />
+      <DetailSectionTitle label="Indicateurs" icon={Gauge} color={semantic.primary} />
       <View style={styles.secondaryGrid}>
         <SecondaryMetric label="IPE" value={m.ipe != null ? m.ipe.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : '—'} icon={Activity} />
         <SecondaryMetric label="Viabilité" value={`${m.viabilityPercent.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`} icon={HeartPulse} />
@@ -2656,7 +2656,7 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
           {!hasCareCalendar && onPlanCare ? (
             <PlanCareButton onPress={onPlanCare} />
           ) : careInsight && (
-            <View style={[styles.tipRow, styles.tipRowCard, { borderColor: careInsight.tone === 'red' ? palette.red[200] : careInsight.tone === 'amber' ? palette.amber[200] : palette.border }]}>
+            <View style={[styles.tipRow, styles.tipRowCard, { borderColor: careInsight.tone === 'red' ? palette.red[200] : careInsight.tone === 'amber' ? palette.amber[200] : semantic.border }]}>
               {careInsight.tone === 'red'
                 ? <AlertTriangle size={14} color={palette.red[500]} />
                 : careInsight.tone === 'amber'
@@ -2675,7 +2675,7 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
               {health.tips.slice(0, 2).map((tip, i) => (
                 <View
                   key={i}
-                  style={[styles.tipRow, styles.tipRowCard, { borderColor: tip.level === 'ROUGE' ? palette.red[200] : tip.level === 'JAUNE' ? palette.amber[200] : palette.border }]}
+                  style={[styles.tipRow, styles.tipRowCard, { borderColor: tip.level === 'ROUGE' ? palette.red[200] : tip.level === 'JAUNE' ? palette.amber[200] : semantic.border }]}
                 >
                   {tip.level === 'ROUGE'
                     ? <AlertTriangle size={14} color={palette.red[500]} />
@@ -2778,7 +2778,7 @@ const styles = StyleSheet.create({
   },
   createBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: palette.brand[600], borderRadius: radii.pill,
+    backgroundColor: semantic.primary, borderRadius: radii.pill,
     paddingHorizontal: 12, paddingVertical: 6,
   },
 
@@ -2786,9 +2786,9 @@ const styles = StyleSheet.create({
   slimTileRow: { flexDirection: 'row', gap: 10, marginTop: 12, marginBottom: 4 },
   slimTile: {
     flex: 1,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.lg,
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -2802,8 +2802,8 @@ const styles = StyleSheet.create({
   slimTileCountText: { fontSize: 9, lineHeight: 11, fontFamily: fontFamily.bold },
   slimTileValue: { fontSize: 26, lineHeight: 30, fontFamily: fontFamily.bold },
   slimTileCaption: { fontSize: 10, lineHeight: 13 },
-  slimTileDivider: { height: 1, backgroundColor: palette.border, marginVertical: 8, alignSelf: 'stretch' },
-  slimTileBar: { flexDirection: 'row', height: 6, borderRadius: radii.pill, overflow: 'hidden', backgroundColor: palette.border, marginBottom: 6 },
+  slimTileDivider: { height: 1, backgroundColor: semantic.border, marginVertical: 8, alignSelf: 'stretch' },
+  slimTileBar: { flexDirection: 'row', height: 6, borderRadius: radii.pill, overflow: 'hidden', backgroundColor: semantic.border, marginBottom: 6 },
   slimTileBarSeg: { height: '100%' },
   slimTileLegend: { flexDirection: 'row', gap: 8 },
   slimTileLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -2814,20 +2814,20 @@ const styles = StyleSheet.create({
   statsCard: { gap: 10, marginTop: 16, marginBottom: 8 },
   statsEmpty: { alignItems: 'center', gap: 2, paddingVertical: 8 },
   panelHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  panelHeaderIcon: { width: 24, height: 24, borderRadius: 8, backgroundColor: palette.brand[50], alignItems: 'center', justifyContent: 'center' },
+  panelHeaderIcon: { width: 24, height: 24, borderRadius: 8, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
   ovHeaderLogo: { width: 14, height: 14, tintColor: '#FFFFFF' },
   ovSheetLogo: { width: 22, height: 22, tintColor: '#FFFFFF' },
-  summaryPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, backgroundColor: palette.surfaceAlt },
+  summaryPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt },
   panelCellGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   panelCell: { flexBasis: '46%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, padding: 10, borderRadius: radii.lg },
   panelCellIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   panelCellText: { flex: 1, gap: 0, minWidth: 0 },
   panelHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  panelHeaderRowActive: { backgroundColor: palette.brand[50], borderRadius: radii.lg, paddingHorizontal: 8, paddingVertical: 6 },
-  panelHeaderIconActive: { backgroundColor: palette.brand[600] },
-  summaryPillActive: { backgroundColor: palette.brand[600] },
-  panelChevron: { width: 24, height: 24, borderRadius: 8, backgroundColor: palette.brand[50], alignItems: 'center', justifyContent: 'center' },
-  panelChevronActive: { backgroundColor: palette.brand[600] },
+  panelHeaderRowActive: { backgroundColor: semantic.primarySoft, borderRadius: radii.lg, paddingHorizontal: 8, paddingVertical: 6 },
+  panelHeaderIconActive: { backgroundColor: semantic.primary },
+  summaryPillActive: { backgroundColor: semantic.primary },
+  panelChevron: { width: 24, height: 24, borderRadius: 8, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  panelChevronActive: { backgroundColor: semantic.primary },
   alertStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   alertChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill, borderWidth: 1, flexShrink: 0 },
   progressTrack: { height: 6, borderRadius: 3, backgroundColor: palette.ink[100], overflow: 'hidden' },
@@ -2837,64 +2837,64 @@ const styles = StyleSheet.create({
   speciesWrap: { gap: 8 },
   speciesSectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   distBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: palette.ink[100] },
-  eggDistBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: palette.accent[50] },
+  eggDistBar: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: semantic.accentSoft },
   distSeg: { height: '100%' },
   bandRow: { flexBasis: '100%', flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  bandChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, backgroundColor: palette.surfaceAlt },
+  bandChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt },
   bandChipDot: { width: 5, height: 5, borderRadius: 3 },
   speciesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  speciesChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.pill, backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[100] },
+  speciesChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.pill, backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[100] },
   speciesChipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: palette.brand[500] },
-  ovFeedRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: radii.lg, backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[100] },
+  ovFeedRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: radii.lg, backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[100] },
   ovFeedStat: { flex: 1, gap: 2 },
   ovFeedDivider: { width: StyleSheet.hairlineWidth, height: 28, backgroundColor: palette.brand[100] },
   ovMetaRow: { flexDirection: 'row', alignItems: 'center' },
   ovMetaChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: 6 },
-  ovMetaDivider: { width: 1, height: 10, backgroundColor: palette.border },
+  ovMetaDivider: { width: 1, height: 10, backgroundColor: semantic.border },
   ovLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: palette.green[500] },
   ovMetaNote: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 6, paddingBottom: 2 },
-  ovRevenueCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radii.lg, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border },
-  ovRevenueIcon: { width: 28, height: 28, borderRadius: 9, backgroundColor: palette.brand[50], alignItems: 'center', justifyContent: 'center' },
-  ovSpeciesCard: { gap: 2, padding: 8, borderRadius: radii.lg, backgroundColor: palette.paper, borderWidth: 1, borderColor: palette.border },
+  ovRevenueCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radii.lg, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
+  ovRevenueIcon: { width: 28, height: 28, borderRadius: 9, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  ovSpeciesCard: { gap: 2, padding: 8, borderRadius: radii.lg, backgroundColor: semantic.bg, borderWidth: 1, borderColor: semantic.border },
   ovSpeciesHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 4 },
   ovSpeciesImg: { width: 28, height: 28, borderRadius: 8 },
   ovSpeciesEggs: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingBottom: 4 },
-  ovStrainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: palette.border },
-  ovSanCard: { borderRadius: radii.lg, borderWidth: 1, borderColor: palette.border, overflow: 'hidden', backgroundColor: palette.paper },
-  ovSanHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 9, backgroundColor: palette.surfaceAlt, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  ovStrainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: semantic.border },
+  ovSanCard: { borderRadius: radii.lg, borderWidth: 1, borderColor: semantic.border, overflow: 'hidden', backgroundColor: semantic.bg },
+  ovSanHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 9, backgroundColor: semantic.surfaceAlt, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: semantic.border },
   ovSanHeadL: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   ovSanRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 12, minWidth: 0 },
-  ovSanRowBordered: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  ovSanRowBordered: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: semantic.border },
   ovSanIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   ovSanIdent: { flex: 1, gap: 1, minWidth: 0 },
   ovSanRight: { alignItems: 'flex-end', gap: 2, flexShrink: 1, maxWidth: '54%', minWidth: 0 },
   readyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: radii.lg, borderWidth: 1 },
-  readyBannerOn: { backgroundColor: palette.green[50], borderColor: palette.green[200] },
-  readyBannerOff: { backgroundColor: palette.surfaceAlt, borderColor: palette.border },
+  readyBannerOn: { backgroundColor: semantic.successSoft, borderColor: palette.green[200] },
+  readyBannerOff: { backgroundColor: semantic.surfaceAlt, borderColor: semantic.border },
   readyBannerIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   readyBannerIconOn: { backgroundColor: palette.green[100] },
   readyBannerIconOff: { backgroundColor: palette.ink[100] },
 
   // Controls
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: radii.lg, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: radii.lg, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
   searchInput: { flex: 1, fontSize: 14, fontFamily: fontFamily.regular, color: color.ink[700], padding: 0 },
   controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   filterScrollView: { flex: 1 },
   filterScroll: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radii.pill, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
   filterChipCompact: { paddingHorizontal: 10, paddingVertical: 5 },
-  filterChipActive: { backgroundColor: palette.brand[600], borderColor: palette.brand[600] },
+  filterChipActive: { backgroundColor: semantic.primary, borderColor: semantic.primary },
   filterDot: { width: 8, height: 8, borderRadius: 4 },
   filterChipCount: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radii.pill, backgroundColor: 'rgba(32, 96, 128, 0.10)', minWidth: 18, alignItems: 'center' },
   filterChipCountCompact: { minWidth: 16, paddingHorizontal: 5 },
   filterChipCountActive: { backgroundColor: 'rgba(255, 255, 255, 0.22)' },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   filterSection: { gap: 6 },
-  sortToggle: { padding: 8, borderRadius: radii.md, backgroundColor: palette.surfaceAlt, position: 'relative' },
-  sortToggleActive: { backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[200] },
-  advancedDot: { position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: palette.brand[600] },
-  sortChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 6, borderRadius: radii.pill, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border },
-  sortChipActive: { backgroundColor: palette.brand[50], borderColor: palette.brand[200] },
+  sortToggle: { padding: 8, borderRadius: radii.md, backgroundColor: semantic.surfaceAlt, position: 'relative' },
+  sortToggleActive: { backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[200] },
+  advancedDot: { position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: 4, backgroundColor: semantic.primary },
+  sortChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 11, paddingVertical: 6, borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
+  sortChipActive: { backgroundColor: semantic.primarySoft, borderColor: palette.brand[200] },
 
   // Lot card
   lotCard: { padding: 10, gap: 6, overflow: 'hidden' },
@@ -2913,15 +2913,15 @@ const styles = StyleSheet.create({
   careStack: { gap: 4 },
   careRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.md },
   nextVaccineRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 5, borderRadius: radii.md, borderWidth: 1 },
-  planCareRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 6, borderRadius: radii.md, backgroundColor: palette.accent[50], borderWidth: 1, borderColor: palette.accent[100] },
+  planCareRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 6, borderRadius: radii.md, backgroundColor: semantic.accentSoft, borderWidth: 1, borderColor: palette.accent[100] },
   planCareIcon: { width: 24, height: 24, borderRadius: radii.sm, backgroundColor: palette.accent[100], alignItems: 'center', justifyContent: 'center' },
-  planCareCta: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.pill, backgroundColor: palette.paper },
+  planCareCta: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.pill, backgroundColor: semantic.bg },
   careDonePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: palette.green[100], paddingHorizontal: 10, paddingVertical: 4, borderRadius: radii.pill },
   headerBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
 
   // Progress bar
   progressWrap: { gap: 3 },
-  progressBar: { height: 3, borderRadius: 2, backgroundColor: palette.surfaceAlt, overflow: 'hidden' },
+  progressBar: { height: 3, borderRadius: 2, backgroundColor: semantic.surfaceAlt, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 2 },
 
   // Metrics
@@ -2934,7 +2934,7 @@ const styles = StyleSheet.create({
     gap: 2,
     padding: 4,
     borderRadius: radii.sm,
-    backgroundColor: palette.accent[50],
+    backgroundColor: semantic.accentSoft,
     borderWidth: 1,
     borderColor: palette.accent[200],
   },
@@ -2952,7 +2952,7 @@ const styles = StyleSheet.create({
   eggSheetLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: palette.accent[50],
+    backgroundColor: semantic.accentSoft,
     borderWidth: 1,
     borderColor: palette.accent[200],
     borderRadius: radii.md,
@@ -2975,7 +2975,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 6,
-    backgroundColor: palette.accent[50],
+    backgroundColor: semantic.accentSoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: radii.pill,
@@ -2985,7 +2985,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: radii.pill,
     overflow: 'hidden',
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   eggBarSeg: {},
   eggRow: {
@@ -2998,7 +2998,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: radii.pill,
     overflow: 'hidden',
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   eggRowBarFill: { height: 4, borderRadius: radii.pill },
   eggRowDot: { width: 10, height: 10, borderRadius: radii.pill },
@@ -3010,33 +3010,33 @@ const styles = StyleSheet.create({
   expandPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill },
 
   // Lot detail sheet
-  sheetIconTile: { width: 42, height: 42, borderRadius: radii.md, backgroundColor: palette.brand[50], alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  sheetIconTile: { width: 42, height: 42, borderRadius: radii.md, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   sheetIcon: { width: 42, height: 42 },
   sheetFooter: { gap: 8 },
   sheetActionRow: { flexDirection: 'row', gap: 8 },
-  sheetActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radii.lg, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border, paddingVertical: 11, paddingHorizontal: 8 },
-  sheetPrimaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: radii.lg, backgroundColor: palette.brand[600], paddingVertical: 14, paddingHorizontal: 16 },
-  sheetPrimaryBtnIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: palette.paper, alignItems: 'center', justifyContent: 'center' },
+  sheetActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radii.lg, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border, paddingVertical: 11, paddingHorizontal: 8 },
+  sheetPrimaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: radii.lg, backgroundColor: semantic.primary, paddingVertical: 14, paddingHorizontal: 16 },
+  sheetPrimaryBtnIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: semantic.bg, alignItems: 'center', justifyContent: 'center' },
 
   // Expanded
   expandedSection: { gap: 12 },
-  divider: { height: 1, backgroundColor: palette.border, marginVertical: 2 },
+  divider: { height: 1, backgroundColor: semantic.border, marginVertical: 2 },
   detailSectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   detailSectionTitleDot: { width: 4, height: 14, borderRadius: 2 },
   detailSectionTitleText: { letterSpacing: 0.5, textTransform: 'uppercase' },
-  detailHero: { backgroundColor: palette.paper, borderWidth: 1, borderColor: palette.border, borderRadius: radii.lg, padding: 12, gap: 10 },
+  detailHero: { backgroundColor: semantic.bg, borderWidth: 1, borderColor: semantic.border, borderRadius: radii.lg, padding: 12, gap: 10 },
   heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   heroStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill, borderWidth: 1, maxWidth: '72%' },
   heroMetrics: { flexDirection: 'row', alignItems: 'stretch' },
   heroMetric: { flex: 1, alignItems: 'center', gap: 1, minWidth: 0 },
-  heroDivider: { width: 1, backgroundColor: palette.border, marginVertical: 2 },
+  heroDivider: { width: 1, backgroundColor: semantic.border, marginVertical: 2 },
   secondaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  secondaryMetric: { flexDirection: 'row', alignItems: 'center', gap: 6, flexBasis: '46%', flexGrow: 1, minWidth: 0, backgroundColor: palette.surfaceAlt, borderRadius: radii.lg, paddingVertical: 8, paddingHorizontal: 10 },
+  secondaryMetric: { flexDirection: 'row', alignItems: 'center', gap: 6, flexBasis: '46%', flexGrow: 1, minWidth: 0, backgroundColor: semantic.surfaceAlt, borderRadius: radii.lg, paddingVertical: 8, paddingHorizontal: 10 },
   secondaryMetricText: { flex: 1, minWidth: 0 },
   tipList: { gap: 6 },
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
-  tipRowCard: { flex: 1, paddingVertical: 10, paddingHorizontal: 10, borderRadius: radii.lg, borderWidth: 1, backgroundColor: palette.paper },
-  pnlCard: { gap: 10, padding: 12, borderRadius: radii.lg, backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border },
+  tipRowCard: { flex: 1, paddingVertical: 10, paddingHorizontal: 10, borderRadius: radii.lg, borderWidth: 1, backgroundColor: semantic.bg },
+  pnlCard: { gap: 10, padding: 12, borderRadius: radii.lg, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
   pnlHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   financeFootRow: { flexDirection: 'row', gap: 10 },
   financeFootCell: { flex: 1, gap: 2 },
@@ -3046,10 +3046,10 @@ const styles = StyleSheet.create({
   financeWrap: { gap: 2 },
   financeHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
   financeHeadPressed: { opacity: 0.85 },
-  financeHeadIcon: { width: 26, height: 26, borderRadius: 8, backgroundColor: palette.brand[50], alignItems: 'center', justifyContent: 'center' },
+  financeHeadIcon: { width: 26, height: 26, borderRadius: 8, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
   financeHelpBtn: {
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderWidth: 1, borderColor: palette.brand[200],
     alignItems: 'center', justifyContent: 'center',
   },
@@ -3058,26 +3058,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 3,
     paddingHorizontal: 10, paddingVertical: 6,
     borderRadius: radii.pill,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderWidth: 1, borderColor: palette.brand[200],
   },
   financeCard: { paddingVertical: 10, paddingHorizontal: 4, marginTop: 2 },
   financeStrip: { flexDirection: 'row', alignItems: 'stretch' },
-  financeDivider: { width: 1, alignSelf: 'stretch', backgroundColor: palette.border, marginVertical: 2 },
+  financeDivider: { width: 1, alignSelf: 'stretch', backgroundColor: semantic.border, marginVertical: 2 },
   financeCell: { flex: 1, minWidth: 0, gap: 1, paddingHorizontal: 8, paddingVertical: 2 },
   financeCellHead: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   financeCellLabel: { fontSize: 9, lineHeight: 12, textTransform: 'uppercase', letterSpacing: 0.3, flexShrink: 1 },
   financeCellValue: { fontSize: 13, lineHeight: 16 },
   financeCellSub: { fontSize: 9.5, lineHeight: 12 },
-  financeCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8, paddingTop: 8, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: palette.border },
+  financeCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8, paddingTop: 8, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: semantic.border },
   compareChip: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: radii.pill, borderWidth: 1,
   },
-  compareChipUp: { backgroundColor: palette.green[50], borderColor: palette.green[200] },
-  compareChipDown: { backgroundColor: palette.red[50], borderColor: palette.red[200] },
-  sheetFinCard: { backgroundColor: palette.surfaceAlt, borderRadius: radii.lg, padding: 12, gap: 10 },
+  compareChipUp: { backgroundColor: semantic.successSoft, borderColor: palette.green[200] },
+  compareChipDown: { backgroundColor: semantic.dangerSoft, borderColor: palette.red[200] },
+  sheetFinCard: { backgroundColor: semantic.surfaceAlt, borderRadius: radii.lg, padding: 12, gap: 10 },
   sheetNetRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sheetNetIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   sheetNetPill: {
@@ -3085,34 +3085,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9, paddingVertical: 4,
     borderRadius: radii.pill, borderWidth: 1,
   },
-  sheetFinDivider: { height: 1, backgroundColor: palette.border },
+  sheetFinDivider: { height: 1, backgroundColor: semantic.border },
   sheetSlaughter: { marginBottom: 12 },
   financeFootnote: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderTopWidth: 1, borderTopColor: palette.border,
+    borderTopWidth: 1, borderTopColor: semantic.border,
     paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12,
   },
   financeHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   financeStatRow: { flexDirection: 'row', gap: 8 },
-  financeStat: { flex: 1, alignItems: 'center', gap: 1, padding: 8, borderRadius: radii.md, backgroundColor: palette.paper },
+  financeStat: { flex: 1, alignItems: 'center', gap: 1, padding: 8, borderRadius: radii.md, backgroundColor: semantic.bg },
   financeBlock: { gap: 8 },
   financeBlockTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  financeBlockIcon: { width: 24, height: 24, borderRadius: 7, backgroundColor: palette.brand[50], alignItems: 'center', justifyContent: 'center' },
-  financeCountBadge: { minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: palette.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
+  financeBlockIcon: { width: 24, height: 24, borderRadius: 7, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  financeCountBadge: { minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: semantic.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   financeItemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 3 },
-  financeItemRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border, paddingBottom: 7, marginBottom: 4 },
+  financeItemRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: semantic.border, paddingBottom: 7, marginBottom: 4 },
 
   // Readiness
   readyLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   pnlHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
   // Bottom
-  lotBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: palette.border, paddingTop: 6 },
+  lotBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: semantic.border, paddingTop: 6 },
 
   // Empty state
   emptyEmojiCircle: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     alignItems: 'center', justifyContent: 'center',
     marginTop: 4,
   },
@@ -3123,13 +3123,13 @@ const styles = StyleSheet.create({
   emptyStep: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   emptyStepIcon: {
     width: 32, height: 32, borderRadius: 10,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     alignItems: 'center', justifyContent: 'center',
   },
-  emptyStepIconDone: { backgroundColor: palette.green[50] },
+  emptyStepIconDone: { backgroundColor: semantic.successSoft },
   emptyWarn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: palette.amber[50],
+    backgroundColor: semantic.warnSoft,
     borderWidth: 1, borderColor: palette.amber[200],
     borderRadius: radii.md,
     padding: 10,

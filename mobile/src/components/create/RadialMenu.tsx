@@ -14,7 +14,7 @@ import * as Haptics from 'expo-haptics';
 import type { LucideIcon } from 'lucide-react-native';
 
 import { AppText } from '../ui/AppText';
-import { palette, radii, shadow } from '@/constants/theme';
+import { palette, radii, shadow, semantic } from '@/constants/theme';
 import { durations } from '@/constants/motion';
 import {
   HUB_LOGO,
@@ -280,7 +280,7 @@ function Hub({
           {/* Nom de la ferme en blanc, replié sur plusieurs lignes : un nom de
               ferme gabonais (« Ferme de Mvett Mvett ») ne tient pas sur une
               ligne de 88pt, et le tronquer casserait l'orientation. */}
-          <AppText size="small" weight="bold" color={palette.surface} align="center" style={styles.hubLabel}>
+          <AppText size="small" weight="bold" color={semantic.surface} align="center" style={styles.hubLabel}>
             {label}
           </AppText>
         </Animated.View>
@@ -356,7 +356,7 @@ function Node({
         accessibilityHint={item.hint}
         style={({ pressed }) => [
           styles.nodePress,
-          { backgroundColor: item.bg, borderColor: pressed ? item.fg : palette.surface },
+          { backgroundColor: item.bg, borderColor: pressed ? item.fg : semantic.surface },
         ]}>
         <Icon size={22} color={item.fg} strokeWidth={2.3} />
       </Pressable>
@@ -430,7 +430,7 @@ function NodeLabel({
       <AppText
         size="small"
         weight={active ? 'bold' : 'semibold'}
-        color={palette.surface}
+        color={semantic.surface}
         align="center">
         {item.short}
       </AppText>
@@ -457,9 +457,9 @@ const styles = StyleSheet.create({
     width: HUB_LOGO,
     height: HUB_LOGO,
     borderRadius: HUB_LOGO / 2,
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
     borderWidth: 3,
-    borderColor: palette.surface,
+    borderColor: semantic.surface,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

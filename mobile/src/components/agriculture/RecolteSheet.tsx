@@ -14,7 +14,7 @@ import { createRecolte } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { Parcelle, RecolteUnit } from '@/api/types';
 import { CULTURE_EMOJI } from '@/constants/agriculture';
-import { color, palette, radii, fontFamily } from '@/constants/theme';
+import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 
 interface RecolteSheetProps {
   visible: boolean;
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

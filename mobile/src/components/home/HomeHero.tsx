@@ -111,7 +111,7 @@ export function HomeHero({ domain = 'aviculture', farmName, verified, onFarmPres
           accessibilityRole="button"
           accessibilityLabel={`Ferme ${farmName}, changer de ferme`}>
           {verified ? <ShieldCheck size={13} color={HERO_TINT.good} strokeWidth={2.2} /> : null}
-          <AppText size="small" weight="semibold" color={palette.brand[50]} numberOfLines={1} style={styles.shrink}>
+          <AppText size="small" weight="semibold" color={semantic.primarySoft} numberOfLines={1} style={styles.shrink}>
             {farmName}
           </AppText>
           <ChevronDown size={14} color={HERO_LABEL} strokeWidth={2.2} />
@@ -119,7 +119,7 @@ export function HomeHero({ domain = 'aviculture', farmName, verified, onFarmPres
         {weather ? (
           <View style={styles.inline}>
             <WeatherIcon condition={weather.condition} size={16} />
-            <AppText size="small" weight="semibold" color={palette.brand[50]}>
+            <AppText size="small" weight="semibold" color={semantic.primarySoft}>
               {weather.temperatureC ?? '—'}°
             </AppText>
             {weather.humidityPct != null ? (

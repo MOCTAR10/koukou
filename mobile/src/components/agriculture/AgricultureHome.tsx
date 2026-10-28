@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.md,
-    backgroundColor: palette.green[50],
+    backgroundColor: semantic.successSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

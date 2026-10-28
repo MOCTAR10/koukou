@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Line, Path, G, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 import { AppText } from './AppText';
-import { palette } from '@/constants/theme';
+import { palette, semantic } from '@/constants/theme';
 
 interface FCRGaugeProps {
   value: number | null;
@@ -120,7 +120,7 @@ export function FCRGauge({ value, size = 110 }: FCRGaugeProps) {
         </Defs>
 
         {/* Background arc */}
-        <Path d={bgArc} stroke={palette.surfaceAlt} strokeWidth={strokeW} fill="none" strokeLinecap="butt" />
+        <Path d={bgArc} stroke={semantic.surfaceAlt} strokeWidth={strokeW} fill="none" strokeLinecap="butt" />
 
         {/* Heatmap colored segments */}
         {segments.map((seg, i) => (
@@ -144,7 +144,7 @@ export function FCRGauge({ value, size = 110 }: FCRGaugeProps) {
           return (
             <G key={t}>
               <Line x1={outerPt.x} y1={outerPt.y} x2={innerPt.x} y2={innerPt.y} stroke={palette.ink[400]} strokeWidth={1.5} />
-              <Circle cx={labelPt.x} cy={labelPt.y} r={size >= 100 ? 9 : 7} fill={palette.surface} />
+              <Circle cx={labelPt.x} cy={labelPt.y} r={size >= 100 ? 9 : 7} fill={semantic.surface} />
               <SvgText x={labelPt.x} y={labelPt.y + 3} textAnchor="middle" fontSize={size >= 100 ? 8 : 6.5} fill={palette.ink[500]} fontFamily="System">
                 {t.toFixed(1)}
               </SvgText>
@@ -157,7 +157,7 @@ export function FCRGauge({ value, size = 110 }: FCRGaugeProps) {
           <G>
             <Line x1={cx} y1={cy} x2={needleTip.x} y2={needleTip.y} stroke={needleColor} strokeWidth={2} strokeLinecap="round" />
             <Circle cx={cx} cy={cy} r={3.5} fill={needleColor} />
-            <Circle cx={cx} cy={cy} r={1.8} fill={palette.surface} />
+            <Circle cx={cx} cy={cy} r={1.8} fill={semantic.surface} />
           </G>
         ) : null}
       </Svg>

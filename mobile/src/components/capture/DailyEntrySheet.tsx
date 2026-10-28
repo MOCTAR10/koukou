@@ -42,7 +42,7 @@ import { FEED_PHASE_LABELS } from '@/api/format';
 import { buildDailyEntryPayload, todayStr, type DailyEntryValues } from '@/api/mutations';
 import type { BatchWithMetrics, FeedPhase } from '@/api/types';
 import { queueDailyEntry } from '@/offline';
-import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 import { breedImageForLot } from '@/constants/breedImages';
 import { EGGS_PER_ALVEOL, FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 import { estimateDailyFeedPerBirdKg, type FeedRecommendation } from '@/zootechnics/feed-recommendation';
@@ -200,7 +200,7 @@ function Hint({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 
     tone === 'amber' ? palette.amber[700]
     : tone === 'danger' ? palette.red[600]
     : tone === 'success' ? palette.green[600]
-    : tone === 'brand' ? palette.brand[600]
+    : tone === 'brand' ? semantic.primary
     : color.ink[500];
   return (
     <AppText size="small" style={{ color: c, lineHeight: 17 }}>
@@ -211,7 +211,7 @@ function Hint({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 
 
 /** Encadré de conseil (aiguille l'utilisateur, non bloquant). */
 function TipBox({ icon: Icon, tone = 'brand', children }: { icon: LucideIcon; tone?: 'brand' | 'amber' | 'success'; children: React.ReactNode }) {
-  const bg = tone === 'amber' ? color.amber[50] : tone === 'success' ? palette.green[50] : palette.brand[50];
+  const bg = tone === 'amber' ? color.amber[50] : tone === 'success' ? semantic.successSoft : semantic.primarySoft;
   const fg = tone === 'amber' ? palette.amber[700] : tone === 'success' ? palette.green[700] : palette.brand[700];
   return (
     <View style={[styles.tipBox, { backgroundColor: bg, borderColor: `${fg}22` }]}>
@@ -465,7 +465,7 @@ function FeedAdviceCard({
                   Eau conseillée : ≈ {fmtAdviceKg(Math.ceil(totalKgPerDay * WATER_LO))}–
                   {fmtAdviceKg(Math.floor(totalKgPerDay * WATER_HI))} L / jour
                 </AppText>
-                <View style={[styles.ratioBadge, { backgroundColor: `${palette.brand[600]}1A` }]}>
+                <View style={[styles.ratioBadge, { backgroundColor: `${semantic.primary}1A` }]}>
                   <AppText size="caption" weight="bold" color="brand">norme 1,8–2,6 L / kg</AppText>
                 </View>
               </View>
@@ -999,7 +999,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
           onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowDatePicker(true); }}
           style={[styles.dateBtn, dateMode === 'custom' && styles.dateBtnActive]}
           accessibilityRole="button">
-          <CalendarDays size={13} color={dateMode === 'custom' ? palette.surface : color.ink[500]} />
+          <CalendarDays size={13} color={dateMode === 'custom' ? semantic.surface : color.ink[500]} />
           <AppText size="small" weight={dateMode === 'custom' ? 'bold' : 'medium'} color={dateMode === 'custom' ? 'surface' : 'muted'}>
             {dateMode === 'custom' ? fmtDayShort(customDate) : 'Autre date'}
           </AppText>
@@ -1075,7 +1075,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
 
       {existingEntry ? (
         <View style={styles.existingBanner}>
-          <Info size={14} color={palette.brand[600]} />
+          <Info size={14} color={semantic.primary} />
           <Hint tone="brand">
             Saisie du {fmtDayShort(new Date(entryDateStr + 'T12:00:00'))} déjà enregistrée — les valeurs sont pré-remplies et seront mises à jour.
           </Hint>
@@ -1138,7 +1138,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
             <AppText size="label" weight="semibold" color="muted">Provenance de la provende</AppText>
             <Segmented
               options={[
-                { key: 'interne', label: 'Stock interne', tint: palette.brand[600] },
+                { key: 'interne', label: 'Stock interne', tint: semantic.primary },
                 { key: 'externe', label: 'Achat externe', tint: palette.amber[600] },
               ]}
               value={values.skipStockDeduction ? 'externe' : 'interne'}
@@ -1396,7 +1396,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
           <AppText size="label" weight="semibold" color="muted">Collecte du jour (1 alvéole = 30 œufs)</AppText>
           <View style={styles.trayRow}>
             <View style={styles.rejectCell}>
-              <FieldIconLabel image={require('@/assets/images/alveole2.jpg')} label="Alvéoles pleines" tint={palette.brand[600]} />
+              <FieldIconLabel image={require('@/assets/images/alveole2.jpg')} label="Alvéoles pleines" tint={semantic.primary} />
               <NumberInput
                 value={eggTrays > 0 ? String(eggTrays) : ''}
                 onChangeText={setEggsFromTrays}
@@ -1447,7 +1447,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
                   />
                 </View>
                 <View style={styles.rejectCell}>
-                  <FieldIconLabel icon={Copy} label="2 jaunes" tint={palette.brand[600]} />
+                  <FieldIconLabel icon={Copy} label="2 jaunes" tint={semantic.primary} />
                   <NumberInput
                     value={values.eggsDoubleYolk ? String(values.eggsDoubleYolk) : ''}
                     onChangeText={(t) => set('eggsDoubleYolk')(Math.min(parseInt(t, 10) || 0, values.eggs))}
@@ -1504,7 +1504,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
             accent={palette.green[600]}
             right={targetWeightKg != null ? (
               <View style={styles.targetChip}>
-                <Target size={11} color={palette.brand[600]} />
+                <Target size={11} color={semantic.primary} />
                 <AppText size="caption" weight="bold" color="brand">
                   S{ctx?.week} : {targetWeightKg.toFixed(2)} kg
                 </AppText>
@@ -1637,20 +1637,20 @@ const styles = StyleSheet.create({
   },
   dateInsightPill: {
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: radii.pill,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
   ctxCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
-  ctxImg: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: palette.brand[50] },
+  ctxImg: { width: 52, height: 52, borderRadius: radii.md, backgroundColor: semantic.primarySoft },
   ageChip: {
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: radii.pill,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
   ctxStats: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 2 },
   ctxStat: { alignItems: 'flex-start', gap: 0 },
   ctxDivider: { width: 1, height: 18, backgroundColor: color.border },
   existingBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: palette.brand[50], borderRadius: radii.md,
+    backgroundColor: semantic.primarySoft, borderRadius: radii.md,
     paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: palette.brand[100],
   },
   // Sections
@@ -1669,7 +1669,7 @@ const styles = StyleSheet.create({
   targetChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
   waterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   waterIcon: {

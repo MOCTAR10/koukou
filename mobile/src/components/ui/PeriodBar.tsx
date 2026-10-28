@@ -195,7 +195,7 @@ export function PeriodBar({ defaultSpan = 30, onChange, onApplied, onPickerClose
           accessibilityRole='button'
           accessibilityLabel='Jour précédent'
           style={({ pressed }) => [styles.dateArrow, pressed && styles.dateArrowPressed]}>
-          <ChevronLeft size={16} color={palette.brand[600]} />
+          <ChevronLeft size={16} color={semantic.primary} />
         </Pressable>
 
         <Pressable
@@ -221,7 +221,7 @@ export function PeriodBar({ defaultSpan = 30, onChange, onApplied, onPickerClose
           accessibilityLabel='Jour suivant'
           disabled={isFiltered && isToday}
           style={({ pressed }) => [styles.dateArrow, pressed && styles.dateArrowPressed, (isFiltered && isToday) && styles.dateArrowDisabled]}>
-          <ChevronRight size={16} color={palette.brand[600]} />
+          <ChevronRight size={16} color={semantic.primary} />
         </Pressable>
       </View>
 
@@ -241,7 +241,7 @@ export function PeriodBar({ defaultSpan = 30, onChange, onApplied, onPickerClose
               style={({ pressed }) => [styles.orientReset, pressed && styles.orientResetPressed]}
               accessibilityRole="button"
               accessibilityLabel="Revenir à aujourd’hui, en direct">
-              <RotateCcw size={11} color={palette.brand[600]} />
+              <RotateCcw size={11} color={semantic.primary} />
               <AppText size="caption" weight="bold" color="brand">En direct</AppText>
             </Pressable>
           </View>
@@ -264,12 +264,12 @@ const dts = StyleSheet.create({
   orientTip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     padding: 10, borderRadius: radii.md,
-    backgroundColor: palette.accent[50], borderWidth: 1, borderColor: palette.accent[100],
+    backgroundColor: semantic.accentSoft, borderWidth: 1, borderColor: palette.accent[100],
   },
   nowBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     paddingVertical: 10, borderRadius: radii.pill,
-    backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[200],
+    backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[200],
   },
   field: { gap: 8 },
   spanWrap: { gap: 8 },
@@ -277,39 +277,39 @@ const dts = StyleSheet.create({
   spanRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   spanChip: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: radii.pill,
-    backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: 'transparent',
+    backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: 'transparent',
   },
-  spanChipActive: { backgroundColor: palette.brand[50], borderWidth: 1, borderColor: palette.brand[200] },
+  spanChipActive: { backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[200] },
   fieldBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 14, paddingVertical: 12,
-    borderRadius: radii.md, backgroundColor: palette.surfaceAlt,
-    borderWidth: 1, borderColor: palette.border,
+    borderRadius: radii.md, backgroundColor: semantic.surfaceAlt,
+    borderWidth: 1, borderColor: semantic.border,
   },
   timeRow: { gap: 6 },
   timeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: radii.md, backgroundColor: palette.surfaceAlt,
-    borderWidth: 1, borderColor: palette.border,
+    borderRadius: radii.md, backgroundColor: semantic.surfaceAlt,
+    borderWidth: 1, borderColor: semantic.border,
   },
   confirmBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: palette.brand[600], borderRadius: radii.pill, height: 48, marginTop: 4,
+    backgroundColor: semantic.primary, borderRadius: radii.pill, height: 48, marginTop: 4,
   },
   rangeRow: { gap: 6 },
   rangeToggle: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 12,
-    borderRadius: radii.md, backgroundColor: palette.surfaceAlt,
-    borderWidth: 1, borderColor: palette.border,
+    borderRadius: radii.md, backgroundColor: semantic.surfaceAlt,
+    borderWidth: 1, borderColor: semantic.border,
   },
   toggleTrack: {
     width: 40, height: 22, borderRadius: 11,
-    backgroundColor: palette.border, marginLeft: 'auto',
+    backgroundColor: semantic.border, marginLeft: 'auto',
     padding: 2,
   },
-  toggleTrackOn: { backgroundColor: palette.brand[600] },
+  toggleTrackOn: { backgroundColor: semantic.primary },
   toggleThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff' },
   toggleThumbOn: { transform: [{ translateX: 18 }] },
   rangeFields: { flexDirection: 'row', gap: 8 },
@@ -318,8 +318,8 @@ const dts = StyleSheet.create({
   rangeFieldBtn: {
     flex: 1, flexDirection: 'column', alignItems: 'flex-start', gap: 2,
     paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: radii.md, backgroundColor: palette.surfaceAlt,
-    borderWidth: 1, borderColor: palette.border,
+    borderRadius: radii.md, backgroundColor: semantic.surfaceAlt,
+    borderWidth: 1, borderColor: semantic.border,
   },
   fieldBtnDim: { opacity: 0.5 },
 });
@@ -436,7 +436,7 @@ function PeriodSheet({ selected, onApply, onRange, onNow, span, onSelectSpan, ra
       </View>
       <Pressable onPress={handleNow} style={dts.nowBtn}>
         <PulsingLiveDot size={8} />
-        <Clock size={14} color={palette.brand[600]} />
+        <Clock size={14} color={semantic.primary} />
         <AppText size='small' weight='bold' color='brand'>En direct — heure et minute actuelles</AppText>
       </Pressable>
 
@@ -511,7 +511,7 @@ function PeriodSheet({ selected, onApply, onRange, onNow, span, onSelectSpan, ra
             });
           }}
           style={dts.rangeToggle}>
-          <CalendarRange size={14} color={palette.brand[600]} />
+          <CalendarRange size={14} color={semantic.primary} />
           <AppText size='body' weight={withRange ? 'bold' : 'medium'} color={withRange ? 'brand' : 'muted'}>
             Filtrer par période
           </AppText>
@@ -659,9 +659,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.pill,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -674,12 +674,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: radii.pill,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
   },
   datePillPressed: { transform: [{ scale: 0.98 }], opacity: 0.85 },
-  datePillSep: { width: 1, height: 16, backgroundColor: palette.border, marginHorizontal: 2 },
+  datePillSep: { width: 1, height: 16, backgroundColor: semantic.border, marginHorizontal: 2 },
   datePillText: { maxWidth: 175 },
   orientRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -688,13 +688,13 @@ const styles = StyleSheet.create({
   orientChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     borderRadius: radii.pill, paddingHorizontal: 12, paddingVertical: 5,
-    backgroundColor: palette.surfaceAlt, borderWidth: 1, borderColor: palette.border,
+    backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border,
   },
-  orientChipFiltered: { backgroundColor: palette.amber[50], borderColor: palette.amber[200] },
+  orientChipFiltered: { backgroundColor: semantic.warnSoft, borderColor: palette.amber[200] },
   orientText: { flexShrink: 1, maxWidth: 240 },
   orientReset: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: palette.surface, borderRadius: radii.pill, borderWidth: 1, borderColor: palette.brand[100],
+    backgroundColor: semantic.surface, borderRadius: radii.pill, borderWidth: 1, borderColor: palette.brand[100],
     paddingHorizontal: 8, paddingVertical: 3,
   },
   orientResetPressed: { opacity: 0.7, transform: [{ scale: 0.97 }] },

@@ -122,7 +122,7 @@ export function EggStockCard({
       {/* ── Sub-header: date display + Œufs/Alvéoles toggle + Plus ── */}
       <View style={styles.subHeader}>
         <View style={styles.datePill}>
-          <Calendar size={12} color={palette.brand[600]} />
+          <Calendar size={12} color={semantic.primary} />
           <AppText size='small' weight='semibold' color='brand'>
             {isToday ? 'Aujourd\'hui' : formatDateFull(selectedDate)}
           </AppText>
@@ -150,7 +150,7 @@ export function EggStockCard({
             <AppText size='small' weight='semibold' color={expanded ? 'surface' : 'brand'}>
               {expanded ? 'Moins' : 'Plus'}
             </AppText>
-            <ChevronDown size={12} color={expanded ? palette.brand[50] : palette.brand[600]} style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }} />
+            <ChevronDown size={12} color={expanded ? semantic.primarySoft : semantic.primary} style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }} />
           </Pressable>
         </View>
       </View>
@@ -361,13 +361,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderWidth: 1,
     borderColor: palette.brand[200],
   },
   toggle: {
     flexDirection: 'row',
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     borderRadius: radii.pill,
     padding: 2,
   },
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   toggleActive: {
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
   },
   expandBtn: {
     flexDirection: 'row',
@@ -386,13 +386,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderWidth: 1,
     borderColor: palette.brand[200],
   },
   expandBtnActive: {
-    backgroundColor: palette.brand[600],
-    borderColor: palette.brand[600],
+    backgroundColor: semantic.primary,
+    borderColor: semantic.primary,
   },
   /* ── Body ── */
   bodyRow: {
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: palette.brand[100],
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   },
   /* ── Expanded section ── */
   expandedSection: {
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: palette.brand[100],
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: BAR_HEIGHT,
     borderRadius: 6,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     overflow: 'hidden',
-    backgroundColor: palette.accent[50],
+    backgroundColor: semantic.accentSoft,
   },
   eggBarSeg: {},
   eggRow: {
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   eggRowBar: {
     height: 4,
     borderRadius: radii.pill,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     overflow: 'hidden',
   },
   eggRowBarFill: { height: '100%', borderRadius: radii.pill },

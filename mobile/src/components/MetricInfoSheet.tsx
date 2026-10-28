@@ -4,7 +4,7 @@ import { Activity, TrendingUp, Scale, Lightbulb, type LucideIcon } from 'lucide-
 
 import { Sheet } from './ui/Sheet';
 import { AppText } from './ui/AppText';
-import { palette, radii } from '@/constants/theme';
+import { palette, radii, semantic } from '@/constants/theme';
 
 export type MetricKey = 'IC' | 'GMQ' | 'IPE';
 
@@ -73,7 +73,7 @@ export function MetricInfoSheet({ metric, onClose }: MetricInfoSheetProps) {
       visible={!!content}
       title={content?.title ?? ''}
       subtitle={content?.tagline ?? ''}
-      icon={content ? <content.icon size={20} color={palette.brand[600]} /> : undefined}
+      icon={content ? <content.icon size={20} color={semantic.primary} /> : undefined}
       onClose={onClose}>
       {content && (
         <>
@@ -115,7 +115,7 @@ export function MetricInfoSheet({ metric, onClose }: MetricInfoSheetProps) {
 const styles = StyleSheet.create({
   body: { lineHeight: 20 },
   formulaBox: {
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderRadius: radii.lg,
     padding: 12,
   },
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   exampleBox: {
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: radii.md,
     padding: 10,
     gap: 4,

@@ -21,7 +21,7 @@ import type {
   EggStockInfo,
   ParcelleStock,
 } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fontFamily, semantic } from '@/constants/theme';
 
 import { formatEggAlveoles, lineAmount } from './helpers';
 import { posCatalog, productMeta, transferRemaining } from './catalog';
@@ -749,7 +749,7 @@ export function PosLineSheet({
                       value={isKg ? 'KG' : 'PIECE'}
                       onChange={(u) => selectProduct(u === 'KG' ? 'ABATTU_KG' : 'ABATTU_PIECE')}
                       options={[
-                        { key: 'PIECE', label: 'Pièce', tint: palette.brand[600] },
+                        { key: 'PIECE', label: 'Pièce', tint: semantic.primary },
                         { key: 'KG', label: 'Au kg', tint: palette.accent[600] },
                       ]}
                     />
@@ -978,7 +978,7 @@ export function PosLineSheet({
                           selectProduct(category === 'abattu' ? (u === 'KG' ? 'ABATTU_KG' : 'ABATTU_PIECE') : u)
                         }
                         options={[
-                          { key: 'PIECE', label: 'Pièce', tint: palette.brand[600] },
+                          { key: 'PIECE', label: 'Pièce', tint: semantic.primary },
                           { key: 'KG', label: 'Au kg', tint: palette.accent[600] },
                         ]}
                       />
@@ -1209,7 +1209,7 @@ const styles = StyleSheet.create({
   },
   fieldDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
   priceField: {
     flexDirection: 'row',
@@ -1218,7 +1218,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: color.border,
     borderRadius: radii.md,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     paddingHorizontal: 12,
     height: 48,
   },

@@ -12,7 +12,7 @@ import {
   ringLatDelta,
   type LatLng,
 } from '@/constants/geo';
-import { palette, radii, shadow } from '@/constants/theme';
+import { palette, radii, shadow, semantic } from '@/constants/theme';
 
 /** Dimensions (ha) → couleur de remplissage du polygone. */
 export const STATUS_FILL: Record<Parcelle['status'], string> = {
@@ -95,7 +95,7 @@ export function ParcelleMap({ farm, parcelles, height = 320, selectedId, onSelec
             tracksViewChanges={false}
           >
             <View style={styles.farmPin}>
-              <MapPin size={17} color={palette.surface} strokeWidth={2.2} />
+              <MapPin size={17} color={semantic.surface} strokeWidth={2.2} />
             </View>
           </Marker>
         )}
@@ -109,7 +109,7 @@ export function ParcelleMap({ farm, parcelles, height = 320, selectedId, onSelec
               <Polygon
                 coordinates={ring}
                 fillColor={STATUS_FILL[p.status]}
-                strokeColor={selected ? palette.brand[600] : STATUS_STROKE[p.status]}
+                strokeColor={selected ? semantic.primary : STATUS_STROKE[p.status]}
                 strokeWidth={selected ? 3.5 : 2}
                 tappable
                 onPress={() => onSelectParcelle?.(p.id)}
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   fallback: {
     borderRadius: radii.lg,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -165,17 +165,17 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: palette.surface,
+    borderColor: semantic.surface,
   },
   legend: {
     position: 'absolute',
     left: 10,
     bottom: 10,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radii.pill,
@@ -186,14 +186,14 @@ const styles = StyleSheet.create({
     height: 26,
     paddingHorizontal: 5,
     borderRadius: 13,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1.5,
     borderColor: palette.green[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
   centroidPinSelected: {
-    borderColor: palette.brand[600],
+    borderColor: semantic.primary,
     borderWidth: 2.5,
   },
 });

@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 
 import { API_BASE_URL } from '@/api/client';
 import type { Farm } from '@/api/types';
-import { palette, spacing } from '@/constants/theme';
+import { spacing, semantic } from '@/constants/theme';
 
 const DEFAULT_LOGO = require('@/assets/images/logo-white.png');
 
@@ -48,7 +48,7 @@ export function FarmLogo({ farm, size = 44, tone = 'brand', ring = false, style 
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: tone === 'brand' ? palette.brand[600] : palette.surface,
+          backgroundColor: tone === 'brand' ? semantic.primary : semantic.surface,
         },
         ring && styles.ring,
         style,

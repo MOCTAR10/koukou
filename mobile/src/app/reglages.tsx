@@ -43,7 +43,7 @@ import { farmRoleLabel, roleLabel } from '@/api/roles';
 import type { ReferenceConstant } from '@/api/types';
 import { groupPermissionCodes, permissionLabel } from '@/constants/permissions';
 import { durations, enter, staggeredEnter, timed } from '@/constants/motion';
-import { color, palette, radii, spacing } from '@/constants/theme';
+import { color, palette, radii, spacing, semantic } from '@/constants/theme';
 
 /** Icône représentative de chaque groupe de droits (miroir `PERMISSION_GROUPS_LOCAL`). */
 const GROUP_ICONS: Record<string, LucideIcon> = {
@@ -65,7 +65,7 @@ function fmtValue(v: number): string {
 function HeroPill({ label, active = true }: { label: string; active?: boolean }) {
   return (
     <View style={[styles.heroPill, active && styles.heroPillOn]}>
-      <AppText size="small" weight="semibold" style={{ color: active ? palette.surface : palette.brand[200] }}>
+      <AppText size="small" weight="semibold" style={{ color: active ? semantic.surface : palette.brand[200] }}>
         {label}
       </AppText>
     </View>
@@ -158,7 +158,7 @@ export default function ReglagesScreen() {
             <FarmLogo farm={farm} size={60} />
           </View>
           <View style={styles.heroIdentity}>
-            <AppText size="h2" weight="bold" style={{ color: palette.surface }} numberOfLines={2}>
+            <AppText size="h2" weight="bold" style={{ color: semantic.surface }} numberOfLines={2}>
               {user.fullName || 'Compte Fermia'}
             </AppText>
             <AppText size="caption" style={{ color: palette.brand[200] }} numberOfLines={1}>
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     overflow: 'hidden',
   },
   heroIdentity: {
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
   constantRow: {    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
     borderColor: color.border,
     borderRadius: radii.lg,

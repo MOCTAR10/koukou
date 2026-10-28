@@ -30,7 +30,7 @@ import { createTask, updateTask, deleteTask, type TaskStatusValue } from '@/api/
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import type { FarmTask, TaskStatus } from '@/api/types';
-import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   A_FAIRE: 'À faire',
@@ -342,7 +342,7 @@ function TaskCard({
           {nextAction ? (
             <Pressable
               onPress={() => onToggle(nextAction.next)}
-              style={[styles.actionBtn, { backgroundColor: palette.green[50] }]}
+              style={[styles.actionBtn, { backgroundColor: semantic.successSoft }]}
               accessibilityRole="button"
               accessibilityLabel={nextAction.label}>
               <nextAction.icon size={16} color={palette.green[600]} />
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 14,
     fontSize: 15,
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     backgroundColor: color.surface,
   },

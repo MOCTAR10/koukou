@@ -22,7 +22,7 @@ import { AgricultureHome } from '@/components/agriculture/AgricultureHome';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { givenName, speciesLabel } from '@/api/format';
-import { color, fmt, fmtFcfa, layout, palette, radii } from '@/constants/theme';
+import { color, fmt, fmtFcfa, layout, palette, radii, semantic } from '@/constants/theme';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders, fetchCustomersSummary, fetchRentabiliteOverview } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
@@ -358,18 +358,18 @@ export default function AccueilScreen() {
                 accessibilityRole='button'
                 hitSlop={8}
                 style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.6 }]}>
-                <Stethoscope size={14} color={palette.brand[600]} strokeWidth={2.2} />
+                <Stethoscope size={14} color={semantic.primary} strokeWidth={2.2} />
                 <AppText size='small' weight='semibold' color='brand'>Centre sanitaire</AppText>
-                <ChevronRight size={14} color={palette.brand[600]} />
+                <ChevronRight size={14} color={semantic.primary} />
               </Pressable>
             </View>
             <View style={styles.healthAlertRow}>
-              <View style={[styles.healthAlertBadge, { backgroundColor: palette.red[50], borderColor: palette.red[100] }]}>
+              <View style={[styles.healthAlertBadge, { backgroundColor: semantic.dangerSoft, borderColor: palette.red[100] }]}>
                 <View style={[styles.healthAlertDot, { backgroundColor: palette.red[500] }]} />
                 <AppText size='bodyM' weight='semibold' color='danger'>{d.health.breakdown.rouge}</AppText>
                 <AppText size='small' color='muted'>Rouges</AppText>
               </View>
-              <View style={[styles.healthAlertBadge, { backgroundColor: palette.amber[50], borderColor: palette.amber[100] }]}>
+              <View style={[styles.healthAlertBadge, { backgroundColor: semantic.warnSoft, borderColor: palette.amber[100] }]}>
                 <View style={[styles.healthAlertDot, { backgroundColor: palette.amber[500] }]} />
                 <AppText size='bodyM' weight='semibold' color='warn'>{d.health.breakdown.jaune}</AppText>
                 <AppText size='small' color='muted'>Jaunes</AppText>
@@ -397,7 +397,7 @@ export default function AccueilScreen() {
                 <AppText size='small' weight='semibold' color={statsExpanded ? 'surface' : 'brand'}>
                   {statsExpanded ? 'Moins' : 'Plus'}
                 </AppText>
-                <ChevronDown size={14} color={statsExpanded ? palette.brand[50] : palette.brand[600]} style={{ transform: [{ rotate: statsExpanded ? '180deg' : '0deg' }] }} />
+                <ChevronDown size={14} color={statsExpanded ? semantic.primarySoft : semantic.primary} style={{ transform: [{ rotate: statsExpanded ? '180deg' : '0deg' }] }} />
               </Pressable>
             }
           />
@@ -438,7 +438,7 @@ export default function AccueilScreen() {
               {/* ── Group: Lots ── */}
               <View style={styles.statsGroup}>
                 <View style={[styles.statsGroupLabel, { borderLeftColor: palette.brand[500] }]}>
-                  <BarChart3 size={13} color={palette.brand[600]} />
+                  <BarChart3 size={13} color={semantic.primary} />
                   <AppText size='small' weight='bold' color='text'>Lots</AppText>
                 </View>
                 <View style={styles.statsGroupRow}>
@@ -478,7 +478,7 @@ export default function AccueilScreen() {
                       </AppText>
                       {d.feedAutonomyDays != null && (
                         <View style={[styles.statsChip, {
-                          backgroundColor: d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? palette.red[50] : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? palette.amber[50] : palette.green[50],
+                          backgroundColor: d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? semantic.dangerSoft : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? semantic.warnSoft : semantic.successSoft,
                           borderColor: d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? palette.red[200] : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? palette.amber[200] : palette.green[200],
                         }]}>
                           <AppText size='small' weight='semibold' color={d.feedAutonomyDays < FEED_STOCK_CRITICAL_DAYS ? 'danger' : d.feedAutonomyDays < FEED_STOCK_WARN_DAYS ? 'warn' : 'success'}>
@@ -514,7 +514,7 @@ export default function AccueilScreen() {
                       </AppText>
                       {d.deltas.mortalityDelta !== 0 && (
                         <View style={[styles.statsChip, {
-                          backgroundColor: d.deltas.mortalityDelta > 0 ? palette.red[50] : palette.green[50],
+                          backgroundColor: d.deltas.mortalityDelta > 0 ? semantic.dangerSoft : semantic.successSoft,
                           borderColor: d.deltas.mortalityDelta > 0 ? palette.red[200] : palette.green[200],
                         }]}>
                           {d.deltas.mortalityDelta > 0
@@ -539,7 +539,7 @@ export default function AccueilScreen() {
                       </AppText>
                       {d.deltas.feedDeltaKg !== 0 && (
                         <View style={[styles.statsChip, {
-                          backgroundColor: d.deltas.feedDeltaKg > 0 ? palette.amber[50] : palette.green[50],
+                          backgroundColor: d.deltas.feedDeltaKg > 0 ? semantic.warnSoft : semantic.successSoft,
                           borderColor: d.deltas.feedDeltaKg > 0 ? palette.amber[200] : palette.green[200],
                         }]}>
                           {d.deltas.feedDeltaKg > 0
@@ -770,14 +770,14 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderWidth: 1,
     borderColor: color.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   alertBtnActive: {
-    backgroundColor: palette.amber[50],
+    backgroundColor: semantic.warnSoft,
     borderColor: palette.amber[200],
   },
   alertBadge: {
@@ -871,13 +871,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
     borderWidth: 1,
     borderColor: palette.brand[200],
   },
   expandBtnActive: {
-    backgroundColor: palette.brand[600],
-    borderColor: palette.brand[600],
+    backgroundColor: semantic.primary,
+    borderColor: semantic.primary,
   },
   recoBox: {
     backgroundColor: 'rgba(255,255,255,0.7)',

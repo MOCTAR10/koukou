@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { X } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
-import { palette, radii } from '@/constants/theme';
+import { palette, radii, semantic } from '@/constants/theme';
 import { SPECIES_ICONS, speciesLabel } from '@/api/format';
 import { BREED_IMAGES } from '@/constants/breedImages';
 import type { BatchWithMetrics, Species } from '@/api/types';
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     maxHeight: '82%',
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     borderRadius: 24,
     padding: 18,
     gap: 12,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -193,14 +193,14 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 10,
     borderRadius: radii.lg,
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
   },
   imageWrap: {
     width: 64,
     height: 64,
     borderRadius: radii.md,
     overflow: 'hidden',
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
   },
   image: { width: '100%', height: '100%' },
   rowBody: { flex: 1, minWidth: 0, gap: 6 },
@@ -208,5 +208,5 @@ const styles = StyleSheet.create({
   rowLabel: { flex: 1 },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   stat: { flex: 1, alignItems: 'center', gap: 1 },
-  statDivider: { width: 1, height: 22, backgroundColor: palette.border },
+  statDivider: { width: 1, height: 22, backgroundColor: semantic.border },
 });

@@ -14,7 +14,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { fetchCaisseSessions } from '@/api';
 import { closeCaisse, createCashMovement, deleteCashMovement, openCaisse, updateCashMovement } from '@/api/mutations';
 import type { CashMovement, CashMovementType, CashSession, CaisseSummary } from '@/api/types';
-import { color, fmtFcfa, palette, radii, spacing, fontFamily } from '@/constants/theme';
+import { color, fmtFcfa, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 
 export const SOURCE_LABEL: Record<string, string> = {
   SALE_PAYMENT: 'Vente',
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: palette.border,
+    borderBottomColor: semantic.border,
   },
   mvBadge: {
     width: 32,
@@ -581,12 +581,12 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     fontSize: 15,
     color: color.ink[800],
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     marginBottom: 10,
   },
 });

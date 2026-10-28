@@ -12,7 +12,7 @@ import Animated, {
 
 import { AppText } from './AppText';
 import { ToastViewport } from './Feedback';
-import { color, palette, layout, radii, shadow } from '@/constants/theme';
+import { color, layout, radii, shadow, semantic } from '@/constants/theme';
 
 interface SheetProps {
   visible: boolean;
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 4,
     borderRadius: 2,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     width: '100%',
     maxWidth: layout.maxW,
-    backgroundColor: palette.paper,
+    backgroundColor: semantic.bg,
     borderTopLeftRadius: radii.xxl,
     borderTopRightRadius: radii.xxl,
     maxHeight: `${MAX_H * 100}%`,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   stickyHeader: {
-    backgroundColor: palette.paper,
+    backgroundColor: semantic.bg,
     marginHorizontal: -layout.contentPadding,
     paddingHorizontal: layout.contentPadding,
     paddingBottom: 8,
@@ -235,6 +235,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: palette.border,
+    borderTopColor: semantic.border,
   },
 });

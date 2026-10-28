@@ -7,7 +7,7 @@ import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
 import { Spinner } from '../ui/Spinner';
 import { suggestGabonAddress, type GeoSuggest } from '@/utils/geocode';
-import { color, palette, radii, spacing, fontFamily } from '@/constants/theme';
+import { color, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 
 interface AddressSearchSheetProps {
   visible: boolean;
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     backgroundColor: color.surface,
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   suggestWrap: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
     overflow: 'hidden',
   },
@@ -165,10 +165,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.border,
+    borderBottomColor: semantic.border,
   },
   suggestEmpty: {
-    backgroundColor: palette.surfaceAlt,
+    backgroundColor: semantic.surfaceAlt,
     borderRadius: radii.md,
     padding: 10,
   },

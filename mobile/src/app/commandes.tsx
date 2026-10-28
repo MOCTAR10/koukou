@@ -34,7 +34,7 @@ import { customerTypeLabel } from '@/constants/customers';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
 import type { Customer, OrderFull, OrderStatus } from '@/api/types';
-import { color, palette, radii, spacing, fmt, fmtFcfa, Fonts, fontFamily } from '@/constants/theme';
+import { color, palette, radii, spacing, fmt, fmtFcfa, Fonts, fontFamily, semantic } from '@/constants/theme';
 import { durations, easing, enter, layout, staggeredEnter, timed } from '@/constants/motion';
 
 const FILTERS: { key: OrderStatus | 'ALL'; label: string }[] = [
@@ -92,7 +92,7 @@ function SegmentPill({ label, count }: { label: string; count: number }) {
       <AppText size="caption" weight="semibold" style={{ color: palette.brand[200] }}>
         {label}
       </AppText>
-      <AppText size="bodyM" weight="bold" style={{ color: palette.surface }}>
+      <AppText size="bodyM" weight="bold" style={{ color: semantic.surface }}>
         {count}
       </AppText>
     </View>
@@ -126,7 +126,7 @@ function OrderHero({ orders }: { orders: OrderFull[] }) {
           <AppText size="label" style={{ color: palette.brand[200] }}>
             À LIVRER
           </AppText>
-          <AnimatedNumber value={confirmed} duration={durations.slow} style={appTextStyles('h1', 'bold', palette.surface)} />
+          <AnimatedNumber value={confirmed} duration={durations.slow} style={appTextStyles('h1', 'bold', semantic.surface)} />
           <AppText size="caption" style={{ color: palette.brand[200] }}>
             confirmées
           </AppText>
@@ -136,7 +136,7 @@ function OrderHero({ orders }: { orders: OrderFull[] }) {
           <AppText size="label" style={{ color: palette.brand[200] }}>
             EN ATTENTE
           </AppText>
-          <AnimatedNumber value={pending} duration={durations.slow} style={appTextStyles('h1', 'bold', palette.surface)} />
+          <AnimatedNumber value={pending} duration={durations.slow} style={appTextStyles('h1', 'bold', semantic.surface)} />
           <AppText size="caption" style={{ color: palette.brand[200] }}>
             acompte requis
           </AppText>
@@ -508,7 +508,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
               setError(null);
             }}
             options={[
-              { key: 'FERME', label: 'À la ferme', tint: palette.brand[600] },
+              { key: 'FERME', label: 'À la ferme', tint: semantic.primary },
               { key: 'PDV', label: 'Point de vente', tint: palette.accent[600] },
               { key: 'LIVRAISON', label: 'Livraison', tint: palette.green[600] },
             ]}
@@ -720,7 +720,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
                 value={isKg ? 'KG' : 'PIECE'}
                 onChange={(u) => selectProduct(u)}
                 options={[
-                  { key: 'PIECE', label: 'À la pièce', tint: palette.brand[600] },
+                  { key: 'PIECE', label: 'À la pièce', tint: semantic.primary },
                   { key: 'KG', label: 'Au kg', tint: palette.accent[600] },
                 ]}
               />
@@ -933,7 +933,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
               style={[
                 styles.inputWrap,
                 deliveryProvince === p.name
-                  ? { borderColor: palette.brand[600], backgroundColor: palette.brand[50] }
+                  ? { borderColor: semantic.primary, backgroundColor: semantic.primarySoft }
                   : undefined,
               ]}>
               <View style={styles.provinceCell}>
@@ -945,7 +945,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
                 </AppText>
               </View>
               {deliveryProvince === p.name ? (
-                <Check size={18} color={palette.brand[600]} style={{ paddingRight: 14 }} />
+                <Check size={18} color={semantic.primary} style={{ paddingRight: 14 }} />
               ) : (
                 <View style={{ width: 18, paddingRight: 14 }} />
               )}
@@ -1175,7 +1175,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     backgroundColor: color.surface,
   },
   searchInput: {
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: palette.brand[600],
+    backgroundColor: semantic.primary,
   },
   avatarLogo: {
     width: 22,
@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
     fontFamily: fontFamily.regular,
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     paddingHorizontal: 14,
     fontSize: 15,
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     backgroundColor: color.surface,
   },
@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create({
   },
   fieldDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
   priceField: {
     flexDirection: 'row',
@@ -1278,7 +1278,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: color.border,
     borderRadius: radii.md,
-    backgroundColor: palette.surface,
+    backgroundColor: semantic.surface,
     paddingHorizontal: 12,
     height: 48,
   },
@@ -1307,7 +1307,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 48,
     borderWidth: 1,
-    borderColor: palette.border,
+    borderColor: semantic.border,
     borderRadius: radii.md,
     backgroundColor: color.surface,
   },
@@ -1402,7 +1402,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: radii.pill,
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
   clientPick: {
     flexDirection: 'row',
@@ -1414,7 +1414,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: palette.brand[300],
-    backgroundColor: palette.brand[50],
+    backgroundColor: semantic.primarySoft,
   },
   clientSeparator: {
     flexDirection: 'row',
@@ -1425,6 +1425,6 @@ const styles = StyleSheet.create({
   clientSeparatorLine: {
     flex: 1,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: palette.border,
+    backgroundColor: semantic.border,
   },
 });

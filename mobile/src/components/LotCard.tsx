@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react-native';
 import { AppText } from './ui/AppText';
 import { Card } from './ui/Card';
 import { Chip } from './ui/Chip';
-import { color, palette, fmt } from '@/constants/theme';
+import { color, palette, fmt, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
 import type { HealthOverviewRow } from '@/api/types';
 import { SPECIES_ICONS, speciesLabel } from '@/api/format';
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: palette.border,
+    borderTopColor: semantic.border,
   },
   breedItem: {
     gap: 1,
