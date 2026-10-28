@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import type { LucideIcon } from 'lucide-react-native';
 import {
+  Bell,
   Building,
   Check,
   ChevronDown,
@@ -36,6 +37,7 @@ import { FarmLogo } from '@/components/ui/FarmLogo';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { FarmIdentityCard } from '@/components/farm/FarmIdentityCard';
+import { RemindersCard } from '@/components/RemindersCard';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchReferenceConstants } from '@/api';
@@ -364,8 +366,14 @@ export default function ReglagesScreen() {
         </Card>
       </Animated.View>
 
-      {/* ── Session ──────────────────────────────────────────────────────── */}
+      {/* ── Rappels ───────────────────────────────────────────────────────── */}
       <Animated.View entering={staggeredEnter(6)}>
+        <SectionHeader title="Rappels" subtitle="Notifications planifiées sur ce téléphone" icon={Bell} />
+        <RemindersCard />
+      </Animated.View>
+
+      {/* ── Session ──────────────────────────────────────────────────────── */}
+      <Animated.View entering={staggeredEnter(7)}>
         <SectionHeader title="Session" subtitle="Déconnexion de ce compte" icon={LogOut} />
         <Button
           label="Se déconnecter"
