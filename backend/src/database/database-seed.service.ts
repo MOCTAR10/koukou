@@ -20,6 +20,7 @@ import { PaymentMethodConfig } from '../modules/finance/entities/payment-method.
 import { PaymentMethod } from '../common/enums/payment-method.enum.js';
 import { User } from '../modules/users/entities/user.entity.js';
 import { Culture } from '../modules/agriculture/entities/culture.entity.js';
+import { CLOSED_BATCH_KEPT_KINDS } from '../modules/alerts/alerts.service.js';
 
 interface SeedConstant {
   key: ReferenceKey;
@@ -2245,6 +2246,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     await this.seedPaymentMethods();
     await this.seedCultures();
     await this.repairBagLotUnits();
+    await this.repairClosedBatchAlerts();
     this.logger.log('Semence des données de référence terminée.');
   }
 
@@ -2269,6 +2271,43 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
     const n = rows[0]?.n ?? 0;
     if (n > 0) {
       this.logger.warn(`Lots d'intrants réparés (unité SAC → KG) : ${n}`);
+    }
+  }
+
+  /**
+   * Idempotent repair: pin the closing date of lots closed before closed_at
+   * existed, resolve live alerts left on closed lots, and resolve vide
+   * sanitaire alerts of buildings that no active lot occupies (the old rule
+   * raised a red alert as soon as a building was emptied).
+   */
+  private async repairClosedBatchAlerts(): Promise<void> {
+    const m = this.usersRepo.manager;
+    await m.query(`
+      UPDATE production_batches SET closed_at = "updatedAt"
+      WHERE status = 'CLOTURE' AND closed_at IS NULL
+    `);
+    const rows: Array<{ n: number }> = await m.query(
+      `
+      WITH fixed AS (
+        UPDATE alerts SET status = 'RESOLUE', resolved_at = now()
+        WHERE status IN ('ACTIVE', 'ACQUITTEE') AND (
+          (building_id IS NULL AND kind::text <> ALL($1::text[])
+            AND batch_id IN (
+              SELECT id FROM production_batches WHERE status = 'CLOTURE'))
+          OR (kind = 'VIDE_SANITAIRE' AND building_id IS NOT NULL
+            AND building_id NOT IN (
+              SELECT building_id FROM production_batches
+              WHERE status <> 'CLOTURE' AND building_id IS NOT NULL))
+        )
+        RETURNING id
+      )
+      SELECT COUNT(*)::int AS n FROM fixed
+    `,
+      [CLOSED_BATCH_KEPT_KINDS],
+    );
+    const n = rows[0]?.n ?? 0;
+    if (n > 0) {
+      this.logger.warn(`Alertes de lots clôturés résolues : ${n}`);
     }
   }
 

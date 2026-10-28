@@ -278,7 +278,13 @@ export interface Building {
   lastVideSanitaireAt: string | null;
   latitude: number | null;
   longitude: number | null;
-  stats?: { activeBirds: number; activeLots: number; densityPerM2: number | null };
+  stats?: {
+    activeBirds: number;
+    activeLots: number;
+    densityPerM2: number | null;
+    /** End of the last closed lot (YYYY-MM-DD): start of the vide sanitaire. */
+    lastLotEndedAt?: string | null;
+  };
 }
 
 export type CropCategory = 'TUBERCULE' | 'MARAICHAGE' | 'FRUIT' | 'CEREALE' | 'AUTRE';

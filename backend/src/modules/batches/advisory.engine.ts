@@ -21,6 +21,18 @@ function addDaysIso(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Day a lot ended (UTC); legacy rows closed before closedAt existed fall back to updatedAt. */
+function closedOn(lot: ProductionBatch): string {
+  return (lot.closedAt ?? lot.updatedAt).toISOString().slice(0, 10);
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round(
+    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
+      86400000,
+  );
+}
+
 @Injectable()
 export class AdvisoryEngine {
   constructor(
@@ -40,6 +52,17 @@ export class AdvisoryEngine {
   async runForBatch(batch: ProductionBatch, metrics: BatchMetrics) {
     const farmId = batch.farmId;
     const batchId = batch.id;
+
+    if (batch.status === BatchStatus.CLOTURE) {
+      // No live risk on a finished lot: only its record (traceability) and
+      // the building it frees are still evaluated.
+      await this.alertsService.resolveClosedBatch(farmId, batchId);
+      await Promise.all([
+        this.evaluateSaleReadiness(batch, metrics, farmId, batchId),
+        this.evaluateBuildingContext(batch),
+      ]);
+      return;
+    }
 
     await Promise.all([
       this.evaluateMortality(batch, metrics, farmId, batchId),
@@ -100,7 +123,7 @@ export class AdvisoryEngine {
     await Promise.all([
       this.evaluateBuildingDensity(building, activeLots, farmId),
       this.evaluateCohabitation(activeLots, farmId, buildingId),
-      this.evaluateVideSanitaire(building, lots, farmId, buildingId),
+      this.evaluateVideSanitaire(lots, farmId, buildingId),
     ]);
   }
 
@@ -228,23 +251,36 @@ export class AdvisoryEngine {
     }
   }
 
+  /**
+   * Vide sanitaire = days between the end of the previous lot and the
+   * placement of the next one in the same building. Judged when a lot is
+   * placed, from fixed dates: an empty building raises nothing (the rest
+   * period is simply running), and the verdict does not drift with time.
+   */
   private async evaluateVideSanitaire(
-    building: Building,
     lots: ProductionBatch[],
     farmId: string,
     buildingId: string,
   ) {
-    const lastClosed = lots
-      .filter((l) => l.status === BatchStatus.CLOTURE)
-      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0];
-    if (!lastClosed) {
-      await this.alertsService.clearKind(
-        farmId,
-        null,
-        AlertKind.VIDE_SANITAIRE,
-        buildingId,
+    const closed = lots.filter((l) => l.status === BatchStatus.CLOTURE);
+    const active = lots.filter((l) => l.status !== BatchStatus.CLOTURE);
+
+    let shortest: { gapDays: number; lot: ProductionBatch } | null = null;
+    for (const lot of active) {
+      // Previous lot = the last one to end among those placed before this
+      // one. Still running when this one arrived (backdated entries) = no
+      // rest period at all.
+      const previousEnd = closed
+        .filter((c) => c.integrationDate < lot.integrationDate)
+        .map(closedOn)
+        .sort()
+        .pop();
+      if (!previousEnd) continue;
+      const gapDays = Math.max(
+        0,
+        daysBetween(previousEnd, lot.integrationDate),
       );
-      return;
+      if (!shortest || gapDays < shortest.gapDays) shortest = { gapDays, lot };
     }
 
     const minDays = await this.constants.get(
@@ -255,38 +291,42 @@ export class AdvisoryEngine {
       ReferenceKey.VIDE_SANITAIRE_MAX_DAYS,
       21,
     );
-    const elapsedDays =
-      (Date.now() - lastClosed.updatedAt.getTime()) / 86400000;
-    const activeBatch = lots.find((l) => l.status !== BatchStatus.CLOTURE);
-
-    if (elapsedDays < minDays) {
-      await this.alertsService.raise(
-        {
-          kind: AlertKind.VIDE_SANITAIRE,
-          level: AlertLevel.ROUGE,
-          message: `Vide sanitaire non respecté : le dernier lot du bâtiment s'est terminé il y a ${elapsedDays.toFixed(0)} jour(s) (minimum ${minDays}).`,
-          recommendation: `Laisser le bâtiment vide et désinfecté ${minDays} à ${recommendedDays} jours avant de réintroduire des poussins. Nettoyer et désinfecter intégralement.`,
-          context: { elapsedDays: elapsedDays, minDays, recommendedDays },
-        },
-        { farmId, batchId: activeBatch?.id ?? null, buildingId },
-      );
-    } else if (elapsedDays < recommendedDays) {
-      await this.alertsService.raise(
-        {
-          kind: AlertKind.VIDE_SANITAIRE,
-          level: AlertLevel.JAUNE,
-          message: `Le vide sanitaire du bâtiment est en cours (${elapsedDays.toFixed(0)} jours).`,
-          recommendation: `Poursuivre la désinfection ; idéalement attendre ${recommendedDays} jours.`,
-          context: { elapsedDays: elapsedDays, minDays, recommendedDays },
-        },
-        { farmId, batchId: activeBatch?.id ?? null, buildingId },
-      );
-    } else {
+    if (!shortest || shortest.gapDays >= recommendedDays) {
       await this.alertsService.clearKind(
         farmId,
         null,
         AlertKind.VIDE_SANITAIRE,
         buildingId,
+      );
+      return;
+    }
+
+    const { gapDays, lot } = shortest;
+    const context = { batchId: lot.id, gapDays, minDays, recommendedDays };
+    if (gapDays < minDays) {
+      await this.alertsService.raise(
+        {
+          kind: AlertKind.VIDE_SANITAIRE,
+          level: AlertLevel.ROUGE,
+          message:
+            gapDays === 0
+              ? `Vide sanitaire non respecté : le lot ${lot.batchName} a été mis en place avant la fin du lot précédent du bâtiment (minimum ${minDays} jours entre deux lots).`
+              : `Vide sanitaire non respecté : le lot ${lot.batchName} a été mis en place ${gapDays} jour(s) après la fin du lot précédent du bâtiment (minimum ${minDays}).`,
+          recommendation: `Renforcer la biosécurité de ce lot (désinfection des abords, pédiluve, surveillance de la mortalité et de l'eau). Pour les prochains lots, laisser le bâtiment vide et désinfecté ${minDays} à ${recommendedDays} jours.`,
+          context,
+        },
+        { farmId, batchId: lot.id, buildingId },
+      );
+    } else {
+      await this.alertsService.raise(
+        {
+          kind: AlertKind.VIDE_SANITAIRE,
+          level: AlertLevel.JAUNE,
+          message: `Vide sanitaire court : le lot ${lot.batchName} a été mis en place ${gapDays} jours après la fin du lot précédent (recommandé ${recommendedDays}).`,
+          recommendation: `Surveiller de près la santé du lot. Pour les prochains lots, viser ${recommendedDays} jours de vide sanitaire.`,
+          context,
+        },
+        { farmId, batchId: lot.id, buildingId },
       );
     }
   }

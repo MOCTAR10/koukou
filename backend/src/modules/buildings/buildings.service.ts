@@ -116,12 +116,27 @@ export class BuildingsService {
     return { activeBirds, activeLots: rows.length };
   }
 
+  /** End day (UTC) of the last closed lot: the vide sanitaire starts there. */
+  async lastLotEndedAt(buildingId: string): Promise<string | null> {
+    const row: { ended: string | null } | undefined = await this.batchRepo
+      .createQueryBuilder('b')
+      .select(
+        `TO_CHAR(MAX(COALESCE(b.closedAt, b.updatedAt)) AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
+        'ended',
+      )
+      .where('b.buildingId = :buildingId', { buildingId })
+      .andWhere('b.status = :closed', { closed: BatchStatus.CLOTURE })
+      .getRawOne();
+    return row?.ended ?? null;
+  }
+
   async withStats(
     building: Building,
   ): Promise<Building & { stats: BuildingStats }> {
-    const { activeBirds, activeLots } = await this.buildingOccupancy(
-      building.id,
-    );
+    const [{ activeBirds, activeLots }, lastLotEndedAt] = await Promise.all([
+      this.buildingOccupancy(building.id),
+      this.lastLotEndedAt(building.id),
+    ]);
     const area = building.buildingAreaM2;
     return {
       ...building,
@@ -129,6 +144,7 @@ export class BuildingsService {
         activeBirds,
         activeLots,
         densityPerM2: area != null && area > 0 ? activeBirds / area : null,
+        lastLotEndedAt,
       },
     };
   }
@@ -138,4 +154,6 @@ export interface BuildingStats {
   activeBirds: number;
   activeLots: number;
   densityPerM2: number | null;
+  /** End of the last closed lot (YYYY-MM-DD), null if none. */
+  lastLotEndedAt: string | null;
 }
