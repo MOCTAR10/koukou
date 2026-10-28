@@ -588,6 +588,91 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(bilanGlobal.body.ecartFcfa).toBe(0);
+    // Snapshot at today: 2025's loss is carried forward, not mixed into the
+    // current exercice's result.
+    expect(bilanGlobal.body.asOf).toBe(today());
+    expect(bilanGlobal.body.exercice.startDate).toBe(`${today().slice(0, 4)}-01-01`);
+    expect(bilanGlobal.body.reportANouveauFcfa).toBe(-2000);
+    const ranLine = (bilanGlobal.body.capitaux as any[]).find((c) => c.code === '13');
+    expect(ranLine.soldeFcfa).toBe(2000);
+    expect(
+      (bilanGlobal.body.capitaux as any[]).filter((c) => ['12', '129'].includes(c.code)),
+    ).toHaveLength(0);
+    const resultatCourant = await request(server)
+      .get(`/farms/${farmId}/accounting/compte-resultat`)
+      .set('Authorization', `Bearer ${token}`)
+      .query({ from: `${today().slice(0, 4)}-01-01`, to: today() })
+      .expect(200);
+    expect(bilanGlobal.body.resultatFcfa).toBe(resultatCourant.body.resultatFcfa);
+
+    // The closed exercice is frozen for manual regularisations.
+    const refused = await request(server)
+      .post(`/farms/${farmId}/accounting/entries`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        date: '2025-07-01',
+        label: 'Trop tard',
+        lines: [
+          { account: '6011', debitFcfa: 100 },
+          { account: '471', creditFcfa: 100 },
+        ],
+      })
+      .expect(400);
+    expect(JSON.stringify(refused.body.message)).toContain('clôturé');
+  });
+
+  it('bilan : situation cumulée, soldes reclassés selon leur sens (écart 0)', async () => {
+    const signFarmId = await createFarm(`Ferme Bilan ${Date.now()}`);
+    const post = (date: string, lines: unknown[]) =>
+      request(server)
+        .post(`/farms/${signFarmId}/accounting/entries`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ date, label: 'Test bilan', lines })
+        .expect(201);
+    const year = today().slice(0, 4);
+    // Overdrawn bank (credit 52) and an advance paid to a supplier (debit 401).
+    await post(`${year}-01-02`, [
+      { account: '6011', debitFcfa: 5000 },
+      { account: '52', creditFcfa: 5000 },
+    ]);
+    await post(today(), [
+      { account: '401', debitFcfa: 1000 },
+      { account: '471', creditFcfa: 1000 },
+    ]);
+
+    // `from` no longer turns the bilan into a flow statement.
+    const res = await request(server)
+      .get(`/farms/${signFarmId}/accounting/bilan`)
+      .set('Authorization', `Bearer ${token}`)
+      .query({ from: today(), to: today() })
+      .expect(200);
+    const code = (rows: any[]) => rows.map((r) => r.code);
+    expect(code(res.body.actif)).toEqual(['401']);
+    expect(code(res.body.passif)).toEqual(expect.arrayContaining(['52', '471']));
+    expect(res.body.totalActif).toBe(1000);
+    expect(res.body.totalPassifExterne).toBe(6000);
+    expect(res.body.resultatFcfa).toBe(-5000);
+    expect(res.body.reportANouveauFcfa).toBe(0);
+    expect(res.body.totalCapitaux).toBe(-5000);
+    expect(res.body.ecartFcfa).toBe(0);
+
+    // Before any entry: empty, balanced.
+    const before = await request(server)
+      .get(`/farms/${signFarmId}/accounting/bilan`)
+      .set('Authorization', `Bearer ${token}`)
+      .query({ to: `${Number(year) - 1}-12-31` })
+      .expect(200);
+    expect(before.body.totalActif).toBe(0);
+    expect(before.body.totalCapitaux).toBe(0);
+    expect(before.body.ecartFcfa).toBe(0);
+
+    const csv = await request(server)
+      .get(`/farms/${signFarmId}/accounting/export`)
+      .set('Authorization', `Bearer ${token}`)
+      .query({ report: 'bilan', format: 'csv' })
+      .expect(200);
+    expect(csv.text).toContain('Passif externe');
+    expect(csv.text).toContain('Résultat de l’exercice');
   });
 
   it('clôture : refuse un exercice en cours (endDate dans le futur)', async () => {
