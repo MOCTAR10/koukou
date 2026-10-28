@@ -141,6 +141,28 @@ export class FarmsService {
     return employments.map((e) => e.farm);
   }
 
+  /**
+   * Farm scope of a request on reference data (breeds, cultures, programs):
+   * custom rows belong to one farm. Reads without a farm see shared rows
+   * only; creating a shared row (no farm) is reserved to the platform admin.
+   */
+  async resourceScope(
+    user: AuthUser,
+    farmId: string | null | undefined,
+    mode: 'read' | 'write',
+  ): Promise<string | null> {
+    if (farmId) {
+      await this.assertAccessible(user, farmId);
+      return farmId;
+    }
+    if (mode === 'write' && user.role !== UserRole.PLATFORM_ADMIN) {
+      throw new BadRequestException(
+        'Précisez la ferme (farmId) : un élément personnalisé appartient à une ferme.',
+      );
+    }
+    return null;
+  }
+
   async assertAccessible(user: AuthUser, farmId: string): Promise<Farm> {
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     if (!farm) throw new NotFoundException('Ferme introuvable.');

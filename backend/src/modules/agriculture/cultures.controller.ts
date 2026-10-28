@@ -1,9 +1,20 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+} from 'class-validator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { CropCategory } from '../../common/enums/crop-category.enum.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { FarmsService } from '../farms/farms.service.js';
 import { CulturesService } from './cultures.service.js';
 
 class CreateCultureDto {
@@ -27,25 +38,44 @@ class CreateCultureDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  /** Farm that owns the custom culture (omitted: shared, platform admin only). */
+  @IsOptional()
+  @IsUUID('4', { message: 'Identifiant de ferme invalide.' })
+  farmId?: string;
 }
 
 @ApiTags('Cultures (Agriculture)')
 @Controller('cultures')
 export class CulturesController {
-  constructor(private readonly culturesService: CulturesService) {}
+  constructor(
+    private readonly culturesService: CulturesService,
+    private readonly farmsService: FarmsService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Référentiel des cultures, regroupées par catégorie' })
+  @ApiQuery({ name: 'farmId', required: false })
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  findAll() {
-    return this.culturesService.findAll();
+  async findAll(
+    @CurrentUser() user: AuthUser,
+    @Query('farmId') farmId?: string,
+  ) {
+    const scope = await this.farmsService.resourceScope(user, farmId, 'read');
+    return this.culturesService.findAll(scope);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Ajouter une culture personnalisée' })
+  @ApiOperation({ summary: 'Ajouter une culture personnalisée à la ferme' })
   @Roles(UserRole.PROPRIETAIRE)
-  create(@Body() dto: CreateCultureDto) {
+  async create(@CurrentUser() user: AuthUser, @Body() dto: CreateCultureDto) {
+    const scope = await this.farmsService.resourceScope(
+      user,
+      dto.farmId,
+      'write',
+    );
     return this.culturesService.createCustom(
+      scope,
       dto.name,
       dto.category,
       dto.defaultCycleDays,

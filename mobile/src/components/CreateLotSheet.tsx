@@ -243,10 +243,10 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
   // La liste des souches peut évoluer côté serveur (seed, nouvelles souches) :
   // on la rafraîchit à chaque ouverture de la feuille, même si le cache a
   // moins de 30 s.
-  const breedsQuery = useQuery({ queryKey: ['breeds'], queryFn: fetchBreeds });
+  const breedsQuery = useQuery({ queryKey: ['breeds', farmId], queryFn: () => fetchBreeds(farmId) });
   useEffect(() => {
-    if (visible) void qc.invalidateQueries({ queryKey: ['breeds'] });
-  }, [qc, visible]);
+    if (visible) void qc.invalidateQueries({ queryKey: ['breeds', farmId] });
+  }, [qc, visible, farmId]);
   const standardsQuery = useQuery({
     queryKey: ['breed-standards', selectedBreedId],
     queryFn: () => fetchBreedStandards(selectedBreedId!),
@@ -287,8 +287,8 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
 
   // ── Protocol queries (for running lot treatment checklist) ──
   const protocolsQuery = useQuery({
-    queryKey: ['sanitary-protocols', species, type],
-    queryFn: () => fetchProtocols(species, type),
+    queryKey: ['sanitary-protocols', farmId, species, type],
+    queryFn: () => fetchProtocols(farmId, species, type),
   });
   const defaultProtocol = useMemo(() => {
     const protocols = protocolsQuery.data ?? [];
@@ -301,8 +301,8 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
     );
   }, [protocolsQuery.data, type, species]);
   const protocolStepsQuery = useQuery({
-    queryKey: ['sanitary-program', defaultProtocol?.id],
-    queryFn: () => fetchSanitaryProgram(defaultProtocol!.id),
+    queryKey: ['sanitary-program', farmId, defaultProtocol?.id],
+    queryFn: () => fetchSanitaryProgram(farmId, defaultProtocol!.id),
     enabled: !!defaultProtocol && isRunning,
   });
 

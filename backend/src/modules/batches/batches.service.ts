@@ -52,7 +52,7 @@ export class BatchesService {
     const farm = await this.farmsService.assertAccessible(user, farmId);
     let breedId: string | null = null;
     if (dto.breedId) {
-      const breed = await this.breedsService.findById(dto.breedId);
+      const breed = await this.breedsService.findUsable(dto.breedId, farmId);
       if (!breed) throw new BadRequestException('Souche introuvable.');
       breedId = breed.id;
     }

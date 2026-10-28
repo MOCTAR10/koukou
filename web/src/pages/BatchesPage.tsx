@@ -42,8 +42,13 @@ export function BatchesPage() {
   });
 
   const breeds = useQuery({
-    queryKey: ['breeds'],
-    queryFn: () => api.get<Array<{ id: string; name: string; type: string }>>('/breeds'),
+    // Shared breeds plus the farm's own custom ones.
+    queryKey: ['breeds', farmId],
+    queryFn: () =>
+      api.get<Array<{ id: string; name: string; type: string }>>(
+        `/breeds?farmId=${encodeURIComponent(farmId!)}`,
+      ),
+    enabled: !!farmId,
   });
 
   const selected = batches.data?.find((b) => b.id === selectedId) ?? null;

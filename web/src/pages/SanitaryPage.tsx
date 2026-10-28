@@ -58,12 +58,12 @@ export function SanitaryPage() {
   // Only programs matching the lot's species and type: a POULET program must
   // never be generated on a PINTADE or laying lot.
   const protocols = useQuery({
-    queryKey: ['protocols', batch?.species, batch?.type],
+    queryKey: ['protocols', farmId, batch?.species, batch?.type],
     queryFn: () =>
       api.get<Protocol[]>(
-        `/sanitary/protocols?species=${encodeURIComponent(batch!.species)}&type=${encodeURIComponent(batch!.type)}`,
+        `/sanitary/protocols?farmId=${encodeURIComponent(farmId!)}&species=${encodeURIComponent(batch!.species)}&type=${encodeURIComponent(batch!.type)}`,
       ),
-    enabled: !!batch,
+    enabled: !!batch && !!farmId,
   });
   const protocol =
     protocols.data?.find((p) => p.id === protocolId) ?? protocols.data?.[0] ?? null;

@@ -133,6 +133,9 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - **Cash ops (`sale`, `order-payment`, `customer-payment`) must never be dropped.** `ensureCashOpenOrRetry()` deliberately rethrows a plain `Error` (not `ApiError`) so a 4xx from the caisse step maps to *retry*, not *drop*.
 - `OfflineAutoSync` (mounted in `_layout.tsx`) flushes on reconnect/pending-op, ref-guarded. Invalidate via `invalidateFarmQueries()`.
 
+### Reference data per farm
+- `Breed`, `Culture` and `SanitaryProtocol` carry a nullable `farmId`: **null = shared, seeded reference data**; custom rows belong to the farm that created them. A farm sees and uses shared rows + its own (`common/utils/farm-scope.ts` `sharedOrFarm()`); names/codes are unique among shared rows and within a farm (partial + composite unique indexes, class-level). `GET /breeds|/cultures|/sanitary/protocols[/:id]` take `?farmId=` (without it: shared only); `POST` needs `farmId` in the body (`FarmsService.resourceScope`; only PLATFORM_ADMIN may create a shared row). Batch creation (`breedId`), parcelles (`cultureId`) and program generation (`protocolId`) refuse another farm's row. Seed lookups filter `farmId IS NULL`. `DatabaseSeedService.assignLegacyCustomResources()` (boot, idempotent) gives each legacy custom row used by exactly one farm to that farm.
+
 ## Seeded data & tunable constants
 
 8 species (`Species` enum) with seeded breeds + zootechnic curves, `standard_module` = 3000, densities 15/18, vaccination programs `GABON_VACC_PROTOCOLS`.

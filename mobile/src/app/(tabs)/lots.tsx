@@ -1115,8 +1115,8 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
     staleTime: 60_000,
   });
   const protocolsQ = useQuery({
-    queryKey: ['sanitary-protocols', batch.species, batch.type],
-    queryFn: () => fetchProtocols(batch.species ?? 'POULET', batch.type),
+    queryKey: ['sanitary-protocols', farmId, batch.species, batch.type],
+    queryFn: () => fetchProtocols(farmId, batch.species ?? 'POULET', batch.type),
     staleTime: 60_000,
   });
   const defaultProtocol = useMemo(
@@ -1133,8 +1133,8 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
     [prophylQ.data, defaultProtocol?.id],
   );
   const programQ = useQuery({
-    queryKey: ['sanitary-program', appliedProgramId],
-    queryFn: () => fetchSanitaryProgram(appliedProgramId!),
+    queryKey: ['sanitary-program', farmId, appliedProgramId],
+    queryFn: () => fetchSanitaryProgram(farmId, appliedProgramId!),
     enabled: appliedProgramId != null,
     staleTime: 60_000,
   });
@@ -1600,8 +1600,8 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
     queries: speciesTypeKeys.map((key) => {
       const [species, type] = key.split('|');
       return {
-        queryKey: ['sanitary-protocols', species, type],
-        queryFn: () => fetchProtocols(species, type),
+        queryKey: ['sanitary-protocols', farmId, species, type],
+        queryFn: () => fetchProtocols(farmId, species, type),
         staleTime: 60_000,
       };
     }),
@@ -1636,8 +1636,8 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
   );
   const programList = useQueries({
     queries: programIds.map((id) => ({
-      queryKey: ['sanitary-program', id],
-      queryFn: () => fetchSanitaryProgram(id),
+      queryKey: ['sanitary-program', farmId, id],
+      queryFn: () => fetchSanitaryProgram(farmId, id),
       staleTime: 60_000,
     })),
   });

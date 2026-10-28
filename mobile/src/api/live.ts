@@ -279,20 +279,32 @@ function mapMetrics(m: RawBatchMetrics): BatchMetrics {
   };
 }
 
-const breedsById = new Map<string, { name: string; refCode: string | null }>();
+type BreedLabels = Map<string, { name: string; refCode: string | null }>;
+
+/** Breed labels per farm: shared breeds plus the farm's own custom ones. */
+const breedsByFarm = new Map<string, BreedLabels>();
 
 /** Test-only : vide le cache de souches entre deux tests. */
 export function _clearBreedCache(): void {
-  breedsById.clear();
+  breedsByFarm.clear();
 }
 
-async function ensureBreeds(): Promise<void> {
-  if (breedsById.size > 0) return;
-  const breeds = await apiFetch<{ id: string; name: string; refCode: string | null }[]>('/breeds');
-  for (const b of breeds) breedsById.set(b.id, { name: b.name, refCode: b.refCode ?? null });
+/**
+ * Breed labels of the farm, loaded once; reloaded when a batch points to a
+ * breed the cache doesn't know yet (custom breed created since).
+ */
+async function breedLabels(farmId: string, needed: (string | null | undefined)[] = []): Promise<BreedLabels> {
+  const cached = breedsByFarm.get(farmId);
+  if (cached && needed.every((id) => !id || cached.has(id))) return cached;
+  const breeds = await apiFetch<{ id: string; name: string; refCode: string | null }[]>(
+    `/breeds?farmId=${encodeURIComponent(farmId)}`,
+  );
+  const labels: BreedLabels = new Map(breeds.map((b) => [b.id, { name: b.name, refCode: b.refCode ?? null }]));
+  breedsByFarm.set(farmId, labels);
+  return labels;
 }
 
-function mapBatch(b: RawBatch): BatchWithMetrics {
+function mapBatch(b: RawBatch, breedsById: BreedLabels): BatchWithMetrics {
   const cached =
     b.breedId && breedsById.has(b.breedId)
       ? breedsById.get(b.breedId)!
@@ -485,11 +497,11 @@ export class LiveApi {
     farmId: string,
     asOf?: string,
   ): Promise<BatchWithMetrics[]> {
-    await ensureBreeds();
     const raw = await apiFetch<RawBatch[]>(
       `/farms/${farmId}/batches${asOf ? `?asOf=${asOf}` : ''}`,
     );
-    return raw.map(mapBatch);
+    const labels = await breedLabels(farmId, raw.map((b) => b.breedId));
+    return raw.map((b) => mapBatch(b, labels));
   }
 
   async fetchBatch(
@@ -497,11 +509,10 @@ export class LiveApi {
     batchId: string,
     asOf?: string,
   ): Promise<BatchWithMetrics> {
-    await ensureBreeds();
     const raw = await apiFetch<RawBatch>(
       `/farms/${farmId}/batches/${batchId}${asOf ? `?asOf=${asOf}` : ''}`,
     );
-    return mapBatch(raw);
+    return mapBatch(raw, await breedLabels(farmId, [raw.breedId]));
   }
 
   async fetchCurve(farmId: string, batchId: string): Promise<BatchCurve> {
@@ -539,18 +550,15 @@ export class LiveApi {
     return apiFetch<CashSession[]>(`/farms/${farmId}/caisse/sessions`);
   }
 
-  async fetchProtocols(species?: string, type?: string): Promise<SanitaryProtocol[]> {
-    const params = new URLSearchParams();
+  async fetchProtocols(farmId: string, species?: string, type?: string): Promise<SanitaryProtocol[]> {
+    const params = new URLSearchParams({ farmId });
     if (species) params.set('species', species);
     if (type) params.set('type', type);
-    const qs = params.toString();
-    return apiFetch<SanitaryProtocol[]>(
-      `/sanitary/protocols${qs ? `?${qs}` : ''}`,
-    );
+    return apiFetch<SanitaryProtocol[]>(`/sanitary/protocols?${params.toString()}`);
   }
 
-  async fetchSanitaryProgram(id: string): Promise<SanitaryProtocolWithSteps> {
-    return apiFetch<SanitaryProtocolWithSteps>(`/sanitary/protocols/${id}`);
+  async fetchSanitaryProgram(farmId: string, id: string): Promise<SanitaryProtocolWithSteps> {
+    return apiFetch<SanitaryProtocolWithSteps>(`/sanitary/protocols/${id}?farmId=${encodeURIComponent(farmId)}`);
   }
 
   async fetchFarmInputs(farmId: string): Promise<InputLot[]> {
@@ -744,8 +752,8 @@ export class LiveApi {
     return apiFetch<Building[]>(`/farms/${farmId}/buildings`);
   }
 
-  async fetchBreeds(): Promise<Breed[]> {
-    return apiFetch<Breed[]>('/breeds');
+  async fetchBreeds(farmId: string): Promise<Breed[]> {
+    return apiFetch<Breed[]>(`/breeds?farmId=${encodeURIComponent(farmId)}`);
   }
 
   async fetchBreedStandards(breedId: string): Promise<BreedStandard[]> {
@@ -758,18 +766,18 @@ export class LiveApi {
     return res.standards;
   }
 
-  async fetchCultures(): Promise<Culture[]> {
-    return apiFetch<Culture[]>('/cultures');
+  async fetchCultures(farmId: string): Promise<Culture[]> {
+    return apiFetch<Culture[]>(`/cultures?farmId=${encodeURIComponent(farmId)}`);
   }
 
-  async createCulture(input: {
+  async createCulture(farmId: string, input: {
     name: string;
     category: CropCategory;
     defaultCycleDays?: number;
     waterNeedsLPlantDay?: number;
     notes?: string;
   }): Promise<Culture> {
-    return apiFetch<Culture>('/cultures', { method: 'POST', body: input });
+    return apiFetch<Culture>('/cultures', { method: 'POST', body: { ...input, farmId } });
   }
 
   async fetchParcelles(farmId: string): Promise<Parcelle[]> {

@@ -1414,16 +1414,16 @@ function CreateScheduleWizard({
   const previewLot = selLotObjs[0] ?? currentLot;
 
   const programsQuery = useQuery({
-    queryKey: ['protocols', singleSpecies, singleType],
-    queryFn: () => fetchProtocols(singleSpecies ?? undefined, singleType ?? undefined),
+    queryKey: ['protocols', farmId, singleSpecies, singleType],
+    queryFn: () => fetchProtocols(farmId, singleSpecies ?? undefined, singleType ?? undefined),
     enabled: canUsePrograms,
   });
   const programs = (programsQuery.data ?? []).filter((p) =>
     (p.code ?? '').startsWith('vacc-'),
   );
   const programDetail = useQuery({
-    queryKey: ['protocols', programId],
-    queryFn: () => fetchSanitaryProgram(programId),
+    queryKey: ['protocols', farmId, programId],
+    queryFn: () => fetchSanitaryProgram(farmId, programId),
     enabled: programId !== '',
   });
 

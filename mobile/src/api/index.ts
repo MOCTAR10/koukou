@@ -181,17 +181,20 @@ export function fetchCaisseSessions(farmId: string): Promise<CashSession[]> {
   return live.fetchCaisseSessions(farmId);
 }
 
+/** Shared programs plus the farm's own. */
 export function fetchProtocols(
+  farmId: string,
   species?: string,
   type?: string,
 ): Promise<SanitaryProtocol[]> {
-  return live.fetchProtocols(species, type);
+  return live.fetchProtocols(farmId, species, type);
 }
 
 export function fetchSanitaryProgram(
+  farmId: string,
   id: string,
 ): Promise<SanitaryProtocolWithSteps> {
-  return live.fetchSanitaryProgram(id);
+  return live.fetchSanitaryProgram(farmId, id);
 }
 
 export function fetchFarmInputs(farmId: string): Promise<InputLot[]> {
@@ -352,19 +355,22 @@ export function fetchBuildings(farmId: string): Promise<Building[]> {
   return live.fetchBuildings(farmId);
 }
 
-export function fetchBreeds(): Promise<Breed[]> {
-  return live.fetchBreeds();
+/** Shared breeds plus the farm's own. */
+export function fetchBreeds(farmId: string): Promise<Breed[]> {
+  return live.fetchBreeds(farmId);
 }
 
 export function fetchBreedStandards(breedId: string): Promise<BreedStandard[]> {
   return live.fetchBreedStandards(breedId);
 }
 
-export function fetchCultures(): Promise<Culture[]> {
-  return live.fetchCultures();
+/** Shared cultures plus the farm's own. */
+export function fetchCultures(farmId: string): Promise<Culture[]> {
+  return live.fetchCultures(farmId);
 }
 
 export function createCulture(
+  farmId: string,
   input: {
     name: string;
     category: CropCategory;
@@ -373,7 +379,7 @@ export function createCulture(
     notes?: string;
   },
 ): Promise<Culture> {
-  return live.createCulture(input);
+  return live.createCulture(farmId, input);
 }
 
 export function fetchParcelles(farmId: string): Promise<Parcelle[]> {
