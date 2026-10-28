@@ -6,7 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
-import { AlertKind } from '../../common/enums/alert-level.enum.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { ExpenseCategory } from '../../common/enums/expense-category.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
@@ -291,14 +290,10 @@ export class BatchesService {
     if (!batch)
       throw new NotFoundException('Lot introuvable dans cette ferme.');
     batch.status = BatchStatus.CLOTURE;
+    batch.closedAt = new Date();
     await this.batchRepo.save(batch);
+    // The advisory run resolves the lot's live alerts (AdvisoryEngine).
     await this.afterChange(user, farmId, batch);
-    // Lot clos : les suspensions de commercialisation et soins planifiés n'ont
-    // plus de sens — on purge les alertes PROPHYLAXIE / DELAI_ATTENTE du lot.
-    await Promise.all([
-      this.alertsService.clearKind(farmId, batch.id, AlertKind.PROPHYLAXIE),
-      this.alertsService.clearKind(farmId, batch.id, AlertKind.DELAI_ATTENTE),
-    ]);
     koukouBus.emit(KOUKOU_EVENTS.BATCH_CLOSED, { farmId, batchId });
     return this.findOne(user, farmId, batchId);
   }

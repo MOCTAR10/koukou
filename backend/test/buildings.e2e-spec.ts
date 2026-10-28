@@ -2,7 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { DatabaseSeedService } from './../src/database/database-seed.service.js';
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -180,6 +182,175 @@ describe('Module 1 — Bâtiments & bandes (e2e)', () => {
     const vs = alerts.body.find((a: any) => a.kind === 'VIDE_SANITAIRE');
     expect(vs).toBeTruthy();
     expect(vs.level).toBe('ROUGE');
+    // B2 was placed (backdated) before B1 ended: no rest period at all.
+    expect(vs.message).toContain('avant la fin du lot précédent');
+  });
+
+  async function newBuilding(name: string): Promise<string> {
+    const res = await request(server)
+      .post(`/farms/${farmId}/buildings`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name, buildingAreaM2: 100, capacity: 3000 })
+      .expect(201);
+    return res.body.id;
+  }
+
+  async function newLot(
+    name: string,
+    buildingId: string,
+    integrationDate: string,
+  ): Promise<string> {
+    const res = await request(server)
+      .post(`/farms/${farmId}/batches`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        batchName: name,
+        integrationDate,
+        quantityAtStart: 300,
+        type: 'CHAIR',
+        buildingId,
+      })
+      .expect(201);
+    return res.body.id;
+  }
+
+  async function close(batchId: string, endedDaysAgo?: number) {
+    await request(server)
+      .post(`/farms/${farmId}/batches/${batchId}/cloture`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(201);
+    if (endedDaysAgo !== undefined) {
+      await app
+        .get(DataSource)
+        .query(
+          `UPDATE production_batches SET closed_at = now() - make_interval(days => $2) WHERE id = $1`,
+          [batchId, endedDaysAgo],
+        );
+    }
+  }
+
+  async function activeAlerts(where: string, params: unknown[]) {
+    return app.get(DataSource).query(
+      `SELECT kind, level, status, context, batch_id FROM alerts
+          WHERE farm_id = $1 AND status IN ('ACTIVE','ACQUITTEE') AND ${where}`,
+      [farmId, ...params],
+    );
+  }
+
+  it('vider un bâtiment (clôture du dernier lot) ne lève aucune alerte vide sanitaire', async () => {
+    const buildingC = await newBuilding('Bâtiment C');
+    const c1 = await newLot('Bande C1', buildingC, daysAgo(50));
+    await close(c1);
+    const building = await request(server)
+      .get(`/farms/${farmId}/buildings/${buildingC}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(building.body.stats.activeLots).toBe(0);
+    expect(building.body.stats.lastLotEndedAt).toBe(
+      new Date().toISOString().slice(0, 10),
+    );
+    const vs = await activeAlerts(
+      `kind = 'VIDE_SANITAIRE' AND building_id = $2`,
+      [buildingC],
+    );
+    expect(vs).toEqual([]);
+  });
+
+  it('lot clôturé : ses alertes en cours sont résolues, la traçabilité reste', async () => {
+    const buildingD = await newBuilding('Bâtiment D');
+    const d1 = await newLot('Bande D1', buildingD, daysAgo(45));
+    await app.get(DataSource).query(
+      `INSERT INTO alerts (farm_id, batch_id, kind, level, status, message)
+       VALUES ($1, $2, 'MORTALITE', 'ROUGE', 'ACQUITTEE', 'test')`,
+      [farmId, d1],
+    );
+    await close(d1);
+    const left = await activeAlerts(`batch_id = $2`, [d1]);
+    // No hatchery data on D1: the HACCP traceability record stays.
+    expect(left.map((a: any) => a.kind)).toEqual(['TRACABILITE']);
+  });
+
+  it('vide sanitaire mesuré entre la fin du lot précédent et la mise en place', async () => {
+    const buildingE = await newBuilding('Bâtiment E');
+    const e1 = await newLot('Bande E1', buildingE, daysAgo(80));
+    await close(e1, 30);
+    const e2 = await newLot('Bande E2', buildingE, daysAgo(20));
+    const red = await activeAlerts(
+      `kind = 'VIDE_SANITAIRE' AND building_id = $2`,
+      [buildingE],
+    );
+    expect(red).toHaveLength(1);
+    expect(red[0].level).toBe('ROUGE');
+    expect(red[0].context.batchId).toBe(e2);
+    expect(red[0].context.gapDays).toBe(10);
+
+    const buildingF = await newBuilding('Bâtiment F');
+    const f1 = await newLot('Bande F1', buildingF, daysAgo(80));
+    await close(f1, 40);
+    await newLot('Bande F2', buildingF, daysAgo(23));
+    const yellow = await activeAlerts(
+      `kind = 'VIDE_SANITAIRE' AND building_id = $2`,
+      [buildingF],
+    );
+    expect(yellow).toHaveLength(1);
+    expect(yellow[0].level).toBe('JAUNE');
+    expect(yellow[0].context.gapDays).toBe(17);
+
+    const buildingG = await newBuilding('Bâtiment G');
+    const g1 = await newLot('Bande G1', buildingG, daysAgo(90));
+    await close(g1, 50);
+    await newLot('Bande G2', buildingG, daysAgo(25));
+    expect(
+      await activeAlerts(`kind = 'VIDE_SANITAIRE' AND building_id = $2`, [
+        buildingG,
+      ]),
+    ).toEqual([]);
+
+    // Closing E2 resolves the verdict on it (lot finished, building empty).
+    await close(e2);
+    expect(
+      await activeAlerts(`kind = 'VIDE_SANITAIRE' AND building_id = $2`, [
+        buildingE,
+      ]),
+    ).toEqual([]);
+  });
+
+  it('réparation au démarrage : alertes héritées de l’ancienne règle résolues', async () => {
+    const buildingH = await newBuilding('Bâtiment H');
+    const h1 = await newLot('Bande H1', buildingH, daysAgo(60));
+    await close(h1);
+    const db = app.get(DataSource);
+    // State left by the old rule: red alert on an emptied building, live
+    // alert on a closed lot, closing date not pinned.
+    await db.query(
+      `INSERT INTO alerts (farm_id, building_id, kind, level, status, message)
+       VALUES ($1, $2, 'VIDE_SANITAIRE', 'ROUGE', 'ACTIVE', 'ancienne règle')`,
+      [farmId, buildingH],
+    );
+    await db.query(
+      `INSERT INTO alerts (farm_id, batch_id, kind, level, status, message)
+       VALUES ($1, $2, 'EAU', 'JAUNE', 'ACTIVE', 'ancienne règle')`,
+      [farmId, h1],
+    );
+    await db.query(
+      `UPDATE production_batches SET closed_at = NULL WHERE id = $1`,
+      [h1],
+    );
+    const seed = app.get(DatabaseSeedService) as unknown as {
+      repairClosedBatchAlerts(): Promise<void>;
+    };
+    await seed.repairClosedBatchAlerts();
+    await seed.repairClosedBatchAlerts(); // idempotent
+    const left = await activeAlerts(
+      `(building_id = $2 OR batch_id = $3) AND kind <> 'TRACABILITE'`,
+      [buildingH, h1],
+    );
+    expect(left).toEqual([]);
+    const [row] = await db.query(
+      `SELECT closed_at FROM production_batches WHERE id = $1`,
+      [h1],
+    );
+    expect(row.closed_at).not.toBeNull();
   });
 
   afterAll(async () => {

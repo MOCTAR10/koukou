@@ -77,6 +77,13 @@ export class ProductionBatch {
   @Column({ type: 'enum', enum: BatchStatus, default: BatchStatus.ACTIF })
   status: BatchStatus;
 
+  /**
+   * When the lot was closed. The vide sanitaire is measured from it, so it
+   * must not move with later edits (updatedAt does).
+   */
+  @Column({ name: 'closed_at', type: 'timestamptz', nullable: true })
+  closedAt: Date | null;
+
   @Column({ name: 'building_area_m2', type: 'float', nullable: true })
   buildingAreaM2: number | null;
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
+import { FindOptionsWhere, In, IsNull, Not, Repository } from 'typeorm';
 import {
   AlertKind,
   AlertLevel,
@@ -12,6 +12,16 @@ import {
   koukouBus,
 } from '../../common/utils/event-bus.js';
 import { Alert } from './entities/alert.entity.js';
+
+/**
+ * Alerts that stay on a closed lot: HACCP traceability (kept in the farmer's
+ * record) and the profitability verdicts computed at closing.
+ */
+export const CLOSED_BATCH_KEPT_KINDS: AlertKind[] = [
+  AlertKind.TRACABILITE,
+  AlertKind.RENTABILITE,
+  AlertKind.VENTE,
+];
 
 export interface AlertCandidate {
   kind: AlertKind;
@@ -155,6 +165,23 @@ export class AlertsService {
       status: AlertStatus.RESOLUE,
       resolvedAt: new Date(),
     });
+  }
+
+  /**
+   * A closed lot has no live risk left: resolve its batch-scoped alerts,
+   * except the ones that are a record of the finished lot.
+   */
+  async resolveClosedBatch(farmId: string, batchId: string): Promise<void> {
+    await this.alertRepo.update(
+      {
+        farmId,
+        batchId,
+        buildingId: IsNull(),
+        kind: Not(In(CLOSED_BATCH_KEPT_KINDS)),
+        status: In([AlertStatus.ACTIVE, AlertStatus.ACQUITTEE]),
+      },
+      { status: AlertStatus.RESOLUE, resolvedAt: new Date() },
+    );
   }
 
   /** Marquage manuel : le fermier reconnaît avoir vu l'alerte (ACQUITTEE). */

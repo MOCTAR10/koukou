@@ -9,6 +9,7 @@ import { Sheet } from './ui/Sheet';
 import { AppText } from './ui/AppText';
 import { Button } from './ui/Button';
 import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
+import { videSanitaireHint } from '@/utils/videSanitaire';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES } from '@/constants/breedImages';
 import { useAuth } from '@/auth/AuthContext';
@@ -175,12 +176,6 @@ function buildingSpace(b: Building, type: BatchType): BuildingSpace {
       ? Math.min(capacityAvailable, densityAvailable)
       : (capacityAvailable ?? densityAvailable);
   return { occupied, capacityAvailable, densityAvailable, available };
-}
-
-function daysSince(isoDate: string | null): number | null {
-  if (!isoDate) return null;
-  const ms = Date.now() - new Date(isoDate).getTime();
-  return Math.floor(ms / 86_400_000);
 }
 
 interface CreateLotSheetProps {
@@ -1234,29 +1229,20 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
             })()}
 
             {(() => {
-              const vsDays = daysSince(selectedBuilding.lastVideSanitaireAt ?? null);
-              if (vsDays == null) {
-                return (
-                  <View style={[styles.insightTip, { marginTop: 2 }]}>
-                    <AppText size='small' color='muted'>
-                      Dernier vide sanitaire non renseigné — prévoir 14 à 21 jours avant d&apos;installer le lot.
-                    </AppText>
-                  </View>
-                );
-              }
-              if (vsDays <= 21) {
-                return (
-                  <View style={[styles.insightTip, { marginTop: 2 }]}>
-                    <AppText size='small' color='muted'>
-                      Dernier vide sanitaire il y a {vsDays} jour{vsDays > 1 ? 's' : ''} — parfait (fenêtre idéale 14–21 j).
-                    </AppText>
-                  </View>
-                );
-              }
+              const hint = videSanitaireHint({
+                activeLots: selectedBuilding.stats?.activeLots ?? 0,
+                lastLotEndedAt: selectedBuilding.stats?.lastLotEndedAt,
+                placementDate: localYmd(integrationDate),
+              });
+              const textColor =
+                hint.tone === 'danger' ? 'danger'
+                  : hint.tone === 'warn' ? semantic.warnText
+                    : hint.tone === 'ok' ? semantic.successText
+                      : 'muted';
               return (
                 <View style={[styles.insightTip, { marginTop: 2 }]}>
-                  <AppText size='small' color={semantic.warnText}>
-                    Vide sanitaire datant de {vsDays} jours — prévoir 14 à 21 jours de vide avant d&apos;installer le lot.
+                  <AppText size='small' color={textColor}>
+                    {hint.text}
                   </AppText>
                 </View>
               );
