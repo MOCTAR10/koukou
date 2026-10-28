@@ -26,11 +26,17 @@ export interface BatchMetrics {
   liveCount: number;
   totalFeedKg: number;
   totalWaterL: number;
+  /** Average daily water per bird over the last 7 days (L/oiseau/j). */
   waterLPerBird: number | null;
+  /** Live weight produced up to the last weighing (all birds fed, incl. sold/dead). */
   totalWeightGainKg: number | null;
+  /** FCR / GMQ / IPE are measured at the last weighing (see flock-performance). */
   fcr: number | null;
   gmqGramsPerDay: number | null;
   ipe: number | null;
+  lastWeighingDate: string | null;
+  lastWeighingAgeDays: number | null;
+  lastWeighingAvgWeightKg: number | null;
   eggsCollectedTotal: number;
   /** Répartition des œufs par classe (vie de la bande). */
   eggBreakdown: EggBreakdown;

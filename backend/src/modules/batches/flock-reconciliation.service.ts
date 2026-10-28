@@ -31,13 +31,42 @@ export class FlockReconciliationService {
     private readonly healthEventRepo: Repository<HealthEvent>,
   ) {}
 
-  async netSoldBirds(
-    batchId: string,
-    em?: EntityManager,
-    asOf?: string,
-  ): Promise<number> {
+  /**
+   * Birds that left the lot per date (sales, slaughter, sanitary culls), with
+   * the same rules as the net totals below. Daily-entry deaths are not
+   * included (they live on the entries). Feeds per-day population figures.
+   */
+  async removalsByDate(batchId: string): Promise<Map<string, number>> {
+    const [sold, slaughtered, sanitary] = await Promise.all([
+      this.soldQuery(batchId)
+        .select("TO_CHAR(sale.sale_date, 'YYYY-MM-DD')", 'day')
+        .addSelect('COALESCE(SUM(COALESCE(item.piece_count, 0)), 0)', 'total')
+        .groupBy('sale.sale_date')
+        .getRawMany<{ day: string; total: string }>(),
+      this.slaughterQuery(batchId)
+        .select("TO_CHAR(order.planned_date, 'YYYY-MM-DD')", 'day')
+        .addSelect('COALESCE(SUM(order.bird_count), 0)', 'total')
+        .groupBy('order.planned_date')
+        .getRawMany<{ day: string; total: string }>(),
+      this.sanitaryQuery(batchId)
+        .select("TO_CHAR(event.occurred_at, 'YYYY-MM-DD')", 'day')
+        .addSelect('COALESCE(SUM(event.quantity), 0)', 'total')
+        .groupBy('event.occurred_at')
+        .getRawMany<{ day: string; total: string }>(),
+    ]);
+    const out = new Map<string, number>();
+    for (const r of [...sold, ...slaughtered, ...sanitary]) {
+      // TO_CHAR: a raw `date` column comes back as a local-midnight Date,
+      // which toISOString() would shift to the previous day east of UTC.
+      const n = Number(r.total) || 0;
+      if (n > 0) out.set(r.day, (out.get(r.day) ?? 0) + n);
+    }
+    return out;
+  }
+
+  private soldQuery(batchId: string, em?: EntityManager) {
     const repo = em ? em.getRepository(SaleItem) : this.saleItemRepo;
-    let qb = repo
+    return repo
       .createQueryBuilder('item')
       .innerJoin(
         Sale,
@@ -53,11 +82,7 @@ export class FlockReconciliationService {
           SaleItemProductType.ABATTU_PIECE,
           SaleItemProductType.ABATTU_KG,
         ],
-      });
-    if (asOf) {
-      qb = qb.andWhere('sale.sale_date <= :asOf', { asOf });
-    }
-    const row = await qb
+      })
       .andWhere('item.source_slaughter_order_id IS NULL')
       // Une vente enveloppe d'un bon de commande NON livré/annulé ne sort pas
       // du cheptel : les oiseaux sont réservés (assertBirdsAvailable), jamais
@@ -66,7 +91,39 @@ export class FlockReconciliationService {
       .andWhere(
         'NOT EXISTS (SELECT 1 FROM orders o WHERE o.sale_id = sale.id AND o.status IN (:...openStatuses))',
         { openStatuses: [OrderStatus.PENDING, OrderStatus.CONFIRMED] },
-      )
+      );
+  }
+
+  private slaughterQuery(batchId: string, em?: EntityManager) {
+    const repo = em ? em.getRepository(SlaughterOrder) : this.slaughterRepo;
+    return repo
+      .createQueryBuilder('order')
+      .where('order.batch_id = :batchId', { batchId })
+      .andWhere('order.status = :processed', {
+        processed: SlaughterStatus.PROCESSED,
+      });
+  }
+
+  private sanitaryQuery(batchId: string, em?: EntityManager) {
+    const repo = em ? em.getRepository(HealthEvent) : this.healthEventRepo;
+    return repo
+      .createQueryBuilder('event')
+      .where('event.batch_id = :batchId', { batchId })
+      .andWhere('event.kind IN (:...kinds)', {
+        kinds: [HealthEventKind.REFORME, HealthEventKind.MORTALITE],
+      });
+  }
+
+  async netSoldBirds(
+    batchId: string,
+    em?: EntityManager,
+    asOf?: string,
+  ): Promise<number> {
+    let qb = this.soldQuery(batchId, em);
+    if (asOf) {
+      qb = qb.andWhere('sale.sale_date <= :asOf', { asOf });
+    }
+    const row = await qb
       .select('COALESCE(SUM(COALESCE(item.piece_count, 0)), 0)', 'total')
       .getRawOne();
     return Math.max(0, Number(row?.total ?? 0));
@@ -77,13 +134,7 @@ export class FlockReconciliationService {
     em?: EntityManager,
     asOf?: string,
   ): Promise<number> {
-    const repo = em ? em.getRepository(SlaughterOrder) : this.slaughterRepo;
-    let qb = repo
-      .createQueryBuilder('order')
-      .where('order.batch_id = :batchId', { batchId })
-      .andWhere('order.status = :processed', {
-        processed: SlaughterStatus.PROCESSED,
-      });
+    let qb = this.slaughterQuery(batchId, em);
     if (asOf) {
       qb = qb.andWhere('order.planned_date <= :asOf', { asOf });
     }
@@ -106,13 +157,7 @@ export class FlockReconciliationService {
     em?: EntityManager,
     asOf?: string,
   ): Promise<number> {
-    const repo = em ? em.getRepository(HealthEvent) : this.healthEventRepo;
-    let qb = repo
-      .createQueryBuilder('event')
-      .where('event.batch_id = :batchId', { batchId })
-      .andWhere('event.kind IN (:...kinds)', {
-        kinds: [HealthEventKind.REFORME, HealthEventKind.MORTALITE],
-      });
+    let qb = this.sanitaryQuery(batchId, em);
     if (asOf) {
       qb = qb.andWhere('event.occurred_at <= :asOf', { asOf });
     }

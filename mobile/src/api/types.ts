@@ -218,9 +218,12 @@ export interface BatchMetrics {
   liveCount: number;
   totalFeedKg: number;
   totalWeightGainKg: number | null;
+  /** IC / GMQ / IPE are measured at the last weighing (null without one). */
   fcr: number | null;
   gmqGramsPerDay: number | null;
   ipe: number | null;
+  lastWeighingDate: string | null;
+  lastWeighingAgeDays: number | null;
   eggsCollectedTotal: number;
   eggBreakdown: EggBreakdown;
   /** Œufs vendables restants propres à ce lot (hors mise en commun ferme).
@@ -412,6 +415,8 @@ export interface BreedStatus {
   breedCode: string | null;
   breedType: BatchType;
   week: number;
+  /** Age week of the last weighing: weight and IC targets are taken there. */
+  weighingWeek?: number | null;
   targetAvgWeightKg: number | null;
   actualAvgWeightKg: number | null;
   avgWeightDeviationPct: number | null;

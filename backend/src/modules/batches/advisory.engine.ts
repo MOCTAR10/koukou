@@ -11,6 +11,8 @@ import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
+import { FlockTimeline, waterPerBirdOn } from './flock-performance.js';
+import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { BatchMetrics } from './models/batch-metrics.model.js';
 
 function addDaysIso(date: string, days: number): string {
@@ -32,6 +34,7 @@ export class AdvisoryEngine {
     private readonly buildingRepo: Repository<Building>,
     private readonly alertsService: AlertsService,
     private readonly constants: ReferenceConstantsService,
+    private readonly flockReconciliation: FlockReconciliationService,
   ) {}
 
   async runForBatch(batch: ProductionBatch, metrics: BatchMetrics) {
@@ -385,53 +388,43 @@ export class AdvisoryEngine {
   }
 
   /**
-   * Population vivante estimée le jour d'une saisie : effectif initial moins
-   * les morts cumulés jusqu'à cette date (permet de normaliser l'eau par tête).
+   * Baisse de consommation d'eau par oiseau du dernier relevé, comparée à la
+   * moyenne des WATER_WINDOW_DAYS relevés précédents. La population de chaque
+   * jour retire morts ET sorties (ventes, abattages, réformes) : vendre la
+   * moitié du lot ne doit pas ressembler à une chute d'eau de 50 %.
+   * Renvoie null si les données sont insuffisantes.
    */
-  private populationAtDay(
+  private async computeWaterDrop(
     batch: ProductionBatch,
-    entries: DailyEntry[],
-    refDate: string,
-  ): number {
-    let deathsBefore = 0;
-    for (const e of entries) {
-      if (e.entryDate <= refDate) deathsBefore += e.deaths;
-    }
-    return Math.max(0, batch.quantityAtStart - deathsBefore);
-  }
-
-  /**
-   * Calcule la baisse de consommation d'eau normalisée par oiseau, par rapport
-   * à une moyenne mobile glissante (WATER_WINDOW_DAYS) des jours précédents.
-   * Renvoie null si les données sont insuffisantes (pas d'enregistrement du
-   * jour, eau à 0, population nulle, pas de base de comparaison).
-   */
-  private computeWaterDrop(
-    batch: ProductionBatch,
-    entries: DailyEntry[],
     baselineWindowDays: number,
-  ): {
+  ): Promise<{
     todayPerBird: number;
     baselinePerBird: number;
     dropPct: number;
     baselineDays: number;
-  } | null {
+  } | null> {
+    const entries = await this.entriesRepo.find({
+      where: { batchId: batch.id },
+      order: { entryDate: 'DESC' },
+    });
     if (entries.length === 0) return null;
-    const today = entries[0];
-    if (today.waterL <= 0) return null;
-    const todayPop = this.populationAtDay(batch, entries, today.entryDate);
-    if (todayPop <= 0) return null;
-    const todayPerBird = today.waterL / todayPop;
+    const timeline: FlockTimeline = {
+      integrationDate: batch.integrationDate,
+      quantityAtStart: batch.quantityAtStart,
+      day1WeightKg: day1WeightKg(batch.species),
+      entries,
+      removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+    };
+    const todayPerBird = waterPerBirdOn(timeline, entries[0]);
+    if (todayPerBird == null) return null;
 
     const baselineDays = Math.max(1, Math.round(baselineWindowDays));
     let baseSum = 0;
     let baseCount = 0;
     for (let i = 1; i < entries.length && baseCount < baselineDays; i++) {
-      const e = entries[i];
-      if (e.waterL <= 0) continue;
-      const pop = this.populationAtDay(batch, entries, e.entryDate);
-      if (pop <= 0) continue;
-      baseSum += e.waterL / pop;
+      const v = waterPerBirdOn(timeline, entries[i]);
+      if (v == null) continue;
+      baseSum += v;
       baseCount += 1;
     }
     if (baseCount === 0) return null;
@@ -447,15 +440,11 @@ export class AdvisoryEngine {
     farmId: string,
     batchId: string,
   ) {
-    const entries = await this.entriesRepo.find({
-      where: { batchId: batch.id },
-      order: { entryDate: 'DESC' },
-    });
     const windowDays = await this.constants.get(
       ReferenceKey.WATER_WINDOW_DAYS,
       3,
     );
-    const drop = this.computeWaterDrop(batch, entries, windowDays);
+    const drop = await this.computeWaterDrop(batch, windowDays);
     const warnPct = await this.constants.get(
       ReferenceKey.WATER_DROP_WARN_PCT,
       10,
@@ -550,15 +539,11 @@ export class AdvisoryEngine {
     farmId: string,
     batchId: string,
   ) {
-    const entries = await this.entriesRepo.find({
-      where: { batchId: batch.id },
-      order: { entryDate: 'DESC' },
-    });
     const windowDays = await this.constants.get(
       ReferenceKey.WATER_WINDOW_DAYS,
       3,
     );
-    const drop = this.computeWaterDrop(batch, entries, windowDays);
+    const drop = await this.computeWaterDrop(batch, windowDays);
     const warnPct = await this.constants.get(
       ReferenceKey.WATER_DROP_WARN_PCT,
       10,

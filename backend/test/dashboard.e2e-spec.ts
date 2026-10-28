@@ -174,7 +174,8 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
     expect(week.feedKg).toBe(20);
     expect(week.deaths).toBe(2);
     expect(week.cumFeedKg).toBe(20);
-    expect(week.fcrCumulative).toBe(0.45);
+    // 20 kg / (98 present + 2 dead) × (0.5 − 0.045) kg.
+    expect(week.fcrCumulative).toBe(0.44);
   });
 
   it('dashboard : encaissé du jour après vente POS payée en espèces', async () => {

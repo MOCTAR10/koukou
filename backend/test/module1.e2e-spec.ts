@@ -132,14 +132,16 @@ describe('Module 1 — Gestion des Lots (e2e)', () => {
     expect(m.totalDeaths).toBe(50);
     expect(m.mortalityPercent).toBeCloseTo((50 / 2400) * 100, 2); // 2.08%
     expect(m.totalFeedKg).toBe(1000); // 10 sacs x 50 kg x 2 jours
-    // FCR = aliments kg / gain de poids (1.2 - 0.045) * 2350
-    const expectedFcr = 1000 / ((1.2 - 0.045) * 2350);
-    expect(m.fcr).toBeCloseTo(expectedFcr, 2);
-    // GMQ = (1.2 - 0.045) * 1000 / âge(jours)
-    const ageDays = Math.floor(
-      (Date.now() - new Date(daysAgo(30) + 'T00:00:00').getTime()) / 86400000,
-    );
-    expect(m.gmqGramsPerDay).toBeCloseTo(((1.2 - 0.045) * 1000) / ageDays, 2);
+    // FCR at the weighing (age 2) over all the birds the feed went into:
+    // 2350 present at 1.2 kg + 30 dead on the weighing day + 20 dead the day
+    // before at the interpolated weight (0.045 → 1.2 over 2 days).
+    const gain = 1.2 - 0.045;
+    const expectedFcr = 1000 / (2350 * gain + 30 * gain + 20 * (gain / 2));
+    expect(m.fcr).toBeCloseTo(expectedFcr, 4);
+    // GMQ = (1.2 - 0.045) * 1000 / age at the weighing, not today's age.
+    expect(m.lastWeighingDate).toBe(daysAgo(28));
+    expect(m.lastWeighingAgeDays).toBe(2);
+    expect(m.gmqGramsPerDay).toBeCloseTo((gain * 1000) / 2, 2);
 
     const alerts = await request(server)
       .get(`/farms/${farmId}/alerts`)

@@ -175,6 +175,8 @@ interface RawBatchMetrics {
   fcr?: number | null;
   gmqGramsPerDay?: number | null;
   ipe?: number | null;
+  lastWeighingDate?: string | null;
+  lastWeighingAgeDays?: number | null;
   eggsCollectedTotal?: number;
   eggBreakdown?: EggBreakdown;
   eggStockAvailableEggs?: number;
@@ -248,6 +250,8 @@ function mapMetrics(m: RawBatchMetrics): BatchMetrics {
     fcr: m.fcr ?? null,
     gmqGramsPerDay: m.gmqGramsPerDay ?? null,
     ipe: m.ipe ?? null,
+    lastWeighingDate: m.lastWeighingDate ?? null,
+    lastWeighingAgeDays: m.lastWeighingAgeDays ?? null,
     eggsCollectedTotal: m.eggsCollectedTotal ?? m.eggsCollected ?? 0,
     eggBreakdown: m.eggBreakdown ?? {
       collected: m.eggsCollectedTotal ?? m.eggsCollected ?? 0,
