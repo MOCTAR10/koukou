@@ -514,9 +514,16 @@ export class OrdersService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!order) throw new NotFoundException('Commande introuvable.');
-      if (order.status !== OrderStatus.CONFIRMED) {
+      // A deposit is optional: an order paid on delivery (or on credit) goes
+      // straight from PENDING to LIVRE. Its birds were already reserved.
+      if (
+        order.status !== OrderStatus.PENDING &&
+        order.status !== OrderStatus.CONFIRMED
+      ) {
         throw new BadRequestException(
-          'Seule une commande confirmée peut être livrée (valider l’acompte ou la commande d’abord).',
+          order.status === OrderStatus.LIVRE
+            ? 'Cette commande est déjà livrée.'
+            : 'Commande annulée : livraison impossible.',
         );
       }
 

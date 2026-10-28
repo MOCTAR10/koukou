@@ -73,7 +73,7 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - `TRANSFERRED → CANCELLED`; cancel re-integrates `quantity − quantitySold` to the source. Each BOUTIQUE sale decrements `quantitySold` under a pessimistic lock; cancelling it restores via `restoreStockTransfer`.
 
 ### Orders
-- An `Order` wraps a `Sale`; creation does **not** decrement stock, `fulfil` does. State: `PENDING→CONFIRMED→LIVRE|CANCELLED`. Cancel passes `skipStockRestore:true`.
+- An `Order` wraps a `Sale`; creation does **not** decrement stock, `fulfil` does. State: `PENDING→CONFIRMED→LIVRE|CANCELLED`; a deposit (→ CONFIRMED) is **optional** — `fulfil` accepts PENDING or CONFIRMED (paid on delivery via `dto.payment`, or on credit: the sale stays OUTSTANDING). Open orders of both states reserve their birds. Cancel passes `skipStockRestore:true`.
 - **Never cancel an order's wrapped sale directly** — only via `orders/:id/cancel`, which is idempotent. Egg fulfil must exclude the order's own sale (`excludeSaleId`).
 - **Lock ordering matters**: `sales.create` pre-locks *all* lots (sorted, deterministic) before POS items. Otherwise ABATTU→POULET inverts the graph relative to `slaughter.process` (lot→order) and deadlocks.
 

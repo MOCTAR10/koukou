@@ -138,7 +138,7 @@ function OrderHero({ orders }: { orders: OrderFull[] }) {
           </AppText>
           <AnimatedNumber value={pending} duration={durations.slow} style={appTextStyles('h1', 'bold', semantic.surface)} />
           <AppText size="caption" style={{ color: palette.brand[200] }}>
-            acompte requis
+            sans acompte
           </AppText>
         </View>
         <View style={styles.heroDivider} />
