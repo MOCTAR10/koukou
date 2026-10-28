@@ -92,7 +92,8 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - Integer FCFA; entries **always balance**; posted **in the same transaction** as the business mutation. Idempotent via unique `(farmId, source, sourceId)` (tolerate PG `23505`). No TVA.
 - Order revenue is recognized **at delivery**, not creation (the order-wrapper sale is written with a direct `saleRepo.save`). Cancelling before delivery posts only `cancel-deposits:`.
 - Feed stock (Classe 3) → `311` (asset) ↔ `603`, valued per lot by available vs received kg.
-- Accounts auto-seed via `ensureAccounts`; `Account.code` is unique per farm (class-level composite index). The bilan balances by construction; codes `12`/`129`/`13` (RAN) are excluded from the capital base to avoid double-counting.
+- Accounts auto-seed via `ensureAccounts`; `Account.code` is unique per farm (class-level composite index).
+- **Bilan = snapshot at `to`** (default today; `from` ignored): cumulative balances, classes 2–3 always actif, classes 1 (debts)/4/5 classified by balance sign, class 8 excluded. Capitaux = apports + **computed report à nouveau** (classes 6/7 before the exercice start + net `12`/`129`/`13`) + résultat of the exercice containing `to`. Balances by construction (`ecartFcfa` = 0). Manual régularisations dated in a CLOSED exercice → 400; automatic postings are still accepted (never blocking).
 - Mobile write paths — `comptabilite.tsx`, `depenses.tsx`, `components/pos/CaisseTab.tsx` — are gated by `compta:rapports`/`compta:ecritures`/`compta:depense`. Non-manual cash movements (`SALE_PAYMENT`/`REFUND`/`EXPENSE`) are immutable.
 
 ## Web console (`web/`)

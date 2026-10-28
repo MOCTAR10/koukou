@@ -135,9 +135,16 @@ export class AccountingController {
   @Get('bilan')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
-  @ApiOperation({ summary: 'Bilan — actif / passif / résultat.' })
+  @ApiOperation({
+    summary:
+      'Bilan — situation cumulée arrêtée au `to` (défaut : aujourd’hui) : actif / passif / capitaux (report à nouveau + résultat de l’exercice).',
+  })
   @ApiParam({ name: 'farmId' })
-  @ApiQuery({ name: 'from', required: false, example: '2026-08-01' })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'Ignoré : un bilan est une situation, pas une période.',
+  })
   @ApiQuery({ name: 'to', required: false, example: '2026-08-31' })
   bilan(
     @CurrentUser() user: AuthUser,
@@ -240,7 +247,10 @@ export class AccountingController {
               : kind === 'compte-resultat'
                 ? 'Compte de résultat'
                 : 'Bilan',
-      period: this.periodLabel(from, to),
+      period:
+        kind === 'bilan'
+          ? `Situation arrêtée au ${to ?? new Date().toISOString().slice(0, 10)}`
+          : this.periodLabel(from, to),
       generatedAtLabel: new Date().toLocaleString('fr-FR'),
       sections: reportData.sections,
       totals: reportData.totals,
@@ -394,9 +404,11 @@ export class AccountingController {
                 String(-a.soldeFcfa),
               ]),
               [
-                'Résultat net',
                 '',
-                `${bilan.resultatNegatif ? '-' : ''}${Math.abs(bilan.resultatFcfa)}`,
+                bilan.exercice
+                  ? `Résultat de l’exercice (${bilan.exercice.label})`
+                  : 'Résultat de l’exercice',
+                String(bilan.resultatFcfa),
               ],
             ],
             totals: [
@@ -533,9 +545,33 @@ export class AccountingController {
       );
     }
     if (kind === 'bilan') {
+      // Same snapshot as the screen/PDF: cumulative balances at the closing
+      // date, with the computed report à nouveau and the exercice result.
+      const bilan = await this.accountingService.bilan(user, farmId, from, to);
+      const line = (rubrique: string, a: AccountSoldes, sign: 1 | -1) => ({
+        rubrique,
+        compte: a.code,
+        libelle: a.label,
+        montant: sign * a.soldeFcfa,
+      });
       return this.csvService.toCsvObject(
-        headers,
-        rows.filter((r) => !r.compte.startsWith('6') && !r.compte.startsWith('7')),
+        [
+          ['rubrique', 'Rubrique'],
+          ['compte', 'Compte'],
+          ['libelle', 'Libellé'],
+          ['montant', `Montant au ${bilan.asOf} (FCFA)`],
+        ],
+        [
+          ...bilan.actif.map((a) => line('Actif', a, 1)),
+          ...bilan.passif.map((a) => line('Passif externe', a, -1)),
+          ...bilan.capitaux.map((a) => line('Capitaux propres', a, -1)),
+          {
+            rubrique: 'Capitaux propres',
+            compte: '',
+            libelle: 'Résultat de l’exercice',
+            montant: bilan.resultatFcfa,
+          },
+        ],
       );
     }
     return this.csvService.toCsvObject(headers, rows);

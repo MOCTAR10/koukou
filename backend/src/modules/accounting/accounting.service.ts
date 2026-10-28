@@ -388,6 +388,22 @@ export class AccountingService {
     }
   }
 
+  /** Exercice (any status) whose period contains `date`, without creating one. */
+  private exerciceAt(
+    em: EntityManager,
+    farmId: string,
+    date: string,
+  ): Promise<Exercice | null> {
+    return em
+      .getRepository(Exercice)
+      .createQueryBuilder('ex')
+      .where('ex.farm_id = :farmId', { farmId })
+      .andWhere('ex.start_date <= :date', { date })
+      .andWhere('ex.end_date >= :date', { date })
+      .orderBy('ex.start_date', 'DESC')
+      .getOne();
+  }
+
   /** Retourne l'exercice courant contenant `date`, en le créant si besoin. */
   async ensureExercice(
     em: EntityManager,
@@ -716,6 +732,16 @@ export class AccountingService {
       }
     }
     const entry = await this.dataSource.transaction(async (em) => {
+      // A closed exercice is frozen: its result was already carried forward.
+      // (Automatic postings from back-dated business operations are still
+      // accepted — never blocking — and the bilan recomputes the report à
+      // nouveau from the ledger, so it stays balanced.)
+      const exercice = await this.exerciceAt(em, farmId, dto.date);
+      if (exercice?.status === ExerciceStatus.CLOSED) {
+        throw new BadRequestException(
+          `L’exercice « ${exercice.label} » est clôturé : impossible d’y passer une régularisation datée du ${dto.date}.`,
+        );
+      }
       await this.ensureAccounts(em, farmId);
       return this.post(em, {
         farmId,
@@ -980,62 +1006,106 @@ export class AccountingService {
   }
 
   /**
-   * Bilan : actif / passif externe / capitaux propres (= résultat inclus).
-   * Les comptes de report à nouveau (12/129/13) sont EXCLUS de la base des
-   * apports (ils capitalisent les résultats passés et ne doivent pas être
-   * recomptés) : `totalCapitaux = apports + résultat` reste exact après une
-   * clôture d'exercice.
+   * Bilan : situation arrêtée à une date (`to`, défaut aujourd'hui).
+   *
+   * - A balance sheet is a snapshot: every balance is cumulative from the
+   *   first entry up to `asOf`; `from` is ignored (kept for API symmetry).
+   * - Classes 2–3 always sit on the asset side (depreciation 28x/39x reduces
+   *   it); classes 1 (debts), 4 and 5 are classified by the sign of their
+   *   balance (overdrawn bank → passif, supplier advance → actif).
+   * - Capitaux = apports (classe 1 CAPITAUX outside 12/129/13) + report à
+   *   nouveau + résultat de l'exercice. The report à nouveau is recomputed
+   *   from the ledger (classes 6/7 before the exercice start + net 12/129/13),
+   *   so it stays right whether or not prior exercices were closed.
+   * - Class 8 (hors bilan) is excluded. Since every entry balances,
+   *   `ecartFcfa` is 0 by construction.
    */
   async bilan(
     user: AuthUser,
     farmId: string,
-    from?: string,
+    _from?: string,
     to?: string,
   ) {
     await this.farmsService.assertAccessible(user, farmId);
-    const soldes = await this.computeSoldes(this.dataSource.manager, farmId, from, to);
-    const actif = soldes.filter(
-      (s) =>
-        (s.nature === 'ACTIF' || s.nature === 'TRESORERIE') &&
-        s.soldeFcfa > 0,
-    );
-    const passif = soldes.filter(
-      (s) => s.nature === 'PASSIF' && s.soldeFcfa < 0,
-    );
-    const capitauxAll = soldes.filter((s) => s.nature === 'CAPITAUX');
+    const em = this.dataSource.manager;
+    const asOf = to ?? new Date().toISOString().slice(0, 10);
+    const exercice = await this.exerciceAt(em, farmId, asOf);
+    const exerciceStart = exercice?.startDate ?? `${asOf.slice(0, 4)}-01-01`;
+
+    const soldes = await this.computeSoldes(em, farmId, undefined, asOf);
     const isReportANouveau = (c: string) =>
       c.startsWith('12') || c.startsWith('13');
-    const base = capitauxAll.filter((s) => !isReportANouveau(s.code));
-    const apports = base.filter((s) => s.soldeFcfa < 0);
-    const distributions = base.filter((s) => s.soldeFcfa > 0);
-    const capitauxApportsFcfa =
-      apports.reduce((s, a) => s + -a.soldeFcfa, 0) -
-      distributions.reduce((s, a) => s + a.soldeFcfa, 0);
+
+    const actif: AccountSoldes[] = [];
+    const passif: AccountSoldes[] = [];
+    const capitaux: AccountSoldes[] = [];
+    let capitauxApportsFcfa = 0;
+    let ranComptesFcfa = 0;
+    let resultatCumuleFcfa = 0;
+    for (const s of soldes) {
+      if (s.classe === 6 || s.classe === 7) {
+        resultatCumuleFcfa -= s.soldeFcfa;
+        continue;
+      }
+      if (s.classe < 1 || s.classe > 5 || s.soldeFcfa === 0) continue;
+      if (s.nature === 'CAPITAUX') {
+        if (isReportANouveau(s.code)) {
+          ranComptesFcfa -= s.soldeFcfa;
+        } else {
+          capitauxApportsFcfa -= s.soldeFcfa;
+          capitaux.push(s);
+        }
+      } else if (s.classe === 2 || s.classe === 3 || s.soldeFcfa > 0) {
+        actif.push(s);
+      } else {
+        passif.push(s);
+      }
+    }
+
+    const resultat = await this.computeCompteResultat(
+      em,
+      farmId,
+      exerciceStart,
+      asOf,
+    );
+    const resultatFcfa = resultat.resultatFcfa;
+    const reportANouveauFcfa =
+      ranComptesFcfa + (resultatCumuleFcfa - resultatFcfa);
+    if (reportANouveauFcfa !== 0) {
+      capitaux.push({
+        code: '13',
+        label: 'Report à nouveau (résultats antérieurs)',
+        classe: 1,
+        nature: 'CAPITAUX',
+        debitTotalFcfa: 0,
+        creditTotalFcfa: 0,
+        soldeFcfa: -reportANouveauFcfa,
+      });
+    }
 
     const totalActif = actif.reduce((s, a) => s + a.soldeFcfa, 0);
     const totalPassifExterne = passif.reduce((s, a) => s + -a.soldeFcfa, 0);
-
-    const resultat = await this.computeCompteResultat(
-      this.dataSource.manager,
-      farmId,
-      from,
-      to,
-    );
-    const resultatFcfa = resultat.resultatFcfa;
-    const totalCapitaux = capitauxApportsFcfa + resultatFcfa;
-
-    // Affichage : tous les comptes de capitaux (dont report à nouveau), triés.
-    const capitaux = capitauxAll
-      .filter((s) => s.soldeFcfa !== 0)
-      .sort((a, b) => (a.code < b.code ? -1 : 1));
+    const totalCapitaux =
+      capitauxApportsFcfa + reportANouveauFcfa + resultatFcfa;
 
     return {
+      asOf,
+      exercice: exercice
+        ? {
+            id: exercice.id,
+            label: exercice.label,
+            startDate: exercice.startDate,
+            endDate: exercice.endDate,
+            status: exercice.status,
+          }
+        : null,
       actif,
       passif,
       capitaux,
       resultatFcfa,
       resultatNegatif: resultatFcfa < 0,
       capitauxApportsFcfa,
+      reportANouveauFcfa,
       totalActif,
       totalPassifExterne,
       totalCapitaux,

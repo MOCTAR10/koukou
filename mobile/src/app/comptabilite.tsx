@@ -354,6 +354,13 @@ function LedgerRows({ data, title }: { data: CompteResultatData | BilanData; tit
         value={fmtFcfa(invert ? Math.abs(a.soldeFcfa) : a.soldeFcfa)}
       />
     ));
+  // Credit-natured balance sheet lines: show −solde so a debit balance
+  // (prélèvements, report à nouveau déficitaire) stays negative.
+  const renderCreditRows = (rows: AccountSoldes[]) =>
+    rows.map((a) => {
+      const v = -a.soldeFcfa;
+      return <Row key={a.code} label={`${a.code} — ${a.label}`} value={`${v < 0 ? '-' : ''}${fmtFcfa(Math.abs(v))}`} />;
+    });
 
   return (
     <>
@@ -377,12 +384,20 @@ function LedgerRows({ data, title }: { data: CompteResultatData | BilanData; tit
           </Card>
           <SectionHeader title="Passif externe" />
           <Card tone="default" style={styles.card}>
-            {renderRows(produits, true)}
+            {renderCreditRows(produits)}
           </Card>
           <SectionHeader title="Capitaux propres" />
           <Card tone="default" style={styles.card}>
-            {renderRows(capitaux, true)}
-            <Row label="Résultat net" value={`${resultatNegatif ? '-' : ''}${fmtFcfa(Math.abs(resultatFcfa))}`} wide />
+            {renderCreditRows(capitaux)}
+            <Row
+              label={
+                (data as BilanData).exercice
+                  ? `Résultat de l’exercice (${(data as BilanData).exercice!.label})`
+                  : 'Résultat de l’exercice'
+              }
+              value={`${resultatNegatif ? '-' : ''}${fmtFcfa(Math.abs(resultatFcfa))}`}
+              wide
+            />
           </Card>
         </>
       )}
@@ -436,6 +451,9 @@ function BilanBlock({ data, loading }: { data: BilanData | undefined; loading: b
   const balanced = data.ecartFcfa === 0;
   return (
     <>
+      <AppText size="caption" color="faint">
+        Situation arrêtée au {data.asOf}
+      </AppText>
       <LedgerRows data={data} title="bilan" />
       <Card tone={balanced ? 'green' : 'alert'} style={styles.card}>
         <Row label="Total actif" value={fmtFcfa(data.totalActif)} wide />

@@ -1462,12 +1462,18 @@ export interface CompteResultatData {
 }
 
 export interface BilanData {
+  /** Closing date of the snapshot (YYYY-MM-DD). */
+  asOf: string;
+  /** Exercice containing `asOf`; `resultatFcfa` is that exercice's result. */
+  exercice: Pick<ExerciceInfo, 'id' | 'label' | 'startDate' | 'endDate' | 'status'> | null;
   actif: AccountSoldes[];
   passif: AccountSoldes[];
+  /** Includes a computed « 13 — Report à nouveau » line when non-zero. */
   capitaux: AccountSoldes[];
   resultatFcfa: number;
   resultatNegatif: boolean;
   capitauxApportsFcfa: number;
+  reportANouveauFcfa: number;
   totalActif: number;
   totalPassifExterne: number;
   totalCapitaux: number;
