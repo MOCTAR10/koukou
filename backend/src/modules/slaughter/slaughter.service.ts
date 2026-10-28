@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
   BordereauData,
   PasseportData,
@@ -25,6 +25,10 @@ import { Alert } from '../alerts/entities/alert.entity.js';
 import { MetricsService } from '../batches/metrics.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
+import {
+  batchReservation,
+  sentSlaughterBirds,
+} from '../orders/order-reservations.js';
 import {
   CancelSlaughterOrderDto,
   CreateSlaughterOrderDto,
@@ -290,6 +294,8 @@ export class SlaughterService {
           `Cheptel insuffisant pour l'abattage : il reste ${batch.quantityAlive} oiseau(x) vivant(s) sur le lot, ordre de ${order.birdCount}.`,
         );
       }
+      // Batch row is locked: a concurrent order creation waits for us.
+      await this.assertNotReserved(em, order, batch, 'l’abattage');
       batch.quantityAlive -= order.birdCount;
       if (batch.quantityAlive <= 0) {
         batch.status = BatchStatus.FINI;
@@ -464,7 +470,9 @@ export class SlaughterService {
   private async assertLotEligibleForSend(order: SlaughterOrder): Promise<void> {
     const batch = order.batch;
     if (batch.status === BatchStatus.CLOTURE) {
-      throw new BadRequestException('Lot clôturé : envoi à l’abattage impossible.');
+      throw new BadRequestException(
+        'Lot clôturé : envoi à l’abattage impossible.',
+      );
     }
     // Synchronisation du stock : on n'envoie que les oiseaux réellement
     // présents sur le lot (toutes les sorties doivent rester cohérentes).
@@ -473,6 +481,13 @@ export class SlaughterService {
         `Cheptel insuffisant pour l'envoi : il reste ${batch.quantityAlive} oiseau(x) vivant(s) sur le lot, ordre de ${order.birdCount}.`,
       );
     }
+    // Early check; process() re-checks under the batch lock.
+    await this.assertNotReserved(
+      this.dataSource.manager,
+      order,
+      batch,
+      'l’envoi',
+    );
     // Critères sanitaires (normes internationales) : pas de délai d'attente actif
     // et prophylaxie à jour avant de pouvoir envoyer un lot à l'abattage.
     const active = await this.alertRepo.find({
@@ -497,6 +512,43 @@ export class SlaughterService {
         'Des soins prophylactiques sont en retard au calendrier sanitaire du lot : régulariser le programme de soins avant d’envoyer le lot à l’abattage.',
       );
     }
+  }
+
+  /**
+   * Live birds promised to open customer orders are delivered alive at
+   * fulfilment: slaughtering them would make those orders undeliverable.
+   */
+  private async assertNotReserved(
+    em: EntityManager,
+    order: SlaughterOrder,
+    batch: ProductionBatch,
+    step: string,
+  ): Promise<void> {
+    const reservation = await batchReservation(em, order.farmId, batch.id);
+    // Other orders already at the abattoir leave the flock at processing too.
+    const atAbattoir = await sentSlaughterBirds(
+      em,
+      order.farmId,
+      batch.id,
+      order.id,
+    );
+    const free = batch.quantityAlive - reservation.birds - atAbattoir;
+    if (order.birdCount <= free) return;
+    if (reservation.birds === 0) {
+      throw new BadRequestException(
+        `Oiseaux déjà envoyés à l’abattoir par d’autres ordres : ${atAbattoir} sur ${batch.quantityAlive} vivant(s), il en reste ${Math.max(0, free)} pour ${step}, ordre de ${order.birdCount}.`,
+      );
+    }
+    const refs = reservation.orderRefs.slice(0, 3).join(', ');
+    const more =
+      reservation.orderRefs.length > 3
+        ? ` et ${reservation.orderRefs.length - 3} autre(s)`
+        : '';
+    const abattoirNote =
+      atAbattoir > 0 ? ` et ${atAbattoir} déjà envoyé(s) à l’abattoir` : '';
+    throw new BadRequestException(
+      `Oiseaux réservés par des commandes clients : ${reservation.birds} oiseau(x) sur ${batch.quantityAlive} vivant(s) sont promis (${refs}${more})${abattoirNote}, il en reste ${Math.max(0, free)} pour ${step}, ordre de ${order.birdCount}. Livrer ou annuler ces commandes, ou réduire l’ordre d’abattage.`,
+    );
   }
 
   private batchLabel(batch: ProductionBatch): string {

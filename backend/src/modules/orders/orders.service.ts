@@ -79,6 +79,11 @@ import {
   OrderItemSnapshot,
   OrderPassportSnapshot,
 } from './entities/order.entity.js';
+import {
+  batchReservation,
+  birdsOf,
+  sentSlaughterBirds,
+} from './order-reservations.js';
 
 const ORDER_PREFIX = 'CMD';
 const ORDERABLE_TYPES = [
@@ -156,27 +161,6 @@ function defaultUnit(productType: SaleItemProductType): SaleItemUnit {
     default:
       return SaleItemUnit.UNITE;
   }
-}
-
-/** Nb d'oiseaux d'un article volaille (pièce, au kilo ou abattu). */
-function birdsOf(item: {
-  productType: string;
-  quantity: number;
-  pieceCount?: number | null;
-}): number {
-  if (
-    item.productType === SaleItemProductType.POULET_PIECE ||
-    item.productType === SaleItemProductType.ABATTU_PIECE
-  ) {
-    return item.pieceCount ?? Math.ceil(item.quantity);
-  }
-  if (
-    item.productType === SaleItemProductType.POULET_KG ||
-    item.productType === SaleItemProductType.ABATTU_KG
-  ) {
-    return item.pieceCount ?? 0;
-  }
-  return 0;
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -1177,7 +1161,10 @@ export class OrdersService {
     return batch;
   }
 
-  /** Réservation souple : vivants − précommandes ouvertes (non livrées/annulées). */
+  /**
+   * Réservation souple : vivants − précommandes ouvertes (non livrées/annulées)
+   * − oiseaux déjà envoyés à l'abattoir (ordre SENT, pas encore traité).
+   */
   private async assertBirdsAvailable(
     em: EntityManager,
     farmId: string,
@@ -1185,23 +1172,14 @@ export class OrdersService {
     batch: ProductionBatch,
     requested: number,
   ): Promise<void> {
-    const open = await em.getRepository(Order).find({
-      where: {
-        farmId,
-        batchId,
-        status: Not(In([OrderStatus.CANCELLED, OrderStatus.LIVRE])),
-      },
-    });
-    const reserved = open.reduce((sum, o) => {
-      for (const it of o.items ?? []) {
-        sum += birdsOf(it);
-      }
-      return sum;
-    }, 0);
-    const available = batch.quantityAlive - reserved;
+    const { birds: reserved } = await batchReservation(em, farmId, batchId);
+    const atAbattoir = await sentSlaughterBirds(em, farmId, batchId);
+    const available = batch.quantityAlive - reserved - atAbattoir;
     if (requested > available) {
+      const slaughterNote =
+        atAbattoir > 0 ? `, ${atAbattoir} envoyé(s) à l’abattoir` : '';
       throw new BadRequestException(
-        `Réserve insuffisante pour le lot : ${available} oiseau(x) disponible(s) (${reserved} déjà précommandé(s)), commande demandée ${requested}.`,
+        `Réserve insuffisante pour le lot : ${Math.max(0, available)} oiseau(x) disponible(s) (${reserved} déjà précommandé(s)${slaughterNote}), commande demandée ${requested}.`,
       );
     }
   }
