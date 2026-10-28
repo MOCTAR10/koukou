@@ -5,6 +5,8 @@ import { AppText } from '@/components/ui/AppText';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { color, spacing } from '@/constants/theme';
+import { pushAvailability } from '@/notifications/push';
+import { pushUnavailableReason } from '@/notifications/push-availability';
 import {
   ensureReminderPermission,
   remindersSupported,
@@ -18,18 +20,19 @@ import {
 
 const DAILY_HOURS = [17, 18, 19, 20];
 
-/** Réglages : rappels locaux de ce téléphone (pas de push serveur). */
+/** Réglages : rappels locaux et notifications du serveur sur ce téléphone. */
 export function RemindersCard() {
   const settings = useSyncExternalStore(subscribeReminderSettings, getReminderSettings);
   const [permission, setPermission] = useState<ReminderPermission | null>(null);
   const supported = remindersSupported();
+  const pushReason = pushUnavailableReason(pushAvailability());
 
   useEffect(() => {
     if (!supported) return;
     void ensureReminderPermission(false)
       .then(setPermission)
       .catch(() => setPermission('denied'));
-  }, [supported, settings.enabled]);
+  }, [supported, settings.enabled, settings.serverPush]);
 
   if (!supported) {
     return (
@@ -45,6 +48,13 @@ export function RemindersCard() {
     setReminderSettings({ ...settings, enabled });
     if (enabled) setPermission(await ensureReminderPermission(true).catch(() => 'denied' as const));
   };
+
+  const togglePush = async (serverPush: boolean) => {
+    setReminderSettings({ ...settings, serverPush });
+    if (serverPush) setPermission(await ensureReminderPermission(true).catch(() => 'denied' as const));
+  };
+
+  const anyOn = settings.enabled || (settings.serverPush && !pushReason);
 
   return (
     <Card tone="default" style={styles.card}>
@@ -83,7 +93,26 @@ export function RemindersCard() {
         </>
       ) : null}
 
-      {settings.enabled && permission === 'denied' ? (
+      <View style={styles.row}>
+        <View style={styles.main}>
+          <AppText size="bodyM" weight="semibold" color="text">
+            Alertes et tâches (serveur)
+          </AppText>
+          <AppText size="caption" color="muted">
+            {pushReason ??
+              'Alertes rouges de la ferme, tâches qui vous sont assignées ou en retard. Demande une connexion Internet.'}
+          </AppText>
+        </View>
+        {pushReason ? null : (
+          <Switch
+            value={settings.serverPush}
+            onValueChange={(v) => void togglePush(v)}
+            trackColor={{ true: color.brand[600], false: color.ink[200] }}
+          />
+        )}
+      </View>
+
+      {anyOn && permission === 'denied' ? (
         <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()}>
           <AppText size="caption" color="danger">
             Notifications bloquées pour Fermia : touchez ici pour les autoriser dans les réglages du téléphone.

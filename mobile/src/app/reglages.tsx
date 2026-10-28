@@ -366,9 +366,9 @@ export default function ReglagesScreen() {
         </Card>
       </Animated.View>
 
-      {/* ── Rappels ───────────────────────────────────────────────────────── */}
+      {/* ── Notifications ───────────────────────────────────────────────────────── */}
       <Animated.View entering={staggeredEnter(6)}>
-        <SectionHeader title="Rappels" subtitle="Notifications planifiées sur ce téléphone" icon={Bell} />
+        <SectionHeader title="Notifications" subtitle="Rappels planifiés et alertes du serveur" icon={Bell} />
         <RemindersCard />
       </Animated.View>
 

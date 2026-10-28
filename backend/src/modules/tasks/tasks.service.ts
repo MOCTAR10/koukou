@@ -16,6 +16,12 @@ import {
   AlertStatus,
 } from '../../common/enums/alert-level.enum.js';
 import { TaskStatus } from '../../common/enums/task-status.enum.js';
+import {
+  KOUKOU_EVENTS,
+  koukouBus,
+  TaskAssignedEvent,
+  TasksOverdueEvent,
+} from '../../common/utils/event-bus.js';
 import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
@@ -26,6 +32,8 @@ import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+/** Tasks overdue for longer than this are marked notified without a push. */
+const OVERDUE_PUSH_MAX_DAYS = 7;
 
 /** Due dates are compared in UTC, like every other date in the backend. */
 function todayUtc(): string {
@@ -65,6 +73,7 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
       createdById: user.id,
     });
     await this.taskRepo.save(task);
+    this.emitAssigned(task, user.id);
     await this.refreshOverdueAlerts(farmId);
     return task;
   }
@@ -137,8 +146,12 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
       }
     }
 
+    const previousAssignee = task.assigneeId;
     if (dto.title !== undefined) task.title = dto.title;
-    if (dto.dueDate !== undefined) task.dueDate = dto.dueDate;
+    if (dto.dueDate !== undefined && dto.dueDate !== task.dueDate) {
+      task.dueDate = dto.dueDate;
+      task.overdueNotifiedAt = null;
+    }
     if (dto.notes !== undefined) task.notes = dto.notes ?? null;
     if (dto.status !== undefined) task.status = dto.status;
 
@@ -160,6 +173,7 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
     }
 
     await this.taskRepo.save(task);
+    if (task.assigneeId !== previousAssignee) this.emitAssigned(task, user.id);
     await this.refreshOverdueAlerts(farmId);
     return task;
   }
@@ -306,6 +320,7 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
       await this.alertsService.clearKind(farmId, null, AlertKind.TACHE);
       return;
     }
+    await this.notifyNewlyOverdue(farmId, overdue);
     const listed = overdue
       .slice(0, 3)
       .map((t) => `« ${t.title} » (échéance ${t.dueDate})`)
@@ -325,5 +340,62 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
       { farmId, batchId: null },
       { keepAcknowledgedIfUnchanged: true },
     );
+  }
+
+  /** Push trigger: an assigned task, unless people assign it to themselves. */
+  private emitAssigned(task: FarmTask, assignedById: string): void {
+    if (!task.assigneeId || task.assigneeId === assignedById) return;
+    if (task.status === TaskStatus.FAIT || task.status === TaskStatus.ANNULEE)
+      return;
+    const event: TaskAssignedEvent = {
+      farmId: task.farmId,
+      taskId: task.id,
+      assigneeId: task.assigneeId,
+      assignedById,
+      title: task.title,
+      dueDate: task.dueDate,
+    };
+    koukouBus.emit(KOUKOU_EVENTS.TASK_ASSIGNED, event);
+  }
+
+  /**
+   * Push trigger: report each overdue task once. Tasks already long overdue
+   * (e.g. on the first run after deployment) are marked without a push.
+   */
+  private async notifyNewlyOverdue(
+    farmId: string,
+    overdue: FarmTask[],
+  ): Promise<void> {
+    const fresh = overdue.filter((t) => !t.overdueNotifiedAt);
+    if (fresh.length === 0) return;
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - OVERDUE_PUSH_MAX_DAYS);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+    // Claim atomically: the hourly sweep and a list() may run together.
+    const claimed = await this.taskRepo
+      .createQueryBuilder()
+      .update(FarmTask)
+      .set({ overdueNotifiedAt: () => 'now()' })
+      .where('id IN (:...ids)', { ids: fresh.map((t) => t.id) })
+      .andWhere('overdue_notified_at IS NULL')
+      .returning('id')
+      .execute();
+    const claimedIds = new Set(
+      (claimed.raw as Array<{ id: string }>).map((r) => r.id),
+    );
+    const recent = fresh.filter(
+      (t) => claimedIds.has(t.id) && t.dueDate >= cutoffDate,
+    );
+    if (recent.length === 0) return;
+    const event: TasksOverdueEvent = {
+      farmId,
+      tasks: recent.map((t) => ({
+        id: t.id,
+        title: t.title,
+        dueDate: t.dueDate,
+        assigneeId: t.assigneeId,
+      })),
+    };
+    koukouBus.emit(KOUKOU_EVENTS.TASKS_OVERDUE, event);
   }
 }

@@ -57,6 +57,10 @@ export class FarmTask {
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt: Date | null;
 
+  /** Set once the "task overdue" push went out; cleared when the due date moves. */
+  @Column({ name: 'overdue_notified_at', type: 'timestamptz', nullable: true })
+  overdueNotifiedAt: Date | null;
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by' })
   createdBy: User | null;

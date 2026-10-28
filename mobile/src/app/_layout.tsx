@@ -15,6 +15,7 @@ import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { QuickCaptureProvider } from '@/components/capture/QuickCaptureProvider';
 import { CreateCenterProvider } from '@/components/create/CreateCenter';
 import { LocalReminders } from '@/components/LocalReminders';
+import { PushRegistration } from '@/components/PushRegistration';
 import { OfflineAutoSync } from '@/components/OfflineAutoSync';
 import { FeedbackHost } from '@/components/ui/Feedback';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
@@ -93,6 +94,7 @@ export default function RootLayout() {
             <CreateCenterProvider>
               <OfflineAutoSync />
               <LocalReminders />
+              <PushRegistration />
               <StatusBar style="dark" />
               <RootNavigator />
               <FeedbackHost />

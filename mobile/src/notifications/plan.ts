@@ -12,12 +12,15 @@ export interface ReminderSettings {
   dailyEntryHour: number;
   /** Time of the morning reminder for tasks and care due that day. */
   morningHour: number;
+  /** Server push (red alerts, assigned / overdue tasks) on this phone. */
+  serverPush: boolean;
 }
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   enabled: true,
   dailyEntryHour: 18,
   morningHour: 7,
+  serverPush: true,
 };
 
 export interface DatedReminder {
