@@ -1,6 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 
+let generated: string | null = null;
+
 const KNOWN_PLACEHOLDERS = ['', 'koukou_ferme_change_me_in_production'];
 
 /**
@@ -13,10 +15,15 @@ export function resolveJwtSecret(config: ConfigService): string {
   if (configured && !KNOWN_PLACEHOLDERS.includes(configured.trim())) {
     return configured;
   }
-  const generated = randomBytes(48).toString('hex');
-  console.warn(
-    '[auth] JWT_SECRET absent ou placeholder détecté : un secret aléatoire temporaire est utilisé. ' +
-      "Définissez JWT_SECRET dans l'environnement pour des sessions stables (les jetons seront invalidés au redémarrage).",
-  );
+  // Generated once per process: the signer (JwtModule) and the verifier
+  // (JwtStrategy) both call this, and two different secrets would turn every
+  // authenticated request into a 401.
+  if (generated == null) {
+    generated = randomBytes(48).toString('hex');
+    console.warn(
+      '[auth] JWT_SECRET absent ou placeholder détecté : un secret aléatoire temporaire est utilisé. ' +
+        "Définissez JWT_SECRET dans l'environnement pour des sessions stables (les jetons seront invalidés au redémarrage).",
+    );
+  }
   return generated;
 }

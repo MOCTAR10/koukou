@@ -19,8 +19,8 @@ import type { PointOfSaleInput } from '@/api/mutations';
 import { todayStr } from '@/api/mutations';
 import { createPointOfSaleQueued, deletePointOfSaleQueued, updatePointOfSaleQueued } from '@/offline/engine';
 import { transferRemaining } from '@/components/pos/catalog';
-import { canManageFarm } from '@/api/roles';
 import type { PointOfSale, SaleSummary } from '@/api/types';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
@@ -401,9 +401,10 @@ function PdvForm({
 }
 
 export default function PointsVenteScreen() {
-  const { farmId, user } = useAuth();
+  const { farmId } = useAuth();
   const queryClient = useQueryClient();
-  const canManage = canManageFarm(user.role);
+  // Per-farm permission (owner: all), like the server's `pdv:gerer` gate.
+  const canManage = useFarmProfile().hasPermission('pdv:gerer');
 
   const today = todayStr();
   const from7 = addDaysIso(today, -6);

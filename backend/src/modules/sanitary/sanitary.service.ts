@@ -165,6 +165,7 @@ export class SanitaryService {
         type: dto.type,
         isDefault: false,
         isEditable: true,
+        adminShared: farmId === null,
         farmId,
       }),
     );

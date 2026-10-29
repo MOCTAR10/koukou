@@ -152,7 +152,9 @@ export class WeatherService {
     );
     if (result.available) {
       await this.evaluateHeatAlerts(farmId, result.today);
-    } else if (latitude == null || longitude == null) {
+    } else {
+      // No coordinates, or no forecast for today (fetch failed, empty
+      // cache): an old day's heat alert must not stay active.
       await this.alertsService.clearKind(farmId, null, AlertKind.HEAT);
     }
     return result;
@@ -274,14 +276,12 @@ export class WeatherService {
         level: today.level,
         message: `Stress thermique (${zoneLabel}) : THI ${today.thi.toFixed(0)} prévu ${today.date} (température max ${today.tempC}°C, humidité ${today.humidityPct}%).`,
         recommendation: recommendations[today.zone],
-        context: {
-          thi: today.thi,
-          zone: today.zone,
-          tempC: today.tempC,
-          humidityPct: today.humidityPct,
-        },
+        // Single key (jsonb reorders keys): an acknowledged alert stays
+        // acknowledged until the day or the THI zone changes.
+        context: { heat: `${today.date}:${today.zone}` },
       },
       { farmId },
+      { keepAcknowledgedIfUnchanged: true },
     );
   }
 

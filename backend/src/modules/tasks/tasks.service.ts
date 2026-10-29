@@ -236,6 +236,11 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
         'Le membre assigné n’est pas rattaché à cette ferme.',
       );
     }
+    if (!link.active) {
+      throw new BadRequestException(
+        'Ce membre est suspendu : il ne peut pas recevoir de tâche.',
+      );
+    }
   }
 
   private async assertBatchInFarm(

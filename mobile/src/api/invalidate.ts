@@ -50,6 +50,7 @@ export function invalidateFarmQueries(
   void queryClient.invalidateQueries({ queryKey: ['recoltes-stock', farmId] });
   if (batchId) {
     void queryClient.invalidateQueries({ queryKey: ['batch', farmId, batchId] });
+    void queryClient.invalidateQueries({ queryKey: ['daily-entries', farmId, batchId] });
     void queryClient.invalidateQueries({ queryKey: ['curve', farmId, batchId] });
     void queryClient.invalidateQueries({ queryKey: ['sanitary', farmId, batchId] });
     void queryClient.invalidateQueries({ queryKey: ['prophylaxis', farmId, batchId] });

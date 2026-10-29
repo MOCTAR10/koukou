@@ -17,6 +17,7 @@ import { Breed } from '../breeds/entities/breed.entity.js';
 import { Customer } from '../finance/entities/customer.entity.js';
 import { Payment } from '../finance/entities/payment.entity.js';
 import { PaymentMethodConfig } from '../finance/entities/payment-method.entity.js';
+import { Order } from '../orders/entities/order.entity.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { SanitaryProtocol } from '../sanitary/entities/sanitary-protocol.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
@@ -201,9 +202,15 @@ export class PlatformService {
       .select('COUNT(*)', 'count')
       .addSelect('COALESCE(SUM(s.total_amount_fcfa), 0)', 'revenue')
       .addSelect('COALESCE(SUM(s.discount_amount_fcfa), 0)', 'discounts')
-      .where("s.status != 'CANCELLED'");
-    if (from) q.andWhere('s.sale_date >= :from', { from });
-    if (to) q.andWhere('s.sale_date <= :to', { to });
+      .leftJoin(Order, 'ord', 'ord.sale_id = s.id')
+      .where("s.status != 'CANCELLED'")
+      // Revenue at delivery: open orders don't count, delivered ones count
+      // on their delivery date (same rule as the ledger and rentabilité).
+      .andWhere("(ord.id IS NULL OR ord.status = 'LIVRE')");
+    const day =
+      "COALESCE((ord.livred_at AT TIME ZONE 'UTC')::date, s.sale_date)";
+    if (from) q.andWhere(`${day} >= :from`, { from });
+    if (to) q.andWhere(`${day} <= :to`, { to });
     return q;
   }
 

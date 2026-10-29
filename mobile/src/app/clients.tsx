@@ -616,7 +616,7 @@ export default function ClientsScreen() {
       header={
         <ScreenHeader
           title="Clients & crédit"
-          subtitle={farms[0]?.name ?? 'Ferme'}
+          subtitle={(farms.find((f) => f.id === farmId) ?? farms[0])?.name ?? 'Ferme'}
           back
           left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
           right={<UserRound size={18} color={color.ink[300]} />}

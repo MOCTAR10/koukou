@@ -534,7 +534,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
 
   // Saisie déjà enregistrée pour ce lot + cette date ?
   const entriesQuery = useQuery({
-    queryKey: ['daily-entries', lot?.id],
+    queryKey: ['daily-entries', farmId, lot?.id],
     queryFn: () => fetchDailyEntries(farmId, lot!.id),
     enabled: !!lot,
   });
@@ -557,6 +557,9 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
   // Pré-remplissage depuis la saisie existante du jour (édition au lieu d'aveugle).
   useEffect(() => {
     if (!lot) return;
+    // Wait for fresh data: prefilling from a stale cache (then ignoring the
+    // refetch) showed a blank form and the next save replaced the entry.
+    if (!entriesQuery.isFetched || entriesQuery.isFetching) return;
     const stamp = `${lot.id}|${entryDateStr}`;
     if (prefilled === stamp) return;
     const rec = existingEntry;
@@ -590,7 +593,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     }
     setPrefilled(stamp);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lot?.id, entryDateStr, existingEntry]);
+  }, [lot?.id, entryDateStr, existingEntry, entriesQuery.isFetched, entriesQuery.isFetching]);
 
   // ── Contexte du lot (le « Pro » : on sait toujours ce qu'on manipule) ──
   const ctx = useMemo(() => {
@@ -767,7 +770,9 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
   const hasAnything =
     values.deaths > 0 || values.feedKg > 0 || values.feedSacs > 0 || values.waterL > 0 ||
     values.weightG > 0 || values.eggs > 0 || values.eggsCracked > 0 || values.eggsSmall > 0 ||
-    values.eggsDoubleYolk > 0 || values.eggsDirty > 0;
+    values.eggsDoubleYolk > 0 || values.eggsDirty > 0 ||
+    // Editing an existing entry: clearing every field is a valid correction.
+    existingEntry != null;
 
   const completed = useMemo<boolean[]>(
     () => [
@@ -827,7 +832,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     }
     const payload = buildDailyEntryPayload(
       { ...values, bagSizeKg, feedPhase, inputLotId: values.skipStockDeduction ? undefined : chosenFeedLotId },
-      { isLayer: lot.type === 'PONDEUSE', feedMode: modeFeed, entryDate: entryDateStr },
+      { isLayer: lot.type === 'PONDEUSE', feedMode: modeFeed, entryDate: entryDateStr, editing: existingEntry != null },
     );
     setSaving(true);
     setError(null);
@@ -842,7 +847,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
   }, [
     lot, hasAnything, deathsExceedLive, rejectsExceed, rejectTotal,
     values, ctx?.live, feedPhase, chosenFeedLotId, bagSizeKg, modeFeed, entryDateStr,
-    farmId, queryClient, success,
+    farmId, queryClient, success, existingEntry,
   ]);
 
   // ── Action bar : hoistée en pied fixe du Sheet (toujours visible, ne défile pas) ──

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -52,6 +53,12 @@ export class RecoltesService {
     if (dto.quantity <= 0) {
       throw new BadRequestException(
         'La quantité récoltée doit être strictement positive.',
+      );
+    }
+    // A future harvest would be sellable right away.
+    if (dto.harvestDate && isAfterTomorrowUtc(dto.harvestDate)) {
+      throw new BadRequestException(
+        'La date de récolte ne peut pas être dans le futur.',
       );
     }
     const recolte = this.recolteRepo.create({

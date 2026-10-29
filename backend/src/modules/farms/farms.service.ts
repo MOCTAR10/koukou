@@ -49,6 +49,25 @@ export interface UploadedImageFile {
   buffer: Buffer;
 }
 
+/** Magic bytes of the accepted logo formats. */
+function hasImageSignature(buf: Buffer, extension: string): boolean {
+  if (extension === 'png') {
+    return buf.subarray(0, 8).equals(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+  }
+  if (extension === 'jpg' || extension === 'jpeg') {
+    return buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+  }
+  if (extension === 'webp') {
+    return (
+      buf.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buf.subarray(8, 12).toString('ascii') === 'WEBP'
+    );
+  }
+  return false;
+}
+
 const LOGO_MIME_EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -136,7 +155,14 @@ export class FarmsService {
         role: UserRole.PROPRIETAIRE,
       }),
     );
-    const farm = await this.create(owner as AuthUser, farmInput, owner.id);
+    let farm: Farm;
+    try {
+      farm = await this.create(owner as AuthUser, farmInput, owner.id);
+    } catch (err) {
+      // No orphan owner account: a retry would otherwise always get a 409.
+      await this.userRepo.delete({ id: owner.id });
+      throw err;
+    }
     return { farm, owner: this.publicUser(owner) };
   }
 
@@ -364,6 +390,12 @@ export class FarmsService {
     }
     if (file.size > LOGO_MAX_BYTES) {
       throw new BadRequestException('Le logo ne doit pas dépasser 2 Mo.');
+    }
+    // The declared type comes from the client: check the file really is one.
+    if (!hasImageSignature(file.buffer, extension)) {
+      throw new BadRequestException(
+        'Le fichier n’est pas une image PNG, JPEG ou WEBP valide.',
+      );
     }
 
     const directory = join(uploadsRoot(), 'logos');

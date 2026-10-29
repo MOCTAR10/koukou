@@ -10,7 +10,16 @@ export class CsvService {
   ): Buffer {
     const sep = options?.separator ?? ';';
     const escape = (value: unknown): string => {
-      const text = value == null ? '' : String(value);
+      let text = value == null ? '' : String(value);
+      // Formula injection: a user-typed label starting with = + - @ would
+      // run as a formula in Excel. Numbers (e.g. -1500) are left as is.
+      if (
+        typeof value === 'string' &&
+        /^[=+\-@\t\r]/.test(text) &&
+        !/^-?\d+([.,]\d+)?$/.test(text)
+      ) {
+        text = `'${text}`;
+      }
       return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
     const lines = [headers.map(escape).join(sep)];

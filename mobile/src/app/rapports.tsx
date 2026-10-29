@@ -148,7 +148,7 @@ export default function RapportsScreen() {
       header={
         <ScreenHeader
           title="Rentabilité"
-          subtitle={farms[0]?.name ?? 'Ferme'}
+          subtitle={(farms.find((f) => f.id === farmId) ?? farms[0])?.name ?? 'Ferme'}
           back
           right={<FileBarChart2 size={18} color={color.ink[300]} />}
         />

@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { FeedUnit, FoodType } from '../../../common/enums/food-type.enum.js';
@@ -18,7 +19,7 @@ import { IdempotentDto } from '../../../common/utils/idempotency.js';
 export class CreateInputLotDto extends IdempotentDto {
   @ApiPropertyOptional({ description: 'Lot de production lié (optionnel)' })
   @IsOptional()
-  @IsString()
+  @IsUUID('all', { message: 'Identifiant invalide.' })
   batchId?: string;
 
   @ApiProperty({ enum: InputKind, description: "Type d'intrant" })
@@ -34,7 +35,7 @@ export class CreateInputLotDto extends IdempotentDto {
     description: 'Produit du catalogue provende (définit foodType et le prix unitaire par défaut)',
   })
   @IsOptional()
-  @IsString()
+  @IsUUID('all', { message: 'Identifiant invalide.' })
   productId?: string;
 
   @ApiProperty({ description: 'Nom du produit', example: 'Provende Démarrage' })

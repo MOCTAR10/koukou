@@ -2357,7 +2357,7 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
       ), fixed AS (
         UPDATE sanitary_protocols p SET farm_id = owner.farm_id FROM owner
         WHERE p.id = owner.id AND NOT p.is_default AND p.is_editable
-          AND p.farm_id IS NULL
+          AND NOT p.admin_shared AND p.farm_id IS NULL
           AND p.code NOT IN (${[...DEFAULT_PROTOCOLS, ...GABON_VACC_PROTOCOLS]
             .map((x) => `'${x.code.replace(/'/g, "''")}'`)
             .join(', ')})
@@ -2383,8 +2383,19 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
       );
       return;
     }
-    const existing = await this.usersRepo.findOne({ where: { email } });
-    if (existing) return;
+    const existing = await this.usersRepo.findOne({
+      where: [{ email }, { phone }],
+    });
+    if (existing) {
+      // Same phone or e-mail already used by another account: never crash
+      // the boot on the unique index, just say so.
+      if (existing.role !== UserRole.PLATFORM_ADMIN) {
+        this.logger.warn(
+          'PLATFORM_ADMIN_EMAIL/PHONE déjà utilisés par un autre compte : administrateur plateforme non créé.',
+        );
+      }
+      return;
+    }
     await this.usersRepo.save(
       this.usersRepo.create({
         phone,
@@ -2413,9 +2424,15 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
 
   private async seedBreeds() {
     for (const b of DEFAULT_BREEDS) {
-      const existing = await this.breedRepo.findOne({
-        where: { name: b.name, farmId: IsNull() },
-      });
+      // Matched by refCode first: the platform admin may rename a seeded
+      // breed, and matching by name alone re-created it on the next boot.
+      const existing =
+        (await this.breedRepo.findOne({
+          where: { refCode: b.refCode, farmId: IsNull(), isCustom: false },
+        })) ??
+        (await this.breedRepo.findOne({
+          where: { name: b.name, farmId: IsNull() },
+        }));
       if (!existing) {
         await this.breedRepo.save(
           this.breedRepo.create({
@@ -2436,9 +2453,16 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   /** Courbes zootechniques de référence des souches par défaut (idempotent). */
   private async seedBreedStandards() {
     for (const [name, standards] of Object.entries(DEFAULT_BREED_STANDARDS)) {
-      const breed = await this.breedRepo.findOne({
-        where: { name, farmId: IsNull() },
-      });
+      const refCode = DEFAULT_BREEDS.find((b) => b.name === name)?.refCode;
+      const breed =
+        (refCode
+          ? await this.breedRepo.findOne({
+              where: { refCode, farmId: IsNull(), isCustom: false },
+            })
+          : null) ??
+        (await this.breedRepo.findOne({
+          where: { name, farmId: IsNull() },
+        }));
       if (!breed) continue;
       const alreadySeeded = await this.standardRepo.count({
         where: { breedId: breed.id },
@@ -2665,32 +2689,36 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
         where: { code: protocol.code, farmId: IsNull() },
       });
       if (existing) continue;
-      const saved = await this.protocolRepo.save(
-        this.protocolRepo.create({
-          code: protocol.code,
-          name: protocol.name,
-          species: protocol.species,
-          type: protocol.type,
-          isDefault: true,
-          isEditable: true,
-        }),
-      );
-      for (const s of protocol.steps) {
-        await this.stepRepo.save(
-          this.stepRepo.create({
-            protocolId: saved.id,
-            stepOrder: s.stepOrder,
-            dayFrom: s.dayFrom,
-            dayTo: s.dayTo,
-            careType: s.careType,
-            name: s.name,
-            dosage: s.dosage,
-            route: s.route,
-            withdrawalDays: s.withdrawalDays,
-            active: true,
+      // Protocol and its steps together: a crash in between left a
+      // protocol with missing steps that the next boot skipped.
+      await this.protocolRepo.manager.transaction(async (em) => {
+        const saved = await em.getRepository(SanitaryProtocol).save(
+          em.getRepository(SanitaryProtocol).create({
+            code: protocol.code,
+            name: protocol.name,
+            species: protocol.species,
+            type: protocol.type,
+            isDefault: true,
+            isEditable: true,
           }),
         );
-      }
+        for (const s of protocol.steps) {
+          await em.getRepository(ProtocolStep).save(
+            em.getRepository(ProtocolStep).create({
+              protocolId: saved.id,
+              stepOrder: s.stepOrder,
+              dayFrom: s.dayFrom,
+              dayTo: s.dayTo,
+              careType: s.careType,
+              name: s.name,
+              dosage: s.dosage,
+              route: s.route,
+              withdrawalDays: s.withdrawalDays,
+              active: true,
+            }),
+          );
+        }
+      });
     }
   }
 
@@ -2705,32 +2733,36 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
         where: { code: program.code, farmId: IsNull() },
       });
       if (existing) continue;
-      const saved = await this.protocolRepo.save(
-        this.protocolRepo.create({
-          code: program.code,
-          name: program.name,
-          species: program.species,
-          type: program.type,
-          isDefault: false,
-          isEditable: false,
-        }),
-      );
-      for (const s of program.steps) {
-        await this.stepRepo.save(
-          this.stepRepo.create({
-            protocolId: saved.id,
-            stepOrder: s.stepOrder,
-            dayFrom: s.dayFrom,
-            dayTo: s.dayTo,
-            careType: s.careType,
-            name: s.name,
-            dosage: s.dosage,
-            route: s.route,
-            withdrawalDays: s.withdrawalDays,
-            active: true,
+      // Protocol and its steps together: a crash in between left a
+      // protocol with missing steps that the next boot skipped.
+      await this.protocolRepo.manager.transaction(async (em) => {
+        const saved = await em.getRepository(SanitaryProtocol).save(
+          em.getRepository(SanitaryProtocol).create({
+            code: program.code,
+            name: program.name,
+            species: program.species,
+            type: program.type,
+            isDefault: false,
+            isEditable: false,
           }),
         );
-      }
+        for (const s of program.steps) {
+          await em.getRepository(ProtocolStep).save(
+            em.getRepository(ProtocolStep).create({
+              protocolId: saved.id,
+              stepOrder: s.stepOrder,
+              dayFrom: s.dayFrom,
+              dayTo: s.dayTo,
+              careType: s.careType,
+              name: s.name,
+              dosage: s.dosage,
+              route: s.route,
+              withdrawalDays: s.withdrawalDays,
+              active: true,
+            }),
+          );
+        }
+      });
     }
   }
 

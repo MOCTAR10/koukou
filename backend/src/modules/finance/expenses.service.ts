@@ -208,9 +208,11 @@ export class ExpensesService {
 
       const oldCategory = expense.category;
       if (dto.category != null) expense.category = dto.category;
-      if (dto.label != null) expense.label = dto.label;
-      if (dto.supplier != null) expense.supplier = dto.supplier;
-      if (dto.notes != null) expense.notes = dto.notes;
+      // An empty (or null) text clears the field; absent keeps it.
+      if (dto.label !== undefined) expense.label = dto.label?.trim() || null;
+      if (dto.supplier !== undefined)
+        expense.supplier = dto.supplier?.trim() || null;
+      if (dto.notes !== undefined) expense.notes = dto.notes?.trim() || null;
       if (dto.batchId != null || dto.batchId === null) {
         const batch = await this.resolveBatch(farmId, dto.batchId);
         expense.batchId = batch?.id ?? null;
