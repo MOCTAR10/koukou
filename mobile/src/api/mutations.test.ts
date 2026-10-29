@@ -171,6 +171,30 @@ describe('buildDailyEntryPayload', () => {
     expect(p.feedPhase).toBeUndefined();
     expect(p.inputLotId).toBeUndefined();
   });
+  it('édition : renvoie les zéros pour corriger une saisie existante', () => {
+    const p = buildDailyEntryPayload(baseline, { isLayer: true, feedMode: 'kg', editing: true });
+    expect(p).toMatchObject({
+      deaths: 0,
+      feedUnit: 'KG',
+      feedQuantity: 0,
+      waterL: 0,
+      eggsCollected: 0,
+      eggsSellable: 0,
+      eggsCracked: 0,
+    });
+    expect(p.inputLotId).toBeUndefined();
+  });
+
+  it('édition chair : pas de champs œufs', () => {
+    const p = buildDailyEntryPayload(baseline, { isLayer: false, feedMode: 'kg', editing: true });
+    expect(p.deaths).toBe(0);
+    expect(p.eggsCollected).toBeUndefined();
+  });
+
+  it('création : les zéros ne sont pas envoyés', () => {
+    const p = buildDailyEntryPayload(baseline, { isLayer: true, feedMode: 'kg' });
+    expect(Object.keys(p)).toEqual(['entryDate']);
+  });
 });
 
 describe('buildSaleItem', () => {

@@ -193,7 +193,7 @@ export default function ComptabiliteScreen() {
           // h2 (22px) frôle la largeur disponible sur les petits écrans, et le
           // titre ne doit jamais être tronqué.
           title="Comptabilité SYSCOHADA"
-          subtitle={farms[0]?.name ?? 'Ferme'}
+          subtitle={(farms.find((f) => f.id === farmId) ?? farms[0])?.name ?? 'Ferme'}
           back
         />
       }>

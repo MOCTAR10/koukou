@@ -391,7 +391,10 @@ export default function CommandeDetailScreen() {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const canManage = useFarmProfile().hasPermission('vente:commande');
+  const { hasPermission } = useFarmProfile();
+  const canManage = hasPermission('vente:commande');
+  // Deposit and delivery are gated by `vente:creer` on the server.
+  const canSell = hasPermission('vente:creer');
 
   const orderQuery = useQuery({ queryKey: ['order', farmId, id], queryFn: () => fetchOrder(farmId, id) });
   const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId), enabled: !!orderQuery.data?.pointOfSaleId });
@@ -461,7 +464,7 @@ Livrer ?`
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
   // No deposit needed: an order can be paid on delivery or on credit.
   const isOpen = order.status === 'PENDING' || order.status === 'CONFIRMED';
-  const canLivrer = isOpen;
+  const canLivrer = isOpen && canSell;
   const canCancel = isOpen;
 
   return (
@@ -502,7 +505,7 @@ Livrer ?`
         {order.passport ? <PassportCard passport={order.passport} /> : null}
 
         <View style={{ gap: spacing.sm }}>
-          {isOpen && remaining > 0 ? (
+          {isOpen && canSell && remaining > 0 ? (
             <Button
               label={`${order.status === 'PENDING' ? 'Encaisser un acompte' : 'Encaisser un paiement'} · reste ${fmtFcfa(remaining)}`}
               tone="brand"
@@ -522,7 +525,7 @@ Livrer ?`
         </View>
       </View>
 
-      {depositOpen ? <DepositSheet order={order} onClose={() => setDepositOpen(false)} /> : null}
+      {depositOpen && canSell ? <DepositSheet order={order} onClose={() => setDepositOpen(false)} /> : null}
     </Screen>
   );
 }

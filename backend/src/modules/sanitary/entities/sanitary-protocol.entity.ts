@@ -56,6 +56,13 @@ export class SanitaryProtocol {
   @Column({ name: 'is_editable', default: true })
   isEditable: boolean;
 
+  /**
+   * Shared program published by the platform admin. Keeps the boot repair
+   * (assignLegacyCustomResources) from handing it to the first farm using it.
+   */
+  @Column({ name: 'admin_shared', default: false })
+  adminShared: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

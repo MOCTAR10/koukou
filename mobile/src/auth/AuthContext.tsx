@@ -69,8 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const farms = await apiFetch<Farm[]>('/farms');
         const full: StoredSession = { ...next, farms };
         saveSession(full);
+        // Drop the previous account's cache (salaries, cash…): invalidating
+        // would keep showing it until each query refetches.
+        queryClient.clear();
         setSession(full);
-        void queryClient.invalidateQueries();
         return true;
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur inconnue lors de la connexion.');
@@ -96,8 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const farms = await apiFetch<Farm[]>('/farms');
         const full: StoredSession = { ...next, farms };
         saveSession(full);
+        // Drop the previous account's cache (salaries, cash…): invalidating
+        // would keep showing it until each query refetches.
+        queryClient.clear();
         setSession(full);
-        void queryClient.invalidateQueries();
         return true;
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur inconnue lors de l’inscription.');
@@ -128,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearQueue();
     setSession(null);
     setError(null);
-    void queryClient.invalidateQueries();
+    queryClient.clear();
   }, [queryClient]);
 
   const setActiveFarmId = useCallback(

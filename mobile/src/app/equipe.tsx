@@ -279,9 +279,11 @@ function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName
 
 export default function EquipeScreen() {
   const { farms, user, farmId } = useAuth();
-  const farmName = farms[0]?.name;
+  const farmName = (farms.find((f) => f.id === farmId) ?? farms[0])?.name;
   const profileHook = useFarmProfile();
   const canManageAccount = canManageFarm(user.role) || profileHook.isOwner || profileHook.hasPermission('equipe:gerer');
+  // The server refuses HR fields without rh:gerer: don't offer them.
+  const canEditHr = profileHook.hasPermission('rh:gerer');
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -402,8 +404,10 @@ export default function EquipeScreen() {
   const parseSalary = (raw: string, setErr: (m: string) => void): number | undefined => {
     const t = raw.trim();
     if (!t) return undefined;
-    const n = Number(t);
-    if (!Number.isInteger(n) || n < 0) {
+    // Accept "150 000" (JS \s also matches the French no-break spaces).
+    const digits = t.replace(/\s/g, '');
+    const n = Number(digits);
+    if (!/^\d+$/.test(digits) || !Number.isInteger(n)) {
       setErr('Salaire invalide : entier FCFA positif attendu.');
       return undefined;
     }
@@ -534,7 +538,7 @@ export default function EquipeScreen() {
   const buildingOptions = (buildings.data ?? []).map((b) => b.name);
 
   return (
-    <Screen header={<ScreenHeader title="Équipe" subtitle={farms[0]?.name ?? 'Ferme'} back right={<Users size={18} color={color.ink[300]} />} />}>
+    <Screen header={<ScreenHeader title="Équipe" subtitle={farmName ?? 'Ferme'} back right={<Users size={18} color={color.ink[300]} />} />}>
 
       <Pressable
         onPress={() => router.push('/tasks')}
@@ -717,6 +721,7 @@ export default function EquipeScreen() {
             </AppText>
           )}
 
+          {canEditHr ? (
           <RhDossier
             open={createRhOpen}
             onToggle={() => setCreateRhOpen((v) => !v)}
@@ -735,6 +740,7 @@ export default function EquipeScreen() {
             notes={cNotes}
             setNotes={setCNotes}
           />
+          ) : null}
 
           {error ? (
             <AppText size="small" color="danger" style={{ marginTop: 8 }}>
@@ -825,6 +831,7 @@ export default function EquipeScreen() {
             </AppText>
           ) : null}
 
+          {canEditHr ? (
           <RhDossier
             open={editRhOpen}
             onToggle={() => setEditRhOpen((v) => !v)}
@@ -843,6 +850,7 @@ export default function EquipeScreen() {
             notes={eNotes}
             setNotes={setENotes}
           />
+          ) : null}
 
           <View style={styles.inlineActions}>
             <Button label="Fermer" tone="ghost" onPress={() => setEditing(null)} disabled={busy} style={{ flex: 1 }} />

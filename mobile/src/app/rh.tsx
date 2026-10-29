@@ -92,7 +92,7 @@ export default function RhScreen() {
   const withDossier = list.filter((m) => m.contractType || m.hireDate || m.salaryFcfa != null).length;
 
   return (
-    <Screen header={<ScreenHeader title="Dossiers RH" subtitle={farms[0]?.name ?? 'Ferme'} back right={<Briefcase size={18} color={color.ink[300]} />} />}>
+    <Screen header={<ScreenHeader title="Dossiers RH" subtitle={(farms.find((f) => f.id === farmId) ?? farms[0])?.name ?? 'Ferme'} back right={<Briefcase size={18} color={color.ink[300]} />} />}>
       {!canView ? (
         <Card tone="default" style={styles.card}>
           <AppText size="label" color="muted" style={{ marginBottom: 6 }}>

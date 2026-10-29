@@ -67,7 +67,11 @@ export class FarmsController {
   @Post(':farmId/logo')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('reglages:ferme')
-  @UseInterceptors(FileInterceptor('file'))
+  // Refused while streaming: the 2 MB check in the service only ran after
+  // multer had buffered the whole body in memory.
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024, files: 1 } }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {

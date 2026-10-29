@@ -57,7 +57,8 @@ export function PlatformPage() {
   });
 
   const invalidateAll = () => {
-    const keys = ['admin-metrics', 'admin-farms', 'admin-users', 'reference-constants'];
+    // 'farms' feeds the farm switcher (a provisioned or renamed farm).
+    const keys = ['admin-metrics', 'admin-farms', 'admin-users', 'reference-constants', 'farms'];
     keys.forEach((k) => void queryClient.invalidateQueries({ queryKey: [k] }));
   };
 

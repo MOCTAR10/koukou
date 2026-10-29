@@ -193,7 +193,12 @@ export class AdvisoryService {
 
     // 3) Soins prophylactiques planifiés / en retard (fenêtre de prévenance).
     const horizon = addDaysIso(today, leadDays);
+    // Care planned on a closed lot is moot (close() leaves the calendar as is).
+    const closedBatches = new Set(
+      batches.filter((b) => b.status === BatchStatus.CLOTURE).map((b) => b.id),
+    );
     for (const ev of events) {
+      if (closedBatches.has(ev.batchId)) continue;
       if (![ProphylaxisStatus.PLANIFIE, ProphylaxisStatus.EN_RETARD].includes(
         ev.status,
       )) {

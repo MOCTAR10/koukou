@@ -33,7 +33,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { FarmsService } from '../farms/farms.service.js';
 import { PlatformService } from './platform.service.js';
 
@@ -42,6 +42,9 @@ class ProvisionFarmOwnerDto {
   @IsNotEmpty({ message: 'Le nom complet du propriétaire est requis.' })
   fullName: string;
 
+  // Trimmed like /auth/register and /auth/login, or the owner could never
+  // log in with a pasted "077123456 ".
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty({ message: 'Le numéro de téléphone est requis.' })
   phone: string;

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -92,6 +93,11 @@ export class InputsService {
 
   async create(user: AuthUser, input: CreateInputLotInput): Promise<InputLot> {
     await this.farmsService.assertAccessible(user, input.farmId);
+    if (input.receivedDate && isAfterTomorrowUtc(input.receivedDate)) {
+      throw new BadRequestException(
+        'La date de réception ne peut pas être dans le futur.',
+      );
+    }
     if (input.batchId != null) {
       const batch = await this.batchRepo.findOne({
         where: { id: input.batchId, farmId: input.farmId },
@@ -167,6 +173,17 @@ export class InputsService {
       // (dose) pour rester cohérent, sans l'utiliser dans l'autonomie en kg.
       quantity = input.quantity ?? input.doseQuantity ?? 0;
       unit = input.unit ?? null;
+    }
+
+    // A feed or chick reception with nothing received would book its cost
+    // (expense + journal entry) against zero stock.
+    if (
+      (input.kind === InputKind.ALIMENT || input.kind === InputKind.POUSSINS) &&
+      !(quantity > 0)
+    ) {
+      throw new BadRequestException(
+        'Quantité reçue manquante : indiquez le nombre de sacs, le tonnage ou la quantité.',
+      );
     }
 
     // Offline replay: same key → the lot already received, no second

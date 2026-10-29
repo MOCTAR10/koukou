@@ -84,11 +84,20 @@ export interface DailyEntryBuildOptions {
   feedMode: 'kg' | 'sacs';
   /** Date de la saisie (défaut : aujourd'hui) — le serveur upserte par date. */
   entryDate?: string;
+  /**
+   * The entry of that date already exists: send zeros too, since the server
+   * upsert only overwrites the fields it receives (a wrong value could never
+   * be corrected back to 0).
+   */
+  editing?: boolean;
 }
 
 export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntryBuildOptions): DailyEntryPayload {
   const p: DailyEntryPayload = { entryDate: opts.entryDate ?? todayStr() };
-  if (values.deaths > 0) p.deaths = values.deaths;
+  const send = (n: number) => n > 0 || opts.editing === true;
+  // Egg zeros only matter for layers (a broiler entry never carries eggs).
+  const sendEgg = (n: number) => n > 0 || (opts.editing === true && opts.isLayer);
+  if (send(values.deaths)) p.deaths = values.deaths;
   const hasFeed =
     (opts.feedMode === 'kg' && values.feedKg > 0) || (opts.feedMode === 'sacs' && values.feedSacs > 0);
   if (opts.feedMode === 'kg' && values.feedKg > 0) {
@@ -98,6 +107,10 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
     p.feedUnit = 'SAC';
     p.feedBags = values.feedSacs;
     if (values.bagSizeKg != null && values.bagSizeKg > 0) p.bagSizeKg = values.bagSizeKg;
+  } else if (opts.editing) {
+    // Feed corrected back to nothing (the server gives the stock back).
+    p.feedUnit = 'KG';
+    p.feedQuantity = 0;
   }
   if (hasFeed) {
     if (values.feedPhase) p.feedPhase = values.feedPhase;
@@ -107,10 +120,10 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
       p.inputLotId = values.inputLotId;
     }
   }
-  if (values.waterL > 0) p.waterL = values.waterL;
+  if (send(values.waterL)) p.waterL = values.waterL;
   if (values.weightG > 0) p.avgWeightKg = values.weightG / 1000;
-  if (values.eggs > 0) p.eggsCollected = values.eggs;
-  if (values.eggs > 0)
+  if (sendEgg(values.eggs)) p.eggsCollected = values.eggs;
+  if (sendEgg(values.eggs))
     p.eggsSellable = Math.max(
       0,
       values.eggs -
@@ -119,10 +132,10 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
         values.eggsDoubleYolk -
         values.eggsDirty,
     );
-  if (values.eggsCracked > 0) p.eggsCracked = values.eggsCracked;
-  if (values.eggsSmall > 0) p.eggsSmall = values.eggsSmall;
-  if (values.eggsDoubleYolk > 0) p.eggsDoubleYolk = values.eggsDoubleYolk;
-  if (values.eggsDirty > 0) p.eggsDirty = values.eggsDirty;
+  if (sendEgg(values.eggsCracked)) p.eggsCracked = values.eggsCracked;
+  if (sendEgg(values.eggsSmall)) p.eggsSmall = values.eggsSmall;
+  if (sendEgg(values.eggsDoubleYolk)) p.eggsDoubleYolk = values.eggsDoubleYolk;
+  if (sendEgg(values.eggsDirty)) p.eggsDirty = values.eggsDirty;
   return p;
 }
 

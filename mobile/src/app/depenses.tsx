@@ -182,9 +182,10 @@ export default function DepensesScreen() {
       try {
         await updateExpense(farmId ?? '', editing.id, {
           category: cat,
-          ...(label.trim() ? { label: label.trim() } : {}),
-          ...(supplier.trim() ? { supplier: supplier.trim() } : {}),
-          ...(notes.trim() ? { notes: notes.trim() } : {}),
+          // Always sent: an emptied field ('') is cleared by the server.
+          label: label.trim(),
+          supplier: supplier.trim(),
+          notes: notes.trim(),
         });
         setSheet(null);
         refresh();

@@ -14,6 +14,14 @@ describe('geo-geometry : contours de parcelle', () => {
     expect(isGeoJsonGeometry({})).toBe(false);
   });
 
+  it('rejette les coordonnées invalides et les anneaux trop courts', () => {
+    const ring = (pts: number[][]) => ({ type: 'Polygon', coordinates: [pts] });
+    expect(isGeoJsonGeometry(ring([[0, 0], [0, 100], [1, 1], [0, 0]]))).toBe(false);
+    expect(isGeoJsonGeometry(ring([[0, 0], [0, 1], [0, 0]]))).toBe(false);
+    expect(isGeoJsonGeometry(ring([[0, 0], ['a', 1], [1, 1], [0, 0]] as never))).toBe(false);
+    expect(isGeoJsonGeometry({ type: 'Polygon', coordinates: 'x' })).toBe(false);
+  });
+
   it('calcule la surface d’un carré d’un hectare (~100 m × 100 m)', () => {
     // 100 m ≈ 0.000899° en latitude ; surface attendue ≈ 1 ha.
     const geometry = {

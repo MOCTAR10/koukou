@@ -157,7 +157,25 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Users among `ids` still active on the farm (owner or active link). */
+  private async activeMembers(farmId: string, ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const [farm, links] = await Promise.all([
+      this.farmRepo.findOne({ where: { id: farmId } }),
+      this.employeeRepo.find({
+        where: { farmId, userId: In(ids), active: true },
+      }),
+    ]);
+    const active = new Set(links.map((l) => l.userId));
+    if (farm && ids.includes(farm.ownerId)) active.add(farm.ownerId);
+    return active;
+  }
+
   private async handleAssigned(e: TaskAssignedEvent): Promise<void> {
+    // A deactivated member no longer receives the farm's notifications.
+    if (!(await this.activeMembers(e.farmId, [e.assigneeId])).has(e.assigneeId)) {
+      return;
+    }
     await this.sendToUsers(e.farmId, [e.assigneeId], {
       title: 'Nouvelle tâche',
       body: `${e.title} — pour le ${frDate(e.dueDate)}`,
@@ -170,8 +188,13 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
     // managers (who also get the farm-level TACHE alert).
     const byUser = new Map<string, string[]>();
     const unassigned: string[] = [];
+    // A task held by a deactivated member goes to the managers instead.
+    const active = await this.activeMembers(
+      e.farmId,
+      [...new Set(e.tasks.map((t) => t.assigneeId).filter((id): id is string => !!id))],
+    );
     for (const t of e.tasks) {
-      if (t.assigneeId) {
+      if (t.assigneeId && active.has(t.assigneeId)) {
         byUser.set(t.assigneeId, [
           ...(byUser.get(t.assigneeId) ?? []),
           t.title,

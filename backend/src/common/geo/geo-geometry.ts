@@ -11,11 +11,38 @@ export interface GeoJsonMultiPolygon {
 
 export type GeoJsonGeometry = GeoJsonPolygon | GeoJsonMultiPolygon;
 
+const isPosition = (p: unknown): boolean =>
+  Array.isArray(p) &&
+  p.length >= 2 &&
+  typeof p[0] === 'number' &&
+  typeof p[1] === 'number' &&
+  Number.isFinite(p[0]) &&
+  Number.isFinite(p[1]) &&
+  Math.abs(p[0]) <= 180 &&
+  Math.abs(p[1]) <= 90;
+
+/** A closed ring: at least 4 [lng, lat] positions. */
+const isRing = (r: unknown): boolean =>
+  Array.isArray(r) && r.length >= 4 && r.every(isPosition);
+
+const isPolygonCoords = (c: unknown): boolean =>
+  Array.isArray(c) && c.length >= 1 && c.every(isRing);
+
+/**
+ * Polygon or MultiPolygon with well-formed rings. Checked deeply: the area
+ * computation (PostGIS or JS fallback) would otherwise crash on bad input.
+ */
 export function isGeoJsonGeometry(value: unknown): value is GeoJsonGeometry {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as { type?: unknown; coordinates?: unknown };
-  if (v.type === 'Polygon' && Array.isArray(v.coordinates)) return true;
-  if (v.type === 'MultiPolygon' && Array.isArray(v.coordinates)) return true;
+  if (v.type === 'Polygon') return isPolygonCoords(v.coordinates);
+  if (v.type === 'MultiPolygon') {
+    return (
+      Array.isArray(v.coordinates) &&
+      v.coordinates.length >= 1 &&
+      v.coordinates.every(isPolygonCoords)
+    );
+  }
   return false;
 }
 

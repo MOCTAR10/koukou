@@ -114,8 +114,8 @@ function ConstantRow({ c }: { c: ReferenceConstant }) {
 }
 
 export default function ReglagesScreen() {
-  const { farms, user, signOut } = useAuth();
-  const farm = farms[0];
+  const { farms, user, signOut, farmId } = useAuth();
+  const farm = farms.find((f) => f.id === farmId) ?? farms[0];
   const profileHook = useFarmProfile();
   const [constantsOpen, setConstantsOpen] = useState(false);
 

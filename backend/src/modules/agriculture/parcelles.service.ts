@@ -12,6 +12,17 @@ import { CulturesService } from './cultures.service.js';
 import { CreateParcelleDto } from './dto/create-parcelle.dto.js';
 import { UpdateParcelleDto } from './dto/update-parcelle.dto.js';
 import { Parcelle } from './entities/parcelle.entity.js';
+import { isGeoJsonGeometry } from '../../common/geo/geo-geometry.js';
+
+/** A boundary must be a well-formed Polygon/MultiPolygon (or be cleared). */
+function assertBoundary(boundary: unknown): void {
+  if (boundary == null) return;
+  if (!isGeoJsonGeometry(boundary)) {
+    throw new BadRequestException(
+      'Contour de parcelle invalide : un polygone GeoJSON fermé (au moins 4 points [longitude, latitude]) est attendu.',
+    );
+  }
+}
 
 @Injectable()
 export class ParcellesService {
@@ -40,6 +51,7 @@ export class ParcellesService {
   ): Promise<Parcelle> {
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertCultureUsable(farmId, dto.cultureId);
+    assertBoundary(dto.boundaryGeoJson);
     const areaHa = await this.resolveArea(dto.areaHa, dto.boundaryGeoJson);
     const parcelle = this.parcelleRepo.create({
       farmId,
@@ -99,15 +111,18 @@ export class ParcellesService {
       await this.assertCultureUsable(farmId, dto.cultureId);
       parcelle.cultureId = dto.cultureId;
     }
-    if (dto.boundaryGeoJson !== undefined)
+    if (dto.boundaryGeoJson !== undefined) {
+      assertBoundary(dto.boundaryGeoJson);
       parcelle.boundaryGeoJson = dto.boundaryGeoJson ?? null;
+    }
     if (dto.plantedAt !== undefined) parcelle.plantedAt = dto.plantedAt ?? null;
     if (dto.status !== undefined) parcelle.status = dto.status;
     if (dto.notes !== undefined)
       parcelle.notes = dto.notes?.trim() ? dto.notes : null;
-    if (dto.areaHa !== undefined) {
+    // A new boundary changes the area even when no area is sent.
+    if (dto.areaHa !== undefined || dto.boundaryGeoJson !== undefined) {
       const resolved = await this.resolveArea(
-        dto.areaHa,
+        dto.areaHa ?? parcelle.areaHa,
         parcelle.boundaryGeoJson,
       );
       if (resolved !== null) parcelle.areaHa = resolved;

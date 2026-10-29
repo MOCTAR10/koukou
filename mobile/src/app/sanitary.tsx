@@ -302,6 +302,7 @@ function EventCard({
   e,
   busy,
   canDelete,
+  canComplete,
   onComplete,
   onCancel,
   onReschedule,
@@ -310,7 +311,10 @@ function EventCard({
 }: {
   e: ProphylaxisEvent;
   busy: boolean;
+  /** `sanitaire:gerer`: reschedule, edit, cancel and delete. */
   canDelete: boolean;
+  /** `sanitaire:gerer` or `sanitaire:signaler`. */
+  canComplete: boolean;
   onComplete: () => void;
   onCancel: () => void;
   onReschedule: () => void;
@@ -359,14 +363,18 @@ function EventCard({
           </AppText>
         </View>
       </View>
-      {!done && !cancelled ? (
+      {!done && !cancelled && (canComplete || canDelete) ? (
         <View style={styles.actions}>
-          <Button label="Compléter" tone="success" size="md" block={false} icon={Check} onPress={onComplete} disabled={busy} />
-          <Button label="Reporter +1 j" tone="brand" size="md" block={false} icon={RotateCcw} onPress={onReschedule} disabled={busy} />
-          <Button label="Éditer" tone="ghost" size="md" block={false} icon={Pencil} onPress={onEdit} disabled={busy} />
-          <Button label="Annuler" tone="ghost" size="md" block={false} icon={CalendarX} onPress={onCancel} disabled={busy} />
+          {canComplete ? (
+            <Button label="Compléter" tone="success" size="md" block={false} icon={Check} onPress={onComplete} disabled={busy} />
+          ) : null}
           {canDelete ? (
-            <Button label="Supprimer" tone="danger" size="md" block={false} icon={Trash2} onPress={onDelete} disabled={busy} />
+            <>
+              <Button label="Reporter +1 j" tone="brand" size="md" block={false} icon={RotateCcw} onPress={onReschedule} disabled={busy} />
+              <Button label="Éditer" tone="ghost" size="md" block={false} icon={Pencil} onPress={onEdit} disabled={busy} />
+              <Button label="Annuler" tone="ghost" size="md" block={false} icon={CalendarX} onPress={onCancel} disabled={busy} />
+              <Button label="Supprimer" tone="danger" size="md" block={false} icon={Trash2} onPress={onDelete} disabled={busy} />
+            </>
           ) : null}
         </View>
       ) : null}
@@ -629,7 +637,9 @@ export default function SanitaryScreen() {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
   // Delete actions are gated server-side by `sanitaire:gerer`, not the global role.
-  const isProprietaire = useFarmProfile().hasPermission('sanitaire:gerer');
+  const { hasPermission } = useFarmProfile();
+  const isProprietaire = hasPermission('sanitaire:gerer');
+  const canCompleteCare = isProprietaire || hasPermission('sanitaire:signaler');
 
   const [window, setWindow] = useState<PeriodWindow>(() => periodWindow('all'));
   const firstWindowRef = useRef(true);
@@ -1199,6 +1209,7 @@ export default function SanitaryScreen() {
                         e={e}
                         busy={busy === e.id}
                         canDelete={isProprietaire}
+                        canComplete={canCompleteCare}
                         onComplete={() => void act('complete', e)}
                         onReschedule={() => void act('reschedule', e)}
                         onCancel={() => void act('cancel', e)}
