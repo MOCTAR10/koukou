@@ -280,7 +280,9 @@ function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]
 }
 
 export default function ProvendeScreen() {
-  const { farmId } = useAuth();
+  const { farmId, farms } = useAuth();
+  // The server converts sacks with the farm's sack size, not a fixed 50 kg.
+  const sacKg = farms.find((f) => f.id === farmId)?.defaultSacKg ?? 50;
   const queryClient = useQueryClient();
   const { openFeed } = useQuickCapture();
 
@@ -362,7 +364,7 @@ export default function ProvendeScreen() {
 
   const lockableLots = lots.filter((l) => l.availableKg > 0);
   const effectiveLot = lockableLots.find((l) => l.id === lossLotId) ?? lockableLots[0];
-  const lossCap = lossUnit === 'SAC' ? (effectiveLot ? Math.floor(effectiveLot.availableKg / 50) || 1 : 100) : effectiveLot ? Math.max(1, Math.floor(effectiveLot.availableKg)) : 2000;
+  const lossCap = lossUnit === 'SAC' ? (effectiveLot ? Math.max(1, Math.floor(effectiveLot.availableKg / sacKg)) : 100) : effectiveLot ? Math.max(1, Math.floor(effectiveLot.availableKg)) : 2000;
 
   const submitLoss = async () => {
     setLossError(null);

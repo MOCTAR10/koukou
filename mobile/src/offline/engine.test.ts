@@ -275,7 +275,7 @@ describe('flushQueue — synchronisation FIFO', () => {
     ]);
 
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 2, dropped: 0, rejected: 0, remaining: 0 });
+    expect(summary).toMatchObject({ synced: 2, dropped: 0, rejected: 0, remaining: 0, farmIds: ['f-1'] });
     expect(loadOps()).toEqual([]);
 
     const url = (i: number) => readCall(fetchMock, i).url;
@@ -290,7 +290,7 @@ describe('flushQueue — synchronisation FIFO', () => {
 
     const fetchMock = stubFetch(async () => jsonResponse(201, { id: 'tr-1' }));
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 1, dropped: 0, rejected: 0, remaining: 0 });
+    expect(summary).toMatchObject({ synced: 1, dropped: 0, rejected: 0, remaining: 0 });
     expect(loadOps()).toEqual([]);
     expect(readCall(fetchMock).url).toBe('http://192.168.1.10:3000/farms/f-1/stock-transfers');
   });
@@ -301,7 +301,7 @@ describe('flushQueue — synchronisation FIFO', () => {
 
     stubFetch(networkError);
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 0, dropped: 0, rejected: 0, remaining: 1 });
+    expect(summary).toMatchObject({ synced: 0, dropped: 0, rejected: 0, remaining: 1 });
     expect(loadOps()).toHaveLength(1);
   });
 
@@ -315,7 +315,7 @@ describe('flushQueue — synchronisation FIFO', () => {
       jsonResponse(200, { id: 'e-2' }),
     ]);
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 1, dropped: 1, rejected: 0, remaining: 0 });
+    expect(summary).toMatchObject({ synced: 1, dropped: 1, rejected: 0, remaining: 0 });
     const [op] = loadOps();
     expect(op).toBeUndefined();
     const entries = loadOps();
@@ -331,7 +331,7 @@ describe('flushQueue — synchronisation FIFO', () => {
       jsonResponse(400, { message: 'Stock insuffisant.' }),
     ]);
     const summary = await flushQueue();
-    expect(summary).toEqual({ synced: 0, dropped: 0, rejected: 1, remaining: 0 });
+    expect(summary).toMatchObject({ synced: 0, dropped: 0, rejected: 1, remaining: 0 });
     const [rej] = loadRejected();
     expect(rej.kind).toBe('sale');
     expect(rej.reason).toBe('Stock insuffisant.');

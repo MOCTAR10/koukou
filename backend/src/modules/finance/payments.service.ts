@@ -109,8 +109,13 @@ export class PaymentsService {
 
     let cashSession: CashSession | null = null;
     if (method === PaymentMethod.CASH) {
+      // Same lock as close(): a payment can't land in a session being closed
+      // (close would compute its expected balance without it). FOR UPDATE,
+      // not FOR SHARE: a delivery refund later locks the session for update in
+      // the same transaction, and upgrading a shared lock can deadlock.
       cashSession = await em.getRepository(CashSession).findOne({
         where: { farmId: input.farm.id, status: CashSessionStatus.OPEN },
+        lock: { mode: 'pessimistic_write' },
       });
       if (!cashSession) {
         throw new BadRequestException(

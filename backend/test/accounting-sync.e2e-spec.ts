@@ -165,7 +165,7 @@ describe('M11b — Synchronisation comptable (commandes, dépenses, caisse) (e2e
     );
   });
 
-  it('commande : init antérieurs puis livraison modifiée → ajustement équilibré', async () => {
+  it('commande : init avant livraison : rien reconnu, la livraison modifiée passe le CA final', async () => {
     const orderRes = await request(server)
       .post(`/farms/${farmId}/orders`)
       .set('Authorization', `Bearer ${token}`)
@@ -190,36 +190,29 @@ describe('M11b — Synchronisation comptable (commandes, dépenses, caisse) (e2e
     const saleId = orderRes.body.sale.id;
     const saleItemId = orderRes.body.items[0].saleItemId as string;
 
-    // L'init repasse la vente enveloppe au montant de l'instantané (15000).
+    // Revenue is recognized at delivery: init leaves an open order alone.
     await request(server)
       .post(`/farms/${farmId}/accounting/init`)
       .set('Authorization', `Bearer ${token}`)
       .expect(201);
-    const inited = await findEntry(farmId, `sale:${saleId}`);
-    expect(inited).toBeDefined();
-    expect(inited.lines).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ accountCode: '411', debitFcfa: 15000 }),
-        expect.objectContaining({ accountCode: '7011', creditFcfa: 15000 }),
-      ]),
-    );
+    expect(await findEntry(farmId, `sale:${saleId}`)).toBeUndefined();
 
-    // Livraison finale 4 oiseaux → 12000 : recadrage par ajustement (diff).
+    // Livraison finale 4 oiseaux → 12000 : CA reconnu au montant final.
     await request(server)
       .post(`/farms/${farmId}/orders/${orderId}/livrer`)
       .set('Authorization', `Bearer ${token}`)
       .send({ items: [{ saleItemId, quantity: 4 }] })
       .expect(201);
 
-    const adj = await findEntry(farmId, `sale:${saleId}:adj`);
-    expect(adj).toBeDefined();
-    expect(adj.label).toContain('ajustement');
-    expect(adj.lines).toEqual(
+    const sale = await findEntry(farmId, `sale:${saleId}`);
+    expect(sale).toBeDefined();
+    expect(sale.lines).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ accountCode: '411', creditFcfa: 3000 }),
-        expect.objectContaining({ accountCode: '7011', debitFcfa: 3000 }),
+        expect.objectContaining({ accountCode: '411', debitFcfa: 12000 }),
+        expect.objectContaining({ accountCode: '7011', creditFcfa: 12000 }),
       ]),
     );
+    expect(await findEntry(farmId, `sale:${saleId}:adj`)).toBeUndefined();
   });
 
   it('commande annulée avant livraison (jamais reconnue) → contrepassation acompte, pas d’orpheline', async () => {

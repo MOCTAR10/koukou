@@ -41,6 +41,7 @@ import { Button } from '@/components/ui/Button';
 import { AlertCard } from '@/components/AlertCard';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useAuth } from '@/auth/AuthContext';
 import { color, palette, radii, fmt, fmtFcfa, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
@@ -222,7 +223,8 @@ export default function LotDetailScreen() {
   const slaughterQ = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), staleTime: 60_000 });
 
   // ── New queries for lot metrics ──
-  const rentabQ = useQuery({ queryKey: ['rentabilite-batch', farmId, batchId], queryFn: () => fetchRentabiliteBatch(farmId, batchId), enabled: !!batchId });
+  const canRapports = useFarmProfile().hasPermission('compta:rapports');
+  const rentabQ = useQuery({ queryKey: ['rentabilite-batch', farmId, batchId], queryFn: () => fetchRentabiliteBatch(farmId, batchId), enabled: !!batchId && canRapports });
   const feedStockQ = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
   const dashboardQ = useQuery({ queryKey: ['dashboard', farmId, asOf ?? '', period.time ?? ''], queryFn: () => fetchDashboard(farmId, asOf, period.time), staleTime: 30_000 });
   const buildingsQ = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
@@ -295,8 +297,8 @@ export default function LotDetailScreen() {
 
   const breedIdForStandards = breedStatus?.breedId ?? null;
   const standardsQ = useQuery({
-    queryKey: ['breed-standards', breedIdForStandards],
-    queryFn: () => fetchBreedStandards(breedIdForStandards!),
+    queryKey: ['breed-standards', farmId, breedIdForStandards],
+    queryFn: () => fetchBreedStandards(farmId, breedIdForStandards!),
     enabled: !!breedIdForStandards,
   });
 

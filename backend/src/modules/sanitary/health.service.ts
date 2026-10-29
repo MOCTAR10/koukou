@@ -9,7 +9,10 @@ import type { AuthUser } from '../../common/decorators/current-user.decorator.js
 import { AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { DiseaseSeverity } from '../../common/enums/disease-severity.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
-import { BatchType } from '../../common/enums/batch-type.enum.js';
+import {
+  BatchStatus,
+  BatchType,
+} from '../../common/enums/batch-type.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { BatchesService } from '../batches/batches.service.js';
@@ -161,6 +164,11 @@ export class HealthService {
         dto.kind === HealthEventKind.MORTALITE) &&
       quantity > 0
     ) {
+      if (batch.status === BatchStatus.CLOTURE) {
+        throw new BadRequestException(
+          'Ce lot est clôturé : aucun oiseau ne peut plus en être retiré.',
+        );
+      }
       const live = Math.max(0, batch.quantityAlive);
       if (quantity > live) {
         throw new BadRequestException(
@@ -201,7 +209,7 @@ export class HealthService {
         dto.kind === HealthEventKind.MORTALITE) &&
       quantity > 0
     ) {
-      await this.applyCulling(farmId, batchId, quantity);
+      await this.recomputeLiveCount(batchId);
       // Mortality / density / water alerts depend on these birds: re-evaluate
       // now instead of waiting for the next daily entry.
       await this.batchesService.runAdvisoryForBatch(batchId);
@@ -245,7 +253,7 @@ export class HealthService {
       event.quantity > 0;
     await this.eventRepo.remove(event);
     if (alreadyApplied) {
-      await this.restoreCulling(farmId, batchId, event.quantity);
+      await this.recomputeLiveCount(batchId);
       await this.batchesService.runAdvisoryForBatch(batchId);
     }
     return { deleted: true };
@@ -262,42 +270,15 @@ export class HealthService {
     return batch;
   }
 
-  private async applyCulling(
-    farmId: string,
-    batchId: string,
-    quantity: number,
-  ): Promise<void> {
-    await this.dataSource.transaction(async (em) => {
-      const batch = await em
-        .getRepository(ProductionBatch)
-        .createQueryBuilder('batch')
-        .setLock('pessimistic_write')
-        .where('batch.id = :id', { id: batchId })
-        .andWhere('batch.farmId = :farmId', { farmId })
-        .getOne();
-      if (!batch) return;
-      batch.quantityAlive = Math.max(0, batch.quantityAlive - quantity);
-      await em.getRepository(ProductionBatch).save(batch);
-    });
-  }
-
-  private async restoreCulling(
-    farmId: string,
-    batchId: string,
-    quantity: number,
-  ): Promise<void> {
-    await this.dataSource.transaction(async (em) => {
-      const batch = await em
-        .getRepository(ProductionBatch)
-        .createQueryBuilder('batch')
-        .setLock('pessimistic_write')
-        .where('batch.id = :id', { id: batchId })
-        .andWhere('batch.farmId = :farmId', { farmId })
-        .getOne();
-      if (!batch) return;
-      batch.quantityAlive += quantity;
-      await em.getRepository(ProductionBatch).save(batch);
-    });
+  /**
+   * Rebuilds quantityAlive from every recorded loss (the event is already
+   * saved/removed). Adding or subtracting the event quantity drifts once the
+   * count was floored at 0 by an earlier reconciliation.
+   */
+  private async recomputeLiveCount(batchId: string): Promise<void> {
+    await this.dataSource.transaction((em) =>
+      this.flockReconciliation.recomputeLiveCount(em, batchId),
+    );
   }
 
   private computeHealthScore(mortalityPercent: number, fcr: number | null): number {

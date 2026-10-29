@@ -84,6 +84,7 @@ import {
   birdsOf,
   sentSlaughterBirds,
 } from './order-reservations.js';
+import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 
 const ORDER_PREFIX = 'CMD';
 const ORDERABLE_TYPES = [
@@ -278,6 +279,7 @@ export class OrdersService {
               'Pour une commande d’œufs, l’unité doit être ALVEOLES.',
             );
           }
+          await lockFarmEggStock(em, farmId);
           await this.assertEggsAvailable(em, farmId, it.quantity);
           if (it.batchId) {
             const batchAlveoles = await this.availableBatchEggAlveoles(em, farmId, it.batchId);
@@ -503,6 +505,11 @@ export class OrdersService {
     dto: FinalizeOrderDto,
   ) {
     const farm = await this.farmsService.assertAccessible(user, farmId);
+    if (farm.active === false) {
+      throw new BadRequestException(
+        'Ferme suspendue : aucune livraison ne peut être enregistrée tant que la ferme est suspendue.',
+      );
+    }
     const result = await this.dataSource.transaction(async (em) => {
       const orderRepo = em.getRepository(Order);
       const saleRepo = em.getRepository(Sale);
@@ -586,6 +593,7 @@ export class OrdersService {
         } else if (item.productType === SaleItemProductType.OEUFS) {
           // Exclut la vente enveloppe courante : ses items œufs existent déjà
           // et ne doivent pas compter comme « déjà vendus » contre eux-mêmes.
+          await lockFarmEggStock(em, farmId);
           await this.assertEggsAvailable(em, farmId, item.quantity, sale.id);
           if (item.batchId) {
             const batchAlveoles = await this.availableBatchEggAlveoles(
@@ -608,6 +616,7 @@ export class OrdersService {
         batchRepo,
         farmId,
         batchBirds,
+        order,
       );
 
       const total = items.reduce((s, i) => s + i.amountFcfa, 0);
@@ -1098,6 +1107,7 @@ export class OrdersService {
     batchRepo: Repository<ProductionBatch>,
     farmId: string,
     batchBirds: Map<string, number>,
+    order: Order,
   ): Promise<string[]> {
     const touched: string[] = [];
     for (const [batchId, birds] of batchBirds) {
@@ -1121,6 +1131,23 @@ export class OrdersService {
         throw new BadRequestException(
           `Stock insuffisant : il reste ${batch.quantityAlive} oiseau(x) vivant(s) au lot, livraison demandée ${birds}.`,
         );
+      }
+      // Delivering more than this order reserved may only use free birds:
+      // not those promised to other open orders or already sent to slaughter.
+      const own =
+        order.batchId === batchId
+          ? (order.items ?? []).reduce((s, it) => s + birdsOf(it), 0)
+          : 0;
+      if (birds > own) {
+        const { birds: reserved } = await batchReservation(em, farmId, batchId);
+        const othersReserved = Math.max(0, reserved - own);
+        const atAbattoir = await sentSlaughterBirds(em, farmId, batchId);
+        const free = batch.quantityAlive - othersReserved - atAbattoir;
+        if (birds > Math.max(own, free)) {
+          throw new BadRequestException(
+            `Quantité livrée trop élevée : ${Math.max(own, free)} oiseau(x) disponible(s) pour cette commande (${othersReserved} réservé(s) par d’autres commandes${atAbattoir > 0 ? `, ${atAbattoir} envoyé(s) à l’abattoir` : ''}), livraison demandée ${birds}.`,
+          );
+        }
       }
       batch.quantityAlive -= birds;
       if (batch.quantityAlive <= 0) {

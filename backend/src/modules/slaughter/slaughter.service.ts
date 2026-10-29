@@ -4,24 +4,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   BordereauData,
   PasseportData,
   PdfService,
 } from '../../common/services/pdf.service.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
-import {
-  AlertKind,
-  AlertLevel,
-  AlertStatus,
-} from '../../common/enums/alert-level.enum.js';
 import { BatchStatus, BatchType } from '../../common/enums/batch-type.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
 import { SlaughterDestination } from '../../common/enums/slaughter-destination.enum.js';
 import { SlaughterStatus } from '../../common/enums/slaughter-status.enum.js';
 import { SlaughterType } from '../../common/enums/slaughter-type.enum.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
+import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
 import { MetricsService } from '../batches/metrics.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
@@ -398,18 +394,13 @@ export class SlaughterService {
 
     const metrics = await this.metricsService.compute(batch);
 
-    const active = await this.alertRepo.find({
-      where: {
-        farmId,
-        batchId: batch.id,
-        kind: In([AlertKind.DELAI_ATTENTE, AlertKind.PROPHYLAXIE]),
-        status: AlertStatus.ACTIVE,
-      },
-    });
-    const delaiAttente = active.find((a) => a.kind === AlertKind.DELAI_ATTENTE);
-    const prophyEnRetard = active.find(
-      (a) => a.kind === AlertKind.PROPHYLAXIE && a.level === AlertLevel.ROUGE,
+    const holds = await sanitaryHolds(
+      this.dataSource.manager,
+      farmId,
+      batch.id,
     );
+    const delaiAttente = holds.withdrawalEndDate != null;
+    const prophyEnRetard = holds.prophylaxisOverdue;
 
     const conformity = delaiAttente
       ? 'EN_ATTENTE'
@@ -490,24 +481,17 @@ export class SlaughterService {
     );
     // Critères sanitaires (normes internationales) : pas de délai d'attente actif
     // et prophylaxie à jour avant de pouvoir envoyer un lot à l'abattage.
-    const active = await this.alertRepo.find({
-      where: {
-        farmId: order.farmId,
-        batchId: order.batchId,
-        kind: In([AlertKind.DELAI_ATTENTE, AlertKind.PROPHYLAXIE]),
-        status: AlertStatus.ACTIVE,
-      },
-    });
-    const delaiAttente = active.find((a) => a.kind === AlertKind.DELAI_ATTENTE);
-    const prophyEnRetard = active.find(
-      (a) => a.kind === AlertKind.PROPHYLAXIE && a.level === AlertLevel.ROUGE,
+    const holds = await sanitaryHolds(
+      this.dataSource.manager,
+      order.farmId,
+      order.batchId,
     );
-    if (delaiAttente) {
+    if (holds.withdrawalEndDate != null) {
       throw new BadRequestException(
-        'Délai d’attente antibiotique en cours : la commercialisation et l’envoi à l’abattage sont suspendus (sécurité alimentaire). Respecter le délai d’élimination avant de réessayer.',
+        `Délai d’attente antibiotique en cours jusqu’au ${holds.withdrawalEndDate} : la commercialisation et l’envoi à l’abattage sont suspendus (sécurité alimentaire). Respecter le délai d’élimination avant de réessayer.`,
       );
     }
-    if (prophyEnRetard) {
+    if (holds.prophylaxisOverdue) {
       throw new BadRequestException(
         'Des soins prophylactiques sont en retard au calendrier sanitaire du lot : régulariser le programme de soins avant d’envoyer le lot à l’abattage.',
       );

@@ -96,8 +96,8 @@ export class PondageService {
           ? round2(collected / batch.quantityAtStart)
           : null,
       layRatePercent:
-        batch.type === BatchType.PONDEUSE && liveCount > 0
-          ? round2((collected / liveCount) * 100)
+        batch.type === BatchType.PONDEUSE
+          ? this.recentLayRate(entries, liveCount)
           : null,
       weekly: this.buildWeekly(entries, batch, {
         integrationDate: batch.integrationDate,
@@ -107,6 +107,27 @@ export class PondageService {
         removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
       }),
     };
+  }
+
+  /**
+   * Average daily lay rate over the last 7 days with eggs recorded, the same
+   * window as MetricsService (eggs collected over the whole life divided by
+   * today's hens would read 2700 % after a month). Capped at 100 %.
+   */
+  private recentLayRate(
+    entries: DailyEntry[],
+    liveCount: number,
+  ): number | null {
+    const since = new Date(Date.now() - 7 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const recent = entries.filter(
+      (e) => e.entryDate >= since && e.eggsCollected > 0,
+    );
+    const days = new Set(recent.map((e) => e.entryDate)).size;
+    if (liveCount <= 0 || days === 0) return null;
+    const eggs = recent.reduce((s, e) => s + e.eggsCollected, 0);
+    return round2(Math.min(100, (eggs / (liveCount * days)) * 100));
   }
 
   private buildWeekly(

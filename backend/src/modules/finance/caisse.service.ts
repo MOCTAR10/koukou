@@ -72,17 +72,18 @@ export class CaisseService {
             openedById: user.id,
           }),
         );
-        if (session.openingBalanceFcfa > 0) {
+        const openLines = await this.accountingService.cashOpeningLines(
+          em,
+          session,
+        );
+        if (openLines) {
           await this.accountingService.post(em, {
             farmId,
             date: session.openedAt,
             label: `Fonds de caisse du ${session.openedAt}`,
             source: 'CAISSE',
             sourceId: `open:${session.id}`,
-            lines: [
-              { account: '571', debit: session.openingBalanceFcfa, label: 'Caisse — espèces' },
-              { account: '108', credit: session.openingBalanceFcfa, label: 'Apports de l’exploitant' },
-            ],
+            lines: openLines,
             operatorId: user.id,
           });
         }

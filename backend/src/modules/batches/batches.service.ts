@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { ExpenseCategory } from '../../common/enums/expense-category.enum.js';
@@ -68,6 +69,17 @@ export class BatchesService {
       if (building.buildingAreaM2 != null)
         buildingArea = building.buildingAreaM2;
     }
+    // The live count is always rebuilt from quantityAtStart minus recorded
+    // losses (daily entries, sales, slaughter, health events): a different
+    // starting live count would be silently overwritten by the first entry.
+    if (
+      dto.quantityAlive != null &&
+      dto.quantityAlive !== dto.quantityAtStart
+    ) {
+      throw new BadRequestException(
+        'Pour un lot déjà en cours, saisir l’effectif vivant actuel comme effectif de départ.',
+      );
+    }
     const batch = this.batchRepo.create({
       farmId,
       breedId,
@@ -75,7 +87,7 @@ export class BatchesService {
       batchName: dto.batchName,
       integrationDate: dto.integrationDate,
       quantityAtStart: dto.quantityAtStart,
-      quantityAlive: dto.quantityAlive ?? dto.quantityAtStart,
+      quantityAlive: dto.quantityAtStart,
       type: dto.type,
       species: dto.species ?? Species.POULET,
       customSpecies: dto.species === Species.AUTRE ? (dto.customSpecies ?? null) : null,
@@ -193,7 +205,19 @@ export class BatchesService {
         batch.buildingId = null;
       }
     }
-    await this.batchRepo.save(batch);
+    await this.persist(batch, [
+      'batchName',
+      'couvoirSupplier',
+      'chickLotNumber',
+      'hatchDate',
+      'chickUnitPriceFcfa',
+      'buildingAreaM2',
+      'feedUnitSacKg',
+      'species',
+      'customSpecies',
+      'customBreed',
+      'buildingId',
+    ]);
     await this.afterChange(user, farmId, batch);
     if (prevBuildingId && prevBuildingId !== batch.buildingId) {
       await this.advisoryEngine.clearBuildingAlerts(farmId, prevBuildingId);
@@ -258,7 +282,7 @@ export class BatchesService {
         }),
       );
       batch.type = dto.toType;
-      await this.batchRepo.save(batch);
+      await this.persist(batch, ['type']);
     }
     await this.afterChange(user, farmId, batch);
     return this.findOne(user, farmId, batchId);
@@ -277,7 +301,7 @@ export class BatchesService {
       );
     }
     batch.status = BatchStatus.EN_VENTE;
-    await this.batchRepo.save(batch);
+    await this.persist(batch, ['status']);
     await this.afterChange(user, farmId, batch);
     return this.findOne(user, farmId, batchId);
   }
@@ -289,9 +313,14 @@ export class BatchesService {
     });
     if (!batch)
       throw new NotFoundException('Lot introuvable dans cette ferme.');
+    // Idempotent: a second close (offline replay, double tap) must not move
+    // closedAt, which dates the vide sanitaire of the next lot.
+    if (batch.status === BatchStatus.CLOTURE) {
+      return this.findOne(user, farmId, batchId);
+    }
     batch.status = BatchStatus.CLOTURE;
     batch.closedAt = new Date();
-    await this.batchRepo.save(batch);
+    await this.persist(batch, ['status', 'closedAt']);
     // The advisory run resolves the lot's live alerts (AdvisoryEngine).
     await this.afterChange(user, farmId, batch);
     koukouBus.emit(KOUKOU_EVENTS.BATCH_CLOSED, { farmId, batchId });
@@ -301,16 +330,40 @@ export class BatchesService {
   private async afterChange(
     _user: AuthUser,
     _farmId: string,
-    batch: ProductionBatch,
+    stale: ProductionBatch,
   ) {
+    // Reload: sales, daily entries and health events change quantityAlive
+    // under their own lock while this request runs.
+    const batch =
+      (await this.batchRepo.findOne({ where: { id: stale.id } })) ?? stale;
     const metrics = await this.metricsService.compute(batch);
     batch.lastComputedFcr = metrics.fcr ?? 0;
     if (metrics.readyForSale && batch.readyForSaleAt == null) {
       batch.readyForSaleAt = new Date().toISOString().slice(0, 10);
     }
     batch.saleReadinessChecked = metrics.readyForSale || batch.saleReadinessChecked;
-    await this.batchRepo.save(batch);
+    await this.persist(batch, [
+      'lastComputedFcr',
+      'readyForSaleAt',
+      'saleReadinessChecked',
+    ]);
     await this.advisoryEngine.runForBatch(batch, metrics);
+  }
+
+  /**
+   * Writes only the given columns. A full save() writes back every column that
+   * differs from the database row, including a quantityAlive read before a
+   * concurrent sale/entry committed (sold birds would reappear).
+   */
+  private async persist(
+    batch: ProductionBatch,
+    fields: (keyof ProductionBatch)[],
+  ): Promise<void> {
+    const patch = Object.fromEntries(fields.map((f) => [f, batch[f]]));
+    await this.batchRepo.update(
+      batch.id,
+      patch as QueryDeepPartialEntity<ProductionBatch>,
+    );
   }
 
   async runAdvisoryForBatch(batchId: string) {

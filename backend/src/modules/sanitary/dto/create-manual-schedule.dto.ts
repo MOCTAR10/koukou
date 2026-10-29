@@ -14,6 +14,7 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  ArrayNotEmpty,
   ArrayUnique,
 } from 'class-validator';
 import { CareType } from '../../../common/enums/care-type.enum.js';
@@ -21,6 +22,7 @@ import { CareType } from '../../../common/enums/care-type.enum.js';
 export class CreateManualScheduleDto {
   @ApiProperty({ type: [String], description: 'Lots concernés (un ou plusieurs)' })
   @IsArray({ message: 'Sélectionnez au moins un lot.' })
+  @ArrayNotEmpty({ message: 'Sélectionnez au moins un lot.' })
   @IsUUID('all', { each: true, message: 'Identifiant de lot invalide.' })
   @ArrayUnique({ message: 'Un lot ne doit apparaître qu’une seule fois.' })
   lotIds: string[];

@@ -39,7 +39,7 @@ export class PointsOfSaleController {
   }
 
   @Post()
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('pdv:gerer')
   @ApiOperation({
     summary: 'Créer un point de vente (Propriétaire).',
@@ -65,7 +65,7 @@ export class PointsOfSaleController {
   }
 
   @Patch(':pointOfSaleId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('pdv:gerer')
   @ApiOperation({ summary: 'Mettre à jour un point de vente (Propriétaire).' })
   @ApiParam({ name: 'farmId' })
@@ -79,7 +79,7 @@ export class PointsOfSaleController {
   }
 
   @Delete(':pointOfSaleId')
-  @Roles(UserRole.PROPRIETAIRE)
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('pdv:gerer')
   @ApiOperation({
     summary: 'Supprimer un point de vente (le « ferme » par défaut est protégé).',

@@ -38,8 +38,11 @@ export class BreedsService {
   }
 
   /** Référentiel zootechnique de la souche (poids/IC/ponte par semaine d'âge). */
-  async getStandards(breedId: string) {
-    const breed = await this.findById(breedId);
+  async getStandards(breedId: string, farmId: string | null) {
+    // Shared breed, or the caller's own custom one (not another farm's).
+    const breed = await this.repo.findOne({
+      where: sharedOrFarm<Breed>(farmId, { id: breedId }),
+    });
     if (!breed) throw new NotFoundException('Souche introuvable.');
     const standards = await this.standardRepo.find({
       where: { breedId },

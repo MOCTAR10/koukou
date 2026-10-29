@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { InputKind } from '../../common/enums/input-kind.enum.js';
@@ -185,7 +185,7 @@ export class DailyEntriesService {
           ? entryRepo.merge(existing, data)
           : entryRepo.create(data);
         await entryRepo.save(entry);
-        await this.recomputeLiveCount(em, batch.id);
+        await this.flockReconciliation.recomputeLiveCount(em, batch.id);
         return entry;
       })
       .then((entry) => {
@@ -225,45 +225,5 @@ export class DailyEntriesService {
       dto.bagSizeKg ?? existing?.bagSizeKg ?? batch.feedUnitSacKg ?? 50;
     const bags = dto.feedBags ?? qty;
     return bags * sacKg;
-  }
-
-  /**
-   * Recalcule le cheptel vivant comme source de vérité :
-   * arrivés − morts (saisies journalières) − oiseaux vendus (ventes non
-   * annulées) − oiseaux abattus − oiseaux retirés (réformes + mortalités
-   * déclarées en événement sanitaire).
-   * Verrou pessimiste (dans la transaction) pour rester en phase avec les
-   * décréments du POS.
-   */
-  private async recomputeLiveCount(em: EntityManager, batchId: string) {
-    // Verrou pessimiste acquis AVANT toute lecture des flux de sortie : toute
-    // vente/abattage concurrent sérialise sur la même ligne et son impact est
-    // visible/après notre lecture (pas de course lecture/écriture).
-    const locked = await em
-      .getRepository(ProductionBatch)
-      .createQueryBuilder('batch')
-      .setLock('pessimistic_write')
-      .where('batch.id = :id', { id: batchId })
-      .getOne();
-    if (!locked) return;
-
-    const rows = await em
-      .getRepository(DailyEntry)
-      .find({ where: { batchId } });
-    const totalDeaths = rows.reduce((s, e) => s + e.deaths, 0);
-    const [soldBirds, slaughteredBirds, sanitaryRemovedBirds] = await Promise.all([
-      this.flockReconciliation.netSoldBirds(batchId, em),
-      this.flockReconciliation.netSlaughteredBirds(batchId, em),
-      this.flockReconciliation.netSanitaryRemovedBirds(batchId, em),
-    ]);
-    locked.quantityAlive = Math.max(
-      0,
-      locked.quantityAtStart -
-        totalDeaths -
-        soldBirds -
-        slaughteredBirds -
-        sanitaryRemovedBirds,
-    );
-    await em.getRepository(ProductionBatch).save(locked);
   }
 }

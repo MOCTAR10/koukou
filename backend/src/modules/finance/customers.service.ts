@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { OrderStatus } from '../../common/enums/order-status.enum.js';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { FarmsService } from '../farms/farms.service.js';
@@ -58,6 +59,51 @@ export function normalizePhone(phone: string): string {
 
 function isUniqueViolation(err: unknown): boolean {
   return (err instanceof Error) && ((err as { code?: string }).code === '23505');
+}
+
+/**
+ * Sales wrapped by an order that is not delivered yet: nothing is owed
+ * before delivery (revenue is recognized there), and deposits go through
+ * the order so its deposit and status stay right.
+ */
+const NOT_UNDELIVERED_ORDER = `NOT EXISTS (SELECT 1 FROM orders o WHERE o.sale_id = sale.id AND o.status IN ('${OrderStatus.PENDING}', '${OrderStatus.CONFIRMED}'))`;
+
+/**
+ * Amount paid on a customer's live sales, each sale capped at its total: an
+ * over-paid order deposit refunded at delivery keeps its CONFIRMED payments,
+ * and the surplus must not pay off the customer's other debts.
+ */
+function cappedPaidQuery(
+  manager: EntityManager,
+  farmId: string,
+  customerId: string,
+) {
+  return manager
+    .createQueryBuilder()
+    .select(
+      'COALESCE(SUM(LEAST(sale.total_amount_fcfa, paid.amount)), 0)',
+      'total',
+    )
+    .from('sales', 'sale')
+    .innerJoin(
+      (qb) =>
+        qb
+          .select('payment.sale_id', 'sale_id')
+          .addSelect('SUM(payment.amount_fcfa)', 'amount')
+          .from('payments', 'payment')
+          .where('payment.status = :status', {
+            status: PaymentStatus.CONFIRMED,
+          })
+          .groupBy('payment.sale_id'),
+      'paid',
+      'paid.sale_id = sale.id',
+    )
+    .where('sale.farm_id = :farmId', { farmId })
+    .andWhere('sale.customer_id = :customerId', { customerId })
+    .andWhere('sale.status != :cancelled', {
+      cancelled: SaleStatus.CANCELLED,
+    })
+    .andWhere(NOT_UNDELIVERED_ORDER);
 }
 
 @Injectable()
@@ -453,22 +499,14 @@ export class CustomersService {
       .andWhere('sale.status != :cancelled', {
         cancelled: SaleStatus.CANCELLED,
       })
+      .andWhere(NOT_UNDELIVERED_ORDER)
       .getRawOne();
 
-    const paidRow: { total: number } | undefined = await manager
-      .createQueryBuilder()
-      .select('COALESCE(SUM(payment.amount_fcfa), 0)', 'total')
-      .from('payments', 'payment')
-      .innerJoin('sales', 'sale', 'sale.id = payment.sale_id')
-      .where('sale.customer_id = :customerId', { customerId })
-      .andWhere('sale.farm_id = :farmId', { farmId })
-      .andWhere('sale.status != :cancelled', {
-        cancelled: SaleStatus.CANCELLED,
-      })
-      .andWhere('payment.status = :status', {
-        status: PaymentStatus.CONFIRMED,
-      })
-      .getRawOne();
+    const paidRow: { total: number } | undefined = await cappedPaidQuery(
+      manager,
+      farmId,
+      customerId,
+    ).getRawOne();
 
     const invoiced = Number(invoicedRow?.total ?? 0);
     const paid = Number(paidRow?.total ?? 0);
@@ -544,6 +582,7 @@ export class CustomersService {
         .where('sale.farm_id = :farmId', { farmId })
         .andWhere('sale.customer_id = :customerId', { customerId })
         .andWhere('sale.status = :status', { status: SaleStatus.OUTSTANDING })
+        .andWhere(NOT_UNDELIVERED_ORDER)
         .orderBy('sale.created_at', 'ASC')
         .getMany();
 
@@ -599,19 +638,12 @@ export class CustomersService {
       .from('sales', 'sale')
       .where('sale.farm_id = :farmId', { farmId })
       .andWhere('sale.customer_id = :customerId', { customerId })
-      .andWhere('sale.status != :cancelled', { cancelled: SaleStatus.CANCELLED });
+      .andWhere('sale.status != :cancelled', { cancelled: SaleStatus.CANCELLED })
+      .andWhere(NOT_UNDELIVERED_ORDER);
     if (excludingSaleId) invoicedQb.andWhere('sale.id != :exclude', { exclude: excludingSaleId });
     const invoiced = Number((await invoicedQb.getRawOne())?.total ?? 0);
 
-    const paidQb = manager
-      .createQueryBuilder()
-      .select('COALESCE(SUM(payment.amount_fcfa), 0)', 'total')
-      .from('payments', 'payment')
-      .innerJoin('sales', 'sale', 'sale.id = payment.sale_id')
-      .where('sale.farm_id = :farmId', { farmId })
-      .andWhere('sale.customer_id = :customerId', { customerId })
-      .andWhere('sale.status != :cancelled', { cancelled: SaleStatus.CANCELLED })
-      .andWhere('payment.status = :status', { status: PaymentStatus.CONFIRMED });
+    const paidQb = cappedPaidQuery(manager, farmId, customerId);
     if (excludingSaleId) paidQb.andWhere('sale.id != :exclude', { exclude: excludingSaleId });
     const paid = Number((await paidQb.getRawOne())?.total ?? 0);
 

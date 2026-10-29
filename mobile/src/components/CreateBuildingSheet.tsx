@@ -42,7 +42,8 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
   const [showVidePicker, setShowVidePicker] = useState(false);
 
   // Auto-calculated capacities from surface
-  const areaNum = parseFloat(area) || 0;
+  // French input: "152,5" and "1 500" must not lose their decimals/thousands.
+  const areaNum = parseFloat(area.replace(/\s/g, '').replace(',', '.')) || 0;
   const capacityChair = areaNum > 0 ? Math.round(areaNum * DENSITY_CHAIR) : 0;
   const capacityPondeuse = areaNum > 0 ? Math.round(areaNum * DENSITY_PONDEUSE) : 0;
 

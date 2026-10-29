@@ -417,12 +417,20 @@ export class ExpensesService {
         // Vérifier si une dépense [Auto] existe déjà pour cet intrant
         const autoNote = `[Auto] Intrant ${input.kind} — lot ${input.supplierLotNumber}`;
         const existing = await em.getRepository(Expense).findOne({
-          where: {
-            farmId,
-            notes: autoNote,
-          },
+          where: [
+            { farmId, inputLotId: input.id },
+            { farmId, notes: autoNote },
+          ],
         });
-        if (existing) continue;
+        if (existing) {
+          // Older syncs created the expense without its lot link, so the
+          // delete/edit guards for reception expenses did not apply to it.
+          if (existing.inputLotId == null) {
+            existing.inputLotId = input.id;
+            await em.getRepository(Expense).save(existing);
+          }
+          continue;
+        }
 
         const expCategory = expenseCategoryForInputKind(input.kind);
         await em.getRepository(Expense).save(
@@ -435,6 +443,7 @@ export class ExpensesService {
             label: `Réception ${input.productName}`,
             supplier: input.supplier || null,
             notes: autoNote,
+            inputLotId: input.id,
             paidByCaisse: false,
             createdById: user.id,
           }),
