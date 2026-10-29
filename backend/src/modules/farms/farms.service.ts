@@ -64,6 +64,19 @@ export function uploadsRoot(): string {
   return process.env.UPLOADS_DIR ?? join(process.cwd(), 'uploads');
 }
 
+/** Hides the HR record (salary, contract, notes) of a staff link. */
+function withoutHr<T extends Partial<FarmEmployee>>(link: T): T {
+  return {
+    ...link,
+    department: null,
+    contractType: null,
+    hireDate: null,
+    endDate: null,
+    salaryFcfa: null,
+    notes: null,
+  };
+}
+
 @Injectable()
 export class FarmsService {
   constructor(
@@ -397,7 +410,12 @@ export class FarmsService {
     auth: AuthUser,
     farmId: string,
     granted: readonly string[],
-    opts: { targetUserId?: string; touchesHr?: boolean },
+    opts: {
+      targetUserId?: string;
+      touchesHr?: boolean;
+      /** Current rights of the member being edited. */
+      targetPermissions?: readonly string[];
+    },
   ): Promise<void> {
     const eff = await this.resolveEffectivePermissions(auth, farmId);
     if (eff === 'ALL') return;
@@ -407,6 +425,16 @@ export class FarmsService {
     if (opts.targetUserId === auth.id) {
       throw new ForbiddenException(
         'Vous ne pouvez pas modifier votre propre rôle ou vos propres droits.',
+      );
+    }
+    // Only the owner may edit (suspend, demote, strip) a member holding a
+    // right the caller lacks.
+    const stronger = (opts.targetPermissions ?? []).filter(
+      (c) => !eff.permissions.has(c as PermissionCode),
+    );
+    if (stronger.length > 0) {
+      throw new ForbiddenException(
+        `Vous ne pouvez pas modifier un membre qui a des droits que vous n’avez pas : ${stronger.join(', ')}.`,
       );
     }
     const missing = granted.filter(
@@ -565,6 +593,13 @@ export class FarmsService {
     await this.assertCanDelegate(auth, farmId, [], {
       targetUserId: link.userId,
       touchesHr,
+      // Éleveur links have the fixed base rights: any team manager may edit
+      // them. An Administrateur may only be edited by someone holding all
+      // of their rights.
+      targetPermissions:
+        this.staffRole(link.role) === FarmStaffRole.ADMIN
+          ? (link.permissions ?? [])
+          : [],
     });
 
     if (dto.jobTitle !== undefined) link.jobTitle = dto.jobTitle;
@@ -642,12 +677,25 @@ export class FarmsService {
       }
     }
 
-    return this.employeeRepo.save(link);
+    const saved = await this.employeeRepo.save(link);
+    return (await this.canReadHr(auth, farmId)) ? saved : withoutHr(saved);
+  }
+
+  /** Salary and contract data need rh:lire (owner and platform admin: always). */
+  private async canReadHr(auth: AuthUser, farmId: string): Promise<boolean> {
+    const eff = await this.resolveEffectivePermissions(auth, farmId);
+    if (eff === 'ALL') return true;
+    return (
+      eff != null &&
+      (eff.permissions.has('rh:lire') || eff.permissions.has('rh:gerer'))
+    );
   }
 
   async listEmployees(
+    auth: AuthUser,
     farmId: string,
   ): Promise<Array<Omit<FarmEmployee, 'user'> & { user: PublicUser }>> {
+    const hr = await this.canReadHr(auth, farmId);
     const employments = await this.employeeRepo.find({
       where: { farmId },
       relations: { user: true },
@@ -656,7 +704,7 @@ export class FarmsService {
     return employments.map((e) => {
       const { user, ...rest } = e;
       return {
-        ...rest,
+        ...(hr ? rest : withoutHr(rest)),
         role: this.staffRole(rest.role),
         permissions: this.staffRole(rest.role) === FarmStaffRole.ADMIN ? e.permissions : [...ELEVEUR_DEFAULT_PERMISSIONS],
         user: this.publicUser(user),

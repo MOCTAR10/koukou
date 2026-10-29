@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { Brackets } from 'typeorm';
+import { Order } from '../orders/entities/order.entity.js';
+import { OrderStatus } from '../../common/enums/order-status.enum.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
@@ -149,16 +152,41 @@ export class RentabiliteService {
     return this.buildOverview(farmId, f, t);
   }
 
+  /** Sales wrapped by an order not delivered yet (not revenue). */
+  private async undeliveredOrderSaleIds(farmId: string): Promise<Set<string>> {
+    const open = await this.saleRepo.manager.getRepository(Order).find({
+      where: {
+        farmId,
+        status: In([OrderStatus.PENDING, OrderStatus.CONFIRMED]),
+      },
+      select: { saleId: true },
+    });
+    return new Set(open.map((o) => o.saleId));
+  }
+
   private async buildOverview(
     farmId: string,
     from: string,
     to: string,
   ): Promise<OverviewPnl> {
+    // Revenue at delivery, like the ledger: an order's sale counts once the
+    // order is delivered, on its delivery date; open orders don't count.
     const qb = this.saleRepo
       .createQueryBuilder('sale')
+      .leftJoin(Order, 'ord', 'ord.sale_id = sale.id')
       .where('sale.farm_id = :farmId', { farmId })
-      .andWhere('sale.sale_date >= :from', { from })
-      .andWhere('sale.sale_date <= :to', { to });
+      .andWhere(
+        new Brackets((w) =>
+          w
+            .where(
+              'ord.id IS NULL AND sale.sale_date >= :from AND sale.sale_date <= :to',
+            )
+            .orWhere(
+              "ord.status = :livre AND (ord.livred_at AT TIME ZONE 'UTC')::date BETWEEN :from AND :to",
+            ),
+        ),
+      )
+      .setParameters({ from, to, livre: OrderStatus.LIVRE });
     const sales = await qb.getMany();
     const activeSales = sales.filter((s) => s.status !== SaleStatus.CANCELLED);
     const salesTotal = activeSales.reduce((s, x) => s + x.totalAmountFcfa, 0);
@@ -203,8 +231,9 @@ export class RentabiliteService {
     const allActive = await this.saleRepo.find({
       where: { farmId },
     });
+    const undelivered = await this.undeliveredOrderSaleIds(farmId);
     const activeAll = allActive.filter(
-      (s) => s.status !== SaleStatus.CANCELLED,
+      (s) => s.status !== SaleStatus.CANCELLED && !undelivered.has(s.id),
     );
     const idsAll = activeAll.map((s) => s.id);
     let outstandingFcfa = 0;
@@ -301,8 +330,11 @@ export class RentabiliteService {
     const sales = await this.saleRepo.find({
       where: { farmId },
     });
+    const undelivered = await this.undeliveredOrderSaleIds(farmId);
     const activeIds = sales
-      .filter((s) => s.status !== SaleStatus.CANCELLED)
+      .filter(
+        (s) => s.status !== SaleStatus.CANCELLED && !undelivered.has(s.id),
+      )
       .map((s) => s.id);
 
     const items = activeIds.length
@@ -318,8 +350,25 @@ export class RentabiliteService {
     let birdsSold = items
       .filter((i) => i.productType === SaleItemProductType.POULET_PIECE)
       .reduce((s, i) => s + (i.pieceCount ?? Math.ceil(i.quantity)), 0);
+    // A promotion discount is on the sale total, not on its items: share it
+    // across the items so the lot's revenue is what was really invoiced.
+    const saleTotals = new Map(sales.map((x) => [x.id, x.totalAmountFcfa]));
+    const lotSaleIds = [...new Set(items.map((i) => i.saleId))];
+    const grossBySale = new Map<string, number>();
+    if (lotSaleIds.length > 0) {
+      for (const it of await this.itemRepo.find({
+        where: { saleId: In(lotSaleIds) },
+      })) {
+        grossBySale.set(it.saleId, (grossBySale.get(it.saleId) ?? 0) + it.amountFcfa);
+      }
+    }
+    const netShare = (saleId: string) => {
+      const gross = grossBySale.get(saleId) ?? 0;
+      const total = saleTotals.get(saleId) ?? gross;
+      return gross > 0 ? Math.min(1, total / gross) : 1;
+    };
     for (const i of items) {
-      revenueFcfa += i.amountFcfa;
+      revenueFcfa += Math.round(i.amountFcfa * netShare(i.saleId));
       if (
         i.productType === SaleItemProductType.POULET_KG &&
         i.pieceCount != null

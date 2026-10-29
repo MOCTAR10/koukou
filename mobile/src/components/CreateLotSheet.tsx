@@ -248,8 +248,8 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
     if (visible) void qc.invalidateQueries({ queryKey: ['breeds', farmId] });
   }, [qc, visible, farmId]);
   const standardsQuery = useQuery({
-    queryKey: ['breed-standards', selectedBreedId],
-    queryFn: () => fetchBreedStandards(selectedBreedId!),
+    queryKey: ['breed-standards', farmId, selectedBreedId],
+    queryFn: () => fetchBreedStandards(farmId, selectedBreedId!),
     enabled: !!selectedBreedId,
   });
 

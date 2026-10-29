@@ -368,6 +368,21 @@ export class SanitaryService {
         'Impossible d’annuler un soin déjà réalisé.',
       );
     }
+    // A cancelled care gives its medication back (once: stockConsumedAt is
+    // cleared, so a later delete does not restore it again).
+    if (
+      event.decrementStock &&
+      event.stockConsumedAt &&
+      event.medicationLotId &&
+      event.medicationQty
+    ) {
+      await this.restoreMedicationStock(
+        farmId,
+        event.medicationLotId,
+        event.medicationQty,
+      );
+      event.stockConsumedAt = null;
+    }
     event.status = ProphylaxisStatus.ANNULE;
     event.cancelledReason = reason ?? 'Non précisé';
     event.performedById = user.id;
@@ -635,16 +650,25 @@ export class SanitaryService {
           'Sélectionnez le lot de médicament et indiquez la quantité à sortir du stock.',
         );
       }
+    }
+
+    // Validate every lot before taking anything out of stock: a 404 on the
+    // second lot must not leave doses consumed with no care to give them back.
+    const lots = [];
+    for (const lotId of dto.lotIds) {
+      lots.push(await this.assertBatchInFarm(farmId, lotId));
+    }
+    if (decrementStock) {
       await this.consumeMedicationStock(
         farmId,
-        dto.medicationLotId,
+        dto.medicationLotId!,
         dto.medicationQty ?? 0,
       );
     }
 
     const created: ProphylaxisEvent[] = [];
-    for (const lotId of dto.lotIds) {
-      const lot = await this.assertBatchInFarm(farmId, lotId);
+    for (const lot of lots) {
+      const lotId = lot.id;
       const event = await this.eventRepo.save(
         this.eventRepo.create({
           farmId,

@@ -151,6 +151,8 @@ export interface RecordFeedSaleInput {
 interface ComputedStock {
   lots: FeedLotStock[];
   byType: FeedTypeStock[];
+  /** Phases consumed in the window that have no feed lot at all (rupture). */
+  outOfStockPhases: FeedPhase[];
 }
 
 @Injectable()
@@ -731,7 +733,16 @@ export class FeedStockService {
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     const sacKg = farm?.defaultSacKg ?? 50;
     const stock = await this.computeFeedStock(farmId, criticalDays, warnDays);
-    const assessable = stock.byType.filter((t) => t.autonomyDays != null);
+    // A phase still being fed but with no lot at all is a rupture (0 day):
+    // without it, this pass would clear the alert raiseNoFeedAlert just raised.
+    const assessable = [
+      ...stock.byType.filter((t) => t.autonomyDays != null),
+      ...stock.outOfStockPhases.map((feedPhase) => ({
+        feedPhase,
+        foodType: null,
+        autonomyDays: 0,
+      })),
+    ];
 
     if (assessable.length === 0) {
       await this.alertsService.clearKind(farmId, null, AlertKind.ALIMENT);
@@ -983,7 +994,11 @@ export class FeedStockService {
       });
     }
 
-    return { lots: lotStocks, byType };
+    const outOfStockPhases = [...dailyAvgByPhase.keys()].filter(
+      (phase) => (feedLotsByPhase.get(phase) ?? []).length === 0,
+    );
+
+    return { lots: lotStocks, byType, outOfStockPhases };
   }
 
   /**

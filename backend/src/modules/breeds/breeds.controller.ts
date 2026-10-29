@@ -67,9 +67,15 @@ export class BreedsController {
     summary:
       'Référentiel zootechnique d’une souche : poids moyen / IC / ponte par semaine (Breed Intelligence)',
   })
+  @ApiQuery({ name: 'farmId', required: false })
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  getStandards(@Param('id') id: string) {
-    return this.breedsService.getStandards(id);
+  async getStandards(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Query('farmId') farmId?: string,
+  ) {
+    const scope = await this.farmsService.resourceScope(user, farmId, 'read');
+    return this.breedsService.getStandards(id, scope);
   }
 
   @Post()

@@ -168,7 +168,23 @@ describe('Pondage — indicateurs de ponte par lot (e2e)', () => {
     });
     expect(body.sellableRatioPercent).toBe(75);
     expect(body.eggsPerHen).toBe(2.8);
-    expect(body.layRatePercent).toBe(291.67);
+    // Average daily rate over the last 7 days with eggs (like the metrics),
+    // never the lifetime total over today's hens (was 291.67 %).
+    const since = new Date(Date.now() - 7 * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const recent = [
+      [dayPrev1, 80],
+      [dayPrev2, 75],
+      [dayCurr1, 60],
+      [dayCurr2, 65],
+    ].filter(([d]) => (d as string) >= since);
+    const eggs = recent.reduce((s, [, n]) => s + (n as number), 0);
+    const expected = Math.round(
+      Math.min(100, (eggs / (96 * recent.length)) * 100) * 100,
+    ) / 100;
+    expect(body.layRatePercent).toBe(recent.length > 0 ? expected : null);
+    expect(body.layRatePercent ?? 0).toBeLessThanOrEqual(100);
     expect(body.weekly).toHaveLength(2);
   });
 

@@ -611,8 +611,8 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
   }, [lot]);
 
   const standardsQuery = useQuery({
-    queryKey: ['breed-standards', lot?.breedId ?? null],
-    queryFn: () => fetchBreedStandards(lot!.breedId!),
+    queryKey: ['breed-standards', farmId, lot?.breedId ?? null],
+    queryFn: () => fetchBreedStandards(farmId, lot!.breedId!),
     enabled: !!lot?.breedId,
   });
   const standardRow = useMemo(() => {

@@ -78,7 +78,11 @@ export function useOfflineQueue(farmId: string): OfflineQueueState {
     try {
       const summary = await flushQueue();
       setLast(summary);
-      if (summary.synced > 0) invalidateFarmQueries(queryClient, { farmId });
+      // Queued ops carry their own farm: refresh every farm that synced, not
+      // only the active one.
+      for (const id of new Set([...summary.farmIds, ...(summary.synced > 0 ? [farmId] : [])])) {
+        invalidateFarmQueries(queryClient, { farmId: id });
+      }
     } finally {
       setSyncing(false);
     }

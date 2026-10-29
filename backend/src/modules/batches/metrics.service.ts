@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository } from 'typeorm';
 import {
-  AlertKind,
   AlertLevel,
   AlertStatus,
 } from '../../common/enums/alert-level.enum.js';
@@ -20,6 +19,7 @@ import {
 import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
+import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
 import { BreedStandard } from '../breeds/entities/breed-standard.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { Farm } from '../farms/entities/farm.entity.js';
@@ -168,7 +168,7 @@ export class MetricsService {
       reformeLayRateFallPct,
       standards,
       alertsCount,
-      activeSanitaryAlerts,
+      holds,
     ] = await Promise.all([
       this.entriesRepo.find({
         where: { batchId: batch.id },
@@ -184,16 +184,7 @@ export class MetricsService {
       this.alertRepo.count({
         where: { batchId: batch.id, status: AlertStatus.ACTIVE },
       }),
-      this.alertRepo.find({
-        where: {
-          batchId: batch.id,
-          status: AlertStatus.ACTIVE,
-          kind: In([
-            AlertKind.DELAI_ATTENTE,
-            AlertKind.PROPHYLAXIE,
-          ]),
-        },
-      }),
+      sanitaryHolds(this.alertRepo.manager, batch.farmId, batch.id),
     ]);
 
     const entries = historical
@@ -361,7 +352,8 @@ export class MetricsService {
       minVenteAgeDays,
       fcrDeviationMaxPct,
       reformeLayRateFallPct,
-      sanitaryBlocked: activeSanitaryAlerts.length > 0,
+      sanitaryBlocked:
+        holds.withdrawalEndDate != null || holds.prophylaxisOverdue,
     });
 
     return {

@@ -545,6 +545,8 @@ export interface FlushSummary {
   /** Cash ops refused by the server, kept in the rejected list. */
   rejected: number;
   remaining: number;
+  /** Farms whose queued ops reached the server (to refresh each of them). */
+  farmIds: string[];
 }
 
 let flushing: Promise<FlushSummary> | null = null;
@@ -562,6 +564,7 @@ export function flushQueue(): Promise<FlushSummary> {
 
 async function runFlush(): Promise<FlushSummary> {
   const total = { synced: 0, dropped: 0, rejected: 0 };
+  const farmIds = new Set<string>();
   // Si de nouvelles opérations sont enfilées PENDANT une passe (réseau
   // instable), on relance tant que la file est stabilisée, sans jamais
   // bloquer une opération entrée après le snapshot initial.
@@ -577,6 +580,7 @@ async function runFlush(): Promise<FlushSummary> {
       if (result === 'ok') {
         removeOp(op.id);
         roundSynced += 1;
+        farmIds.add(op.farmId);
       } else if (result === 'dropped') {
         removeOp(op.id);
         roundDropped += 1;
@@ -593,5 +597,5 @@ async function runFlush(): Promise<FlushSummary> {
     total.rejected += roundRejected;
     if (roundSynced === 0 && roundDropped === 0 && roundRejected === 0) break;
   }
-  return { ...total, remaining: loadOps().length };
+  return { ...total, remaining: loadOps().length, farmIds: [...farmIds] };
 }

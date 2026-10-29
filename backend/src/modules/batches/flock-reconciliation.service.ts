@@ -9,6 +9,8 @@ import { SaleItem } from '../finance/entities/sale-item.entity.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { HealthEvent } from '../sanitary/entities/health-event.entity.js';
+import { ProductionBatch } from './entities/production-batch.entity.js';
+import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
 
 /**
@@ -193,5 +195,45 @@ export class FlockReconciliationService {
       .select('COALESCE(SUM(event.quantity), 0)', 'total')
       .getRawOne();
     return Math.max(0, Number(row?.total ?? 0));
+  }
+
+  /**
+   * Recalcule le cheptel vivant comme source de vérité :
+   * arrivés − morts (saisies journalières) − oiseaux vendus (ventes non
+   * annulées) − oiseaux abattus − oiseaux retirés (réformes + mortalités
+   * déclarées en événement sanitaire).
+   * Verrou pessimiste (dans la transaction) pour rester en phase avec les
+   * décréments du POS.
+   */
+  async recomputeLiveCount(em: EntityManager, batchId: string) {
+    // Verrou pessimiste acquis AVANT toute lecture des flux de sortie : toute
+    // vente/abattage concurrent sérialise sur la même ligne et son impact est
+    // visible/après notre lecture (pas de course lecture/écriture).
+    const locked = await em
+      .getRepository(ProductionBatch)
+      .createQueryBuilder('batch')
+      .setLock('pessimistic_write')
+      .where('batch.id = :id', { id: batchId })
+      .getOne();
+    if (!locked) return;
+
+    const rows = await em
+      .getRepository(DailyEntry)
+      .find({ where: { batchId } });
+    const totalDeaths = rows.reduce((s, e) => s + e.deaths, 0);
+    const [soldBirds, slaughteredBirds, sanitaryRemovedBirds] = await Promise.all([
+      this.netSoldBirds(batchId, em),
+      this.netSlaughteredBirds(batchId, em),
+      this.netSanitaryRemovedBirds(batchId, em),
+    ]);
+    locked.quantityAlive = Math.max(
+      0,
+      locked.quantityAtStart -
+        totalDeaths -
+        soldBirds -
+        slaughteredBirds -
+        sanitaryRemovedBirds,
+    );
+    await em.getRepository(ProductionBatch).save(locked);
   }
 }

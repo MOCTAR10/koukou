@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { OrderStatus } from '../../common/enums/order-status.enum.js';
 import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
@@ -64,6 +65,7 @@ import { CreatePaymentDto } from './dto/payment.dto.js';
 import { CreateSaleDto } from './dto/sale.dto.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { Farm } from '../farms/entities/farm.entity.js';
+import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 
 const SALE_PREFIX = 'VTE';
 const ITEM_LABELS: Record<SaleItemProductType, string> = {
@@ -601,6 +603,7 @@ export class SalesService {
         );
         batchId = t.batchId ?? batchId;
       } else {
+        await lockFarmEggStock(em, farmId);
         await this.assertEggsAvailable(em, farmId, quantity);
         if (batchId != null) {
           const batchAlveoles = await this.availableBatchEggAlveoles(em, farmId, batchId);
@@ -1298,6 +1301,18 @@ export class SalesService {
       if (sale.status === SaleStatus.CANCELLED) {
         throw new BadRequestException(
           'Impossible d’encaisser sur une vente annulée.',
+        );
+      }
+      const undeliveredOrder = await em.getRepository(Order).findOne({
+        where: {
+          saleId,
+          farmId,
+          status: In([OrderStatus.PENDING, OrderStatus.CONFIRMED]),
+        },
+      });
+      if (undeliveredOrder) {
+        throw new BadRequestException(
+          `Cette vente appartient à la commande ${undeliveredOrder.referenceNumber}, pas encore livrée : encaissez l’acompte depuis la commande.`,
         );
       }
       const payment = await this.paymentsService.recordPayment(em, {

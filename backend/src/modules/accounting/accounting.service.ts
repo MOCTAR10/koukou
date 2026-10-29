@@ -25,12 +25,18 @@ import { InputKind } from '../../common/enums/input-kind.enum.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { CashSession } from '../finance/entities/cash-session.entity.js';
+import { CashSessionStatus } from '../../common/enums/cash-session-status.enum.js';
 import { CashMovement } from '../finance/entities/cash-movement.entity.js';
 import { Payment } from '../finance/entities/payment.entity.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
 import { Expense } from '../finance/entities/expense.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
+import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
+import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
+import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
+import { Order } from '../orders/entities/order.entity.js';
+import { OrderStatus } from '../../common/enums/order-status.enum.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { FeedStockLoss } from '../feed-stock/entities/feed-stock-loss.entity.js';
 import { FeedStockSale } from '../feed-stock/entities/feed-stock-sale.entity.js';
@@ -290,6 +296,42 @@ export class AccountingService {
   }
 
   /**
+   * Opening of a cash session: only the change from the cash counted at the
+   * previous closing is an owner contribution (108 → 571) or withdrawal
+   * (571 → 108). Posting the whole float each day would grow 571 and 108 by
+   * the carried-over cash at every opening. Null when nothing changed.
+   */
+  async cashOpeningLines(
+    em: EntityManager,
+    session: Pick<CashSession, 'id' | 'farmId' | 'openingBalanceFcfa' | 'openedAt' | 'createdAt'>,
+  ): Promise<PostingLine[] | null> {
+    const previous = await em
+      .getRepository(CashSession)
+      .createQueryBuilder('s')
+      .where('s.farmId = :farmId', { farmId: session.farmId })
+      .andWhere('s.id <> :id', { id: session.id })
+      .andWhere('s.status = :closed', { closed: CashSessionStatus.CLOSED })
+      .andWhere('s.createdAt < :createdAt', { createdAt: session.createdAt })
+      .orderBy('s.createdAt', 'DESC')
+      .getOne();
+    const carried = previous?.closingBalanceFcfa ?? 0;
+    const delta = session.openingBalanceFcfa - carried;
+    if (delta > 0) {
+      return [
+        { account: '571', debit: delta, label: 'Caisse — espèces' },
+        { account: '108', credit: delta, label: 'Apports de l’exploitant' },
+      ];
+    }
+    if (delta < 0) {
+      return [
+        { account: '108', debit: -delta, label: 'Retrait de l’exploitant' },
+        { account: '571', credit: -delta, label: 'Caisse — espèces' },
+      ];
+    }
+    return null;
+  }
+
+  /**
    * Passe (ou ajuste) l'écriture de vente `sale:<id>` pour refléter les montants
    * finaux — utilisé à la livraison d'une commande (reconnaissance du chiffre
    * d'affaires) quand l'`init` a déjà passé l'écriture sur l'instantané du bon.
@@ -427,6 +469,12 @@ export class AccountingService {
       .getOne();
     if (exercice) return exercice;
     const year = date.slice(0, 4);
+    // Two postings opening a new year at the same moment would each create
+    // "Exercice YYYY" (no unique index: adding one would fail the schema sync
+    // on farms that already have a duplicate). Serialize the creation.
+    await em.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `exercice:${farmId}:${year}`,
+    ]);
     exercice = await repo
       .createQueryBuilder('ex')
       .where('ex.farm_id = :farmId', { farmId })
@@ -463,17 +511,15 @@ export class AccountingService {
         order: { openedAt: 'ASC', createdAt: 'ASC' },
       });
       for (const session of sessions) {
-        if (session.openingBalanceFcfa > 0) {
+        const openLines = await this.cashOpeningLines(em, session);
+        if (openLines) {
           await this.post(em, {
             farmId,
             date: session.openedAt,
             label: `Ouverture de caisse — caisse du ${session.openedAt}`,
             source: 'CAISSE',
             sourceId: `open:${session.id}`,
-            lines: [
-              { account: '571', debit: session.openingBalanceFcfa },
-              { account: '108', credit: session.openingBalanceFcfa },
-            ],
+            lines: openLines,
             operatorId: session.openedById,
           });
           posted.caisse++;
@@ -596,9 +642,26 @@ export class AccountingService {
         arr.push(item);
         itemsBySale.set(item.saleId, arr);
       }
+      const undeliveredOrderSales = new Set(
+        (
+          await em.getRepository(Order).find({
+            where: {
+              farmId,
+              status: In([OrderStatus.PENDING, OrderStatus.CONFIRMED]),
+            },
+            select: { saleId: true },
+          })
+        ).map((o) => o.saleId),
+      );
       for (const sale of sales) {
         const items = itemsBySale.get(sale.id) ?? [];
         if (sale.status === SaleStatus.CANCELLED) {
+          // Same rule as the live cancellation: reverse only revenue that was
+          // recognized. A sale cancelled before any `sale:` entry (order
+          // cancelled before delivery, POS sale before the first init) has
+          // nothing to reverse, and its refunded payments are not posted.
+          const recognized = await this.netSaleRevenue(em, farmId, sale.id);
+          if (recognized <= 0) continue;
           const cancelledDate = sale.cancelledAt
             ? sale.cancelledAt.toISOString().slice(0, 10)
             : sale.saleDate;
@@ -637,6 +700,8 @@ export class AccountingService {
           });
           posted.ventes++;
         } else {
+          // Order revenue is recognized at delivery (ensureSaleEntry).
+          if (undeliveredOrderSales.has(sale.id)) continue;
           await this.post(em, {
             farmId,
             date: sale.saleDate,
@@ -664,6 +729,10 @@ export class AccountingService {
         order: { expenseDate: 'ASC', createdAt: 'ASC' },
       });
       for (const e of expenses) {
+        // Reception expenses are already booked by the lot (`input:`).
+        if (e.inputLotId != null || e.notes?.startsWith('[Auto] Intrant')) {
+          continue;
+        }
         await this.post(em, {
           farmId,
           date: e.expenseDate,
@@ -1205,10 +1274,35 @@ export class AccountingService {
       valueFcfa: number;
     }> = [];
     let totalValueFcfa = 0;
+    const toKg = (lot: InputLot, qty: number) =>
+      lot.unit === FeedUnit.KG ? qty : qty * sacKg;
     for (const lot of lots) {
-      const totalValue = inputValueFcfa(lot);
-      const receivedKg =
-        (lot.unit === FeedUnit.KG ? lot.quantity : lot.quantity * sacKg) || 0;
+      // A feed transfer to a shop takes its quantity out of lot.quantity: add
+      // it back to value the lot on what was really received, and count it as
+      // an outflow (only up to asOf for a past snapshot).
+      const transfers = await em.getRepository(StockTransfer).find({
+        where: {
+          farmId,
+          inputLotId: lot.id,
+          productType: StockTransferProductType.PROVENDE,
+        },
+      });
+      let removedQty = 0;
+      let removedAfterAsOfQty = 0;
+      for (const t of transfers) {
+        const out =
+          t.status === StockTransferStatus.CANCELLED ? t.quantitySold : t.quantity;
+        const outKg = t.unit === FeedUnit.SAC ? out * sacKg : out;
+        const outLotUnits = lot.unit === FeedUnit.KG ? outKg : outKg / sacKg;
+        removedQty += outLotUnits;
+        if (asOf && t.createdAt.toISOString().slice(0, 10) > asOf) {
+          removedAfterAsOfQty += outLotUnits;
+        }
+      }
+      const receivedQty = (lot.quantity ?? 0) + removedQty;
+      const totalValue = inputValueFcfa({ ...lot, quantity: receivedQty });
+      const receivedKg = toKg(lot, receivedQty) || 0;
+      const onLotKg = toKg(lot, (lot.quantity ?? 0) + removedAfterAsOfQty) || 0;
       if (receivedKg <= 0 || totalValue <= 0) continue;
       const [entries, losses, sales] = await Promise.all([
         em.getRepository(DailyEntry).find({
@@ -1224,7 +1318,7 @@ export class AccountingService {
       const usedKg = entries.reduce((s, e) => s + e.feedQuantity, 0);
       const lostKg = losses.reduce((s, l) => s + l.quantityKg, 0);
       const soldKg = sales.reduce((s, x) => s + x.quantityKg, 0);
-      const availableKg = Math.max(0, receivedKg - usedKg - lostKg - soldKg);
+      const availableKg = Math.max(0, onLotKg - usedKg - lostKg - soldKg);
       const valueFcfa = Math.round((totalValue * availableKg) / receivedKg);
       if (valueFcfa <= 0) continue;
       lotsDetail.push({

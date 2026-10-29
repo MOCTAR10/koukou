@@ -123,7 +123,7 @@ export class CreateBatchDto {
 
   @ApiPropertyOptional({
     description:
-      'Effectif vivant actuel (pour un lot en cours — sinon quantityAtStart)',
+      'Doit être égal à quantityAtStart s’il est fourni (pour un lot déjà en cours, saisir l’effectif actuel comme effectif de départ)',
   })
   @IsOptional()
   @IsInt({ message: 'La quantité vivante doit être un entier.' })

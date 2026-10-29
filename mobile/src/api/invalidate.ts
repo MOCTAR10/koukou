@@ -30,6 +30,16 @@ export function invalidateFarmQueries(
   void queryClient.invalidateQueries({ queryKey: ['sales', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['orders', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['rentabilite', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['rentabilite-overview', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['rentabilite-overview-prev', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['expenses', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['inputs', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['customer-history', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['customer-stats', farmId] });
+  void queryClient.invalidateQueries({ queryKey: ['order', farmId] });
+  for (const key of ['accounting-balance', 'accounting-resultat', 'accounting-journal', 'accounting-bilan', 'accounting-stock']) {
+    void queryClient.invalidateQueries({ queryKey: [key, farmId] });
+  }
   void queryClient.invalidateQueries({ queryKey: ['farm-members', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['farm-profile', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['permission-catalog', farmId] });

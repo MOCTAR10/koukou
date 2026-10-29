@@ -30,6 +30,7 @@ import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js'
 import { CreateStockTransferDto } from './dto/stock-transfer.dto.js';
 import { StockTransfer } from './entities/stock-transfer.entity.js';
 import { PointOfSale } from './entities/point-of-sale.entity.js';
+import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 
 function round2(v: number): number {
   return Math.round(v * 100) / 100;
@@ -177,6 +178,7 @@ export class StockTransfersService {
                 'Lot de production introuvable dans cette ferme.',
               );
             }
+            await lockFarmEggStock(em, farmId);
             await this.assertEggsAvailable(em, farmId, dto.quantity);
             const batchEggAlveoles = await this.availableBatchEggAlveoles(
               em,

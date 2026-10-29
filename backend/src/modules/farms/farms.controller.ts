@@ -146,7 +146,7 @@ export class FarmsController {
     @Param('farmId') farmId: string,
   ) {
     await this.farmsService.assertAccessible(owner, farmId);
-    return this.farmsService.listEmployees(farmId);
+    return this.farmsService.listEmployees(owner, farmId);
   }
 
   @Get(':farmId/me')

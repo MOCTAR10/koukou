@@ -34,6 +34,12 @@ export function BatchesPage() {
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A batch of the previous farm must not stay selected after a farm switch.
+  const [selectionFarmId, setSelectionFarmId] = useState(farmId);
+  if (selectionFarmId !== farmId) {
+    setSelectionFarmId(farmId);
+    setSelectedId(null);
+  }
 
   const batches = useQuery({
     queryKey: ['batches', farmId],
@@ -54,7 +60,7 @@ export function BatchesPage() {
   const selected = batches.data?.find((b) => b.id === selectedId) ?? null;
 
   const entries = useQuery({
-    queryKey: ['daily-entries', selectedId],
+    queryKey: ['daily-entries', farmId, selectedId],
     queryFn: () =>
       api.get<DailyEntry[]>(
         `/farms/${farmId}/batches/${selectedId}/daily-entries`,
@@ -63,7 +69,7 @@ export function BatchesPage() {
   });
 
   const curve = useQuery({
-    queryKey: ['curve', selectedId],
+    queryKey: ['curve', farmId, selectedId],
     queryFn: () =>
       api.get<BatchCurve>(`/farms/${farmId}/batches/${selectedId}/curve`),
     enabled: !!farmId && !!selectedId,
@@ -73,8 +79,8 @@ export function BatchesPage() {
     void queryClient.invalidateQueries({ queryKey: ['batches', farmId] });
     void queryClient.invalidateQueries({ queryKey: ['dashboard', farmId] });
     if (selectedId) {
-      void queryClient.invalidateQueries({ queryKey: ['daily-entries', selectedId] });
-      void queryClient.invalidateQueries({ queryKey: ['curve', selectedId] });
+      void queryClient.invalidateQueries({ queryKey: ['daily-entries', farmId, selectedId] });
+      void queryClient.invalidateQueries({ queryKey: ['curve', farmId, selectedId] });
     }
   };
 

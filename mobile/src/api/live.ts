@@ -756,13 +756,13 @@ export class LiveApi {
     return apiFetch<Breed[]>(`/breeds?farmId=${encodeURIComponent(farmId)}`);
   }
 
-  async fetchBreedStandards(breedId: string): Promise<BreedStandard[]> {
+  async fetchBreedStandards(farmId: string, breedId: string): Promise<BreedStandard[]> {
     const res = await apiFetch<{
       breedId: string;
       breedName: string;
       type: string;
       standards: BreedStandard[];
-    }>(`/breeds/${breedId}/standards`);
+    }>(`/breeds/${breedId}/standards?farmId=${encodeURIComponent(farmId)}`);
     return res.standards;
   }
 

@@ -20,6 +20,16 @@ export class CaisseController {
 
   @Get('current')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  // Cash flows (sale, deposit, customer payment) check the open session
+  // before collecting, so their permissions read it too.
+  @Permissions(
+    'caisse:lire',
+    'caisse:ouvrir',
+    'caisse:fermer',
+    'vente:creer',
+    'vente:commande',
+    'compta:client',
+  )
   @ApiOperation({
     summary: 'Session de caisse ouverte (mouvements + solde attendu) ou null',
   })
@@ -30,6 +40,7 @@ export class CaisseController {
 
   @Get('sessions')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('caisse:lire', 'caisse:fermer')
   @ApiOperation({ summary: 'Historique des sessions de caisse' })
   @ApiParam({ name: 'farmId' })
   sessions(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {

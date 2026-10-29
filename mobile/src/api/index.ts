@@ -360,8 +360,8 @@ export function fetchBreeds(farmId: string): Promise<Breed[]> {
   return live.fetchBreeds(farmId);
 }
 
-export function fetchBreedStandards(breedId: string): Promise<BreedStandard[]> {
-  return live.fetchBreedStandards(breedId);
+export function fetchBreedStandards(farmId: string, breedId: string): Promise<BreedStandard[]> {
+  return live.fetchBreedStandards(farmId, breedId);
 }
 
 /** Shared cultures plus the farm's own. */

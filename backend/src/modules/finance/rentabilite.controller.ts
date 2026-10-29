@@ -3,6 +3,7 @@ import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { RentabiliteService } from './rentabilite.service.js';
@@ -14,6 +15,7 @@ export class RentabiliteController {
 
   @Get('overview')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('compta:rapports')
   @ApiOperation({
     summary:
       'Vue financière de la période : ventes, recouvrements, créances, dépenses par catégorie, résultat net.',
@@ -32,6 +34,7 @@ export class RentabiliteController {
 
   @Get('overview/export')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('compta:rapports')
   @ApiOperation({
     summary:
       'Export PDF du rapport de période (toute période souhaitée, par exemple journalière/mensuelle).',
@@ -60,6 +63,7 @@ export class RentabiliteController {
 
   @Get('batches/:batchId')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('compta:rapports')
   @ApiOperation({
     summary:
       'Compte de résultat du lot : revenus par produit, dépenses, coût au kilo, marge.',
@@ -75,6 +79,7 @@ export class RentabiliteController {
 
   @Get('batches/:batchId/export')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('compta:rapports')
   @ApiOperation({
     summary: 'Export PDF du compte de résultat du lot.',
   })

@@ -53,6 +53,7 @@ import { PulsarDot } from '@/components/ui/PulsarDot';
 import { Sheet } from '@/components/ui/Sheet';
 import { PeriodBar, periodWindow, toDateStr, type PeriodBarHandle, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { color, fmt, palette, radii, fontFamily, semantic } from '@/constants/theme';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
@@ -482,6 +483,8 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
 export default function LotsScreen() {
   const router = useRouter();
   const { farmId } = useAuth();
+  const { hasPermission } = useFarmProfile();
+  const canRapports = hasPermission('compta:rapports');
   const { openCreateBuilding } = useCreateCenter();
   const batches = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
   const buildings = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
@@ -551,6 +554,7 @@ export default function LotsScreen() {
   const pnl = useQuery({
     queryKey: ['rentabilite-overview', farmId, finMode, finFrom, finTo],
     queryFn: () => fetchRentabiliteOverview(farmId, finFrom, finTo),
+    enabled: canRapports,
     placeholderData: keepPreviousData,
   });
   const salesQ = useQuery({
@@ -572,7 +576,7 @@ export default function LotsScreen() {
   const prevPnl = useQuery({
     queryKey: ['rentabilite-overview-prev', farmId, finMode, prevWin.from, prevWin.to],
     queryFn: () => fetchRentabiliteOverview(farmId, prevWin.from, prevWin.to),
-    enabled: prevWin.from != null,
+    enabled: canRapports && prevWin.from != null,
     placeholderData: keepPreviousData,
   });
   const dEncaissPct = deltaPct(pnl.data?.collectedFcfa, prevPnl.data?.collectedFcfa);
@@ -820,6 +824,8 @@ export default function LotsScreen() {
         </View>
       </View>
 
+      {canRapports && (
+      <>
       {/* ── FINANCE (en direct : 4 KPI · la feuille de détails s'ouvre en bas) ── */}
       <View style={styles.financeWrap}>
         <Pressable
@@ -896,6 +902,8 @@ export default function LotsScreen() {
           </View>
         )}
       </Card>
+      </>
+      )}
 
       {/* ── STATS · VUE D'ENSEMBLE (trigger → bottom sheet) ── */}
       <StatsPanel summary={summary} hasAnyBatch={hasAnyBatch} filterLabel={filterLabel} onOpen={() => { Haptics.selectionAsync().catch(() => {}); setShowOverview(true); }} />
@@ -1093,6 +1101,7 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
   batch: BatchWithMetrics; farmId: string; buildingName?: string | null; onPress: () => void; detailOpen: boolean; onOpenDetail: () => void; onCloseDetail: () => void; onOpenEggs: () => void; onPlanCare: () => void;
 }) {
   const queryClient = useQueryClient();
+  const canRapports = useFarmProfile().hasPermission('compta:rapports');
   const completeCare = useCallback((eventId: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     void completeProphylaxis(farmId, batch.id, eventId)
@@ -1141,7 +1150,7 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
   const pnlQ = useQuery({
     queryKey: ['rentabilite-batch', farmId, batch.id],
     queryFn: () => fetchRentabiliteBatch(farmId, batch.id),
-    enabled: detailOpen,
+    enabled: detailOpen && canRapports,
     staleTime: 60_000,
   });
   const slaughterQ = useQuery({

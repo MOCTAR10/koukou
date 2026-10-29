@@ -128,10 +128,15 @@ describe('Référentiel souches & aperçu santé (Breed Intelligence) (e2e)', ()
       .send({ name: `Maxi Chair Gabon ${Date.now()}`, type: 'CHAIR', farmId })
       .expect(201);
     const res = await request(server)
-      .get(`/breeds/${custom.body.id}/standards`)
+      .get(`/breeds/${custom.body.id}/standards?farmId=${farmId}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(res.body.standards).toEqual([]);
+    // A custom breed is only visible within its farm.
+    await request(server)
+      .get(`/breeds/${custom.body.id}/standards`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
 
     await request(server)
       .get('/breeds/00000000-0000-4000-8000-000000000000/standards')

@@ -1,8 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { AlertKind } from '../../common/enums/alert-level.enum.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
+import { AlertsService } from '../alerts/alerts.service.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { Building } from './entities/building.entity.js';
@@ -17,6 +23,7 @@ export class BuildingsService {
     @InjectRepository(ProductionBatch)
     private readonly batchRepo: Repository<ProductionBatch>,
     private readonly farmsService: FarmsService,
+    private readonly alertsService: AlertsService,
   ) {}
 
   async create(
@@ -90,7 +97,23 @@ export class BuildingsService {
     });
     if (!building)
       throw new NotFoundException('Bâtiment introuvable dans cette ferme.');
+    const occupied = await this.batchRepo.count({
+      where: { farmId, buildingId, status: Not(BatchStatus.CLOTURE) },
+    });
+    if (occupied > 0) {
+      throw new BadRequestException(
+        'Ce bâtiment abrite encore des lots en cours : déplacez-les ou clôturez-les avant de le supprimer.',
+      );
+    }
     await this.buildingRepo.remove(building);
+    // No later evaluation can reach a deleted building: resolve its alerts now.
+    for (const kind of [
+      AlertKind.DENSITE_BATIMENT,
+      AlertKind.COHABITATION,
+      AlertKind.VIDE_SANITAIRE,
+    ]) {
+      await this.alertsService.clearKind(farmId, null, kind, buildingId);
+    }
     return { deleted: true };
   }
 
