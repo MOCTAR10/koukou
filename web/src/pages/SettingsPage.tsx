@@ -1,64 +1,134 @@
 import { useQuery } from '@tanstack/react-query';
-import { SlidersHorizontal } from 'lucide-react';
+import { Building, Crown, Info, LogOut, MapPin, Phone, ShieldCheck, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { api } from '../api/client';
-import type { ReferenceConstant } from '../api/types';
-import { Card, EmptyState, Loading, PageHeader, Th, Td } from '../components/ui';
-import { num } from '../lib/format';
+import type { FarmMemberProfile, FarmWithLogo } from '../api/types-org';
+import { useFarm } from '../app/FarmContext';
+import { useAuth } from '../auth/AuthContext';
+import { Button, ErrorNote } from '../components/form';
+import { FarmIdentityCard } from '../components/org/FarmIdentityCard';
+import { FarmLogo } from '../components/org/FarmLogo';
+import { ReferenceConstants } from '../components/org/ReferenceConstants';
+import { STAFF_ROLE_LABEL } from '../components/org/shared';
+import { Card, Loading, PageHeader } from '../components/ui';
+import { statusLabel } from '../lib/format';
+
+function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 text-sm">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-50">
+        <Icon className="h-4 w-4 text-brand-600" />
+      </span>
+      <span className="flex-1 text-slate-500">{label}</span>
+      <span className="truncate font-semibold text-slate-800">{value}</span>
+    </div>
+  );
+}
+
+function Section({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+      <p className="mb-2 text-sm text-slate-500">{subtitle}</p>
+      {children}
+    </section>
+  );
+}
 
 export function SettingsPage() {
-  const constants = useQuery({
-    queryKey: ['reference-constants'],
-    queryFn: () => api.get<ReferenceConstant[]>('/reference-constants'),
+  const { farmId, farm: currentFarm } = useFarm();
+  const { user, logout } = useAuth();
+  const farm: FarmWithLogo | null = currentFarm;
+
+  const profile = useQuery({
+    queryKey: ['farm-profile', farmId],
+    queryFn: () => api.get<FarmMemberProfile>(`/farms/${farmId}/me`),
+    enabled: !!farmId,
+    staleTime: 30_000,
   });
+
+  const me = profile.data;
+  const roleLabel = !me ? statusLabel(user?.role) : me.role === 'PROPRIETAIRE' ? 'Propriétaire' : STAFF_ROLE_LABEL[me.role];
+  // The stored session carries the phone although AuthUser doesn't declare it.
+  const phone = (user as { phone?: string } | null)?.phone ?? farm?.owner?.phone ?? '—';
+  const hasAllRights = me?.permissions.includes('*') === true;
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Réglages"
-        subtitle="Constantes de référence globales (lecture). La modification relève de l'administrateur plateforme."
-      />
+      <PageHeader title="Réglages de ferme" subtitle={farm?.name} />
 
-      {constants.isLoading ? (
-        <Loading label="Chargement des constantes…" />
-      ) : (
-        <Card className="overflow-hidden">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-              <SlidersHorizontal className="h-4 w-4 text-slate-400" /> Constantes de référence
-            </h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <Th>Clé</Th>
-                  <Th>Libellé</Th>
-                  <Th>Valeur</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {(constants.data ?? [])
-                  .slice()
-                  .sort((a, b) => a.key.localeCompare(b.key))
-                  .map((c) => (
-                    <tr key={c.key} className="border-t border-slate-100">
-                      <Td className="font-mono text-xs">{c.key}</Td>
-                      <Td>{c.description ?? '—'}</Td>
-                      <Td className="font-semibold">{num(c.value)}</Td>
-                    </tr>
-                  ))}
-                {!constants.data?.length ? (
-                  <tr>
-                    <Td className="py-8 text-center text-slate-400">
-                      <EmptyState message="Aucune constante." />
-                    </Td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      <ErrorNote error={profile.error} />
+
+      <div className="flex items-center gap-4 rounded-2xl bg-brand-800 p-5">
+        <FarmLogo farm={farm} size="h-16 w-16" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-lg font-bold text-white">{user?.fullName || 'Compte Fermia'}</p>
+          <p className="text-sm text-brand-200">{roleLabel}</p>
+        </div>
+        <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/20">
+          {me?.active === false ? 'Compte inactif' : 'Compte actif'}
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Section title="Compte" subtitle="Identité et rattachement">
+          <Card className="divide-y divide-slate-100">
+            <InfoRow icon={Phone} label="Téléphone" value={phone} />
+            <InfoRow icon={ShieldCheck} label="Rôle" value={roleLabel} />
+            {farm ? (
+              <>
+                <InfoRow icon={Building} label="Ferme" value={farm.name} />
+                <InfoRow icon={MapPin} label="Commune" value={farm.administrativeCity || 'Non renseignée'} />
+              </>
+            ) : null}
+          </Card>
+        </Section>
+
+        {hasAllRights ? (
+          <Section title="Mes droits" subtitle="Accès complet à la ferme">
+            <Card className="flex items-center gap-3 p-4">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50">
+                <Crown className="h-5 w-5 text-amber-500" />
+              </span>
+              <span>
+                <span className="block text-sm font-bold text-slate-900">Accès complet</span>
+                <span className="block text-sm text-slate-500">
+                  Propriétaire de la ferme (ou administrateur plateforme) : toutes les sections sont accessibles.
+                </span>
+              </span>
+            </Card>
+          </Section>
+        ) : null}
+      </div>
+
+      <Section title="Ma ferme" subtitle="Nom et logo modifiables">
+        {farm ? <FarmIdentityCard key={farm.id} farm={farm} /> : <Loading />}
+      </Section>
+
+      <ReferenceConstants />
+
+      <Card className="space-y-2 p-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+          <Info className="h-4 w-4 text-emerald-600" /> Ce que pilote l’application
+        </h2>
+        <p className="text-sm text-slate-500">
+          Saisie journalière, ventes (POS espèces), soins prophylactiques, stock de provende, abattage et caisse :
+          l’advisory s’appuie sur les seuils ci-dessus pour prioriser vos prochaines actions.
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {['Saisie', 'POS', 'Sanitaire', 'Provende', 'Abattage', 'Caisse'].map((s) => (
+            <span key={s} className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+              {s}
+            </span>
+          ))}
+        </div>
+      </Card>
+
+      <Section title="Session" subtitle="Déconnexion de ce compte">
+        <Button tone="secondary" onClick={logout}>
+          <LogOut className="h-4 w-4" /> Se déconnecter
+        </Button>
+      </Section>
     </div>
   );
 }

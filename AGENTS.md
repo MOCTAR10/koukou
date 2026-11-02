@@ -4,7 +4,7 @@ Offline-first farm SaaS (poultry first, multi-species, crops) for Gabon. Brand r
 
 ## Repo shape
 
-`backend/` (NestJS), `web/` (admin console), `mobile/` (Expo), `docs/`.
+`backend/` (NestJS), `web/` (farm owners + platform admin), `mobile/` (Expo), `docs/`.
 
 **No root `package.json`, no workspaces, no root lockfile.** Three independent npm projects — every command runs from its own directory. There is **no root README**: `backend/README.md` and `mobile/README.md` are upstream boilerplate (Nest / create-expo-app) — ignore them, this file is the real map.
 
@@ -105,11 +105,11 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - **Bilan = snapshot at `to`** (default today; `from` ignored): cumulative balances, classes 2–3 always actif, classes 1 (debts)/4/5 classified by balance sign, class 8 excluded. Capitaux = apports + **computed report à nouveau** (classes 6/7 before the exercice start + net `12`/`129`/`13`) + résultat of the exercice containing `to`. Balances by construction (`ecartFcfa` = 0). Until the exercice is closed, the feed stock on hand at `to` (`valeurStockProvende(asOf)`, same rule as the closing) is added to actif `311` and to the result as `variationStockFcfa`; the closing itself values the stock at the exercice end date. Manual régularisations dated in a CLOSED exercice → 400; automatic postings are still accepted (never blocking).
 - Mobile write paths — `comptabilite.tsx`, `depenses.tsx`, `components/pos/CaisseTab.tsx` — are gated by `compta:rapports`/`compta:ecritures`/`compta:depense`. Non-manual cash movements (`SALE_PAYMENT`/`REFUND`/`EXPENSE`) are immutable.
 
-## Web console (`web/`)
+## Web app (`web/`)
 
-- Vite + React 18 + TS strict + Tailwind v4 + react-router v6 + TanStack Query v5. `tsconfig.json` has `noUnusedLocals`/`noUnusedParameters` on — unused vars are build failures, not warnings. **PLATFORM_ADMIN only** — any other role gets `MobileOnlyScreen` from `src/auth/guards.tsx`.
+- Vite + React 18 + TS strict + Tailwind v4 + react-router v6 + TanStack Query v5. `tsconfig.json` has `noUnusedLocals`/`noUnusedParameters` on — unused vars are build failures, not warnings. **Farm owners (`PROPRIETAIRE`) and `PLATFORM_ADMIN`**; `ELEVEUR` accounts get `MobileOnlyScreen` from `src/auth/guards.tsx`. No offline queue: writes call the API directly and show errors. Cash writes send an idempotency key (`src/lib/idempotency.ts`) so a retry after a lost response can't book the cash twice; cash paths auto-open a closed caisse from the last closing, like mobile (`ensureCashOpen` in `components/sales/pos.ts`). Phones use mobile's format (`src/lib/phone.ts`). Shared form kit: `components/form.tsx`. Feature code is grouped in `components/<area>/` with types in `api/types-<area>.ts`.
 - `src/api/client.ts`: fetch wrapper, localStorage keys `koukou.token` / `koukou.user`, and `.download(path, filename)` for PDFs. A 401 triggers logout, so use `.download()` rather than raw `fetch` for file endpoints.
-- Routes live in `src/App.tsx`: `/login`, then under `/app` → `dashboard|batches|alerts|finance|stock|sanitary|slaughter|team|settings` (the four finance pages are *flat* siblings: `finance/ventes|caisse|clients|promotions`, `finance` itself defaults to `ventes`), plus `/app/platform` behind `RequiresPlatformAdmin`.
+- Routes live in `src/App.tsx`: `/login`, `/register`, then under `/app` → `dashboard|alerts|tasks|batches|activities|sanitary|stock|slaughter|parcels|harvests|orders|points-of-sale|reports|accounting|expenses|team|hr|settings|help` (the four finance pages are *flat* siblings: `finance/ventes|caisse|clients|promotions`, `finance` itself defaults to `ventes`), plus `/app/platform` behind `RequiresPlatformAdmin`.
 - Every query key carries `farmId` as the 2nd element. After a sale, invalidate exactly `['sales'|'batches'|'dashboard'|'caisse-current'|'feed-stock'|'customers', farmId]` (`SalesPage.tsx`).
 - Feed option label is `` `${supplierLotNumber} - ${productName}` `` (**not** `lotNumber`).
 - Farm context lives in `src/app/FarmContext.tsx`; there is no `src/app/router`.

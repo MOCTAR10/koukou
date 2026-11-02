@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Lock, User } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useAuth } from './AuthContext';
@@ -19,7 +19,7 @@ export function LoginPage() {
 
   useEffect(() => {
     const u = getStoredUser();
-    if (u && u.role === 'PLATFORM_ADMIN') navigate('/app/platform');
+    if (u && u.role !== 'ELEVEUR') navigate('/app');
   }, [navigate]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -51,7 +51,7 @@ export function LoginPage() {
       >
         <div className="mb-5">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-600">
-            Console plateforme
+            Espace ferme
           </p>
           <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900">Connexion</h1>
         </div>
@@ -74,7 +74,7 @@ export function LoginPage() {
                 className="w-full rounded-lg border border-slate-300 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+241 6x xx xx xx"
+                placeholder="074 12 34 56"
                 autoComplete="username"
                 inputMode="tel"
                 required
@@ -107,6 +107,12 @@ export function LoginPage() {
             {submitting ? 'Connexion…' : 'Se connecter'}
           </motion.button>
         </form>
+        <p className="mt-5 text-center text-sm text-slate-500">
+          Pas encore de compte ?{' '}
+          <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">
+            Créer mon compte
+          </Link>
+        </p>
       </motion.div>
     </div>
   );

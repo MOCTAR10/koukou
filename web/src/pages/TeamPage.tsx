@@ -1,140 +1,175 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserPlus, Users } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Briefcase, ListTodo, Pencil, UserPlus, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import type { PublicUser } from '../api/types';
+import type { BuildingOption, FarmMember, PermissionCatalog } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, PageHeader, StatusBadge, Th, Td } from '../components/ui';
+import { useAuth } from '../auth/AuthContext';
+import { Button, ErrorNote } from '../components/form';
+import { MemberFormModal } from '../components/org/MemberFormModal';
+import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL, SuccessNote } from '../components/org/shared';
+import { Card, EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { dateFr, fcfa } from '../lib/format';
 
-/** One farm employment link (GET /farms/:id/eleveurs), user nested. */
-interface TeamMember {
-  id: string;
-  role: 'ADMIN' | 'ELEVEUR';
-  active: boolean;
-  jobTitle: string | null;
-  user: PublicUser;
-}
-
-const inputCls =
-  'w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
+const linkCls =
+  'inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50';
 
 export function TeamPage() {
-  const { farmId } = useFarm();
-  const queryClient = useQueryClient();
+  const { farmId, farm } = useFarm();
+  const { user } = useAuth();
+  const [form, setForm] = useState<{ member: FarmMember | null } | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const team = useQuery({
     queryKey: ['eleveurs', farmId],
-    queryFn: () => api.get<TeamMember[]>(`/farms/${farmId}/eleveurs`),
+    queryFn: () => api.get<FarmMember[]>(`/farms/${farmId}/eleveurs`),
+    enabled: !!farmId,
+  });
+  const catalog = useQuery({
+    queryKey: ['permission-catalog', farmId],
+    queryFn: () => api.get<PermissionCatalog>(`/farms/${farmId}/permissions`),
+    enabled: !!farmId,
+    staleTime: 5 * 60_000,
+  });
+  const buildings = useQuery({
+    queryKey: ['buildings', farmId],
+    queryFn: () => api.get<BuildingOption[]>(`/farms/${farmId}/buildings`),
     enabled: !!farmId,
   });
 
-  const addMember = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      api.post<PublicUser>(`/farms/${farmId}/eleveurs`, body),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['eleveurs', farmId] }),
-  });
+  const members = team.data ?? [];
+  const isOwnFarm = farm?.ownerId === user?.id;
+  const ownerName = farm?.owner?.fullName ?? (isOwnFarm ? user?.fullName : undefined);
+  // The stored session carries the phone although AuthUser doesn't declare it.
+  const ownerPhone = farm?.owner?.phone ?? (isOwnFarm ? (user as { phone?: string } | null)?.phone : undefined);
+
+  const open = (member: FarmMember | null) => {
+    setSuccess(null);
+    setForm({ member });
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Mon équipe"
-        subtitle="Comptes Éleveur rattachés à la ferme (saisie terrain, POS, caisse)."
+        title="Équipe"
+        subtitle={farm?.name}
         actions={
-          <span className="flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            <Users className="h-4 w-4" /> {team.data?.length ?? 0} membre(s)
-          </span>
+          <>
+            <Link to="/app/tasks" className={linkCls}>
+              <ListTodo className="h-4 w-4" /> Tâches de l’équipe
+            </Link>
+            <Link to="/app/hr" className={linkCls}>
+              <Briefcase className="h-4 w-4" /> Dossiers RH
+            </Link>
+            <Button disabled={!farmId} onClick={() => open(null)}>
+              <UserPlus className="h-4 w-4" /> Ajouter un membre
+            </Button>
+          </>
         }
       />
 
-      <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <UserPlus className="h-4 w-4 text-sky-600" />
-          <h2 className="text-sm font-semibold text-slate-700">Ajouter un éleveur</h2>
-        </div>
-        <form
-          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            addMember.mutate({
-              fullName: String(f.get('fullName')),
-              phone: String(f.get('phone')),
-              code: String(f.get('code')),
-              buildingAssignment: (f.get('buildingAssignment') as string) || undefined,
-            });
-            e.currentTarget.reset();
-          }}
-        >
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Nom complet *</span>
-            <input name="fullName" required className={inputCls} />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Téléphone *</span>
-            <input name="phone" required className={inputCls} placeholder="+241…" />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Code secret *</span>
-            <input name="code" type="password" required minLength={6} className={inputCls} />
-          </label>
-          <label className="block text-xs sm:col-span-2">
-            <span className="mb-1 block font-medium text-slate-600">Bâtiment assigné</span>
-            <input name="buildingAssignment" className={inputCls} placeholder="Bâtiment A…" />
-          </label>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={addMember.isPending}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
-            >
-              {addMember.isPending ? 'Création…' : 'Ajouter'}
-            </button>
-          </div>
-        </form>
-        {addMember.isError ? (
-          <p className="mt-3 text-sm text-red-600">{(addMember.error as Error).message}</p>
-        ) : null}
-      </Card>
+      {success ? <SuccessNote>{success}</SuccessNote> : null}
+      <ErrorNote error={team.error ?? catalog.error ?? buildings.error} />
 
-      <Card className="overflow-hidden">
-        <div className="border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-700">Membres</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <Th>Nom</Th>
-                <Th>Contact</Th>
-                <Th>Rôle</Th>
-                <Th>Statut</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {(team.data ?? []).map((m) => (
-                <tr key={m.id} className="border-t border-slate-100">
-                  <Td className="font-medium">
-                    {m.user.fullName}
-                    {m.jobTitle ? <div className="text-xs font-normal text-slate-400">{m.jobTitle}</div> : null}
-                  </Td>
-                  <Td>
-                    <div>{m.user.phone}</div>
-                    {m.user.email ? <div className="text-xs text-slate-400">{m.user.email}</div> : null}
-                  </Td>
-                  <Td><StatusBadge status={m.role} /></Td>
-                  <Td><StatusBadge status={m.active ? 'active' : 'inactive'} /></Td>
-                </tr>
-              ))}
-              {!team.data?.length ? (
+      {team.isLoading ? (
+        <Loading label="Chargement de l’équipe…" />
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+            <Users className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-700">Membres ({members.length + (ownerName ? 1 : 0)})</h2>
+            <span className="text-xs text-slate-400">Propriétaire, administrateurs et éleveurs</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50">
                 <tr>
-                  <Td className="py-8 text-center text-slate-400">
-                    <EmptyState message="Aucun éleveur dans la ferme." />
-                  </Td>
+                  <Th>Nom</Th>
+                  <Th>Téléphone</Th>
+                  <Th>Rôle</Th>
+                  <Th>Bâtiment</Th>
+                  <Th>Dossier RH</Th>
+                  <Th>Statut</Th>
+                  <Th />
                 </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+              </thead>
+              <tbody>
+                {ownerName ? (
+                  <tr className="border-t border-slate-100 bg-emerald-50/40">
+                    <Td className="font-medium text-slate-900">{ownerName}</Td>
+                    <Td>{ownerPhone ?? '—'}</Td>
+                    <Td>
+                      <Pill tone="emerald">Propriétaire</Pill>
+                    </Td>
+                    <Td>—</Td>
+                    <Td>—</Td>
+                    <Td>
+                      <Pill tone="emerald">Actif</Pill>
+                    </Td>
+                    <Td />
+                  </tr>
+                ) : null}
+                {members.map((m) => (
+                  <tr key={m.id} className="border-t border-slate-100 align-top">
+                    <Td className="font-medium text-slate-900">
+                      {m.user.fullName}
+                      {m.jobTitle ? <div className="text-xs font-normal text-slate-500">{m.jobTitle}</div> : null}
+                    </Td>
+                    <Td className="whitespace-nowrap">{m.user.phone}</Td>
+                    <Td>
+                      <Pill tone={m.role === 'ADMIN' ? 'amber' : 'brand'}>{STAFF_ROLE_LABEL[m.role]}</Pill>
+                    </Td>
+                    <Td>{m.buildingAssignment ?? '—'}</Td>
+                    <Td>
+                      <HrSummary member={m} />
+                    </Td>
+                    <Td>{m.active ? <Pill tone="emerald">Actif</Pill> : <Pill tone="red">Suspendu</Pill>}</Td>
+                    <Td className="text-right">
+                      <Button tone="secondary" className="!px-2.5 !py-1 !text-xs" onClick={() => open(m)}>
+                        <Pencil className="h-3.5 w-3.5" /> Modifier
+                      </Button>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {members.length === 0 ? (
+            <div className="border-t border-slate-100 p-4">
+              <EmptyState message="Aucun membre pour l’instant. Ajoutez un administrateur ou un éleveur pour les saisies de terrain." />
+            </div>
+          ) : null}
+        </Card>
+      )}
+
+      {form && farmId ? (
+        <MemberFormModal
+          farmId={farmId}
+          member={form.member}
+          catalog={catalog.data}
+          buildings={buildings.data ?? []}
+          onClose={() => setForm(null)}
+          onSaved={(message) => {
+            setForm(null);
+            setSuccess(message);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function HrSummary({ member: m }: { member: FarmMember }) {
+  if (!m.contractType && !m.department && !m.hireDate && m.salaryFcfa == null) {
+    return <Pill tone="amber">À compléter</Pill>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {m.contractType ? <Pill tone="brand">{CONTRACT_LABEL[m.contractType]}</Pill> : null}
+      {m.department ? <Pill>{m.department}</Pill> : null}
+      {m.hireDate ? <Pill>Depuis le {dateFr(m.hireDate)}</Pill> : null}
+      {m.salaryFcfa != null ? <Pill>{fcfa(m.salaryFcfa)}</Pill> : null}
     </div>
   );
 }

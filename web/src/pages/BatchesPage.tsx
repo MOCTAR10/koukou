@@ -1,485 +1,358 @@
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, TrendingUp, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { ClipboardPlus, Plus } from 'lucide-react';
 import { api } from '../api/client';
-import type { BatchCurve, BatchWithMetrics } from '../api/types';
+import type { OverviewPnl } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, Loading, PageHeader, StatusBadge, Th, Td } from '../components/ui';
-import { LineChart } from '../components/Charts';
-import { classNames, dateFr, fcfa, num, pct, statusLabel } from '../lib/format';
+import { BuildingFormModal, BuildingsPanel } from '../components/flock/Buildings';
+import { CreateLotModal } from '../components/flock/CreateLotModal';
+import { DailyEntryModal } from '../components/flock/DailyEntryModal';
+import { LotDetail } from '../components/flock/LotDetail';
+import {
+  LEVEL_LABEL,
+  Metric,
+  Pill,
+  SPECIES_LABEL,
+  SectionCard,
+  Tabs,
+  addLocalDays,
+  batchStage,
+  batchStatusPill,
+  kindLabel,
+  levelTone,
+  localYmd,
+  lotName,
+  useBuildings,
+  useLots,
+} from '../components/flock/shared';
+import { Button, ErrorNote, inputCls } from '../components/form';
+import { EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { dateFr, fcfa, num } from '../lib/format';
 
-interface DailyEntry {
-  id: string;
-  batchId: string;
-  entryDate: string;
-  deaths: number;
-  feedBags: number;
-  feedQuantity: number;
-  feedUnit: string;
-  waterL: number | null;
-  avgWeightKg: number | null;
-  eggsCollected: number;
-  eggsCracked: number;
-  eggsSmall: number;
-}
+type Filter = 'all' | 'active' | 'selling' | 'chair' | 'layer' | 'closed';
+type SortKey = 'name' | 'age' | 'mortality' | 'fcr' | 'live' | 'health';
+type HealthFilter = 'all' | 'ROUGE' | 'JAUNE' | 'VERT';
 
-/** Local calendar date (toISOString would give yesterday before 01:00 in Gabon, UTC+1). */
-const todayIso = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
+const FILTERS: Array<{ key: Filter; label: string }> = [
+  { key: 'all', label: 'Tous' },
+  { key: 'active', label: 'Actifs' },
+  { key: 'selling', label: 'En vente' },
+  { key: 'chair', label: 'Chair' },
+  { key: 'layer', label: 'Pondeuses' },
+  { key: 'closed', label: 'Clôturés' },
+];
+
+const LEVEL_RANK: Record<string, number> = { ROUGE: 0, JAUNE: 1, VERT: 2 };
 
 export function BatchesPage() {
   const { farmId } = useFarm();
-  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const selectedId = params.get('lot');
+  const [view, setView] = useState<'lots' | 'buildings'>('lots');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [species, setSpecies] = useState('all');
+  const [healthFilter, setHealthFilter] = useState<HealthFilter>('all');
+  const [sort, setSort] = useState<SortKey>('name');
+  const [search, setSearch] = useState('');
+  const [asOf, setAsOf] = useState('');
   const [creating, setCreating] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  // A batch of the previous farm must not stay selected after a farm switch.
-  const [selectionFarmId, setSelectionFarmId] = useState(farmId);
-  if (selectionFarmId !== farmId) {
-    setSelectionFarmId(farmId);
-    setSelectedId(null);
-  }
+  const [entering, setEntering] = useState(false);
+  const [addingBuilding, setAddingBuilding] = useState(false);
 
-  const batches = useQuery({
-    queryKey: ['batches', farmId],
-    queryFn: () => api.get<BatchWithMetrics[]>(`/farms/${farmId}/batches`),
-    enabled: !!farmId,
-  });
+  const lots = useLots(asOf || null);
+  const buildings = useBuildings();
 
-  const breeds = useQuery({
-    // Shared breeds plus the farm's own custom ones.
-    queryKey: ['breeds', farmId],
-    queryFn: () =>
-      api.get<Array<{ id: string; name: string; type: string }>>(
-        `/breeds?farmId=${encodeURIComponent(farmId!)}`,
-      ),
-    enabled: !!farmId,
-  });
-
-  const selected = batches.data?.find((b) => b.id === selectedId) ?? null;
-
-  const entries = useQuery({
-    queryKey: ['daily-entries', farmId, selectedId],
-    queryFn: () =>
-      api.get<DailyEntry[]>(
-        `/farms/${farmId}/batches/${selectedId}/daily-entries`,
-      ),
-    enabled: !!farmId && !!selectedId,
-  });
-
-  const curve = useQuery({
-    queryKey: ['curve', farmId, selectedId],
-    queryFn: () =>
-      api.get<BatchCurve>(`/farms/${farmId}/batches/${selectedId}/curve`),
-    enabled: !!farmId && !!selectedId,
-  });
-
-  const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['batches', farmId] });
-    void queryClient.invalidateQueries({ queryKey: ['dashboard', farmId] });
-    if (selectedId) {
-      void queryClient.invalidateQueries({ queryKey: ['daily-entries', farmId, selectedId] });
-      void queryClient.invalidateQueries({ queryKey: ['curve', farmId, selectedId] });
-    }
+  const selectLot = (id: string | null) => {
+    setParams(id ? { lot: id } : {});
   };
 
-  const createBatch = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      api.post<BatchWithMetrics>(`/farms/${farmId}/batches`, body),
-    onSuccess: (b) => {
-      invalidate();
-      setCreating(false);
-      setSelectedId(b.id);
-    },
+  const to = localYmd();
+  const from = addLocalDays(to, -29);
+  const prevTo = addLocalDays(from, -1);
+  const prevFrom = addLocalDays(prevTo, -29);
+  const overview = useQuery({
+    queryKey: ['rentabilite-overview', farmId, from, to],
+    queryFn: () => api.get<OverviewPnl>(`/farms/${farmId}/rentabilite/overview?from=${from}&to=${to}`),
+    enabled: !!farmId,
+  });
+  const previous = useQuery({
+    queryKey: ['rentabilite-overview', farmId, prevFrom, prevTo],
+    queryFn: () => api.get<OverviewPnl>(`/farms/${farmId}/rentabilite/overview?from=${prevFrom}&to=${prevTo}`),
+    enabled: !!farmId,
   });
 
-  const addEntry = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      api.post<DailyEntry>(`/farms/${farmId}/batches/${selectedId}/daily-entries`, body),
-    onSuccess: invalidate,
-  });
+  const all = useMemo(() => lots.data ?? [], [lots.data]);
+  const buildingName = (id: string | null) => buildings.data?.find((b) => b.id === id)?.name ?? '—';
 
-  if (batches.isLoading) return <Loading label="Chargement des lots…" />;
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = all.filter((b) => {
+      if (filter === 'active' && b.status === 'CLOTURE') return false;
+      if (filter === 'selling' && b.status !== 'EN_VENTE') return false;
+      if (filter === 'chair' && b.type !== 'CHAIR') return false;
+      if (filter === 'layer' && b.type !== 'PONDEUSE') return false;
+      if (filter === 'closed' && b.status !== 'CLOTURE') return false;
+      if (species !== 'all' && b.species !== species) return false;
+      if (healthFilter !== 'all' && b.metrics.status !== healthFilter) return false;
+      if (q && !lotName(b).toLowerCase().includes(q)) return false;
+      return true;
+    });
+    const by: Record<SortKey, (a: (typeof list)[number], b: (typeof list)[number]) => number> = {
+      name: (a, b) => lotName(a).localeCompare(lotName(b), 'fr'),
+      age: (a, b) => b.metrics.ageDays - a.metrics.ageDays,
+      mortality: (a, b) => b.metrics.mortalityPercent - a.metrics.mortalityPercent,
+      fcr: (a, b) => (b.metrics.fcr ?? -1) - (a.metrics.fcr ?? -1),
+      live: (a, b) => b.metrics.liveCount - a.metrics.liveCount,
+      health: (a, b) => (LEVEL_RANK[a.metrics.status] ?? 3) - (LEVEL_RANK[b.metrics.status] ?? 3),
+    };
+    return [...list].sort(by[sort]);
+  }, [all, filter, species, healthFilter, search, sort]);
+
+  const summary = useMemo(() => {
+    const running = all.filter((b) => b.status !== 'CLOTURE');
+    const avg = (vals: number[]) => (vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null);
+    const groups = new Map<string, number>();
+    for (const b of running) groups.set(kindLabel(b), (groups.get(kindLabel(b)) ?? 0) + b.metrics.liveCount);
+    return {
+      active: running.length,
+      selling: running.filter((b) => b.status === 'EN_VENTE').length,
+      birds: running.reduce((s, b) => s + b.metrics.liveCount, 0),
+      eggs: running.reduce((s, b) => s + b.metrics.eggsCollectedTotal, 0),
+      feed: running.reduce((s, b) => s + b.metrics.totalFeedKg, 0),
+      mortality: avg(running.map((b) => b.metrics.mortalityPercent)),
+      fcr: avg(running.flatMap((b) => (b.metrics.fcr != null ? [b.metrics.fcr] : []))),
+      gmq: avg(running.flatMap((b) => (b.metrics.gmqGramsPerDay != null ? [b.metrics.gmqGramsPerDay] : []))),
+      lay: avg(running.flatMap((b) => (b.type === 'PONDEUSE' && b.metrics.layRatePercent != null ? [b.metrics.layRatePercent] : []))),
+      ready: running.filter((b) => b.metrics.readyForSale).length,
+      red: running.filter((b) => b.metrics.status === 'ROUGE').length,
+      yellow: running.filter((b) => b.metrics.status === 'JAUNE').length,
+      groups: [...groups.entries()],
+    };
+  }, [all]);
+
+  const selected = all.find((b) => b.id === selectedId) ?? null;
+  if (selectedId && selected) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Lots" subtitle="Détail du lot" />
+        <LotDetail lot={selected} onBack={() => selectLot(null)} />
+      </div>
+    );
+  }
+
+  const noBuilding = buildings.isSuccess && buildings.data.length === 0;
+  const delta = (cur?: number, prev?: number) => {
+    if (cur == null || prev == null) return undefined;
+    const d = cur - prev;
+    return `${d >= 0 ? '+' : ''}${fcfa(d)} sur 30 jours précédents`;
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
-        title="Lots & suivi"
-        subtitle="Lots en cours et historiques, saisies journalières, métriques zootechniques."
+        title="Lots"
+        subtitle={`${summary.active} lot${summary.active > 1 ? 's' : ''} en cours${asOf ? ` au ${dateFr(asOf)}` : ''}`}
         actions={
-          !creating ? (
-            <button
-              onClick={() => setCreating(true)}
-              className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-            >
-              <Plus className="h-4 w-4" /> Nouveau lot
-            </button>
-          ) : null
+          <div className="flex gap-2">
+            <Button tone="secondary" onClick={() => setEntering(true)} disabled={summary.active === 0}>
+              <ClipboardPlus className="h-4 w-4" /> Saisie journalière
+            </Button>
+            <Button onClick={() => (noBuilding ? setAddingBuilding(true) : setCreating(true))}>
+              <Plus className="h-4 w-4" /> {noBuilding ? 'Créer un bâtiment' : 'Nouveau lot'}
+            </Button>
+          </div>
         }
       />
 
-      {creating ? (
-        <Card className="p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">Créer un lot</h2>
-            <button onClick={() => setCreating(false)} className="rounded p-1 text-slate-400 hover:text-slate-600">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <form
-            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              createBatch.mutate({
-                batchName: String(f.get('batchName')),
-                integrationDate: String(f.get('integrationDate')),
-                quantityAtStart: Number(f.get('quantityAtStart')),
-                breedId: f.get('breedId') || undefined,
-                type: f.get('type'),
-                species: String(f.get('species') || 'POULET'),
-                chickUnitPriceFcfa: f.get('chickUnitPriceFcfa')
-                  ? Number(f.get('chickUnitPriceFcfa'))
-                  : undefined,
-              });
-            }}
-          >
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Nom du lot / bâtiment *</span>
-              <input name="batchName" required className={inputCls} placeholder="Bâtiment A" />
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Date d'arrivée *</span>
-              <input name="integrationDate" type="date" required defaultValue={todayIso()} className={inputCls} />
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Poussins au départ *</span>
-              <input name="quantityAtStart" type="number" min={1} required className={inputCls} />
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Type *</span>
-              <select name="type" required defaultValue="CHAIR" className={inputCls}>
-                <option value="CHAIR">Chair</option>
-                <option value="PONDEUSE">Pondeuse</option>
-              </select>
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Espèce *</span>
-              <select name="species" required defaultValue="POULET" className={inputCls}>
-                <option value="POULET">Poulet</option>
-                <option value="PINTADE">Pintade</option>
-                <option value="DINDE">Dinde</option>
-                <option value="CAILLE">Caille</option>
-                <option value="CANARD">Canard</option>
-                <option value="OIE">Oie</option>
-                <option value="FAISAN">Faisan</option>
-                <option value="AUTRE">Autre (volailles)</option>
-              </select>
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Souche</span>
-              <select name="breedId" className={inputCls}>
-                <option value="">— Par défaut —</option>
-                {breeds.data?.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Prix poussin (FCFA)</span>
-              <input name="chickUnitPriceFcfa" type="number" min={0} className={inputCls} placeholder="ex. 750" />
-            </label>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <button
-                type="submit"
-                disabled={createBatch.isPending}
-                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
-              >
-                {createBatch.isPending ? 'Création…' : 'Créer le lot'}
-              </button>
-              {createBatch.isError ? (
-                <p className="mt-2 text-sm text-red-600">
-                  {(createBatch.error as Error).message}
-                </p>
-              ) : null}
-            </div>
-          </form>
-        </Card>
-      ) : null}
+      <Tabs
+        value={view}
+        onChange={setView}
+        options={[
+          { key: 'lots', label: 'Lots' },
+          { key: 'buildings', label: 'Bâtiments' },
+        ]}
+      />
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="overflow-hidden lg:col-span-1">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Liste des lots</h2>
-          </div>
-          <div className="max-h-[560px] divide-y divide-slate-100 overflow-y-auto">
-            {batches.data?.map((b) => (
-              <button
-                key={b.id}
-                onClick={() => setSelectedId(b.id)}
-                className={classNames(
-                  'flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-slate-50',
-                  selectedId === b.id ? 'bg-sky-50' : '',
-                )}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-800">
-                    {b.batchName ?? b.id.slice(0, 8)}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {statusLabel(b.type)} · {b.metrics.ageDays} j · {num(b.metrics.liveCount)} vivants
-                  </p>
-                </div>
-                <StatusBadge status={b.status} />
-              </button>
-            ))}
-            {!batches.data?.length ? (
-              <div className="p-4">
-                <EmptyState message="Aucun lot pour cette ferme." />
+      {view === 'buildings' ? (
+        <BuildingsPanel />
+      ) : (
+        <>
+          <ErrorNote error={lots.error} />
+          <SectionCard
+            title="Vue d'ensemble"
+            actions={
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-500">
+                Situation au
+                <input
+                  type="date"
+                  max={to}
+                  value={asOf}
+                  onChange={(e) => setAsOf(e.target.value)}
+                  className={`${inputCls} w-auto py-1 text-xs`}
+                />
+              </label>
+            }
+          >
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+              <Metric label="Oiseaux vivants" value={num(summary.birds)} sub={`${summary.active} lots`} />
+              <Metric label="Mortalité moy." value={summary.mortality != null ? `${num(summary.mortality)} %` : '—'} />
+              <Metric label="IC moyen" value={summary.fcr != null ? num(summary.fcr, 2) : '—'} />
+              <Metric label="GMQ moyen" value={summary.gmq != null ? `${num(summary.gmq, 0)} g/j` : '—'} />
+              <Metric label="Ponte moyenne" value={summary.lay != null ? `${num(summary.lay)} %` : '—'} />
+              <Metric label="Aliment consommé" value={`${num(summary.feed, 0)} kg`} />
+              <Metric label="Œufs collectés" value={num(summary.eggs, 0)} />
+              <Metric label="En vente" value={summary.selling} sub={`${summary.ready} prêts à vendre`} />
+              <Metric label="Lots critiques" value={summary.red} tone={summary.red > 0 ? 'bad' : undefined} />
+              <Metric label="À surveiller" value={summary.yellow} tone={summary.yellow > 0 ? 'warn' : undefined} />
+              <Metric
+                label="Encaissé (30 j)"
+                value={overview.data ? fcfa(overview.data.collectedFcfa) : '—'}
+                sub={delta(overview.data?.collectedFcfa, previous.data?.collectedFcfa)}
+              />
+              <Metric
+                label="Résultat net (30 j)"
+                value={overview.data ? fcfa(overview.data.netFcfa) : '—'}
+                tone={overview.data ? (overview.data.netFcfa >= 0 ? 'good' : 'bad') : undefined}
+                sub={delta(overview.data?.netFcfa, previous.data?.netFcfa)}
+              />
+            </div>
+            {summary.groups.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {summary.groups.map(([label, count]) => (
+                  <Pill key={label}>
+                    {label} : {num(count)}
+                  </Pill>
+                ))}
               </div>
             ) : null}
+          </SectionCard>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={filter} onChange={setFilter} options={FILTERS} />
+            <input
+              className={`${inputCls} !w-44`}
+              placeholder="Rechercher un lot"
+              aria-label="Rechercher un lot"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select className={`${inputCls} !w-44`} aria-label="Espèce" value={species} onChange={(e) => setSpecies(e.target.value)}>
+              <option value="all">Toutes les espèces</option>
+              {Object.entries(SPECIES_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <select
+              className={`${inputCls} !w-40`}
+              aria-label="État de santé"
+              value={healthFilter}
+              onChange={(e) => setHealthFilter(e.target.value as HealthFilter)}
+            >
+              <option value="all">Tous les états</option>
+              <option value="ROUGE">{LEVEL_LABEL.ROUGE}</option>
+              <option value="JAUNE">{LEVEL_LABEL.JAUNE}</option>
+              <option value="VERT">{LEVEL_LABEL.VERT}</option>
+            </select>
+            <select className={`${inputCls} !w-44`} aria-label="Trier" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+              <option value="name">Trier par nom</option>
+              <option value="age">Trier par âge</option>
+              <option value="mortality">Trier par mortalité</option>
+              <option value="fcr">Trier par IC</option>
+              <option value="live">Trier par effectif</option>
+              <option value="health">Trier par état</option>
+            </select>
           </div>
-        </Card>
 
-        <div className="lg:col-span-2">
-          {!selected ? (
-            <EmptyState message="Sélectionnez un lot pour voir son suivi." />
+          {lots.isLoading ? (
+            <Loading label="Chargement des lots…" />
+          ) : shown.length === 0 ? (
+            <EmptyState
+              message={
+                noBuilding
+                  ? "Commencez par créer un bâtiment, puis installez-y votre premier lot."
+                  : all.length === 0
+                    ? 'Aucun lot. Créez votre premier lot pour démarrer le suivi.'
+                    : 'Aucun lot ne correspond à ces filtres.'
+              }
+            />
           ) : (
-            <div className="space-y-4">
-              <Card className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">
-                      {selected.batchName ?? selected.id.slice(0, 8)}
-                    </h2>
-                    <p className="mt-0.5 text-sm text-slate-500">
-                      Intégré le {dateFr(selected.integrationDate)} · {statusLabel(selected.type)} ·{' '}
-                      {selected.couvoirSupplier ?? 'Origine non renseignée'}
-                    </p>
-                    {selected.chickUnitPriceFcfa != null ? (
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        Poussins à {fcfa(selected.chickUnitPriceFcfa)}/unité
-                        {selected.chickLotNumber
-                          ? ` · N° lot couvoir ${selected.chickLotNumber}`
-                          : ''}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <StatusBadge status={selected.status} />
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Metric label="Vivants" value={num(selected.metrics.liveCount)} />
-                  <Metric label="Mortalité" value={pct(selected.metrics.mortalityPercent)} />
-                  <Metric label="Viabilité" value={pct(selected.metrics.viabilityPercent)} />
-                  <Metric label="Âge" value={`${selected.metrics.ageDays} j`} />
-                  <Metric label="IC cumulé" value={num(selected.metrics.fcr, 2)} />
-                  <Metric label="GMQ" value={selected.metrics.gmqGramsPerDay != null ? `${num(selected.metrics.gmqGramsPerDay)} g/j` : '—'} />
-                  <Metric label="IPE" value={num(selected.metrics.ipe)} />
-                  <Metric label="Taux ponte" value={pct(selected.metrics.layRatePercent)} />
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {selected.status === 'ACTIF' ? (
-                    <ActionBtn
-                      color="emerald"
-                      onClick={() => {
-                        void api
-                          .post(`/farms/${farmId}/batches/${selected.id}/vente`)
-                          .then(invalidate)
-                          .catch((err: Error) => alert(err.message));
-                      }}
-                    >
-                      <TrendingUp className="h-4 w-4" /> Passer en vente
-                    </ActionBtn>
-                  ) : null}
-                  {selected.status !== 'CLOTURE' ? (
-                    <ActionBtn
-                      color="slate"
-                      onClick={() => {
-                        if (confirm('Clôturer ce lot ? Cette action est irréversible.')) {
-                          void api
-                            .post(`/farms/${farmId}/batches/${selected.id}/cloture`)
-                            .then(invalidate)
-                            .catch((err: Error) => alert(err.message));
-                        }
-                      }}
-                    >
-                      Clôturer le lot
-                    </ActionBtn>
-                  ) : null}
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <h3 className="mb-3 text-sm font-semibold text-slate-700">Nouvelle saisie journalière</h3>
-                <form
-                  className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const form = e.currentTarget;
-                    const f = new FormData(form);
-                    // Blank field = not sent: the backend upsert keeps the value
-                    // already saved for that date (e.g. from mobile) instead of 0.
-                    const n = (k: string) => {
-                      const v = String(f.get(k) ?? '').trim();
-                      return v === '' ? undefined : Number(v);
-                    };
-                    const feedQuantity = n('feedQuantity');
-                    addEntry.mutate(
-                      {
-                        entryDate: String(f.get('entryDate')),
-                        deaths: n('deaths'),
-                        feedQuantity,
-                        feedUnit: feedQuantity !== undefined ? 'KG' : undefined,
-                        waterL: n('waterL'),
-                        avgWeightKg: n('avgWeightKg'),
-                        eggsCollected: n('eggsCollected'),
-                        eggsCracked: n('eggsCracked'),
-                        eggsSmall: n('eggsSmall'),
-                      },
-                      { onSuccess: () => form.reset() },
-                    );
-                  }}
-                >
-                  <label className="block text-xs">
-                    <span className="mb-1 block font-medium text-slate-600">Date *</span>
-                    <input name="entryDate" type="date" required defaultValue={todayIso()} className={inputCls} />
-                  </label>
-                  <Field name="deaths" type="number" label="Morts" />
-                  <Field name="feedQuantity" type="number" label="Aliment (kg)" />
-                  <Field name="waterL" type="number" step="0.1" label="Eau (L)" />
-                  <Field name="avgWeightKg" type="number" step="0.01" label="Poids moyen (kg)" />
-                  <Field name="eggsCollected" type="number" label="Œufs collectés" />
-                  <Field name="eggsCracked" type="number" label="Œufs fêlés" />
-                  <Field name="eggsSmall" type="number" label="Petits œufs" />
-                  <button
-                    type="submit"
-                    disabled={addEntry.isPending}
-                    className="sm:col-span-3 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60 lg:col-span-2"
-                  >
-                    {addEntry.isPending ? 'Enregistrement…' : 'Enregistrer la saisie'}
-                  </button>
-                  {addEntry.isError ? (
-                    <p className="text-xs text-red-600 sm:col-span-3">
-                      {(addEntry.error as Error).message}
-                    </p>
-                  ) : null}
-                </form>
-              </Card>
-
-              {curve.data?.weekly.length ? (
-                <Card className="p-4">
-                  <h3 className="mb-3 text-sm font-semibold text-slate-700">
-                    Courbe hebdomadaire (poids moyen / IC cumulé)
-                  </h3>
-                  <LineChart
-                    data={curve.data.weekly.map((w) => w.fcrCumulative ?? null)}
-                    labels={curve.data.weekly.map((w) => dateFr(w.weekStart))}
-                    valueFmt={(v) => v.toFixed(2)}
-                    color="#0d9488"
-                  />
-                </Card>
-              ) : null}
-
-              <Card className="overflow-hidden">
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <h3 className="text-sm font-semibold text-slate-700">Historique des saisies</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <Th>Date</Th>
-                        <Th>Morts</Th>
-                        <Th>Aliment</Th>
-                        <Th>Eau (L)</Th>
-                        <Th>Poids (kg)</Th>
-                        <Th>Œufs</Th>
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <Th>Lot</Th>
+                    <Th>Espèce et souche</Th>
+                    <Th>Bâtiment</Th>
+                    <Th>Âge</Th>
+                    <Th>Vivants</Th>
+                    <Th>Mortalité</Th>
+                    <Th>IC</Th>
+                    <Th>Ponte</Th>
+                    <Th>Étape</Th>
+                    <Th>État</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((b) => {
+                    const stage = batchStage(b);
+                    const pill = batchStatusPill(b);
+                    return (
+                      <tr
+                        key={b.id}
+                        tabIndex={0}
+                        onClick={() => selectLot(b.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') selectLot(b.id);
+                        }}
+                        className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
+                      >
+                        <Td className="font-medium text-brand-700">{lotName(b)}</Td>
+                        <Td>
+                          {kindLabel(b)}
+                          <span className="block text-xs text-slate-500">{b.breedName ?? b.customBreed ?? '—'}</span>
+                        </Td>
+                        <Td>{buildingName(b.buildingId)}</Td>
+                        <Td>J{b.metrics.ageDays}</Td>
+                        <Td>{num(b.metrics.liveCount)}</Td>
+                        <Td>{num(b.metrics.mortalityPercent)} %</Td>
+                        <Td>{b.metrics.fcr != null ? num(b.metrics.fcr, 2) : '—'}</Td>
+                        <Td>{b.metrics.layRatePercent != null && b.type === 'PONDEUSE' ? `${num(b.metrics.layRatePercent)} %` : '—'}</Td>
+                        <Td>
+                          <Pill tone={stage.tone}>{stage.label}</Pill>
+                        </Td>
+                        <Td>
+                          {pill ? (
+                            <Pill tone={pill.tone}>{pill.label}</Pill>
+                          ) : b.status === 'CLOTURE' ? (
+                            <span className="text-xs text-slate-400">—</span>
+                          ) : (
+                            <Pill tone={levelTone(b.metrics.status)}>{LEVEL_LABEL[b.metrics.status]}</Pill>
+                          )}
+                        </Td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {[...(entries.data ?? [])]
-                        .slice()
-                        .sort((a, b) => b.entryDate.localeCompare(a.entryDate))
-                        .slice(0, 12)
-                        .map((e) => (
-                          <tr key={e.id} className="border-t border-slate-100">
-                            <Td>{dateFr(e.entryDate)}</Td>
-                            <Td>{e.deaths}</Td>
-                            <Td>
-                              {num(e.feedQuantity)} kg
-                            </Td>
-                            <Td>{e.waterL != null ? num(e.waterL) : '—'}</Td>
-                            <Td>{e.avgWeightKg != null ? e.avgWeightKg.toFixed(2) : '—'}</Td>
-                            <Td>
-                              {e.eggsCollected > 0
-                                ? `${e.eggsCollected} (${e.eggsCracked} fêlés, ${e.eggsSmall} petits)`
-                                : '—'}
-                            </Td>
-                          </tr>
-                        ))}
-                      {!entries.data?.length ? (
-                        <tr>
-                          <Td className="py-8 text-center text-slate-400">
-                            Aucune saisie pour ce lot.
-                          </Td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
-      </div>
+        </>
+      )}
+
+      {creating ? (
+        <CreateLotModal
+          onClose={() => setCreating(false)}
+          onCreated={(id) => {
+            setCreating(false);
+            selectLot(id);
+          }}
+        />
+      ) : null}
+      {entering ? <DailyEntryModal onClose={() => setEntering(false)} /> : null}
+      {addingBuilding ? <BuildingFormModal onClose={() => setAddingBuilding(false)} /> : null}
     </div>
-  );
-}
-
-const inputCls =
-  'w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
-
-function Field({ name, type, label, step }: { name: string; type: string; label: string; step?: string }) {
-  return (
-    <label className="block text-xs">
-      <span className="mb-1 block font-medium text-slate-600">{label}</span>
-      <input name={name} type={type} min={0} step={step} className={inputCls} />
-    </label>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-slate-50 px-3 py-2">
-      <p className="text-[11px] uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-base font-bold text-slate-800">{value}</p>
-    </div>
-  );
-}
-
-function ActionBtn({
-  onClick,
-  color,
-  children,
-}: {
-  onClick: () => void;
-  color: 'emerald' | 'slate';
-  children: React.ReactNode;
-}) {
-  const cls =
-    color === 'emerald'
-      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-      : 'bg-slate-200 hover:bg-slate-300 text-slate-700';
-  return (
-    <button onClick={onClick} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${cls}`}>
-      {children}
-    </button>
   );
 }

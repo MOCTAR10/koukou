@@ -1,205 +1,270 @@
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users } from 'lucide-react';
-import { useState } from 'react';
+import { Banknote, UserPlus } from 'lucide-react';
 import { api } from '../api/client';
 import type { Customer } from '../api/types';
+import type { CustomerFull, CustomerSummary } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, PageHeader, Th, Td } from '../components/ui';
-import { dateFr, fcfa } from '../lib/format';
+import { Button, ErrorNote, inputCls } from '../components/form';
+import { Card, EmptyState, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
+import { CollectModal, CreateCustomerModal, CustomerDetail } from '../components/sales/CustomerPanels';
+import { CUSTOMER_TYPE_LABEL, CUSTOMER_TYPES, SEGMENT_LABEL } from '../components/sales/labels';
+import { FilterChip } from '../components/sales/shared';
+import { dateFr, fcfa, num } from '../lib/format';
 
-const inputCls =
-  'w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
-
-const selectCls =
-  'rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-700 outline-none focus:border-sky-500';
-
-export const CUSTOMER_TYPES = [
-  'PARTICULIER',
-  'RESTAURANT',
-  'HOTEL',
-  'EVENEMENT',
-  'TRAITEUR',
-  'COMMERCE',
-  'REVENDEUR',
-  'GROSSISTE',
-  'BOULANGERIE',
-  'COLLECTIVITE',
-  'ENTREPRISE',
-  'ELEVEUR',
-  'ONG',
-  'TRANSFORMATEUR',
-] as const;
+type DebtState = 'TOUS' | 'DUES' | 'SOLVES';
 
 export function CustomersPage() {
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
   const [q, setQ] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [segment, setSegment] = useState('');
+  const [debtState, setDebtState] = useState<DebtState>('TOUS');
+  const [sortKey, setSortKey] = useState<'name' | 'due'>('name');
+  const [creating, setCreating] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [collect, setCollect] = useState<{ customer: CustomerFull | null } | null>(null);
 
   const customers = useQuery({
     queryKey: ['customers', farmId],
-    queryFn: () => api.get<Customer[]>(`/farms/${farmId}/customers`),
+    queryFn: () => api.get<CustomerFull[]>(`/farms/${farmId}/customers`),
     enabled: !!farmId,
   });
-
-  const createC = useMutation({
-    mutationFn: (body: { fullName: string; phone?: string; type?: string }) =>
-      api.post<Customer>(`/farms/${farmId}/customers`, body),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['customers', farmId] }),
+  const summary = useQuery({
+    queryKey: ['customers-summary', farmId],
+    queryFn: () => api.get<CustomerSummary>(`/farms/${farmId}/customers/summary`),
+    enabled: !!farmId,
   });
 
   const patchType = useMutation({
     mutationFn: ({ id, type }: { id: string; type: string }) =>
       api.patch<Customer>(`/farms/${farmId}/customers/${id}`, { type }),
     onMutate: ({ id, type }) => {
-      queryClient.setQueryData<Customer[]>(['customers', farmId], (prev) =>
+      queryClient.setQueryData<CustomerFull[]>(['customers', farmId], (prev) =>
         (prev ?? []).map((c) => (c.id === id ? { ...c, type } : c)),
       );
     },
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['customers', farmId] }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['customers', farmId] });
+      void queryClient.invalidateQueries({ queryKey: ['customers-summary', farmId] });
+    },
   });
 
+  const all = useMemo(() => customers.data ?? [], [customers.data]);
   const needle = q.trim().toLowerCase();
-  const rows = (customers.data ?? []).filter((c) => {
-    if (!needle) return true;
-    return (
-      c.fullName.toLowerCase().includes(needle) ||
-      (c.phone ?? '').toLowerCase().includes(needle) ||
-      (c.code ?? '').toLowerCase().includes(needle)
+  const matching = useMemo(
+    () =>
+      all.filter((c) => {
+        if (typeFilter && c.type !== typeFilter) return false;
+        if (segment && c.segment !== segment) return false;
+        if (!needle) return true;
+        return (
+          c.fullName.toLowerCase().includes(needle) ||
+          (c.phone ?? '').toLowerCase().includes(needle) ||
+          (c.code ?? '').toLowerCase().includes(needle)
+        );
+      }),
+    [all, typeFilter, segment, needle],
+  );
+  const debtors = matching.filter((c) => (c.balance?.outstandingFcfa ?? 0) > 0).length;
+
+  const rows = useMemo(() => {
+    const list = matching.filter((c) => {
+      const due = c.balance?.outstandingFcfa ?? 0;
+      return debtState === 'TOUS' || (debtState === 'DUES' ? due > 0 : due === 0);
+    });
+    return list.sort((a, b) =>
+      sortKey === 'due'
+        ? (b.balance?.outstandingFcfa ?? 0) - (a.balance?.outstandingFcfa ?? 0)
+        : a.fullName.localeCompare(b.fullName, 'fr'),
     );
-  });
+  }, [matching, debtState, sortKey]);
+
+  const s = summary.data;
+  const recovered = s && s.totalInvoicedFcfa > 0 ? Math.round(Math.min(1, s.paidFcfa / s.totalInvoicedFcfa) * 100) : null;
+  const open = all.find((c) => c.id === openId) ?? null;
+  const filtered = !!(needle || typeFilter || segment || debtState !== 'TOUS');
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Clients & fidélité"
-        subtitle="Fiches clients, codes, segments et solde dû."
+        title="Clients & crédit"
+        subtitle="Fiches, codes, soldes, encaissements et historique d’achats."
         actions={
-          <form
-            className="flex flex-wrap items-end gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = new FormData(e.currentTarget);
-              createC.mutate({
-                fullName: String(f.get('fullName')),
-                phone: (f.get('phone') as string) || undefined,
-                type: (f.get('type') as string) || 'PARTICULIER',
-              });
-              e.currentTarget.reset();
-            }}
-          >
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Nom *</span>
-              <input name="fullName" required className={inputCls} placeholder="Nom complet" />
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Téléphone</span>
-              <input name="phone" className={inputCls} placeholder="+241…" />
-            </label>
-            <label className="block text-xs">
-              <span className="mb-1 block font-medium text-slate-600">Type</span>
-              <select name="type" defaultValue="PARTICULIER" className={selectCls}>
-                {CUSTOMER_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="submit"
-              disabled={createC.isPending}
-              className="flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
-            >
-              <Users className="h-4 w-4" /> Ajouter
-            </button>
-          </form>
+          <>
+            <Button tone="secondary" onClick={() => setCollect({ customer: null })}>
+              <Banknote className="h-4 w-4" /> Encaisser une dette
+            </Button>
+            <Button onClick={() => setCreating(true)}>
+              <UserPlus className="h-4 w-4" /> Nouveau client
+            </Button>
+          </>
         }
       />
 
-      {createC.isError ? (
-        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          {(createC.error as Error).message}
-        </p>
+      <ErrorNote error={customers.error ?? summary.error ?? patchType.error} />
+
+      {s ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Portefeuille" value={num(s.total)} hint="clients enregistrés" />
+          <StatCard
+            label="À recouvrer"
+            value={fcfa(s.totalOutstandingFcfa)}
+            hint={`${num(s.debtors)} débiteur(s)`}
+            tone={s.totalOutstandingFcfa > 0 ? 'warn' : 'good'}
+          />
+          <StatCard label="Recouvré" value={recovered != null ? `${recovered} %` : '—'} hint={`${fcfa(s.paidFcfa)} encaissés`} />
+          <StatCard
+            label="Segments"
+            value={`${num(s.bySegment.TOP ?? 0)} top`}
+            hint={`${num(s.bySegment.REGULIER ?? 0)} réguliers · ${num(s.bySegment.NOUVEAU ?? 0)} nouveaux`}
+          />
+        </div>
       ) : null}
 
-      <div className="flex max-w-sm items-center gap-2">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Rechercher par nom, téléphone ou code…"
-          className={inputCls}
-        />
-      </div>
-
-      <Card className="overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <Th>Client</Th>
-                <Th>Code</Th>
-                <Th>Téléphone</Th>
-                <Th>Type</Th>
-                <Th className="text-right">Dû</Th>
-                <Th>Segment</Th>
-                <Th>Inscrit le</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => (
-                <tr key={c.id} className="border-t border-slate-100">
-                  <Td className="font-medium">{c.fullName}</Td>
-                  <Td>
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">
-                      {c.code ?? '—'}
-                    </span>
-                  </Td>
-                  <Td>{c.phone ?? '—'}</Td>
-                  <Td>
-                    <select
-                      value={c.type}
-                      onChange={(e) => patchType.mutate({ id: c.id, type: e.target.value })}
-                      className={selectCls}
-                      disabled={patchType.isPending}
-                      title="Catégorie commerciale (indicative)"
-                    >
-                      {CUSTOMER_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </Td>
-                  <Td className="text-right tabular-nums">
-                    {c.balance && c.balance.outstandingFcfa > 0 ? (
-                      <span className="font-medium text-rose-600">{fcfa(c.balance.outstandingFcfa)}</span>
-                    ) : (
-                      <span className="text-emerald-600">Soldé</span>
-                    )}
-                  </Td>
-                  <Td>
-                    <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">
-                      {c.segment}
-                    </span>
-                  </Td>
-                  <Td>{dateFr(c.createdAt)}</Td>
-                </tr>
+      <Card className="space-y-3 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-64 flex-1 sm:max-w-sm">
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher par nom, téléphone ou code…" className={inputCls} />
+          </div>
+          <div className="w-56">
+            <select aria-label="Type de client" className={inputCls} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+              <option value="">Tous les types ({num(s?.total ?? all.length)})</option>
+              {CUSTOMER_TYPES.filter((t) => (s?.byType[t]?.count ?? 0) > 0).map((t) => (
+                <option key={t} value={t}>
+                  {CUSTOMER_TYPE_LABEL[t]} ({num(s?.byType[t]?.count ?? 0)})
+                </option>
               ))}
-              {!rows.length ? (
-                <tr>
-                  <Td className="py-8 text-center text-slate-400">
-                    <EmptyState
-                      message={
-                        needle ? 'Aucun client ne correspond à la recherche.' : 'Aucun client enregistré.'
-                      }
-                    />
-                  </Td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSortKey((k) => (k === 'due' ? 'name' : 'due'))}
+            className="ml-auto text-xs font-semibold text-brand-700 hover:underline"
+          >
+            Tri : {sortKey === 'due' ? 'dû décroissant' : 'nom A à Z'}
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(['NOUVEAU', 'REGULIER', 'TOP'] as const).map((k) => (
+            <FilterChip
+              key={k}
+              label={SEGMENT_LABEL[k]!}
+              count={s?.bySegment[k] ?? 0}
+              active={segment === k}
+              onClick={() => setSegment(segment === k ? '' : k)}
+            />
+          ))}
+          <span className="mx-1 h-4 w-px bg-slate-200" />
+          <FilterChip label="Tous" count={matching.length} active={debtState === 'TOUS'} onClick={() => setDebtState('TOUS')} />
+          <FilterChip label="Débiteurs" count={debtors} active={debtState === 'DUES'} onClick={() => setDebtState(debtState === 'DUES' ? 'TOUS' : 'DUES')} />
+          <FilterChip label="Soldés" count={matching.length - debtors} active={debtState === 'SOLVES'} onClick={() => setDebtState(debtState === 'SOLVES' ? 'TOUS' : 'SOLVES')} />
         </div>
       </Card>
+
+      <Card className="overflow-hidden">
+        {customers.isLoading ? (
+          <div className="p-4">
+            <Loading label="Chargement des clients…" />
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="p-4">
+            <EmptyState
+              message={
+                filtered
+                  ? 'Aucun client ne correspond à ces critères.'
+                  : 'Aucun client enregistré. Le nom et le téléphone saisis à la vente créent la fiche automatiquement.'
+              }
+            />
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50">
+                <tr>
+                  <Th>Client</Th>
+                  <Th>Code</Th>
+                  <Th>Contact</Th>
+                  <Th>Type</Th>
+                  <Th>Segment</Th>
+                  <Th className="text-right">Dû</Th>
+                  <Th>Inscrit le</Th>
+                  <Th></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c) => {
+                  const due = c.balance?.outstandingFcfa ?? 0;
+                  return (
+                    <tr key={c.id} className="border-t border-slate-100">
+                      <Td className="font-medium">
+                        <button type="button" className="text-left text-brand-700 hover:underline" onClick={() => setOpenId(c.id)}>
+                          {c.fullName}
+                        </button>
+                      </Td>
+                      <Td>
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">{c.code ?? '—'}</span>
+                      </Td>
+                      <Td>{[c.phone, c.city].filter(Boolean).join(' · ') || '—'}</Td>
+                      <Td>
+                        <select
+                          aria-label={`Type de ${c.fullName}`}
+                          value={c.type}
+                          onChange={(e) => patchType.mutate({ id: c.id, type: e.target.value })}
+                          disabled={patchType.isPending}
+                          title="Catégorie commerciale (indicative)"
+                          className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-brand-500"
+                        >
+                          {CUSTOMER_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {CUSTOMER_TYPE_LABEL[t]}
+                            </option>
+                          ))}
+                        </select>
+                      </Td>
+                      <Td>
+                        <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
+                          {SEGMENT_LABEL[c.segment] ?? '—'}
+                        </span>
+                      </Td>
+                      <Td className="whitespace-nowrap text-right tabular-nums">
+                        {due > 0 ? <span className="font-medium text-red-600">{fcfa(due)}</span> : <span className="text-emerald-600">Soldé</span>}
+                      </Td>
+                      <Td className="whitespace-nowrap">{dateFr(c.createdAt)}</Td>
+                      <Td className="text-right">
+                        {due > 0 ? (
+                          <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setCollect({ customer: c })}>
+                            Encaisser
+                          </Button>
+                        ) : null}
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <p className="text-xs text-slate-400">
+        Le solde = total des ventes non annulées moins les paiements confirmés. Une vente à crédit se décide au point de vente et augmente le solde dû. Le type de client est indicatif ; les segments sont calculés par le serveur.
+      </p>
+
+      {creating ? <CreateCustomerModal farmId={farmId} onClose={() => setCreating(false)} /> : null}
+      {open ? (
+        <CustomerDetail
+          farmId={farmId}
+          customer={open}
+          onCollect={() => {
+            setOpenId(null);
+            setCollect({ customer: open });
+          }}
+          onClose={() => setOpenId(null)}
+        />
+      ) : null}
+      {collect ? <CollectModal farmId={farmId} customers={all} initial={collect.customer} onClose={() => setCollect(null)} /> : null}
     </div>
   );
 }

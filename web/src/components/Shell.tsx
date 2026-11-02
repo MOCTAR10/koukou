@@ -3,14 +3,28 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
+  BadgePercent,
+  Briefcase,
+  ClipboardList,
+  Coins,
   Factory,
   FileBarChart,
+  Handshake,
   LayoutDashboard,
+  LifeBuoy,
+  ListTodo,
   LogOut,
+  Landmark,
+  MapPin,
   Menu,
+  NotebookPen,
+  ReceiptText,
   ScrollText,
   Settings,
   Shield,
+  ShoppingCart,
+  Sprout,
+  Tractor,
   Users,
   Warehouse,
   X,
@@ -27,24 +41,53 @@ const NAV = [
     title: 'Pilotage',
     items: [
       { to: '/app/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-      { to: '/app/batches', label: 'Lots & suivi', icon: Activity },
       { to: '/app/alerts', label: 'Alertes', icon: AlertTriangle },
+      { to: '/app/tasks', label: 'Tâches', icon: ListTodo },
     ],
   },
   {
-    title: 'Production',
+    title: 'Élevage',
     items: [
-      { to: '/app/finance', label: 'Finance & ventes', icon: FileBarChart },
-      { to: '/app/stock', label: 'Stock & aliments', icon: Warehouse },
+      { to: '/app/batches', label: 'Lots & suivi', icon: Activity },
+      { to: '/app/activities', label: 'Activités', icon: NotebookPen },
       { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText },
+      { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse },
       { to: '/app/slaughter', label: 'Abattage', icon: Factory },
+    ],
+  },
+  {
+    title: 'Cultures',
+    items: [
+      { to: '/app/parcels', label: 'Parcelles', icon: Sprout },
+      { to: '/app/harvests', label: 'Récoltes', icon: Tractor },
+    ],
+  },
+  {
+    title: 'Ventes',
+    items: [
+      { to: '/app/finance/ventes', label: 'Ventes', icon: ShoppingCart },
+      { to: '/app/finance/caisse', label: 'Caisse', icon: Coins },
+      { to: '/app/orders', label: 'Commandes', icon: ClipboardList },
+      { to: '/app/finance/clients', label: 'Clients', icon: Handshake },
+      { to: '/app/points-of-sale', label: 'Points de vente', icon: MapPin },
+      { to: '/app/finance/promotions', label: 'Promotions', icon: BadgePercent },
+    ],
+  },
+  {
+    title: 'Finance',
+    items: [
+      { to: '/app/reports', label: 'Rentabilité', icon: FileBarChart },
+      { to: '/app/accounting', label: 'Comptabilité', icon: Landmark },
+      { to: '/app/expenses', label: 'Dépenses', icon: ReceiptText },
     ],
   },
   {
     title: 'Gestion',
     items: [
       { to: '/app/team', label: 'Équipe', icon: Users },
+      { to: '/app/hr', label: 'Dossiers RH', icon: Briefcase },
       { to: '/app/settings', label: 'Réglages', icon: Settings },
+      { to: '/app/help', label: 'Aide', icon: LifeBuoy },
     ],
   },
 ];
@@ -72,7 +115,7 @@ export function Shell() {
           <Logo className="h-9 w-auto" />
           <div>
             <p className="text-sm font-bold text-white">Fermia</p>
-            <p className="text-[11px] text-brand-200">Console pilote</p>
+            <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : 'Espace ferme'}</p>
           </div>
           <button
             className="ml-auto rounded p-1 text-brand-200 hover:text-white lg:hidden"
@@ -211,7 +254,7 @@ export function Shell() {
             )}
           </div>
           <div className="ml-auto flex items-center gap-2 text-xs text-slate-400">
-            {!onPlatform && farm ? <span>Capacité {farm.capacityPerBuilding ?? '—'} ois./bât.</span> : null}
+            {!onPlatform && farm?.capacityPerBuilding ? <span>Capacité {farm.capacityPerBuilding} ois./bât.</span> : null}
           </div>
           {isAdmin ? (
             <button

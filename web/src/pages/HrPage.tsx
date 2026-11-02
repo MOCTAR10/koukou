@@ -1,0 +1,105 @@
+import { useQuery } from '@tanstack/react-query';
+import { Briefcase, PencilLine, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { api } from '../api/client';
+import type { FarmMember } from '../api/types-org';
+import { useFarm } from '../app/FarmContext';
+import { ErrorNote } from '../components/form';
+import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL } from '../components/org/shared';
+import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { dateFr, fcfa } from '../lib/format';
+
+export function HrPage() {
+  const { farmId, farm } = useFarm();
+
+  const members = useQuery({
+    queryKey: ['eleveurs', farmId],
+    queryFn: () => api.get<FarmMember[]>(`/farms/${farmId}/eleveurs`),
+    enabled: !!farmId,
+  });
+
+  const list = members.data ?? [];
+  const activeCount = list.filter((m) => m.active).length;
+  const withDossier = list.filter((m) => m.contractType || m.hireDate || m.salaryFcfa != null).length;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Dossiers RH"
+        subtitle={farm?.name}
+        actions={
+          <Link
+            to="/app/team"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            <PencilLine className="h-4 w-4" /> Gérer les dossiers dans Équipe
+          </Link>
+        }
+      />
+
+      <ErrorNote error={members.error} />
+
+      {members.isLoading ? (
+        <Loading label="Chargement des dossiers…" />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard label="Employés actifs" value={activeCount} icon={<Users className="h-5 w-5" />} />
+            <StatCard label="Dossiers renseignés" value={withDossier} tone="good" icon={<Briefcase className="h-5 w-5" />} />
+          </div>
+
+          <Card className="overflow-hidden">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h2 className="text-sm font-semibold text-slate-700">Employés ({list.length})</h2>
+              <p className="text-xs text-slate-400">Contrat, poste et rémunération</p>
+            </div>
+            {list.length === 0 ? (
+              <div className="p-4">
+                <EmptyState message="Aucun employé rattaché à la ferme pour le moment." />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <Th>Employé</Th>
+                      <Th>Poste</Th>
+                      <Th>Contrat</Th>
+                      <Th>Embauche</Th>
+                      <Th>Fin</Th>
+                      <Th className="text-right">Salaire mensuel</Th>
+                      <Th>Observations</Th>
+                      <Th>Statut</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {list.map((m) => (
+                      <tr key={m.id} className="border-t border-slate-100 align-top">
+                        <Td className="font-medium text-slate-900">
+                          {m.user.fullName}
+                          <div className="text-xs font-normal text-slate-500">{m.user.phone}</div>
+                        </Td>
+                        <Td>
+                          {m.jobTitle?.trim() || STAFF_ROLE_LABEL[m.role]}
+                          {m.department ? <div className="text-xs text-slate-500">{m.department}</div> : null}
+                        </Td>
+                        <Td>{m.contractType ? <Pill tone="brand">{CONTRACT_LABEL[m.contractType]}</Pill> : <span className="text-slate-400">—</span>}</Td>
+                        <Td className="whitespace-nowrap">{dateFr(m.hireDate)}</Td>
+                        <Td className="whitespace-nowrap">{dateFr(m.endDate)}</Td>
+                        <Td className="whitespace-nowrap text-right tabular-nums">
+                          {m.salaryFcfa != null ? fcfa(m.salaryFcfa) : <span className="text-slate-400">Non renseigné</span>}
+                        </Td>
+                        <Td className="max-w-xs whitespace-pre-line text-xs text-slate-500">{m.notes ?? '—'}</Td>
+                        <Td>{m.active ? <Pill tone="emerald">Actif</Pill> : <Pill tone="red">Inactif</Pill>}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}

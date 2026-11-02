@@ -1,13 +1,20 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, ApiError, clearSession, setSession } from '../api/client';
 import type { AuthUser } from '../api/client';
-import { clearSession, setSession } from '../api/client';
+import { normalizeGabonPhone } from '../lib/phone';
 
 interface LoginResult {
   accessToken: string;
   user: AuthUser;
+}
+
+export interface RegisterInput {
+  fullName: string;
+  farmName: string;
+  phone: string;
+  code: string;
 }
 
 interface AuthContextValue {
@@ -15,6 +22,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   isOwnerOrAdmin: boolean;
   login: (phone: string, code: string) => Promise<void>;
+  register: (input: RegisterInput) => Promise<void>;
   logout: () => void;
 }
 
@@ -33,28 +41,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
+  const value = useMemo<AuthContextValue>(() => {
+    const startSession = (res: LoginResult) => {
+      // Never show the previous account's cached data.
+      queryClient.clear();
+      setSession(res.accessToken, res.user);
+      setUser(res.user);
+      navigate('/app');
+    };
+    return {
       user,
       isAdmin: user?.role === 'PLATFORM_ADMIN',
       isOwnerOrAdmin:
         user?.role === 'PROPRIETAIRE' || user?.role === 'PLATFORM_ADMIN',
       login: async (phone: string, code: string) => {
-        const res = await api.post<LoginResult>('/auth/login', {
-          phone,
-          code,
-        });
-        if (res.user.role !== 'PLATFORM_ADMIN') {
+        // Mobile accounts are stored as 0XXXXXXXX; the seeded platform admin
+        // may be stored as typed, in international form.
+        const normalized = normalizeGabonPhone(phone);
+        let res: LoginResult;
+        try {
+          res = await api.post<LoginResult>('/auth/login', { phone: normalized, code });
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.status !== 401 || !phone.startsWith('+')) throw err;
+          res = await api.post<LoginResult>('/auth/login', { phone, code });
+        }
+        if (res.user.role === 'ELEVEUR') {
           clearSession();
-          throw new Error(
-            "La console web est réservée à l'administrateur plateforme. Propriétaires et éleveurs utilisent l'application mobile.",
+          throw new ApiError(
+            403,
+            "Le site web est réservé aux propriétaires de ferme. Les éleveurs utilisent l'application mobile Fermia.",
           );
         }
-        // Never show the previous account's cached data.
-        queryClient.clear();
-        setSession(res.accessToken, res.user);
-        setUser(res.user);
-        navigate('/app/platform');
+        startSession(res);
+      },
+      register: async (input: RegisterInput) => {
+        startSession(await api.post<LoginResult>('/auth/register', input));
       },
       logout: () => {
         clearSession();
@@ -65,9 +86,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         navigate('/login');
       },
-    }),
-    [navigate, user, queryClient],
-  );
+    };
+  }, [navigate, user, queryClient]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
