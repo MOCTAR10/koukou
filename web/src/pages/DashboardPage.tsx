@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Activity,
@@ -14,25 +15,44 @@ import {
   Users,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { BatchCurve, DashboardData } from '../api/types';
+import type { BatchCurve } from '../api/types';
+import type {
+  AdvisoryNextActions,
+  CarcassPool,
+  CustomerSummary,
+  OverviewPnl,
+  OwnerDashboard,
+  PosBatch,
+} from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, LevelBadge, Loading, StatCard, StatusBadge, Th, Td } from '../components/ui';
+import { Card, EmptyState, Loading, StatCard, StatusBadge, Th, Td } from '../components/ui';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
-import { classNames, dateFr, fcfa, num, pct } from '../lib/format';
+import { ErrorNote } from '../components/form';
+import { ActionQueue, EggStockPanel, OwnerStats, PerformanceTiles, Ranking, WeatherCard } from '../components/sales/DashboardPanels';
+import { HEALTH_LABEL } from '../components/sales/labels';
+import { AlertLevelBadge } from '../components/sales/shared';
+import { classNames, dateFr, fcfa, num, pct, statusLabel } from '../lib/format';
 import { stagger, staggerItem } from '../lib/motion';
 
-const HEALTH_LABEL: Record<string, string> = {
-  EXCELLENT: 'Excellente',
-  BON: 'Bonne',
-  MOYEN: 'Moyenne',
-  CRITIQUE: 'Critique',
-};
-
 /** Local calendar date (Gabon is UTC+1: toISOString is "yesterday" before 01:00). */
-function localToday(): string {
-  const d = new Date();
+function localIso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function localToday(): string {
+  return localIso(new Date());
+}
+
+/** The n days up to today, oldest first. */
+function lastDays(n: number): string[] {
+  const out: string[] = [];
+  for (let i = n - 1; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    out.push(localIso(d));
+  }
+  return out;
 }
 
 export function DashboardPage() {
@@ -41,11 +61,61 @@ export function DashboardPage() {
   const isToday = selectedDate === localToday();
   const dash = useQuery({
     queryKey: ['dashboard', farmId, selectedDate],
-    queryFn: () => api.get<DashboardData>(`/farms/${farmId}/dashboard?date=${selectedDate}`),
+    queryFn: () => api.get<OwnerDashboard>(`/farms/${farmId}/dashboard?date=${selectedDate}`),
     enabled: !!farmId,
     refetchInterval: 60_000,
   });
   const [curveBatchId, setCurveBatchId] = useState<string>('');
+
+  const advisory = useQuery({
+    queryKey: ['advisory', farmId],
+    queryFn: () => api.get<AdvisoryNextActions>(`/farms/${farmId}/advisory/next-actions`),
+    enabled: !!farmId,
+  });
+  const batches = useQuery({
+    queryKey: ['batches', farmId, isToday ? '' : selectedDate],
+    queryFn: () => api.get<PosBatch[]>(`/farms/${farmId}/batches${isToday ? '' : `?asOf=${selectedDate}`}`),
+    enabled: !!farmId,
+  });
+  const slaughter = useQuery({
+    queryKey: ['slaughter', farmId],
+    queryFn: () => api.get<CarcassPool[]>(`/farms/${farmId}/slaughter-orders`),
+    enabled: !!farmId,
+  });
+  const pnlFrom = lastDays(30)[0]!;
+  const pnl = useQuery({
+    queryKey: ['rentabilite', farmId, pnlFrom, selectedDate],
+    queryFn: () => api.get<OverviewPnl>(`/farms/${farmId}/rentabilite/overview?from=${pnlFrom}&to=${selectedDate}`),
+    enabled: !!farmId,
+  });
+  const clients = useQuery({
+    queryKey: ['customers-summary', farmId],
+    queryFn: () => api.get<CustomerSummary>(`/farms/${farmId}/customers/summary`),
+    enabled: !!farmId,
+  });
+  const batchList = useMemo(() => batches.data ?? [], [batches.data]);
+  // The backend has no daily egg series: sum the entries of the laying lots, as mobile does.
+  const layerIds = batchList.filter((b) => b.status !== 'CLOTURE' && b.type === 'PONDEUSE').map((b) => b.id);
+  const eggSeries = useQuery({
+    queryKey: ['egg-daily-series', farmId, layerIds.join(',')],
+    enabled: layerIds.length > 0,
+    queryFn: async () => {
+      const days = lastDays(7);
+      const totals = new Map(days.map((date) => [date, 0]));
+      const all = await Promise.all(
+        layerIds.map((id) =>
+          api.get<Array<{ entryDate: string; eggsCollected: number | null }>>(`/farms/${farmId}/batches/${id}/daily-entries`),
+        ),
+      );
+      for (const entries of all) {
+        for (const e of entries) {
+          const day = e.entryDate.slice(0, 10);
+          if (totals.has(day)) totals.set(day, (totals.get(day) ?? 0) + (e.eggsCollected ?? 0));
+        }
+      }
+      return days.map((date) => ({ date, count: totals.get(date) ?? 0 }));
+    },
+  });
 
   const activeBatches = useMemo(
     () =>
@@ -94,21 +164,28 @@ export function DashboardPage() {
             value={selectedDate}
             max={localToday()}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-sky-500"
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500"
           />
           {!isToday && (
             <button
               onClick={() => setSelectedDate(localToday())}
-              className="rounded-lg bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100"
+              className="rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100"
             >
-              Aujourd'hui
+              Aujourd’hui
             </button>
           )}
         </div>
       </div>
 
+      <ErrorNote error={batches.error ?? slaughter.error ?? pnl.error ?? clients.error} />
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <WeatherCard weather={d.weather} />
+        <PerformanceTiles batches={batchList} />
+      </div>
+
       <motion.div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6"
         variants={stagger}
         initial="hidden"
         animate="show"
@@ -172,7 +249,7 @@ export function DashboardPage() {
             <Donut
               value={d.health.score}
               total={100}
-              label={HEALTH_LABEL[d.health.grade] ?? d.health.grade}
+              label={HEALTH_LABEL[d.health.grade] ?? '—'}
             />
             <ul className="space-y-1.5 text-sm">
               <li className="flex items-center gap-2">
@@ -212,11 +289,11 @@ export function DashboardPage() {
             <select
               value={selectedCurveBatch}
               onChange={(e) => setCurveBatchId(e.target.value)}
-              className="max-w-[220px] rounded-lg border border-slate-300 px-2 py-1 text-xs outline-none focus:border-sky-500"
+              className="max-w-[220px] rounded-lg border border-slate-300 px-2 py-1 text-xs outline-none focus:border-brand-500"
             >
               {activeBatches.map((b) => (
                 <option key={b.batchId} value={b.batchId}>
-                  {b.batchName ?? `Lot ${b.batchId.slice(0, 8)}`}
+                  {b.batchName ?? 'Lot'}
                 </option>
               ))}
             </select>
@@ -229,7 +306,6 @@ export function DashboardPage() {
                   new Date(`${w.weekStart}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
                 )}
                 valueFmt={(v) => `${v.toFixed(2)} kg`}
-                color="#0284c7"
               />
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-500 sm:grid-cols-4">
                 <div>Vivants : <b>{num(curve.data.liveCount)}</b></div>
@@ -248,6 +324,14 @@ export function DashboardPage() {
           )}
         </Card>
       </div>
+
+      <ActionQueue advisory={advisory.data} error={advisory.isError} />
+
+      {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
+
+      <Ranking dash={d} typeLabel={statusLabel} />
+
+      <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="overflow-hidden">
@@ -270,7 +354,7 @@ export function DashboardPage() {
                 {d.leaderboard.map((b) => (
                   <tr key={b.batchId} className="border-t border-slate-100">
                     <Td className="font-medium">
-                      {b.batchName ?? b.batchId.slice(0, 8)}
+                      {b.batchName ?? 'Lot'}
                     </Td>
                     <Td><StatusBadge status={b.type} /></Td>
                     <Td>{b.ageDays} j</Td>
@@ -310,16 +394,16 @@ export function DashboardPage() {
                 {d.healthOverview.slice(0, 8).map((b) => (
                   <tr key={b.batchId} className="border-t border-slate-100">
                     <Td className="font-medium">
-                      <div>{b.batchName ?? b.batchId.slice(0, 8)}</div>
+                      <div>{b.batchName ?? 'Lot'}</div>
                       <div className="text-xs text-slate-400">
-                        {b.type} · {b.ageDays} j · {num(b.liveCount)} vivants
+                        {statusLabel(b.type)} · {b.ageDays} j · {num(b.liveCount)} vivants
                       </div>
                     </Td>
                     <Td><StatusBadge status={b.status} /></Td>
                     <Td>
                       <div className="flex items-center gap-1">
-                        {b.alertesRouges > 0 ? <LevelBadge level="ROUGE" /> : null}
-                        {b.alertesJaunes > 0 ? <LevelBadge level="JAUNE" /> : null}
+                        {b.alertesRouges > 0 ? <AlertLevelBadge level="ROUGE" /> : null}
+                        {b.alertesJaunes > 0 ? <AlertLevelBadge level="JAUNE" /> : null}
                         {b.alertesRouges === 0 && b.alertesJaunes === 0 ? <span className="text-xs text-slate-400">—</span> : null}
                       </div>
                     </Td>
@@ -353,9 +437,9 @@ export function DashboardPage() {
             <p className="font-semibold text-red-700">
               {d.alerts.rouge} alerte(s) rouge(s) à traiter en priorité
             </p>
-            <p className="text-sm text-red-600">
-              Consultez la page Alertes pour les recommandations.
-            </p>
+            <Link to="/app/alerts" className="text-sm font-medium text-red-600 underline">
+              Consulter les alertes et leurs recommandations
+            </Link>
           </div>
         </Card>
       ) : null}

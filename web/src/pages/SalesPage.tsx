@@ -1,435 +1,517 @@
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, Plus, RotateCcw, ShoppingCart, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowRightLeft, Coins, Home, Pencil, Plus, ShoppingCart, Store, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
-import type { BatchWithMetrics, Promotion, Sale } from '../api/types';
+import type { CashSession, FeedStockSummary } from '../api/types';
+import type {
+  CaisseSummary,
+  CarcassPool,
+  ParcelleStock,
+  PointOfSale,
+  PosBatch,
+  SaleFull,
+  StockTransfer,
+} from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, Loading, PageHeader, StatusBadge, Th, Td } from '../components/ui';
-import { classNames, dateFr, fcfa, num } from '../lib/format';
+import { Button, ErrorNote, todayIso } from '../components/form';
+import { Card, EmptyState, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
+import { Checkout } from '../components/sales/Checkout';
+import { LineForm, type LinePreset } from '../components/sales/LineForm';
+import {
+  formatEggAlveoles,
+  lastClosingOf,
+  lineAmount,
+  transferRemaining,
+  transferTitle,
+  transferUnitLabel,
+  type PosLine,
+} from '../components/sales/pos';
+import { FilterChip } from '../components/sales/shared';
+import { SalesHistory } from '../components/sales/SalesHistory';
+import { unitLabel } from '../components/sales/labels';
+import { classNames, fcfa, num, statusLabel } from '../lib/format';
 
-const PRODUCT_TYPES = [
-  { value: 'POULET_PIECE', label: 'Poulet (pièce)', unit: 'PIECE', needsBatch: true },
-  { value: 'POULET_KG', label: 'Poulet (kg)', unit: 'KG', needsBatch: true },
-  { value: 'PROVENDE', label: 'Provende / aliment', unit: 'KG', needsInputLot: true },
-  { value: 'OEUFS', label: 'Œufs (alvéole)', unit: 'ALVEOLES', needsBatch: true },
-  { value: 'AUTRE', label: 'Autre', unit: 'UNITE', needsBatch: false },
-];
-
-interface Line {
-  productType: string;
-  quantity: string;
-  unitPriceFcfa: string;
-  batchId: string;
-  inputLotId: string;
-  /** POULET_KG only: number of birds sold. */
-  pieceCount?: string;
-}
-
-const inputCls =
-  'w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
+type LineModal = { initial?: PosLine; preset?: LinePreset };
 
 export function SalesPage() {
-  const { farmId } = useFarm();
-  const queryClient = useQueryClient();
-  const [lines, setLines] = useState<Line[]>([
-    { productType: 'POULET_PIECE', quantity: '', unitPriceFcfa: '', batchId: '', inputLotId: '' },
-  ]);
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [promoCode, setPromoCode] = useState('');
-  const [warnings, setWarnings] = useState<string[] | null>(null);
+  const { farmId, farm } = useFarm();
+  const [params, setParams] = useSearchParams();
+  const today = todayIso();
 
-  const sales = useQuery({
-    queryKey: ['sales', farmId],
-    queryFn: () => api.get<Sale[]>(`/farms/${farmId}/sales`),
-    enabled: !!farmId,
+  const [posId, setPosId] = useState('');
+  const [lines, setLines] = useState<PosLine[]>([]);
+  const [lineModal, setLineModal] = useState<LineModal | null>(null);
+  const [typeFilter, setTypeFilter] = useState<'TOUS' | 'CHAIR' | 'PONDEUSE'>('TOUS');
+  const [stockFilter, setStockFilter] = useState<'A_VENDRE' | 'FERMES' | 'TOUS'>('A_VENDRE');
+  const [reserveFilter, setReserveFilter] = useState<'TOUS' | 'ABATTU' | 'OEUFS' | 'PROVENDE'>('TOUS');
+
+  // A basket built on one farm must never be sent to another one.
+  const basketFarm = useRef(farmId);
+  useEffect(() => {
+    if (basketFarm.current === farmId) return;
+    basketFarm.current = farmId;
+    setLines([]);
+    setPosId('');
+  }, [farmId]);
+
+  const enabled = !!farmId;
+  const pointsOfSale = useQuery({
+    queryKey: ['points-of-sale', farmId],
+    queryFn: () => api.get<PointOfSale[]>(`/farms/${farmId}/points-of-sale`),
+    enabled,
   });
-
-  // Une vente (ou son annulation) change la liste des ventes, le cheptel, les
-  // métriques du dashboard, le solde de caisse, le stock d'aliment (provende)
-  // et la liste des clients (find-or-create par téléphone au POS).
-  const refreshFarm = () => {
-    const keys: unknown[][] = [
-      ['sales', farmId],
-      ['batches', farmId],
-      ['dashboard', farmId],
-      ['caisse-current', farmId],
-      ['feed-stock', farmId],
-      ['customers', farmId],
-    ];
-    keys.forEach((k) => void queryClient.invalidateQueries({ queryKey: k }));
-  };
-
   const batches = useQuery({
     queryKey: ['batches', farmId],
-    queryFn: () => api.get<BatchWithMetrics[]>(`/farms/${farmId}/batches`),
-    enabled: !!farmId,
+    queryFn: () => api.get<PosBatch[]>(`/farms/${farmId}/batches`),
+    enabled,
   });
-  const activeBatches = useMemo(
-    () => (batches.data ?? []).filter((b) => b.status !== 'CLOTURE'),
-    [batches.data],
+  const slaughter = useQuery({
+    queryKey: ['slaughter', farmId],
+    queryFn: () => api.get<CarcassPool[]>(`/farms/${farmId}/slaughter-orders`),
+    enabled,
+  });
+  const transfers = useQuery({
+    queryKey: ['stock-transfers', farmId],
+    queryFn: () => api.get<StockTransfer[]>(`/farms/${farmId}/stock-transfers`),
+    enabled,
+  });
+  const feedStock = useQuery({
+    queryKey: ['feed-stock', farmId],
+    queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
+    enabled,
+  });
+  const recolte = useQuery({
+    queryKey: ['recoltes-stock', farmId],
+    queryFn: () => api.get<ParcelleStock[]>(`/farms/${farmId}/recoltes/stock`),
+    enabled,
+  });
+  const salesToday = useQuery({
+    queryKey: ['sales', farmId, 'today', today],
+    queryFn: () => api.get<SaleFull[]>(`/farms/${farmId}/sales?from=${today}&to=${today}`),
+    enabled,
+  });
+  const caisse = useQuery({
+    queryKey: ['caisse-current', farmId],
+    queryFn: () => api.get<CaisseSummary | null>(`/farms/${farmId}/caisse/current`),
+    enabled,
+  });
+  const caisseSessions = useQuery({
+    queryKey: ['caisse-sessions', farmId],
+    queryFn: () => api.get<CashSession[]>(`/farms/${farmId}/caisse/sessions`),
+    enabled,
+  });
+
+  const allPos = useMemo(() => pointsOfSale.data ?? [], [pointsOfSale.data]);
+  const activePos = useMemo(() => allPos.filter((p) => p.isActive), [allPos]);
+  const pos = activePos.find((p) => p.id === posId) ?? null;
+  const isBoutique = pos?.kind === 'BOUTIQUE';
+  const onlyPosId = activePos.length === 1 ? activePos[0]!.id : '';
+
+  useEffect(() => {
+    if (!posId && onlyPosId) setPosId(onlyPosId);
+  }, [posId, onlyPosId]);
+
+  const allBatches = useMemo(() => batches.data ?? [], [batches.data]);
+  const lots = useMemo(
+    () => allBatches.filter((b) => b.quantityAlive > 0 && (b.status === 'EN_VENTE' || b.status === 'ACTIF')),
+    [allBatches],
   );
-
-  const inputs = useQuery({
-    queryKey: ['inputs', farmId],
-    queryFn: () =>
-      api.get<Array<{ id: string; supplierLotNumber: string; supplier: string; productName: string; kind: string }>>(
-        `/farms/${farmId}/inputs`,
-      ),
-    enabled: !!farmId,
-  });
-  const feedInputs = useMemo(
-    () => (inputs.data ?? []).filter((i) => i.kind === 'ALIMENT'),
-    [inputs.data],
-  );
-
-  const createSale = useMutation({
-    mutationFn: (payload: Record<string, unknown>) =>
-      api.post<{ sale: Sale; warnings: string[] }>(`/farms/${farmId}/sales`, payload),
-    onSuccess: (res) => {
-      refreshFarm();
-      setWarnings(res.warnings);
-      setLines([{ productType: 'POULET_PIECE', quantity: '', unitPriceFcfa: '', batchId: '', inputLotId: '' }]);
-      setCustomerPhone('');
-      setCustomerName('');
-      setPromoCode('');
-    },
-  });
-
-  const cancelSale = useMutation({
-    mutationFn: (saleId: string) =>
-      api.del(`/farms/${farmId}/sales/${saleId}`),
-    onSuccess: () => refreshFarm(),
-  });
-
-  const promotions = useQuery({
-    queryKey: ['promotions', farmId],
-    queryFn: () => api.get<Promotion[]>(`/farms/${farmId}/promotions`),
-    enabled: !!farmId,
-  });
-
-  // Same rounding as the backend (per line, integer FCFA).
-  const subtotal = useMemo(
+  const pools = useMemo(
     () =>
-      lines.reduce(
-        (sum, l) => sum + Math.round((Number(l.quantity) || 0) * (Number(l.unitPriceFcfa) || 0)),
-        0,
+      (slaughter.data ?? []).filter(
+        (o) => o.status === 'PROCESSED' && o.slaughterType === 'ABATTU' && (o.carcassesAvailable ?? 0) > 0,
       ),
-    [lines],
+    [slaughter.data],
   );
+  const carcassesByBatch = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of pools) map.set(p.batchId, (map.get(p.batchId) ?? 0) + (p.carcassesAvailable ?? 0));
+    return map;
+  }, [pools]);
+  const reserves = useMemo(
+    () =>
+      (transfers.data ?? []).filter(
+        (t) => t.status === 'TRANSFERRED' && t.pointOfSaleId === posId && transferRemaining(t) > 0,
+      ),
+    [transfers.data, posId],
+  );
+  const feedLots = useMemo(
+    () => (feedStock.data?.lots ?? []).filter((l) => l.entryType !== 'MEDICAMENT' && l.availableKg > 0),
+    [feedStock.data],
+  );
+  const sellableRecolte = useMemo(() => (recolte.data ?? []).filter((s) => s.available > 0), [recolte.data]);
 
-  // Preview of the server-side discount, so the cash payment equals the net
-  // total (paying the gross subtotal was rejected as "montant > dû").
-  const discount = useMemo(() => {
-    const code = promoCode.trim().toUpperCase();
-    if (!code) return 0;
-    const p = (promotions.data ?? []).find((x) => x.code === code && x.active);
-    if (!p) return 0;
-    if (p.minSubtotalFcfa != null && subtotal < p.minSubtotalFcfa) return 0;
-    return p.type === 'PCT'
-      ? Math.min(Math.round((subtotal * Math.min(p.value, 100)) / 100), subtotal)
-      : Math.min(p.value, subtotal);
-  }, [promoCode, promotions.data, subtotal]);
-  const total = subtotal - discount;
+  const hasEggs = (b: PosBatch) => (b.metrics.eggStockAvailableEggs ?? 0) > 0;
+  const hasCarcasses = (b: PosBatch) => (carcassesByBatch.get(b.id) ?? 0) > 0;
+  const inStock = (b: PosBatch) =>
+    b.type === 'PONDEUSE' ? hasEggs(b) || hasCarcasses(b) : b.quantityAlive > 0 || hasCarcasses(b);
+  const closedLots = allBatches.filter((b) => !lots.includes(b));
+  const visibleLots = (
+    stockFilter === 'A_VENDRE'
+      ? lots.filter(inStock)
+      : stockFilter === 'FERMES'
+        ? [...lots.filter((b) => !inStock(b)), ...closedLots]
+        : [...lots, ...closedLots]
+  ).filter((b) => typeFilter === 'TOUS' || b.type === typeFilter);
+  const visibleReserves = reserves.filter((t) => reserveFilter === 'TOUS' || t.productType === reserveFilter);
 
-  const submit = () => {
-    const items = lines
-      .filter((l) => Number(l.quantity) > 0 && Number(l.unitPriceFcfa) > 0)
-      .map((l) => {
-        const meta = PRODUCT_TYPES.find((p) => p.value === l.productType)!;
-        return {
-          productType: l.productType,
-          quantity: Number(l.quantity),
-          unit: meta.unit,
-          unitPriceFcfa: Number(l.unitPriceFcfa),
-          batchId: l.batchId || undefined,
-          inputLotId: l.inputLotId || undefined,
-          // La vente au kilo requiert le nombre de poulets (décrémente le cheptel).
-          pieceCount:
-            l.productType === 'POULET_KG' ? Number(l.pieceCount) || undefined : undefined,
-        };
-      });
-    if (!items.length) return;
-    if (items.some((it) => it.productType === 'POULET_KG' && !it.pieceCount)) {
-      alert('Vente au kilo : indiquez le nombre de poulets vendus.');
-      return;
-    }
-    if (items.some((it) => !Number.isInteger(it.unitPriceFcfa))) {
-      alert('Le prix unitaire doit être un nombre entier de FCFA.');
-      return;
-    }
-    createSale.mutate({
-      customerPhone: customerPhone || undefined,
-      customerName: customerName || undefined,
-      promoCode: promoCode || undefined,
-      items,
-      payments: total > 0 ? [{ method: 'CASH', amountFcfa: total }] : [],
+  // Deep link from an alert: /app/finance/ventes?batch=<id> opens the line form.
+  const batchParam = params.get('batch');
+  useEffect(() => {
+    if (!batchParam || !pos || isBoutique) return;
+    const target = lots.find((b) => b.id === batchParam);
+    if (!target) return;
+    setLineModal({ preset: { batchId: target.id } });
+    setParams({}, { replace: true });
+  }, [batchParam, pos, isBoutique, lots, setParams]);
+
+  const statsFor = (id: string) => {
+    const list = (salesToday.data ?? []).filter((s) => s.status !== 'CANCELLED' && s.pointOfSaleId === id);
+    const revenue = list.reduce((a, s) => a + s.totalAmountFcfa, 0);
+    return { revenue, count: list.length, basket: list.length ? Math.round(revenue / list.length) : 0 };
+  };
+
+  const soldToday = (batchId: string) =>
+    (salesToday.data ?? [])
+      .filter((s) => s.status !== 'CANCELLED')
+      .flatMap((s) => s.items)
+      .filter((it) => it.batchId === batchId).length;
+
+  const selectPos = (id: string) => {
+    if (id === posId) return;
+    setPosId(id);
+    // A basket holds stock of one point of sale only.
+    setLines([]);
+  };
+
+  const saveLine = (line: PosLine) => {
+    setLines((prev) => {
+      const i = prev.findIndex((l) => l.uid === line.uid);
+      if (i < 0) return [...prev, line];
+      const next = [...prev];
+      next[i] = line;
+      return next;
     });
   };
+
+  const stats = pos ? statsFor(pos.id) : null;
+  const loadError = pointsOfSale.error ?? batches.error;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Ventes & encaissements"
-        subtitle="Point de vente (espèces), historique et annulations."
+        title="Point de vente"
+        subtitle="Panier, encaissement en espèces ou à crédit, reçus et annulations."
+        actions={
+          <Link
+            to="/app/finance/caisse"
+            className={classNames(
+              'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold',
+              caisse.data ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600',
+            )}
+          >
+            <Coins className="h-4 w-4" />
+            {caisse.data ? `Caisse ouverte · ${fcfa(caisse.data.expectedBalanceFcfa)}` : 'Caisse fermée'}
+          </Link>
+        }
       />
 
-      <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <ShoppingCart className="h-4 w-4 text-sky-600" />
-          <h2 className="text-sm font-semibold text-slate-700">Nouvelle vente</h2>
-        </div>
+      <ErrorNote error={loadError} />
+
+      {pointsOfSale.isLoading ? (
+        <Loading label="Chargement des points de vente…" />
+      ) : activePos.length === 0 ? (
         <div className="space-y-2">
-          {lines.map((l, i) => {
-            const meta = PRODUCT_TYPES.find((p) => p.value === l.productType)!;
+          <EmptyState message="Aucun point de vente actif : activez ou créez-en un pour commencer à encaisser." />
+          <Link to="/app/points-of-sale" className="block text-center text-sm font-semibold text-brand-700 hover:underline">
+            Gérer les points de vente
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {activePos.map((p) => {
+            const s = statsFor(p.id);
+            const selected = p.id === posId;
+            const Icon = p.kind === 'FERME' ? Home : Store;
             return (
-              <div key={i} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.3fr_0.7fr_0.8fr_1.2fr_auto]">
-                <select
-                  className={inputCls}
-                  value={l.productType}
-                  onChange={(e) =>
-                    setLines((ls) =>
-                      ls.map((x, j) => (j === i ? { ...x, productType: e.target.value } : x)),
-                    )
-                  }
-                >
-                  {PRODUCT_TYPES.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={inputCls}
-                  placeholder="Quantité"
-                  type="number"
-                  min={0}
-                  value={l.quantity}
-                  onChange={(e) =>
-                    setLines((ls) => ls.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)))
-                  }
-                />
-                <input
-                  className={inputCls}
-                  placeholder="Prix unitaire (FCFA)"
-                  type="number"
-                  min={0}
-                  value={l.unitPriceFcfa}
-                  onChange={(e) =>
-                    setLines((ls) => ls.map((x, j) => (j === i ? { ...x, unitPriceFcfa: e.target.value } : x)))
-                  }
-                />
-                {meta.needsBatch && !meta.needsInputLot ? (
-                  <select
-                    className={inputCls}
-                    value={l.batchId}
-                    onChange={(e) =>
-                      setLines((ls) => ls.map((x, j) => (j === i ? { ...x, batchId: e.target.value } : x)))
-                    }
-                  >
-                    <option value="">— Lot —</option>
-                    {activeBatches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.batchName ?? b.id.slice(0, 8)}
-                      </option>
-                    ))}
-                  </select>
-                ) : meta.needsInputLot ? (
-                  <select
-                    className={inputCls}
-                    value={l.inputLotId}
-                    onChange={(e) =>
-                      setLines((ls) => ls.map((x, j) => (j === i ? { ...x, inputLotId: e.target.value } : x)))
-                    }
-                  >
-                    <option value="">— Lot d'aliment (HACCP) —</option>
-                    {feedInputs.map((x) => (
-                      <option key={x.id} value={x.id}>
-                        {x.supplierLotNumber && x.productName
-                          ? `${x.supplierLotNumber} — ${x.productName}`
-                          : x.id.slice(0, 8)}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="hidden lg:block" />
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => selectPos(p.id)}
+                className={classNames(
+                  'flex items-start gap-3 rounded-2xl border bg-white p-4 text-left transition',
+                  selected ? 'border-brand-600 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-300',
                 )}
-                {l.productType === 'POULET_KG' ? (
-                  <input
-                    className={inputCls}
-                    placeholder="Nb de poulets"
-                    type="number"
-                    min={1}
-                    step={1}
-                    value={l.pieceCount ?? ''}
-                    onChange={(e) =>
-                      setLines((ls) => ls.map((x, j) => (j === i ? { ...x, pieceCount: e.target.value } : x)))
-                    }
-                  />
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}
-                  className="justify-self-end rounded-lg border border-slate-200 p-2 text-slate-400 hover:bg-red-50 hover:text-red-500"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold text-slate-900">{p.name}</span>
+                  <span className="block text-xs text-slate-500">
+                    {p.kind === 'FERME' ? 'Ferme · volaille vivante, œufs, carcasses' : 'Boutique · stock transféré depuis la ferme'}
+                  </span>
+                  <span className="mt-1 block text-sm font-medium text-slate-700">
+                    {fcfa(s.revenue)} · {num(s.count)} ticket(s) aujourd’hui
+                  </span>
+                </span>
+              </button>
             );
           })}
-          <button
-            type="button"
-            onClick={() =>
-              setLines((ls) => [...ls, { productType: 'POULET_PIECE', quantity: '', unitPriceFcfa: '', batchId: '', inputLotId: '' }])
-            }
-            className="flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-700"
-          >
-            <Plus className="h-3.5 w-3.5" /> Ajouter un article
-          </button>
         </div>
-
-        <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Téléphone client</span>
-            <input className={inputCls} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} placeholder="+241 06000000" />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Nom client (vente simple)</span>
-            <input className={inputCls} value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Anonyme" />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Code promo</span>
-            <input className={inputCls} value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="ex. WELCOME10" />
-          </label>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-          <div className="text-sm text-slate-500">
-            Total à encaisser :{' '}
-            <span className="text-lg font-bold text-slate-900">{fcfa(total)}</span>
-            {discount > 0 ? (
-              <span className="ml-2 text-xs text-emerald-700">
-                (remise {fcfa(discount)} sur {fcfa(subtotal)})
-              </span>
-            ) : null}
-          </div>
-          <button
-            onClick={submit}
-            disabled={createSale.isPending || subtotal <= 0}
-            className="rounded-lg bg-sky-600 px-5 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
-          >
-            {createSale.isPending ? 'Enregistrement…' : 'Encaisser (espèces)'}
-          </button>
-        </div>
-
-        {createSale.isError ? (
-          <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-            {(createSale.error as Error).message}
-          </p>
-        ) : null}
-        {warnings?.length ? (
-          <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-            {warnings.map((w) => (
-              <p key={w}>• {w}</p>
-            ))}
-          </div>
-        ) : null}
-      </Card>
-
-      {sales.isLoading ? (
-        <Loading label="Chargement des ventes…" />
-      ) : (
-        <Card className="overflow-hidden">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Historique des ventes</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <Th>Référence</Th>
-                  <Th>Date</Th>
-                  <Th>Articles</Th>
-                  <Th>Total</Th>
-                  <Th>Payé</Th>
-                  <Th>Statut</Th>
-                  <Th></Th>
-                </tr>
-              </thead>
-              <tbody>
-                {(sales.data ?? [])
-                  .slice()
-                  .sort((a, b) => b.saleDate.localeCompare(a.saleDate))
-                  .map((s) => {
-                    const paid = s.payments
-                      .filter((p) => p.status === 'CONFIRMED')
-                      .reduce((x, p) => x + p.amountFcfa, 0);
-                    return (
-                      <tr key={s.id} className="border-t border-slate-100">
-                        <Td className="font-medium">{s.referenceNumber}</Td>
-                        <Td>{dateFr(s.saleDate)}</Td>
-                        <Td>
-                          {s.items
-                            .map((it) => `${num(it.quantity)} ${it.unit.toLowerCase()}`)
-                            .join(', ') || (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </Td>
-                        <Td>
-                          {fcfa(s.totalAmountFcfa)}
-                          {s.discountAmountFcfa > 0 ? (
-                            <span className="ml-1 text-xs text-emerald-600">
-                              -{fcfa(s.discountAmountFcfa)}
-                            </span>
-                          ) : null}
-                        </Td>
-                        <Td className={classNames(paid >= s.totalAmountFcfa ? 'font-semibold text-emerald-600' : 'text-amber-600')}>
-                          {fcfa(paid)}
-                        </Td>
-                        <Td><StatusBadge status={s.status} /></Td>
-                        <Td>
-                          <div className="flex items-center gap-1">
-                            <button
-                              title="Reçu PDF"
-                              onClick={() =>
-                                void api.download(
-                                  `/farms/${farmId}/sales/${s.id}/receipt`,
-                                  `${s.referenceNumber}.pdf`,
-                                )
-                              }
-                              className="rounded p-1.5 text-slate-400 hover:bg-sky-50 hover:text-sky-600"
-                            >
-                              <FileText className="h-4 w-4" />
-                            </button>
-                            {s.status === 'SETTLED' || s.status === 'OUTSTANDING' ? (
-                              <button
-                                title="Annuler"
-                                onClick={() =>
-                                  confirm(`Annuler la vente ${s.referenceNumber} ?`) &&
-                                  cancelSale.mutate(s.id)
-                                }
-                                className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500"
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </button>
-                            ) : null}
-                          </div>
-                        </Td>
-                      </tr>
-                    );
-                  })}
-                {!sales.data?.length ? (
-                  <tr>
-                    <Td className="py-8 text-center text-slate-400">
-                      <EmptyState message="Aucune vente enregistrée." />
-                    </Td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </Card>
       )}
+
+      {pos && stats ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard label="CA aujourd’hui" value={fcfa(stats.revenue)} tone="good" />
+            <StatCard label="Tickets" value={num(stats.count)} />
+            <StatCard label="Panier moyen" value={fcfa(stats.basket)} />
+            {isBoutique ? (
+              <StatCard label="Réserves actives" value={num(reserves.length)} hint={pos.name} />
+            ) : (
+              <StatCard
+                label="Stock ferme"
+                value={`${num(lots.reduce((a, b) => a + b.quantityAlive, 0))} vivants`}
+                hint={`${num(pools.reduce((a, p) => a + (p.carcassesAvailable ?? 0), 0))} carcasses · ${num(lots.reduce((a, b) => a + (b.metrics.eggStockAvailableAlveoles ?? 0), 0))} alvéoles`}
+              />
+            )}
+          </div>
+
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="min-w-0 space-y-4">
+              <Card className="overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-slate-700">
+                    {isBoutique ? 'Réserves en boutique à vendre' : 'Lots à vendre'}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {isBoutique ? (
+                      <>
+                        <FilterChip label="Tous" active={reserveFilter === 'TOUS'} onClick={() => setReserveFilter('TOUS')} />
+                        <FilterChip label="Abattu" active={reserveFilter === 'ABATTU'} onClick={() => setReserveFilter('ABATTU')} />
+                        <FilterChip label="Œufs" active={reserveFilter === 'OEUFS'} onClick={() => setReserveFilter('OEUFS')} />
+                        <FilterChip label="Provende" active={reserveFilter === 'PROVENDE'} onClick={() => setReserveFilter('PROVENDE')} />
+                      </>
+                    ) : (
+                      <>
+                        <FilterChip label="Tous types" active={typeFilter === 'TOUS'} onClick={() => setTypeFilter('TOUS')} />
+                        <FilterChip label="Chair" active={typeFilter === 'CHAIR'} onClick={() => setTypeFilter('CHAIR')} />
+                        <FilterChip label="Pondeuse" active={typeFilter === 'PONDEUSE'} onClick={() => setTypeFilter('PONDEUSE')} />
+                        <span className="mx-1 h-4 w-px bg-slate-200" />
+                        <FilterChip label="À vendre" active={stockFilter === 'A_VENDRE'} onClick={() => setStockFilter('A_VENDRE')} />
+                        <FilterChip label="Fermés" active={stockFilter === 'FERMES'} onClick={() => setStockFilter('FERMES')} />
+                        <FilterChip label="Tous lots" active={stockFilter === 'TOUS'} onClick={() => setStockFilter('TOUS')} />
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="max-h-[340px] overflow-auto">
+                  {isBoutique ? (
+                    visibleReserves.length === 0 ? (
+                      <div className="p-4">
+                        <EmptyState
+                          message={
+                            reserves.length === 0
+                              ? 'Aucun stock en boutique : réapprovisionnez-la depuis la ferme.'
+                              : 'Aucune réserve dans ce filtre.'
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <table className="w-full">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            <Th>Réserve</Th>
+                            <Th>Produit</Th>
+                            <Th className="text-right">Restant</Th>
+                            <Th></Th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleReserves.map((t) => (
+                            <tr key={t.id} className="border-t border-slate-100">
+                              <Td className="font-medium">{transferTitle(t)}</Td>
+                              <Td>{t.productType === 'ABATTU' ? 'Abattu' : t.productType === 'OEUFS' ? 'Œufs' : 'Provende'}</Td>
+                              <Td className="text-right tabular-nums">
+                                {num(transferRemaining(t), 2)} {transferUnitLabel(t)}
+                              </Td>
+                              <Td className="text-right">
+                                <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setLineModal({ preset: { transferId: t.id } })}>
+                                  Vendre
+                                </Button>
+                              </Td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )
+                  ) : batches.isLoading ? (
+                    <div className="p-4">
+                      <Loading />
+                    </div>
+                  ) : visibleLots.length === 0 ? (
+                    <div className="p-4">
+                      <EmptyState message="Aucun lot dans ce filtre." />
+                    </div>
+                  ) : (
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <Th>Lot</Th>
+                          <Th className="text-right">Vivants</Th>
+                          <Th className="text-right">Carcasses</Th>
+                          <Th>Œufs</Th>
+                          <Th>État</Th>
+                          <Th></Th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleLots.map((b) => {
+                          const open = lots.includes(b);
+                          const ready = b.status === 'EN_VENTE' || b.metrics.readyForSale;
+                          const sold = soldToday(b.id);
+                          return (
+                            <tr key={b.id} className={classNames('border-t border-slate-100', !open && 'opacity-60')}>
+                              <Td className="font-medium">
+                                {b.batchName ?? 'Lot'}
+                                <span className="block text-xs font-normal text-slate-400">
+                                  {statusLabel(b.type)} · J{b.metrics.ageDays}
+                                  {sold > 0 ? ` · ${num(sold)} article(s) vendu(s) aujourd’hui` : ''}
+                                </span>
+                              </Td>
+                              <Td className="text-right tabular-nums">{num(b.quantityAlive)}</Td>
+                              <Td className="text-right tabular-nums">{num(carcassesByBatch.get(b.id) ?? 0)}</Td>
+                              <Td>{hasEggs(b) ? formatEggAlveoles(b.metrics.eggStockAvailableEggs ?? 0) : '—'}</Td>
+                              <Td>
+                                <span className={classNames('text-xs font-medium', !open ? 'text-slate-400' : ready ? 'text-emerald-600' : 'text-slate-500')}>
+                                  {!open ? 'Fermé' : ready ? 'Prêt' : 'En cours'}
+                                </span>
+                              </Td>
+                              <Td className="text-right">
+                                {open ? (
+                                  <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setLineModal({ preset: { batchId: b.id } })}>
+                                    Vendre
+                                  </Button>
+                                ) : null}
+                              </Td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
+                  <Link to="/app/points-of-sale" className="flex items-center gap-1.5 text-xs font-medium text-brand-700 hover:underline">
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    {isBoutique ? 'Réapprovisionner cette boutique' : 'Envoyer du stock à une boutique'}
+                  </Link>
+                  <Button tone="secondary" onClick={() => setLineModal({})}>
+                    <Plus className="h-4 w-4" /> Ajouter un article
+                  </Button>
+                </div>
+              </Card>
+
+              <Card className="overflow-hidden">
+                <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
+                  <ShoppingCart className="h-4 w-4 text-brand-600" />
+                  <h2 className="text-sm font-semibold text-slate-700">Panier · {num(lines.length)} article(s)</h2>
+                </div>
+                {lines.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-sm text-slate-500">Choisissez un lot ou ajoutez un article pour commencer.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <Th>Article</Th>
+                          <Th>Source</Th>
+                          <Th className="text-right">Quantité</Th>
+                          <Th className="text-right">Prix unitaire</Th>
+                          <Th className="text-right">Montant</Th>
+                          <Th></Th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lines.map((l) => (
+                          <tr key={l.uid} className="border-t border-slate-100">
+                            <Td className="font-medium">{l.label}</Td>
+                            <Td>{l.sourceLabel || '—'}</Td>
+                            <Td className="whitespace-nowrap text-right tabular-nums">
+                              {l.weightKg != null
+                                ? `${num(l.qty)} oiseau(x) · ${num(l.weightKg, 2)} kg`
+                                : `${num(l.qty, 2)} ${l.product === 'OEUF' ? 'alvéole(s)' : unitLabel(l.unit)}`}
+                            </Td>
+                            <Td className="whitespace-nowrap text-right tabular-nums">{fcfa(l.unitPriceFcfa)}</Td>
+                            <Td className="whitespace-nowrap text-right font-semibold tabular-nums">{fcfa(lineAmount(l))}</Td>
+                            <Td>
+                              <div className="flex justify-end gap-1">
+                                <button
+                                  type="button"
+                                  aria-label={`Modifier ${l.label}`}
+                                  onClick={() => setLineModal({ initial: l })}
+                                  className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Retirer ${l.label}`}
+                                  onClick={() => setLines((prev) => prev.filter((x) => x.uid !== l.uid))}
+                                  className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </Td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            <div className="lg:sticky lg:top-4">
+              <Checkout
+                farmId={farmId}
+                lines={lines}
+                pointOfSaleId={pos.id}
+                posName={pos.name}
+                caisseOpen={!!caisse.data}
+                lastClosing={lastClosingOf(caisseSessions.data)}
+                onSold={() => setLines([])}
+              />
+            </div>
+          </div>
+        </>
+      ) : activePos.length > 1 ? (
+        <p className="text-sm text-slate-500">Où vendez-vous aujourd’hui ? Choisissez un point de vente pour voir ses produits et ses chiffres du jour.</p>
+      ) : null}
+
+      <SalesHistory farmId={farmId} pointsOfSale={allPos} />
+
+      {lineModal && pos ? (
+        <LineForm
+          key={lineModal.initial?.uid ?? lineModal.preset?.batchId ?? lineModal.preset?.transferId ?? 'new'}
+          pos={pos}
+          lots={lots}
+          pools={pools}
+          reserves={reserves}
+          feedLots={feedLots}
+          recolte={sellableRecolte}
+          sacKg={farm?.defaultSacKg ?? 50}
+          committed={lines}
+          initial={lineModal.initial}
+          preset={lineModal.preset}
+          onSave={saveLine}
+          onClose={() => setLineModal(null)}
+        />
+      ) : null}
     </div>
   );
 }

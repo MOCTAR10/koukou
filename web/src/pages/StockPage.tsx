@@ -1,384 +1,492 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, PackageOpen, Plus } from 'lucide-react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { AlertTriangle, PackagePlus, Plus } from 'lucide-react';
 import { api } from '../api/client';
 import type { FeedProduct, FeedStockSummary } from '../api/types';
+import type { FeedMovement } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, PageHeader, Th, Td } from '../components/ui';
-import { classNames, dateFr, num } from '../lib/format';
+import { FeedEntryModal, LossModal } from '../components/flock/StockModals';
+import {
+  ENTRY_TYPE_LABEL,
+  FEED_PHASES,
+  FEED_PHASE_LABEL,
+  LIVE_PERIOD,
+  LOSS_REASON_LABEL,
+  MOVEMENT_TYPE_LABEL,
+  Metric,
+  Note,
+  type Period,
+  PeriodBar,
+  Pill,
+  SectionCard,
+  Tabs,
+  addLocalDays,
+  inPeriod,
+  localYmd,
+  parseNum,
+  phaseLabel,
+  useInvalidateFarm,
+} from '../components/flock/shared';
+import { Button, ErrorNote, Field, inputCls } from '../components/form';
+import { EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { dateFr, fcfa, num } from '../lib/format';
 
-const inputCls =
-  'w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
+type TabKey = 'stock' | 'lots' | 'mouvements' | 'catalogue';
 
-const PHASE_LABELS: Record<string, string> = {
-  POUSSIN: 'Poussin',
-  DEMARRAGE: 'Démarrage',
-  CROISSANCE: 'Croissance',
-  PRE_PONTE: 'Pré-ponte',
-  PONTE_PHASE_1: 'Ponte 1',
-  PONTE_PHASE_2: 'Ponte 2',
-  PONTE_PHASE_3: 'Ponte 3',
-  FINITION: 'Finition',
-  PERSONNALISE: 'Personnalisé',
-};
+const entryLabel = (t: string) => (ENTRY_TYPE_LABEL as Record<string, string>)[t] ?? 'Autre';
+const reasonLabel = (r: string | null | undefined) =>
+  r ? ((LOSS_REASON_LABEL as Record<string, string>)[r] ?? 'Autre') : '—';
 
-const ENTRY_TYPE_LABELS: Record<string, string> = {
-  BULKER: 'Bulker',
-  BAG: 'Sac',
-  MEDICAMENT: 'Médicament',
-  MATIERE_PREMIERE: 'Matière première',
-};
-
-const phaseLabel = (p: string | null) => (p ? (PHASE_LABELS[p] ?? p) : '—');
+function stockTone(autonomy: number | null, available: number): { tone: 'red' | 'amber' | 'emerald' | 'slate'; label: string } {
+  if (available <= 0) return { tone: 'red', label: 'Épuisé' };
+  if (autonomy == null) return { tone: 'slate', label: 'Pas de consommation' };
+  if (autonomy < 3) return { tone: 'red', label: 'Critique' };
+  if (autonomy < 5) return { tone: 'amber', label: 'Bas' };
+  return { tone: 'emerald', label: 'Correct' };
+}
 
 export function StockPage() {
   const { farmId } = useFarm();
-  const queryClient = useQueryClient();
+  const [tab, setTab] = useState<TabKey>('stock');
+  const [receiving, setReceiving] = useState(false);
+  const [losing, setLosing] = useState(false);
+  const [period, setPeriod] = useState<Period>(LIVE_PERIOD);
 
   const stock = useQuery({
     queryKey: ['feed-stock', farmId],
     queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
     enabled: !!farmId,
   });
-
-  const addLoss = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      api.post(`/farms/${farmId}/feed-stock/losses`, body),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['feed-stock', farmId] }),
+  const movements = useQuery({
+    queryKey: ['feed-movements', farmId],
+    queryFn: () => api.get<FeedMovement[]>(`/farms/${farmId}/feed-stock/movements`),
+    enabled: !!farmId,
   });
+  const mvts = useMemo(() => movements.data ?? [], [movements.data]);
 
+  const priceOf = useMemo(() => {
+    const map = new Map<string, number>();
+    const phases = new Set(mvts.map((m) => m.feedPhase ?? ''));
+    for (const p of phases) {
+      const priced = mvts.filter((m) => (m.feedPhase ?? '') === p && m.valueFcfa != null && m.quantityKg > 0);
+      const kg = priced.reduce((s, m) => s + m.quantityKg, 0);
+      if (kg > 0) map.set(p, priced.reduce((s, m) => s + (m.valueFcfa ?? 0), 0) / kg);
+    }
+    return map;
+  }, [mvts]);
+
+  const byType = useMemo(() => stock.data?.byType ?? [], [stock.data]);
+  const summary = useMemo(() => {
+    const available = byType.reduce((s, t) => s + t.availableKg, 0);
+    const value = byType.reduce((s, t) => s + t.availableKg * (priceOf.get(t.feedPhase ?? '') ?? 0), 0);
+    const autonomies = byType.flatMap((t) => (t.autonomyDays != null && t.availableKg > 0 ? [t.autonomyDays] : []));
+    return {
+      available,
+      value,
+      phases: byType.filter((t) => t.availableKg > 0).length,
+      minAutonomy: autonomies.length ? Math.min(...autonomies) : null,
+    };
+  }, [byType, priceOf]);
+
+  const insight = useMemo(() => {
+    const today = localYmd();
+    const cons = mvts.filter((m) => m.type === 'CONSOMMATION');
+    const sumBetween = (from: string, to: string) =>
+      cons.filter((m) => m.date.slice(0, 10) >= from && m.date.slice(0, 10) <= to).reduce((s, m) => s + m.quantityKg, 0);
+    const avg7 = sumBetween(addLocalDays(today, -6), today) / 7;
+    const avg14 = sumBetween(addLocalDays(today, -13), today) / 14;
+    const prev7 = sumBetween(addLocalDays(today, -13), addLocalDays(today, -7)) / 7;
+    if (avg7 <= 0 && avg14 <= 0) return null;
+    const priced = cons.filter((m) => m.valueFcfa != null && m.quantityKg > 0);
+    const pricedKg = priced.reduce((s, m) => s + m.quantityKg, 0);
+    const pricePerKg = pricedKg > 0 ? priced.reduce((s, m) => s + (m.valueFcfa ?? 0), 0) / pricedKg : null;
+    const need7 = avg7 * 7;
+    const critical = byType
+      .filter((t) => t.availableKg > 0 && t.autonomyDays != null)
+      .sort((a, b) => (a.autonomyDays ?? 0) - (b.autonomyDays ?? 0))[0];
+    return {
+      avg7,
+      avg14,
+      trend: prev7 > 0 ? ((avg7 - prev7) / prev7) * 100 : null,
+      coverage: avg7 > 0 ? summary.available / avg7 : null,
+      pricePerKg,
+      costPerDay: pricePerKg != null ? avg7 * pricePerKg : null,
+      need7,
+      sacs: Math.ceil(Math.max(0, need7 - summary.available) / 50),
+      critical,
+    };
+  }, [mvts, byType, summary.available]);
+
+  const expiringSoon = (stock.data?.lots ?? []).filter(
+    (l) => l.availableKg > 0 && l.expirationDate && l.expirationDate.slice(0, 10) <= addLocalDays(localYmd(), 14),
+  );
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Stock"
+        subtitle="Provende, médicaments et matières premières"
+        actions={
+          <div className="flex gap-2">
+            <Button tone="secondary" onClick={() => setLosing(true)}>
+              <AlertTriangle className="h-4 w-4" /> Déclarer une perte
+            </Button>
+            <Button onClick={() => setReceiving(true)}>
+              <PackagePlus className="h-4 w-4" /> Réception de stock
+            </Button>
+          </div>
+        }
+      />
+      <ErrorNote error={stock.error} />
+      <Tabs<TabKey>
+        value={tab}
+        onChange={setTab}
+        options={[
+          { key: 'stock', label: 'Stock' },
+          { key: 'lots', label: 'Lots reçus' },
+          { key: 'mouvements', label: 'Mouvements' },
+          { key: 'catalogue', label: 'Catalogue' },
+        ]}
+      />
+
+      {stock.isLoading ? <Loading label="Chargement du stock…" /> : null}
+
+      {tab === 'stock' && stock.data ? (
+        <>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <Metric label="Disponible" value={`${num(summary.available, 0)} kg`} />
+            <Metric label="Valeur estimée" value={summary.value > 0 ? fcfa(Math.round(summary.value)) : '—'} sub="au prix moyen constaté" />
+            <Metric label="Phases en stock" value={summary.phases} />
+            <Metric
+              label="Autonomie minimale"
+              value={summary.minAutonomy != null ? `${num(summary.minAutonomy)} j` : '—'}
+              tone={summary.minAutonomy == null ? undefined : summary.minAutonomy < 3 ? 'bad' : summary.minAutonomy < 5 ? 'warn' : 'good'}
+            />
+          </div>
+          {expiringSoon.length > 0 ? (
+            <Note tone="amber">
+              {expiringSoon.length} lot{expiringSoon.length > 1 ? 's' : ''} périmé{expiringSoon.length > 1 ? 's' : ''} ou proche
+              {expiringSoon.length > 1 ? 's' : ''} de la péremption (14 jours) : {expiringSoon.map((l) => l.productName).join(', ')}.
+            </Note>
+          ) : null}
+          {insight ? (
+            <SectionCard title="Analyse de la consommation">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <Metric label="Moyenne 7 jours" value={`${num(insight.avg7)} kg/j`} sub={`sur 14 jours : ${num(insight.avg14)} kg/j`} />
+                <Metric
+                  label="Tendance"
+                  value={insight.trend != null ? `${insight.trend >= 0 ? '+' : ''}${num(insight.trend, 0)} %` : '—'}
+                />
+                <Metric label="Couverture" value={insight.coverage != null ? `${num(insight.coverage, 0)} j` : '—'} />
+                <Metric
+                  label="Coût quotidien"
+                  value={insight.costPerDay != null ? fcfa(Math.round(insight.costPerDay)) : '—'}
+                  sub={insight.pricePerKg != null ? `${fcfa(Math.round(insight.pricePerKg))} / kg` : undefined}
+                />
+              </div>
+              <p className="mt-3 text-sm text-slate-600">
+                Besoin sur 7 jours : {num(insight.need7, 0)} kg
+                {insight.sacs > 0 ? `, soit ${insight.sacs} sacs de 50 kg à prévoir` : ', couvert par le stock'}.
+                {insight.critical
+                  ? ` Phase la plus tendue : ${phaseLabel(insight.critical.feedPhase).toLowerCase()} (${num(insight.critical.autonomyDays ?? 0)} j).`
+                  : ''}
+              </p>
+            </SectionCard>
+          ) : null}
+          <SectionCard title="Inventaire par phase" subtitle="Autonomie en jours et lot à utiliser en premier" flush>
+            {byType.length === 0 ? (
+              <div className="p-4">
+                <EmptyState message="Aucun stock : enregistrez votre première réception." />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <Th>Phase</Th>
+                      <Th>Reçu</Th>
+                      <Th>Consommé</Th>
+                      <Th>Perdu</Th>
+                      <Th>Vendu</Th>
+                      <Th>Disponible</Th>
+                      <Th>Autonomie</Th>
+                      <Th>Valeur</Th>
+                      <Th>État</Th>
+                      <Th>Lot à utiliser</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {byType.map((t, i) => {
+                      const s = stockTone(t.autonomyDays, t.availableKg);
+                      const price = priceOf.get(t.feedPhase ?? '');
+                      return (
+                        <tr key={`${t.feedPhase ?? 'x'}-${i}`} className="border-t border-slate-100">
+                          <Td className="font-medium">{t.feedPhase ? phaseLabel(t.feedPhase) : (t.foodType ?? 'Sans phase')}</Td>
+                          <Td>{num(t.receivedKg)} kg</Td>
+                          <Td>{num(t.usedKg)} kg</Td>
+                          <Td>{num(t.lostKg)} kg</Td>
+                          <Td>{num(t.soldKg)} kg</Td>
+                          <Td className="font-semibold">{num(t.availableKg)} kg</Td>
+                          <Td>{t.autonomyDays != null ? `${num(t.autonomyDays)} j` : '—'}</Td>
+                          <Td>{price ? fcfa(Math.round(t.availableKg * price)) : '—'}</Td>
+                          <Td>
+                            <Pill tone={s.tone}>{s.label}</Pill>
+                          </Td>
+                          <Td>{t.suggestedLotName ?? '—'}</Td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </SectionCard>
+        </>
+      ) : null}
+
+      {tab === 'lots' && stock.data ? (
+        <SectionCard title="Lots reçus" subtitle="Traçabilité fournisseur et péremption" flush>
+          {stock.data.lots.length === 0 ? (
+            <div className="p-4">
+              <EmptyState message="Aucun lot reçu." />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <Th>Produit</Th>
+                    <Th>Type</Th>
+                    <Th>Phase</Th>
+                    <Th>Fournisseur</Th>
+                    <Th>N° de lot</Th>
+                    <Th>Reçu le</Th>
+                    <Th>Reçu</Th>
+                    <Th>Restant</Th>
+                    <Th>Péremption</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stock.data.lots.map((l) => (
+                    <tr key={l.id} className="border-t border-slate-100">
+                      <Td className="font-medium">{l.productName}</Td>
+                      <Td>{entryLabel(l.entryType)}</Td>
+                      <Td>{phaseLabel(l.feedPhase, l.customFeedPhaseName)}</Td>
+                      <Td>{l.supplier}</Td>
+                      <Td>{l.supplierLotNumber}</Td>
+                      <Td>{dateFr(l.receivedDate)}</Td>
+                      <Td>{num(l.receivedKg)} kg</Td>
+                      <Td className="font-semibold">{num(l.availableKg)} kg</Td>
+                      <Td>
+                        {l.expirationDate ? dateFr(l.expirationDate) : '—'}
+                        {l.expired ? (
+                          <span className="ml-1">
+                            <Pill tone="red">Périmé</Pill>
+                          </span>
+                        ) : null}
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+      ) : null}
+
+      {tab === 'mouvements' ? (
+        <SectionCard title="Journal des mouvements" subtitle="Consommations liées, pertes et ventes" actions={<PeriodBar value={period} onChange={setPeriod} />} flush>
+          <ErrorNote error={movements.error} />
+          {movements.isLoading ? (
+            <Loading />
+          ) : mvts.filter((m) => inPeriod(period, m.date)).length === 0 ? (
+            <div className="p-4">
+              <EmptyState message="Aucun mouvement sur cette période." />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <Th>Date</Th>
+                    <Th>Type</Th>
+                    <Th>Produit</Th>
+                    <Th>Phase</Th>
+                    <Th>Quantité</Th>
+                    <Th>Valeur</Th>
+                    <Th>Raison</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mvts
+                    .filter((m) => inPeriod(period, m.date))
+                    .map((m) => (
+                      <tr key={m.id} className="border-t border-slate-100">
+                        <Td>{dateFr(m.date)}</Td>
+                        <Td>
+                          <Pill tone={m.type === 'PERTE' ? 'red' : m.type === 'VENTE' ? 'emerald' : 'slate'}>{MOVEMENT_TYPE_LABEL[m.type]}</Pill>
+                        </Td>
+                        <Td>{m.productName ?? '—'}</Td>
+                        <Td>{phaseLabel(m.feedPhase)}</Td>
+                        <Td>{num(m.quantityKg)} kg</Td>
+                        <Td>{m.valueFcfa != null ? fcfa(m.valueFcfa) : '—'}</Td>
+                        <Td>{m.type === 'PERTE' ? reasonLabel(m.reason) : '—'}</Td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+      ) : null}
+
+      {tab === 'catalogue' ? <CatalogPanel /> : null}
+
+      {receiving ? <FeedEntryModal stock={stock.data} onClose={() => setReceiving(false)} /> : null}
+      {losing ? <LossModal stock={stock.data} onClose={() => setLosing(false)} /> : null}
+    </div>
+  );
+}
+
+function CatalogPanel() {
+  const { farmId } = useFarm();
+  const invalidate = useInvalidateFarm();
   const products = useQuery({
     queryKey: ['feed-products', farmId],
     queryFn: () => api.get<FeedProduct[]>(`/farms/${farmId}/feed-products`),
     enabled: !!farmId,
   });
+  const [name, setName] = useState('');
+  const [entryType, setEntryType] = useState('BAG');
+  const [phase, setPhase] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [price, setPrice] = useState('');
+  const [bagKg, setBagKg] = useState('');
+  const [costMt, setCostMt] = useState('');
 
-  const addProduct = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      api.post(`/farms/${farmId}/feed-products`, body),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['feed-products', farmId] });
-      void queryClient.invalidateQueries({ queryKey: ['feed-stock', farmId] });
+  const add = useMutation({
+    mutationFn: () =>
+      api.post(`/farms/${farmId}/feed-products`, {
+        name: name.trim(),
+        entryType,
+        feedPhase: phase || undefined,
+        supplier: supplier.trim() || undefined,
+        defaultBagSizeKg: parseNum(bagKg),
+        defaultUnitPriceFcfa: parseNum(price),
+        defaultCostPerMtFcfa: parseNum(costMt),
+      }),
+    onSuccess: async () => {
+      await invalidate();
+      setName('');
+      setSupplier('');
+      setPrice('');
+      setBagKg('');
+      setCostMt('');
     },
   });
 
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) add.mutate();
+  };
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Stock & inventaire"
-        subtitle="Provende par type, lots HACCP et pertes."
-      />
-
-      {stock.isLoading ? (
-        <div className="text-sm text-slate-500">Chargement…</div>
-      ) : (
-        <Card className="overflow-hidden">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Stocks par type d'aliment</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <Th>Aliment</Th>
-                  <Th>Reçu (kg)</Th>
-                  <Th>Consommé (kg)</Th>
-                  <Th>Pertes (kg)</Th>
-                  <Th>Restant (kg)</Th>
-                  <Th>Autonomie</Th>
-                  <Th>Lot conseillé (FEFO)</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {stock.data?.byType.map((t) => (
-                  <tr key={t.feedPhase ?? 'legacy'} className="border-t border-slate-100">
-                    <Td className="font-medium">{phaseLabel(t.feedPhase)}</Td>
-                    <Td>{num(t.receivedKg)}</Td>
-                    <Td>{num(t.usedKg)}</Td>
-                    <Td>{num(t.lostKg)}</Td>
-                    <Td
-                      className={classNames(
-                        'font-semibold',
-                        t.autonomyDays != null && t.autonomyDays < 3 ? 'text-red-600' : '',
-                      )}
-                    >
-                      {num(t.availableKg)} kg
-                    </Td>
-                    <Td>
-                      {t.autonomyDays != null ? `${num(t.autonomyDays)} j` : '—'}
-                    </Td>
-                    <Td>{t.suggestedLotName ?? '—'}</Td>
-                  </tr>
-                ))}
-                {!stock.data?.byType.length ? (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="lg:col-span-2">
+        <SectionCard title="Catalogue de la ferme" subtitle="Votre provende habituelle" flush>
+          <ErrorNote error={products.error} />
+          {products.isLoading ? (
+            <Loading />
+          ) : !products.data?.length ? (
+            <div className="p-4">
+              <EmptyState message="Aucun produit au catalogue." />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50">
                   <tr>
-                    <Td className="py-8 text-center text-slate-400">
-                      Aucune donnée de stock.
-                    </Td>
+                    <Th>Produit</Th>
+                    <Th>Type</Th>
+                    <Th>Phase</Th>
+                    <Th>Fournisseur</Th>
+                    <Th>Prix</Th>
+                    <Th>Sac</Th>
+                    <Th>Statut</Th>
                   </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
-
-      <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <PackageOpen className="h-4 w-4 text-amber-600" />
-          <h2 className="text-sm font-semibold text-slate-700">Déclarer une perte (sacs gâtés…)</h2>
-        </div>
-        <form
-          className="grid gap-3 sm:grid-cols-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            const inputLotId = f.get('inputLotId') as string;
-            addLoss.mutate({
-              inputLotId,
-              quantity: Number(f.get('quantity') ?? 0) || 0,
-              unit: f.get('unit'),
-              reason: f.get('reason'),
-              notes: null,
-            });
-            e.currentTarget.reset();
-          }}
-        >
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Lot (HACCP) *</span>
-            <select name="inputLotId" required className={inputCls}>
-              <option value="" disabled>
-                Choisir le lot…
-              </option>
-              {(stock.data?.lots ?? []).map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.productName} — {l.supplierLotNumber} ({num(l.availableKg)} kg rest.)
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Quantité *</span>
-            <input name="quantity" type="number" min={0} required step="0.01" className={inputCls} />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Unité</span>
-            <select name="unit" className={inputCls} defaultValue="SAC">
-              <option value="SAC">Sacs</option>
-              <option value="KG">Kilogrammes</option>
-            </select>
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Raison</span>
-            <select name="reason" className={inputCls} defaultValue="HUMIDITE">
-              <option value="HUMIDITE">Humidité</option>
-              <option value="RONGEURS">Rongeurs</option>
-              <option value="AUTRE">Autre</option>
-            </select>
-          </label>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={addLoss.isPending}
-              className="flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-            >
-              <Plus className="h-4 w-4" /> Déclarer
-            </button>
-          </div>
-        </form>
-        {addLoss.isError ? (
-          <p className="mt-3 text-sm text-red-600">{(addLoss.error as Error).message}</p>
-        ) : null}
-      </Card>
-
-      <Card className="p-4">
-        <div className="mb-3 flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-sky-600" />
-          <h2 className="text-sm font-semibold text-slate-700">Catalogue provende (par ferme)</h2>
-        </div>
-        <form
-          className="grid gap-3 sm:grid-cols-5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            addProduct.mutate({
-              name: f.get('name'),
-              entryType: f.get('entryType'),
-              feedPhase: (f.get('feedPhase') as string) || undefined,
-              supplier: (f.get('supplier') as string) || undefined,
-              defaultBagSizeKg: f.get('defaultBagSizeKg') ? Number(f.get('defaultBagSizeKg')) : undefined,
-              defaultUnitPriceFcfa: f.get('price') ? Number(f.get('price')) : undefined,
-              defaultCostPerMtFcfa: f.get('defaultCostPerMtFcfa') ? Number(f.get('defaultCostPerMtFcfa')) : undefined,
-              defaultCostPerBagFcfa: f.get('defaultCostPerBagFcfa') ? Number(f.get('defaultCostPerBagFcfa')) : undefined,
-            });
-            e.currentTarget.reset();
-          }}
-        >
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Nom *</span>
-            <input name="name" required placeholder="Provende ponte 50" className={inputCls} />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Type d'entrée</span>
-            <select name="entryType" className={inputCls} defaultValue="BAG">
-              <option value="BULKER">Bulker</option>
-              <option value="BAG">Sac</option>
-              <option value="MEDICAMENT">Médicament</option>
-              <option value="MATIERE_PREMIERE">Matière première</option>
-            </select>
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Phase</span>
-            <select name="feedPhase" className={inputCls}>
-              <option value="">— (non applicable)</option>
-              {Object.entries(PHASE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Fournisseur</span>
-            <input name="supplier" placeholder="CEAG" className={inputCls} />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Prix sac (FCFA)</span>
-            <input name="price" type="number" min={0} step={1} placeholder="17000" className={inputCls} />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Taille sac (kg)</span>
-            <input name="defaultBagSizeKg" type="number" min={0} step={1} placeholder="50" className={inputCls} />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-slate-600">Coût / tonne (FCFA)</span>
-            <input name="defaultCostPerMtFcfa" type="number" min={0} step={1} placeholder="300000" className={inputCls} />
-          </label>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              disabled={addProduct.isPending}
-              className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
-            >
-              <Plus className="h-4 w-4" /> Ajouter
-            </button>
-          </div>
-        </form>
-        <div className="mt-4 border-t border-slate-100" />
-        <table className="mt-2 w-full">
-          <thead className="bg-slate-50">
-            <tr>
-              <Th>Produit</Th>
-              <Th>Type</Th>
-              <Th>Phase</Th>
-              <Th>Fournisseur</Th>
-              <Th>Prix (FCFA)</Th>
-              <Th>Sac (kg)</Th>
-              <Th>Statut</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {(products.data ?? []).map((p) => (
-              <tr key={p.id} className="border-t border-slate-100">
-                <Td className="font-medium">{p.name}</Td>
-                <Td>{ENTRY_TYPE_LABELS[p.entryType] ?? p.entryType}</Td>
-                <Td>{phaseLabel(p.feedPhase)}</Td>
-                <Td>{p.supplier ?? '—'}</Td>
-                <Td>
-                  {p.entryType === 'BULKER'
-                    ? p.defaultCostPerMtFcfa != null
-                      ? `${num(p.defaultCostPerMtFcfa)} /t`
-                      : '—'
-                    : p.defaultUnitPriceFcfa != null
-                      ? num(p.defaultUnitPriceFcfa)
-                      : '—'}
-                </Td>
-                <Td>{p.defaultBagSizeKg != null ? num(p.defaultBagSizeKg) : '—'}</Td>
-                <Td>{p.active ? 'Actif' : 'Archivé'}</Td>
-              </tr>
-            ))}
-            {!products.data?.length ? (
-              <tr>
-                <Td className="py-6 text-center text-slate-400">
-                  Aucun produit au catalogue. Ajoutez votre provende habituelle pour pré-remplir les saisies.
-                </Td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-        {addProduct.isError ? (
-          <p className="mt-3 text-sm text-red-600">{(addProduct.error as Error).message}</p>
-        ) : null}
-      </Card>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="overflow-hidden">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Lots d'aliment (HACCP)</h2>
-          </div>
-          <div className="max-h-[320px] overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <Th>Produit</Th>
-                  <Th>Fournisseur</Th>
-                  <Th>N° lot</Th>
-                  <Th>Restant (kg)</Th>
-                  <Th>Péremption</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {(stock.data?.lots ?? []).map((l) => (
-                  <tr key={l.id} className="border-t border-slate-100">
-                    <Td className="font-medium">{l.productName}</Td>
-                    <Td>{l.supplier}</Td>
-                    <Td>{l.supplierLotNumber}</Td>
-                    <Td>{num(l.availableKg)}</Td>
-                    <Td>{l.expirationDate ? dateFr(l.expirationDate) : '—'}</Td>
-                  </tr>
-                ))}
-                {!stock.data?.lots.length ? (
-                  <tr>
-                    <Td className="py-6 text-center text-slate-400">Aucun lot.</Td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Pertes déclarées</h2>
-          </div>
-          <div className="max-h-[320px] overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50">
-                <tr>
-                  <Th>Date</Th>
-                  <Th>Raison</Th>
-                  <Th>Quantité</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {(stock.data?.losses ?? []).map((l) => (
-                  <tr key={l.id} className="border-t border-slate-100">
-                    <Td>{dateFr(l.occurredAt)}</Td>
-                    <Td>{l.reason}</Td>
-                    <Td>{num(l.quantityKg)} kg</Td>
-                  </tr>
-                ))}
-                {!stock.data?.losses.length ? (
-                  <tr>
-                    <Td className="py-6 text-center text-slate-400">
-                      <EmptyState message="Aucune perte déclarée." />
-                    </Td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                </thead>
+                <tbody>
+                  {products.data.map((p) => (
+                    <tr key={p.id} className="border-t border-slate-100">
+                      <Td className="font-medium">{p.name}</Td>
+                      <Td>{entryLabel(p.entryType)}</Td>
+                      <Td>{phaseLabel(p.feedPhase)}</Td>
+                      <Td>{p.supplier ?? '—'}</Td>
+                      <Td>
+                        {p.entryType === 'BULKER'
+                          ? p.defaultCostPerMtFcfa != null
+                            ? `${fcfa(p.defaultCostPerMtFcfa)} / t`
+                            : '—'
+                          : p.defaultUnitPriceFcfa != null
+                            ? fcfa(p.defaultUnitPriceFcfa)
+                            : '—'}
+                      </Td>
+                      <Td>{p.defaultBagSizeKg != null ? `${num(p.defaultBagSizeKg)} kg` : '—'}</Td>
+                      <Td>
+                        <Pill tone={p.active ? 'emerald' : 'slate'}>{p.active ? 'Actif' : 'Archivé'}</Pill>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
       </div>
+      <SectionCard title="Ajouter un produit">
+        <form onSubmit={submit} className="space-y-3">
+          <Field label="Nom *">
+            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Provende ponte 50" required />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Type">
+              <select className={inputCls} value={entryType} onChange={(e) => setEntryType(e.target.value)}>
+                {Object.entries(ENTRY_TYPE_LABEL).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Phase">
+              <select className={inputCls} value={phase} onChange={(e) => setPhase(e.target.value)}>
+                <option value="">Non applicable</option>
+                {FEED_PHASES.map((p) => (
+                  <option key={p} value={p}>
+                    {FEED_PHASE_LABEL[p]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Prix du sac (FCFA)">
+              <input className={inputCls} inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ''))} />
+            </Field>
+            <Field label="Taille du sac (kg)">
+              <input className={inputCls} inputMode="numeric" value={bagKg} onChange={(e) => setBagKg(e.target.value.replace(/\D/g, ''))} />
+            </Field>
+            <Field label="Coût par tonne (FCFA)">
+              <input className={inputCls} inputMode="numeric" value={costMt} onChange={(e) => setCostMt(e.target.value.replace(/\D/g, ''))} />
+            </Field>
+            <Field label="Fournisseur">
+              <input className={inputCls} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+            </Field>
+          </div>
+          <ErrorNote error={add.error} />
+          <Button type="submit" busy={add.isPending} disabled={!name.trim()}>
+            <Plus className="h-4 w-4" /> Ajouter
+          </Button>
+        </form>
+      </SectionCard>
     </div>
   );
 }

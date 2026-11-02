@@ -6,9 +6,8 @@ import { Logo } from '../components/Logo';
 export function RequiresAuth() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'PLATFORM_ADMIN') {
-    return <MobileOnlyScreen />;
-  }
+  // Farm owners and the platform admin use the web; farm staff use the phone.
+  if (user.role === 'ELEVEUR') return <MobileOnlyScreen />;
   return <Outlet />;
 }
 
@@ -28,13 +27,13 @@ function MobileOnlyScreen() {
         <div className="mb-4 flex justify-center">
           <Logo className="h-20 w-auto drop-shadow-xl" />
         </div>
-        <h1 className="text-lg font-bold text-slate-900">Console administrateur</h1>
+        <h1 className="text-lg font-bold text-slate-900">Application mobile</h1>
         <p className="mt-2 flex items-start justify-center gap-2 text-left text-sm text-slate-500">
           <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
           <span>
-            Bonjour {user?.fullName}. Les comptes Propriétaire et Éleveur se connectent via{' '}
-            <b>l'application mobile Fermia</b>. Cette console web est réservée à
-            l'administrateur plateforme.
+            Bonjour {user?.fullName}. Les comptes Éleveur se connectent via{' '}
+            <b>l'application mobile Fermia</b>. Le site web est réservé aux
+            propriétaires de ferme.
           </span>
         </p>
         <button
