@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { jsonResponse, readCall, stubFetch, stubFetchSequence } from '@/api/test-utils';
-import { clearSession } from '@/api/token';
+import { clearSession, saveSession, type StoredSession } from '@/api/token';
 
-import { cancelStockTransferQueued, createCreditSaleQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue, recordCustomerPaymentQueued } from './engine';
+import { MAX_SERVER_ATTEMPTS, cancelStockTransferQueued, createCreditSaleQueued, deliverOrderQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue, recordCustomerPaymentQueued } from './engine';
 import { clearQueue, dismissRejected, enqueueOp, getQueueVersion, loadOps, loadRejected, removeOp, subscribeQueue } from './store';
 
 vi.mock('expo-constants', () => ({
@@ -88,6 +88,46 @@ describe('storage — persistance localStorage', () => {
 
     clearQueue();
     expect(loadOps()).toEqual([]);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('store — file corrompue ou illisible', () => {
+  const memStore = () => {
+    const data = new Map<string, string>();
+    return {
+      data,
+      getItem: (k: string) => data.get(k) ?? null,
+      setItem: (k: string, v: string) => void data.set(k, v),
+      removeItem: (k: string) => void data.delete(k),
+    };
+  };
+
+  it('déplace une file corrompue vers une clé de secours', () => {
+    const store = memStore();
+    vi.stubGlobal('localStorage', store);
+    store.setItem('koukou.offline.queue', '{pas du json');
+    expect(loadOps()).toEqual([]);
+    const backups = [...store.data.keys()].filter((k) => k.startsWith('koukou.offline.queue.corrupt.'));
+    expect(backups).toHaveLength(1);
+    expect(store.data.get(backups[0])).toBe('{pas du json');
+    vi.unstubAllGlobals();
+  });
+
+  it('lecture impossible : n’écrase pas la file', () => {
+    const store = memStore();
+    store.setItem('koukou.offline.queue', '[{"id":"off-sale-1"}]');
+    vi.stubGlobal('localStorage', {
+      ...store,
+      getItem: () => {
+        throw new Error('EIO');
+      },
+    });
+    expect(loadOps()).toEqual([]);
+    expect(() =>
+      enqueueOp({ id: 'off-sale-2', kind: 'sale', farmId: 'f-1', payload: {}, createdAt: '2026-08-28T08:00:00.000Z' }),
+    ).toThrow();
+    expect(store.data.get('koukou.offline.queue')).toBe('[{"id":"off-sale-1"}]');
     vi.unstubAllGlobals();
   });
 });
@@ -305,7 +345,7 @@ describe('flushQueue — synchronisation FIFO', () => {
     expect(loadOps()).toHaveLength(1);
   });
 
-  it('abandonne une op refusée (4xx) sans bloquer la suite', async () => {
+  it('met de côté une saisie refusée (4xx) sans bloquer la suite', async () => {
     stubFetch(networkError);
     await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-26', deaths: 2 });
     await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28', deaths: 5 });
@@ -315,11 +355,11 @@ describe('flushQueue — synchronisation FIFO', () => {
       jsonResponse(200, { id: 'e-2' }),
     ]);
     const summary = await flushQueue();
-    expect(summary).toMatchObject({ synced: 1, dropped: 1, rejected: 0, remaining: 0 });
-    const [op] = loadOps();
-    expect(op).toBeUndefined();
-    const entries = loadOps();
-    expect(entries.filter((o) => o.id.includes('-2')).length).toBe(0);
+    expect(summary).toMatchObject({ synced: 1, dropped: 0, rejected: 1, remaining: 0 });
+    expect(loadOps()).toEqual([]);
+    const [rej] = loadRejected();
+    expect(rej.kind).toBe('daily-entry');
+    expect(rej.reason).toBe('Lot inconnu.');
   });
 
   it('ne perd jamais une vente encaissée refusée (4xx) : mise de côté', async () => {
@@ -354,6 +394,7 @@ describe('flushQueue — synchronisation FIFO', () => {
 
     stubFetchSequence([
       jsonResponse(200, null), // caisse/current : fermée
+      jsonResponse(200, []), // caisse/sessions
       jsonResponse(403, { message: 'Permission requise.' }), // caisse/open
       jsonResponse(200, { id: 'e-1' }), // saisie journalière
     ]);
@@ -371,5 +412,62 @@ describe('flushQueue — synchronisation FIFO', () => {
     expect(summary.synced).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(readCall(fetchMock).url).toBe('http://192.168.1.10:3000/farms/f-1/sales');
+  });
+});
+
+describe('file hors ligne — robustesse', () => {
+  const sessionOf = (id: string) =>
+    ({ token: `t-${id}`, user: { id, fullName: id, phone: '+241', role: 'PROPRIETAIRE' }, farms: [] }) as unknown as StoredSession;
+
+  it('ne rejoue pas les opérations d’un autre compte', async () => {
+    saveSession(sessionOf('u-1'));
+    stubFetch(networkError);
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28' });
+    expect(loadOps()[0].userId).toBe('u-1');
+
+    saveSession(sessionOf('u-2'));
+    const fetchMock = stubFetch(async () => jsonResponse(200, { id: 'e-1' }));
+    const summary = await flushQueue();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(summary.remaining).toBe(1);
+  });
+
+  it('FIFO : une nouvelle op passe derrière les ops en attente', async () => {
+    stubFetch(networkError);
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28', deaths: 1 });
+    const res = await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28', deaths: 2 });
+    expect(res).toEqual({ status: 'queued' });
+    expect(loadOps()).toHaveLength(2);
+  });
+
+  it('une transition refusée (4xx) est abandonnée, pas mise de côté', async () => {
+    stubFetch(networkError);
+    await deliverOrderQueued('f-1', 'o-1');
+    stubFetchSequence([jsonResponse(400, { message: 'Commande déjà livrée.' })]);
+    const summary = await flushQueue();
+    expect(summary).toMatchObject({ dropped: 1, rejected: 0, remaining: 0 });
+    expect(loadRejected()).toEqual([]);
+  });
+
+  it('erreurs serveur répétées : la saisie est mise de côté, la vente encaissée reste en file', async () => {
+    stubFetch(networkError);
+    await createSaleQueued('f-1', '2026-08-28', [], 5000);
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28' });
+    stubFetch(async (url) =>
+      String(url).includes('/caisse/current') ? jsonResponse(200, { session: {} }) : jsonResponse(500, { message: 'Erreur' }),
+    );
+    // The sale reaches the limit first, then the entry behind it is tried.
+    for (let i = 0; i < 2 * MAX_SERVER_ATTEMPTS; i++) await flushQueue();
+    expect(loadOps().map((o) => o.kind)).toEqual(['sale']);
+    expect(loadRejected().map((o) => o.kind)).toEqual(['daily-entry']);
+  });
+
+  it('identifiants uniques et non séquentiels', async () => {
+    stubFetch(networkError);
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-27' });
+    await createDailyEntryQueued('f-2', 'b-2', { entryDate: '2026-08-28' });
+    const [a, b] = loadOps().map((o) => o.id);
+    expect(a).not.toBe(b);
+    expect(a).toMatch(/^off-daily-entry-[0-9a-z]+-[0-9a-f]{24}$/);
   });
 });

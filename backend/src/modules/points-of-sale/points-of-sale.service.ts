@@ -11,6 +11,7 @@ import { createOnce } from '../../common/utils/idempotency.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { PointOfSale } from './entities/point-of-sale.entity.js';
+import { StockTransfer } from './entities/stock-transfer.entity.js';
 import {
   CreatePointOfSaleDto,
   UpdatePointOfSaleDto,
@@ -187,6 +188,16 @@ export class PointsOfSaleService {
     if (pos.isDefault) {
       throw new BadRequestException(
         'Le point de vente ferme par défaut ne peut pas être supprimé.',
+      );
+    }
+    // Transfers reference the point of sale (RESTRICT; sales are only
+    // unlinked): refuse with a readable message instead of a database error.
+    const transfers = await this.repo.manager.count(StockTransfer, {
+      where: { farmId, pointOfSaleId: pos.id },
+    });
+    if (transfers > 0) {
+      throw new BadRequestException(
+        'Ce point de vente a reçu des transferts de stock : il ne peut pas être supprimé. Désactivez-le plutôt.',
       );
     }
     await this.repo.remove(pos);

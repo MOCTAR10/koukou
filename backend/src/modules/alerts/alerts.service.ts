@@ -38,6 +38,19 @@ export interface AlertsContext {
   ruleId?: string | null;
 }
 
+/** JSON with object keys sorted, so a jsonb round-trip compares equal. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        )
+      : v,
+  );
+}
+
 @Injectable()
 export class AlertsService {
   private readonly logger = new Logger(AlertsService.name);
@@ -87,8 +100,10 @@ export class AlertsService {
       existing &&
       opts.keepAcknowledgedIfUnchanged &&
       existing.status === AlertStatus.ACQUITTEE &&
-      JSON.stringify(existing.context ?? null) ===
-        JSON.stringify(candidate.context ?? null)
+      existing.level === candidate.level &&
+      // jsonb reorders object keys: compare with sorted keys.
+      stableJson(existing.context ?? null) ===
+        stableJson(candidate.context ?? null)
     ) {
       return existing;
     }

@@ -14,12 +14,10 @@ function fileFor(key: string): File {
 
 export const persistentKv: KvStore = {
   getItem(key) {
-    try {
-      const file = fileFor(key);
-      return file.exists ? file.textSync() : null;
-    } catch {
-      return null;
-    }
+    // A read error is thrown, not turned into "empty": the offline queue would
+    // otherwise be overwritten by the next enqueue, losing unsynced cash.
+    const file = fileFor(key);
+    return file.exists ? file.textSync() : null;
   },
   setItem(key, value) {
     if (!dir.exists) dir.create({ intermediates: true, idempotent: true });

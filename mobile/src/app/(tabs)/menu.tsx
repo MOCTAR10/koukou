@@ -281,15 +281,15 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
       {offline.rejected.length > 0 ? (
         <View style={styles.rejectedBox}>
           <AppText size="small" weight="semibold" color="danger">
-            {offline.rejected.length} encaissement(s) refusé(s) par le serveur
+            {offline.rejected.length} opération(s) refusée(s) par le serveur
           </AppText>
           <AppText size="small" color="muted">
-            L’argent a été encaissé mais l’opération n’a pas pu être enregistrée. Ressaisissez-la puis effacez la ligne.
+            Elles n’ont pas pu être enregistrées (l’argent éventuel a bien été encaissé). Ressaisissez-les puis effacez la ligne.
           </AppText>
           {offline.rejected.map((op) => (
             <View key={op.id} style={styles.rejectedRow}>
               <AppText size="small" color="text" style={styles.rejectedText}>
-                {op.createdAt.slice(0, 16).replace('T', ' ')} · {rejectedAmountLabel(op)} — {op.reason}
+                {op.createdAt.slice(0, 16).replace('T', ' ')} · {rejectedLabel(op)} — {op.reason}
               </AppText>
               <Pressable
                 onPress={() => dismissRejected(op.id)}
@@ -307,18 +307,37 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
   );
 }
 
-/** Amount collected by a rejected cash op, for display. */
-function rejectedAmountLabel(op: RejectedOp): string {
+const REJECTED_KIND_LABEL: Partial<Record<RejectedOp['kind'], string>> = {
+  'daily-entry': 'Saisie du jour',
+  sale: 'Vente',
+  'feed-input': 'Entrée de stock',
+  'stock-loss': 'Perte de stock',
+  'order-create': 'Commande',
+  'order-payment': 'Acompte',
+  'customer-payment': 'Encaissement client',
+  'pdv-create': 'Point de vente',
+  'stock-transfer-create': 'Transfert',
+};
+
+/** Kind of a rejected op, plus the amount collected if any, for display. */
+function rejectedLabel(op: RejectedOp): string {
+  const kind = REJECTED_KIND_LABEL[op.kind] ?? 'Opération';
+  const amount = rejectedAmount(op);
+  return amount > 0 ? `${kind} · ${amount.toLocaleString('fr-FR')} FCFA` : kind;
+}
+
+/** Amount collected by a rejected cash op (0 when none). */
+function rejectedAmount(op: RejectedOp): number {
   const p = op.payload as {
     amountFcfa?: number;
     payments?: { amountFcfa: number }[];
     deposit?: { amountFcfa: number };
   };
-  const amount =
+  return (
     p.amountFcfa ??
     p.deposit?.amountFcfa ??
-    (p.payments ?? []).reduce((s, x) => s + x.amountFcfa, 0);
-  return `${amount.toLocaleString('fr-FR')} FCFA`;
+    (p.payments ?? []).reduce((s, x) => s + x.amountFcfa, 0)
+  );
 }
 
 /** Une catégorie du menu : titre + grille de tuiles. */

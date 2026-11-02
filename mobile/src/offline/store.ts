@@ -23,6 +23,10 @@ export interface OfflineOp {
   batchId?: string;
   payload: unknown;
   createdAt: string;
+  /** Account that queued it: never replayed under another user's session. */
+  userId?: string;
+  /** Server errors (5xx) met so far, see MAX_SERVER_ATTEMPTS. */
+  attempts?: number;
 }
 
 const KEY = 'koukou.offline.queue';
@@ -44,14 +48,31 @@ export function getQueueVersion(): number {
   return version;
 }
 
-export function loadOps(): OfflineOp[] {
+/**
+ * Reads the queue. A read error is thrown (callers that write must not
+ * overwrite a queue they could not read: it may hold unsynced cash). A
+ * corrupt payload is moved to a backup key, never deleted.
+ */
+function readOps(): OfflineOp[] {
   const raw = storage.getItem(KEY);
   if (!raw) return [];
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(raw) as OfflineOp[];
-    return Array.isArray(parsed) ? parsed : [];
+    parsed = JSON.parse(raw);
   } catch {
-    storage.removeItem(KEY);
+    parsed = null;
+  }
+  if (Array.isArray(parsed)) return parsed as OfflineOp[];
+  storage.setItem(`${KEY}.corrupt.${Date.now()}`, raw);
+  storage.setItem(KEY, '[]');
+  return [];
+}
+
+/** Display-safe read: an unreadable queue shows as empty (nothing is written). */
+export function loadOps(): OfflineOp[] {
+  try {
+    return readOps();
+  } catch {
     return [];
   }
 }
@@ -61,16 +82,26 @@ function persist(ops: OfflineOp[]): void {
 }
 
 export function enqueueOp(op: OfflineOp): void {
-  const ops = loadOps();
+  const ops = readOps();
   ops.push(op);
   persist(ops);
   notify();
 }
 
 export function removeOp(id: string): void {
-  const next = loadOps().filter((op) => op.id !== id);
+  const next = readOps().filter((op) => op.id !== id);
   persist(next);
   notify();
+}
+
+/** Counts one more server error for an op; returns the new count. */
+export function bumpAttempts(id: string): number {
+  const ops = readOps();
+  const op = ops.find((o) => o.id === id);
+  if (!op) return 0;
+  op.attempts = (op.attempts ?? 0) + 1;
+  persist(ops);
+  return op.attempts;
 }
 
 export function clearQueue(): void {
@@ -104,7 +135,13 @@ export function rejectOp(op: OfflineOp, reason: string): void {
   const rejected = loadRejected();
   rejected.push({ ...op, rejectedAt: new Date().toISOString(), reason });
   storage.setItem(REJECTED_KEY, JSON.stringify(rejected));
-  persist(loadOps().filter((o) => o.id !== op.id));
+  persist(readOps().filter((o) => o.id !== op.id));
+  notify();
+}
+
+/** Sign-out: the next user must not see (or act on) our refused ops. */
+export function clearRejected(): void {
+  storage.setItem(REJECTED_KEY, '[]');
   notify();
 }
 

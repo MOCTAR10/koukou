@@ -271,7 +271,7 @@ describe('Module 3 — Stocks & Inventaire provende (e2e)', () => {
   });
 
   it('saisie liée à un lot (HACCP) décrémente le stock du lot et trace le mouvement', async () => {
-    const batch2 = await createBatch(daysAgo(1));
+    const batch2 = await createBatch(daysAgo(5));
     // Lot frais avec disponibilité réelle pour que la déduction passe (règle
     // « jamais de stock négatif » : la consommation ne peut pas dépasser le disponible).
     const freshLot = await addInput('DEMA-CONSO-1', 2); // 2 sacs = 100 kg
@@ -307,7 +307,7 @@ describe('Module 3 — Stocks & Inventaire provende (e2e)', () => {
   it('consommation dépassant le disponible du lot → 400 + alerte ALIMENT (jamais de négatif)', async () => {
     // lotA est totalement consommé par les pertes (disponible 0 kg) : toute
     // consommation supplémentaire liée doit être refusée, pas passée en négatif.
-    const batch3 = await createBatch(daysAgo(1));
+    const batch3 = await createBatch(daysAgo(5));
     await request(server)
       .post(`/farms/${farmId}/batches/${batch3}/daily-entries`)
       .set('Authorization', `Bearer ${token}`)

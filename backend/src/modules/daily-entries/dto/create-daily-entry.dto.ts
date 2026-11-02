@@ -7,8 +7,10 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { FeedUnit, FoodType } from '../../../common/enums/food-type.enum.js';
 import { FeedPhase } from '../../../common/enums/feed-phase.enum.js';
 import { ConsumptionSource } from '../../../common/enums/consumption-source.enum.js';
@@ -86,7 +88,11 @@ export class CreateDailyEntryDto {
 
   @ApiPropertyOptional({ description: 'Lot d\u2019intrant tracé (HACCP) lié' })
   @IsOptional()
-  @IsString()
+  // '' means "no lot" (it reached the uuid query and failed with a 500).
+  @Transform(({ value }: { value: unknown }) =>
+    value === '' ? undefined : value,
+  )
+  @IsUUID('all', { message: 'Identifiant de lot d’intrant invalide.' })
   inputLotId?: string;
 
   @ApiPropertyOptional({ description: 'Eau bue en litres (indicateur n°1)' })

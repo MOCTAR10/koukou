@@ -25,14 +25,81 @@ import {
   type SalePayload,
 } from '@/api/mutations';
 
-import { enqueueOp, loadOps, rejectOp, removeOp, type OfflineKind, type OfflineOp } from './store';
+import { loadSession } from '@/api/token';
 
-let counter = 0;
+import {
+  bumpAttempts,
+  enqueueOp,
+  loadOps,
+  rejectOp,
+  removeOp,
+  type OfflineKind,
+  type OfflineOp,
+} from './store';
 
+/** Random hex (crypto when the runtime has it, Math.random otherwise). */
+function randomHex(bytes: number): string {
+  const buf = new Uint8Array(bytes);
+  const c = (globalThis as { crypto?: { getRandomValues?: (a: Uint8Array) => Uint8Array } }).crypto;
+  if (c?.getRandomValues) c.getRandomValues(buf);
+  else for (let i = 0; i < bytes; i++) buf[i] = Math.floor(Math.random() * 256);
+  return Array.from(buf, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Op id, also the idempotency key: unique across devices (the server dedupes
+ * per farm, so two phones minting the same id would merge two sales).
+ */
 function nextId(kind: OfflineKind): string {
-  counter += 1;
-  const stamp = Date.now();
-  return `off-${kind}-${stamp}-${counter}`;
+  return `off-${kind}-${Date.now().toString(36)}-${randomHex(12)}`;
+}
+
+function currentUserId(): string | undefined {
+  return loadSession()?.user?.id;
+}
+
+/** Ops queued by another account on this phone are never replayed under ours. */
+function ownedByCurrentUser(op: OfflineOp): boolean {
+  return op.userId == null || op.userId === currentUserId();
+}
+
+type NewOp = Omit<OfflineOp, 'userId' | 'createdAt'>;
+
+function queueOp(op: NewOp): void {
+  enqueueOp({ ...op, userId: currentUserId(), createdAt: new Date().toISOString() });
+}
+
+/**
+ * FIFO: while older ops of this farm wait in the queue, a new op must not
+ * overtake them live (a stale queued daily entry would overwrite a fresh
+ * correction; a queued deposit would land after the delivery). Try to flush
+ * first; if some are still pending, queue behind them.
+ */
+async function mustQueueBehind(farmId: string): Promise<boolean> {
+  const pending = () => loadOps().some((o) => o.farmId === farmId && ownedByCurrentUser(o));
+  if (!pending()) return false;
+  await flushQueue();
+  return pending();
+}
+
+/** Live attempt (or queued behind older ops); network failure → queued. */
+async function sendOrQueue(op: NewOp, live: () => Promise<string | void>): Promise<SendResult> {
+  if (await mustQueueBehind(op.farmId)) {
+    // A flush just ran and left older ops: the next auto-sync sends them in order.
+    queueOp(op);
+    return { status: 'queued' };
+  }
+  try {
+    const reference = await live();
+    void flushQueue();
+    return reference ? { status: 'sent', reference } : { status: 'sent' };
+  } catch (e) {
+    if (shouldQueue(e)) {
+      queueOp(op);
+      return { status: 'queued' };
+    }
+    throw e;
+  }
 }
 
 /** Erreur réseau ou serveur indisponible → on met en attente. */
@@ -62,6 +129,29 @@ function isCashOp(op: OfflineOp): boolean {
   return op.kind === 'order-payment' || op.kind === 'customer-payment';
 }
 
+/**
+ * Ops that create a record (a sale on credit, an order, a reception…): a
+ * refusal is kept in the rejected list for the user to re-enter, never
+ * silently deleted. State transitions (deliver, cancel, delete, update) can be
+ * dropped: a refusal there usually means it already happened.
+ */
+function isCreation(op: OfflineOp): boolean {
+  return (
+    op.kind === 'daily-entry' ||
+    op.kind === 'sale' ||
+    op.kind === 'feed-input' ||
+    op.kind === 'stock-loss' ||
+    op.kind === 'order-create' ||
+    op.kind === 'order-payment' ||
+    op.kind === 'customer-payment' ||
+    op.kind === 'pdv-create' ||
+    op.kind === 'stock-transfer-create'
+  );
+}
+
+/** Server errors (5xx) in a row after which an op stops blocking the queue. */
+export const MAX_SERVER_ATTEMPTS = 10;
+
 /** Raised when the caisse can't be opened for a cash op: skip it, keep it queued. */
 class CashBlockedError extends Error {}
 
@@ -72,24 +162,18 @@ export async function createDailyEntryQueued(
   batchId: string,
   payload: DailyEntryPayload,
 ): Promise<SendResult> {
-  try {
-    await createDailyEntry(farmId, batchId, payload);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: nextId('daily-entry'),
-        kind: 'daily-entry',
-        farmId,
-        batchId,
-        payload,
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: nextId('daily-entry'),
+      kind: 'daily-entry',
+      farmId,
+      batchId,
+      payload,
+    },
+    async () => {
+      await createDailyEntry(farmId, batchId, payload);
+    },
+  );
 }
 
 export async function createSaleQueued(
@@ -109,18 +193,14 @@ export async function createSaleQueued(
     ...invoice,
     ...(pointOfSaleId ? { pointOfSaleId } : {}),
   };
-  try {
-    await ensureCashOpen(farmId);
-    const res = await createSale(farmId, payload);
-    void flushQueue();
-    return { status: 'sent', reference: res.sale.referenceNumber };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({ id: opId, kind: 'sale', farmId, payload, createdAt: new Date().toISOString() });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    { id: opId, kind: 'sale', farmId, payload },
+    async () => {
+      await ensureCashOpen(farmId);
+      const res = await createSale(farmId, payload);
+      return res.sale.referenceNumber;
+    },
+  );
 }
 
 /**
@@ -144,17 +224,13 @@ export async function createCreditSaleQueued(
     ...invoice,
     ...(pointOfSaleId ? { pointOfSaleId } : {}),
   };
-  try {
-    const res = await createSale(farmId, payload);
-    void flushQueue();
-    return { status: 'sent', reference: res.sale.referenceNumber };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({ id: opId, kind: 'sale', farmId, payload, createdAt: new Date().toISOString() });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    { id: opId, kind: 'sale', farmId, payload },
+    async () => {
+      const res = await createSale(farmId, payload);
+      return res.sale.referenceNumber;
+    },
+  );
 }
 
 /** Entrée de provende (nouveau lot HACCP) : mise en file si hors ligne. */
@@ -174,45 +250,33 @@ export function recordStockLossQueued(farmId: string, payload: RecordFeedLossInp
 async function createInputQueued(farmId: string, input: CreateInputLotInput): Promise<SendResult> {
   const opId = nextId('feed-input');
   const payload: CreateInputLotInput = { ...input, idempotencyKey: input.idempotencyKey ?? opId };
-  try {
-    await createInput(farmId, payload);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: opId,
-        kind: 'feed-input',
-        farmId,
-        payload,
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: opId,
+      kind: 'feed-input',
+      farmId,
+      payload,
+    },
+    async () => {
+      await createInput(farmId, payload);
+    },
+  );
 }
 
 async function lossQueued(farmId: string, input: RecordFeedLossInput): Promise<SendResult> {
   const opId = nextId('stock-loss');
   const payload: RecordFeedLossInput = { ...input, idempotencyKey: input.idempotencyKey ?? opId };
-  try {
-    await recordFeedLoss(farmId, payload);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: opId,
-        kind: 'stock-loss',
-        farmId,
-        payload,
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: opId,
+      kind: 'stock-loss',
+      farmId,
+      payload,
+    },
+    async () => {
+      await recordFeedLoss(farmId, payload);
+    },
+  );
 }
 
 // ── Commandes (acompte / livraison / annulation) ─────────────
@@ -229,25 +293,19 @@ export async function createOrderQueued(
     ...input,
     idempotencyKey: input.idempotencyKey ?? opId,
   };
-  try {
-    // A deposit is a cash payment: the server needs an open caisse session.
-    if (payload.deposit && payload.deposit.amountFcfa > 0) await ensureCashOpen(farmId);
-    await createOrder(farmId, payload);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: opId,
-        kind: 'order-create',
-        farmId,
-        payload,
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: opId,
+      kind: 'order-create',
+      farmId,
+      payload,
+    },
+    async () => {
+      // A deposit is a cash payment: the server needs an open caisse session.
+      if (payload.deposit && payload.deposit.amountFcfa > 0) await ensureCashOpen(farmId);
+      await createOrder(farmId, payload);
+    },
+  );
 }
 
 /** Acompte sur commande : mis en file si hors ligne (idempotence via idempotencyKey). */
@@ -258,18 +316,13 @@ export async function recordOrderPaymentQueued(
 ): Promise<SendResult> {
   const opId = nextId('order-payment');
   const payload = { orderId, amountFcfa, idempotencyKey: opId };
-  try {
-    await ensureCashOpen(farmId);
-    await recordOrderPayment(farmId, orderId, amountFcfa, { idempotencyKey: opId });
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({ id: opId, kind: 'order-payment', farmId, payload, createdAt: new Date().toISOString() });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    { id: opId, kind: 'order-payment', farmId, payload },
+    async () => {
+      await ensureCashOpen(farmId);
+      await recordOrderPayment(farmId, orderId, amountFcfa, { idempotencyKey: opId });
+    },
+  );
 }
 
 /** Encaissement depuis la fiche client : mis en file si hors ligne. */
@@ -279,66 +332,48 @@ export async function recordCustomerPaymentQueued(
   amountFcfa: number,
 ): Promise<SendResult> {
   const opId = nextId('customer-payment');
-  try {
-    await ensureCashOpen(farmId);
-    await recordCustomerPayment(farmId, customerId, amountFcfa, { idempotencyKey: opId });
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: opId,
-        kind: 'customer-payment',
-        farmId,
-        payload: { customerId, amountFcfa, idempotencyKey: opId },
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: opId,
+      kind: 'customer-payment',
+      farmId,
+      payload: { customerId, amountFcfa, idempotencyKey: opId },
+    },
+    async () => {
+      await ensureCashOpen(farmId);
+      await recordCustomerPayment(farmId, customerId, amountFcfa, { idempotencyKey: opId });
+    },
+  );
 }
 
 /** Livraison de commande : mise en file si hors ligne (rejouée à la connexion). */
 export async function deliverOrderQueued(farmId: string, orderId: string): Promise<SendResult> {
-  try {
-    await deliverOrder(farmId, orderId);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: nextId('order-deliver'),
-        kind: 'order-deliver',
-        farmId,
-        payload: { orderId },
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: nextId('order-deliver'),
+      kind: 'order-deliver',
+      farmId,
+      payload: { orderId },
+    },
+    async () => {
+      await deliverOrder(farmId, orderId);
+    },
+  );
 }
 
 /** Annulation de commande : mise en file si hors ligne. */
 export async function cancelOrderQueued(farmId: string, orderId: string, reason: string): Promise<SendResult> {
-  try {
-    await cancelOrder(farmId, orderId, reason);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: nextId('order-cancel'),
-        kind: 'order-cancel',
-        farmId,
-        payload: { orderId, reason },
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: nextId('order-cancel'),
+      kind: 'order-cancel',
+      farmId,
+      payload: { orderId, reason },
+    },
+    async () => {
+      await cancelOrder(farmId, orderId, reason);
+    },
+  );
 }
 
 // ── Points de vente (configuration) ──────────────────────────
@@ -346,23 +381,17 @@ export async function cancelOrderQueued(farmId: string, orderId: string, reason:
 export async function createPointOfSaleQueued(farmId: string, input: PointOfSaleInput): Promise<SendResult> {
   const opId = nextId('pdv-create');
   const payload = { ...input, idempotencyKey: opId };
-  try {
-    await createPointOfSale(farmId, payload);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: opId,
-        kind: 'pdv-create',
-        farmId,
-        payload,
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: opId,
+      kind: 'pdv-create',
+      farmId,
+      payload,
+    },
+    async () => {
+      await createPointOfSale(farmId, payload);
+    },
+  );
 }
 
 export async function updatePointOfSaleQueued(
@@ -370,43 +399,31 @@ export async function updatePointOfSaleQueued(
   pointOfSaleId: string,
   input: Partial<PointOfSaleInput>,
 ): Promise<SendResult> {
-  try {
-    await updatePointOfSale(farmId, pointOfSaleId, input);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: nextId('pdv-update'),
-        kind: 'pdv-update',
-        farmId,
-        payload: { pointOfSaleId, input },
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: nextId('pdv-update'),
+      kind: 'pdv-update',
+      farmId,
+      payload: { pointOfSaleId, input },
+    },
+    async () => {
+      await updatePointOfSale(farmId, pointOfSaleId, input);
+    },
+  );
 }
 
 export async function deletePointOfSaleQueued(farmId: string, pointOfSaleId: string): Promise<SendResult> {
-  try {
-    await deletePointOfSale(farmId, pointOfSaleId);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: nextId('pdv-delete'),
-        kind: 'pdv-delete',
-        farmId,
-        payload: { pointOfSaleId },
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: nextId('pdv-delete'),
+      kind: 'pdv-delete',
+      farmId,
+      payload: { pointOfSaleId },
+    },
+    async () => {
+      await deletePointOfSale(farmId, pointOfSaleId);
+    },
+  );
 }
 
 // ── Transferts de stock ferme → boutique ─────────────────────
@@ -417,49 +434,38 @@ export async function createStockTransferQueued(
 ): Promise<SendResult> {
   const opId = nextId('stock-transfer-create');
   const payload: StockTransferInput = { ...input, idempotencyKey: input.idempotencyKey ?? opId };
-  try {
-    await createStockTransfer(farmId, payload);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: opId,
-        kind: 'stock-transfer-create',
-        farmId,
-        payload,
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: opId,
+      kind: 'stock-transfer-create',
+      farmId,
+      payload,
+    },
+    async () => {
+      await createStockTransfer(farmId, payload);
+    },
+  );
 }
 
 export async function cancelStockTransferQueued(
   farmId: string,
   transferId: string,
 ): Promise<SendResult> {
-  try {
-    await cancelStockTransfer(farmId, transferId);
-    void flushQueue();
-    return { status: 'sent' };
-  } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp({
-        id: nextId('stock-transfer-cancel'),
-        kind: 'stock-transfer-cancel',
-        farmId,
-        payload: { transferId },
-        createdAt: new Date().toISOString(),
-      });
-      return { status: 'queued' };
-    }
-    throw e;
-  }
+  return sendOrQueue(
+    {
+      id: nextId('stock-transfer-cancel'),
+      kind: 'stock-transfer-cancel',
+      farmId,
+      payload: { transferId },
+    },
+    async () => {
+      await cancelStockTransfer(farmId, transferId);
+    },
+  );
 }
 
-type ProcessResult = 'ok' | 'retry' | 'dropped' | 'rejected' | 'skip';
+/** `failed` = server error (5xx): counted, unlike network or 401 retries. */
+type ProcessResult = 'ok' | 'retry' | 'failed' | 'dropped' | 'rejected' | 'skip';
 
 /** Ops queued before keys existed fall back to op.id (stable across replays). */
 function keyed<T extends { idempotencyKey?: string }>(op: OfflineOp): T {
@@ -511,12 +517,13 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
   } catch (e) {
     if (e instanceof CashBlockedError) return 'skip';
     if (shouldDrop(e)) {
-      if (isCashOp(op)) {
+      if (isCashOp(op) || isCreation(op)) {
         rejectOp(op, (e as ApiError).message);
         return 'rejected';
       }
       return 'dropped';
     }
+    if (e instanceof ApiError && e.status >= 500) return 'failed';
     return 'retry';
   }
 }
@@ -576,7 +583,25 @@ async function runFlush(): Promise<FlushSummary> {
     let roundDropped = 0;
     let roundRejected = 0;
     for (const op of ops) {
-      const result = await processOne(op);
+      if (!ownedByCurrentUser(op)) {
+        // Another account's op: kept for that user, never sent with our token.
+        skipped.add(op.id);
+        continue;
+      }
+      let result = await processOne(op);
+      if (result === 'failed') {
+        // A payload the server keeps failing on must not block every op
+        // behind it forever. Cash is never given up: it stays queued but is
+        // passed over; other ops go to the rejected list.
+        if (bumpAttempts(op.id) < MAX_SERVER_ATTEMPTS) {
+          result = 'retry';
+        } else if (isCashOp(op)) {
+          result = 'skip';
+        } else {
+          rejectOp(op, 'Le serveur échoue à répétition sur cette opération.');
+          result = 'rejected';
+        }
+      }
       if (result === 'ok') {
         removeOp(op.id);
         roundSynced += 1;

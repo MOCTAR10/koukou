@@ -26,7 +26,7 @@ function nowDate(): Date {
  * Go and offline — no server push involved.
  */
 export function LocalReminders() {
-  const { signedIn, farmId, farms } = useAuth();
+  const { signedIn, farmId, farms, setActiveFarmId } = useAuth();
   const settings = useSyncExternalStore(subscribeReminderSettings, getReminderSettings);
   const active = signedIn && !!farmId && settings.enabled && remindersSupported();
 
@@ -78,9 +78,18 @@ export function LocalReminders() {
     return () => sub.remove();
   }, [active]);
 
+  // Latest farm context for the tap handler (subscribed once).
+  const farmCtx = useRef({ farmId, farms, setActiveFarmId });
+  farmCtx.current = { farmId, farms, setActiveFarmId };
   useEffect(
     () =>
-      onReminderTapped((route) => {
+      onReminderTapped((route, targetFarmId) => {
+        // A push for another farm: switch to it first, or the screen would
+        // show the active farm's alerts/tasks instead.
+        const ctx = farmCtx.current;
+        if (targetFarmId && targetFarmId !== ctx.farmId && ctx.farms.some((f) => f.id === targetFarmId)) {
+          ctx.setActiveFarmId(targetFarmId);
+        }
         router.push(route as never);
       }),
     [],

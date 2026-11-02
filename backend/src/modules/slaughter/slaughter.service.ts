@@ -155,39 +155,55 @@ export class SlaughterService {
     dto: UpdateSlaughterOrderDto,
   ): Promise<SlaughterOrder> {
     await this.farmsService.assertAccessible(user, farmId);
-    const order = await this.getOne(user, farmId, orderId);
-    // Après traitement, seuls les champs de réception abattoir restent
-    // modifiables (le code lot abattoir est saisissable à tout moment).
-    if (order.status === SlaughterStatus.PROCESSED) {
+    // Locked re-read: saving a stale copy would write an old status or
+    // carcass count back over a concurrent process()/cancel().
+    return this.dataSource.transaction(async (em) => {
+      const order = await this.lockOrder(em, farmId, orderId);
+      // Après traitement, seuls les champs de réception abattoir restent
+      // modifiables (le code lot abattoir est saisissable à tout moment).
+      if (order.status === SlaughterStatus.PROCESSED) {
+        if (
+          dto.slaughterType !== undefined ||
+          dto.plannedDate !== undefined ||
+          dto.birdCount !== undefined ||
+          dto.totalWeightKg !== undefined ||
+          dto.carcassWeightKg !== undefined
+        ) {
+          throw new BadRequestException(
+            'Un ordre d’abattage traité ne peut plus être modifié (seul le code lot abattoir reste saisissable).',
+          );
+        }
+      } else {
+        this.assertMutable(order);
+      }
+      // The send checks (live count, reservations, sanitary holds) were
+      // made for this bird count and type.
       if (
-        dto.slaughterType !== undefined ||
-        dto.plannedDate !== undefined ||
-        dto.birdCount !== undefined ||
-        dto.totalWeightKg !== undefined ||
-        dto.carcassWeightKg !== undefined
+        order.status === SlaughterStatus.SENT &&
+        ((dto.birdCount !== undefined && dto.birdCount !== order.birdCount) ||
+          (dto.slaughterType !== undefined &&
+            dto.slaughterType !== order.slaughterType))
       ) {
         throw new BadRequestException(
-          'Un ordre d’abattage traité ne peut plus être modifié (seul le code lot abattoir reste saisissable).',
+          'Ordre déjà envoyé à l’abattoir : le nombre d’oiseaux et le type ne sont plus modifiables (annulez puis recréez l’ordre).',
         );
       }
-    } else {
-      this.assertMutable(order);
-    }
-    if (dto.slaughterType !== undefined)
-      order.slaughterType = dto.slaughterType;
-    if (dto.plannedDate !== undefined) order.plannedDate = dto.plannedDate;
-    if (dto.birdCount !== undefined) order.birdCount = dto.birdCount;
-    if (dto.totalWeightKg !== undefined)
-      order.totalWeightKg = dto.totalWeightKg;
-    if (dto.carcassWeightKg !== undefined)
-      order.carcassWeightKg = dto.carcassWeightKg;
-    this.refreshRendement(order);
-    if (dto.abattoirLotCode !== undefined)
-      order.abattoirLotCode = dto.abattoirLotCode;
-    if (dto.abattoirNotes !== undefined)
-      order.abattoirNotes = dto.abattoirNotes;
-    await this.orderRepo.save(order);
-    return order;
+      if (dto.slaughterType !== undefined)
+        order.slaughterType = dto.slaughterType;
+      if (dto.plannedDate !== undefined) order.plannedDate = dto.plannedDate;
+      if (dto.birdCount !== undefined) order.birdCount = dto.birdCount;
+      if (dto.totalWeightKg !== undefined)
+        order.totalWeightKg = dto.totalWeightKg;
+      if (dto.carcassWeightKg !== undefined)
+        order.carcassWeightKg = dto.carcassWeightKg;
+      this.refreshRendement(order);
+      if (dto.abattoirLotCode !== undefined)
+        order.abattoirLotCode = dto.abattoirLotCode;
+      if (dto.abattoirNotes !== undefined)
+        order.abattoirNotes = dto.abattoirNotes;
+      await em.getRepository(SlaughterOrder).save(order);
+      return order;
+    });
   }
 
   async send(
@@ -197,28 +213,63 @@ export class SlaughterService {
     dto: SendSlaughterOrderDto,
   ): Promise<SlaughterOrder> {
     await this.farmsService.assertAccessible(user, farmId);
-    const order = await this.getOne(user, farmId, orderId);
-    this.assertMutable(order);
-    if (order.status === SlaughterStatus.SENT) {
-      throw new BadRequestException(
-        'Cet ordre d’abattage a déjà été envoyé à l’abattoir.',
+    const { batchId } = await this.getOne(user, farmId, orderId);
+    return this.dataSource.transaction(async (em) => {
+      // Same lock order as process(): batch, then order. The batch lock also
+      // serializes the reservation check with order creation.
+      const batch = await em
+        .getRepository(ProductionBatch)
+        .createQueryBuilder('batch')
+        .setLock('pessimistic_write')
+        .where('batch.id = :id', { id: batchId })
+        .andWhere('batch.farm_id = :farmId', { farmId })
+        .getOne();
+      if (!batch) {
+        throw new NotFoundException('Lot introuvable dans cette ferme.');
+      }
+      const order = await this.lockOrder(em, farmId, orderId);
+      this.assertMutable(order);
+      if (order.status === SlaughterStatus.SENT) {
+        throw new BadRequestException(
+          'Cet ordre d’abattage a déjà été envoyé à l’abattoir.',
+        );
+      }
+
+      await this.assertLotEligibleForSend(em, order, batch);
+
+      if (order.destination === SlaughterDestination.INTERNE) {
+        order.internalBatchCode =
+          dto.internalBatchCode ??
+          order.internalBatchCode ??
+          (await this.nextInternalCode());
+      } else if (dto.abattoirLotCode !== undefined) {
+        order.abattoirLotCode = dto.abattoirLotCode;
+      }
+      if (dto.abattoirNotes !== undefined)
+        order.abattoirNotes = dto.abattoirNotes;
+      order.status = SlaughterStatus.SENT;
+      await em.getRepository(SlaughterOrder).save(order);
+      return order;
+    });
+  }
+
+  private async lockOrder(
+    em: EntityManager,
+    farmId: string,
+    orderId: string,
+  ): Promise<SlaughterOrder> {
+    const order = await em
+      .getRepository(SlaughterOrder)
+      .createQueryBuilder('o')
+      .setLock('pessimistic_write')
+      .where('o.id = :id', { id: orderId })
+      .andWhere('o.farm_id = :farmId', { farmId })
+      .getOne();
+    if (!order) {
+      throw new NotFoundException(
+        'Ordre d’abattage introuvable dans cette ferme.',
       );
     }
-
-    await this.assertLotEligibleForSend(order);
-
-    if (order.destination === SlaughterDestination.INTERNE) {
-      order.internalBatchCode =
-        dto.internalBatchCode ??
-        order.internalBatchCode ??
-        (await this.nextInternalCode());
-    } else if (dto.abattoirLotCode !== undefined) {
-      order.abattoirLotCode = dto.abattoirLotCode;
-    }
-    if (dto.abattoirNotes !== undefined)
-      order.abattoirNotes = dto.abattoirNotes;
-    order.status = SlaughterStatus.SENT;
-    await this.orderRepo.save(order);
     return order;
   }
 
@@ -458,8 +509,11 @@ export class SlaughterService {
     return this.pdfService.createPasseportPdf(data);
   }
 
-  private async assertLotEligibleForSend(order: SlaughterOrder): Promise<void> {
-    const batch = order.batch;
+  private async assertLotEligibleForSend(
+    em: EntityManager,
+    order: SlaughterOrder,
+    batch: ProductionBatch,
+  ): Promise<void> {
     if (batch.status === BatchStatus.CLOTURE) {
       throw new BadRequestException(
         'Lot clôturé : envoi à l’abattage impossible.',
@@ -472,17 +526,12 @@ export class SlaughterService {
         `Cheptel insuffisant pour l'envoi : il reste ${batch.quantityAlive} oiseau(x) vivant(s) sur le lot, ordre de ${order.birdCount}.`,
       );
     }
-    // Early check; process() re-checks under the batch lock.
-    await this.assertNotReserved(
-      this.dataSource.manager,
-      order,
-      batch,
-      'l’envoi',
-    );
+    // Under the batch lock (see send); process() re-checks it too.
+    await this.assertNotReserved(em, order, batch, 'l’envoi');
     // Critères sanitaires (normes internationales) : pas de délai d'attente actif
     // et prophylaxie à jour avant de pouvoir envoyer un lot à l'abattage.
     const holds = await sanitaryHolds(
-      this.dataSource.manager,
+      em,
       order.farmId,
       order.batchId,
     );

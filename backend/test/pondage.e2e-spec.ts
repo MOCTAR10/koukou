@@ -4,10 +4,6 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function dateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -104,7 +100,8 @@ describe('Pondage — indicateurs de ponte par lot (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         batchName: 'Bande pondeuses',
-        integrationDate: today(),
+        // Entries go back to last week's Monday: placed before it.
+        integrationDate: dayPrev1,
         quantityAtStart: 100,
         type: 'PONDEUSE',
       })

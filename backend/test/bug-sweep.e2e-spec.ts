@@ -174,11 +174,11 @@ describe('Revue de bugs : élevage, caisse, droits (e2e)', () => {
         kind: 'MORTALITE',
         occurredAt: today(),
         severity: 'ROUGE',
-        quantity: 100,
+        quantity: 50,
         title: 'Mortalité massive',
       })
       .expect(201);
-    expect((await batchOf(batch.id)).quantityAlive).toBe(0);
+    expect((await batchOf(batch.id)).quantityAlive).toBe(50);
     await owner()
       .post(`/farms/${farmId}/batches/${batch.id}/daily-entries`)
       .send({ entryDate: today(), deaths: 10 })
@@ -188,7 +188,7 @@ describe('Revue de bugs : élevage, caisse, droits (e2e)', () => {
         `/farms/${farmId}/batches/${batch.id}/health-events/${ev.body.id}`,
       )
       .expect(200);
-    // 100 − 10 morts saisis = 90 (l'ancien calcul rajoutait 100 → 100).
+    // 100 − 10 morts saisis = 90 (l'ancien calcul rajoutait 50 → 100).
     expect((await batchOf(batch.id)).quantityAlive).toBe(90);
   });
 

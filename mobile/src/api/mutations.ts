@@ -1,4 +1,4 @@
-import { apiFetch, apiUpload } from './client';
+import { ApiError, apiFetch, apiUpload } from './client';
 import type {
   AlertLevel,
   CareType,
@@ -296,8 +296,26 @@ export async function ensureCashOpen(farmId: string): Promise<void> {
   if (current) return;
   await apiFetch(`/farms/${farmId}/caisse/open`, {
     method: 'POST',
-    body: { openingBalanceFcfa: 0 },
+    body: { openingBalanceFcfa: await lastClosingBalance(farmId) },
   });
+}
+
+/**
+ * Float carried over from the last closed session. The server books only the
+ * change from it at opening, so opening at 0 would post the whole float as a
+ * withdrawal. Without `caisse:lire` the history is unreadable: fall back to 0.
+ */
+async function lastClosingBalance(farmId: string): Promise<number> {
+  try {
+    const sessions = await apiFetch<{ closingBalanceFcfa: number | null }[]>(
+      `/farms/${farmId}/caisse/sessions`,
+    );
+    return sessions.find((s) => s.closingBalanceFcfa != null)?.closingBalanceFcfa ?? 0;
+  } catch (e) {
+    // Network failure: let the caller queue the op instead of opening at 0.
+    if (e instanceof TypeError || (e instanceof ApiError && e.status >= 500)) throw e;
+    return 0;
+  }
 }
 
 export type SaleProductType = 'POULET_PIECE' | 'POULET_KG' | 'OEUFS' | 'PROVENDE' | 'RECOLTE' | 'AUTRE' | 'ABATTU_PIECE' | 'ABATTU_KG';

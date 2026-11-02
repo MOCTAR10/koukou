@@ -8,7 +8,13 @@ const memory = new Map<string, string>();
 
 /** Per-device value: file store on native, localStorage on web, else memory. */
 export function readDeviceValue(key: string): string | null {
-  if (persistentKv) return persistentKv.getItem(key);
+  if (persistentKv) {
+    try {
+      return persistentKv.getItem(key);
+    } catch {
+      return null;
+    }
+  }
   if (typeof localStorage !== 'undefined') return localStorage.getItem(key);
   return memory.get(key) ?? null;
 }

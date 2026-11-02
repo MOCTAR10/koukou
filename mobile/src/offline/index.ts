@@ -26,6 +26,7 @@ import {
 } from './engine';
 import {
   clearQueue,
+  clearRejected,
   dismissRejected,
   getQueueVersion,
   loadOps,
@@ -35,7 +36,7 @@ import {
   type RejectedOp,
 } from './store';
 
-export { clearQueue, dismissRejected, flushQueue, loadOps, loadRejected };
+export { clearQueue, clearRejected, dismissRejected, flushQueue, loadOps, loadRejected };
 export type { FlushSummary, OfflineOp, RejectedOp, SendResult };
 
 export {

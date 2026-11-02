@@ -15,6 +15,8 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 
 const DEFAULT_FARM_CITY = 'Libreville';
+import { isUniqueViolation } from '../../common/utils/idempotency.js';
+import { normalizePhone } from '../../common/utils/phone.js';
 
 @Injectable()
 export class AuthService {
@@ -44,7 +46,17 @@ export class AuthService {
       passwordHash: codeHash,
       role: UserRole.PROPRIETAIRE,
     });
-    await this.usersRepo.save(user);
+    try {
+      await this.usersRepo.save(user);
+    } catch (err) {
+      // Two concurrent registrations: the unique index decides.
+      if (isUniqueViolation(err)) {
+        throw new ConflictException(
+          'Un compte existe déjà avec ce numéro de téléphone.',
+        );
+      }
+      throw err;
+    }
 
     await this.ensureOwnerFarm(user, dto.farmName, dto.farmCity);
 
@@ -52,8 +64,11 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const phone = dto.phone.trim().toLowerCase();
-    const user = await this.usersRepo.findOne({ where: { phone } });
+    // Accounts created before phone normalization may still hold spaces.
+    const raw = dto.phone.trim();
+    const user = await this.usersRepo.findOne({
+      where: [{ phone: normalizePhone(raw) }, { phone: raw }],
+    });
     const ok = await bcrypt.compare(
       dto.code,
       user ? user.passwordHash : DUMMY_PASSWORD_HASH,

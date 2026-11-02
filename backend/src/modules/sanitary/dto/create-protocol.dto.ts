@@ -5,7 +5,6 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -63,7 +62,7 @@ export class ProtocolStepInput {
     default: 0,
   })
   @IsOptional()
-  @IsNumber()
+  @IsInt({ message: 'Le délai d’attente doit être un nombre entier de jours.' })
   @Min(0)
   withdrawalDays?: number;
 }

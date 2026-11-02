@@ -393,8 +393,8 @@ export default function CommandeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { hasPermission } = useFarmProfile();
   const canManage = hasPermission('vente:commande');
-  // Deposit and delivery are gated by `vente:creer` on the server.
-  const canSell = hasPermission('vente:creer');
+  // Deposit and delivery: `vente:commande` or `vente:creer` on the server.
+  const canSell = canManage || hasPermission('vente:creer');
 
   const orderQuery = useQuery({ queryKey: ['order', farmId, id], queryFn: () => fetchOrder(farmId, id) });
   const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId), enabled: !!orderQuery.data?.pointOfSaleId });
@@ -445,7 +445,12 @@ Livrer ?`
       if (!ok) return;
       setBusy(true);
       deliverOrderQueued(farmId, order.id)
-        .then(async () => {
+        .then(async (res) => {
+          if (res.status === 'queued') {
+            // Not delivered yet: it will be sent when the connection returns.
+            toast.info('Livraison en attente', `${order.referenceNumber} : elle sera enregistrée au retour du réseau.`);
+            return;
+          }
           await invalidateFarmQueries(queryClient, { farmId });
           await orderQuery.refetch();
           toast.success('Commande livrée', `${order.referenceNumber} : cheptel mis à jour et bon de commande généré.`);
