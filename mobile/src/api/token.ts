@@ -68,7 +68,13 @@ export function saveSession(session: StoredSession | null): void {
 export function loadSession(): StoredSession | null {
   if (memory) return memory;
   const store = webStore();
-  const raw = store?.getItem(KEY);
+  let raw: string | null | undefined;
+  try {
+    raw = store?.getItem(KEY);
+  } catch {
+    // Unreadable session file: signed out for this run, nothing rewritten.
+    return null;
+  }
   if (!raw) return null;
   let parsed: Partial<StoredSession>;
   try {

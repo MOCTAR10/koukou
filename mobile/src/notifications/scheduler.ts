@@ -88,27 +88,35 @@ export async function clearReminders(): Promise<void> {
   lastSignature = null;
 }
 
-function routeOf(response: Notifications.NotificationResponse | null): string | null {
-  const route = response?.notification.request.content.data?.route;
-  return typeof route === 'string' ? route : null;
+interface TapTarget {
+  route: string;
+  /** Server pushes name their farm (the active farm may be another one). */
+  farmId?: string;
+}
+
+function targetOf(response: Notifications.NotificationResponse | null): TapTarget | null {
+  const data = response?.notification.request.content.data;
+  const route = data?.route;
+  if (typeof route !== 'string') return null;
+  return typeof data?.farmId === 'string' ? { route, farmId: data.farmId } : { route };
 }
 
 /**
  * Route attached to a tapped notification (local reminder or server push),
  * including the tap that launched the app from a cold start.
  */
-export function onReminderTapped(cb: (route: string) => void): () => void {
+export function onReminderTapped(cb: (route: string, farmId?: string) => void): () => void {
   if (!remindersSupported()) return () => {};
-  const launch = routeOf(Notifications.getLastNotificationResponse());
+  const launch = targetOf(Notifications.getLastNotificationResponse());
   if (launch) {
     // Consumed once, so reopening the app doesn't navigate again.
     Notifications.clearLastNotificationResponse();
     // Let the root navigator finish mounting first.
-    setTimeout(() => cb(launch), 0);
+    setTimeout(() => cb(launch.route, launch.farmId), 0);
   }
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const route = routeOf(response);
-    if (route) cb(route);
+    const target = targetOf(response);
+    if (target) cb(target.route, target.farmId);
     Notifications.clearLastNotificationResponse();
   });
   return () => sub.remove();

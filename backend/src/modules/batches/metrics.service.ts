@@ -480,8 +480,8 @@ export class MetricsService {
   }
 
   private ageDaysOn(integrationDate: string, onDate: string): number {
-    const start = new Date(integrationDate + 'T00:00:00');
-    const ref = new Date(onDate + 'T00:00:00');
+    const start = new Date(integrationDate + 'T00:00:00Z');
+    const ref = new Date(onDate + 'T00:00:00Z');
     const diff = ref.getTime() - start.getTime();
     return Math.max(0, Math.floor(diff / 86400000));
   }

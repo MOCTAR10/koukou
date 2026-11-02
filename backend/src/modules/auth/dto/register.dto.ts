@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { toPhone } from '../../../common/utils/phone.js';
 import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
@@ -7,7 +8,7 @@ export class RegisterDto {
     description: 'Numéro de téléphone (identifiant)',
     example: '+24174123456',
   })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(toPhone)
   @IsString()
   @IsNotEmpty({ message: 'Le numéro de téléphone est obligatoire.' })
   phone: string;

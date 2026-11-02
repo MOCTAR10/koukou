@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -27,6 +34,13 @@ export class AlertsController {
     @Query('status') status?: AlertStatus,
   ) {
     await this.farmsService.assertAccessible(user, farmId);
+    // An unknown value would reach the Postgres enum (500).
+    if (
+      status !== undefined &&
+      !Object.values(AlertStatus).includes(status)
+    ) {
+      throw new BadRequestException('Statut d’alerte invalide.');
+    }
     return this.alertsService.listForFarm(farmId, status);
   }
 

@@ -49,7 +49,9 @@ export class OrdersController {
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('vente:creer')
+  // vente:commande is the catalog's order permission; vente:creer (cashier,
+  // ELEVEUR default) keeps selling through orders.
+  @Permissions('vente:commande', 'vente:creer')
   @ApiOperation({
     summary:
       'Créer une commande / précommande : enveloppe la vente, fige le prix des articles, réserve le cheptel (sans le décrémenter) et encaisse éventuellement un acompte (caisse ouverte requise).',
@@ -79,7 +81,9 @@ export class OrdersController {
 
   @Post(':orderId/deposit')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('vente:creer')
+  // vente:commande is the catalog's order permission; vente:creer (cashier,
+  // ELEVEUR default) keeps selling through orders.
+  @Permissions('vente:commande', 'vente:creer')
   @ApiOperation({
     summary:
       'Encaisser un acompte / confirmer la commande (la caisse doit être ouverte)',
@@ -96,7 +100,9 @@ export class OrdersController {
 
   @Post(':orderId/livrer')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('vente:creer')
+  // vente:commande is the catalog's order permission; vente:creer (cashier,
+  // ELEVEUR default) keeps selling through orders.
+  @Permissions('vente:commande', 'vente:creer')
   @ApiOperation({
     summary:
       'Livrer / facturer : décrémente le cheptel ou vérifie le stock d’œufs, applique les quantités finales (au kilo) et encaisse le solde éventuel.',

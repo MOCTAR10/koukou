@@ -43,6 +43,12 @@ export function CaissePage() {
     enabled: !!farmId,
   });
 
+  // Opening defaults to the last declared closing: the server books only the
+  // change from it, so opening at 0 would post the whole float as a withdrawal.
+  const lastClosing =
+    sessions.data?.find((s) => s.closingBalanceFcfa != null)?.closingBalanceFcfa ?? 0;
+  const amountDefault = current.data ? current.data.expectedBalanceFcfa : lastClosing;
+
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['caisse-current', farmId] });
     void queryClient.invalidateQueries({ queryKey: ['caisse-sessions', farmId] });
@@ -122,7 +128,7 @@ export function CaissePage() {
               <span className="mb-1 block font-medium text-slate-600">
 {current.data ? 'Solde déclaré dans la caisse (FCFA)' : 'Fonds de caisse initial (FCFA)'}
                   </span>
-                  <input name="amount" type="number" min={0} required defaultValue={current.data?.expectedBalanceFcfa ?? 0} className={inputCls} />
+                  <input key={`${current.data ? 'close' : 'open'}-${amountDefault}`} name="amount" type="number" min={0} required defaultValue={amountDefault} className={inputCls} />
             </label>
             <button
               type="submit"

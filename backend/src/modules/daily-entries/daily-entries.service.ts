@@ -14,6 +14,7 @@ import { FlockReconciliationService } from '../batches/flock-reconciliation.serv
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
 import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
+import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
 import { DailyEntry } from './entities/daily-entry.entity.js';
 import { CreateDailyEntryDto } from './dto/create-daily-entry.dto.js';
 import { FeedStockService, entryPhaseKeyOf } from '../feed-stock/feed-stock.service.js';
@@ -51,6 +52,18 @@ export class DailyEntriesService {
         'Lot clôturé : impossible d’ajouter une saisie (immuabilité).',
       );
     }
+    // A future entry would stay the "latest" reading for good (water alerts
+    // frozen); tomorrow is tolerated for the UTC+1 evening.
+    if (isAfterTomorrowUtc(dto.entryDate)) {
+      throw new BadRequestException(
+        'La date de la saisie ne peut pas être dans le futur.',
+      );
+    }
+    if (dto.entryDate.slice(0, 10) < batch.integrationDate.slice(0, 10)) {
+      throw new BadRequestException(
+        `La saisie ne peut pas précéder la mise en place du lot (${batch.integrationDate.slice(0, 10)}).`,
+      );
+    }
 
     if (dto.inputLotId != null) {
       const lot = await this.inputRepo.findOne({
@@ -75,16 +88,32 @@ export class DailyEntriesService {
         // batches first): avoids a lock-order inversion with the feed lot
         // lock taken in assertConsumptionAvailable. Query builder, not
         // findOne: the eager `breed` join would make Postgres reject FOR UPDATE.
-        await em
+        const locked = await em
           .getRepository(ProductionBatch)
           .createQueryBuilder('batch')
           .setLock('pessimistic_write')
           .where('batch.id = :id', { id: batch.id })
           .getOne();
+        // Re-checked under the lock: close() may have run since the read.
+        if (!locked || locked.status === BatchStatus.CLOTURE) {
+          throw new BadRequestException(
+            'Lot clôturé : impossible d’ajouter une saisie (immuabilité).',
+          );
+        }
         const entryRepo = em.getRepository(DailyEntry);
         const existing = await entryRepo.findOne({
           where: { batchId, entryDate: dto.entryDate },
         });
+        // Like health events: more new deaths than live birds is refused
+        // (quantityAlive would silently floor at 0).
+        if (dto.deaths !== undefined) {
+          const addedDeaths = dto.deaths - (existing?.deaths ?? 0);
+          if (addedDeaths > locked.quantityAlive) {
+            throw new BadRequestException(
+              `Mortalité impossible : ${addedDeaths} mort(s) de plus pour ${locked.quantityAlive} oiseau(x) vivant(s) sur le lot.`,
+            );
+          }
+        }
 
         // Seuls les champs réellement fournis sont appliqués (l'upsert ne doit pas
         // écraser les saisies du jour quand on ne met à jour qu'un seul champ).
@@ -137,20 +166,41 @@ export class DailyEntriesService {
             dto.inputLotId != null &&
             dto.inputLotId !== '' &&
             dto.inputLotId !== prevLotId;
-          if (deltaFeedKg > 0 || (lotSwitch && newFeedKg > 0)) {
+          // A new phase or the end of an external purchase moves the whole
+          // entry onto a (new) stock lot, even when the kg are unchanged.
+          const phaseChanged =
+            existing != null &&
+            (dto.feedPhase !== undefined || dto.feedType !== undefined) &&
+            entryPhaseKeyOf({
+              feedPhase: dto.feedPhase ?? existing.feedPhase,
+              feedType: dto.feedType ?? existing.feedType,
+            }) !==
+              entryPhaseKeyOf({
+                feedPhase: existing.feedPhase,
+                feedType: existing.feedType,
+              });
+          const deductionResumed = existing?.skipStockDeduction === true;
+          const relink =
+            lotSwitch ||
+            (phaseChanged && dto.inputLotId === undefined) ||
+            deductionResumed;
+          if (deltaFeedKg > 0 || (relink && newFeedKg > 0)) {
             const entryPhase = entryPhaseKeyOf({
               feedPhase: dto.feedPhase ?? existing?.feedPhase,
               feedType: dto.feedType ?? existing?.feedType,
             });
+            // A changed phase must not stay on the previous phase's lot.
+            const preferredLotId =
+              dto.inputLotId ?? (phaseChanged ? null : prevLotId);
             const resolvedLotId = await this.feedStock.resolveConsumptionLot(
               farmId,
               entryPhase,
-              dto.inputLotId ?? prevLotId,
+              preferredLotId,
               em,
               newFeedKg,
             );
             if (resolvedLotId == null) {
-              data.inputLotId = dto.inputLotId ?? prevLotId;
+              data.inputLotId = preferredLotId;
               await this.feedStock.raiseNoFeedAlert(farmId, entryPhase);
             } else {
               data.inputLotId = resolvedLotId;

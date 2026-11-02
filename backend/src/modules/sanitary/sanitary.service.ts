@@ -7,7 +7,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
-import { BatchType } from '../../common/enums/batch-type.enum.js';
+import { BatchType, BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { CareType } from '../../common/enums/care-type.enum.js';
 import { FeedEntryType } from '../../common/enums/feed-entry-type.enum.js';
 import { ProphylaxisStatus } from '../../common/enums/prophylaxis-status.enum.js';
@@ -187,6 +187,11 @@ export class SanitaryService {
     });
     if (!batch)
       throw new NotFoundException('Lot introuvable dans cette ferme.');
+    if (batch.status === BatchStatus.CLOTURE) {
+      throw new BadRequestException(
+        'Lot clôturé : impossible de générer un calendrier sanitaire.',
+      );
+    }
 
     const protocol = protocolId
       ? await this.findUsableProtocol(protocolId, farmId)
@@ -224,8 +229,13 @@ export class SanitaryService {
     );
 
     const calendar: ProphylaxisEvent[] = [];
+    const today = todayStr();
     for (const step of steps) {
       if (existingStepIds.has(step.id)) continue;
+      // Like generateVaccineProgram: a step already past is skipped (it would
+      // turn overdue at once and block slaughter and readiness).
+      const scheduledDate = addDays(batch.integrationDate, step.dayFrom);
+      if (scheduledDate < today) continue;
       const event = await this.eventRepo.save(
         this.eventRepo.create({
           farmId,
@@ -237,7 +247,7 @@ export class SanitaryService {
           dosage: step.dosage,
           route: step.route,
           withdrawalDays: step.withdrawalDays,
-          scheduledDate: addDays(batch.integrationDate, step.dayFrom),
+          scheduledDate,
           status: ProphylaxisStatus.PLANIFIE,
         }),
       );
@@ -313,6 +323,13 @@ export class SanitaryService {
     const event = await this.assertEvent(farmId, batchId, eventId);
     if (event.status === ProphylaxisStatus.FAIT) {
       throw new BadRequestException('Ce soin a déjà été réalisé.');
+    }
+    // Cancelling gave its medication back to stock: completing it now would
+    // record a treatment that took nothing out.
+    if (event.status === ProphylaxisStatus.ANNULE) {
+      throw new BadRequestException(
+        'Ce soin a été annulé : planifiez un nouveau soin plutôt que de le compléter.',
+      );
     }
 
     event.status = ProphylaxisStatus.FAIT;
@@ -404,6 +421,11 @@ export class SanitaryService {
     if (event.status === ProphylaxisStatus.FAIT) {
       throw new BadRequestException(
         'Impossible de reporter un soin déjà réalisé.',
+      );
+    }
+    if (event.status === ProphylaxisStatus.ANNULE) {
+      throw new BadRequestException(
+        'Impossible de reporter un soin annulé : planifiez un nouveau soin.',
       );
     }
     event.scheduledDate = scheduledDate;
@@ -737,6 +759,12 @@ export class SanitaryService {
     if ('notes' in dto) event.notes = dto.notes ?? null;
     if (dto.withdrawalDays != null) event.withdrawalDays = dto.withdrawalDays;
     if (dto.scheduledDate) {
+      // A cancelled care gave its medication back: it can't be revived here.
+      if (event.status === ProphylaxisStatus.ANNULE) {
+        throw new BadRequestException(
+          'Impossible de replanifier un soin annulé : planifiez un nouveau soin.',
+        );
+      }
       event.scheduledDate = dto.scheduledDate;
       event.status = ProphylaxisStatus.PLANIFIE;
     }
@@ -790,6 +818,9 @@ export class SanitaryService {
   async refreshProphylaxis(batchId: string): Promise<void> {
     const batch = await this.batchRepo.findOne({ where: { id: batchId } });
     if (!batch) return;
+    // A closed lot's alerts were resolved at closing: reading its calendar
+    // must not raise them again.
+    if (batch.status === BatchStatus.CLOTURE) return;
     const farmId = batch.farmId;
 
     await this.refreshProphylaxisStatuses(batchId);
@@ -828,6 +859,8 @@ export class SanitaryService {
           context: { overdueCount: overdue.length },
         },
         { farmId, batchId },
+        // Re-evaluated on every calendar read: keep the farmer's ack.
+        { keepAcknowledgedIfUnchanged: true },
       );
     } else if (
       upcoming.length > 0 &&
@@ -844,6 +877,8 @@ export class SanitaryService {
           context: { nextDate: next.scheduledDate },
         },
         { farmId, batchId },
+        // Re-evaluated on every calendar read: keep the farmer's ack.
+        { keepAcknowledgedIfUnchanged: true },
       );
     } else {
       await this.alertsService.clearKind(

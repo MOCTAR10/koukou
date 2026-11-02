@@ -316,6 +316,8 @@ export class AdvisoryEngine {
           context,
         },
         { farmId, batchId: lot.id, buildingId },
+        // The verdict is fixed once the lot is placed.
+        { keepAcknowledgedIfUnchanged: true },
       );
     } else {
       await this.alertsService.raise(
@@ -327,19 +329,21 @@ export class AdvisoryEngine {
           context,
         },
         { farmId, batchId: lot.id, buildingId },
+        // The verdict is fixed once the lot is placed.
+        { keepAcknowledgedIfUnchanged: true },
       );
     }
   }
 
   private ageInWeeks(integrationDate: string): number {
-    const start = new Date(integrationDate + 'T00:00:00').getTime();
+    const start = new Date(integrationDate + 'T00:00:00Z').getTime();
     const now = Date.now();
     return Math.max(0, (now - start) / (7 * 86400000));
   }
 
   private ageDaysAt(entryDate: string, integrationDate: string): number {
-    const entry = new Date(entryDate + 'T00:00:00').getTime();
-    const start = new Date(integrationDate + 'T00:00:00').getTime();
+    const entry = new Date(entryDate + 'T00:00:00Z').getTime();
+    const start = new Date(integrationDate + 'T00:00:00Z').getTime();
     return Math.max(0, Math.floor((entry - start) / 86400000));
   }
 
@@ -827,6 +831,7 @@ export class AdvisoryEngine {
           context: { traceComplete: false },
         },
         { farmId, batchId },
+        { keepAcknowledgedIfUnchanged: true },
       );
       return;
     }

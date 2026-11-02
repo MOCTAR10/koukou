@@ -216,6 +216,8 @@ export class OrdersService {
       const snapshots: OrderItemSnapshot[] = [];
       let birdsRequested = 0;
       let checkoutBatchId: string | null = null;
+      let eggsRequested = 0;
+      const eggsByBatch = new Map<string, number>();
       let total = 0;
       let passport: OrderPassportSnapshot | null = null;
 
@@ -228,6 +230,9 @@ export class OrdersService {
         const unit = it.unit ?? defaultUnit(it.productType);
         let pieceCount: number | null = null;
         let batchId: string | null = null;
+        // Egg lines keep their batch (per-batch egg stock, rentabilité) but
+        // don't take part in the "one batch per order" rule for birds.
+        let eggBatchId: string | null = null;
 
         if (it.productType === SaleItemProductType.POULET_PIECE ||
             it.productType === SaleItemProductType.ABATTU_PIECE) {
@@ -279,15 +284,22 @@ export class OrdersService {
               'Pour une commande d’œufs, l’unité doit être ALVEOLES.',
             );
           }
-          await lockFarmEggStock(em, farmId);
-          await this.assertEggsAvailable(em, farmId, it.quantity);
           if (it.batchId) {
-            const batchAlveoles = await this.availableBatchEggAlveoles(em, farmId, it.batchId);
-            if (it.quantity > batchAlveoles) {
-              throw new BadRequestException(
-                `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), commande demandée ${it.quantity}.`,
-              );
+            const owned = await em
+              .getRepository(ProductionBatch)
+              .exists({ where: { id: it.batchId, farmId } });
+            if (!owned) {
+              throw new NotFoundException('Lot introuvable dans cette ferme.');
             }
+            eggBatchId = it.batchId;
+          }
+          // Checked once for all egg lines after the loop.
+          eggsRequested += it.quantity;
+          if (eggBatchId) {
+            eggsByBatch.set(
+              eggBatchId,
+              (eggsByBatch.get(eggBatchId) ?? 0) + it.quantity,
+            );
           }
         }
 
@@ -311,9 +323,26 @@ export class OrdersService {
           pieceCount,
           unitPriceFcfa: it.unitPriceFcfa,
           amountFcfa: amount,
-          batchId,
+          batchId: batchId ?? eggBatchId,
           inputLotId: it.inputLotId ?? null,
         });
+      }
+
+      if (eggsRequested > 0) {
+        await lockFarmEggStock(em, farmId);
+        await this.assertEggsAvailable(em, farmId, eggsRequested);
+        for (const [eggBatch, alveoles] of eggsByBatch) {
+          const batchAlveoles = await this.availableBatchEggAlveoles(
+            em,
+            farmId,
+            eggBatch,
+          );
+          if (alveoles > batchAlveoles) {
+            throw new BadRequestException(
+              `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), commande demandée ${alveoles}.`,
+            );
+          }
+        }
       }
 
       if (checkoutBatchId && birdsRequested > 0) {
@@ -452,6 +481,19 @@ export class OrdersService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!current) throw new NotFoundException('Commande introuvable.');
+      // Offline replay of a deposit that already landed (response lost, then
+      // the order moved on): answer with the order instead of a 400 that
+      // would make the operator type the cash in twice.
+      if (dto.idempotencyKey) {
+        const replayed = await em.getRepository(Payment).exists({
+          where: {
+            farmId,
+            saleId: current.saleId,
+            idempotencyKey: dto.idempotencyKey,
+          },
+        });
+        if (replayed) return current;
+      }
       if (current.status === OrderStatus.CANCELLED) {
         throw new BadRequestException(
           'Commande annulée : aucun encaissement possible.',
@@ -578,6 +620,8 @@ export class OrdersService {
       if (overrides.length > 0) await itemRepo.save(items);
 
       const batchBirds = new Map<string, number>();
+      let eggsToDeliver = 0;
+      const eggsByBatch = new Map<string, number>();
       for (const item of items) {
         const birds = birdsOf(item);
         if (birds > 0) {
@@ -591,22 +635,33 @@ export class OrdersService {
             (batchBirds.get(item.batchId) ?? 0) + birds,
           );
         } else if (item.productType === SaleItemProductType.OEUFS) {
-          // Exclut la vente enveloppe courante : ses items œufs existent déjà
-          // et ne doivent pas compter comme « déjà vendus » contre eux-mêmes.
-          await lockFarmEggStock(em, farmId);
-          await this.assertEggsAvailable(em, farmId, item.quantity, sale.id);
+          eggsToDeliver += item.quantity;
           if (item.batchId) {
-            const batchAlveoles = await this.availableBatchEggAlveoles(
-              em,
-              farmId,
+            eggsByBatch.set(
               item.batchId,
-              sale.id,
+              (eggsByBatch.get(item.batchId) ?? 0) + item.quantity,
             );
-            if (item.quantity > batchAlveoles) {
-              throw new BadRequestException(
-                `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), livraison demandée ${item.quantity}.`,
-              );
-            }
+          }
+        }
+      }
+      if (eggsToDeliver > 0) {
+        // Exclut la vente enveloppe courante : ses items œufs existent déjà
+        // et ne doivent pas compter comme « déjà vendus » contre eux-mêmes.
+        // All egg lines are checked together (two lines of 10 on a stock of
+        // 15 must fail).
+        await lockFarmEggStock(em, farmId);
+        await this.assertEggsAvailable(em, farmId, eggsToDeliver, sale.id);
+        for (const [eggBatch, alveoles] of eggsByBatch) {
+          const batchAlveoles = await this.availableBatchEggAlveoles(
+            em,
+            farmId,
+            eggBatch,
+            sale.id,
+          );
+          if (alveoles > batchAlveoles) {
+            throw new BadRequestException(
+              `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), livraison demandée ${alveoles}.`,
+            );
           }
         }
       }

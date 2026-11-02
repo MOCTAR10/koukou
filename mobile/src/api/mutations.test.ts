@@ -400,15 +400,30 @@ describe('createDailyEntry', () => {
 });
 
 describe('ensureCashOpen', () => {
-  it('ouvre la caisse si aucune session', async () => {
-    const fetchMock = stubFetchSequence([jsonResponse(200, null), jsonResponse(201, { session: { id: 's-1' } })]);
+  it('ouvre la caisse avec le solde déclaré à la dernière clôture', async () => {
+    const fetchMock = stubFetchSequence([
+      jsonResponse(200, null),
+      jsonResponse(200, [{ closingBalanceFcfa: null }, { closingBalanceFcfa: 42000 }, { closingBalanceFcfa: 1000 }]),
+      jsonResponse(201, { session: { id: 's-1' } }),
+    ]);
     await ensureCashOpen('f-1');
-    expect(fetchMock.mock.calls).toHaveLength(2);
+    expect(fetchMock.mock.calls).toHaveLength(3);
     expect(readCall(fetchMock, 0).url).toContain('/caisse/current');
-    const open = readCall(fetchMock, 1);
+    expect(readCall(fetchMock, 1).url).toContain('/caisse/sessions');
+    const open = readCall(fetchMock, 2);
     expect(open.url).toContain('/caisse/open');
     expect(open.init.method).toBe('POST');
-    expect(JSON.parse(open.init.body as string)).toEqual({ openingBalanceFcfa: 0 });
+    expect(JSON.parse(open.init.body as string)).toEqual({ openingBalanceFcfa: 42000 });
+  });
+
+  it('historique illisible (403) : ouvre à 0', async () => {
+    const fetchMock = stubFetchSequence([
+      jsonResponse(200, null),
+      jsonResponse(403, { message: 'Permission requise.' }),
+      jsonResponse(201, { session: { id: 's-1' } }),
+    ]);
+    await ensureCashOpen('f-1');
+    expect(JSON.parse(readCall(fetchMock, 2).init.body as string)).toEqual({ openingBalanceFcfa: 0 });
   });
 
   it('n’ouvre pas si une session existe déjà', async () => {

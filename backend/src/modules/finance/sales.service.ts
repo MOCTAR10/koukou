@@ -1093,6 +1093,11 @@ export class SalesService {
       }
     }
     // OEUFS: the reservation is derived, nothing to restore.
+    // The units went back to the source: they are no longer "sold" from the
+    // transfer (the feed valuation counts a cancelled transfer's quantitySold
+    // as an outflow, so leaving it would count them twice).
+    transfer.quantitySold = Math.max(0, transfer.quantitySold - delta);
+    await em.getRepository(StockTransfer).save(transfer);
   }
 
   /**

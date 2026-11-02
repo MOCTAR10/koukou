@@ -93,7 +93,8 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         batchName: 'Bande chair dashboard',
-        integrationDate: today(),
+        // Entries start yesterday: none may precede the placement.
+        integrationDate: dateStr(addDays(new Date(), -1)),
         quantityAtStart: 100,
         type: 'CHAIR',
       })
@@ -167,12 +168,14 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
     expect(body.batchId).toBe(batchId);
     expect(body.liveCount).toBe(98);
     expect(body.startWeightKg).toBe(0.045);
-    expect(body.weekly).toHaveLength(1);
-    const week = body.weekly[0];
+    // Entries are yesterday and today: two ISO weeks when today is a Monday.
+    const weekly: { feedKg: number; deaths: number }[] = body.weekly;
+    expect(weekly).toHaveLength(new Date().getUTCDay() === 1 ? 2 : 1);
+    expect(weekly.reduce((sum, w) => sum + w.feedKg, 0)).toBe(20);
+    expect(weekly.reduce((sum, w) => sum + w.deaths, 0)).toBe(2);
+    const week = body.weekly[body.weekly.length - 1];
     expect(week.weekStart).toBe(mondayOfCurrentWeek());
     expect(week.avgWeightKg).toBe(0.5);
-    expect(week.feedKg).toBe(20);
-    expect(week.deaths).toBe(2);
     expect(week.cumFeedKg).toBe(20);
     // 20 kg / (98 present + 2 dead) × (0.5 − 0.045) kg.
     expect(week.fcrCumulative).toBe(0.44);

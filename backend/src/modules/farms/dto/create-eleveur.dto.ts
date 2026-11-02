@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { toPhone } from '../../../common/utils/phone.js';
 import { Transform } from 'class-transformer';
 import {
   IsArray,
@@ -19,7 +20,7 @@ import { ContractType } from '../../../common/enums/contract-type.enum.js';
 
 export class CreateElevageDto {
   @ApiProperty({ description: 'Numéro de téléphone', example: '+24174123457' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(toPhone)
   @IsString()
   @IsNotEmpty({ message: 'Le numéro de téléphone est obligatoire.' })
   phone: string;

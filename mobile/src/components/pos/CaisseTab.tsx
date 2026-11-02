@@ -141,10 +141,30 @@ export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClo
 
   const fmtDate = (d?: string) => (d ? d.slice(0, 10) : '—');
 
+  // Opening defaults to the last declared closing (the server books only the
+  // change from it); closing compares with the expected balance.
+  const lastClosing = history.find((h) => h.closingBalanceFcfa != null)?.closingBalanceFcfa ?? null;
+  const reference = hasOpen ? (current?.expectedBalanceFcfa ?? null) : lastClosing;
+
   const act = async (kind: 'open' | 'close') => {
-    const value = Math.round(Number(amount.replace(/[^\d]/g, '')) || 0);
-    if (kind === 'open' && value < 0) return;
+    const digits = amount.replace(/[^\d]/g, '');
+    // An empty field is not "0 FCFA": closing at 0 would book the whole
+    // balance as a shortfall.
+    if (!digits) {
+      setError(kind === 'close' ? 'Saisissez le montant compté dans la caisse.' : 'Saisissez le fonds de caisse.');
+      return;
+    }
+    const value = Math.round(Number(digits));
     Keyboard.dismiss();
+    if (kind === 'close' && reference != null && value !== reference) {
+      const ok = await confirm({
+        title: 'Écart de caisse',
+        message: `Montant déclaré ${fmtFcfa(value)}, solde attendu ${fmtFcfa(reference)} : écart de ${fmtFcfa(value - reference)}. Clôturer quand même ?`,
+        cancelLabel: 'Corriger',
+        confirmLabel: 'Clôturer',
+      });
+      if (!ok) return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -288,7 +308,13 @@ export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClo
                   setAmount(t);
                   setError(null);
                 }}
-                placeholder={hasOpen ? 'FCFA déclarés en caisse' : 'Fonds de caisse initial (FCFA)'}
+                placeholder={
+                  reference != null
+                    ? `${hasOpen ? 'Solde attendu' : 'Dernière clôture'} : ${fmtFcfa(reference)}`
+                    : hasOpen
+                      ? 'FCFA déclarés en caisse'
+                      : 'Fonds de caisse initial (FCFA)'
+                }
                 placeholderTextColor={color.ink[300]}
                 keyboardType="number-pad"
                 style={styles.input}

@@ -155,12 +155,20 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
   });
 
   it('soins en retard → alerte PROPHYLAXIE ROUGE, résolue après complétion', async () => {
-    const batchId = await createBatch(daysAgo(20));
-    await request(server)
+    const batchId = await createBatch(daysAgo(0));
+    const generated = await request(server)
       .post(`/farms/${farmId}/batches/${batchId}/prophylaxis/generate`)
       .set('Authorization', `Bearer ${token}`)
       .send({})
       .expect(201);
+    // Generation skips past steps: move one care into the past instead.
+    await request(server)
+      .patch(
+        `/farms/${farmId}/batches/${batchId}/prophylaxis/${generated.body[0].id}`,
+      )
+      .set('Authorization', `Bearer ${token}`)
+      .send({ scheduledDate: daysAgo(5) })
+      .expect(200);
 
     const alerts = await request(server)
       .get(`/farms/${farmId}/alerts`)

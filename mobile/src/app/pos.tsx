@@ -98,6 +98,15 @@ export default function PosScreen() {
   const [presetTransferId, setPresetTransferId] = useState<string | undefined>(undefined);
   const [presetTransferProductType, setPresetTransferProductType] = useState<StockTransfer['productType'] | undefined>(undefined);
   const [registerOpen, setRegisterOpen] = useState(false);
+
+  // A basket built on one farm must never be sent to another one.
+  const basketFarm = useRef(farmId);
+  useEffect(() => {
+    if (basketFarm.current === farmId) return;
+    basketFarm.current = farmId;
+    setLines([]);
+    setPdvId('');
+  }, [farmId]);
   const [transferOpen, setTransferOpen] = useState(false);
   const [previewSale, setPreviewSale] = useState<SaleSummary | null>(null);
   const [lotTypeFilter, setLotTypeFilter] = useState<'TOUS' | 'CHAIR' | 'PONDEUSE'>('TOUS');
@@ -558,7 +567,8 @@ export default function PosScreen() {
               contentContainerStyle={styles.bodyContent}
               showsVerticalScrollIndicator={false}
             >
-            {!isBoutique ? (
+            {/* Transfers need pdv:gerer on the server. */}
+            {!profile.hasPermission('pdv:gerer') ? null : !isBoutique ? (
               <Pressable onPress={() => setTransferOpen(true)} style={styles.transferBtn} accessibilityRole="button">
                 <ArrowRightLeft size={14} color={color.accent[600]} />
                 <AppText size="small" weight="semibold" color="accent" numberOfLines={1}>
