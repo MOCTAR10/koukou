@@ -186,6 +186,14 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
     );
     expect(res.body.period.from).toBe(today);
 
+    // Invalid periods are refused instead of reaching SQL (was a 500).
+    for (const route of ['/admin/metrics', '/admin/metrics/by-farm']) {
+      await get(`${route}?from=pas-une-date`).expect(400);
+      await get(`${route}?to=2026-02-31`).expect(400);
+      await get(`${route}?from=2026-11-02T10:00:00Z`).expect(400);
+      await get(`${route}?from=2026-11-30&to=2026-11-01`).expect(400);
+    }
+
     const byFarm = await get('/admin/metrics/by-farm').expect(200);
     const row = byFarm.body.find((r: any) => r.farm.id === farmId);
     expect(row).toBeDefined();

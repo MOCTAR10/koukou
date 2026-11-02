@@ -10,6 +10,7 @@ import {
   createSale,
   deletePointOfSale,
   deliverOrder,
+  CaisseClosedSinceError,
   ensureCashOpen,
   recordCustomerPayment,
   recordFeedLoss,
@@ -33,6 +34,7 @@ import {
   loadOps,
   rejectOp,
   removeOp,
+  setHeldByClosedCaisse,
   type OfflineKind,
   type OfflineOp,
 } from './store';
@@ -116,6 +118,21 @@ function shouldQueue(e: unknown): boolean {
  */
 function shouldDrop(e: unknown): boolean {
   return e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 401;
+}
+
+/** Amount of cash an op carries. */
+function cashAmount(op: OfflineOp): number {
+  if (op.kind === 'sale') {
+    return ((op.payload as SalePayload).payments ?? []).reduce((sum, p) => sum + p.amountFcfa, 0);
+  }
+  if (op.kind === 'order-create') return (op.payload as CreateOrderInput).deposit?.amountFcfa ?? 0;
+  return (op.payload as { amountFcfa?: number }).amountFcfa ?? 0;
+}
+
+/** This user's cash on this farm that waits for the caisse to be opened. */
+export function heldCashSummary(farmId: string): { count: number; amountFcfa: number } {
+  const held = loadOps().filter((o) => o.farmId === farmId && o.heldByClosedCaisse && ownedByCurrentUser(o));
+  return { count: held.length, amountFcfa: held.reduce((sum, o) => sum + cashAmount(o), 0) };
 }
 
 /** Ops carrying collected cash: refused ones are kept aside, never deleted. */
@@ -482,15 +499,15 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
     } else if (op.kind === 'stock-loss') {
       await recordFeedLoss(op.farmId, keyed<RecordFeedLossInput>(op));
     } else if (op.kind === 'order-create') {
-      if (isCashOp(op)) await ensureCashOpenOrRetry(op.farmId);
+      if (isCashOp(op)) await ensureCashOpenOrRetry(op);
       await createOrder(op.farmId, op.payload as CreateOrderInput);
     } else if (op.kind === 'order-payment') {
       const p = op.payload as { orderId: string; amountFcfa: number; idempotencyKey?: string };
-      await ensureCashOpenOrRetry(op.farmId);
+      await ensureCashOpenOrRetry(op);
       await recordOrderPayment(op.farmId, p.orderId, p.amountFcfa, { idempotencyKey: p.idempotencyKey });
     } else if (op.kind === 'customer-payment') {
       const p = op.payload as { customerId: string; amountFcfa: number; idempotencyKey?: string };
-      await ensureCashOpenOrRetry(op.farmId);
+      await ensureCashOpenOrRetry(op);
       await recordCustomerPayment(op.farmId, p.customerId, p.amountFcfa, { idempotencyKey: p.idempotencyKey });
     } else if (op.kind === 'order-deliver') {
       await deliverOrder(op.farmId, (op.payload as { orderId: string }).orderId);
@@ -510,7 +527,7 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       await cancelStockTransfer(op.farmId, (op.payload as { transferId: string }).transferId);
     } else {
       // Credit sale (no payment): no caisse needed, same as the live path.
-      if (isCashOp(op)) await ensureCashOpenOrRetry(op.farmId);
+      if (isCashOp(op)) await ensureCashOpenOrRetry(op);
       await createSale(op.farmId, op.payload as SalePayload);
     }
     return 'ok';
@@ -535,12 +552,15 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
  * l'opération doit rester en file ('retry') plutôt que d'être abandonnée —
  * sinon l'encaissement serait perdu silencieusement.
  */
-async function ensureCashOpenOrRetry(farmId: string): Promise<void> {
+async function ensureCashOpenOrRetry(op: OfflineOp): Promise<void> {
   try {
-    await ensureCashOpen(farmId);
+    await ensureCashOpen(op.farmId, op.createdAt);
+    setHeldByClosedCaisse(op.id, false);
   } catch (e) {
-    // Network failure: plain retry. Caisse refused (closed, no permission):
-    // skip this op but keep flushing the rest of the queue behind it.
+    if (e instanceof CaisseClosedSinceError) setHeldByClosedCaisse(op.id, true);
+    // Network failure: plain retry. Caisse refused (closed since this cash was
+    // collected, no permission): skip this op but keep flushing the rest of the
+    // queue behind it. It goes out once someone opens the caisse.
     if (shouldQueue(e)) throw e;
     throw new CashBlockedError('opération en espèces en attente : session de caisse non ouverte');
   }

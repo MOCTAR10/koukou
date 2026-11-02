@@ -6,6 +6,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppModule } from './app.module.js';
+import {
+  swaggerEnabled,
+  trustProxyHops,
+} from './common/utils/http-exposure.js';
 import { uploadsRoot } from './modules/farms/farms.service.js';
 
 async function bootstrap() {
@@ -27,6 +31,11 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
+  app.set(
+    'trust proxy',
+    trustProxyHops(configService.get<string>('TRUST_PROXY')),
+  );
+
   const corsOrigins = configService.get('CORS_ORIGINS', '*');
   app.enableCors({
     origin: corsOrigins === '*' ? '*' : corsOrigins.split(',').map((o: string) => o.trim()),
@@ -34,31 +43,31 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  const config = new DocumentBuilder()
-    .setTitle('Fermia API')
-    .setDescription(
-      'API de gestion avicole offline-first pour le Gabon — Module 1 : Gestion des Lots',
-    )
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup(
-    configService.get('SWAGGER_PATH', 'api-docs'),
-    app,
-    document,
+  const swaggerPath = configService.get('SWAGGER_PATH', 'api-docs');
+  const swagger = swaggerEnabled(
+    configService.get<string>('NODE_ENV'),
+    configService.get<string>('SWAGGER_ENABLED'),
   );
+  if (swagger) {
+    const config = new DocumentBuilder()
+      .setTitle('Fermia API')
+      .setDescription(
+        'API de gestion avicole offline-first pour le Gabon — Module 1 : Gestion des Lots',
+      )
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup(swaggerPath, app, document);
+  }
 
   const port = configService.get('PORT', 3000);
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`Fermia API démarré sur http://localhost:${port}`);
-  // eslint-disable-next-line no-console
-  console.log(
-    `Swagger disponible sur http://localhost:${port}/${configService.get(
-      'SWAGGER_PATH',
-      'api-docs',
-    )}`,
-  );
+  if (swagger) {
+    // eslint-disable-next-line no-console
+    console.log(`Swagger disponible sur http://localhost:${port}/${swaggerPath}`);
+  }
 }
 await bootstrap();

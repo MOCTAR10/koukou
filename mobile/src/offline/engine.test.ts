@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, readCall, stubFetch, stubFetchSequence } from '@/api/test-utils';
 import { clearSession, saveSession, type StoredSession } from '@/api/token';
 
-import { MAX_SERVER_ATTEMPTS, cancelStockTransferQueued, createCreditSaleQueued, deliverOrderQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue, recordCustomerPaymentQueued } from './engine';
+import { MAX_SERVER_ATTEMPTS, cancelStockTransferQueued, heldCashSummary, createCreditSaleQueued, deliverOrderQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue, recordCustomerPaymentQueued } from './engine';
 import { clearQueue, dismissRejected, enqueueOp, getQueueVersion, loadOps, loadRejected, removeOp, subscribeQueue } from './store';
 
 vi.mock('expo-constants', () => ({
@@ -401,6 +401,60 @@ describe('flushQueue — synchronisation FIFO', () => {
     const summary = await flushQueue();
     expect(summary.synced).toBe(1);
     expect(loadOps().map((o) => o.kind)).toEqual(['sale']);
+  });
+
+  it('caisse clôturée après la vente hors ligne : pas de réouverture, la vente part à la prochaine ouverture', async () => {
+    enqueueOp({
+      id: 'off-sale-held',
+      kind: 'sale',
+      farmId: 'f-1',
+      payload: { saleDate: '2026-11-02', items: [], payments: [{ method: 'CASH', amountFcfa: 1000 }] },
+      createdAt: '2026-11-02T17:00:00.000Z',
+    });
+    enqueueOp({
+      id: 'off-daily-after',
+      kind: 'daily-entry',
+      farmId: 'f-1',
+      batchId: 'b-1',
+      payload: { entryDate: '2026-11-02' },
+      createdAt: '2026-11-02T17:05:00.000Z',
+    });
+    const closed = stubFetchSequence([
+      jsonResponse(200, null), // caisse/current : fermée
+      jsonResponse(200, [{ closingBalanceFcfa: 5000, closedAt: '2026-11-02T18:00:00.000Z' }]), // caisse/sessions
+      jsonResponse(201, {}), // saisie journalière
+    ]);
+    expect(await flushQueue()).toMatchObject({ synced: 1, remaining: 1 });
+    expect(loadOps().map((op) => op.id)).toEqual(['off-sale-held']);
+    expect(closed.mock.calls.some((_, i) => readCall(closed, i).url.includes('/caisse/open'))).toBe(false);
+    expect(heldCashSummary('f-1')).toEqual({ count: 1, amountFcfa: 1000 });
+    expect(heldCashSummary('f-2')).toEqual({ count: 0, amountFcfa: 0 });
+
+    stubFetchSequence([
+      jsonResponse(200, { session: {} }), // ouverte par un humain le lendemain
+      jsonResponse(201, { sale: { referenceNumber: 'VTE-1' } }),
+    ]);
+    expect(await flushQueue()).toMatchObject({ synced: 1, remaining: 0 });
+    expect(loadRejected()).toEqual([]);
+    expect(heldCashSummary('f-1')).toEqual({ count: 0, amountFcfa: 0 });
+  });
+
+  it('une caisse ouverte retire le signalement même si l’envoi échoue ensuite', async () => {
+    enqueueOp({
+      id: 'off-sale-flag',
+      kind: 'sale',
+      farmId: 'f-1',
+      payload: { saleDate: '2026-11-02', items: [], payments: [{ method: 'CASH', amountFcfa: 2500 }] },
+      createdAt: '2026-11-02T17:00:00.000Z',
+      heldByClosedCaisse: true,
+    });
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('/caisse/current')) return jsonResponse(200, { session: {} });
+      throw new TypeError('Network request failed');
+    }));
+    await flushQueue();
+    expect(loadOps().map((op) => op.id)).toEqual(['off-sale-flag']);
+    expect(heldCashSummary('f-1').count).toBe(0);
   });
 
   it('rejoue une vente à crédit sans exiger la caisse', async () => {

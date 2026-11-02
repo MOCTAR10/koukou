@@ -36,6 +36,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { dismissRejected, useOfflineQueue, type RejectedOp } from '@/offline';
+import { HeldCashNotice } from '@/components/HeldCashNotice';
 import { farmRoleLabel } from '@/api/roles';
 import type { PermissionCode } from '@/api/types';
 
@@ -278,6 +279,7 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
           </Pressable>
         ) : null}
       </View>
+      <HeldCashNotice farmId={farmId} />
       {offline.rejected.length > 0 ? (
         <View style={styles.rejectedBox}>
           <AppText size="small" weight="semibold" color="danger">

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -19,6 +20,7 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { MetricsPeriodQueryDto } from './dto/metrics-period.dto.js';
 import {
   IsEmail,
   IsEnum,
@@ -192,6 +194,14 @@ class UpdateProtocolDto {
   isEditable?: boolean;
 }
 
+function assertPeriodOrder(from?: string, to?: string): void {
+  if (from && to && from > to) {
+    throw new BadRequestException(
+      'Période invalide : la date de début suit la date de fin.',
+    );
+  }
+}
+
 @ApiTags('Administration plateforme')
 @ApiBearerAuth()
 @Controller('admin')
@@ -207,7 +217,8 @@ export class PlatformAdminController {
     summary:
       'Vue d’ensemble de la plateforme (fermes, utilisateurs, lots, ventes, encaissés, alertes, clients) — période optionnelle.',
   })
-  metrics(@Query('from') from?: string, @Query('to') to?: string) {
+  metrics(@Query() { from, to }: MetricsPeriodQueryDto) {
+    assertPeriodOrder(from, to);
     return this.platformService.metrics(from, to);
   }
 
@@ -216,7 +227,8 @@ export class PlatformAdminController {
     summary:
       'Métriques détaillées pour chaque ferme de la plateforme (cheptel, ventes, encaissés, alertes, clients).',
   })
-  metricsByFarm(@Query('from') from?: string, @Query('to') to?: string) {
+  metricsByFarm(@Query() { from, to }: MetricsPeriodQueryDto) {
+    assertPeriodOrder(from, to);
     return this.platformService.metricsByFarm(from, to);
   }
 
