@@ -1,16 +1,38 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import {
+  AlertTriangle,
+  Bird,
+  Boxes,
+  CalendarDays,
+  Check,
+  Copy,
+  Droplets,
+  Egg,
+  EggOff,
+  Lightbulb,
+  PackageCheck,
+  PackageOpen,
+  Scale,
+  Shrink,
+  Skull,
+  Target,
+  Weight,
+  Wheat,
+} from 'lucide-react';
 import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type { DailyEntryRecord, Lot } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
-import { EmptyState, Loading } from '../ui';
+import { EmptyState, Loading, PhotoThumb } from '../ui';
 import { ageWeek, estimateDailyFeed } from './feedRecommendation';
 import {
   EGGS_PER_ALVEOL,
   FEED_PHASE_LABEL,
+  IconField,
   Metric,
   Note,
   addLocalDays,
@@ -78,20 +100,23 @@ export function DailyEntryModal({
       {lots.isLoading ? (
         <Loading label="Chargement des lots…" />
       ) : active.length === 0 || !lot ? (
-        <EmptyState message="Aucun lot actif : créez d'abord un lot." />
+        <EmptyState message="Aucun lot actif : créez d'abord un lot." icon={<Bird />} />
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Lot">
-              <select className={inputCls} value={lot.id} onChange={(e) => setLotId(e.target.value)}>
-                {active.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {lotOption(b)}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <PhotoThumb src={lotImage(lot.breedName, lot.species)} />
+                <select className={`${inputCls} min-w-0`} value={lot.id} onChange={(e) => setLotId(e.target.value)}>
+                  {active.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {lotOption(b)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </Field>
-            <Field label="Date de la saisie">
+            <IconField label="Date de la saisie" icon={<CalendarDays />}>
               <div className="flex items-center gap-1">
                 <DateChip active={date === today} onClick={() => setDate(today)}>
                   Aujourd'hui
@@ -109,7 +134,7 @@ export function DailyEntryModal({
                   onChange={(e) => setDate(e.target.value || today)}
                 />
               </div>
-            </Field>
+            </IconField>
           </div>
           <p className="text-xs text-slate-500">
             {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'} · J{lot.metrics.ageDays} ·
@@ -315,15 +340,15 @@ function EntryForm({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Morts du jour">
+        <IconField label="Morts du jour" icon={<Skull className="text-red-600" />}>
           <input className={inputCls} inputMode="numeric" value={deaths} onChange={(e) => setDeaths(e.target.value.replace(/\D/g, ''))} placeholder="0" />
-        </Field>
-        <Field label="Eau (L)">
+        </IconField>
+        <IconField label="Eau (L)" icon={<Droplets className="text-brand-600" />}>
           <input className={inputCls} inputMode="decimal" value={water} onChange={(e) => setWater(e.target.value)} placeholder="0" />
-        </Field>
-        <Field label="Poids moyen pesé (g)">
+        </IconField>
+        <IconField label="Poids moyen pesé (g)" icon={<Scale className="text-emerald-600" />}>
           <input className={inputCls} inputMode="numeric" value={weightG} onChange={(e) => setWeightG(e.target.value.replace(/\D/g, ''))} placeholder="Facultatif" />
-        </Field>
+        </IconField>
       </div>
 
       {deathsExceed ? (
@@ -335,7 +360,9 @@ function EntryForm({
       ) : null}
 
       <fieldset className="space-y-3 rounded-xl border border-slate-200 p-4">
-        <legend className="px-1 text-xs font-semibold text-slate-600">Aliment</legend>
+        <legend className="inline-flex items-center gap-1.5 px-1 text-xs font-semibold text-slate-600">
+          <Wheat className="h-3.5 w-3.5 text-amber-600" /> Aliment
+        </legend>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Unité">
             <select className={inputCls} value={feedMode} onChange={(e) => setFeedMode(e.target.value as 'kg' | 'sacs')}>
@@ -344,14 +371,14 @@ function EntryForm({
             </select>
           </Field>
           {feedMode === 'kg' ? (
-            <Field label="Quantité donnée (kg)">
+            <IconField label="Quantité donnée (kg)" icon={<Wheat className="text-amber-600" />}>
               <input className={inputCls} inputMode="decimal" value={feedKg} onChange={(e) => setFeedKg(e.target.value)} placeholder="0" />
-            </Field>
+            </IconField>
           ) : (
             <>
-              <Field label="Nombre de sacs">
+              <IconField label="Nombre de sacs" icon={<PackageOpen className="text-amber-600" />}>
                 <input className={inputCls} inputMode="decimal" value={feedSacs} onChange={(e) => setFeedSacs(e.target.value)} placeholder="0" />
-              </Field>
+              </IconField>
               <Field label="Taille du sac (kg)">
                 <select className={inputCls} value={bagSize} onChange={(e) => setBagSize(e.target.value)}>
                   {[...new Set([...BAG_SIZES, bagKg])].sort((a, b) => a - b).map((s) => (
@@ -384,8 +411,9 @@ function EntryForm({
               <input className={inputCls} value={customPhase} onChange={(e) => setCustomPhase(e.target.value)} />
             </Field>
           ) : null}
-          <Field
+          <IconField
             label="Provenance de l'aliment"
+            icon={<Boxes />}
             className="sm:col-span-2"
             hint={
               source === 'externe'
@@ -407,7 +435,7 @@ function EntryForm({
               ))}
               <option value="externe">Achat externe (hors stock)</option>
             </select>
-          </Field>
+          </IconField>
         </div>
         <FeedAdvice recKg={rec.totalKgPerDay} perBirdG={rec.perBirdG} feedKg={feedKgEq} devPct={feedDevPct} isLayer={isLayer} />
         {waterRatio != null ? <WaterRatio ratio={waterRatio} /> : null}
@@ -418,7 +446,7 @@ function EntryForm({
           </p>
         ) : null}
         {waterDrop != null && waterDrop <= -15 ? (
-          <Note tone="amber">
+          <Note tone="amber" icon={<Droplets />}>
             Eau en baisse de {num(Math.abs(waterDrop), 0)} % par rapport à la veille : vérifiez les abreuvoirs et l'état
             du lot.
           </Note>
@@ -426,9 +454,11 @@ function EntryForm({
       </fieldset>
 
       <fieldset className="space-y-3 rounded-xl border border-slate-200 p-4">
-        <legend className="px-1 text-xs font-semibold text-slate-600">Œufs{isLayer ? '' : ' (si le lot pond)'}</legend>
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          <Field label={`Alvéoles (${EGGS_PER_ALVEOL} œufs)`}>
+        <legend className="inline-flex items-center gap-1.5 px-1 text-xs font-semibold text-slate-600">
+          <Egg className="h-3.5 w-3.5 text-accent-700" /> Œufs{isLayer ? '' : ' (si le lot pond)'}
+        </legend>
+        <div className="grid items-end gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <IconField label={`Alvéoles (${EGGS_PER_ALVEOL} œufs)`} image={EGG_IMAGES.alveole}>
             <input
               className={inputCls}
               inputMode="numeric"
@@ -436,8 +466,8 @@ function EntryForm({
               onChange={(e) => setEggs((parseInt(e.target.value, 10) || 0) * EGGS_PER_ALVEOL + loose)}
               placeholder="0"
             />
-          </Field>
-          <Field label="Œufs en vrac">
+          </IconField>
+          <IconField label="Œufs en vrac" image={EGG_IMAGES.oeuf}>
             <input
               className={inputCls}
               inputMode="numeric"
@@ -445,30 +475,31 @@ function EntryForm({
               onChange={(e) => setEggs(trays * EGGS_PER_ALVEOL + (parseInt(e.target.value, 10) || 0))}
               placeholder="0"
             />
-          </Field>
-          <Field label="Fêlés">
+          </IconField>
+          <IconField label="Fêlés" icon={<EggOff className="text-red-600" />}>
             <input className={inputCls} inputMode="numeric" value={cracked} onChange={(e) => setCracked(e.target.value.replace(/\D/g, ''))} placeholder="0" />
-          </Field>
-          <Field label="Petits">
+          </IconField>
+          <IconField label="Petits" icon={<Shrink className="text-amber-600" />}>
             <input className={inputCls} inputMode="numeric" value={small} onChange={(e) => setSmall(e.target.value.replace(/\D/g, ''))} placeholder="0" />
-          </Field>
-          <Field label="Double jaune">
+          </IconField>
+          <IconField label="Double jaune" icon={<Copy className="text-brand-600" />}>
             <input className={inputCls} inputMode="numeric" value={doubleYolk} onChange={(e) => setDoubleYolk(e.target.value.replace(/\D/g, ''))} placeholder="0" />
-          </Field>
-          <Field label="Sales">
+          </IconField>
+          <IconField label="Sales" icon={<Droplets className="text-accent-700" />}>
             <input className={inputCls} inputMode="numeric" value={dirty} onChange={(e) => setDirty(e.target.value.replace(/\D/g, ''))} placeholder="0" />
-          </Field>
+          </IconField>
         </div>
         {eggs > 0 || rejects > 0 ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Metric label="Total collecté" value={num(eggs, 0)} />
-            <Metric label="Commercialisables" value={num(sellable, 0)} />
+            <Metric label="Total collecté" image={EGG_IMAGES.oeuf} value={num(eggs, 0)} />
+            <Metric label="Commercialisables" icon={<PackageCheck />} value={num(sellable, 0)} />
             <Metric
               label="Taux de ponte"
+              icon={<Egg />}
               value={layRate != null ? `${num(layRate)} %` : '—'}
               sub={targetLay != null ? `cible souche ${num(targetLay)} %` : undefined}
             />
-            <Metric label="Écarts" value={num(rejects, 0)} tone={rejectsExceed ? 'bad' : undefined} />
+            <Metric label="Écarts" icon={<AlertTriangle />} value={num(rejects, 0)} tone={rejectsExceed ? 'bad' : undefined} />
           </div>
         ) : null}
         {rejectsExceed ? (
@@ -487,18 +518,21 @@ function EntryForm({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Metric
             label="Écart à la souche"
+            icon={<Target />}
             value={weightDev != null ? `${weightDev >= 0 ? '+' : ''}${num(weightDev, 0)} %` : '—'}
             sub={targetWeight != null ? `cible ${num(targetWeight, 2)} kg` : undefined}
             tone={weightDev == null ? undefined : Math.abs(weightDev) <= 10 ? 'good' : Math.abs(weightDev) <= 20 ? 'warn' : 'bad'}
           />
           <Metric
             label="Depuis la dernière pesée"
+            icon={<Scale />}
             value={weightDelta != null ? `${weightDelta >= 0 ? '+' : ''}${num(weightDelta, 0)} g` : '—'}
             sub={lastWeighing ? dateFr(lastWeighing.entryDate) : undefined}
           />
-          <Metric label="Biomasse du lot" value={`${num((live * weightGN) / 1000, 0)} kg`} />
+          <Metric label="Biomasse du lot" icon={<Weight />} value={`${num((live * weightGN) / 1000, 0)} kg`} />
           <Metric
             label="Besoin aliment estimé"
+            icon={<Wheat />}
             value={`${num(weightGN * 0.03, 0)} à ${num(weightGN * 0.05, 0)} g`}
             sub="par oiseau et par jour"
           />
@@ -511,7 +545,7 @@ function EntryForm({
           Annuler
         </Button>
         <Button type="submit" busy={save.isPending} disabled={!hasAnything || deathsExceed || rejectsExceed}>
-          {existing ? 'Mettre à jour la saisie' : 'Enregistrer la saisie'}
+          <Check className="h-4 w-4" /> {existing ? 'Mettre à jour la saisie' : 'Enregistrer la saisie'}
         </Button>
       </div>
     </form>
@@ -533,7 +567,7 @@ function FeedAdvice({
 }) {
   if (recKg == null || perBirdG == null) {
     return (
-      <Note tone="amber">
+      <Note tone="amber" icon={<Lightbulb />}>
         Pas encore de recommandation pour cette souche : une pesée du lot permet d'estimer le besoin quotidien (environ{' '}
         {isLayer ? '5' : '4'} % du poids vif).
       </Note>
@@ -550,7 +584,7 @@ function FeedAdvice({
     else message = 'Un peu au-dessus du besoin : contrôlez les sacs à vide et le gaspillage.';
   }
   return (
-    <Note tone={tone}>
+    <Note tone={tone} icon={<Lightbulb />}>
       <strong>Recommandation du jour : environ {num(recKg)} kg</strong> ({num(perBirdG, 0)} g par oiseau)
       {feedKg > 0 && devPct != null ? ` · saisi ${num(feedKg)} kg (${devPct >= 0 ? '+' : ''}${num(devPct, 0)} %)` : ''}.{' '}
       {message}
@@ -569,7 +603,7 @@ function WaterRatio({ ratio }: { ratio: number }) {
     highCritical: "Excès d'eau très marqué : vérifiez les fuites d'abreuvoirs.",
   };
   return (
-    <Note tone={zone === 'ok' ? 'emerald' : zone === 'low' || zone === 'high' ? 'amber' : 'red'}>
+    <Note tone={zone === 'ok' ? 'emerald' : zone === 'low' || zone === 'high' ? 'amber' : 'red'} icon={<Droplets />}>
       Eau bue / aliment donné : {num(ratio)} L par kg (norme 1,8 à 2,6). {messages[zone]}
     </Note>
   );

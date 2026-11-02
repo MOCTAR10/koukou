@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertTriangle, PackagePlus, Plus } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, Clock, Coins, Layers, Package, PackagePlus, PackageX, Plus, Scale, TrendingDown, TrendingUp, Warehouse, Wheat } from 'lucide-react';
 import { api } from '../api/client';
 import type { FeedProduct, FeedStockSummary } from '../api/types';
 import type { FeedMovement } from '../api/types-flock';
@@ -125,11 +125,12 @@ export function StockPage() {
     <div className="space-y-5">
       <PageHeader
         title="Stock"
+        icon={<Warehouse />}
         subtitle="Provende, médicaments et matières premières"
         actions={
           <div className="flex gap-2">
             <Button tone="secondary" onClick={() => setLosing(true)}>
-              <AlertTriangle className="h-4 w-4" /> Déclarer une perte
+              <PackageX className="h-4 w-4" /> Déclarer une perte
             </Button>
             <Button onClick={() => setReceiving(true)}>
               <PackagePlus className="h-4 w-4" /> Réception de stock
@@ -142,10 +143,10 @@ export function StockPage() {
         value={tab}
         onChange={setTab}
         options={[
-          { key: 'stock', label: 'Stock' },
-          { key: 'lots', label: 'Lots reçus' },
-          { key: 'mouvements', label: 'Mouvements' },
-          { key: 'catalogue', label: 'Catalogue' },
+          { key: 'stock', label: 'Stock', icon: <Wheat /> },
+          { key: 'lots', label: 'Lots reçus', icon: <Package /> },
+          { key: 'mouvements', label: 'Mouvements', icon: <ArrowDownRight /> },
+          { key: 'catalogue', label: 'Catalogue', icon: <PackagePlus /> },
         ]}
       />
 
@@ -154,32 +155,35 @@ export function StockPage() {
       {tab === 'stock' && stock.data ? (
         <>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <Metric label="Disponible" value={`${num(summary.available, 0)} kg`} />
-            <Metric label="Valeur estimée" value={summary.value > 0 ? fcfa(Math.round(summary.value)) : '—'} sub="au prix moyen constaté" />
-            <Metric label="Phases en stock" value={summary.phases} />
+            <Metric label="Disponible" icon={<Wheat />} value={`${num(summary.available, 0)} kg`} />
+            <Metric label="Valeur estimée" icon={<Coins />} value={summary.value > 0 ? fcfa(Math.round(summary.value)) : '—'} sub="au prix moyen constaté" />
+            <Metric label="Phases en stock" icon={<Layers />} value={summary.phases} />
             <Metric
               label="Autonomie minimale"
+              icon={<Package />}
               value={summary.minAutonomy != null ? `${num(summary.minAutonomy)} j` : '—'}
               tone={summary.minAutonomy == null ? undefined : summary.minAutonomy < 3 ? 'bad' : summary.minAutonomy < 5 ? 'warn' : 'good'}
             />
           </div>
           {expiringSoon.length > 0 ? (
-            <Note tone="amber">
+            <Note tone="amber" icon={<AlertTriangle />}>
               {expiringSoon.length} lot{expiringSoon.length > 1 ? 's' : ''} périmé{expiringSoon.length > 1 ? 's' : ''} ou proche
               {expiringSoon.length > 1 ? 's' : ''} de la péremption (14 jours) : {expiringSoon.map((l) => l.productName).join(', ')}.
             </Note>
           ) : null}
           {insight ? (
-            <SectionCard title="Analyse de la consommation">
+            <SectionCard title="Analyse de la consommation" icon={<TrendingUp />}>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                <Metric label="Moyenne 7 jours" value={`${num(insight.avg7)} kg/j`} sub={`sur 14 jours : ${num(insight.avg14)} kg/j`} />
+                <Metric label="Moyenne 7 jours" icon={<Wheat />} value={`${num(insight.avg7)} kg/j`} sub={`sur 14 jours : ${num(insight.avg14)} kg/j`} />
                 <Metric
                   label="Tendance"
+                  icon={insight.trend != null && insight.trend < 0 ? <TrendingDown /> : <TrendingUp />}
                   value={insight.trend != null ? `${insight.trend >= 0 ? '+' : ''}${num(insight.trend, 0)} %` : '—'}
                 />
-                <Metric label="Couverture" value={insight.coverage != null ? `${num(insight.coverage, 0)} j` : '—'} />
+                <Metric label="Couverture" icon={<Clock />} value={insight.coverage != null ? `${num(insight.coverage, 0)} j` : '—'} />
                 <Metric
                   label="Coût quotidien"
+                  icon={<Coins />}
                   value={insight.costPerDay != null ? fcfa(Math.round(insight.costPerDay)) : '—'}
                   sub={insight.pricePerKg != null ? `${fcfa(Math.round(insight.pricePerKg))} / kg` : undefined}
                 />
@@ -193,10 +197,10 @@ export function StockPage() {
               </p>
             </SectionCard>
           ) : null}
-          <SectionCard title="Inventaire par phase" subtitle="Autonomie en jours et lot à utiliser en premier" flush>
+          <SectionCard title="Inventaire par phase" icon={<Wheat />} subtitle="Autonomie en jours et lot à utiliser en premier" flush>
             {byType.length === 0 ? (
               <div className="p-4">
-                <EmptyState message="Aucun stock : enregistrez votre première réception." />
+                <EmptyState message="Aucun stock : enregistrez votre première réception." icon={<Scale />} />
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -245,10 +249,10 @@ export function StockPage() {
       ) : null}
 
       {tab === 'lots' && stock.data ? (
-        <SectionCard title="Lots reçus" subtitle="Traçabilité fournisseur et péremption" flush>
+        <SectionCard title="Lots reçus" icon={<Package />} subtitle="Traçabilité fournisseur et péremption" flush>
           {stock.data.lots.length === 0 ? (
             <div className="p-4">
-              <EmptyState message="Aucun lot reçu." />
+              <EmptyState message="Aucun lot reçu." icon={<Package />} />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -295,13 +299,13 @@ export function StockPage() {
       ) : null}
 
       {tab === 'mouvements' ? (
-        <SectionCard title="Journal des mouvements" subtitle="Consommations liées, pertes et ventes" actions={<PeriodBar value={period} onChange={setPeriod} />} flush>
+        <SectionCard title="Journal des mouvements" icon={<ArrowDownRight />} subtitle="Consommations liées, pertes et ventes" actions={<PeriodBar value={period} onChange={setPeriod} />} flush>
           <ErrorNote error={movements.error} />
           {movements.isLoading ? (
             <Loading />
           ) : mvts.filter((m) => inPeriod(period, m.date)).length === 0 ? (
             <div className="p-4">
-              <EmptyState message="Aucun mouvement sur cette période." />
+              <EmptyState message="Aucun mouvement sur cette période." icon={<ArrowDownRight />} />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -393,13 +397,13 @@ function CatalogPanel() {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="lg:col-span-2">
-        <SectionCard title="Catalogue de la ferme" subtitle="Votre provende habituelle" flush>
+        <SectionCard title="Catalogue de la ferme" icon={<PackagePlus />} subtitle="Votre provende habituelle" flush>
           <ErrorNote error={products.error} />
           {products.isLoading ? (
             <Loading />
           ) : !products.data?.length ? (
             <div className="p-4">
-              <EmptyState message="Aucun produit au catalogue." />
+              <EmptyState message="Aucun produit au catalogue." icon={<Package />} />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -443,7 +447,7 @@ function CatalogPanel() {
           )}
         </SectionCard>
       </div>
-      <SectionCard title="Ajouter un produit">
+      <SectionCard title="Ajouter un produit" icon={<Plus />}>
         <form onSubmit={submit} className="space-y-3">
           <Field label="Nom *">
             <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Provende ponte 50" required />

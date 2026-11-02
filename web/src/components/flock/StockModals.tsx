@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { ArrowDownRight, Box, Calendar, Check, Package, PackageOpen, PackageX, Pill, Scale, Truck, Wheat } from 'lucide-react';
 import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type { FeedEntryType, FeedLossReason } from '../../api/types-flock';
@@ -10,6 +11,7 @@ import {
   ENTRY_TYPE_LABEL,
   FEED_PHASES,
   FEED_PHASE_LABEL,
+  IconField,
   LOSS_REASON_LABEL,
   Note,
   Tabs,
@@ -97,6 +99,12 @@ const ENTRY_DESC: Record<FeedEntryType, string> = {
 };
 
 const ENTRY_TYPES: FeedEntryType[] = ['BULKER', 'BAG', 'MEDICAMENT', 'MATIERE_PREMIERE'];
+const ENTRY_ICON: Record<FeedEntryType, ReactNode> = {
+  BULKER: <Truck />,
+  BAG: <PackageOpen />,
+  MEDICAMENT: <Pill />,
+  MATIERE_PREMIERE: <Box />,
+};
 const BAG_SIZES = [10, 25, 40, 50];
 
 function intFcfa(raw: string): number | undefined {
@@ -189,7 +197,7 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
         <Tabs
           value={entryType}
           onChange={setEntryType}
-          options={ENTRY_TYPES.map((t) => ({ key: t, label: ENTRY_TYPE_LABEL[t] }))}
+          options={ENTRY_TYPES.map((t) => ({ key: t, label: ENTRY_TYPE_LABEL[t], icon: ENTRY_ICON[t] }))}
         />
         <p className="text-sm text-slate-500">{ENTRY_DESC[entryType]}</p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -207,20 +215,20 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
               ))}
             </datalist>
           </Field>
-          <Field label="Fournisseur *">
+          <IconField label="Fournisseur *" icon={<Truck />}>
             <input className={inputCls} value={supplier} onChange={(e) => setSupplier(e.target.value)} required />
-          </Field>
+          </IconField>
           <Field label="N° de lot fournisseur *">
             <input className={inputCls} value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} required />
           </Field>
-          <Field label="Date de réception *">
+          <IconField label="Date de réception *" icon={<Calendar />}>
             <input className={inputCls} type="date" max={localYmd()} value={received} onChange={(e) => setReceived(e.target.value)} required />
-          </Field>
-          <Field label="Date de péremption">
+          </IconField>
+          <IconField label="Date de péremption" icon={<Calendar />}>
             <input className={inputCls} type="date" value={expiration} onChange={(e) => setExpiration(e.target.value)} />
-          </Field>
+          </IconField>
           {isFeed ? (
-            <Field label="Phase d'alimentation">
+            <IconField label="Phase d'alimentation" icon={<Wheat />}>
               <select className={inputCls} value={phase} onChange={(e) => setPhase(e.target.value)}>
                 {FEED_PHASES.map((p) => (
                   <option key={p} value={p}>
@@ -228,7 +236,7 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
                   </option>
                 ))}
               </select>
-            </Field>
+            </IconField>
           ) : null}
           {isFeed && phase === 'PERSONNALISE' ? (
             <Field label="Nom de la phase">
@@ -237,9 +245,9 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
           ) : null}
           {entryType === 'BULKER' ? (
             <>
-              <Field label="Tonnage (t) *">
+              <IconField label="Tonnage (t) *" icon={<Scale />}>
                 <input className={inputCls} inputMode="decimal" value={tonnage} onChange={(e) => setTonnage(e.target.value)} required />
-              </Field>
+              </IconField>
               <Field label="Coût par tonne (FCFA)">
                 <input className={inputCls} inputMode="numeric" value={costPerMt} onChange={(e) => setCostPerMt(e.target.value.replace(/\D/g, ''))} />
               </Field>
@@ -247,9 +255,9 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
           ) : null}
           {entryType === 'BAG' ? (
             <>
-              <Field label="Nombre de sacs *">
+              <IconField label="Nombre de sacs *" icon={<PackageOpen />}>
                 <input className={inputCls} inputMode="numeric" value={bags} onChange={(e) => setBags(e.target.value.replace(/\D/g, ''))} required />
-              </Field>
+              </IconField>
               <Field label="Taille du sac (kg)">
                 <select className={inputCls} value={bagSize} onChange={(e) => setBagSize(e.target.value)}>
                   {[...new Set([...BAG_SIZES, Number(bagSize)])].sort((a, b) => a - b).map((s) => (
@@ -266,14 +274,14 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
           ) : null}
           {entryType === 'MEDICAMENT' ? (
             <>
-              <Field label="Principe actif *">
+              <IconField label="Principe actif *" icon={<Pill />}>
                 <input className={inputCls} list="flock-actives" value={additive} onChange={(e) => setAdditive(e.target.value)} required />
                 <datalist id="flock-actives">
                   {ACTIVE_INGREDIENTS.map((a) => (
                     <option key={a} value={a} />
                   ))}
                 </datalist>
-              </Field>
+              </IconField>
               <Field label="Quantité *">
                 <input className={inputCls} inputMode="decimal" value={doseQty} onChange={(e) => setDoseQty(e.target.value)} required />
               </Field>
@@ -293,9 +301,9 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
           ) : null}
           {entryType === 'MATIERE_PREMIERE' ? (
             <>
-              <Field label="Tonnage (t) *">
+              <IconField label="Tonnage (t) *" icon={<Scale />}>
                 <input className={inputCls} inputMode="decimal" value={tonnage} onChange={(e) => setTonnage(e.target.value)} required />
-              </Field>
+              </IconField>
               <Field label="Coût total (FCFA)">
                 <input className={inputCls} inputMode="numeric" value={totalCost} onChange={(e) => setTotalCost(e.target.value.replace(/\D/g, ''))} />
               </Field>
@@ -303,7 +311,7 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
           ) : null}
         </div>
         {isFeed && autonomy != null ? (
-          <Note tone={autonomy < 3 ? 'red' : autonomy < 5 ? 'amber' : 'slate'}>
+          <Note tone={autonomy < 3 ? 'red' : autonomy < 5 ? 'amber' : 'slate'} icon={<Package />}>
             Stock actuel {phaseLabel(phase).toLowerCase()} : {num(phaseRow?.availableKg ?? 0)} kg, soit {num(autonomy)} jours
             d'autonomie.
           </Note>
@@ -315,7 +323,7 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending} disabled={!canSubmit}>
-            Enregistrer la réception
+            <Check className="h-4 w-4" /> Enregistrer la réception
           </Button>
         </div>
       </form>
@@ -365,7 +373,7 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
           if (lot && qty > 0 && !exceeds) save.mutate();
         }}
       >
-        <Field label="Lot d'aliment *">
+        <IconField label="Lot d'aliment *" icon={<Wheat />}>
           <select className={inputCls} value={lotId} onChange={(e) => setLotId(e.target.value)} required>
             <option value="">Sélectionner un lot…</option>
             {lots.map((l) => (
@@ -374,11 +382,11 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
               </option>
             ))}
           </select>
-        </Field>
+        </IconField>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Quantité perdue *">
+          <IconField label="Quantité perdue *" icon={<PackageX />}>
             <input className={inputCls} inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
-          </Field>
+          </IconField>
           <Field label="Unité" hint={unit === 'SAC' ? `Sac de ${sacKg} kg` : undefined}>
             <select className={inputCls} value={unit} onChange={(e) => setUnit(e.target.value as 'KG' | 'SAC')}>
               <option value="KG">Kilogrammes</option>
@@ -394,9 +402,9 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
               ))}
             </select>
           </Field>
-          <Field label="Date">
+          <IconField label="Date" icon={<Calendar />}>
             <input className={inputCls} type="date" max={localYmd()} value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} />
-          </Field>
+          </IconField>
         </div>
         <Field label="Notes">
           <textarea className={inputCls} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -408,7 +416,7 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending} disabled={!lot || qty <= 0 || exceeds}>
-            Déclarer la perte
+            <ArrowDownRight className="h-4 w-4" /> Déclarer la perte
           </Button>
         </div>
       </form>

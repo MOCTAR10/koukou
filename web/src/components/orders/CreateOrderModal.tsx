@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ClipboardList, Contact, Home, MapPin, Package, Plus, Search, Store, Trash2, Truck, UserPlus, Wallet, X } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import type { Customer } from '../../api/types';
 import type { CreateOrderBody, Order, OrderCanal, PointOfSale, SellableBatch } from '../../api/types-orders';
 import { useFarm } from '../../app/FarmContext';
+import { lotImage } from '../../lib/animalImages';
 import { fcfa, num } from '../../lib/format';
 import { normalizeGabonPhone } from '../../lib/phone';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { PhotoThumb } from '../ui';
 import { ensureCashOpen } from '../sales/pos';
 import { geocodeGabonAddress } from './geo';
 import {
@@ -84,14 +86,17 @@ function CustomerPicker({ onPick, onClose }: { onPick: (c: Customer) => void; on
   return (
     <div className="rounded-lg border border-slate-200 p-2">
       <div className="flex items-center gap-2">
-        <input
-          autoFocus
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher par nom, code ou téléphone…"
-          aria-label="Rechercher un client"
-          className={inputCls}
-        />
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher par nom, code ou téléphone…"
+            aria-label="Rechercher un client"
+            className={`${inputCls} pl-9`}
+          />
+        </div>
         <button type="button" onClick={onClose} aria-label="Fermer la recherche" className="rounded p-1 text-slate-400 hover:text-slate-700">
           <X className="h-4 w-4" />
         </button>
@@ -130,9 +135,10 @@ function CustomerPicker({ onPick, onClose }: { onPick: (c: Customer) => void; on
   );
 }
 
-function SectionTitle({ n, children }: { n?: number; children: string }) {
+function SectionTitle({ n, icon, children }: { n?: number; icon?: ReactNode; children: string }) {
   return (
-    <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+    <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:text-brand-600">
+      {icon}
       {n ? (
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">{n}</span>
       ) : null}
@@ -312,7 +318,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
         }}
       >
         <section>
-          <SectionTitle>Client de la commande</SectionTitle>
+          <SectionTitle icon={client ? <Contact /> : <UserPlus />}>Client de la commande</SectionTitle>
           {client ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand-50 px-3 py-2 ring-1 ring-brand-100">
               <div className="min-w-0">
@@ -327,7 +333,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
                   </b>
                 </span>
                 <Button tone="secondary" onClick={() => setClient(null)}>
-                  Retirer
+                  <X className="h-4 w-4" /> Retirer
                 </Button>
               </div>
             </div>
@@ -343,7 +349,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
                 />
               ) : (
                 <Button tone="secondary" onClick={() => setPickerOpen(true)}>
-                  Choisir un client existant
+                  <Contact className="h-4 w-4" /> Choisir un client existant
                 </Button>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
@@ -365,7 +371,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
         </section>
 
         <section className="space-y-3">
-          <SectionTitle>Retrait ou livraison</SectionTitle>
+          <SectionTitle icon={<MapPin />}>Retrait ou livraison</SectionTitle>
           <Segmented<PlaceKey>
             ariaLabel="Lieu de retrait ou de livraison"
             value={place}
@@ -374,9 +380,9 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
               setLocalError(null);
             }}
             options={[
-              { key: 'FERME', label: 'À la ferme' },
-              { key: 'PDV', label: 'Point de vente' },
-              { key: 'LIVRAISON', label: 'Livraison' },
+              { key: 'FERME', label: 'À la ferme', icon: <Home /> },
+              { key: 'PDV', label: 'Point de vente', icon: <Store /> },
+              { key: 'LIVRAISON', label: 'Livraison', icon: <Truck /> },
             ]}
           />
           <p className="text-xs text-slate-500">{PLACE_HINT[place]}</p>
@@ -429,11 +435,14 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
             ))}
           </select>
           {lot ? (
-            <p className="text-xs text-slate-500">
-              {[lot.breedCode, lot.breedName, lot.type === 'CHAIR' ? 'Chair' : 'Pondeuse'].filter(Boolean).join(' · ')} · J{lot.metrics.ageDays} ·{' '}
-              {num(lot.quantityAlive, 0)} vivants
-              {lotEggs > 0 ? ` · ${num(lotEggs, 0)} œufs, soit ${num(lotAlveoles, 0)} alvéoles` : ''}
-            </p>
+            <div className="flex items-center gap-3">
+              <PhotoThumb src={lotImage(lot.breedName, lot.species)} />
+              <p className="text-xs text-slate-500">
+                {[lot.breedCode, lot.breedName, lot.type === 'CHAIR' ? 'Chair' : 'Pondeuse'].filter(Boolean).join(' · ')} · J{lot.metrics.ageDays} ·{' '}
+                {num(lot.quantityAlive, 0)} vivants
+                {lotEggs > 0 ? ` · ${num(lotEggs, 0)} œufs, soit ${num(lotAlveoles, 0)} alvéoles` : ''}
+              </p>
+            </div>
           ) : null}
           {advice ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{advice}</p> : null}
         </section>
@@ -496,13 +505,13 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
             </Field>
           </div>
           <Button tone="secondary" disabled={qty <= 0 || price <= 0} onClick={addItem}>
-            Ajouter l’article
+            <Plus className="h-4 w-4" /> Ajouter l’article
           </Button>
         </section>
 
         {items.length > 0 ? (
           <section>
-            <SectionTitle>{`Articles de la commande (${items.length})`}</SectionTitle>
+            <SectionTitle icon={<Package />}>{`Articles de la commande (${items.length})`}</SectionTitle>
             <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
               {items.map((i, idx) => (
                 <li key={`${i.productType}-${idx}`} className="flex items-center justify-between gap-3 px-3 py-2">
@@ -535,7 +544,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
         ) : null}
 
         <section>
-          <SectionTitle>Acompte encaissé</SectionTitle>
+          <SectionTitle icon={<Wallet />}>Acompte encaissé</SectionTitle>
           <div className="grid items-start gap-3 sm:grid-cols-2">
             <Field label={`Montant reçu (FCFA) · ${depositShare}`}>
               <input
@@ -561,6 +570,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
             Fermer
           </Button>
           <Button type="submit" busy={create.isPending} disabled={items.length === 0}>
+            {create.isPending ? null : deposit > 0 ? <Wallet className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
             {deposit > 0 ? `Créer et encaisser ${fcfa(deposit)}` : 'Créer la commande'}
           </Button>
         </div>

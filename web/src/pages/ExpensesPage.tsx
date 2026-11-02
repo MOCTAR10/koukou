@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Info, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Banknote, Info, Pencil, Plus, ReceiptText, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../api/client';
 import type { Expense, SyncExpensesResult } from '../api/types-finance';
@@ -85,6 +85,7 @@ export function ExpensesPage() {
       <PageHeader
         title="Dépenses"
         subtitle="Suivi des charges et sorties de caisse"
+        icon={<ReceiptText />}
         actions={
           <Button onClick={() => setForm({ editing: null })}>
             <Plus className="h-4 w-4" /> Nouvelle dépense
@@ -122,7 +123,10 @@ export function ExpensesPage() {
       {expenses.isLoading ? (
         <Loading label="Chargement des dépenses…" />
       ) : expenses.isError ? null : rows.length === 0 ? (
-        <EmptyState message="Aucune dépense enregistrée. Les dépenses liées au cheptel (poussins, aliments, traitement) sont comptabilisées ici." />
+        <EmptyState
+          message="Aucune dépense enregistrée. Les dépenses liées au cheptel (poussins, aliments, traitement) sont comptabilisées ici."
+          icon={<ReceiptText />}
+        />
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">

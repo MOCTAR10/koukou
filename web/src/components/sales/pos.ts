@@ -7,6 +7,7 @@ import type {
   PromotionFull,
   StockTransfer,
 } from '../../api/types-sales';
+import { lotImage } from '../../lib/animalImages';
 
 export type PosProduct = 'PIECE' | 'KG' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'OEUF' | 'PROVENDE' | 'RECOLTE' | 'AUTRE';
 
@@ -64,6 +65,11 @@ export interface PosLine {
   /** Real weight for the per-kg products: base of the amount. */
   weightKg?: number;
   unitPriceFcfa: number;
+}
+
+/** Photo of a batch. The server sends breedName although PosBatch does not declare it. */
+export function batchPhoto(batch?: { breedName?: string | null; species?: string | null } | null): string | null {
+  return batch ? lotImage(batch.breedName, batch.species) : null;
 }
 
 export function isKgProduct(p: PosProduct): boolean {

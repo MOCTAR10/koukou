@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { CircleCheck, ClipboardList, Clock, Plus, Search, Truck, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -9,7 +9,7 @@ import { Button, ErrorNote, inputCls } from '../components/form';
 import { CreateOrderModal } from '../components/orders/CreateOrderModal';
 import { ORDER_CANAL_LABEL, ORDER_STATUS_LABEL } from '../components/orders/helpers';
 import { OrderDetailModal } from '../components/orders/OrderDetailModal';
-import { OrderStatusBadge, Segmented } from '../components/orders/shared';
+import { CanalIcon, OrderStatusBadge, Segmented } from '../components/orders/shared';
 import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { dateFr, fcfa, num } from '../lib/format';
 
@@ -85,6 +85,7 @@ export function OrdersPage() {
       <PageHeader
         title="Commandes"
         subtitle="Précommandes et bons de commande."
+        icon={<ClipboardList />}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" /> Nouvelle commande
@@ -93,11 +94,12 @@ export function OrdersPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="À livrer" value={num(stats.confirmed, 0)} hint="Confirmées" />
-        <StatCard label="En attente" value={num(stats.pending, 0)} hint="Sans acompte" tone={stats.pending > 0 ? 'warn' : 'default'} />
-        <StatCard label="Reste à encaisser" value={fcfa(stats.due)} hint="Sur les commandes en cours" tone={stats.due > 0 ? 'accent' : 'good'} />
+        <StatCard label="À livrer" value={num(stats.confirmed, 0)} hint="Confirmées" icon={<Truck />} />
+        <StatCard label="En attente" value={num(stats.pending, 0)} hint="Sans acompte" tone={stats.pending > 0 ? 'warn' : 'default'} icon={<Clock />} />
+        <StatCard label="Reste à encaisser" value={fcfa(stats.due)} hint="Sur les commandes en cours" tone={stats.due > 0 ? 'accent' : 'good'} icon={<Wallet />} />
         <StatCard
           label="Livré"
+          icon={<CircleCheck />}
           value={`${Math.round(stats.rate * 100)} %`}
           hint={`${num(stats.delivered, 0)} livrée(s), ${num(stats.cancelled, 0)} annulée(s) sur ${num(orders.length, 0)}`}
         />
@@ -110,13 +112,16 @@ export function OrdersPage() {
           onChange={setFilter}
           options={FILTERS.map((f) => ({ key: f.key, label: `${f.label} (${counts[f.key]})` }))}
         />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher (référence, client, téléphone)…"
-          aria-label="Rechercher une commande"
-          className={`${inputCls} max-w-sm`}
-        />
+        <div className="relative w-full max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher (référence, client, téléphone)…"
+            aria-label="Rechercher une commande"
+            className={`${inputCls} pl-9`}
+          />
+        </div>
       </div>
 
       <ErrorNote error={ordersQuery.error} />
@@ -125,6 +130,7 @@ export function OrdersPage() {
         <Loading label="Chargement des commandes…" />
       ) : rows.length === 0 && !ordersQuery.isError ? (
         <EmptyState
+          icon={<ClipboardList />}
           message={
             needle
               ? 'Aucune commande ne correspond à cette recherche.'
@@ -176,7 +182,12 @@ export function OrdersPage() {
                         {o.customer?.fullName ?? <span className="font-normal text-slate-400">Client non renseigné</span>}
                         {o.customer?.phone ? <span className="block text-xs font-normal text-slate-500">{o.customer.phone}</span> : null}
                       </Td>
-                      <Td className="whitespace-nowrap">{ORDER_CANAL_LABEL[o.canal] ?? o.canal}</Td>
+                      <Td className="whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CanalIcon canal={o.canal} className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          {ORDER_CANAL_LABEL[o.canal] ?? o.canal}
+                        </span>
+                      </Td>
                       <Td>
                         {o.batch?.batchName ?? 'Œufs'}
                         <span className="block text-xs text-slate-500">

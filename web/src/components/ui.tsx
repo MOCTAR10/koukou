@@ -23,20 +23,93 @@ export function Card({
   );
 }
 
+export type IconTone = 'brand' | 'green' | 'amber' | 'red' | 'accent' | 'slate';
+
+const TILE_TONES: Record<IconTone, string> = {
+  brand: 'bg-brand-600/10 text-brand-700',
+  green: 'bg-emerald-600/10 text-emerald-700',
+  amber: 'bg-amber-500/15 text-amber-700',
+  red: 'bg-red-600/10 text-red-700',
+  accent: 'bg-accent-500/15 text-accent-700',
+  slate: 'bg-slate-500/10 text-slate-600',
+};
+
+const TILE_SIZES = {
+  sm: 'h-8 w-8 rounded-lg [&>svg]:h-4 [&>svg]:w-4',
+  md: 'h-10 w-10 rounded-xl [&>svg]:h-5 [&>svg]:w-5',
+  lg: 'h-12 w-12 rounded-2xl [&>svg]:h-6 [&>svg]:w-6',
+};
+
+/** Tinted square behind an icon, the same treatment as the mobile tiles. */
+export function IconTile({
+  icon,
+  tone = 'brand',
+  size = 'md',
+  className,
+}: {
+  icon: ReactNode;
+  tone?: IconTone;
+  size?: keyof typeof TILE_SIZES;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className={classNames(
+        'inline-flex shrink-0 items-center justify-center',
+        TILE_TONES[tone],
+        TILE_SIZES[size],
+        className,
+      )}
+    >
+      {icon}
+    </span>
+  );
+}
+
+/** Round photo of a breed, species or egg. Decorative: the name sits next to it. */
+export function PhotoThumb({
+  src,
+  size = 'md',
+  className,
+}: {
+  src: string | null | undefined;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}) {
+  const box = { sm: 'h-8 w-8', md: 'h-10 w-10', lg: 'h-14 w-14' }[size];
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      className={classNames('shrink-0 rounded-xl object-cover ring-1 ring-slate-200', box, className)}
+    />
+  );
+}
+
 export function PageHeader({
   title,
   subtitle,
   actions,
+  icon,
+  iconTone = 'brand',
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  icon?: ReactNode;
+  iconTone?: IconTone;
 }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
-        {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+      <div className="flex min-w-0 items-center gap-3">
+        {icon ? <IconTile icon={icon} tone={iconTone} size="lg" /> : null}
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+          {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+        </div>
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>
@@ -63,6 +136,13 @@ export function StatCard({
     warn: 'text-amber-600',
     accent: 'text-accent-700',
   };
+  const iconTones: Record<string, IconTone> = {
+    default: 'brand',
+    good: 'green',
+    bad: 'red',
+    warn: 'amber',
+    accent: 'accent',
+  };
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
@@ -75,7 +155,7 @@ export function StatCard({
           </p>
           {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
         </div>
-        {icon ? <div className="shrink-0 text-slate-400">{icon}</div> : null}
+        {icon ? <IconTile icon={icon} tone={iconTones[tone]} /> : null}
       </div>
     </Card>
   );
@@ -124,9 +204,10 @@ export function Loading({ label = 'Chargement…' }: { label?: string }) {
   );
 }
 
-export function EmptyState({ message }: { message: string }) {
+export function EmptyState({ message, icon }: { message: string; icon?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
+      {icon ? <IconTile icon={icon} tone="slate" size="lg" /> : null}
       {message}
     </div>
   );

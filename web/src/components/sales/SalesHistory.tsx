@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ReceiptText } from 'lucide-react';
 import { api } from '../../api/client';
 import type { PointOfSale, SaleFull } from '../../api/types-sales';
 import { ErrorNote, inputCls, todayIso } from '../form';
@@ -45,7 +46,9 @@ export function SalesHistory({ farmId, pointsOfSale }: { farmId: string | null; 
     <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-slate-700">Reçus et historique</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <ReceiptText className="h-4 w-4 text-brand-600" /> Reçus et historique
+          </h2>
           <p className="text-xs text-slate-500">
             {num(rows.length)} vente(s) · {fcfa(total)} hors annulations
           </p>
@@ -85,7 +88,7 @@ export function SalesHistory({ farmId, pointsOfSale }: { farmId: string | null; 
         </div>
       ) : rows.length === 0 ? (
         <div className="p-4">
-          <EmptyState message="Aucune vente sur cette période." />
+          <EmptyState icon={<ReceiptText />} message="Aucune vente sur cette période." />
         </div>
       ) : (
         <div className="overflow-x-auto">

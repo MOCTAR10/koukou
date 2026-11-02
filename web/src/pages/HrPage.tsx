@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { Briefcase, PencilLine, Users } from 'lucide-react';
+import { Briefcase, PencilLine, UserRound, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { FarmMember } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
 import { ErrorNote } from '../components/form';
 import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL } from '../components/org/shared';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
 
 export function HrPage() {
@@ -26,6 +26,7 @@ export function HrPage() {
     <div className="space-y-6">
       <PageHeader
         title="Dossiers RH"
+        icon={<Briefcase className="h-6 w-6" />}
         subtitle={farm?.name}
         actions={
           <Link
@@ -49,13 +50,16 @@ export function HrPage() {
           </div>
 
           <Card className="overflow-hidden">
-            <div className="border-b border-slate-100 px-4 py-3">
-              <h2 className="text-sm font-semibold text-slate-700">Employés ({list.length})</h2>
-              <p className="text-xs text-slate-400">Contrat, poste et rémunération</p>
+            <div className="flex items-center gap-2.5 border-b border-slate-100 px-4 py-3">
+              <IconTile icon={<UserRound className="h-4 w-4" />} size="sm" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-slate-700">Employés ({list.length})</h2>
+                <p className="text-xs text-slate-400">Contrat, poste et rémunération</p>
+              </div>
             </div>
             {list.length === 0 ? (
               <div className="p-4">
-                <EmptyState message="Aucun employé rattaché à la ferme pour le moment." />
+                <EmptyState message="Aucun employé rattaché à la ferme pour le moment." icon={<Users className="h-6 w-6" />} />
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -76,8 +80,13 @@ export function HrPage() {
                     {list.map((m) => (
                       <tr key={m.id} className="border-t border-slate-100 align-top">
                         <Td className="font-medium text-slate-900">
-                          {m.user.fullName}
-                          <div className="text-xs font-normal text-slate-500">{m.user.phone}</div>
+                          <div className="flex items-center gap-2.5">
+                            <IconTile icon={<UserRound className="h-4 w-4" />} size="sm" />
+                            <div className="min-w-0">
+                              {m.user.fullName}
+                              <div className="text-xs font-normal text-slate-500">{m.user.phone}</div>
+                            </div>
+                          </div>
                         </Td>
                         <Td>
                           {m.jobTitle?.trim() || STAFF_ROLE_LABEL[m.role]}

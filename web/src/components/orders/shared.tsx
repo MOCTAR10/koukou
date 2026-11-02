@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Check, Loader2, MapPin } from 'lucide-react';
+import { Check, Clock, Home, Loader2, MapPin, Store, Ticket, Truck, X, type LucideIcon } from 'lucide-react';
 import { Button, ErrorNote, Modal, inputCls } from '../form';
 import { classNames } from '../../lib/format';
 import { GABON_PROVINCES, suggestGabonAddress, type GeoResult } from './geo';
@@ -12,16 +12,31 @@ const ORDER_STATUS_TONE: Record<string, string> = {
   CANCELLED: 'bg-red-50 text-red-700 ring-red-200',
 };
 
+const ORDER_STATUS_ICON: Record<string, LucideIcon> = { PENDING: Clock, CONFIRMED: Check, LIVRE: Truck, CANCELLED: X };
+
+const CANAL_ICON: Record<string, LucideIcon> = { FERME: Home, PRECOMMANDE: Store, LIVRAISON: Truck };
+
+export function CanalIcon({ canal, className }: { canal: string; className?: string }) {
+  const Icon = CANAL_ICON[canal] ?? Ticket;
+  return <Icon className={className} />;
+}
+
 export function Pill({ tone, children }: { tone: string; children: ReactNode }) {
   return (
-    <span className={classNames('inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1', tone)}>
+    <span className={classNames('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1', tone)}>
       {children}
     </span>
   );
 }
 
 export function OrderStatusBadge({ status }: { status: string }) {
-  return <Pill tone={ORDER_STATUS_TONE[status] ?? 'bg-slate-100 text-slate-600 ring-slate-200'}>{ORDER_STATUS_LABEL[status] ?? status}</Pill>;
+  const Icon = ORDER_STATUS_ICON[status];
+  return (
+    <Pill tone={ORDER_STATUS_TONE[status] ?? 'bg-slate-100 text-slate-600 ring-slate-200'}>
+      {Icon ? <Icon className="h-3 w-3" /> : null}
+      {ORDER_STATUS_LABEL[status] ?? status}
+    </Pill>
+  );
 }
 
 /** Row of mutually exclusive options. */
@@ -32,7 +47,7 @@ export function Segmented<K extends string>({
   ariaLabel,
 }: {
   value: K;
-  options: { key: K; label: string }[];
+  options: { key: K; label: string; icon?: ReactNode }[];
   onChange: (key: K) => void;
   ariaLabel: string;
 }) {
@@ -45,12 +60,13 @@ export function Segmented<K extends string>({
           aria-pressed={value === o.key}
           onClick={() => onChange(o.key)}
           className={classNames(
-            'rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition [&>svg]:h-3.5 [&>svg]:w-3.5',
             value === o.key
               ? 'border-brand-600 bg-brand-600 text-white'
               : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50',
           )}
         >
+          {o.icon}
           {o.label}
         </button>
       ))}
@@ -63,6 +79,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel,
+  confirmIcon,
   tone = 'danger',
   busy,
   error,
@@ -72,6 +89,7 @@ export function ConfirmDialog({
   title: string;
   message: ReactNode;
   confirmLabel: string;
+  confirmIcon?: ReactNode;
   tone?: 'danger' | 'primary';
   busy: boolean;
   error: unknown;
@@ -88,6 +106,7 @@ export function ConfirmDialog({
             Retour
           </Button>
           <Button tone={tone} busy={busy} onClick={onConfirm}>
+            {busy ? null : confirmIcon}
             {confirmLabel}
           </Button>
         </div>
@@ -108,14 +127,17 @@ export function ProvinceSelect({
   ariaLabel?: string;
 }) {
   return (
-    <select aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
-      <option value="">{emptyLabel}</option>
-      {GABON_PROVINCES.map((p) => (
-        <option key={p.name} value={p.name}>
-          {p.name} ({p.capital})
-        </option>
-      ))}
-    </select>
+    <div className="relative">
+      <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+      <select aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} className={classNames(inputCls, 'pl-9')}>
+        <option value="">{emptyLabel}</option>
+        {GABON_PROVINCES.map((p) => (
+          <option key={p.name} value={p.name}>
+            {p.name} ({p.capital})
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

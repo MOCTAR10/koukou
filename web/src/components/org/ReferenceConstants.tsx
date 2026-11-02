@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import { ChevronDown, ChevronUp, Lock, Scale } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../../api/client';
 import type { ReferenceConstant } from '../../api/types';
 import { num } from '../../lib/format';
 import { ErrorNote } from '../form';
-import { Card, Loading } from '../ui';
+import { Card, IconTile, Loading } from '../ui';
 
 /** Theme and unit of each seeded key. The wording itself comes from the server. */
 const GROUPS: Array<{ label: string; units: Record<string, string> }> = [
@@ -119,6 +119,7 @@ export function ReferenceConstants() {
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"
       >
+        <IconTile icon={<Scale className="h-4 w-4" />} size="sm" />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-slate-800">Seuils & repères</span>
           <span className="block text-xs text-slate-500">

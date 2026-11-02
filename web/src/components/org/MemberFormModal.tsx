@@ -1,6 +1,22 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Briefcase, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import {
+  Briefcase,
+  ChevronDown,
+  ChevronUp,
+  Coins,
+  HandCoins,
+  Landmark,
+  Settings,
+  ShieldCheck,
+  Sprout,
+  Stethoscope,
+  UserCog,
+  UserPlus,
+  Users,
+  Wheat,
+  type LucideIcon,
+} from 'lucide-react';
+import { createElement, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type {
   BuildingOption,
@@ -14,6 +30,20 @@ import { classNames } from '../../lib/format';
 import { isGabonPhoneValid, normalizeGabonPhone } from '../../lib/phone';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
 import { ConfirmModal, CONTRACT_LABEL, CONTRACT_TYPES, invalidateFarm, Pill, STAFF_ROLE_LABEL } from './shared';
+
+/** Same icon per permission group as the mobile settings screen. */
+const GROUP_ICONS: Record<string, LucideIcon> = {
+  production: Wheat,
+  team: Users,
+  rh: Briefcase,
+  agriculture: Sprout,
+  caisse: Coins,
+  ventes: HandCoins,
+  compta: Landmark,
+  stock: Wheat,
+  sanitaire: Stethoscope,
+  reglages: Settings,
+};
 
 /** Not offered by the server: Administrator role with hand-picked rights. */
 const CUSTOM_KEY = '__custom__';
@@ -188,7 +218,9 @@ export function MemberFormModal({
       <form className="space-y-5" onSubmit={submit}>
         {profiles.length > 0 ? (
           <div>
-            <p className="text-xs font-medium text-slate-600">Profil métier</p>
+            <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <UserCog className="h-3.5 w-3.5 text-brand-600" /> Profil métier
+            </p>
             <p className="mb-2 text-xs text-slate-400">Choisissez un profil : rôle, poste et droits sont pré-remplis.</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {[...profiles, CUSTOM_PROFILE].map((p) => {
@@ -255,11 +287,16 @@ export function MemberFormModal({
 
         {role === 'ADMIN' ? (
           <div>
-            <p className="mb-2 text-xs font-medium text-slate-600">Permissions de l’administrateur</p>
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-slate-600">
+              <ShieldCheck className="h-3.5 w-3.5 text-brand-600" /> Permissions de l’administrateur
+            </p>
             <div className="space-y-4">
               {(catalog?.groups ?? []).map((group) => (
                 <div key={group.key}>
-                  <p className="mb-1 text-sm font-semibold text-slate-800">{group.label}</p>
+                  <p className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                    {createElement(GROUP_ICONS[group.key] ?? ShieldCheck, { className: 'h-4 w-4 text-brand-600' })}
+                    {group.label}
+                  </p>
                   <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
                     {group.items.map((item) => (
                       <label key={item.code} className="flex items-start gap-2 rounded px-1 py-1 hover:bg-slate-50">
@@ -336,6 +373,7 @@ export function MemberFormModal({
               Annuler
             </Button>
             <Button type="submit" busy={save.isPending}>
+              {save.isPending ? null : member ? <ShieldCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
               {member ? 'Enregistrer' : 'Créer le compte'}
             </Button>
           </div>

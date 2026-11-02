@@ -1,16 +1,35 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Download, Package, Wheat } from 'lucide-react';
 import { api } from '../../api/client';
 import { Button, ErrorNote, Modal } from '../form';
+import { IconTile, PhotoThumb } from '../ui';
+import { EGG_IMAGES, SPECIES_IMAGES } from '../../lib/animalImages';
 import { classNames } from '../../lib/format';
 import { LEVEL_LABEL } from './labels';
+import type { PosProduct } from './pos';
+
+/** Photo or icon of a basket article: the lot's photo first, as on the mobile register. */
+export function ProductThumb({
+  product,
+  photo,
+  size = 'sm',
+}: {
+  product: PosProduct;
+  photo?: string | null;
+  size?: 'sm' | 'md';
+}) {
+  if (product === 'PROVENDE' || product === 'RECOLTE') return <IconTile icon={<Wheat />} tone="amber" size={size} />;
+  if (product === 'AUTRE') return <IconTile icon={<Package />} tone="slate" size={size} />;
+  return <PhotoThumb src={photo ?? (product === 'OEUF' ? EGG_IMAGES.alveole : SPECIES_IMAGES.POULET)} size={size} />;
+}
 
 /** Modal asking before a destructive or irreversible action. */
 export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  confirmIcon,
   cancelLabel = 'Annuler',
   tone = 'danger',
   busy,
@@ -21,6 +40,7 @@ export function ConfirmDialog({
   title: string;
   children: ReactNode;
   confirmLabel: string;
+  confirmIcon?: ReactNode;
   cancelLabel?: string;
   tone?: 'danger' | 'primary';
   busy?: boolean;
@@ -38,6 +58,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button tone={tone} busy={busy} onClick={onConfirm}>
+            {busy ? null : confirmIcon}
             {confirmLabel}
           </Button>
         </div>

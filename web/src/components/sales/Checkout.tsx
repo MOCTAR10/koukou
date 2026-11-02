@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Check, ReceiptText, Wallet, X } from 'lucide-react';
+import { BadgePercent, Banknote, Check, Coins, ReceiptText, UserRound, Wallet, X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { CustomerFull, PromotionFull, SaleCreated } from '../../api/types-sales';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../form';
@@ -45,7 +45,8 @@ export function CustomerPicker({
     const due = selected.balance?.outstandingFcfa ?? 0;
     return (
       <div className="flex items-start justify-between gap-2 rounded-lg bg-brand-50 px-3 py-2 ring-1 ring-brand-100">
-        <div className="min-w-0 text-sm">
+        <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+        <div className="min-w-0 flex-1 text-sm">
           <p className="truncate font-semibold text-slate-900">{selected.fullName}</p>
           <p className="truncate text-xs text-slate-500">
             {[selected.code, customerTypeLabel(selected.type), selected.phone].filter(Boolean).join(' · ')}
@@ -204,7 +205,10 @@ export function Checkout({
       </div>
 
       <div className="rounded-xl bg-slate-50 p-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total à encaisser</p>
+        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-500">
+          {isCredit ? <Wallet className="h-3.5 w-3.5 text-brand-600" /> : <Banknote className="h-3.5 w-3.5 text-emerald-600" />}
+          Total à encaisser
+        </p>
         <p className="text-2xl font-bold text-slate-900 tabular-nums">{fcfa(total)}</p>
         <div className="mt-2 flex justify-between text-sm text-slate-500">
           <span>Sous-total</span>
@@ -226,7 +230,8 @@ export function Checkout({
           placeholder="Ex. BIENVENUE10"
         />
         {promo ? (
-          <span className="mt-1 block text-xs text-emerald-700">
+          <span className="mt-1 flex items-center gap-1 text-xs text-emerald-700">
+            <BadgePercent className="h-3.5 w-3.5 shrink-0" />
             {promo.label} appliquée · remise {promo.type === 'PCT' ? `${promo.value} %` : fcfa(promo.value)}
           </span>
         ) : promoCode.trim() ? (
@@ -235,7 +240,8 @@ export function Checkout({
       </Field>
 
       <div className="space-y-2">
-        <p className="text-xs font-medium text-slate-600">
+        <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+          <UserRound className="h-3.5 w-3.5 text-slate-400" />
           {isCredit ? 'Client (requis pour une vente à crédit)' : 'Client (facultatif)'}
         </p>
         <CustomerPicker customers={customers.data ?? []} selected={customer} creditMode={isCredit} onSelect={setCustomer} />
@@ -262,7 +268,9 @@ export function Checkout({
             <span className={classNames('tabular-nums', creditDue > 0 && 'text-red-600')}>{fcfa(creditDue)}</span>
           </div>
           <div className="flex justify-between font-semibold text-brand-800">
-            <span>Nouveau solde dû</span>
+            <span className="flex items-center gap-1.5">
+              <Wallet className="h-4 w-4" /> Nouveau solde dû
+            </span>
             <span className="tabular-nums">{fcfa(creditDue + total)}</span>
           </div>
         </div>
@@ -273,7 +281,7 @@ export function Checkout({
               <input className={inputCls} inputMode="numeric" value={tendered} onChange={(e) => setTendered(e.target.value.replace(/\D/g, ''))} />
             </Field>
             <Button tone="secondary" disabled={total <= 0} onClick={() => setTendered(String(total))}>
-              Exact
+              <Banknote className="h-4 w-4" /> Exact
             </Button>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -295,7 +303,8 @@ export function Checkout({
             </span>
           </div>
           {!caisseOpen ? (
-            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+            <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+              <Coins className="mt-px h-3.5 w-3.5 shrink-0" />
               Caisse fermée : elle sera ouverte à l’encaissement avec la dernière clôture ({fcfa(lastClosing ?? 0)}).
             </p>
           ) : null}

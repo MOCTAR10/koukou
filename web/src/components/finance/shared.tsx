@@ -2,6 +2,7 @@ import { CheckCircle2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { classNames } from '../../lib/format';
 import { Button, ErrorNote, Modal } from '../form';
+import { IconTile, type IconTone } from '../ui';
 
 /** Confirmation dialog for destructive actions; keeps server errors in view. */
 export function ConfirmModal({
@@ -48,11 +49,24 @@ export function SuccessNote({ children }: { children: ReactNode }) {
   );
 }
 
-export function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+export function SectionTitle({
+  title,
+  subtitle,
+  icon,
+  iconTone = 'brand',
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: ReactNode;
+  iconTone?: IconTone;
+}) {
   return (
-    <div className="mb-3">
-      <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-      {subtitle ? <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p> : null}
+    <div className="mb-3 flex items-center gap-2.5">
+      {icon ? <IconTile icon={icon} tone={iconTone} size="sm" /> : null}
+      <div className="min-w-0">
+        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+        {subtitle ? <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p> : null}
+      </div>
     </div>
   );
 }

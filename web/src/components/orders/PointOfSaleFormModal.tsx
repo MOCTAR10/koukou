@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Check, Home, Plus, Store } from 'lucide-react';
 import { useState } from 'react';
 import { api } from '../../api/client';
 import type { PointOfSale, PointOfSaleBody } from '../../api/types-orders';
@@ -68,7 +69,8 @@ export function PointOfSaleFormModal({ initial, onClose }: { initial?: PointOfSa
           save.mutate();
         }}
       >
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        <p className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          {isDefault ? <Home className="mt-px h-3.5 w-3.5 shrink-0 text-brand-600" /> : <Store className="mt-px h-3.5 w-3.5 shrink-0 text-accent-700" />}
           {isDefault
             ? 'La ferme elle-même : un seul par exploitation, toujours active, non supprimable.'
             : 'Point de vente rattaché à la ferme, partout au Gabon. Il vend le stock transféré depuis la ferme (abattu, œufs, provende).'}
@@ -106,6 +108,7 @@ export function PointOfSaleFormModal({ initial, onClose }: { initial?: PointOfSa
             Fermer
           </Button>
           <Button type="submit" busy={save.isPending} disabled={!name.trim()}>
+            {save.isPending ? null : initial ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {initial ? 'Enregistrer les modifications' : 'Créer le point de vente'}
           </Button>
         </div>

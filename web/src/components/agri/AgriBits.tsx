@@ -1,4 +1,4 @@
-import { Droplets } from 'lucide-react';
+import { CalendarClock, Droplets, Sprout } from 'lucide-react';
 import type { Culture, ParcelleStatus } from '../../api/types-agri';
 import { classNames } from '../../lib/format';
 import { harvestDateFr, PARCELLE_STATUS_LABELS, waterNeedLabel, type CultureStageInfo } from './agri';
@@ -30,7 +30,15 @@ export function StageSummary({ stage, culture }: { stage: CultureStageInfo; cult
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2 text-xs">
-        <span className={classNames('font-semibold', due ? 'text-amber-700' : 'text-slate-800')}>{stage.label}</span>
+        <span
+          className={classNames(
+            'inline-flex items-center gap-1 font-semibold',
+            due ? 'text-amber-700' : 'text-slate-800',
+          )}
+        >
+          <Sprout className={classNames('h-3 w-3 shrink-0', due ? 'text-amber-600' : 'text-emerald-600')} />
+          {stage.label}
+        </span>
         {stage.harvestDate && stage.daysRemaining > 0 ? (
           <span className="text-slate-500">J-{stage.daysRemaining}</span>
         ) : null}
@@ -44,7 +52,8 @@ export function StageSummary({ stage, culture }: { stage: CultureStageInfo; cult
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-500">
-        <span>
+        <span className="inline-flex items-center gap-1">
+          <CalendarClock className="h-3 w-3 shrink-0 text-slate-400" />
           {stage.harvestDate ? `Récolte estimée le ${harvestDateFr(stage.harvestDate)}` : 'Pas d’échéance estimée'}
         </span>
         {water ? (

@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Bird, Calendar, Check, ClipboardPlus, HeartPulse, Pill, ShieldCheck, Stethoscope, Syringe, Trash2 } from 'lucide-react';
 import { api } from '../../api/client';
 import type {
   CareType,
@@ -13,12 +14,15 @@ import type {
   SanitaryProtocolWithSteps,
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { PhotoThumb } from '../ui';
 import {
   CARE_TYPES,
   CARE_TYPE_LABEL,
   HEALTH_KIND_LABEL,
+  IconField,
   Note,
   Tabs,
   addUtcDays,
@@ -29,6 +33,8 @@ import {
   useInvalidateFarm,
   utcYmd,
 } from './shared';
+
+const KIND_ICON = { MALADIE: <Stethoscope />, MORTALITE: <HeartPulse />, REFORME: <Trash2 /> };
 
 const DISEASES: Array<{ value: string; label: string }> = [
   { value: 'Newcastle disease', label: 'Maladie de Newcastle' },
@@ -154,23 +160,28 @@ export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => vo
   return (
     <Modal title="Signaler un événement de santé" onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4">
-        <p className="text-sm text-slate-500">
-          {lotName(lot)} · {kindLabel(lot)} · {num(lot.metrics.liveCount)} vivants
-        </p>
+        <div className="flex items-center gap-2.5">
+          <PhotoThumb src={lotImage(lot.breedName, lot.species)} />
+          <p className="text-sm text-slate-500">
+            {lotName(lot)} · {kindLabel(lot)} · {num(lot.metrics.liveCount)} vivants
+          </p>
+        </div>
         <Tabs
           value={kind}
           onChange={setKind}
           options={(['MALADIE', 'MORTALITE', 'REFORME'] as const).map((k: HealthEventKind & typeof kind) => ({
             key: k,
             label: HEALTH_KIND_LABEL[k],
+            icon: KIND_ICON[k],
           }))}
         />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Date *">
+          <IconField label="Date *" icon={<Calendar />}>
             <input className={inputCls} type="date" max={localYmd()} value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} required />
-          </Field>
-          <Field
+          </IconField>
+          <IconField
             label={needsQty ? "Nombre d'oiseaux *" : "Oiseaux touchés"}
+            icon={<Bird />}
             hint={kind === 'REFORME' ? "Un abattage sanitaire retire ces oiseaux de l'effectif vivant." : undefined}
           >
             <input
@@ -181,7 +192,7 @@ export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => vo
               placeholder="0"
               required={needsQty}
             />
-          </Field>
+          </IconField>
           {kind === 'MALADIE' ? (
             <>
               <Field label="Maladie *">
@@ -251,9 +262,9 @@ export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => vo
                 })}
               </div>
             </div>
-            <Field label="Traitement administré">
+            <IconField label="Traitement administré" icon={<Pill />}>
               <input className={inputCls} value={treatment} onChange={(e) => setTreatment(e.target.value)} />
-            </Field>
+            </IconField>
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" checked={vetConsulted} onChange={(e) => setVetConsulted(e.target.checked)} />
@@ -284,7 +295,7 @@ export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => vo
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending} disabled={!canSubmit}>
-            Enregistrer
+            <ClipboardPlus className="h-4 w-4" /> Enregistrer
           </Button>
         </div>
       </form>
@@ -347,9 +358,9 @@ export function EditScheduleModal({
               ))}
             </select>
           </Field>
-          <Field label="Date prévue">
+          <IconField label="Date prévue" icon={<Calendar />}>
             <input className={inputCls} type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} required />
-          </Field>
+          </IconField>
         </div>
         <Field label="Nom *">
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
@@ -379,7 +390,7 @@ export function EditScheduleModal({
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending} disabled={name.trim().length < 2}>
-            Enregistrer
+            <Check className="h-4 w-4" /> Enregistrer
           </Button>
         </div>
       </form>
@@ -494,8 +505,8 @@ export function PlanCareModal({
           value={mode}
           onChange={setMode}
           options={[
-            { key: 'manuel', label: 'Soin ponctuel' },
-            { key: 'programme', label: 'Programme de vaccination' },
+            { key: 'manuel', label: 'Soin ponctuel', icon: <Syringe /> },
+            { key: 'programme', label: 'Programme de vaccination', icon: <ShieldCheck /> },
           ]}
         />
         <div>
@@ -510,6 +521,7 @@ export function PlanCareModal({
                     setLotIds((cur) => (cur.includes(l.id) ? cur.filter((x) => x !== l.id) : [...cur, l.id]))
                   }
                 />
+                <PhotoThumb src={lotImage(l.breedName, l.species)} size="sm" />
                 <span className="truncate">
                   {lotName(l)} · {kindLabel(l)}
                 </span>
@@ -536,9 +548,9 @@ export function PlanCareModal({
               <Field label="Nom du produit *" className="sm:col-span-2">
                 <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex : Newcastle HB1" required />
               </Field>
-              <Field label="Date prévue *">
+              <IconField label="Date prévue *" icon={<Calendar />}>
                 <input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-              </Field>
+              </IconField>
               <Field label="Voie d'administration">
                 <select className={inputCls} value={route} onChange={(e) => setRoute(e.target.value)}>
                   <option value="">Non précisée</option>
@@ -592,7 +604,7 @@ export function PlanCareModal({
                 Annuler
               </Button>
               <Button type="submit" busy={planManual.isPending} disabled={!canManual}>
-                Planifier
+                <Check className="h-4 w-4" /> Planifier
               </Button>
             </div>
           </form>
@@ -652,7 +664,7 @@ export function PlanCareModal({
               </Button>
               {!result ? (
                 <Button busy={generate.isPending} disabled={!uniform || !chosenId} onClick={() => generate.mutate()}>
-                  Générer le programme
+                  <Check className="h-4 w-4" /> Générer le programme
                 </Button>
               ) : null}
             </div>
@@ -665,7 +677,7 @@ export function PlanCareModal({
 
 function Directives() {
   return (
-    <Note tone="brand">
+    <Note tone="brand" icon={<ShieldCheck />}>
       <p className="font-semibold">Directives vaccinales (Gabon)</p>
       <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
         {GABON_DIRECTIVES.map((d) => (
@@ -680,6 +692,7 @@ export function ConfirmModal({
   title,
   message,
   confirmLabel,
+  confirmIcon,
   busy,
   error,
   onConfirm,
@@ -688,6 +701,7 @@ export function ConfirmModal({
   title: string;
   message: string;
   confirmLabel: string;
+  confirmIcon?: ReactNode;
   busy: boolean;
   error: unknown;
   onConfirm: () => void;
@@ -703,6 +717,7 @@ export function ConfirmModal({
             Retour
           </Button>
           <Button tone="danger" busy={busy} onClick={onConfirm}>
+            {confirmIcon}
             {confirmLabel}
           </Button>
         </div>

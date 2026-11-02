@@ -1,7 +1,43 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ClipboardPlus, FileDown, Syringe, Wallet } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowLeft,
+  BadgeCheck,
+  Bird,
+  Check,
+  Clock,
+  Coins,
+  Copy,
+  Droplets,
+  Egg,
+  Factory,
+  FileText,
+  Gauge,
+  HeartPulse,
+  Layers,
+  Lock,
+  PackageCheck,
+  PenLine,
+  Pencil,
+  Receipt,
+  Scale,
+  ShieldCheck,
+  ShoppingCart,
+  Shrink,
+  Skull,
+  Stethoscope,
+  Syringe,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+  Warehouse,
+  Weight,
+  Wheat,
+} from 'lucide-react';
 import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type {
@@ -22,10 +58,11 @@ import type {
   TreatmentRecord,
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
 import { Button, ErrorNote, Modal } from '../form';
-import { EmptyState, Loading, Td, Th } from '../ui';
+import { EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
 import { DailyEntryModal } from './DailyEntryModal';
 import { ageWeek } from './feedRecommendation';
 import {
@@ -40,11 +77,13 @@ import {
   READY_REASON_LABEL,
   SectionCard,
   Tabs,
+  type Tone,
   batchStage,
   batchStatusPill,
   careChip,
   daysBetween,
   kindLabel,
+  levelIcon,
   levelTone,
   localYmd,
   lotName,
@@ -107,35 +146,44 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-xl font-bold text-slate-900">{lotName(lot)}</h2>
-            <p className="text-sm text-slate-500">
-              {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'}
-              {building ? ` · ${building.name}` : ''} · démarré le {dateFr(lot.integrationDate)} avec{' '}
-              {num(lot.quantityAtStart)} oiseaux
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <Pill tone={stage.tone}>{stage.label}</Pill>
-              {pill ? <Pill tone={pill.tone}>{pill.label}</Pill> : null}
-              {care && isActive ? <Pill tone={care.tone}>{care.label}</Pill> : null}
-              {lot.metrics.alerts > 0 ? (
-                <Pill tone="red">
-                  {lot.metrics.alerts} alerte{lot.metrics.alerts > 1 ? 's' : ''}
-                </Pill>
-              ) : null}
+          <div className="flex min-w-0 items-start gap-4">
+            <PhotoThumb src={lotImage(lot.breedName, lot.species)} size="lg" className="!h-20 !w-20" />
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-slate-900">{lotName(lot)}</h2>
+              <p className="text-sm text-slate-500">
+                {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'}
+                {building ? ` · ${building.name}` : ''} · démarré le {dateFr(lot.integrationDate)} avec{' '}
+                {num(lot.quantityAtStart)} oiseaux
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <Pill tone={stage.tone}>{stage.label}</Pill>
+                {pill ? <Pill tone={pill.tone}>{pill.label}</Pill> : null}
+                {care && isActive ? (
+                  <Pill tone={care.tone}>
+                    <Syringe className="mr-1 h-3 w-3" />
+                    {care.label}
+                  </Pill>
+                ) : null}
+                {lot.metrics.alerts > 0 ? (
+                  <Pill tone="red">
+                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    {lot.metrics.alerts} alerte{lot.metrics.alerts > 1 ? 's' : ''}
+                  </Pill>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {isActive ? (
               <Button onClick={() => setEntry({})}>
-                <ClipboardPlus className="h-4 w-4" /> Saisir
+                <PenLine className="h-4 w-4" /> Saisir
               </Button>
             ) : null}
             <Link
               to="/app/finance/ventes"
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <Wallet className="h-4 w-4" /> Encaisser
+              <ShoppingCart className="h-4 w-4" /> Encaisser
             </Link>
             <Button
               tone="secondary"
@@ -146,7 +194,7 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
                 )
               }
             >
-              <FileDown className="h-4 w-4" /> Passeport PDF
+              <FileText className="h-4 w-4" /> Passeport PDF
             </Button>
             {isActive ? (
               <Link
@@ -158,12 +206,12 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
             ) : null}
             {lot.status === 'ACTIF' ? (
               <Button tone="secondary" onClick={() => setConfirmSelling(true)}>
-                Passer en vente
+                <BadgeCheck className="h-4 w-4" /> Passer en vente
               </Button>
             ) : null}
             {isActive ? (
               <Button tone="danger" onClick={() => setClosing(true)}>
-                Clôturer
+                <Lock className="h-4 w-4" /> Clôturer
               </Button>
             ) : null}
           </div>
@@ -191,11 +239,11 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
         value={tab}
         onChange={setTab}
         options={[
-          { key: 'vue', label: 'Vue' },
-          { key: 'courbes', label: 'Courbes' },
-          { key: 'saisies', label: 'Saisies' },
-          { key: 'historique', label: 'Historique' },
-          { key: 'sanitaire', label: 'Sanitaire' },
+          { key: 'vue', label: 'Vue', icon: <Layers /> },
+          { key: 'courbes', label: 'Courbes', icon: <Activity /> },
+          { key: 'saisies', label: 'Saisies', icon: <PenLine /> },
+          { key: 'historique', label: 'Historique', icon: <Clock /> },
+          { key: 'sanitaire', label: 'Sanitaire', icon: <HeartPulse /> },
         ]}
       />
 
@@ -220,7 +268,7 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
                 Annuler
               </Button>
               <Button busy={toSale.isPending} onClick={() => toSale.mutate()}>
-                Passer en vente
+                <BadgeCheck className="h-4 w-4" /> Passer en vente
               </Button>
             </div>
           </div>
@@ -253,7 +301,7 @@ function CloseLotModal({ lot, onClose }: { lot: Lot; onClose: () => void }) {
             Annuler
           </Button>
           <Button tone="danger" busy={close.isPending} onClick={() => close.mutate()}>
-            Clôturer le lot
+            <Lock className="h-4 w-4" /> Clôturer le lot
           </Button>
         </div>
       </div>
@@ -368,41 +416,45 @@ function OverviewTab({ lot }: { lot: Lot }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
-        <SectionCard title="Performance">
+        <SectionCard title="Performance" icon={<Gauge />}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Metric label="Vivants" value={num(m.liveCount)} sub={`sur ${num(lot.quantityAtStart)}`} />
+            <Metric label="Vivants" icon={<Bird />} value={num(m.liveCount)} sub={`sur ${num(lot.quantityAtStart)}`} />
             <Metric
               label="Mortalité"
+              icon={<HeartPulse />}
               value={`${num(m.mortalityPercent)} %`}
               sub={`${num(m.totalDeaths)} morts`}
               tone={m.mortalityPercent >= 5 ? 'bad' : m.mortalityPercent >= 3 ? 'warn' : 'good'}
             />
-            <Metric label="Viabilité" value={`${num(m.viabilityPercent)} %`} />
-            <Metric label="Indice de consommation" value={m.fcr != null ? num(m.fcr, 2) : '—'} />
-            <Metric label="GMQ" value={m.gmqGramsPerDay != null ? `${num(m.gmqGramsPerDay, 0)} g/j` : '—'} />
+            <Metric label="Viabilité" icon={<HeartPulse />} value={`${num(m.viabilityPercent)} %`} />
+            <Metric label="Indice de consommation" icon={<Scale />} value={m.fcr != null ? num(m.fcr, 2) : '—'} />
+            <Metric label="GMQ" icon={<TrendingUp />} value={m.gmqGramsPerDay != null ? `${num(m.gmqGramsPerDay, 0)} g/j` : '—'} />
             <Metric
               label="IPE"
+              icon={<Activity />}
               value={m.ipe != null ? num(m.ipe, 0) : '—'}
               sub={m.ipeTarget != null ? `cible ${num(m.ipeTarget, 0)}` : undefined}
             />
             <Metric
               label="Poids moyen"
+              icon={<Weight />}
               value={weighing?.avgWeightKg != null ? `${num(weighing.avgWeightKg, 2)} kg` : '—'}
               sub={m.lastWeighingDate ? `${dateFr(m.lastWeighingDate)}${m.lastWeighingAgeDays != null ? ` (J${m.lastWeighingAgeDays})` : ''}` : 'aucune pesée'}
             />
             <Metric
               label="Aliment / oiseau"
+              icon={<Wheat />}
               value={feedPerBird != null ? `${num(feedPerBird, 0)} g` : '—'}
               sub={`${num(m.totalFeedKg)} kg au total`}
             />
-            <Metric label="Densité" value={m.densityPerM2 != null ? `${num(m.densityPerM2)}/m²` : '—'} />
+            <Metric label="Densité" icon={<Layers />} value={m.densityPerM2 != null ? `${num(m.densityPerM2)}/m²` : '—'} />
             {isLayer ? (
-              <Metric label="Taux de ponte" value={m.layRatePercent != null ? `${num(m.layRatePercent)} %` : '—'} />
+              <Metric label="Taux de ponte" icon={<Egg />} value={m.layRatePercent != null ? `${num(m.layRatePercent)} %` : '—'} />
             ) : null}
           </div>
           {lot.status !== 'CLOTURE' && (weighingAge == null || weighingAge > 7) ? (
             <div className="mt-3">
-              <Note tone="amber">
+              <Note tone="amber" icon={<Scale />}>
                 {weighingAge == null
                   ? "Aucune pesée enregistrée : le poids et le GMQ du lot restent inconnus."
                   : `Dernière pesée il y a ${weighingAge} jours : une pesée par semaine garde le suivi fiable.`}
@@ -412,18 +464,18 @@ function OverviewTab({ lot }: { lot: Lot }) {
         </SectionCard>
 
         {isLayer || collected > 0 ? (
-          <SectionCard title="Production d'œufs">
+          <SectionCard title="Production d'œufs" icon={<Egg />} iconTone="accent">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Metric label="Récolte du jour" value={lastEggs ? num(lastEggs.eggsCollected, 0) : '—'} sub={lastEggs ? dateFr(lastEggs.entryDate) : undefined} />
-              <Metric label="Total collecté" value={num(collected, 0)} sub={`≈ ${num(collected / EGGS_PER_ALVEOL, 0)} alvéoles`} />
-              <Metric label="Commercialisables" value={pondage.data?.sellableRatioPercent != null ? `${num(pondage.data.sellableRatioPercent)} %` : '—'} />
-              <Metric label="Casse" value={crackedPct != null ? `${num(crackedPct)} %` : '—'} sub={eggs ? `${num(eggs.cracked, 0)} fêlés` : undefined} />
-              <Metric label="Œufs / poule" value={pondage.data?.eggsPerHen != null ? num(pondage.data.eggsPerHen) : '—'} />
+              <Metric label="Récolte du jour" image={EGG_IMAGES.oeuf} value={lastEggs ? num(lastEggs.eggsCollected, 0) : '—'} sub={lastEggs ? dateFr(lastEggs.entryDate) : undefined} />
+              <Metric label="Total collecté" image={EGG_IMAGES.alveole} value={num(collected, 0)} sub={`≈ ${num(collected / EGGS_PER_ALVEOL, 0)} alvéoles`} />
+              <Metric label="Commercialisables" icon={<PackageCheck />} value={pondage.data?.sellableRatioPercent != null ? `${num(pondage.data.sellableRatioPercent)} %` : '—'} />
+              <Metric label="Casse" icon={<TrendingDown />} value={crackedPct != null ? `${num(crackedPct)} %` : '—'} sub={eggs ? `${num(eggs.cracked, 0)} fêlés` : undefined} />
+              <Metric label="Œufs / poule" icon={<Egg />} value={pondage.data?.eggsPerHen != null ? num(pondage.data.eggsPerHen) : '—'} />
               {eggs ? (
                 <>
-                  <Metric label="Petits" value={num(eggs.small, 0)} />
-                  <Metric label="Double jaune" value={num(eggs.doubleYolk, 0)} />
-                  <Metric label="Sales" value={num(eggs.dirty, 0)} />
+                  <Metric label="Petits" icon={<Shrink />} value={num(eggs.small, 0)} />
+                  <Metric label="Double jaune" icon={<Copy />} value={num(eggs.doubleYolk, 0)} />
+                  <Metric label="Sales" icon={<Droplets />} value={num(eggs.dirty, 0)} />
                 </>
               ) : null}
             </div>
@@ -441,12 +493,13 @@ function OverviewTab({ lot }: { lot: Lot }) {
         ) : null}
 
         {water ? (
-          <SectionCard title="Eau">
+          <SectionCard title="Eau" icon={<Droplets />}>
             <div className="grid grid-cols-3 gap-2">
-              <Metric label="Total bu" value={`${num(water.total, 0)} L`} />
-              <Metric label="Par oiseau et par jour" value={water.perBird != null ? `${num(water.perBird, 2)} L` : '—'} />
+              <Metric label="Total bu" icon={<Droplets />} value={`${num(water.total, 0)} L`} />
+              <Metric label="Par oiseau et par jour" icon={<Droplets />} value={water.perBird != null ? `${num(water.perBird, 2)} L` : '—'} />
               <Metric
                 label="Tendance sur 7 jours"
+                icon={water.trend != null && water.trend < 0 ? <TrendingDown /> : <TrendingUp />}
                 value={water.trend != null ? `${water.trend >= 0 ? '+' : ''}${num(water.trend, 0)} %` : '—'}
                 tone={water.trend != null && water.trend <= -15 ? 'warn' : undefined}
               />
@@ -455,31 +508,32 @@ function OverviewTab({ lot }: { lot: Lot }) {
         ) : null}
 
         {orders.length > 0 ? (
-          <SectionCard title="Abattage">
+          <SectionCard title="Abattage" icon={<Factory />}>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Metric label="Ordres" value={orders.length} />
-              <Metric label="Traités" value={processed.length} />
-              <Metric label="Oiseaux traités" value={num(processed.reduce((s, o) => s + o.birdCount, 0))} />
+              <Metric label="Ordres" icon={<FileText />} value={orders.length} />
+              <Metric label="Traités" icon={<Check />} value={processed.length} />
+              <Metric label="Oiseaux traités" icon={<Bird />} value={num(processed.reduce((s, o) => s + o.birdCount, 0))} />
               <Metric
                 label="Carcasse"
+                icon={<Scale />}
                 value={`${num(processed.reduce((s, o) => s + (o.carcassWeightKg ?? 0), 0))} kg`}
               />
             </div>
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Rentabilité du lot">
+        <SectionCard title="Rentabilité du lot" icon={<Wallet />} iconTone="accent">
           <ErrorNote error={pnl.error} />
           {pnl.data ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Metric label="Revenus" value={fcfa(pnl.data.revenueFcfa)} />
-              <Metric label="Dépenses" value={fcfa(pnl.data.expensesFcfa)} />
-              <Metric label="Résultat net" value={fcfa(pnl.data.netFcfa)} tone={pnl.data.netFcfa >= 0 ? 'good' : 'bad'} />
-              <Metric label="Marge" value={pnl.data.marginPct != null ? `${num(pnl.data.marginPct)} %` : '—'} />
-              <Metric label="Coût au kg" value={pnl.data.costPerKgFcfa != null ? fcfa(pnl.data.costPerKgFcfa) : '—'} />
-              <Metric label="Kg vendus" value={num(pnl.data.kgSold)} />
-              <Metric label="Oiseaux vendus" value={num(pnl.data.birdsSold)} />
-              <Metric label="Œufs vendus" value={num(pnl.data.eggsSold, 0)} />
+              <Metric label="Revenus" icon={<Wallet />} value={fcfa(pnl.data.revenueFcfa)} />
+              <Metric label="Dépenses" icon={<Receipt />} value={fcfa(pnl.data.expensesFcfa)} />
+              <Metric label="Résultat net" icon={pnl.data.netFcfa >= 0 ? <TrendingUp /> : <TrendingDown />} value={fcfa(pnl.data.netFcfa)} tone={pnl.data.netFcfa >= 0 ? 'good' : 'bad'} />
+              <Metric label="Marge" icon={<Gauge />} value={pnl.data.marginPct != null ? `${num(pnl.data.marginPct)} %` : '—'} />
+              <Metric label="Coût au kg" icon={<Coins />} value={pnl.data.costPerKgFcfa != null ? fcfa(pnl.data.costPerKgFcfa) : '—'} />
+              <Metric label="Kg vendus" icon={<Scale />} value={num(pnl.data.kgSold)} />
+              <Metric label="Oiseaux vendus" icon={<Bird />} value={num(pnl.data.birdsSold)} />
+              <Metric label="Œufs vendus" image={EGG_IMAGES.oeuf} value={num(pnl.data.eggsSold, 0)} />
             </div>
           ) : pnl.isLoading ? (
             <Loading />
@@ -489,7 +543,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
 
       <div className="space-y-4">
         {health.data ? (
-          <SectionCard title="Santé du lot">
+          <SectionCard title="Santé du lot" icon={<HeartPulse />}>
             <div className="flex items-baseline gap-2">
               <span
                 className={
@@ -507,7 +561,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
             {health.data.tips.length > 0 ? (
               <div className="mt-3 space-y-2">
                 {health.data.tips.slice(0, 3).map((t) => (
-                  <Note key={t.text} tone={levelTone(t.level)}>
+                  <Note key={t.text} tone={levelTone(t.level)} icon={levelIcon(t.level)}>
                     {t.text}
                   </Note>
                 ))}
@@ -516,7 +570,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Alertes du lot">
+        <SectionCard title="Alertes du lot" icon={<AlertTriangle />} iconTone="amber">
           <ErrorNote error={ack.error} />
           {alerts.length === 0 ? (
             <p className="text-sm text-slate-500">Aucune alerte active pour ce lot.</p>
@@ -541,7 +595,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
                         })
                       }
                     >
-                      Acquitter
+                      <Check className="h-4 w-4" /> Acquitter
                     </Button>
                   </div>
                 </div>
@@ -551,7 +605,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
         </SectionCard>
 
         {breedStatus ? (
-          <SectionCard title="Référence de la souche" subtitle={`Semaine ${breedStatus.week}`}>
+          <SectionCard title="Référence de la souche" icon={<Target />} subtitle={`Semaine ${breedStatus.week}`}>
             <div className="space-y-2">
               <RefRow label="Poids" actual={breedStatus.actualAvgWeightKg} target={breedStatus.targetAvgWeightKg} dev={breedStatus.avgWeightDeviationPct} unit=" kg" digits={2} higherIsBetter />
               <RefRow label="IC" actual={breedStatus.actualFcr} target={breedStatus.targetFcr} dev={breedStatus.fcrDeviationPct} digits={2} />
@@ -562,7 +616,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
           </SectionCard>
         ) : null}
 
-        <SectionCard title="Aliment du lot">
+        <SectionCard title="Aliment du lot" icon={<Warehouse />}>
           {lotFeed.length > 0 ? (
             <ul className="space-y-1 text-sm text-slate-700">
               {lotFeed.map((l) => (
@@ -583,7 +637,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
         </SectionCard>
 
         {lot.couvoirSupplier || lot.chickLotNumber || lot.hatchDate || lot.chickUnitPriceFcfa != null ? (
-          <SectionCard title="Traçabilité">
+          <SectionCard title="Traçabilité" icon={<ShieldCheck />}>
             <dl className="space-y-1 text-sm">
               {lot.couvoirSupplier ? <Row label="Couvoir" value={lot.couvoirSupplier} /> : null}
               {lot.chickLotNumber ? <Row label="N° de lot" value={lot.chickLotNumber} /> : null}
@@ -660,25 +714,25 @@ function CurvesTab({ lot }: { lot: Lot }) {
   if (curve.error) return <ErrorNote error={curve.error} />;
   const weekly = curve.data?.weekly ?? [];
   if (weekly.length === 0) {
-    return <EmptyState message="Pas encore de données : les courbes apparaissent après les premières saisies." />;
+    return <EmptyState message="Pas encore de données : les courbes apparaissent après les premières saisies." icon={<Activity />} />;
   }
   const labels = weekly.map((_, i) => `S${i + 1}`);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <ChartCard title="Poids moyen (kg)" hint="Chaque point est une pesée saisie.">
+      <ChartCard title="Poids moyen (kg)" icon={<Weight />} hint="Chaque point est une pesée saisie.">
         <Line data={weekly.map((w) => w.avgWeightKg)} labels={labels} fmt={(v) => `${num(v, 2)} kg`} color="#2563eb" />
       </ChartCard>
-      <ChartCard title="Indice de consommation" hint="Aliment consommé par kg de poids produit. Plus il est bas, mieux c'est.">
+      <ChartCard title="Indice de consommation" icon={<Scale />} hint="Aliment consommé par kg de poids produit. Plus il est bas, mieux c'est.">
         <Line data={weekly.map((w) => w.fcrCumulative)} labels={labels} fmt={(v) => num(v, 2)} color="#d97706" />
       </ChartCard>
-      <ChartCard title="Eau (L par oiseau)" hint="Une baisse brutale annonce souvent un problème de santé.">
+      <ChartCard title="Eau (L par oiseau)" icon={<Droplets />} hint="Une baisse brutale annonce souvent un problème de santé.">
         <Line data={weekly.map((w) => w.waterLPerBird)} labels={labels} fmt={(v) => `${num(v, 2)} L`} color="#0891b2" />
       </ChartCard>
-      <ChartCard title="Morts par semaine" hint="Tout pic mérite une visite du bâtiment.">
+      <ChartCard title="Morts par semaine" icon={<Skull />} iconTone="red" hint="Tout pic mérite une visite du bâtiment.">
         <BarChart data={weekly.map((w) => w.deaths)} labels={labels} color="#dc2626" />
       </ChartCard>
       {isLayer && pondage.data?.weekly.length ? (
-        <ChartCard title="Taux de ponte (%)" hint="Œufs collectés rapportés aux poules présentes.">
+        <ChartCard title="Taux de ponte (%)" icon={<Egg />} iconTone="accent" hint="Œufs collectés rapportés aux poules présentes.">
           <Line
             data={pondage.data.weekly.map((w) => w.layRatePercent)}
             labels={pondage.data.weekly.map((_, i) => `S${i + 1}`)}
@@ -715,9 +769,21 @@ function Line({
   return <LineChart data={data} labels={labels} valueFmt={fmt} color={color} />;
 }
 
-function ChartCard({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
+function ChartCard({
+  title,
+  hint,
+  icon,
+  iconTone,
+  children,
+}: {
+  title: string;
+  hint: string;
+  icon: React.ReactNode;
+  iconTone?: IconTone;
+  children: React.ReactNode;
+}) {
   return (
-    <SectionCard title={title} subtitle={hint}>
+    <SectionCard title={title} subtitle={hint} icon={icon} iconTone={iconTone}>
       {children}
     </SectionCard>
   );
@@ -728,11 +794,11 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
   const rows = [...(entries.data ?? [])].sort((a, b) => b.entryDate.localeCompare(a.entryDate));
   if (entries.isLoading) return <Loading label="Chargement des saisies…" />;
   return (
-    <SectionCard title="Saisies journalières" subtitle="Cliquez sur Modifier pour corriger une journée" flush>
+    <SectionCard title="Saisies journalières" icon={<PenLine />} subtitle="Cliquez sur Modifier pour corriger une journée" flush>
       <ErrorNote error={entries.error} />
       {rows.length === 0 ? (
         <div className="p-4">
-          <EmptyState message="Aucune saisie pour ce lot." />
+          <EmptyState message="Aucune saisie pour ce lot." icon={<PenLine />} />
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -769,9 +835,9 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
                       <button
                         type="button"
                         onClick={() => onEdit(r.entryDate.slice(0, 10))}
-                        className="text-xs font-medium text-brand-700 hover:underline"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"
                       >
-                        Modifier
+                        <Pencil className="h-3 w-3" /> Modifier
                       </button>
                     ) : null}
                   </Td>
@@ -801,6 +867,15 @@ function useLotCare(lotId: string) {
 }
 
 type HistoryFilter = 'all' | 'soins' | 'sante' | 'abattage';
+
+const HISTORY_ICON: Record<HistoryFilter, React.ReactNode> = {
+  all: <Clock />,
+  soins: <Syringe />,
+  sante: <Stethoscope />,
+  abattage: <Scale />,
+};
+
+const TILE_TONE: Record<Tone, IconTone> = { emerald: 'green', amber: 'amber', red: 'red', brand: 'brand', slate: 'slate' };
 
 function HistoryTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
@@ -868,6 +943,7 @@ function HistoryTab({ lot }: { lot: Lot }) {
   return (
     <SectionCard
       title="Historique du lot"
+      icon={<Clock />}
       actions={
         <Tabs<HistoryFilter>
           value={filter}
@@ -883,14 +959,17 @@ function HistoryTab({ lot }: { lot: Lot }) {
     >
       <ErrorNote error={treatments.error ?? events.error ?? slaughter.error ?? prophylaxis.error} />
       {shown.length === 0 ? (
-        <EmptyState message="Aucun événement pour ce filtre." />
+        <EmptyState message="Aucun événement pour ce filtre." icon={<Clock />} />
       ) : (
         <ul className="divide-y divide-slate-100">
           {shown.map((i) => (
             <li key={i.key} className="flex items-start justify-between gap-3 py-2">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-slate-800">{i.title}</p>
-                {i.sub ? <p className="text-xs text-slate-500">{i.sub}</p> : null}
+              <div className="flex min-w-0 items-start gap-2.5">
+                <IconTile icon={HISTORY_ICON[i.kind]} tone={TILE_TONE[i.tone]} size="sm" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">{i.title}</p>
+                  {i.sub ? <p className="text-xs text-slate-500">{i.sub}</p> : null}
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <Pill tone={i.tone}>{i.tag}</Pill>
@@ -957,22 +1036,23 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4">
-        <SectionCard title="Score de santé">
+        <SectionCard title="Score de santé" icon={<HeartPulse />}>
           <ErrorNote error={health.error} />
           {health.data ? (
             <div className="grid grid-cols-2 gap-2">
               <Metric
                 label="Score"
+                icon={<HeartPulse />}
                 value={`${num(health.data.healthScore, 0)} / 100`}
                 tone={health.data.healthScore >= 80 ? 'good' : health.data.healthScore >= 60 ? 'warn' : 'bad'}
               />
-              <Metric label="Viabilité" value={`${num(health.data.viabilityPercent)} %`} />
-              <Metric label="Mortalité" value={`${num(health.data.mortalityPercent)} %`} />
-              <Metric label="Eau / oiseau" value={health.data.waterLPerBird != null ? `${num(health.data.waterLPerBird, 2)} L` : '—'} />
+              <Metric label="Viabilité" icon={<HeartPulse />} value={`${num(health.data.viabilityPercent)} %`} />
+              <Metric label="Mortalité" icon={<HeartPulse />} value={`${num(health.data.mortalityPercent)} %`} />
+              <Metric label="Eau / oiseau" icon={<Droplets />} value={health.data.waterLPerBird != null ? `${num(health.data.waterLPerBird, 2)} L` : '—'} />
             </div>
           ) : null}
         </SectionCard>
-        <SectionCard title="Soins selon le programme" subtitle={program.data?.name}>
+        <SectionCard title="Soins selon le programme" icon={<Stethoscope />} subtitle={program.data?.name}>
           {lot.status === 'CLOTURE' ? (
             <p className="text-sm text-slate-500">Lot clôturé.</p>
           ) : alerts.missed.length + alerts.current.length + alerts.soon.length === 0 ? (
@@ -1004,7 +1084,7 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
           </Link>
         </SectionCard>
         {trends && trends.mortality.some((v) => v > 0) ? (
-          <SectionCard title="Mortalité sur 7 jours">
+          <SectionCard title="Mortalité sur 7 jours" icon={<Skull />} iconTone="red">
             <BarChart data={trends.mortality} labels={trends.dates.map((d) => d.slice(8, 10))} height={120} color="#dc2626" />
           </SectionCard>
         ) : null}
@@ -1012,20 +1092,21 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
       <div className="lg:col-span-2">
         <SectionCard
           title="Suivi"
+          icon={<Activity />}
           actions={
             <Tabs
               value={view}
               onChange={setView}
               options={[
-                { key: 'prophylaxie', label: 'Prophylaxie' },
-                { key: 'evenements', label: 'Événements' },
+                { key: 'prophylaxie', label: 'Prophylaxie', icon: <Syringe /> },
+                { key: 'evenements', label: 'Événements', icon: <Stethoscope /> },
               ]}
             />
           }
         >
           {view === 'prophylaxie' ? (
             sorted.length === 0 ? (
-              <EmptyState message="Aucun soin planifié pour ce lot." />
+              <EmptyState message="Aucun soin planifié pour ce lot." icon={<Syringe />} />
             ) : (
               <ul className="divide-y divide-slate-100">
                 {sorted.map((e) => (
@@ -1045,7 +1126,7 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
               </ul>
             )
           ) : (healthEvents.data ?? []).length === 0 ? (
-            <EmptyState message="Aucun événement de santé." />
+            <EmptyState message="Aucun événement de santé." icon={<Stethoscope />} />
           ) : (
             <ul className="divide-y divide-slate-100">
               {(healthEvents.data ?? []).map((e) => (

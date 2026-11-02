@@ -1,21 +1,63 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, CloudSun, Droplets, Egg, ListChecks, Thermometer, Trophy } from 'lucide-react';
+import {
+  Activity,
+  ArrowRight,
+  Banknote,
+  BarChart3,
+  Bell,
+  Building,
+  CircleCheck,
+  CloudSun,
+  Droplets,
+  HandCoins,
+  ListChecks,
+  Medal,
+  NotebookPen,
+  Scale,
+  Store,
+  Syringe,
+  Thermometer,
+  TrendingUp,
+  Trophy,
+  Users,
+  Wheat,
+  type LucideIcon,
+} from 'lucide-react';
 import type { DashboardData } from '../../api/types';
 import type {
   AdvisoryNextActions,
   CarcassPool,
   CustomerSummary,
   FarmWeather,
+  NextAction,
+  NextActionCategory,
   OverviewPnl,
   OwnerDashboard,
   PosBatch,
 } from '../../api/types-sales';
 import { BarChart } from '../Charts';
-import { Card } from '../ui';
+import { Card, IconTile, PhotoThumb, type IconTone } from '../ui';
+import { EGG_IMAGES } from '../../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct } from '../../lib/format';
 import { AlertLevelBadge, FilterChip } from './shared';
+
+const ACTION_ICON: Record<NextActionCategory, LucideIcon> = {
+  ALERTE: Bell,
+  SAISIE: NotebookPen,
+  SOIN: Syringe,
+  STOCK_PROVENDE: Wheat,
+  VENTE: HandCoins,
+};
+
+const ACTION_TONE: Record<NextAction['level'], IconTone> = { ROUGE: 'red', JAUNE: 'amber', VERT: 'green' };
+
+/** Tile of an advisory action: its category, tinted by its level. */
+export function ActionTile({ action }: { action: Pick<NextAction, 'category' | 'level'> }) {
+  const Icon = ACTION_ICON[action.category];
+  return <IconTile icon={<Icon className="h-4 w-4" />} tone={ACTION_TONE[action.level]} size="sm" />;
+}
 
 /** Same advice as the mobile home screen. */
 function weatherHint(tempC: number, humidityPct: number): string {
@@ -78,18 +120,21 @@ export function ActionQueue({ advisory, error }: { advisory: AdvisoryNextActions
       {error ? (
         <p className="px-4 py-6 text-center text-sm text-red-600">Impossible de charger les actions à traiter.</p>
       ) : top.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-slate-500">Rien à traiter pour l’instant.</p>
+        <p className="flex items-center justify-center gap-2 px-4 py-6 text-sm text-slate-500">
+          <CircleCheck className="h-4 w-4 text-emerald-600" /> Rien à traiter pour l’instant.
+        </p>
       ) : (
         <ul className="divide-y divide-slate-100">
           {top.map((a) => (
             <li key={a.id} className="flex items-start gap-3 px-4 py-2.5">
-              <AlertLevelBadge level={a.level} />
-              <div className="min-w-0 text-sm">
+              <ActionTile action={a} />
+              <div className="min-w-0 flex-1 text-sm">
                 <p className="font-medium text-slate-800">{a.title}</p>
                 <p className="text-xs text-slate-500">
                   {[a.batchName, a.dueDate ? `Échéance ${dateFr(a.dueDate)}` : null].filter(Boolean).join(' · ') || 'Ferme'}
                 </p>
               </div>
+              <AlertLevelBadge level={a.level} />
             </li>
           ))}
         </ul>
@@ -98,10 +143,13 @@ export function ActionQueue({ advisory, error }: { advisory: AdvisoryNextActions
   );
 }
 
-function Tile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: string }) {
+function Tile({ label, value, sub, tone, icon: Icon }: { label: string; value: string; sub?: string; tone?: string; icon?: LucideIcon }) {
   return (
     <div className="rounded-xl bg-slate-50 p-3">
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="flex items-center gap-1.5 text-xs text-slate-500">
+        {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-brand-600" /> : null}
+        {label}
+      </p>
       <p className={classNames('text-lg font-bold tabular-nums', tone ?? 'text-slate-900')}>{value}</p>
       {sub ? <p className="text-xs text-slate-500">{sub}</p> : null}
     </div>
@@ -127,22 +175,27 @@ export function PerformanceTiles({ batches }: { batches: PosBatch[] }) {
   const ipe = weightedAvg(active, (b) => b.metrics.ipe);
   return (
     <Card className="p-4">
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">Performance moyenne des lots</h2>
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <Activity className="h-4 w-4 text-brand-600" /> Performance moyenne des lots
+      </h2>
       <div className="grid grid-cols-3 gap-3">
         <Tile
           label="IC moyen"
+          icon={Activity}
           value={fcr != null ? num(fcr, 2) : '—'}
           sub={fcr == null ? 'Pas de donnée' : fcr > 2.2 ? 'Élevé' : fcr < 1.8 ? 'Excellent' : 'Conforme'}
           tone={fcr != null && fcr > 2.2 ? 'text-red-600' : undefined}
         />
         <Tile
           label="GMQ moyen"
+          icon={TrendingUp}
           value={gmq != null ? `${num(gmq)} g/j` : '—'}
           sub={gmq == null ? 'Pas de donnée' : gmq > 55 ? 'Croissance rapide' : gmq < 0 ? 'Perte de poids' : 'Croissance normale'}
           tone={gmq != null && gmq < 0 ? 'text-red-600' : undefined}
         />
         <Tile
           label="IPE moyen"
+          icon={Scale}
           value={ipe != null && ipe > 0 ? num(Math.round(ipe)) : '—'}
           sub={ipe == null ? 'Pas de donnée' : 'Indice de performance'}
         />
@@ -151,10 +204,12 @@ export function PerformanceTiles({ batches }: { batches: PosBatch[] }) {
   );
 }
 
-function StatGroup({ title, children }: { title: string; children: ReactNode }) {
+function StatGroup({ title, icon: Icon, iconCls, children }: { title: string; icon: LucideIcon; iconCls: string; children: ReactNode }) {
   return (
     <div>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
+      <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <Icon className={`h-3.5 w-3.5 ${iconCls}`} /> {title}
+      </h3>
       <div className="grid grid-cols-2 gap-2">{children}</div>
     </div>
   );
@@ -192,9 +247,11 @@ export function OwnerStats({
 
   return (
     <Card className="p-4">
-      <h2 className="mb-4 text-sm font-semibold text-slate-700">Statistiques détaillées</h2>
+      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <BarChart3 className="h-4 w-4 text-brand-600" /> Statistiques détaillées
+      </h2>
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        <StatGroup title="Lots">
+        <StatGroup title="Lots" icon={BarChart3} iconCls="text-brand-600">
           <Tile label="Âge moyen" value={avgAge != null ? `${num(avgAge)} j` : '—'} />
           <Tile
             label="Densité max."
@@ -202,7 +259,7 @@ export function OwnerStats({
             tone={maxDensity > 18 ? 'text-red-600' : maxDensity > 15 ? 'text-amber-600' : undefined}
           />
         </StatGroup>
-        <StatGroup title="Alimentation">
+        <StatGroup title="Alimentation" icon={Wheat} iconCls="text-emerald-600">
           <Tile
             label="Autonomie"
             value={autonomy != null ? `${num(autonomy)} j` : '—'}
@@ -211,7 +268,7 @@ export function OwnerStats({
           />
           <Tile label="Conso. par oiseau" value={live > 0 ? `${num(feedKg / live, 1)} kg` : '—'} />
         </StatGroup>
-        <StatGroup title="Tendances de la semaine">
+        <StatGroup title="Tendances de la semaine" icon={TrendingUp} iconCls="text-amber-600">
           <Tile label="Mortalité" value={`${num(dash.deltas.mortalityThisWeek)} sujet(s)`} sub={signed(dash.deltas.mortalityDelta, '')} />
           <Tile label="Aliment" value={`${num(dash.deltas.feedThisWeekKg)} kg`} sub={signed(dash.deltas.feedDeltaKg, ' kg')} />
           <Tile
@@ -220,7 +277,7 @@ export function OwnerStats({
             sub={signed(dash.deltas.layRateDeltaPct, ' pts', 1)}
           />
         </StatGroup>
-        <StatGroup title="Infrastructures">
+        <StatGroup title="Infrastructures" icon={Building} iconCls="text-slate-600">
           <Tile label="Bâtiments" value={num(dash.buildingsCount)} sub={dash.totalAreaM2 != null ? `${num(dash.totalAreaM2)} m²` : undefined} />
           <Tile label="Densité ferme" value={dash.farmDensityPerM2 != null ? `${num(dash.farmDensityPerM2, 1)} /m²` : '—'} />
           <Tile
@@ -230,7 +287,7 @@ export function OwnerStats({
             tone={water != null && water > 25 ? 'text-red-600' : water != null && water > 10 ? 'text-amber-600' : undefined}
           />
         </StatGroup>
-        <StatGroup title="Abattage et vente">
+        <StatGroup title="Abattage et vente" icon={Store} iconCls="text-accent-600">
           <Tile label="Ordres traités" value={num(processed.length)} sub={`${num(processed.reduce((s, o) => s + o.birdCount, 0))} oiseaux`} />
           <Tile
             label="Poids total"
@@ -238,13 +295,13 @@ export function OwnerStats({
             sub={avgYield != null ? `Rendement ${num(avgYield)} %` : 'Sans rendement'}
           />
         </StatGroup>
-        <StatGroup title="Finances (30 jours)">
+        <StatGroup title="Finances (30 jours)" icon={Banknote} iconCls="text-emerald-700">
           <Tile label="Ventes" value={pnl ? fcfa(pnl.sales.totalFcfa) : '—'} />
           <Tile label="Charges" value={pnl ? fcfa(pnl.expenses.totalFcfa) : '—'} />
           <Tile label="Résultat net" value={pnl ? fcfa(pnl.netFcfa) : '—'} tone={pnl && pnl.netFcfa < 0 ? 'text-red-600' : 'text-emerald-600'} />
           <Tile label="Créances" value={pnl ? fcfa(pnl.outstandingFcfa) : '—'} tone={pnl && pnl.outstandingFcfa > 0 ? 'text-amber-600' : undefined} />
         </StatGroup>
-        <StatGroup title="Clients">
+        <StatGroup title="Clients" icon={Users} iconCls="text-accent-600">
           <Tile label="Portefeuille" value={clients ? num(clients.total) : '—'} sub={clients ? `${num(clients.debtors)} débiteur(s)` : undefined} />
           <Tile
             label="Encaissé"
@@ -286,7 +343,7 @@ export function EggStockPanel({
     <Card className="p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <Egg className="h-4 w-4 text-brand-600" /> Stock d’œufs
+          <PhotoThumb src={inTrays ? EGG_IMAGES.alveole : EGG_IMAGES.oeuf} size="sm" /> Stock d’œufs
         </h2>
         <div className="flex gap-1.5">
           <FilterChip label="Œufs" active={!inTrays} onClick={() => setInTrays(false)} />
@@ -343,6 +400,7 @@ export function Ranking({ dash, typeLabel }: { dash: OwnerDashboard; typeLabel: 
         {top ? (
           <Tile
             label="Meilleur lot"
+            icon={Medal}
             value={top.batchName ?? 'Lot'}
             sub={`${typeLabel(top.type)} · IC ${top.fcr != null ? num(top.fcr, 2) : '—'} · ${num(top.liveCount)} vivants`}
           />
@@ -350,6 +408,7 @@ export function Ranking({ dash, typeLabel }: { dash: OwnerDashboard; typeLabel: 
         {best?.breedStatus ? (
           <Tile
             label="Souche la plus proche de sa référence"
+            icon={BarChart3}
             value={best.breedStatus.breedName}
             sub={`${best.batchName ?? 'Lot'} · semaine ${num(best.breedStatus.week)}${
               best.breedStatus.fcrDeviationPct != null

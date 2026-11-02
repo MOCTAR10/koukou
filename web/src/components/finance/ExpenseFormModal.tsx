@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { Pencil } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { CreateExpenseBody, Expense, ExpenseCategory, UpdateExpenseBody } from '../../api/types-finance';
@@ -189,6 +190,7 @@ export function ExpenseFormModal({
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending}>
+            {save.isPending ? null : <Pencil className="h-4 w-4" />}
             {editing ? 'Enregistrer les modifications' : 'Enregistrer la dépense'}
           </Button>
         </div>

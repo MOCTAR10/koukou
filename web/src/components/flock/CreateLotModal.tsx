@@ -1,17 +1,36 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import {
+  Bird,
+  Calendar,
+  Check,
+  Clock,
+  Egg,
+  Eye,
+  Layers,
+  Plus,
+  Scale,
+  ShieldCheck,
+  Syringe,
+  TrendingUp,
+  Warehouse,
+  Wheat,
+  Zap,
+} from 'lucide-react';
 import { api } from '../../api/client';
 import type { BatchType } from '../../api/types';
 import type { BreedStandard, Lot, SanitaryProtocol, SanitaryProtocolWithSteps } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { EGG_IMAGES, SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { PhotoThumb } from '../ui';
 import { BREED_INFO } from './breedInfo';
 import { BuildingFormModal } from './Buildings';
 import {
   CARE_TYPE_LABEL,
   EGGS_PER_ALVEOL,
+  IconField,
   Metric,
   Note,
   SPECIES_LABEL,
@@ -209,8 +228,8 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
       <form onSubmit={submit} className="space-y-5">
         <Toggle
           options={[
-            { key: false, label: 'Nouveau lot' },
-            { key: true, label: 'Lot déjà en cours' },
+            { key: false, label: 'Nouveau lot', icon: <Plus /> },
+            { key: true, label: 'Lot déjà en cours', icon: <Zap /> },
           ]}
           value={running}
           onChange={setRunning}
@@ -222,28 +241,44 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
           </Note>
         ) : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Espèce *">
-            <select
-              className={inputCls}
-              value={species}
-              onChange={(e) => {
-                setSpecies(e.target.value);
-                setBreedId('');
-              }}
-            >
-              {Object.entries(SPECIES_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>
+        <div>
+          <p className="mb-1 text-xs font-medium text-slate-600">Espèce *</p>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Espèce">
+            {Object.entries(SPECIES_LABEL).map(([k, v]) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={species === k}
+                onClick={() => {
+                  if (k === species) return;
+                  setSpecies(k);
+                  setBreedId('');
+                }}
+                className={classNames(
+                  'flex flex-col overflow-hidden rounded-xl bg-white text-center transition',
+                  species === k ? 'ring-2 ring-brand-600' : 'ring-1 ring-slate-200 hover:ring-slate-300',
+                )}
+              >
+                <img src={SPECIES_IMAGES[k]} alt="" loading="lazy" className="aspect-square w-full object-cover" />
+                <span
+                  className={classNames(
+                    'flex flex-1 items-center justify-center px-1 py-1 text-[11px] font-medium leading-tight',
+                    species === k ? 'bg-brand-600 text-white' : 'text-slate-700',
+                  )}
+                >
                   {v}
-                </option>
-              ))}
-            </select>
-          </Field>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Type *">
             <Toggle
               options={[
-                { key: 'CHAIR' as BatchType, label: 'Chair' },
-                { key: 'PONDEUSE' as BatchType, label: 'Pondeuse' },
+                { key: 'CHAIR' as BatchType, label: 'Chair', icon: <Bird /> },
+                { key: 'PONDEUSE' as BatchType, label: 'Pondeuse', icon: <Egg /> },
               ]}
               value={type}
               onChange={(t) => {
@@ -272,16 +307,19 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
               </Field>
             </>
           ) : (
-            <Field label="Souche *" className="sm:col-span-2">
-              <select className={inputCls} value={breedId} onChange={(e) => setBreedId(e.target.value)} required>
-                <option value="">Sélectionner une souche…</option>
-                {filteredBreeds.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                    {b.refCode ? ` (${b.refCode})` : ''}
-                  </option>
-                ))}
-              </select>
+            <Field label="Souche *">
+              <div className="flex items-center gap-2">
+                <PhotoThumb src={lotImage(breed?.name, species)} />
+                <select className={`${inputCls} min-w-0`} value={breedId} onChange={(e) => setBreedId(e.target.value)} required>
+                  <option value="">Sélectionner une souche…</option>
+                  {filteredBreeds.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                      {b.refCode ? ` (${b.refCode})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {!breeds.isLoading && filteredBreeds.length === 0 ? (
                 <span className="mt-1 block text-xs text-amber-700">
                   Aucune souche pour cette espèce et ce type.
@@ -303,7 +341,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
               required
             />
           </Field>
-          <Field label={running ? 'Effectif vivant actuel *' : 'Quantité de poussins *'}>
+          <IconField label={running ? 'Effectif vivant actuel *' : 'Quantité de poussins *'} icon={<Bird />}>
             <input
               className={inputCls}
               inputMode="numeric"
@@ -312,9 +350,10 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
               placeholder="Ex : 3000"
               required
             />
-          </Field>
-          <Field
+          </IconField>
+          <IconField
             label={running ? 'Date de mise en place du lot *' : "Date d'arrivée des poussins *"}
+            icon={<Calendar />}
             hint={running ? `Âge du lot : ${ageDays} j` : undefined}
           >
             <input
@@ -324,8 +363,8 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
               onChange={(e) => setIntegrationDate(e.target.value)}
               required
             />
-          </Field>
-          <Field label="Bâtiment *">
+          </IconField>
+          <IconField label="Bâtiment *" icon={<Warehouse />}>
             {buildings.data?.length ? (
               <select className={inputCls} value={buildingId} onChange={(e) => setBuildingId(e.target.value)} required>
                 <option value="">Sélectionner un bâtiment…</option>
@@ -351,12 +390,13 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             >
               <Plus className="h-3 w-3" /> Nouveau bâtiment
             </button>
-          </Field>
+          </IconField>
         </div>
 
         {building ? (
           <div className="space-y-2">
-            <p className="text-xs text-slate-500">
+            <p className="flex flex-wrap items-center gap-1 text-xs text-slate-500">
+              <Warehouse className="h-3.5 w-3.5 text-brand-600" />
               {building.buildingAreaM2 != null ? `${num(building.buildingAreaM2)} m² · ` : ''}
               {buildingSpace?.available != null
                 ? `${num(buildingSpace.available)} places restantes (conseillé) · `
@@ -373,7 +413,9 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
         ) : null}
 
         <fieldset className="rounded-xl border border-slate-200 p-4">
-          <legend className="px-1 text-xs font-semibold text-slate-600">Traçabilité et coût (facultatif)</legend>
+          <legend className="inline-flex items-center gap-1.5 px-1 text-xs font-semibold text-slate-600">
+            <ShieldCheck className="h-3.5 w-3.5 text-brand-600" /> Traçabilité et coût (facultatif)
+          </legend>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Fournisseur (couvoir)">
               <input className={inputCls} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
@@ -381,9 +423,9 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             <Field label="N° de lot des poussins">
               <input className={inputCls} value={chickLot} onChange={(e) => setChickLot(e.target.value)} />
             </Field>
-            <Field label="Date d'éclosion">
+            <IconField label="Date d'éclosion" icon={<Calendar />}>
               <input className={inputCls} type="date" value={hatchDate} onChange={(e) => setHatchDate(e.target.value)} />
-            </Field>
+            </IconField>
             <Field label="Prix d'achat unitaire (FCFA)" hint="Crée automatiquement la dépense d'achat des poussins.">
               <input
                 className={inputCls}
@@ -398,12 +440,16 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
 
         {running ? (
           <div className="space-y-3 rounded-xl border border-slate-200 p-4">
-            <h3 className="text-sm font-semibold text-slate-700">Recommandations à {ageDays} j</h3>
-            <p className="text-sm text-slate-600">Alimentation recommandée : {feedAdvice.label}</p>
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+              <Eye className="h-4 w-4 text-brand-600" /> Recommandations à {ageDays} j
+            </h3>
+            <p className="flex items-center gap-1.5 text-sm text-slate-600">
+              <Wheat className="h-4 w-4 shrink-0 text-amber-600" /> Alimentation recommandée : {feedAdvice.label}
+            </p>
             {dueSteps.length > 0 ? (
               <div>
-                <p className="mb-1 text-xs font-semibold text-slate-600">
-                  Soins prophylactiques déjà réalisés (cochez-les pour les enregistrer)
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Soins prophylactiques déjà réalisés (cochez-les pour les enregistrer)
                 </p>
                 <div className="space-y-1">
                   {dueSteps.map((s) => (
@@ -432,7 +478,9 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             ) : null}
             {upcomingSteps.length > 0 ? (
               <div>
-                <p className="mb-1 text-xs font-semibold text-slate-600">Prochains soins à planifier</p>
+                <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                  <Syringe className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Prochains soins à planifier
+                </p>
                 <ul className="space-y-0.5 text-sm text-slate-600">
                   {upcomingSteps.slice(0, 3).map((s) => (
                     <li key={s.id}>
@@ -455,7 +503,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             Annuler
           </Button>
           <Button type="submit" busy={create.isPending} disabled={!canSubmit}>
-            {running ? 'Ajouter le lot' : 'Créer le lot'}
+            <Check className="h-4 w-4" /> {running ? 'Ajouter le lot' : 'Créer le lot'}
           </Button>
         </div>
       </form>
@@ -477,7 +525,7 @@ function Toggle<K extends string | boolean>({
   value,
   onChange,
 }: {
-  options: Array<{ key: K; label: string }>;
+  options: Array<{ key: K; label: string; icon?: React.ReactNode }>;
   value: K;
   onChange: (k: K) => void;
 }) {
@@ -489,10 +537,11 @@ function Toggle<K extends string | boolean>({
           type="button"
           onClick={() => onChange(o.key)}
           className={classNames(
-            'rounded-md px-3 py-1.5 text-sm font-medium',
+            'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium [&>svg]:h-4 [&>svg]:w-4',
             value === o.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800',
           )}
         >
+          {o.icon}
           {o.label}
         </button>
       ))}
@@ -520,18 +569,20 @@ function LotForecast({
     const totalKg = qty * finalWeight;
     return (
       <div className="rounded-xl border border-slate-200 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-700">Analyse et conseils</h3>
+        <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+          <TrendingUp className="h-4 w-4 text-brand-600" /> Analyse et conseils
+        </h3>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Metric label="Cycle" value={`${last?.week ?? 12} semaines`} />
-          <Metric label="Prêt à la vente" value={dateFr(weeksAfter(start, readyWeek))} />
-          <Metric label="Poids final" value={`${finalWeight.toFixed(1)} kg`} />
-          <Metric label="IC final" value={(last?.targetFcr ?? 0).toFixed(2)} />
+          <Metric label="Cycle" icon={<Clock />} value={`${last?.week ?? 12} semaines`} />
+          <Metric label="Prêt à la vente" icon={<Calendar />} value={dateFr(weeksAfter(start, readyWeek))} />
+          <Metric label="Poids final" icon={<TrendingUp />} value={`${finalWeight.toFixed(1)} kg`} />
+          <Metric label="IC final" icon={<Scale />} value={(last?.targetFcr ?? 0).toFixed(2)} />
           {qty > 0 ? (
             <>
-              <Metric label="Résultat estimé" value={`${num(totalKg, 0)} kg`} />
-              <Metric label="Surface conseillée" value={`${num(qty / 10, 0)} m²`} />
-              <Metric label="Revenu estimé" value={`≈ ${num(totalKg * 2500, 0)} FCFA`} sub="à 2 500 FCFA/kg" />
-              <Metric label="Vente à la pièce" value={`≈ ${num(qty * 5000, 0)} FCFA`} sub="à 5 000 FCFA/tête" />
+              <Metric label="Résultat estimé" icon={<TrendingUp />} value={`${num(totalKg, 0)} kg`} />
+              <Metric label="Surface conseillée" icon={<Layers />} value={`${num(qty / 10, 0)} m²`} />
+              <Metric label="Revenu estimé" icon={<TrendingUp />} value={`≈ ${num(totalKg * 2500, 0)} FCFA`} sub="à 2 500 FCFA/kg" />
+              <Metric label="Vente à la pièce" icon={<TrendingUp />} value={`≈ ${num(qty * 5000, 0)} FCFA`} sub="à 5 000 FCFA/tête" />
             </>
           ) : null}
         </div>
@@ -547,18 +598,20 @@ function LotForecast({
   const monthlyEggs = dailyEggs * 30;
   return (
     <div className="rounded-xl border border-slate-200 p-4">
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">Analyse et conseils</h3>
+      <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+          <TrendingUp className="h-4 w-4 text-brand-600" /> Analyse et conseils
+        </h3>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Metric label="Cycle total" value={`${last?.week ?? 72} semaines`} />
-        <Metric label="Début de ponte" value={dateFr(weeksAfter(start, startLaying?.week ?? 18))} />
-        <Metric label="Pic de production" value={`${peakRate.toFixed(0)} %`} />
-        <Metric label="Pic atteint" value={dateFr(weeksAfter(start, peak.week))} />
+        <Metric label="Cycle total" icon={<Clock />} value={`${last?.week ?? 72} semaines`} />
+        <Metric label="Début de ponte" icon={<Calendar />} value={dateFr(weeksAfter(start, startLaying?.week ?? 18))} />
+        <Metric label="Pic de production" icon={<TrendingUp />} value={`${peakRate.toFixed(0)} %`} />
+        <Metric label="Pic atteint" icon={<Calendar />} value={dateFr(weeksAfter(start, peak.week))} />
         {qty > 0 ? (
           <>
-            <Metric label="Œufs/jour (pic)" value={num(dailyEggs, 0)} />
-            <Metric label="Œufs/mois (pic)" value={num(monthlyEggs, 0)} />
-            <Metric label="Alvéoles/mois (pic)" value={`≈ ${num(monthlyEggs / EGGS_PER_ALVEOL, 0)}`} />
-            <Metric label="Revenu ponte/mois" value={`≈ ${num(monthlyEggs * 100, 0)} FCFA`} sub="à 100 FCFA/œuf" />
+            <Metric label="Œufs/jour (pic)" image={EGG_IMAGES.oeuf} value={num(dailyEggs, 0)} />
+            <Metric label="Œufs/mois (pic)" image={EGG_IMAGES.oeuf} value={num(monthlyEggs, 0)} />
+            <Metric label="Alvéoles/mois (pic)" image={EGG_IMAGES.alveole} value={`≈ ${num(monthlyEggs / EGGS_PER_ALVEOL, 0)}`} />
+            <Metric label="Revenu ponte/mois" icon={<TrendingUp />} value={`≈ ${num(monthlyEggs * 100, 0)} FCFA`} sub="à 100 FCFA/œuf" />
           </>
         ) : null}
       </div>

@@ -1,10 +1,21 @@
-import { CalendarClock, Layers3, Plus, Sprout, Wheat } from 'lucide-react';
+import {
+  CalendarClock,
+  CalendarDays,
+  ChevronRight,
+  Layers3,
+  MapIcon,
+  Pencil,
+  PiggyBank,
+  Plus,
+  Sprout,
+  Wheat,
+} from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Parcelle } from '../api/types-agri';
 import { useFarm } from '../app/FarmContext';
 import { Button, ErrorNote } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { ParcelleStatusBadge, StageSummary } from '../components/agri/AgriBits';
 import { ParcelleFormModal } from '../components/agri/ParcelleFormModal';
 import {
@@ -58,6 +69,8 @@ export function ParcelsPage() {
       <PageHeader
         title="Parcelles"
         subtitle="Terres et cultures de la ferme."
+        icon={<Sprout />}
+        iconTone="green"
         actions={
           <Button onClick={() => setEditor({ parcelle: null })}>
             <Plus className="h-4 w-4" /> Nouvelle parcelle
@@ -70,7 +83,10 @@ export function ParcelsPage() {
       {parcellesQuery.isPending ? (
         <Loading />
       ) : parcellesQuery.isError ? null : parcelles.length === 0 ? (
-        <EmptyState message="Aucune parcelle. Ajoutez votre première parcelle et choisissez sa culture." />
+        <EmptyState
+          message="Aucune parcelle. Ajoutez votre première parcelle et choisissez sa culture."
+          icon={<Sprout />}
+        />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
@@ -98,7 +114,7 @@ export function ParcelsPage() {
             <div className="grid gap-4 lg:grid-cols-2">
               {stats.next ? (
                 <HighlightCard
-                  icon={<CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />}
+                  icon={<CalendarClock />}
                   label="Prochaine récolte estimée"
                   title={`${stats.next.parcelle.name} : ${harvestDateFr(stats.next.stage?.harvestDate ?? null)}`}
                   detail={adviceForCulture(stats.next.parcelle.culture)}
@@ -106,7 +122,7 @@ export function ParcelsPage() {
               ) : null}
               {topStock.length > 0 ? (
                 <HighlightCard
-                  icon={<Wheat className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />}
+                  icon={<PiggyBank />}
                   label="Récoltes vendables"
                   title={topStock
                     .map((s) => `${s.parcelleName} : ${num(s.available, 2)} ${RECOLTE_UNIT_LABELS[s.unit]}`)
@@ -145,13 +161,19 @@ export function ParcelsPage() {
                           </span>
                         </Td>
                         <Td className="whitespace-nowrap tabular-nums">{formatArea(p)}</Td>
-                        <Td className="whitespace-nowrap">{p.plantedAt ? dateFr(p.plantedAt) : 'Non plantée'}</Td>
+                        <Td className="whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5">
+                            <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
+                            {p.plantedAt ? dateFr(p.plantedAt) : 'Non plantée'}
+                          </span>
+                        </Td>
                         <Td>{stage ? <StageSummary stage={stage} /> : <span className="text-slate-400">—</span>}</Td>
                         <Td>
                           <ParcelleStatusBadge status={p.status} />
                         </Td>
                         <Td className="text-right">
                           <Button tone="secondary" onClick={() => setEditor({ parcelle: p })}>
+                            <Pencil className="h-4 w-4" />
                             Modifier
                           </Button>
                         </Td>
@@ -163,7 +185,8 @@ export function ParcelsPage() {
             </div>
           </Card>
 
-          <p className="text-xs text-slate-400">
+          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+            <MapIcon className="h-3.5 w-3.5 shrink-0" />
             La carte des parcelles reste sur l’application mobile. Ici, la surface se saisit en hectares.
           </p>
         </>
@@ -189,12 +212,13 @@ function HighlightCard({
     <Link to="/app/harvests" className="block">
       <Card className="h-full p-4 transition hover:border-brand-300">
         <div className="flex items-start gap-3">
-          {icon}
-          <div className="min-w-0">
+          <IconTile icon={icon} tone="green" />
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-medium text-slate-500">{label}</p>
             <p className="font-semibold text-slate-900">{title}</p>
             <p className="mt-1 text-sm text-slate-500">{detail}</p>
           </div>
+          <ChevronRight className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
         </div>
       </Card>
     </Link>

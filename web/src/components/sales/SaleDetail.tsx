@@ -111,6 +111,7 @@ export function SaleDetail({
                 Garder la vente
               </Button>
               <Button tone="danger" busy={cancel.isPending} onClick={() => cancel.mutate()}>
+                {cancel.isPending ? null : <RotateCcw className="h-4 w-4" />}
                 Confirmer l’annulation
               </Button>
             </div>

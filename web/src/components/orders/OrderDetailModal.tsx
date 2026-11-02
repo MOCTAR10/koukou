@@ -1,21 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileDown, Truck, Wallet, XCircle } from 'lucide-react';
+import { CalendarDays, Layers, MapPin, Package, Printer, Ticket, Truck, UserRound, Wallet, X, XCircle } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import type { Order, PointOfSale } from '../../api/types-orders';
 import { useFarm } from '../../app/FarmContext';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
-import { Loading, Td, Th } from '../ui';
+import { IconTile, Loading, Td, Th } from '../ui';
 import { ORDER_CANAL_LABEL, PRODUCT_LABEL, UNIT_LABEL, invalidateOrderQueries, newIdempotencyKey, parseWhole } from './helpers';
 import { ensureCashOpen } from '../sales/pos';
 import { PassportCard } from './PassportCard';
 import { ConfirmDialog, OrderStatusBadge } from './shared';
 
-function Info({ label, children }: { label: string; children: ReactNode }) {
+function Info({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-slate-500">{label}</dt>
+      <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-500 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 [&>svg]:text-slate-400">
+        {icon}
+        {label}
+      </dt>
       <dd className="mt-0.5 text-sm font-medium text-slate-800">{children}</dd>
     </div>
   );
@@ -94,6 +97,7 @@ function DepositModal({ order, onClose }: { order: Order; onClose: () => void })
             Fermer
           </Button>
           <Button type="submit" busy={pay.isPending} disabled={amount <= 0}>
+            {pay.isPending ? null : <Wallet className="h-4 w-4" />}
             Encaisser {fcfa(amount)}
           </Button>
         </div>
@@ -173,25 +177,30 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
     <Modal title={`Commande ${order.referenceNumber}`} onClose={closeSelf} wide>
       <div className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-lg font-semibold text-slate-900">{order.customer?.fullName ?? 'Client non renseigné'}</p>
-            <p className="text-sm text-slate-500">{order.customer?.phone ?? 'Sans téléphone'}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <IconTile icon={<UserRound />} />
+            <div className="min-w-0">
+              <p className="text-lg font-semibold text-slate-900">{order.customer?.fullName ?? 'Client non renseigné'}</p>
+              <p className="text-sm text-slate-500">{order.customer?.phone ?? 'Sans téléphone'}</p>
+            </div>
           </div>
           <OrderStatusBadge status={order.status} />
         </div>
 
         <dl className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 md:grid-cols-3">
-          <Info label="Canal">{ORDER_CANAL_LABEL[order.canal] ?? order.canal}</Info>
-          <Info label={order.canal === 'LIVRAISON' ? 'Livraison' : 'Retrait'}>{place}</Info>
-          <Info label="Lot">{order.batch?.batchName ?? 'Œufs (stock)'}</Info>
-          <Info label="Prévu le">{order.expectedDate ? dateFr(order.expectedDate) : 'À convenir'}</Info>
-          <Info label="Créée le">{dateFr(order.createdAt)}</Info>
-          {order.deliveryProvince ? <Info label="Province">{order.deliveryProvince}</Info> : null}
-          {order.cancelledReason ? <Info label="Motif d’annulation">{order.cancelledReason}</Info> : null}
+          <Info label="Canal" icon={<Ticket />}>{ORDER_CANAL_LABEL[order.canal] ?? order.canal}</Info>
+          <Info label={order.canal === 'LIVRAISON' ? 'Livraison' : 'Retrait'} icon={<Truck />}>{place}</Info>
+          <Info label="Lot" icon={<Layers />}>{order.batch?.batchName ?? 'Œufs (stock)'}</Info>
+          <Info label="Prévu le" icon={<CalendarDays />}>{order.expectedDate ? dateFr(order.expectedDate) : 'À convenir'}</Info>
+          <Info label="Créée le" icon={<CalendarDays />}>{dateFr(order.createdAt)}</Info>
+          {order.deliveryProvince ? <Info label="Province" icon={<MapPin />}>{order.deliveryProvince}</Info> : null}
+          {order.cancelledReason ? <Info label="Motif d’annulation" icon={<X />}>{order.cancelledReason}</Info> : null}
         </dl>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-slate-900">Articles</h3>
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+            <Package className="h-4 w-4 text-brand-600" /> Articles
+          </h3>
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <table className="w-full">
               <thead className="bg-slate-50">
@@ -255,7 +264,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
           ) : null}
           {order.status === 'LIVRE' ? (
             <Button tone="secondary" busy={pdf.isPending} onClick={() => pdf.mutate()}>
-              <FileDown className="h-4 w-4" /> Télécharger le bon de commande
+              <Printer className="h-4 w-4" /> Télécharger le bon de commande
             </Button>
           ) : null}
           {isOpen && remaining > 0 ? (
@@ -277,6 +286,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
           title="Livrer la commande"
           tone="primary"
           confirmLabel="Livrer"
+          confirmIcon={<Truck className="h-4 w-4" />}
           busy={deliver.isPending}
           error={deliver.error}
           onConfirm={() => deliver.mutate()}
@@ -298,6 +308,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
         <ConfirmDialog
           title="Annuler la commande"
           confirmLabel="Annuler la commande"
+          confirmIcon={<XCircle className="h-4 w-4" />}
           busy={cancel.isPending}
           error={cancel.error}
           onConfirm={() => cancel.mutate()}

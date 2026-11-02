@@ -8,14 +8,14 @@ import {
   Syringe,
   Timer,
   UserPlus,
-  Wifi,
+  WifiOff,
   type LucideIcon,
 } from 'lucide-react';
-import { Card, PageHeader } from '../components/ui';
+import { Card, IconTile, PageHeader, type IconTone } from '../components/ui';
 
 interface Guide {
   icon: LucideIcon;
-  iconCls: string;
+  iconTone: IconTone;
   title: string;
   lines: string[];
 }
@@ -27,7 +27,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
     guides: [
       {
         icon: PiggyBank,
-        iconCls: 'text-amber-600',
+        iconTone: 'accent',
         title: '1. Votre ferme',
         lines: [
           'Votre ferme est créée à l’inscription. Complétez son nom et son logo dans Réglages.',
@@ -36,7 +36,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
       },
       {
         icon: UserPlus,
-        iconCls: 'text-brand-600',
+        iconTone: 'brand',
         title: '2. Votre équipe',
         lines: [
           'Menu → Équipe : ajoutez un compte éleveur (terrain) pour les saisies.',
@@ -45,7 +45,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
       },
       {
         icon: Syringe,
-        iconCls: 'text-emerald-600',
+        iconTone: 'green',
         title: '3. Un lot, un calendrier',
         lines: [
           'Créez le lot, entrez les saisies du jour chaque matin (moins d’1 minute).',
@@ -54,7 +54,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
       },
       {
         icon: CreditCard,
-        iconCls: 'text-amber-700',
+        iconTone: 'amber',
         title: '4. Vendre & encaisser',
         lines: [
           'Menu → Ventes : pièce, au kilo, œufs ou autre, avec un client et un coupon optionnels.',
@@ -67,8 +67,8 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
     title: 'Connexion & qualité',
     guides: [
       {
-        icon: Wifi,
-        iconCls: 'text-red-500',
+        icon: WifiOff,
+        iconTone: 'red',
         title: 'Connexion et hors-ligne',
         lines: [
           'Sur le site web, chaque opération part directement au serveur : une connexion est nécessaire.',
@@ -77,7 +77,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
       },
       {
         icon: RefreshCw,
-        iconCls: 'text-brand-600',
+        iconTone: 'brand',
         title: 'Alertes & advisory',
         lines: [
           'La page Alertes priorise vos actions (rouge → jaune) : saisie manquante, soin, stock de provende.',
@@ -86,7 +86,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
       },
       {
         icon: ShieldCheck,
-        iconCls: 'text-emerald-600',
+        iconTone: 'green',
         title: 'Traçabilité',
         lines: [
           'Aliments HACCP : n° de lot fournisseur, péremption, stock par bâtiment.',
@@ -100,13 +100,13 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
     guides: [
       {
         icon: Globe2,
-        iconCls: 'text-slate-400',
+        iconTone: 'slate',
         title: 'Langue & support',
         lines: ['Interface en français (Gabon).', 'Aide détaillée et tutoriels vidéo prévus dans une prochaine version.'],
       },
       {
         icon: Timer,
-        iconCls: 'text-slate-400',
+        iconTone: 'slate',
         title: 'Statut',
         lines: ['Site web relié au serveur, comme l’application mobile : les données sont les mêmes des deux côtés.'],
       },
@@ -117,7 +117,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
 export function HelpPage() {
   return (
     <div className="space-y-8">
-      <PageHeader title="Langue & aide" subtitle="Français · Guide de démarrage" />
+      <PageHeader title="Langue & aide" subtitle="Français · Guide de démarrage" icon={<LifeBuoy className="h-6 w-6" />} />
 
       {SECTIONS.map((section) => (
         <section key={section.title}>
@@ -127,9 +127,7 @@ export function HelpPage() {
             {section.guides.map((guide) => (
               <Card key={guide.title} className="p-4">
                 <div className="mb-2 flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100">
-                    <guide.icon className={`h-5 w-5 ${guide.iconCls}`} />
-                  </div>
+                  <IconTile icon={<guide.icon className="h-5 w-5" />} tone={guide.iconTone} />
                   <h3 className="text-sm font-bold text-slate-900">{guide.title}</h3>
                 </div>
                 <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600 marker:text-brand-500">

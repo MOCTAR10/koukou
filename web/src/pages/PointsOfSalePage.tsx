@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRightLeft, Pencil, Plus, RotateCcw, Star, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Home, MapPin, Package, Pencil, Plus, RotateCcw, Star, Store, Trash2, TrendingUp, Trophy, Wheat } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client';
 import type { PointOfSale, PosSale, StockTransfer, StockTransferProductType } from '../api/types-orders';
@@ -9,7 +9,8 @@ import { addDaysIso, invalidateTransferQueries } from '../components/orders/help
 import { PointOfSaleFormModal } from '../components/orders/PointOfSaleFormModal';
 import { ConfirmDialog, Pill, ProvinceSelect, Segmented } from '../components/orders/shared';
 import { TransferModal } from '../components/orders/TransferModal';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { batchPhoto } from '../components/sales/pos';
+import { Card, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Td, Th } from '../components/ui';
 import { fcfa, num } from '../lib/format';
 
 type PeriodKey = 'today' | 'week' | 'month';
@@ -106,7 +107,8 @@ function PosTable({
               return (
                 <tr key={p.id} className="border-t border-slate-100">
                   <Td className="font-medium">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-2">
+                      <IconTile icon={p.kind === 'BOUTIQUE' ? <Store /> : <Home />} tone={p.kind === 'BOUTIQUE' ? 'accent' : 'brand'} size="sm" />
                       {p.name}
                       {p.isDefault ? <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500" aria-label="Ferme mère" /> : null}
                     </span>
@@ -133,11 +135,14 @@ function PosTable({
                     )}
                   </Td>
                   <Td className="text-xs">
-                    {p.kind === 'FERME'
-                      ? 'Vivant, abattu, œufs et provende'
-                      : reserve
-                        ? `${num(reserve.remaining, 0)} unité(s), ${num(reserve.carried, 0)} transfert(s)`
-                        : 'Aucun transfert'}
+                    {p.kind === 'FERME' ? (
+                      'Vivant, abattu, œufs et provende'
+                    ) : (
+                      <span className="flex items-center gap-1.5">
+                        <ArrowRightLeft className="h-3.5 w-3.5 shrink-0 text-accent-700" />
+                        {reserve ? `${num(reserve.remaining, 0)} unité(s), ${num(reserve.carried, 0)} transfert(s)` : 'Aucun transfert'}
+                      </span>
+                    )}
                   </Td>
                   <Td>
                     <span className="flex justify-end gap-1">
@@ -299,6 +304,7 @@ export function PointsOfSalePage() {
       <PageHeader
         title="Points de vente"
         subtitle="La ferme mère et ses points de vente rattachés, partout au Gabon."
+        icon={<MapPin />}
         actions={
           <>
             <Button tone="secondary" onClick={() => setTransferOpen(true)}>
@@ -318,11 +324,12 @@ export function PointsOfSalePage() {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Revenu sur 7 jours" value={fcfa(weekTotal)} hint={`${num(weekCount, 0)} vente(s)`} tone="accent" />
-            <StatCard label="Points actifs" value={num(pdvs.filter((p) => p.isActive).length, 0)} hint="Ferme comprise" />
-            <StatCard label="Points rattachés" value={num(boutiques.length, 0)} hint="Hors ferme mère" />
+            <StatCard label="Revenu sur 7 jours" value={fcfa(weekTotal)} hint={`${num(weekCount, 0)} vente(s)`} tone="accent" icon={<TrendingUp />} />
+            <StatCard label="Points actifs" value={num(pdvs.filter((p) => p.isActive).length, 0)} hint="Ferme comprise" icon={<MapPin />} />
+            <StatCard label="Points rattachés" value={num(boutiques.length, 0)} hint="Hors ferme mère" icon={<Store />} />
             <StatCard
               label="Meilleur canal du jour"
+              icon={<Trophy />}
               value={topToday ? fcfa(topToday.revenue) : '—'}
               hint={topToday ? topToday.name : 'Aucune vente enregistrée aujourd’hui'}
             />
@@ -334,17 +341,21 @@ export function PointsOfSalePage() {
           </div>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-slate-900">Ferme mère</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <Home className="h-4 w-4 text-brand-600" /> Ferme mère
+            </h2>
             {farms.length > 0 ? (
               <PosTable rows={farms} stats={stats} stock={stock} period={period} onEdit={openEdit} onDelete={setToDelete} />
             ) : (
-              <EmptyState message="Aucune ferme. Le point « ferme » vend directement sur l’exploitation." />
+              <EmptyState icon={<Home />} message="Aucune ferme. Le point « ferme » vend directement sur l’exploitation." />
             )}
           </section>
 
           <section className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-slate-900">Points de vente ({num(filtered.length, 0)})</h2>
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <Store className="h-4 w-4 text-brand-600" /> Points de vente ({num(filtered.length, 0)})
+              </h2>
               <div className="flex flex-wrap items-center gap-3">
                 <Segmented<StatusFilter>
                   ariaLabel="Filtrer par statut"
@@ -370,6 +381,7 @@ export function PointsOfSalePage() {
               <PosTable rows={filtered} stats={stats} stock={stock} period={period} onEdit={openEdit} onDelete={setToDelete} />
             ) : (
               <EmptyState
+                icon={<Store />}
                 message={
                   boutiques.length > 0
                     ? 'Aucun point de vente ne correspond aux filtres : ajustez le statut ou la province.'
@@ -380,7 +392,9 @@ export function PointsOfSalePage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-slate-900">Réserves actives en boutique ({num(activeTransfers.length, 0)})</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <Package className="h-4 w-4 text-brand-600" /> Réserves actives en boutique ({num(activeTransfers.length, 0)})
+            </h2>
             {activeTransfers.length > 0 ? (
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
@@ -404,8 +418,17 @@ export function PointsOfSalePage() {
                               <Pill tone={product.tone}>{product.label}</Pill>
                             </Td>
                             <Td className="font-medium">
-                              {source.name}
-                              {source.detail ? <span className="block text-xs font-normal text-slate-500">{source.detail}</span> : null}
+                              <span className="flex items-center gap-2.5">
+                                {t.productType === 'PROVENDE' ? (
+                                  <IconTile icon={<Wheat />} tone="amber" size="sm" />
+                                ) : (
+                                  <PhotoThumb src={batchPhoto(t.slaughterOrder?.batch ?? t.batch)} size="sm" />
+                                )}
+                                <span className="min-w-0">
+                                  {source.name}
+                                  {source.detail ? <span className="block text-xs font-normal text-slate-500">{source.detail}</span> : null}
+                                </span>
+                              </span>
                             </Td>
                             <Td>{t.pointOfSale.name}</Td>
                             <Td className="whitespace-nowrap text-right tabular-nums">
@@ -426,7 +449,7 @@ export function PointsOfSalePage() {
                 </div>
               </Card>
             ) : (
-              <EmptyState message="Aucune réserve active. Transférez du stock depuis la ferme (carcasses, œufs ou provende) pour le vendre en boutique." />
+              <EmptyState icon={<Package />} message="Aucune réserve active. Transférez du stock depuis la ferme (carcasses, œufs ou provende) pour le vendre en boutique." />
             )}
           </section>
         </>
@@ -438,6 +461,7 @@ export function PointsOfSalePage() {
         <ConfirmDialog
           title="Supprimer ce point de vente ?"
           confirmLabel="Supprimer définitivement"
+          confirmIcon={<Trash2 className="h-4 w-4" />}
           busy={remove.isPending}
           error={remove.error}
           onConfirm={() => remove.mutate(toDelete.id)}
@@ -454,6 +478,7 @@ export function PointsOfSalePage() {
         <ConfirmDialog
           title="Annuler ce transfert ?"
           confirmLabel="Annuler le transfert"
+          confirmIcon={<RotateCcw className="h-4 w-4" />}
           busy={cancelTransfer.isPending}
           error={cancelTransfer.error}
           onConfirm={() => cancelTransfer.mutate(toCancel.id)}

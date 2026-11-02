@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
+import { Check, ShoppingCart } from 'lucide-react';
 import type { FeedStockSummary } from '../../api/types';
 import type { CarcassPool, ParcelleStock, PointOfSale, PosBatch, StockTransfer } from '../../api/types-sales';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
 import { fcfa, num } from '../../lib/format';
 import { unitLabel } from './labels';
 import {
+  batchPhoto,
   formatEggAlveoles,
   isAbattu,
   isKgProduct,
@@ -17,6 +19,7 @@ import {
   type PosLine,
   type PosProduct,
 } from './pos';
+import { ProductThumb } from './shared';
 
 export interface LinePreset {
   batchId?: string;
@@ -269,6 +272,7 @@ export function LineForm({
 
   const advice = !isBoutique && lot && (product === 'PIECE' || product === 'KG') ? readinessAdvice(lot) : null;
   const showMax = maxQty != null && (isBoutique ? !!transfer : !!(lot || pool || feedLot || recolteRow));
+  const sourceBatchId = isBoutique ? (transfer?.batchId ?? transfer?.slaughterOrder?.batchId) : isAbattu(product) ? pool?.batchId : lotId;
 
   return (
     <Modal title={initial ? 'Modifier l’article' : 'Ajouter un article'} onClose={onClose}>
@@ -279,15 +283,18 @@ export function LineForm({
           save();
         }}
       >
-        <Field label="Article à vendre">
-          <select className={inputCls} value={product} onChange={(e) => selectProduct(e.target.value as PosProduct)}>
-            {posCatalog(pos.kind).map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div className="flex items-end gap-3">
+          <ProductThumb product={product} photo={batchPhoto(lots.find((b) => b.id === sourceBatchId))} size="md" />
+          <Field label="Article à vendre" className="min-w-0 flex-1">
+            <select className={inputCls} value={product} onChange={(e) => selectProduct(e.target.value as PosProduct)}>
+              {posCatalog(pos.kind).map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
 
         {isBoutique ? (
           <Field label="Réserve de la boutique">
@@ -403,7 +410,10 @@ export function LineForm({
             <Button tone="secondary" onClick={onClose}>
               Annuler
             </Button>
-            <Button type="submit">{initial ? 'Mettre à jour' : 'Ajouter au panier'}</Button>
+            <Button type="submit">
+              {initial ? <Check className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+              {initial ? 'Mettre à jour' : 'Ajouter au panier'}
+            </Button>
           </div>
         </div>
       </form>
