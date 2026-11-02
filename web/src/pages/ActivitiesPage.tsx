@@ -1,13 +1,31 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  Bell,
+  Bird,
+  CircleCheck,
+  ClipboardCheck,
+  Droplets,
+  Medal,
+  NotebookPen,
+  Sun,
+  Thermometer,
+  Wallet,
+  Wheat,
+} from 'lucide-react';
 import { api } from '../api/client';
 import type { AdvisoryResponse, CaisseSummary, FarmTask, FlockDashboard } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
 import { buildActionQueue, buildJournal } from '../components/flock/activityFeed';
-import { Metric, Pill, SectionCard, Tabs, levelTone } from '../components/flock/shared';
+import { Metric, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { ErrorNote } from '../components/form';
-import { EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, Td, Th, type IconTone } from '../components/ui';
 import { dateTimeFr, fcfa, num } from '../lib/format';
 
 type Panel = 'taches' | 'lots' | 'caisse' | 'rapports';
@@ -19,6 +37,12 @@ const SOURCE_LABEL: Record<string, string> = {
   EXPENSE: 'Dépense',
 };
 const KIND_LABEL = { saisie: 'Saisie', tache: 'Tâche', alerte: 'Alerte' };
+const KIND_ICON = {
+  saisie: <NotebookPen className="h-4 w-4" />,
+  tache: <ClipboardCheck className="h-4 w-4" />,
+  alerte: <Bell className="h-4 w-4" />,
+};
+const KIND_TONE: Record<keyof typeof KIND_LABEL, IconTone> = { saisie: 'brand', tache: 'green', alerte: 'red' };
 
 const ZONE_LABEL: Record<string, string> = {
   CONFORT: 'Confort thermique',
@@ -30,10 +54,49 @@ const ZONE_LABEL: Record<string, string> = {
 const zoneLabel = (z: string) => ZONE_LABEL[z] ?? 'Prévision météo';
 
 const moreLink = (to: string, label: string) => (
-  <Link to={to} className="text-sm font-medium text-brand-700 hover:underline">
-    {label}
+  <Link to={to} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">
+    {label} <ArrowRight className="h-3.5 w-3.5" />
   </Link>
 );
+
+const iconValue = (icon: ReactNode, value: ReactNode) => (
+  <span className="inline-flex items-center gap-1.5">
+    {icon}
+    {value}
+  </span>
+);
+
+function SectionCard({
+  title,
+  subtitle,
+  icon,
+  actions,
+  children,
+  flush = false,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+  flush?: boolean;
+}) {
+  return (
+    <Card className={flush ? 'overflow-hidden' : undefined}>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <IconTile icon={icon} size="sm" />
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+            {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
+          </div>
+        </div>
+        {actions}
+      </div>
+      <div className={flush ? undefined : 'p-4'}>{children}</div>
+    </Card>
+  );
+}
 
 const deltaText = (v: number | null | undefined, unit: string, digits = 1) =>
   v == null ? '—' : `${v >= 0 ? '+' : ''}${num(v, digits)}${unit}`;
@@ -98,7 +161,7 @@ export function ActivitiesPage() {
   if (!d) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Activités" subtitle="Journal et opérations" />
+        <PageHeader title="Activités" subtitle="Journal et opérations" icon={<NotebookPen className="h-6 w-6" />} />
         <ErrorNote error={dashboard.error} />
       </div>
     );
@@ -108,13 +171,19 @@ export function ActivitiesPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Activités" subtitle={title} />
+      <PageHeader title="Activités" subtitle={title} icon={<NotebookPen className="h-6 w-6" />} />
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <Metric label="Encaissé aujourd'hui" value={fcfa(d.collectedTodayFcfa)} />
-        <Metric label="Stock vivant" value={num(d.liveStock)} />
-        <Metric label="Autonomie aliment" value={d.feedAutonomyDays != null ? `${num(d.feedAutonomyDays)} j` : '—'} />
-        <Metric label="Mortalité" value={d.mortalityPercent != null ? `${num(d.mortalityPercent)} %` : '—'} />
-        <Metric label="Alertes critiques" value={d.alerts.rouge} tone={d.alerts.rouge > 0 ? 'bad' : 'good'} />
+        <Metric label="Encaissé aujourd'hui" value={iconValue(<Wallet className="h-4 w-4 text-slate-400" />, fcfa(d.collectedTodayFcfa))} />
+        <Metric label="Stock vivant" value={iconValue(<Bird className="h-4 w-4 text-slate-400" />, num(d.liveStock))} />
+        <Metric
+          label="Autonomie aliment"
+          value={iconValue(<Wheat className="h-4 w-4 text-slate-400" />, d.feedAutonomyDays != null ? `${num(d.feedAutonomyDays)} j` : '—')}
+        />
+        <Metric
+          label="Mortalité"
+          value={iconValue(<Activity className="h-4 w-4 text-slate-400" />, d.mortalityPercent != null ? `${num(d.mortalityPercent)} %` : '—')}
+        />
+        <Metric label="Alertes critiques" value={iconValue(<AlertTriangle className="h-4 w-4" />, d.alerts.rouge)} tone={d.alerts.rouge > 0 ? 'bad' : 'good'} />
       </div>
       <Tabs<Panel>
         value={panel}
@@ -138,19 +207,25 @@ export function ActivitiesPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <SectionCard
               title="À traiter"
+              icon={<NotebookPen className="h-4 w-4" />}
               subtitle={queue.length > 0 ? `${queue.length} action${queue.length > 1 ? 's' : ''} en attente` : 'Aucune action requise'}
               actions={moreLink('/app/tasks', 'Ouvrir le planning complet')}
             >
               {queue.length === 0 ? (
-                <p className="text-sm text-slate-500">Tout est à jour.</p>
+                <p className="flex items-center gap-2 text-sm text-slate-500">
+                  <CircleCheck className="h-4 w-4 text-emerald-600" /> Tout est à jour.
+                </p>
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {queue.map((a) => (
                     <li key={a.id} className="py-2">
                       <Link to={a.href} className="flex items-start justify-between gap-3 hover:opacity-80">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{a.title}</p>
-                          <p className="text-xs text-slate-500">{a.detail}</p>
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          <IconTile icon={KIND_ICON[a.kind]} tone={a.priority === 'CRITIQUE' ? 'red' : 'amber'} size="sm" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800">{a.title}</p>
+                            <p className="text-xs text-slate-500">{a.detail}</p>
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
                           {a.badge ? <span className="text-xs text-slate-500">{a.badge}</span> : null}
@@ -164,6 +239,7 @@ export function ActivitiesPage() {
             </SectionCard>
             <SectionCard
               title="Activité récente"
+              icon={<ClipboardCheck className="h-4 w-4" />}
               actions={
                 <Tabs
                   value={String(span) as '7' | '30' | '90'}
@@ -183,18 +259,21 @@ export function ActivitiesPage() {
                   {journal.groups.map((g) => (
                     <div key={g.key}>
                       <p className="mb-1 text-xs font-semibold text-slate-500">{g.label}</p>
-                      <ul className="space-y-1">
+                      <ul className="space-y-2">
                         {g.entries.map((e) => (
                           <li key={e.id} className="flex items-start justify-between gap-3 text-sm">
-                            <div className="min-w-0">
-                              {e.href ? (
-                                <Link to={e.href} className="font-medium text-slate-800 hover:underline">
-                                  {e.title}
-                                </Link>
-                              ) : (
-                                <span className="font-medium text-slate-800">{e.title}</span>
-                              )}
-                              <p className="text-xs text-slate-500">{e.detail}</p>
+                            <div className="flex min-w-0 items-start gap-2.5">
+                              <IconTile icon={KIND_ICON[e.kind]} tone={KIND_TONE[e.kind]} size="sm" />
+                              <div className="min-w-0">
+                                {e.href ? (
+                                  <Link to={e.href} className="font-medium text-slate-800 hover:underline">
+                                    {e.title}
+                                  </Link>
+                                ) : (
+                                  <span className="font-medium text-slate-800">{e.title}</span>
+                                )}
+                                <p className="text-xs text-slate-500">{e.detail}</p>
+                              </div>
                             </div>
                             <Pill>{KIND_LABEL[e.kind]}</Pill>
                           </li>
@@ -224,10 +303,10 @@ export function ActivitiesPage() {
             <Metric label="Lots actifs" value={d.batches.actif} />
             <Metric label="En vente" value={d.batches.enVente} />
           </div>
-          <SectionCard title="État des lots" flush actions={moreLink('/app/batches', 'Gérer les lots')}>
+          <SectionCard title="État des lots" icon={<NotebookPen className="h-4 w-4" />} flush actions={moreLink('/app/batches', 'Gérer les lots')}>
             {d.healthOverview.length === 0 ? (
               <div className="p-4">
-                <EmptyState message="Aucun lot actif." />
+                <EmptyState message="Aucun lot actif." icon={<Bird className="h-6 w-6" />} />
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -282,6 +361,7 @@ export function ActivitiesPage() {
       {panel === 'caisse' ? (
         <SectionCard
           title="Caisse du jour"
+          icon={<Wallet className="h-4 w-4" />}
           actions={moreLink('/app/finance/caisse', 'Ouvrir la caisse')}
         >
           {c ? (
@@ -290,9 +370,9 @@ export function ActivitiesPage() {
                 {c.session.status === 'OPEN' ? 'Session ouverte' : 'Session fermée'}
               </Pill>
               <div className="grid grid-cols-3 gap-2">
-                <Metric label="Entrées" value={fcfa(c.inFcfa)} tone="good" />
-                <Metric label="Sorties" value={fcfa(c.outFcfa)} tone="bad" />
-                <Metric label="Solde" value={fcfa(c.expectedBalanceFcfa)} />
+                <Metric label="Entrées" value={iconValue(<ArrowDown className="h-4 w-4" />, fcfa(c.inFcfa))} tone="good" />
+                <Metric label="Sorties" value={iconValue(<ArrowUp className="h-4 w-4" />, fcfa(c.outFcfa))} tone="bad" />
+                <Metric label="Solde" value={iconValue(<Wallet className="h-4 w-4 text-slate-400" />, fcfa(c.expectedBalanceFcfa))} />
               </div>
               {c.movements.length === 0 ? (
                 <p className="text-sm text-slate-500">Aucun mouvement enregistré sur cette session.</p>
@@ -300,11 +380,18 @@ export function ActivitiesPage() {
                 <ul className="divide-y divide-slate-100">
                   {c.movements.slice(0, 10).map((m) => (
                     <li key={m.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-800">{m.reason ?? SOURCE_LABEL[m.source] ?? 'Mouvement'}</p>
-                        <p className="text-xs text-slate-500">
-                          {SOURCE_LABEL[m.source] ?? 'Autre'} · {dateTimeFr(m.createdAt)}
-                        </p>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <IconTile
+                          icon={m.type === 'IN' ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+                          tone={m.type === 'IN' ? 'green' : 'red'}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-800">{m.reason ?? SOURCE_LABEL[m.source] ?? 'Mouvement'}</p>
+                          <p className="text-xs text-slate-500">
+                            {SOURCE_LABEL[m.source] ?? 'Autre'} · {dateTimeFr(m.createdAt)}
+                          </p>
+                        </div>
                       </div>
                       <span className={m.type === 'IN' ? 'font-semibold text-emerald-600' : 'font-semibold text-red-600'}>
                         {m.type === 'IN' ? '+' : '−'}
@@ -325,7 +412,12 @@ export function ActivitiesPage() {
 
       {panel === 'rapports' ? (
         <div className="grid gap-4 lg:grid-cols-2">
-          <SectionCard title="Cette semaine" subtitle="Comparé à la semaine précédente" actions={moreLink('/app/reports', 'Tous les rapports')}>
+          <SectionCard
+            title="Cette semaine"
+            subtitle="Comparé à la semaine précédente"
+            icon={<NotebookPen className="h-4 w-4" />}
+            actions={moreLink('/app/reports', 'Tous les rapports')}
+          >
             <div className="grid grid-cols-3 gap-2">
               <Metric label="Mortalité" value={num(d.deltas.mortalityThisWeek, 0)} sub={deltaText(d.deltas.mortalityDelta, ' morts', 0)} />
               <Metric
@@ -339,13 +431,13 @@ export function ActivitiesPage() {
               <Metric label="Alertes" value={d.alerts.total} />
             </div>
           </SectionCard>
-          <SectionCard title="Météo">
+          <SectionCard title="Météo" icon={<Sun className="h-4 w-4" />}>
             {w?.available && w.today ? (
               <div className="space-y-2">
                 <Pill tone={levelTone(w.today.level)}>{zoneLabel(w.today.zone)}</Pill>
                 <div className="grid grid-cols-3 gap-2">
-                  <Metric label="Température" value={`${num(w.today.tempC, 0)} °C`} />
-                  <Metric label="Humidité" value={`${num(w.today.humidityPct, 0)} %`} />
+                  <Metric label="Température" value={iconValue(<Thermometer className="h-4 w-4 text-slate-400" />, `${num(w.today.tempC, 0)} °C`)} />
+                  <Metric label="Humidité" value={iconValue(<Droplets className="h-4 w-4 text-slate-400" />, `${num(w.today.humidityPct, 0)} %`)} />
                   <Metric label="Indice de chaleur" value={num(w.today.thi, 0)} />
                 </div>
               </div>
@@ -354,10 +446,10 @@ export function ActivitiesPage() {
             )}
           </SectionCard>
           <div className="lg:col-span-2">
-            <SectionCard title="Classement des lots" subtitle="Indice de performance" flush>
+            <SectionCard title="Classement des lots" subtitle="Indice de performance" icon={<ClipboardCheck className="h-4 w-4" />} flush>
               {d.leaderboard.length === 0 ? (
                 <div className="p-4">
-                  <EmptyState message="Pas encore de classement." />
+                  <EmptyState message="Pas encore de classement." icon={<Medal className="h-6 w-6" />} />
                 </div>
               ) : (
                 <div className="overflow-x-auto">

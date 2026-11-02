@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, Phone } from 'lucide-react';
+import { Banknote, CalendarDays, Check, Coins, Phone, ReceiptText, ShoppingCart, UserPlus, Wallet } from 'lucide-react';
 import { api } from '../../api/client';
 import type { Customer } from '../../api/types';
 import type { CustomerFull, CustomerStats, SaleFull } from '../../api/types-sales';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
-import { Loading } from '../ui';
+import { IconTile, Loading } from '../ui';
 import { classNames, dateFr, fcfa, num } from '../../lib/format';
 import { CustomerPicker } from './Checkout';
 import { CUSTOMER_TYPE_LABEL, CUSTOMER_TYPES, productTypeLabel, SEGMENT_LABEL } from './labels';
@@ -69,6 +69,7 @@ export function CreateCustomerModal({ farmId, onClose }: { farmId: string | null
             Annuler
           </Button>
           <Button type="submit" busy={create.isPending} disabled={!name.trim()}>
+            {create.isPending ? null : <UserPlus className="h-4 w-4" />}
             Créer la fiche
           </Button>
         </div>
@@ -127,8 +128,11 @@ export function CollectModal({
     return (
       <Modal title="Encaissement enregistré" onClose={onClose}>
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            {fcfa(done)} · {customer?.fullName}. Ajouté à la caisse journalière.
+          <p className="flex items-center gap-3 text-sm text-slate-600">
+            <IconTile icon={<Check />} tone="green" />
+            <span>
+              {fcfa(done)} · {customer?.fullName}. Ajouté à la caisse journalière.
+            </span>
           </p>
           <div className="flex justify-end">
             <Button onClick={onClose}>Fermer</Button>
@@ -203,10 +207,13 @@ export function CollectModal({
   );
 }
 
-function Figure({ label, value, tone }: { label: string; value: string; tone?: string }) {
+function Figure({ label, value, tone, icon }: { label: string; value: string; tone?: string; icon: ReactNode }) {
   return (
     <div className="rounded-xl bg-slate-50 p-3">
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="flex items-center gap-1.5 text-xs text-slate-500 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0">
+        {icon}
+        {label}
+      </p>
       <p className={classNames('text-sm font-bold tabular-nums', tone ?? 'text-slate-800')}>{value}</p>
     </div>
   );
@@ -281,9 +288,9 @@ export function CustomerDetail({
         <ErrorNote error={setType.error} />
 
         <div className="grid grid-cols-3 gap-3">
-          <Figure label="Total facturé" value={fcfa(invoiced)} />
-          <Figure label="Encaissé" value={fcfa(paid)} tone="text-emerald-600" />
-          <Figure label="À recouvrer" value={fcfa(due)} tone={due > 0 ? 'text-red-600' : 'text-slate-800'} />
+          <Figure label="Total facturé" value={fcfa(invoiced)} icon={<ReceiptText />} />
+          <Figure label="Encaissé" value={fcfa(paid)} tone="text-emerald-600" icon={<Banknote />} />
+          <Figure label="À recouvrer" value={fcfa(due)} tone={due > 0 ? 'text-red-600' : 'text-slate-800'} icon={<Wallet />} />
         </div>
         <div>
           <div className="flex justify-between text-xs text-slate-500">
@@ -301,9 +308,9 @@ export function CustomerDetail({
         ) : stats.data ? (
           <div className="space-y-2">
             <div className="grid grid-cols-3 gap-3">
-              <Figure label="Visites" value={num(stats.data.visits)} />
-              <Figure label="Total dépensé" value={fcfa(stats.data.totalSpentFcfa)} />
-              <Figure label="Panier moyen" value={fcfa(stats.data.avgBasketFcfa)} />
+              <Figure label="Visites" value={num(stats.data.visits)} icon={<CalendarDays />} />
+              <Figure label="Total dépensé" value={fcfa(stats.data.totalSpentFcfa)} icon={<Coins />} />
+              <Figure label="Panier moyen" value={fcfa(stats.data.avgBasketFcfa)} icon={<ShoppingCart />} />
             </div>
             {stats.data.favorites.length > 0 ? (
               <p className="text-sm text-slate-500">
@@ -317,7 +324,9 @@ export function CustomerDetail({
         ) : null}
 
         <div>
-          <h3 className="mb-2 text-sm font-semibold text-slate-700">Historique d’achats</h3>
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <ReceiptText className="h-4 w-4 text-brand-600" /> Historique d’achats
+          </h3>
           {history.isLoading ? (
             <Loading label="Lecture de l’historique…" />
           ) : !history.data?.length ? (

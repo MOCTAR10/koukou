@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { ArrowRightLeft, Check, Wheat } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type { CarcassPool, PointOfSale, SellableBatch, StockTransferBody, StockTransferProductType } from '../../api/types-orders';
 import { useFarm } from '../../app/FarmContext';
+import { lotImage } from '../../lib/animalImages';
 import { classNames, num, pct } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
-import { Loading } from '../ui';
+import { IconTile, Loading, PhotoThumb } from '../ui';
 import { invalidateTransferQueries, newIdempotencyKey, parseWhole } from './helpers';
 import { Segmented } from './shared';
 
@@ -26,12 +28,14 @@ function typeLabel(type: string): string {
 }
 
 function SourceOption({
+  thumb,
   title,
   subtitle,
   stats,
   selected,
   onSelect,
 }: {
+  thumb: ReactNode;
   title: string;
   subtitle: string;
   stats: string;
@@ -39,11 +43,14 @@ function SourceOption({
   onSelect?: () => void;
 }) {
   const body = (
-    <>
-      <span className="block text-sm font-semibold text-slate-900">{title}</span>
-      {subtitle ? <span className="block text-xs text-slate-500">{subtitle}</span> : null}
-      <span className="mt-0.5 block text-xs font-medium text-slate-700">{stats}</span>
-    </>
+    <span className="flex items-start gap-2.5">
+      {thumb}
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-slate-900">{title}</span>
+        {subtitle ? <span className="block text-xs text-slate-500">{subtitle}</span> : null}
+        <span className="mt-0.5 block text-xs font-medium text-slate-700">{stats}</span>
+      </span>
+    </span>
   );
   if (!onSelect) return <li className="rounded-lg border border-slate-200 px-3 py-2">{body}</li>;
   return (
@@ -194,6 +201,7 @@ export function TransferModal({ boutiques, onClose }: { boutiques: PointOfSale[]
               {liveLots.map((b) => (
                 <SourceOption
                   key={b.id}
+                  thumb={<PhotoThumb src={lotImage(b.breedName, b.species)} />}
                   title={b.batchName ?? 'Lot'}
                   subtitle={[b.breedCode, b.breedName, typeLabel(b.type)].filter(Boolean).join(' · ')}
                   stats={`${num(b.quantityAlive, 0)} vivants · J${b.metrics.ageDays} · ${
@@ -221,6 +229,7 @@ export function TransferModal({ boutiques, onClose }: { boutiques: PointOfSale[]
                   ? pools.map((p) => (
                       <SourceOption
                         key={p.id}
+                        thumb={<PhotoThumb src={lotImage(p.batch?.breedName, p.batch?.species)} />}
                         title={p.batch?.batchName ?? 'Lot'}
                         subtitle={[p.batch?.breedName, p.referenceNumber].filter(Boolean).join(' · ')}
                         stats={`${num(p.carcassesAvailable ?? 0, 0)} carcasses disponibles`}
@@ -233,6 +242,7 @@ export function TransferModal({ boutiques, onClose }: { boutiques: PointOfSale[]
                   ? eggLots.map((b) => (
                       <SourceOption
                         key={b.id}
+                        thumb={<PhotoThumb src={lotImage(b.breedName, b.species)} />}
                         title={b.batchName ?? 'Lot'}
                         subtitle={[b.breedCode, b.breedName, typeLabel(b.type)].filter(Boolean).join(' · ')}
                         stats={`${num(b.metrics.eggStockAvailableEggs ?? 0, 0)} œufs disponibles · ${eggLabel(b.metrics.eggStockAvailableEggs ?? 0)}`}
@@ -245,6 +255,7 @@ export function TransferModal({ boutiques, onClose }: { boutiques: PointOfSale[]
                   ? feedLots.map((l) => (
                       <SourceOption
                         key={l.id}
+                        thumb={<IconTile icon={<Wheat />} tone="amber" />}
                         title={l.productName}
                         subtitle={[l.supplier, l.supplierLotNumber].filter(Boolean).join(' · ')}
                         stats={`${num(Math.floor(l.availableKg), 0)} kg disponibles · ${num(Math.floor(l.availableKg / sacKg), 0)} sacs`}
@@ -318,7 +329,12 @@ export function TransferModal({ boutiques, onClose }: { boutiques: PointOfSale[]
         )}
 
         <ErrorNote error={localError ?? create.error} />
-        {done ? <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-200">{done}</p> : null}
+        {done ? (
+          <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-200">
+            <Check className="h-4 w-4 shrink-0" />
+            {done}
+          </p>
+        ) : null}
 
         <div className="flex justify-end gap-2">
           <Button tone="secondary" onClick={onClose} disabled={create.isPending}>
@@ -326,6 +342,7 @@ export function TransferModal({ boutiques, onClose }: { boutiques: PointOfSale[]
           </Button>
           {tab === 'VIVANT' ? null : (
             <Button type="submit" busy={create.isPending} disabled={!boutiqueId || maxQuantity <= 0 || quantity <= 0}>
+              {create.isPending ? null : <ArrowRightLeft className="h-4 w-4" />}
               Transférer
             </Button>
           )}

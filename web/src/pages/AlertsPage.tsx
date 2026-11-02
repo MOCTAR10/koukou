@@ -1,13 +1,28 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  CircleCheck,
+  ClipboardList,
+  HandCoins,
+  Info,
+  ListChecks,
+  PackageOpen,
+  SearchX,
+  Stethoscope,
+} from 'lucide-react';
 import { api } from '../api/client';
 import type { Alert } from '../api/types';
 import type { AdvisoryNextActions, NextAction, OwnerDashboard } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, Th, Td } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, Th, Td } from '../components/ui';
+import { ActionTile } from '../components/sales/DashboardPanels';
 import { HEALTH_LABEL, kindLabel } from '../components/sales/labels';
 import { AlertLevelBadge, FilterChip } from '../components/sales/shared';
 import { classNames, dateFr, num } from '../lib/format';
@@ -65,6 +80,7 @@ function CareModal({
             Annuler
           </Button>
           <Button type="submit" busy={busy}>
+            {busy ? null : <Check className="h-4 w-4" />}
             Enregistrer
           </Button>
         </div>
@@ -108,13 +124,13 @@ function ActionRow({
       case 'SAISIE':
         return (
           <Link to="/app/batches" className={primaryLinkCls}>
-            Saisir
+            <ClipboardList className="h-3.5 w-3.5" /> Saisir
           </Link>
         );
       case 'STOCK_PROVENDE':
         return (
           <Link to="/app/stock" className={primaryLinkCls}>
-            Commander
+            <PackageOpen className="h-3.5 w-3.5" /> Commander
           </Link>
         );
       case 'VENTE':
@@ -123,7 +139,7 @@ function ActionRow({
             to={action.batchId ? `/app/finance/ventes?batch=${action.batchId}` : '/app/finance/ventes'}
             className={primaryLinkCls}
           >
-            Encaisser
+            <HandCoins className="h-3.5 w-3.5" /> Encaisser
           </Link>
         );
       default:
@@ -134,32 +150,36 @@ function ActionRow({
   return (
     <li className="px-4 py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <AlertLevelBadge level={action.level} />
-            <span className="text-xs text-slate-400">{kindLabel(kindOf(action))}</span>
-            {action.dueDate ? <span className="text-xs text-slate-400">· Échéance {dateFr(action.dueDate)}</span> : null}
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <ActionTile action={action} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <AlertLevelBadge level={action.level} />
+              <span className="text-xs text-slate-400">{kindLabel(kindOf(action))}</span>
+              {action.dueDate ? <span className="text-xs text-slate-400">· Échéance {dateFr(action.dueDate)}</span> : null}
+            </div>
+            <p className="mt-1 text-sm font-medium text-slate-800">{action.title}</p>
+            {action.batchName ? <p className="text-xs text-slate-500">{action.batchName}</p> : null}
           </div>
-          <p className="mt-1 text-sm font-medium text-slate-800">{action.title}</p>
-          {action.batchName ? <p className="text-xs text-slate-500">{action.batchName}</p> : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {action.batchId ? (
             <Link to="/app/batches" className={linkCls}>
-              Voir le lot
+              <ArrowRight className="h-3.5 w-3.5" /> Voir le lot
             </Link>
           ) : null}
           {primary}
         </div>
       </div>
       {why ? (
-        <div className="mt-1">
+        <div className="mt-1 pl-11">
           <button
             type="button"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
             className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"
           >
+            <Info className="h-3.5 w-3.5" />
             Pourquoi Fermia dit ça ?
             {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
@@ -272,23 +292,31 @@ export function AlertsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Alertes & recommandations" subtitle="Ce que Fermia a repéré sur vos lots et ce qu’il vous conseille de faire." />
+      <PageHeader
+        title="Alertes & recommandations"
+        subtitle="Ce que Fermia a repéré sur vos lots et ce qu’il vous conseille de faire."
+        icon={<AlertTriangle className="h-6 w-6" />}
+        iconTone="amber"
+      />
 
       <ErrorNote error={advisory.error ?? history.error ?? ack.error} />
 
       <Card className="flex flex-wrap items-center gap-6 p-4">
-        <div>
-          <p className="text-xs text-slate-500">Score de santé</p>
-          <p
-            className={classNames(
-              'text-3xl font-bold tabular-nums',
-              !health ? 'text-slate-400' : health.score >= 70 ? 'text-emerald-600' : health.score >= 50 ? 'text-amber-600' : 'text-red-600',
-            )}
-          >
-            {health ? health.score : '—'}
-            <span className="text-sm font-medium text-slate-400"> /100</span>
-          </p>
-          <p className="text-xs text-slate-500">{health ? (HEALTH_LABEL[health.grade] ?? '—') : '—'}</p>
+        <div className="flex items-center gap-3">
+          <IconTile icon={<Stethoscope className="h-6 w-6" />} size="lg" />
+          <div>
+            <p className="text-xs text-slate-500">Score de santé</p>
+            <p
+              className={classNames(
+                'text-3xl font-bold tabular-nums',
+                !health ? 'text-slate-400' : health.score >= 70 ? 'text-emerald-600' : health.score >= 50 ? 'text-amber-600' : 'text-red-600',
+              )}
+            >
+              {health ? health.score : '—'}
+              <span className="text-sm font-medium text-slate-400"> /100</span>
+            </p>
+            <p className="text-xs text-slate-500">{health ? (HEALTH_LABEL[health.grade] ?? '—') : '—'}</p>
+          </div>
         </div>
         <div className="grid flex-1 grid-cols-3 gap-3 text-center">
           <div className="rounded-xl bg-red-50 p-3">
@@ -336,21 +364,24 @@ export function AlertsPage() {
         advisory.isLoading ? (
           <Loading label="Chargement des alertes…" />
         ) : visible.length === 0 ? (
-          <EmptyState message={actions.length === 0 ? 'Aucune alerte active. Bonne santé !' : 'Aucune alerte dans ce filtre.'} />
+          <EmptyState
+            message={actions.length === 0 ? 'Aucune alerte active. Bonne santé !' : 'Aucune alerte dans ce filtre.'}
+            icon={actions.length === 0 ? <CircleCheck className="h-6 w-6" /> : <SearchX className="h-6 w-6" />}
+          />
         ) : (
           <>
             {priority.length > 0 ? (
               <Card className="overflow-hidden">
-                <h2 className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Actions prioritaires ({num(priority.length)})
+                <h2 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <ListChecks className="h-4 w-4 text-brand-600" /> Actions prioritaires ({num(priority.length)})
                 </h2>
                 <ul className="divide-y divide-slate-100">{priority.map(renderRow)}</ul>
               </Card>
             ) : null}
             {infos.length > 0 ? (
               <Card className="overflow-hidden">
-                <h2 className="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Informations ({num(infos.length)})
+                <h2 className="flex items-center gap-2 border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <Info className="h-4 w-4 text-brand-600" /> Informations ({num(infos.length)})
                 </h2>
                 <ul className="divide-y divide-slate-100">{infos.map(renderRow)}</ul>
               </Card>
@@ -361,7 +392,9 @@ export function AlertsPage() {
 
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-700">Historique des alertes résolues</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <CircleCheck className="h-4 w-4 text-brand-600" /> Historique des alertes résolues
+          </h2>
         </div>
         {history.isLoading ? (
           <div className="p-4">

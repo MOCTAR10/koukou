@@ -1,7 +1,26 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardPlus, Plus } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  BadgeCheck,
+  Bird,
+  Building2,
+  Coins,
+  Egg,
+  Gauge,
+  HeartPulse,
+  Info,
+  PenLine,
+  Plus,
+  Scale,
+  Search,
+  TrendingDown,
+  TrendingUp,
+  Warehouse,
+  Wheat,
+} from 'lucide-react';
 import { api } from '../api/client';
 import type { OverviewPnl } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
@@ -27,7 +46,8 @@ import {
   useLots,
 } from '../components/flock/shared';
 import { Button, ErrorNote, inputCls } from '../components/form';
-import { EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { EGG_IMAGES, lotImage } from '../lib/animalImages';
 import { dateFr, fcfa, num } from '../lib/format';
 
 type Filter = 'all' | 'active' | 'selling' | 'chair' | 'layer' | 'closed';
@@ -135,7 +155,7 @@ export function BatchesPage() {
   if (selectedId && selected) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Lots" subtitle="Détail du lot" />
+        <PageHeader title="Lots" icon={<Activity />} subtitle="Détail du lot" />
         <LotDetail lot={selected} onBack={() => selectLot(null)} />
       </div>
     );
@@ -152,14 +172,15 @@ export function BatchesPage() {
     <div className="space-y-5">
       <PageHeader
         title="Lots"
+        icon={<Activity />}
         subtitle={`${summary.active} lot${summary.active > 1 ? 's' : ''} en cours${asOf ? ` au ${dateFr(asOf)}` : ''}`}
         actions={
           <div className="flex gap-2">
             <Button tone="secondary" onClick={() => setEntering(true)} disabled={summary.active === 0}>
-              <ClipboardPlus className="h-4 w-4" /> Saisie journalière
+              <PenLine className="h-4 w-4" /> Saisie journalière
             </Button>
             <Button onClick={() => (noBuilding ? setAddingBuilding(true) : setCreating(true))}>
-              <Plus className="h-4 w-4" /> {noBuilding ? 'Créer un bâtiment' : 'Nouveau lot'}
+              {noBuilding ? <Building2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {noBuilding ? 'Créer un bâtiment' : 'Nouveau lot'}
             </Button>
           </div>
         }
@@ -169,8 +190,8 @@ export function BatchesPage() {
         value={view}
         onChange={setView}
         options={[
-          { key: 'lots', label: 'Lots' },
-          { key: 'buildings', label: 'Bâtiments' },
+          { key: 'lots', label: 'Lots', icon: <Bird /> },
+          { key: 'buildings', label: 'Bâtiments', icon: <Warehouse /> },
         ]}
       />
 
@@ -181,6 +202,7 @@ export function BatchesPage() {
           <ErrorNote error={lots.error} />
           <SectionCard
             title="Vue d'ensemble"
+            icon={<Gauge />}
             actions={
               <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-500">
                 Situation au
@@ -195,23 +217,25 @@ export function BatchesPage() {
             }
           >
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
-              <Metric label="Oiseaux vivants" value={num(summary.birds)} sub={`${summary.active} lots`} />
-              <Metric label="Mortalité moy." value={summary.mortality != null ? `${num(summary.mortality)} %` : '—'} />
-              <Metric label="IC moyen" value={summary.fcr != null ? num(summary.fcr, 2) : '—'} />
-              <Metric label="GMQ moyen" value={summary.gmq != null ? `${num(summary.gmq, 0)} g/j` : '—'} />
-              <Metric label="Ponte moyenne" value={summary.lay != null ? `${num(summary.lay)} %` : '—'} />
-              <Metric label="Aliment consommé" value={`${num(summary.feed, 0)} kg`} />
-              <Metric label="Œufs collectés" value={num(summary.eggs, 0)} />
-              <Metric label="En vente" value={summary.selling} sub={`${summary.ready} prêts à vendre`} />
-              <Metric label="Lots critiques" value={summary.red} tone={summary.red > 0 ? 'bad' : undefined} />
-              <Metric label="À surveiller" value={summary.yellow} tone={summary.yellow > 0 ? 'warn' : undefined} />
+              <Metric label="Oiseaux vivants" icon={<Bird />} value={num(summary.birds)} sub={`${summary.active} lots`} />
+              <Metric label="Mortalité moy." icon={<HeartPulse />} value={summary.mortality != null ? `${num(summary.mortality)} %` : '—'} />
+              <Metric label="IC moyen" icon={<Scale />} value={summary.fcr != null ? num(summary.fcr, 2) : '—'} />
+              <Metric label="GMQ moyen" icon={<TrendingUp />} value={summary.gmq != null ? `${num(summary.gmq, 0)} g/j` : '—'} />
+              <Metric label="Ponte moyenne" icon={<Egg />} value={summary.lay != null ? `${num(summary.lay)} %` : '—'} />
+              <Metric label="Aliment consommé" icon={<Wheat />} value={`${num(summary.feed, 0)} kg`} />
+              <Metric label="Œufs collectés" image={EGG_IMAGES.oeuf} value={num(summary.eggs, 0)} />
+              <Metric label="En vente" icon={<BadgeCheck />} value={summary.selling} sub={`${summary.ready} prêts à vendre`} />
+              <Metric label="Lots critiques" icon={<AlertTriangle />} value={summary.red} tone={summary.red > 0 ? 'bad' : undefined} />
+              <Metric label="À surveiller" icon={<Info />} value={summary.yellow} tone={summary.yellow > 0 ? 'warn' : undefined} />
               <Metric
                 label="Encaissé (30 j)"
+                icon={<Coins />}
                 value={overview.data ? fcfa(overview.data.collectedFcfa) : '—'}
                 sub={delta(overview.data?.collectedFcfa, previous.data?.collectedFcfa)}
               />
               <Metric
                 label="Résultat net (30 j)"
+                icon={overview.data && overview.data.netFcfa < 0 ? <TrendingDown /> : <TrendingUp />}
                 value={overview.data ? fcfa(overview.data.netFcfa) : '—'}
                 tone={overview.data ? (overview.data.netFcfa >= 0 ? 'good' : 'bad') : undefined}
                 sub={delta(overview.data?.netFcfa, previous.data?.netFcfa)}
@@ -230,13 +254,16 @@ export function BatchesPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Tabs value={filter} onChange={setFilter} options={FILTERS} />
-            <input
-              className={`${inputCls} !w-44`}
-              placeholder="Rechercher un lot"
-              aria-label="Rechercher un lot"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                className={`${inputCls} !w-44 !pl-8`}
+                placeholder="Rechercher un lot"
+                aria-label="Rechercher un lot"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
             <select className={`${inputCls} !w-44`} aria-label="Espèce" value={species} onChange={(e) => setSpecies(e.target.value)}>
               <option value="all">Toutes les espèces</option>
               {Object.entries(SPECIES_LABEL).map(([k, v]) => (
@@ -270,6 +297,7 @@ export function BatchesPage() {
             <Loading label="Chargement des lots…" />
           ) : shown.length === 0 ? (
             <EmptyState
+              icon={noBuilding ? <Warehouse /> : <Bird />}
               message={
                 noBuilding
                   ? "Commencez par créer un bâtiment, puis installez-y votre premier lot."
@@ -309,7 +337,12 @@ export function BatchesPage() {
                         }}
                         className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
                       >
-                        <Td className="font-medium text-brand-700">{lotName(b)}</Td>
+                        <Td className="font-medium text-brand-700">
+                          <span className="flex items-center gap-2.5">
+                            <PhotoThumb src={lotImage(b.breedName, b.species)} size="sm" />
+                            {lotName(b)}
+                          </span>
+                        </Td>
                         <Td>
                           {kindLabel(b)}
                           <span className="block text-xs text-slate-500">{b.breedName ?? b.customBreed ?? '—'}</span>

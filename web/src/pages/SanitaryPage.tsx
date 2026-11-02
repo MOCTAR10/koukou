@@ -1,7 +1,32 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Plus, ShieldPlus, Syringe } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Bird,
+  Calendar,
+  CalendarX,
+  Check,
+  Droplets,
+  Egg,
+  Filter,
+  HeartPulse,
+  History,
+  Lightbulb,
+  Pencil,
+  Pill as PillIcon,
+  Plus,
+  RotateCcw,
+  Scale,
+  ScrollText,
+  ShieldPlus,
+  Stethoscope,
+  Syringe,
+  Trash2,
+  TrendingDown,
+  Wheat,
+} from 'lucide-react';
 import { api } from '../api/client';
 import type {
   BatchHealth,
@@ -20,6 +45,7 @@ import {
   CARE_TYPES,
   CARE_TYPE_LABEL,
   HEALTH_KIND_LABEL,
+  IconField,
   LEVEL_LABEL,
   LIVE_PERIOD,
   Metric,
@@ -31,6 +57,7 @@ import {
   Tabs,
   addUtcDays,
   inPeriod,
+  levelIcon,
   levelTone,
   localYmd,
   lotOption,
@@ -40,7 +67,8 @@ import {
   utcYmd,
 } from '../components/flock/shared';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
-import { EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { lotImage } from '../lib/animalImages';
 import { dateFr, num } from '../lib/format';
 
 type TabKey = 'sante' | 'check' | 'maladies' | 'calendrier' | 'traitements';
@@ -84,6 +112,7 @@ export function SanitaryPage() {
     <div className="space-y-5">
       <PageHeader
         title="Sanitaire"
+        icon={<ScrollText />}
         subtitle="Santé des lots, soins et traitements"
         actions={
           <div className="flex gap-2">
@@ -100,28 +129,31 @@ export function SanitaryPage() {
       {lots.isLoading ? (
         <Loading label="Chargement des lots…" />
       ) : !lot ? (
-        <EmptyState message="Aucun lot actif : créez un lot pour suivre sa santé." />
+        <EmptyState message="Aucun lot actif : créez un lot pour suivre sa santé." icon={<Activity />} />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <select className={`${inputCls} !w-[30rem] max-w-full`} aria-label="Lot" value={lot.id} onChange={(e) => setPicked(e.target.value)}>
-              {active.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {lotOption(b)}
-                </option>
-              ))}
-            </select>
+            <div className="flex min-w-0 max-w-full items-center gap-2">
+              <PhotoThumb src={lotImage(lot.breedName, lot.species)} />
+              <select className={`${inputCls} !w-[30rem] min-w-0 max-w-full`} aria-label="Lot" value={lot.id} onChange={(e) => setPicked(e.target.value)}>
+                {active.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {lotOption(b)}
+                  </option>
+                ))}
+              </select>
+            </div>
             <PeriodBar value={period} onChange={setPeriod} />
           </div>
           <Tabs<TabKey>
             value={tab}
             onChange={setTab}
             options={[
-              { key: 'sante', label: 'Santé' },
-              { key: 'check', label: 'Check' },
-              { key: 'maladies', label: 'Maladies' },
-              { key: 'calendrier', label: 'Calendrier' },
-              { key: 'traitements', label: 'Traitements' },
+              { key: 'sante', label: 'Santé', icon: <HeartPulse /> },
+              { key: 'check', label: 'Check', icon: <Activity /> },
+              { key: 'maladies', label: 'Maladies', icon: <Stethoscope /> },
+              { key: 'calendrier', label: 'Calendrier', icon: <Calendar /> },
+              { key: 'traitements', label: 'Traitements', icon: <Syringe /> },
             ]}
           />
           {tab === 'sante' ? <HealthPanel lot={lot} health={health.data} loading={health.isLoading} error={health.error} events={prophylaxis.data ?? []} /> : null}
@@ -161,45 +193,45 @@ function HealthPanel({
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
-        <SectionCard title="État du lot" subtitle={`J${health.ageDays}`}>
+        <SectionCard title="État du lot" icon={<HeartPulse />} subtitle={`J${health.ageDays}`}>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <Metric label="Score de santé" value={`${num(score, 0)} / 100`} tone={score >= 80 ? 'good' : score >= 60 ? 'warn' : 'bad'} />
-            <Metric label="Vivants" value={num(health.liveCount)} />
-            <Metric label="Mortalité" value={`${num(health.mortalityPercent)} %`} />
-            <Metric label="Viabilité" value={`${num(health.viabilityPercent)} %`} />
-            <Metric label="Indice de consommation" value={health.fcr != null ? num(health.fcr, 2) : '—'} />
-            <Metric label="Aliment / oiseau" value={`${num(health.feedPerBirdGrams, 0)} g`} />
-            <Metric label="Eau / oiseau" value={health.waterLPerBird != null ? `${num(health.waterLPerBird, 2)} L` : '—'} />
+            <Metric label="Score de santé" icon={<HeartPulse />} value={`${num(score, 0)} / 100`} tone={score >= 80 ? 'good' : score >= 60 ? 'warn' : 'bad'} />
+            <Metric label="Vivants" icon={<Bird />} value={num(health.liveCount)} />
+            <Metric label="Mortalité" icon={<TrendingDown />} value={`${num(health.mortalityPercent)} %`} />
+            <Metric label="Viabilité" icon={<HeartPulse />} value={`${num(health.viabilityPercent)} %`} />
+            <Metric label="Indice de consommation" icon={<Scale />} value={health.fcr != null ? num(health.fcr, 2) : '—'} />
+            <Metric label="Aliment / oiseau" icon={<Wheat />} value={`${num(health.feedPerBirdGrams, 0)} g`} />
+            <Metric label="Eau / oiseau" icon={<Droplets />} value={health.waterLPerBird != null ? `${num(health.waterLPerBird, 2)} L` : '—'} />
             {isLayer ? (
-              <Metric label="Taux de ponte" value={health.layRatePercent != null ? `${num(health.layRatePercent)} %` : '—'} sub={`${num(health.trays, 0)} alvéoles`} />
+              <Metric label="Taux de ponte" icon={<Egg />} value={health.layRatePercent != null ? `${num(health.layRatePercent)} %` : '—'} sub={`${num(health.trays, 0)} alvéoles`} />
             ) : null}
           </div>
         </SectionCard>
         <div className="grid gap-4 md:grid-cols-2">
-          <SectionCard title="Mortalité sur 7 jours">
+          <SectionCard title="Mortalité sur 7 jours" icon={<TrendingDown />} iconTone="red">
             <BarChart data={health.trends.mortality} labels={health.trends.dates.map((d) => d.slice(8, 10))} height={140} color="#dc2626" />
           </SectionCard>
           {isLayer ? (
-            <SectionCard title="Œufs sur 7 jours">
+            <SectionCard title="Œufs sur 7 jours" icon={<Egg />} iconTone="accent">
               <BarChart data={health.trends.eggs} labels={health.trends.dates.map((d) => d.slice(8, 10))} height={140} color="#d97706" />
             </SectionCard>
           ) : null}
         </div>
       </div>
       <div className="space-y-4">
-        <SectionCard title="Soins">
+        <SectionCard title="Soins" icon={<Syringe />}>
           <div className="grid grid-cols-2 gap-2">
-            <Metric label="En retard" value={late.length} tone={late.length > 0 ? 'bad' : 'good'} />
-            <Metric label="Sous 7 jours" value={soon.length} tone={soon.length > 0 ? 'warn' : undefined} />
+            <Metric label="En retard" icon={<AlertTriangle />} value={late.length} tone={late.length > 0 ? 'bad' : 'good'} />
+            <Metric label="Sous 7 jours" icon={<Calendar />} value={soon.length} tone={soon.length > 0 ? 'warn' : undefined} />
           </div>
         </SectionCard>
-        <SectionCard title="Conseils et alertes">
+        <SectionCard title="Conseils et alertes" icon={<Lightbulb />}>
           {health.tips.length === 0 ? (
             <p className="text-sm text-slate-500">Rien à signaler.</p>
           ) : (
             <div className="space-y-2">
               {health.tips.map((t) => (
-                <Note key={t.text} tone={levelTone(t.level)}>
+                <Note key={t.text} tone={levelTone(t.level)} icon={levelIcon(t.level)}>
                   {t.text}
                 </Note>
               ))}
@@ -216,7 +248,7 @@ function CheckPanel({ health, loading }: { health: BatchHealth | undefined; load
   if (!health) return null;
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <SectionCard title="Constats">
+      <SectionCard title="Constats" icon={<Activity />}>
         {health.check.insights.length === 0 ? (
           <p className="text-sm text-slate-500">Aucun constat particulier.</p>
         ) : (
@@ -227,7 +259,7 @@ function CheckPanel({ health, loading }: { health: BatchHealth | undefined; load
           </ul>
         )}
       </SectionCard>
-      <SectionCard title="Recommandations">
+      <SectionCard title="Recommandations" icon={<Lightbulb />}>
         {health.check.advice.length === 0 ? (
           <p className="text-sm text-slate-500">Aucune recommandation pour le moment.</p>
         ) : (
@@ -258,6 +290,7 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
   return (
     <SectionCard
       title="Maladies et événements"
+      icon={<Stethoscope />}
       flush
       actions={
         <Button tone="secondary" onClick={onAdd}>
@@ -270,7 +303,7 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
         <Loading />
       ) : rows.length === 0 ? (
         <div className="p-4">
-          <EmptyState message="Aucun événement de santé sur cette période." />
+          <EmptyState message="Aucun événement de santé sur cette période." icon={<Stethoscope />} />
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -321,11 +354,11 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
                           })
                         }
                       >
-                        Résoudre
+                        <Check className="h-4 w-4" /> Résoudre
                       </Button>
                     ) : null}
                     <Button tone="secondary" onClick={() => setToDelete(e)}>
-                      Supprimer
+                      <Trash2 className="h-4 w-4" /> Supprimer
                     </Button>
                   </Td>
                 </tr>
@@ -343,6 +376,7 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
               : `« ${toDelete.title} » sera définitivement supprimé.`
           }
           confirmLabel="Supprimer"
+          confirmIcon={<Trash2 className="h-4 w-4" />}
           busy={action.busy === 'delete'}
           error={action.error}
           onClose={() => setToDelete(null)}
@@ -411,6 +445,7 @@ function CalendarPanel({
   return (
     <SectionCard
       title="Calendrier des soins"
+      icon={<Calendar />}
       flush
       actions={
         <div className="flex flex-wrap items-center gap-2">
@@ -436,7 +471,7 @@ function CalendarPanel({
         <Loading />
       ) : rows.length === 0 ? (
         <div className="p-4">
-          <EmptyState message="Aucun soin sur cette période. Générez le calendrier ou planifiez un soin." />
+          <EmptyState message="Aucun soin sur cette période. Générez le calendrier ou planifiez un soin." icon={<Calendar />} />
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -486,7 +521,7 @@ function CalendarPanel({
                               run(`c-${e.id}`, () => api.post(`${base}/prophylaxis/${e.id}/complete`, { completedAt: utcYmd() }))
                             }
                           >
-                            Fait
+                            <Check className="h-4 w-4" /> Fait
                           </Button>
                           <Button
                             tone="secondary"
@@ -497,16 +532,16 @@ function CalendarPanel({
                               )
                             }
                           >
-                            +1 j
+                            <RotateCcw className="h-4 w-4" /> +1 j
                           </Button>
                           <Button tone="secondary" onClick={() => setEditing(e)}>
-                            Modifier
+                            <Pencil className="h-4 w-4" /> Modifier
                           </Button>
                           <Button tone="secondary" onClick={() => setConfirm({ kind: 'cancel', event: e })}>
-                            Annuler
+                            <CalendarX className="h-4 w-4" /> Annuler
                           </Button>
                           <Button tone="secondary" onClick={() => setConfirm({ kind: 'delete', event: e })}>
-                            Supprimer
+                            <Trash2 className="h-4 w-4" /> Supprimer
                           </Button>
                         </div>
                       ) : null}
@@ -528,6 +563,7 @@ function CalendarPanel({
               : `« ${confirm.event.name} » sera définitivement retiré du calendrier.`
           }
           confirmLabel={confirm.kind === 'cancel' ? 'Annuler le soin' : 'Supprimer'}
+          confirmIcon={confirm.kind === 'cancel' ? <CalendarX className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
           busy={action.busy === 'confirm'}
           error={action.error}
           onClose={() => setConfirm(null)}
@@ -600,21 +636,25 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
       <div className="lg:col-span-2">
         <SectionCard
           title="Historique des traitements"
+          icon={<History />}
           flush
           actions={
-            <select
-              className={`${inputCls} !w-44`}
-              aria-label="Type de soin"
-              value={careFilter}
-              onChange={(e) => setCareFilter(e.target.value as 'all' | CareType)}
-            >
-              <option value="all">Tous les soins</option>
-              {CARE_TYPES.map((c) => (
-                <option key={c} value={c}>
-                  {CARE_TYPE_LABEL[c]}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1.5">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                className={`${inputCls} !w-44`}
+                aria-label="Type de soin"
+                value={careFilter}
+                onChange={(e) => setCareFilter(e.target.value as 'all' | CareType)}
+              >
+                <option value="all">Tous les soins</option>
+                {CARE_TYPES.map((c) => (
+                  <option key={c} value={c}>
+                    {CARE_TYPE_LABEL[c]}
+                  </option>
+                ))}
+              </select>
+            </div>
           }
         >
           <ErrorNote error={treatments.error} />
@@ -622,7 +662,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
             <Loading />
           ) : rows.length === 0 ? (
             <div className="p-4">
-              <EmptyState message="Aucun traitement sur cette période." />
+              <EmptyState message="Aucun traitement sur cette période." icon={<Syringe />} />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -664,7 +704,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
           )}
         </SectionCard>
       </div>
-      <SectionCard title="Enregistrer un traitement">
+      <SectionCard title="Enregistrer un traitement" icon={<Syringe />}>
         <form onSubmit={submit} className="space-y-3">
           <Field label="Type de soin">
             <select className={inputCls} value={careType} onChange={(e) => setCareType(e.target.value as CareType)}>
@@ -675,9 +715,9 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
               ))}
             </select>
           </Field>
-          <Field label="Produit *">
+          <IconField label="Produit *" icon={<PillIcon />}>
             <input className={inputCls} value={productName} onChange={(e) => setProductName(e.target.value)} required />
-          </Field>
+          </IconField>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Dosage">
               <input className={inputCls} value={dosage} onChange={(e) => setDosage(e.target.value)} />
@@ -685,9 +725,9 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
             <Field label="Voie">
               <input className={inputCls} value={route} onChange={(e) => setRoute(e.target.value)} />
             </Field>
-            <Field label="Date *">
+            <IconField label="Date *" icon={<Calendar />}>
               <input className={inputCls} type="date" max={today} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} required />
-            </Field>
+            </IconField>
             <Field label="Délai d'attente (j)">
               <input className={inputCls} inputMode="numeric" value={withdrawal} onChange={(e) => setWithdrawal(e.target.value.replace(/\D/g, ''))} />
             </Field>
@@ -697,7 +737,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
           </Field>
           <ErrorNote error={add.error} />
           <Button type="submit" busy={add.isPending} disabled={!productName.trim()}>
-            Enregistrer
+            <Check className="h-4 w-4" /> Enregistrer
           </Button>
         </form>
       </SectionCard>

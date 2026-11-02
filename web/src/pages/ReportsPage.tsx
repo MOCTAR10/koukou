@@ -1,5 +1,16 @@
 import { keepPreviousData, useMutation, useQuery } from '@tanstack/react-query';
-import { Download, PieChart, Receipt, TrendingUp, Wallet } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Coins,
+  Download,
+  FileBarChart,
+  PieChart,
+  Receipt,
+  Store,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client';
 import type { ProductionBatch } from '../api/types';
@@ -129,6 +140,7 @@ export function ReportsPage() {
       <PageHeader
         title="Rentabilité"
         subtitle={farm?.name ?? 'Ferme'}
+        icon={<FileBarChart />}
         actions={
           <Button
             tone="secondary"
@@ -156,7 +168,7 @@ export function ReportsPage() {
               value={fcfa(net)}
               tone={net >= 0 ? 'good' : 'bad'}
               hint={`${periodLabel(period)}${netChange ? ` · ${netChange}` : ''}`}
-              icon={<PieChart className="h-5 w-5" />}
+              icon={net >= 0 ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
             />
             <StatCard
               label="Chiffre d’affaires"
@@ -175,13 +187,13 @@ export function ReportsPage() {
               value={pct(margin)}
               tone={margin != null && margin < 0 ? 'bad' : 'default'}
               hint="Coût de revient suivi"
-              icon={<Wallet className="h-5 w-5" />}
+              icon={<PieChart className="h-5 w-5" />}
             />
           </div>
 
           <div className="grid items-start gap-4 lg:grid-cols-3">
             <Card className="p-5">
-              <SectionTitle title="Encaissement des ventes" />
+              <SectionTitle title="Encaissement des ventes" icon={<Coins />} />
               <div className="flex items-center gap-4">
                 {rate != null ? <Donut value={rate} total={100} label="% encaissé" /> : null}
                 <p className="text-sm text-slate-600">
@@ -196,6 +208,7 @@ export function ReportsPage() {
             <Card className="p-5 lg:col-span-2">
               <SectionTitle
                 title="Ventes par canal"
+                icon={<Store />}
                 subtitle={
                   channelRows.length > 0
                     ? `${channelRows.length} point(s) de vente · ${fcfa(sumFcfa(channelRows))}`
@@ -203,14 +216,14 @@ export function ReportsPage() {
                 }
               />
               <ErrorNote error={sales.error ?? pointsOfSale.error} />
-              <ShareBars rows={channelRows} empty="Aucune vente sur la période." />
+              <ShareBars rows={channelRows} empty="Aucune vente sur la période." rowIcon={<Store />} />
             </Card>
             <Card className="p-5 lg:col-span-3 xl:col-span-1">
-              <SectionTitle title="D’où viennent les revenus" />
+              <SectionTitle title="D’où viennent les revenus" icon={<TrendingUp />} iconTone="green" />
               <ShareBars rows={productRows} empty="Aucune vente enregistrée sur la période." />
             </Card>
             <Card className="p-5 lg:col-span-3 xl:col-span-2">
-              <SectionTitle title="Où part l’argent" />
+              <SectionTitle title="Où part l’argent" icon={<Wallet />} iconTone="amber" />
               <ShareBars rows={expenseRows} empty="Aucune dépense enregistrée sur la période." />
             </Card>
           </div>
@@ -219,7 +232,7 @@ export function ReportsPage() {
 
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <SectionTitle title="P&L par lot" subtitle="Coût de revient et marge de chaque lot" />
+          <SectionTitle title="P&L par lot" subtitle="Coût de revient et marge de chaque lot" icon={<PieChart />} />
           {lots.length > 0 ? (
             <Field label="Lot" className="mb-3 w-72">
               <select value={batchId} onChange={(e) => setLotId(e.target.value)} className={inputCls}>
@@ -235,7 +248,10 @@ export function ReportsPage() {
         <ErrorNote error={batches.error ?? batchPnl.error} />
         {batches.isLoading || batchPnl.isLoading ? <Loading label="P&L du lot…" /> : null}
         {!batches.isLoading && !batches.isError && lots.length === 0 ? (
-          <EmptyState message="Aucun lot actif à analyser. Créez un lot pour suivre sa rentabilité." />
+          <EmptyState
+            message="Aucun lot actif à analyser. Créez un lot pour suivre sa rentabilité."
+            icon={<PieChart />}
+          />
         ) : null}
         {batchPnl.data && farmId && lot ? <BatchPnlPanel farmId={farmId} pnl={batchPnl.data} /> : null}
       </section>

@@ -1,9 +1,9 @@
-import { CalendarClock, Lightbulb, Package, Plus, Sprout } from 'lucide-react';
+import { ArrowRight, CalendarClock, Lightbulb, Package, PiggyBank, Plus, Sprout, Tractor, Wheat } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFarm } from '../app/FarmContext';
 import { Button, ErrorNote } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { ParcelleStatusBadge, StageSummary } from '../components/agri/AgriBits';
 import { RecolteFormModal } from '../components/agri/RecolteFormModal';
 import {
@@ -51,10 +51,12 @@ export function HarvestsPage() {
       <PageHeader
         title="Récoltes et suivi"
         subtitle="Échéances, journal des récoltes et stock vendable."
+        icon={<Tractor />}
+        iconTone="green"
         actions={
           parcelles.length > 0 ? (
             <Button onClick={() => setFormOpen(true)}>
-              <Plus className="h-4 w-4" /> Journaliser une récolte
+              <Wheat className="h-4 w-4" /> Journaliser une récolte
             </Button>
           ) : null
         }
@@ -66,9 +68,16 @@ export function HarvestsPage() {
         <Loading />
       ) : parcellesQuery.isError ? null : parcelles.length === 0 ? (
         <div className="space-y-3">
-          <EmptyState message="Aucune parcelle à suivre. Enregistrez vos parcelles et leurs cultures : vous verrez ici les stades de croissance, les échéances de récolte et des conseils adaptés." />
+          <EmptyState
+            message="Aucune parcelle à suivre. Enregistrez vos parcelles et leurs cultures : vous verrez ici les stades de croissance, les échéances de récolte et des conseils adaptés."
+            icon={<Tractor />}
+          />
           <div className="text-center">
-            <Link to="/app/parcels" className="text-sm font-semibold text-brand-700 hover:underline">
+            <Link
+              to="/app/parcels"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
+            >
+              <Plus className="h-4 w-4" />
               Ajouter une parcelle
             </Link>
           </div>
@@ -99,11 +108,14 @@ export function HarvestsPage() {
 
           <div className="grid items-start gap-6 xl:grid-cols-5">
             <section className="space-y-3 xl:col-span-3">
-              <h2 className="text-base font-semibold text-slate-900">Journal des récoltes</h2>
+              <h2 className="flex items-center gap-2.5 text-base font-semibold text-slate-900">
+                <IconTile icon={<Wheat />} tone="green" size="sm" />
+                Journal des récoltes
+              </h2>
               {recoltesQuery.isPending ? (
                 <Loading />
               ) : recoltes.length === 0 ? (
-                <EmptyState message="Aucune récolte journalisée pour le moment." />
+                <EmptyState message="Aucune récolte journalisée pour le moment." icon={<Wheat />} />
               ) : (
                 <Card className="overflow-hidden">
                   <div className="overflow-x-auto">
@@ -145,11 +157,17 @@ export function HarvestsPage() {
             </section>
 
             <section className="space-y-3 xl:col-span-2">
-              <h2 className="text-base font-semibold text-slate-900">Stock vendable</h2>
+              <h2 className="flex items-center gap-2.5 text-base font-semibold text-slate-900">
+                <IconTile icon={<PiggyBank />} tone="green" size="sm" />
+                Stock vendable
+              </h2>
               {stockQuery.isPending ? (
                 <Loading />
               ) : stock.length === 0 ? (
-                <EmptyState message="Le stock vendable se calcule dès qu’une récolte est journalisée (récolté moins vendu)." />
+                <EmptyState
+                  message="Le stock vendable se calcule dès qu’une récolte est journalisée (récolté moins vendu)."
+                  icon={<PiggyBank />}
+                />
               ) : (
                 <Card className="overflow-hidden">
                   <div className="overflow-x-auto">
@@ -189,23 +207,33 @@ export function HarvestsPage() {
 
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-slate-900">Parcelles et cultures</h2>
-              <Link to="/app/parcels" className="text-sm font-semibold text-brand-700 hover:underline">
+              <h2 className="flex items-center gap-2.5 text-base font-semibold text-slate-900">
+                <IconTile icon={<Sprout />} tone="green" size="sm" />
+                Parcelles et cultures
+              </h2>
+              <Link
+                to="/app/parcels"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
+              >
                 Gérer les parcelles
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
             {plan.withStage.length === 0 ? (
-              <EmptyState message="Toutes les parcelles sont clôturées." />
+              <EmptyState message="Toutes les parcelles sont clôturées." icon={<Sprout />} />
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {plan.withStage.map(({ parcelle, stage }) => (
                   <Card key={parcelle.id} className="flex flex-col gap-3 p-4">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-slate-900">{parcelle.name}</p>
-                        <p className="text-sm text-slate-500">
-                          {parcelle.culture.name} · {CROP_CATEGORY_LABELS[parcelle.culture.category]}
-                        </p>
+                      <div className="flex min-w-0 items-start gap-3">
+                        <IconTile icon={<Sprout />} tone="green" />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900">{parcelle.name}</p>
+                          <p className="text-sm text-slate-500">
+                            {parcelle.culture.name} · {CROP_CATEGORY_LABELS[parcelle.culture.category]}
+                          </p>
+                        </div>
                       </div>
                       <ParcelleStatusBadge status={parcelle.status} />
                     </div>

@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { api } from '../../api/client';
 import type {
   AlertLevel,
@@ -18,7 +19,7 @@ import type {
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { classNames } from '../../lib/format';
-import { Card } from '../ui';
+import { Card, IconTile, type IconTone } from '../ui';
 import { inputCls } from '../form';
 
 export const EGGS_PER_ALVEOL = 30;
@@ -184,6 +185,11 @@ export function Pill({ tone = 'slate', children }: { tone?: Tone; children: Reac
   );
 }
 
+/** Same icons as the mobile tips: red = warning, yellow = info, green = fine. */
+export function levelIcon(level: string | null | undefined): ReactNode {
+  return level === 'ROUGE' ? <AlertTriangle /> : level === 'JAUNE' ? <Info /> : <CheckCircle2 />;
+}
+
 export function levelTone(level: string | null | undefined): Tone {
   return level === 'ROUGE' ? 'red' : level === 'JAUNE' ? 'amber' : level === 'VERT' ? 'emerald' : 'slate';
 }
@@ -281,7 +287,7 @@ export function videSanitaireHint(input: {
   return { tone: 'emerald', text: `Vide sanitaire de ${days} jours à cette date : parfait.` };
 }
 
-export function Note({ tone = 'slate', children }: { tone?: Tone; children: ReactNode }) {
+export function Note({ tone = 'slate', icon, children }: { tone?: Tone; icon?: ReactNode; children: ReactNode }) {
   const cls: Record<Tone, string> = {
     emerald: 'bg-emerald-50 text-emerald-800',
     amber: 'bg-amber-50 text-amber-800',
@@ -289,6 +295,16 @@ export function Note({ tone = 'slate', children }: { tone?: Tone; children: Reac
     brand: 'bg-brand-50 text-brand-800',
     slate: 'bg-slate-50 text-slate-600',
   };
+  if (icon) {
+    return (
+      <div className={classNames('flex items-start gap-2 rounded-lg px-3 py-2 text-sm', cls[tone])}>
+        <span aria-hidden="true" className="mt-0.5 shrink-0 [&>svg]:h-4 [&>svg]:w-4">
+          {icon}
+        </span>
+        <div className="min-w-0">{children}</div>
+      </div>
+    );
+  }
   return <div className={classNames('rounded-lg px-3 py-2 text-sm', cls[tone])}>{children}</div>;
 }
 
@@ -297,7 +313,7 @@ export function Tabs<K extends string>({
   value,
   onChange,
 }: {
-  options: Array<{ key: K; label: string }>;
+  options: Array<{ key: K; label: string; icon?: ReactNode }>;
   value: K;
   onChange: (k: K) => void;
 }) {
@@ -311,10 +327,11 @@ export function Tabs<K extends string>({
           aria-selected={value === o.key}
           onClick={() => onChange(o.key)}
           className={classNames(
-            'rounded-lg px-3 py-1.5 text-sm font-medium transition',
+            'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition [&>svg]:h-4 [&>svg]:w-4',
             value === o.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800',
           )}
         >
+          {o.icon}
           {o.label}
         </button>
       ))}
@@ -327,15 +344,39 @@ export function Metric({
   value,
   sub,
   tone,
+  icon,
+  image,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   tone?: 'good' | 'warn' | 'bad';
+  icon?: ReactNode;
+  image?: string;
 }) {
   return (
     <div className="min-w-0 rounded-lg bg-slate-50 px-3 py-2">
-      <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-slate-500">
+        {image ? <img src={image} alt="" loading="lazy" className="h-4 w-4 shrink-0 rounded object-cover" /> : null}
+        {icon ? (
+          <span
+            aria-hidden="true"
+            className={classNames(
+              'shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5',
+              tone === 'good'
+                ? 'text-emerald-600'
+                : tone === 'warn'
+                  ? 'text-amber-600'
+                  : tone === 'bad'
+                    ? 'text-red-600'
+                    : 'text-brand-600',
+            )}
+          >
+            {icon}
+          </span>
+        ) : null}
+        {label}
+      </p>
       <p
         className={classNames(
           'mt-0.5 text-base font-bold tabular-nums',
@@ -361,24 +402,64 @@ export function SectionCard({
   actions,
   children,
   flush = false,
+  icon,
+  iconTone = 'brand',
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
   children: ReactNode;
   flush?: boolean;
+  icon?: ReactNode;
+  iconTone?: IconTone;
 }) {
   return (
     <Card className={flush ? 'overflow-hidden' : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
-          {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
+        <div className="flex min-w-0 items-center gap-2.5">
+          {icon ? <IconTile icon={icon} tone={iconTone} size="sm" /> : null}
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+            {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
+          </div>
         </div>
         {actions}
       </div>
       <div className={flush ? undefined : 'p-4'}>{children}</div>
     </Card>
+  );
+}
+
+/** Form field whose label carries mobile's small field icon or photo. */
+export function IconField({
+  label,
+  icon,
+  image,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  icon?: ReactNode;
+  image?: string;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <label className={classNames('block', className)}>
+      <span className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
+        {image ? <img src={image} alt="" loading="lazy" className="h-6 w-6 shrink-0 rounded-md object-cover ring-1 ring-slate-200" /> : null}
+        {icon ? (
+          <span aria-hidden="true" className="shrink-0 text-slate-400 [&>svg]:h-3.5 [&>svg]:w-3.5">
+            {icon}
+          </span>
+        ) : null}
+        {label}
+      </span>
+      {children}
+      {hint ? <span className="mt-1 block text-xs text-slate-400">{hint}</span> : null}
+    </label>
   );
 }
 

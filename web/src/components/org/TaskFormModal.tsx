@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Check, Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { BatchWithMetrics } from '../../api/types';
@@ -121,6 +122,7 @@ export function TaskFormModal({
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending} disabled={!title.trim() || !dueDate}>
+            {save.isPending ? null : task ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             {task ? 'Enregistrer' : 'Créer la tâche'}
           </Button>
         </div>

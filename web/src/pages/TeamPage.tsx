@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Briefcase, ListTodo, Pencil, UserPlus, Users } from 'lucide-react';
+import { Briefcase, ListTodo, Pencil, UserPlus, UserRound, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -9,7 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
 import { MemberFormModal } from '../components/org/MemberFormModal';
 import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL, SuccessNote } from '../components/org/shared';
-import { Card, EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
 
 const linkCls =
@@ -53,6 +53,7 @@ export function TeamPage() {
     <div className="space-y-6">
       <PageHeader
         title="Équipe"
+        icon={<Users className="h-6 w-6" />}
         subtitle={farm?.name}
         actions={
           <>
@@ -97,7 +98,12 @@ export function TeamPage() {
               <tbody>
                 {ownerName ? (
                   <tr className="border-t border-slate-100 bg-emerald-50/40">
-                    <Td className="font-medium text-slate-900">{ownerName}</Td>
+                    <Td className="font-medium text-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        <IconTile icon={<UserRound className="h-4 w-4" />} tone="green" size="sm" />
+                        {ownerName}
+                      </div>
+                    </Td>
                     <Td>{ownerPhone ?? '—'}</Td>
                     <Td>
                       <Pill tone="emerald">Propriétaire</Pill>
@@ -113,8 +119,13 @@ export function TeamPage() {
                 {members.map((m) => (
                   <tr key={m.id} className="border-t border-slate-100 align-top">
                     <Td className="font-medium text-slate-900">
-                      {m.user.fullName}
-                      {m.jobTitle ? <div className="text-xs font-normal text-slate-500">{m.jobTitle}</div> : null}
+                      <div className="flex items-center gap-2.5">
+                        <IconTile icon={<UserRound className="h-4 w-4" />} tone={m.role === 'ADMIN' ? 'accent' : 'brand'} size="sm" />
+                        <div className="min-w-0">
+                          {m.user.fullName}
+                          {m.jobTitle ? <div className="text-xs font-normal text-slate-500">{m.jobTitle}</div> : null}
+                        </div>
+                      </div>
                     </Td>
                     <Td className="whitespace-nowrap">{m.user.phone}</Td>
                     <Td>
@@ -137,7 +148,10 @@ export function TeamPage() {
           </div>
           {members.length === 0 ? (
             <div className="border-t border-slate-100 p-4">
-              <EmptyState message="Aucun membre pour l’instant. Ajoutez un administrateur ou un éleveur pour les saisies de terrain." />
+              <EmptyState
+                message="Aucun membre pour l’instant. Ajoutez un administrateur ou un éleveur pour les saisies de terrain."
+                icon={<Users className="h-6 w-6" />}
+              />
             </div>
           ) : null}
         </Card>

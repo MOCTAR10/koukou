@@ -10,7 +10,12 @@ import {
   Calendar,
   CalendarClock,
   Egg,
+  LayoutDashboard,
+  Medal,
+  RotateCcw,
   ShieldAlert,
+  Stethoscope,
+  TrendingUp,
   Wheat,
   Users,
 } from 'lucide-react';
@@ -25,7 +30,7 @@ import type {
   PosBatch,
 } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, Loading, StatCard, StatusBadge, Th, Td } from '../components/ui';
+import { Card, EmptyState, Loading, PageHeader, StatCard, StatusBadge, Th, Td } from '../components/ui';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
 import { ErrorNote } from '../components/form';
@@ -150,32 +155,31 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Tableau de bord</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Situation de la ferme · mis à jour {dateFr(d.generatedAt)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-slate-400" />
-          <input
-            type="date"
-            value={selectedDate}
-            max={localToday()}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500"
-          />
-          {!isToday && (
-            <button
-              onClick={() => setSelectedDate(localToday())}
-              className="rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100"
-            >
-              Aujourd’hui
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Tableau de bord"
+        subtitle={`Situation de la ferme · mis à jour ${dateFr(d.generatedAt)}`}
+        icon={<LayoutDashboard className="h-6 w-6" />}
+        actions={
+          <>
+            <Calendar className="h-4 w-4 text-slate-400" />
+            <input
+              type="date"
+              value={selectedDate}
+              max={localToday()}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500"
+            />
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(localToday())}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Aujourd’hui
+              </button>
+            )}
+          </>
+        }
+      />
 
       <ErrorNote error={batches.error ?? slaughter.error ?? pnl.error ?? clients.error} />
 
@@ -244,7 +248,9 @@ export function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-4 lg:col-span-1">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">Santé de la ferme</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <Stethoscope className="h-4 w-4 text-brand-600" /> Santé de la ferme
+          </h2>
           <div className="flex items-center justify-around gap-4">
             <Donut
               value={d.health.score}
@@ -283,8 +289,8 @@ export function DashboardPage() {
 
         <Card className="p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Courbe de croissance (poids moyen / IC)
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <TrendingUp className="h-4 w-4 text-brand-600" /> Courbe de croissance (poids moyen / IC)
             </h2>
             <select
               value={selectedCurveBatch}
@@ -320,7 +326,7 @@ export function DashboardPage() {
               </div>
             </>
           ) : (
-            <EmptyState message="Pas encore de données de croissance (saisies hebdomadaires)." />
+            <EmptyState message="Pas encore de données de croissance (saisies hebdomadaires)." icon={<TrendingUp className="h-6 w-6" />} />
           )}
         </Card>
       </div>
@@ -336,7 +342,9 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Palmarès des lots</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Medal className="h-4 w-4 text-brand-600" /> Palmarès des lots
+            </h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -376,9 +384,10 @@ export function DashboardPage() {
         </Card>
 
         <Card className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Vigilance lots</h2>
-            <ShieldAlert className="h-4 w-4 text-slate-400" />
+          <div className="border-b border-slate-100 px-4 py-3">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <ShieldAlert className="h-4 w-4 text-brand-600" /> Vigilance lots
+            </h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

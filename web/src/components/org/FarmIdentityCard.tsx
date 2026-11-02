@@ -78,6 +78,7 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
                 autoFocus
               />
               <Button type="submit" busy={rename.isPending}>
+                {rename.isPending ? null : <Check className="h-4 w-4" />}
                 Enregistrer
               </Button>
               <Button

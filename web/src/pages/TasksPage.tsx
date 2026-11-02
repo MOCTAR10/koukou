@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, CircleCheck, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { Check, CircleCheck, ClipboardList, ListTodo, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { api } from '../api/client';
 import type { BatchWithMetrics } from '../api/types';
@@ -98,6 +98,7 @@ export function TasksPage() {
     <div className="space-y-6">
       <PageHeader
         title="Tâches"
+        icon={<ListTodo className="h-6 w-6" />}
         subtitle={`${counts.OPEN} à traiter · ${counts.DONE} terminée${counts.DONE > 1 ? 's' : ''}`}
         actions={
           <Button onClick={() => setForm({ task: null })} disabled={!farmId}>
@@ -128,6 +129,7 @@ export function TasksPage() {
         <Loading label="Chargement des tâches…" />
       ) : rows.length === 0 ? (
         <EmptyState
+          icon={<ClipboardList className="h-6 w-6" />}
           message={
             filter === 'OPEN'
               ? 'Aucune tâche en attente. Planifiez le travail de votre équipe avec le bouton « Nouvelle tâche ».'

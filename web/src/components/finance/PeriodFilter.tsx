@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
 import { classNames } from '../../lib/format';
 import { inputCls, todayIso } from '../form';
 import { addDays, spanWindow, type PeriodWindow } from './pnl';
@@ -57,6 +57,7 @@ export function PeriodFilter({
         ))}
       </div>
       <div className="flex items-center gap-1.5">
+        <CalendarRange className="h-4 w-4 shrink-0 text-brand-600" />
         <button type="button" aria-label="Jour précédent" onClick={() => shift(-1)} className={arrowCls}>
           <ChevronLeft className="h-4 w-4" />
         </button>

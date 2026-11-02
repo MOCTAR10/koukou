@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, Lock } from 'lucide-react';
+import { Boxes, CircleAlert, CircleCheck, Landmark, Lock, Scale } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import type {
   AccountSoldes,
@@ -12,7 +12,7 @@ import type {
 } from '../../api/types-finance';
 import { classNames, dateFr, fcfa, num } from '../../lib/format';
 import { Button, todayIso } from '../form';
-import { Card, EmptyState, Td, Th } from '../ui';
+import { Card, EmptyState, IconTile, Td, Th } from '../ui';
 import { KeyValue, SectionTitle } from './shared';
 
 const SOURCE_LABEL: Record<AccountingSource, string> = {
@@ -52,7 +52,12 @@ export function JournalTab({
   accountLabels: Map<string, string>;
 }) {
   if (data.entries.length === 0) {
-    return <EmptyState message="Aucune écriture pour le moment. Synchronisez l’historique avec la comptabilité." />;
+    return (
+      <EmptyState
+        message="Aucune écriture pour le moment. Synchronisez l’historique avec la comptabilité."
+        icon={<Landmark />}
+      />
+    );
   }
   return (
     <Card className="overflow-hidden">
@@ -147,7 +152,10 @@ export function BalanceTab({ data }: { data: BalanceData }) {
         </p>
       </Card>
       {groups.length === 0 ? (
-        <EmptyState message="Aucun mouvement pour le moment. Synchronisez l’historique avec la comptabilité." />
+        <EmptyState
+          message="Aucun mouvement pour le moment. Synchronisez l’historique avec la comptabilité."
+          icon={<Scale />}
+        />
       ) : (
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
@@ -322,14 +330,22 @@ export function BilanTab({ data }: { data: BilanData }) {
 export function StockTab({ data }: { data: StockProvende }) {
   if (data.lots.length === 0) {
     return (
-      <EmptyState message="Aucun stock de provende valorisable. Les réceptions d’aliments comptabilisées (6011/401) apparaîtront ici dès la clôture de l’exercice." />
+      <EmptyState
+        message="Aucun stock de provende valorisable. Les réceptions d’aliments comptabilisées (6011/401) apparaîtront ici dès la clôture de l’exercice."
+        icon={<Boxes />}
+      />
     );
   }
   return (
     <div className="space-y-4">
       <Card className="p-4">
-        <KeyValue label="Valeur du stock (compte 311)" value={fcfa(data.totalValueFcfa)} strong />
-        <KeyValue label="Lots valorisés" value={String(data.lots.length)} tone="muted" />
+        <div className="flex items-start gap-3">
+          <IconTile icon={<Boxes />} tone="green" />
+          <div className="min-w-0 flex-1">
+            <KeyValue label="Valeur du stock (compte 311)" value={fcfa(data.totalValueFcfa)} strong />
+            <KeyValue label="Lots valorisés" value={String(data.lots.length)} tone="muted" />
+          </div>
+        </div>
         <p className="mt-1 text-xs text-slate-500">
           Disponible comptable = réception − consommation − pertes − ventes, valorisée au coût d’intrant (311/603 en
           clôture).
@@ -372,7 +388,10 @@ export function ExercicesTab({
 }) {
   if (data.length === 0) {
     return (
-      <EmptyState message="Aucun exercice comptable. Les écritures s’organisent par exercice annuel dès la première opération." />
+      <EmptyState
+        message="Aucun exercice comptable. Les écritures s’organisent par exercice annuel dès la première opération."
+        icon={<Lock />}
+      />
     );
   }
   const today = todayIso();

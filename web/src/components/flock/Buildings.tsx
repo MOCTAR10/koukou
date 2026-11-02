@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Building2, Plus, Warehouse } from 'lucide-react';
 import { api } from '../../api/client';
 import type { BatchType } from '../../api/types';
 import type { Building } from '../../api/types-flock';
@@ -80,7 +80,7 @@ export function BuildingFormModal({ onClose, onCreated }: { onClose: () => void;
             Annuler
           </Button>
           <Button type="submit" busy={create.isPending} disabled={!name.trim()}>
-            Créer le bâtiment
+            <Building2 className="h-4 w-4" /> Créer le bâtiment
           </Button>
         </div>
       </form>
@@ -97,6 +97,7 @@ export function BuildingsPanel() {
   return (
     <SectionCard
       title="Bâtiments"
+      icon={<Warehouse />}
       subtitle="Occupation, densité et vide sanitaire"
       flush
       actions={
@@ -150,7 +151,7 @@ export function BuildingsPanel() {
         </div>
       ) : (
         <div className="p-4">
-          <EmptyState message="Aucun bâtiment. Créez-en un pour installer vos lots." />
+          <EmptyState message="Aucun bâtiment. Créez-en un pour installer vos lots." icon={<Warehouse />} />
         </div>
       )}
       {adding ? <BuildingFormModal onClose={() => setAdding(false)} /> : null}

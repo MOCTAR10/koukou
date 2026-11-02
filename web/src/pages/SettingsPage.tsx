@@ -1,16 +1,30 @@
 import { useQuery } from '@tanstack/react-query';
-import { Building, Crown, Info, LogOut, MapPin, Phone, ShieldCheck, type LucideIcon } from 'lucide-react';
+import {
+  Building,
+  Crosshair,
+  Crown,
+  Info,
+  LogOut,
+  MapPin,
+  Phone,
+  Settings,
+  ShieldCheck,
+  SlidersHorizontal,
+  User,
+  type LucideIcon,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { api } from '../api/client';
 import type { FarmMemberProfile, FarmWithLogo } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
+import { SectionTitle } from '../components/finance/shared';
 import { FarmIdentityCard } from '../components/org/FarmIdentityCard';
 import { FarmLogo } from '../components/org/FarmLogo';
 import { ReferenceConstants } from '../components/org/ReferenceConstants';
 import { STAFF_ROLE_LABEL } from '../components/org/shared';
-import { Card, Loading, PageHeader } from '../components/ui';
+import { Card, IconTile, Loading, PageHeader } from '../components/ui';
 import { statusLabel } from '../lib/format';
 
 function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
@@ -25,11 +39,10 @@ function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string
   );
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+function Section({ title, subtitle, icon, children }: { title: string; subtitle: string; icon: ReactNode; children: ReactNode }) {
   return (
     <section>
-      <h2 className="text-base font-semibold text-slate-800">{title}</h2>
-      <p className="mb-2 text-sm text-slate-500">{subtitle}</p>
+      <SectionTitle title={title} subtitle={subtitle} icon={icon} />
       {children}
     </section>
   );
@@ -55,7 +68,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Réglages de ferme" subtitle={farm?.name} />
+      <PageHeader title="Réglages de ferme" subtitle={farm?.name} icon={<Settings className="h-6 w-6" />} />
 
       <ErrorNote error={profile.error} />
 
@@ -71,7 +84,7 @@ export function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Compte" subtitle="Identité et rattachement">
+        <Section title="Compte" subtitle="Identité et rattachement" icon={<User className="h-4 w-4" />}>
           <Card className="divide-y divide-slate-100">
             <InfoRow icon={Phone} label="Téléphone" value={phone} />
             <InfoRow icon={ShieldCheck} label="Rôle" value={roleLabel} />
@@ -85,7 +98,7 @@ export function SettingsPage() {
         </Section>
 
         {hasAllRights ? (
-          <Section title="Mes droits" subtitle="Accès complet à la ferme">
+          <Section title="Mes droits" subtitle="Accès complet à la ferme" icon={<ShieldCheck className="h-4 w-4" />}>
             <Card className="flex items-center gap-3 p-4">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50">
                 <Crown className="h-5 w-5 text-amber-500" />
@@ -101,7 +114,7 @@ export function SettingsPage() {
         ) : null}
       </div>
 
-      <Section title="Ma ferme" subtitle="Nom et logo modifiables">
+      <Section title="Ma ferme" subtitle="Nom et logo modifiables" icon={<Crosshair className="h-4 w-4" />}>
         {farm ? <FarmIdentityCard key={farm.id} farm={farm} /> : <Loading />}
       </Section>
 
@@ -109,7 +122,8 @@ export function SettingsPage() {
 
       <Card className="space-y-2 p-4">
         <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <Info className="h-4 w-4 text-emerald-600" /> Ce que pilote l’application
+          <IconTile icon={<Info className="h-4 w-4" />} tone="green" size="sm" /> Ce que pilote l’application
+          <SlidersHorizontal className="ml-auto h-4 w-4 text-slate-300" />
         </h2>
         <p className="text-sm text-slate-500">
           Saisie journalière, ventes (POS espèces), soins prophylactiques, stock de provende, abattage et caisse :
@@ -124,7 +138,7 @@ export function SettingsPage() {
         </div>
       </Card>
 
-      <Section title="Session" subtitle="Déconnexion de ce compte">
+      <Section title="Session" subtitle="Déconnexion de ce compte" icon={<LogOut className="h-4 w-4" />}>
         <Button tone="secondary" onClick={logout}>
           <LogOut className="h-4 w-4" /> Se déconnecter
         </Button>

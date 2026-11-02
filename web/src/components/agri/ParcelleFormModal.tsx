@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { MapIcon, Trash2 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { CropCategory, Parcelle, ParcelleInput, ParcelleStatus } from '../../api/types-agri';
@@ -95,6 +96,7 @@ export function ParcelleFormModal({ parcelle, onClose }: { parcelle: Parcelle | 
               Annuler
             </Button>
             <Button tone="danger" busy={remove.isPending} onClick={() => remove.mutate()}>
+              {remove.isPending ? null : <Trash2 className="h-4 w-4" />}
               Supprimer la parcelle
             </Button>
           </div>
@@ -224,6 +226,7 @@ export function ParcelleFormModal({ parcelle, onClose }: { parcelle: Parcelle | 
                 setConfirmingDelete(true);
               }}
             >
+              <Trash2 className="h-4 w-4" />
               Supprimer
             </Button>
           ) : (
@@ -234,6 +237,7 @@ export function ParcelleFormModal({ parcelle, onClose }: { parcelle: Parcelle | 
               Annuler
             </Button>
             <Button type="submit" busy={save.isPending} disabled={!canSubmit}>
+              {parcelle || save.isPending ? null : <MapIcon className="h-4 w-4" />}
               {parcelle ? 'Enregistrer' : 'Ajouter la parcelle'}
             </Button>
           </div>

@@ -1,4 +1,4 @@
-import { AlertTriangle, Clock, Info, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarDays, Clock, Dna, Info, Layers, ShieldAlert, ShieldCheck, Stethoscope, Syringe, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { OrderPassport } from '../../api/types-orders';
 import { classNames, dateFr, num } from '../../lib/format';
@@ -12,17 +12,25 @@ const CONFORMITY: Record<OrderPassport['sanitary']['conformity'], { label: strin
 
 const SEVERITY_LABEL: Record<string, string> = { ROUGE: 'Rouge', JAUNE: 'Jaune', VERT: 'Vert' };
 
-function Row({ label, children, danger }: { label: string; children: ReactNode; danger?: boolean }) {
+function Row({ label, icon, children, danger }: { label: string; icon?: ReactNode; children: ReactNode; danger?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5 text-sm">
-      <span className="text-slate-500">{label}</span>
+      <span className="flex items-center gap-1.5 text-slate-500 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 [&>svg]:text-slate-400">
+        {icon}
+        {label}
+      </span>
       <span className={classNames('text-right font-medium', danger ? 'text-red-600' : 'text-slate-800')}>{children}</span>
     </div>
   );
 }
 
-function Heading({ children }: { children: ReactNode }) {
-  return <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{children}</h4>;
+function Heading({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
+  return (
+    <h4 className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0">
+      {icon}
+      {children}
+    </h4>
+  );
 }
 
 function Banner({ tone, icon, children }: { tone: 'green' | 'amber' | 'red'; icon: ReactNode; children: ReactNode }) {
@@ -73,18 +81,18 @@ export function PassportCard({ passport }: { passport: OrderPassport }) {
 
       <div className="grid gap-x-8 gap-y-3 md:grid-cols-2">
         <div>
-          <Row label="Lot">{passport.batchLabel}</Row>
-          <Row label="Souche">{passport.breedName ?? 'Non renseignée'}</Row>
-          <Row label="Type">{passport.batchTypeLabel}</Row>
-          <Row label="Espèce">{passport.speciesLabel}</Row>
-          <Row label="Intégration">{dateFr(passport.integrationDate)}</Row>
-          <Row label="Âge au bon">J{passport.ageDays}</Row>
-          <Row label="Effectif vivant">{num(passport.liveCount, 0)}</Row>
+          <Row label="Lot" icon={<Layers />}>{passport.batchLabel}</Row>
+          <Row label="Souche" icon={<Dna />}>{passport.breedName ?? 'Non renseignée'}</Row>
+          <Row label="Type" icon={<Activity />}>{passport.batchTypeLabel}</Row>
+          <Row label="Espèce" icon={<Users />}>{passport.speciesLabel}</Row>
+          <Row label="Intégration" icon={<CalendarDays />}>{dateFr(passport.integrationDate)}</Row>
+          <Row label="Âge au bon" icon={<Clock />}>J{passport.ageDays}</Row>
+          <Row label="Effectif vivant" icon={<Users />}>{num(passport.liveCount, 0)}</Row>
         </div>
         <div className="space-y-3">
           {passport.metrics.length > 0 ? (
             <div>
-              <Heading>Indicateurs du lot</Heading>
+              <Heading icon={<Activity />}>Indicateurs du lot</Heading>
               {passport.metrics.map((m) => (
                 <Row key={m.label} label={m.label}>
                   {m.value}
@@ -93,7 +101,7 @@ export function PassportCard({ passport }: { passport: OrderPassport }) {
             </div>
           ) : null}
           <div>
-            <Heading>Vaccinations</Heading>
+            <Heading icon={<Syringe />}>Vaccinations</Heading>
             <Row label="Dernier vaccin">
               {lastVaccine
                 ? `${lastVaccine.name}${lastVaccine.date ? ` (${dateFr(lastVaccine.date)})` : ''}`
@@ -108,7 +116,7 @@ export function PassportCard({ passport }: { passport: OrderPassport }) {
 
       {passport.withdrawals.length > 0 ? (
         <div className="space-y-1.5">
-          <Heading>Retraits en cours (carence)</Heading>
+          <Heading icon={<Clock />}>Retraits en cours (carence)</Heading>
           {passport.withdrawals.map((w) => (
             <Banner key={`${w.productName}-${w.withdrawalEndDate}`} tone="amber" icon={<Clock className="h-4 w-4" />}>
               {w.productName} ({w.careTypeLabel}) : retrait jusqu’au {dateFr(w.withdrawalEndDate)}
@@ -119,7 +127,7 @@ export function PassportCard({ passport }: { passport: OrderPassport }) {
 
       {sanitary.alerts.length > 0 ? (
         <div className="space-y-1.5">
-          <Heading>Alertes sanitaires actives</Heading>
+          <Heading icon={<AlertTriangle />}>Alertes sanitaires actives</Heading>
           {sanitary.alerts.map((a) => (
             <Banner
               key={`${a.kind}-${a.message}`}
@@ -134,7 +142,7 @@ export function PassportCard({ passport }: { passport: OrderPassport }) {
 
       {sanitary.events.length > 0 ? (
         <div>
-          <Heading>Maladies déclarées</Heading>
+          <Heading icon={<Stethoscope />}>Maladies déclarées</Heading>
           {sanitary.events.map((e) => (
             <Row key={`${e.title}-${e.occurredAt}`} label={e.title} danger={e.severity === 'ROUGE'}>
               {SEVERITY_LABEL[e.severity] ?? e.severity} · {dateFr(e.occurredAt)}
@@ -144,8 +152,8 @@ export function PassportCard({ passport }: { passport: OrderPassport }) {
       ) : null}
 
       <div className="border-t border-slate-100 pt-2">
-        <Row label="Visite vétérinaire">{sanitary.vetVisited ? 'Oui' : 'Non'}</Row>
-        <Row label="Conformité sanitaire">
+        <Row label="Visite vétérinaire" icon={sanitary.vetVisited ? <Stethoscope /> : <Info />}>{sanitary.vetVisited ? 'Oui' : 'Non'}</Row>
+        <Row label="Conformité sanitaire" icon={<ShieldCheck />}>
           <Pill tone={conformity.tone}>{conformity.label}</Pill>
         </Row>
         <p className="mt-1 text-sm text-slate-600">{sanitary.conformityNote}</p>

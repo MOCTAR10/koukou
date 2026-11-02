@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Wheat } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { Parcelle, Recolte, RecolteInput, RecolteUnit } from '../../api/types-agri';
@@ -118,6 +119,7 @@ export function RecolteFormModal({ parcelles, onClose }: { parcelles: Parcelle[]
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending} disabled={!canSubmit}>
+            {save.isPending ? null : <Wheat className="h-4 w-4" />}
             Enregistrer la récolte
           </Button>
         </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BadgePercent, X } from 'lucide-react';
+import { BadgePercent, Check, Plus, X } from 'lucide-react';
 import { api } from '../api/client';
 import type { PromotionFull } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
@@ -33,7 +33,7 @@ export function PromotionsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Promotions & codes promo" subtitle="Coupons de réduction appliqués au point de vente (réutilisables)." />
+      <PageHeader title="Promotions & codes promo" subtitle="Coupons de réduction appliqués au point de vente (réutilisables)." icon={<BadgePercent />} />
 
       <ErrorNote error={promos.error ?? toggleP.error} />
 
@@ -95,6 +95,7 @@ export function PromotionsPage() {
           </Field>
           <div className="pt-5">
             <Button type="submit" className="w-full" busy={createP.isPending}>
+              {createP.isPending ? null : <Plus className="h-4 w-4" />}
               Créer
             </Button>
           </div>
@@ -106,7 +107,9 @@ export function PromotionsPage() {
 
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-700">Codes existants</h2>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <BadgePercent className="h-4 w-4 text-brand-600" /> Codes existants
+          </h2>
         </div>
         {promos.isLoading ? (
           <div className="p-4">
@@ -114,7 +117,7 @@ export function PromotionsPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="p-4">
-            <EmptyState message="Aucun code promo." />
+            <EmptyState icon={<BadgePercent />} message="Aucun code promo." />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -150,7 +153,7 @@ export function PromotionsPage() {
                         disabled={toggleP.isPending}
                         onClick={() => toggleP.mutate(p)}
                       >
-                        {p.active ? <X className="h-3.5 w-3.5" /> : null}
+                        {p.active ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
                         {p.active ? 'Désactiver' : 'Activer'}
                       </Button>
                     </Td>

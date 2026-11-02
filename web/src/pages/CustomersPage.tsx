@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, UserPlus } from 'lucide-react';
+import { ArrowDownWideNarrow, Banknote, Check, Handshake, Search, Star, UserPlus, UserRound, Wallet } from 'lucide-react';
 import { api } from '../api/client';
 import type { Customer } from '../api/types';
 import type { CustomerFull, CustomerSummary } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { Button, ErrorNote, inputCls } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
 import { CollectModal, CreateCustomerModal, CustomerDetail } from '../components/sales/CustomerPanels';
 import { CUSTOMER_TYPE_LABEL, CUSTOMER_TYPES, SEGMENT_LABEL } from '../components/sales/labels';
 import { FilterChip } from '../components/sales/shared';
@@ -90,6 +90,7 @@ export function CustomersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Clients & crédit"
+        icon={<Handshake />}
         subtitle="Fiches, codes, soldes, encaissements et historique d’achats."
         actions={
           <>
@@ -107,16 +108,18 @@ export function CustomersPage() {
 
       {s ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="Portefeuille" value={num(s.total)} hint="clients enregistrés" />
+          <StatCard label="Portefeuille" value={num(s.total)} hint="clients enregistrés" icon={<UserRound />} />
           <StatCard
             label="À recouvrer"
+            icon={<Wallet />}
             value={fcfa(s.totalOutstandingFcfa)}
             hint={`${num(s.debtors)} débiteur(s)`}
             tone={s.totalOutstandingFcfa > 0 ? 'warn' : 'good'}
           />
-          <StatCard label="Recouvré" value={recovered != null ? `${recovered} %` : '—'} hint={`${fcfa(s.paidFcfa)} encaissés`} />
+          <StatCard label="Recouvré" value={recovered != null ? `${recovered} %` : '—'} hint={`${fcfa(s.paidFcfa)} encaissés`} icon={<Banknote />} />
           <StatCard
             label="Segments"
+            icon={<Star />}
             value={`${num(s.bySegment.TOP ?? 0)} top`}
             hint={`${num(s.bySegment.REGULIER ?? 0)} réguliers · ${num(s.bySegment.NOUVEAU ?? 0)} nouveaux`}
           />
@@ -125,8 +128,9 @@ export function CustomersPage() {
 
       <Card className="space-y-3 p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-64 flex-1 sm:max-w-sm">
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher par nom, téléphone ou code…" className={inputCls} />
+          <div className="relative min-w-64 flex-1 sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher par nom, téléphone ou code…" className={`${inputCls} pl-9`} />
           </div>
           <div className="w-56">
             <select aria-label="Type de client" className={inputCls} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
@@ -141,8 +145,9 @@ export function CustomersPage() {
           <button
             type="button"
             onClick={() => setSortKey((k) => (k === 'due' ? 'name' : 'due'))}
-            className="ml-auto text-xs font-semibold text-brand-700 hover:underline"
+            className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 hover:underline"
           >
+            <ArrowDownWideNarrow className="h-3.5 w-3.5" />
             Tri : {sortKey === 'due' ? 'dû décroissant' : 'nom A à Z'}
           </button>
         </div>
@@ -171,6 +176,7 @@ export function CustomersPage() {
         ) : rows.length === 0 ? (
           <div className="p-4">
             <EmptyState
+              icon={<UserRound />}
               message={
                 filtered
                   ? 'Aucun client ne correspond à ces critères.'
@@ -199,9 +205,12 @@ export function CustomersPage() {
                   return (
                     <tr key={c.id} className="border-t border-slate-100">
                       <Td className="font-medium">
-                        <button type="button" className="text-left text-brand-700 hover:underline" onClick={() => setOpenId(c.id)}>
-                          {c.fullName}
-                        </button>
+                        <span className="flex items-center gap-2.5">
+                          <IconTile icon={<UserRound />} size="sm" />
+                          <button type="button" className="text-left text-brand-700 hover:underline" onClick={() => setOpenId(c.id)}>
+                            {c.fullName}
+                          </button>
+                        </span>
                       </Td>
                       <Td>
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">{c.code ?? '—'}</span>
@@ -229,13 +238,19 @@ export function CustomersPage() {
                         </span>
                       </Td>
                       <Td className="whitespace-nowrap text-right tabular-nums">
-                        {due > 0 ? <span className="font-medium text-red-600">{fcfa(due)}</span> : <span className="text-emerald-600">Soldé</span>}
+                        {due > 0 ? (
+                          <span className="font-medium text-red-600">{fcfa(due)}</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-emerald-600">
+                            <Check className="h-3.5 w-3.5" /> Soldé
+                          </span>
+                        )}
                       </Td>
                       <Td className="whitespace-nowrap">{dateFr(c.createdAt)}</Td>
                       <Td className="text-right">
                         {due > 0 ? (
                           <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setCollect({ customer: c })}>
-                            Encaisser
+                            <Banknote className="h-3.5 w-3.5" /> Encaisser
                           </Button>
                         ) : null}
                       </Td>

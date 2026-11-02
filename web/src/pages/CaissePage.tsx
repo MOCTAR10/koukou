@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownToLine, ArrowUpFromLine, Lock, LogIn, Pencil, Trash2, Unlock } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Coins, FolderClosed, FolderOpen, History, Pencil, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
 import type { CashSession } from '../api/types';
 import type { CaisseSummary, CashMovement } from '../api/types-sales';
@@ -70,6 +70,13 @@ function MovementForm({
             Annuler
           </Button>
           <Button type="submit" busy={busy}>
+            {busy ? null : editing ? (
+              <Pencil className="h-4 w-4" />
+            ) : type === 'IN' ? (
+              <ArrowDownToLine className="h-4 w-4" />
+            ) : (
+              <ArrowUpFromLine className="h-4 w-4" />
+            )}
             {editing ? 'Enregistrer' : 'Ajouter'}
           </Button>
         </div>
@@ -187,14 +194,14 @@ export function CaissePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Caisse journalière" subtitle="Ouverture, mouvements, clôture et contrôle des écarts." />
+      <PageHeader title="Caisse journalière" subtitle="Ouverture, mouvements, clôture et contrôle des écarts." icon={<Coins />} />
 
       <ErrorNote error={current.error ?? sessions.error} />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <Card className="p-5">
           <div className="flex items-center gap-2">
-            {hasOpen ? <Unlock className="h-5 w-5 text-emerald-600" /> : <Lock className="h-5 w-5 text-slate-400" />}
+            {hasOpen ? <FolderOpen className="h-5 w-5 text-emerald-600" /> : <FolderClosed className="h-5 w-5 text-slate-400" />}
             <h2 className="text-sm font-semibold text-slate-700">{hasOpen ? 'Caisse ouverte' : 'Aucune caisse ouverte'}</h2>
           </div>
 
@@ -203,19 +210,27 @@ export function CaissePage() {
               <p className="mt-1 text-xs text-slate-500">Depuis le {dateTimeFr(summary.session.openedAt)}</p>
               <div className="mt-4 grid grid-cols-2 gap-3 text-center">
                 <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-xs text-slate-500">Ouverture</p>
+                  <p className="flex items-center justify-center gap-1 text-xs text-slate-500">
+                    <FolderOpen className="h-3.5 w-3.5" /> Ouverture
+                  </p>
                   <p className="text-sm font-bold text-slate-800">{fcfa(summary.session.openingBalanceFcfa)}</p>
                 </div>
                 <div className="rounded-xl bg-brand-50 p-3">
-                  <p className="text-xs text-brand-700">Solde attendu</p>
+                  <p className="flex items-center justify-center gap-1 text-xs text-brand-700">
+                    <Coins className="h-3.5 w-3.5" /> Solde attendu
+                  </p>
                   <p className="text-sm font-bold text-brand-800">{fcfa(summary.expectedBalanceFcfa)}</p>
                 </div>
                 <div className="rounded-xl bg-emerald-50 p-3">
-                  <p className="text-xs text-emerald-700">Entrées</p>
+                  <p className="flex items-center justify-center gap-1 text-xs text-emerald-700">
+                    <ArrowDownToLine className="h-3.5 w-3.5" /> Entrées
+                  </p>
                   <p className="text-sm font-bold text-emerald-800">{fcfa(summary.inFcfa)}</p>
                 </div>
                 <div className="rounded-xl bg-red-50 p-3">
-                  <p className="text-xs text-red-700">Sorties</p>
+                  <p className="flex items-center justify-center gap-1 text-xs text-red-700">
+                    <ArrowUpFromLine className="h-3.5 w-3.5" /> Sorties
+                  </p>
                   <p className="text-sm font-bold text-red-800">{fcfa(summary.outFcfa)}</p>
                 </div>
               </div>
@@ -253,7 +268,7 @@ export function CaissePage() {
             </Field>
             <ErrorNote error={fieldError ?? openSession.error ?? (closeGap ? null : closeSession.error)} />
             <Button type="submit" className="w-full" busy={openSession.isPending || closeSession.isPending}>
-              {hasOpen ? <Lock className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}
+              {hasOpen ? <FolderClosed className="h-4 w-4" /> : <FolderOpen className="h-4 w-4" />}
               {hasOpen ? 'Clôturer la caisse' : 'Ouvrir la caisse'}
             </Button>
           </form>
@@ -261,7 +276,9 @@ export function CaissePage() {
 
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Mouvements de la session</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Coins className="h-4 w-4 text-brand-600" /> Mouvements de la session
+            </h2>
             {hasOpen ? (
               <div className="flex gap-2">
                 <Button
@@ -292,9 +309,12 @@ export function CaissePage() {
               <Loading label="Lecture de la caisse…" />
             </div>
           ) : movements.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-slate-500">
-              {hasOpen ? 'Aucun mouvement pour cette session.' : 'Ouvrez la caisse pour suivre les mouvements de la session.'}
-            </p>
+            <div className="p-4">
+              <EmptyState
+                icon={<Coins />}
+                message={hasOpen ? 'Aucun mouvement pour cette session.' : 'Ouvrez la caisse pour suivre les mouvements de la session.'}
+              />
+            </div>
           ) : (
             <div className="max-h-[380px] overflow-auto">
               <table className="w-full">
@@ -311,7 +331,16 @@ export function CaissePage() {
                   {movements.map((m) => (
                     <tr key={m.id} className="border-t border-slate-100">
                       <Td className="whitespace-nowrap">{dateFr(m.movementDate)}</Td>
-                      <Td>{MOVEMENT_SOURCE_LABEL[m.source] ?? 'Caisse'}</Td>
+                      <Td>
+                        <span className="flex items-center gap-2">
+                          {m.type === 'IN' ? (
+                            <ArrowDownToLine className="h-4 w-4 shrink-0 text-emerald-600" />
+                          ) : (
+                            <ArrowUpFromLine className="h-4 w-4 shrink-0 text-red-600" />
+                          )}
+                          {MOVEMENT_SOURCE_LABEL[m.source] ?? 'Caisse'}
+                        </span>
+                      </Td>
                       <Td className="max-w-[320px]">{m.reason ?? (m.saleId ? 'Encaissement vente' : '—')}</Td>
                       <Td className={classNames('whitespace-nowrap text-right font-medium tabular-nums', m.type === 'IN' ? 'text-emerald-600' : 'text-red-600')}>
                         {m.type === 'IN' ? '+' : '−'} {fcfa(m.amountFcfa)}
@@ -359,11 +388,13 @@ export function CaissePage() {
       ) : (
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Historique des sessions</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <History className="h-4 w-4 text-brand-600" /> Historique des sessions
+            </h2>
           </div>
           {history.length === 0 ? (
             <div className="p-4">
-              <EmptyState message="Aucune session de caisse." />
+              <EmptyState icon={<Coins />} message="Aucune session de caisse." />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -416,6 +447,7 @@ export function CaissePage() {
         <ConfirmDialog
           title="Écart de caisse"
           confirmLabel="Clôturer quand même"
+          confirmIcon={<FolderClosed className="h-4 w-4" />}
           cancelLabel="Corriger"
           busy={closeSession.isPending}
           error={closeSession.error}
@@ -445,6 +477,7 @@ export function CaissePage() {
         <ConfirmDialog
           title="Supprimer ce mouvement ?"
           confirmLabel="Supprimer"
+          confirmIcon={<Trash2 className="h-4 w-4" />}
           busy={deleteMovement.isPending}
           error={deleteMovement.error}
           onConfirm={() => deleteMovement.mutate(deleting.id)}

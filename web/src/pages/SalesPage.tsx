@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRightLeft, Coins, Home, Pencil, Plus, ShoppingCart, Store, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Coins, Home, Layers, Package, Pencil, Plus, ReceiptText, ShoppingCart, Store, Trash2, TrendingUp, Warehouse } from 'lucide-react';
 import { api } from '../api/client';
 import type { CashSession, FeedStockSummary } from '../api/types';
 import type {
@@ -15,10 +15,11 @@ import type {
 } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { Button, ErrorNote, todayIso } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Th, Td } from '../components/ui';
 import { Checkout } from '../components/sales/Checkout';
 import { LineForm, type LinePreset } from '../components/sales/LineForm';
 import {
+  batchPhoto,
   formatEggAlveoles,
   lastClosingOf,
   lineAmount,
@@ -27,7 +28,7 @@ import {
   transferUnitLabel,
   type PosLine,
 } from '../components/sales/pos';
-import { FilterChip } from '../components/sales/shared';
+import { FilterChip, ProductThumb } from '../components/sales/shared';
 import { SalesHistory } from '../components/sales/SalesHistory';
 import { unitLabel } from '../components/sales/labels';
 import { classNames, fcfa, num, statusLabel } from '../lib/format';
@@ -195,6 +196,8 @@ export function SalesPage() {
     });
   };
 
+  const photoOfBatch = (id?: string | null) => batchPhoto(allBatches.find((b) => b.id === id));
+
   const stats = pos ? statsFor(pos.id) : null;
   const loadError = pointsOfSale.error ?? batches.error;
 
@@ -203,6 +206,7 @@ export function SalesPage() {
       <PageHeader
         title="Point de vente"
         subtitle="Panier, encaissement en espèces ou à crédit, reçus et annulations."
+        icon={<ShoppingCart />}
         actions={
           <Link
             to="/app/finance/caisse"
@@ -223,7 +227,7 @@ export function SalesPage() {
         <Loading label="Chargement des points de vente…" />
       ) : activePos.length === 0 ? (
         <div className="space-y-2">
-          <EmptyState message="Aucun point de vente actif : activez ou créez-en un pour commencer à encaisser." />
+          <EmptyState icon={<Store />} message="Aucun point de vente actif : activez ou créez-en un pour commencer à encaisser." />
           <Link to="/app/points-of-sale" className="block text-center text-sm font-semibold text-brand-700 hover:underline">
             Gérer les points de vente
           </Link>
@@ -245,9 +249,7 @@ export function SalesPage() {
                   selected ? 'border-brand-600 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-300',
                 )}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                  <Icon className="h-5 w-5" />
-                </span>
+                <IconTile icon={<Icon />} tone={p.kind === 'FERME' ? 'brand' : 'accent'} />
                 <span className="min-w-0">
                   <span className="block truncate font-semibold text-slate-900">{p.name}</span>
                   <span className="block text-xs text-slate-500">
@@ -266,14 +268,15 @@ export function SalesPage() {
       {pos && stats ? (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="CA aujourd’hui" value={fcfa(stats.revenue)} tone="good" />
-            <StatCard label="Tickets" value={num(stats.count)} />
-            <StatCard label="Panier moyen" value={fcfa(stats.basket)} />
+            <StatCard label="CA aujourd’hui" value={fcfa(stats.revenue)} tone="good" icon={<TrendingUp />} />
+            <StatCard label="Tickets" value={num(stats.count)} icon={<ReceiptText />} />
+            <StatCard label="Panier moyen" value={fcfa(stats.basket)} icon={<ShoppingCart />} />
             {isBoutique ? (
-              <StatCard label="Réserves actives" value={num(reserves.length)} hint={pos.name} />
+              <StatCard label="Réserves actives" value={num(reserves.length)} hint={pos.name} icon={<Package />} />
             ) : (
               <StatCard
                 label="Stock ferme"
+                icon={<Warehouse />}
                 value={`${num(lots.reduce((a, b) => a + b.quantityAlive, 0))} vivants`}
                 hint={`${num(pools.reduce((a, p) => a + (p.carcassesAvailable ?? 0), 0))} carcasses · ${num(lots.reduce((a, b) => a + (b.metrics.eggStockAvailableAlveoles ?? 0), 0))} alvéoles`}
               />
@@ -284,7 +287,8 @@ export function SalesPage() {
             <div className="min-w-0 space-y-4">
               <Card className="overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-                  <h2 className="text-sm font-semibold text-slate-700">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    {isBoutique ? <Package className="h-4 w-4 text-brand-600" /> : <Layers className="h-4 w-4 text-brand-600" />}
                     {isBoutique ? 'Réserves en boutique à vendre' : 'Lots à vendre'}
                   </h2>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -313,6 +317,7 @@ export function SalesPage() {
                     visibleReserves.length === 0 ? (
                       <div className="p-4">
                         <EmptyState
+                          icon={<Package />}
                           message={
                             reserves.length === 0
                               ? 'Aucun stock en boutique : réapprovisionnez-la depuis la ferme.'
@@ -333,14 +338,22 @@ export function SalesPage() {
                         <tbody>
                           {visibleReserves.map((t) => (
                             <tr key={t.id} className="border-t border-slate-100">
-                              <Td className="font-medium">{transferTitle(t)}</Td>
+                              <Td className="font-medium">
+                                <span className="flex items-center gap-2.5">
+                                  <ProductThumb
+                                    product={t.productType === 'OEUFS' ? 'OEUF' : t.productType === 'PROVENDE' ? 'PROVENDE' : 'ABATTU_PIECE'}
+                                    photo={photoOfBatch(t.batchId ?? t.slaughterOrder?.batchId)}
+                                  />
+                                  {transferTitle(t)}
+                                </span>
+                              </Td>
                               <Td>{t.productType === 'ABATTU' ? 'Abattu' : t.productType === 'OEUFS' ? 'Œufs' : 'Provende'}</Td>
                               <Td className="text-right tabular-nums">
                                 {num(transferRemaining(t), 2)} {transferUnitLabel(t)}
                               </Td>
                               <Td className="text-right">
                                 <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setLineModal({ preset: { transferId: t.id } })}>
-                                  Vendre
+                                  <ShoppingCart className="h-3.5 w-3.5" /> Vendre
                                 </Button>
                               </Td>
                             </tr>
@@ -354,7 +367,7 @@ export function SalesPage() {
                     </div>
                   ) : visibleLots.length === 0 ? (
                     <div className="p-4">
-                      <EmptyState message="Aucun lot dans ce filtre." />
+                      <EmptyState icon={<Layers />} message="Aucun lot dans ce filtre." />
                     </div>
                   ) : (
                     <table className="w-full">
@@ -376,11 +389,16 @@ export function SalesPage() {
                           return (
                             <tr key={b.id} className={classNames('border-t border-slate-100', !open && 'opacity-60')}>
                               <Td className="font-medium">
-                                {b.batchName ?? 'Lot'}
-                                <span className="block text-xs font-normal text-slate-400">
-                                  {statusLabel(b.type)} · J{b.metrics.ageDays}
-                                  {sold > 0 ? ` · ${num(sold)} article(s) vendu(s) aujourd’hui` : ''}
-                                </span>
+                                <div className="flex items-center gap-3">
+                                  <PhotoThumb src={batchPhoto(b)} />
+                                  <div className="min-w-0">
+                                    {b.batchName ?? 'Lot'}
+                                    <span className="block text-xs font-normal text-slate-400">
+                                      {statusLabel(b.type)} · J{b.metrics.ageDays}
+                                      {sold > 0 ? ` · ${num(sold)} article(s) vendu(s) aujourd’hui` : ''}
+                                    </span>
+                                  </div>
+                                </div>
                               </Td>
                               <Td className="text-right tabular-nums">{num(b.quantityAlive)}</Td>
                               <Td className="text-right tabular-nums">{num(carcassesByBatch.get(b.id) ?? 0)}</Td>
@@ -393,7 +411,7 @@ export function SalesPage() {
                               <Td className="text-right">
                                 {open ? (
                                   <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setLineModal({ preset: { batchId: b.id } })}>
-                                    Vendre
+                                    <ShoppingCart className="h-3.5 w-3.5" /> Vendre
                                   </Button>
                                 ) : null}
                               </Td>
@@ -421,7 +439,9 @@ export function SalesPage() {
                   <h2 className="text-sm font-semibold text-slate-700">Panier · {num(lines.length)} article(s)</h2>
                 </div>
                 {lines.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-sm text-slate-500">Choisissez un lot ou ajoutez un article pour commencer.</p>
+                  <div className="p-4">
+                    <EmptyState icon={<ShoppingCart />} message="Choisissez un lot ou ajoutez un article pour commencer." />
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
@@ -438,7 +458,12 @@ export function SalesPage() {
                       <tbody>
                         {lines.map((l) => (
                           <tr key={l.uid} className="border-t border-slate-100">
-                            <Td className="font-medium">{l.label}</Td>
+                            <Td className="font-medium">
+                              <span className="flex items-center gap-2.5">
+                                <ProductThumb product={l.product} photo={photoOfBatch(l.batchId)} />
+                                {l.label}
+                              </span>
+                            </Td>
                             <Td>{l.sourceLabel || '—'}</Td>
                             <Td className="whitespace-nowrap text-right tabular-nums">
                               {l.weightKg != null

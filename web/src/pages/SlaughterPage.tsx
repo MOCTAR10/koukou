@@ -1,11 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { FileDown, Plus } from 'lucide-react';
+import { Bird, Building, CalendarX, Calendar, Check, Factory, FileText, Package, Plus, Printer, Scale, Send, TrendingUp, Truck } from 'lucide-react';
 import { api } from '../api/client';
 import type { Lot, SlaughterOrderFull, SlaughterStatus } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
 import { ConfirmModal } from '../components/flock/SanitaryModals';
 import {
+  IconField,
   Metric,
   Note,
   SectionCard,
@@ -21,13 +22,20 @@ import {
   useLots,
 } from '../components/flock/shared';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../components/form';
-import { EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { lotImage } from '../lib/animalImages';
 import { dateFr, num } from '../lib/format';
 
 type Horizon = 'today' | 'week' | 'month' | 'all' | 'custom';
 
 const TYPE_LABEL = { VIVANT: 'Vivant', ABATTU: 'Abattu' };
 const DEST_LABEL = { INTERNE: 'Interne', EXTERNE: 'Externe' };
+const SECTION_ICON: Record<SlaughterStatus, React.ReactNode> = {
+  DRAFT: <Send />,
+  SENT: <Truck />,
+  PROCESSED: <Check />,
+  CANCELLED: <CalendarX />,
+};
 
 export function SlaughterPage() {
   const { farmId } = useFarm();
@@ -77,7 +85,7 @@ export function SlaughterPage() {
     const rows = bucket(status);
     if (rows.length === 0) return null;
     return (
-      <SectionCard key={status} title={`${title} (${rows.length})`} flush>
+      <SectionCard key={status} title={`${title} (${rows.length})`} icon={SECTION_ICON[status]} iconTone={status === 'CANCELLED' ? 'slate' : 'brand'} flush>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50">
@@ -130,10 +138,14 @@ export function SlaughterPage() {
                             })
                           }
                         >
-                          Envoyer
+                          <Send className="h-4 w-4" /> Envoyer
                         </Button>
                       ) : null}
-                      {o.status === 'SENT' ? <Button onClick={() => setCarcass(o)}>Réceptionner</Button> : null}
+                      {o.status === 'SENT' ? (
+                        <Button onClick={() => setCarcass(o)}>
+                          <Check className="h-4 w-4" /> Réceptionner
+                        </Button>
+                      ) : null}
                       {o.destination === 'EXTERNE' && o.status !== 'CANCELLED' ? (
                         <Button
                           tone="secondary"
@@ -144,12 +156,12 @@ export function SlaughterPage() {
                             )
                           }
                         >
-                          <FileDown className="h-4 w-4" /> Bordereau
+                          <FileText className="h-4 w-4" /> Bordereau
                         </Button>
                       ) : null}
                       {o.status === 'DRAFT' || o.status === 'SENT' ? (
                         <Button tone="secondary" onClick={() => setCancelling(o)}>
-                          Annuler
+                          <CalendarX className="h-4 w-4" /> Annuler
                         </Button>
                       ) : null}
                     </div>
@@ -167,6 +179,7 @@ export function SlaughterPage() {
     <div className="space-y-5">
       <PageHeader
         title="Abattage"
+        icon={<Factory />}
         subtitle="Ordres, envoi à l'abattoir et rendement carcasse"
         actions={
           <Button onClick={() => setCreating(true)}>
@@ -197,16 +210,16 @@ export function SlaughterPage() {
         ) : null}
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <Metric label="À envoyer" value={bucket('DRAFT').length} />
-        <Metric label="À réceptionner" value={bucket('SENT').length} />
-        <Metric label="Traités" value={processed.length} sub={`${num(processed.reduce((s, o) => s + o.birdCount, 0))} oiseaux`} />
-        <Metric label="Carcasse totale" value={`${num(totalCarcass)} kg`} />
-        <Metric label="Rendement moyen" value={avgRendement != null ? `${num(avgRendement)} %` : '—'} />
+        <Metric label="À envoyer" icon={<Send />} value={bucket('DRAFT').length} />
+        <Metric label="À réceptionner" icon={<Truck />} value={bucket('SENT').length} />
+        <Metric label="Traités" icon={<Check />} value={processed.length} sub={`${num(processed.reduce((s, o) => s + o.birdCount, 0))} oiseaux`} />
+        <Metric label="Carcasse totale" icon={<Package />} value={`${num(totalCarcass)} kg`} />
+        <Metric label="Rendement moyen" icon={<TrendingUp />} value={avgRendement != null ? `${num(avgRendement)} %` : '—'} />
       </div>
       {orders.isLoading ? (
         <Loading label="Chargement des ordres…" />
       ) : shown.length === 0 ? (
-        <EmptyState message="Aucun ordre d'abattage sur cette période." />
+        <EmptyState message="Aucun ordre d'abattage sur cette période." icon={<Factory />} />
       ) : (
         <>
           {section('DRAFT', 'À envoyer')}
@@ -223,6 +236,7 @@ export function SlaughterPage() {
           title="Annuler cet ordre ?"
           message={`L'ordre ${cancelling.referenceNumber} de ${num(cancelling.birdCount, 0)} oiseaux sera annulé.`}
           confirmLabel="Annuler l'ordre"
+          confirmIcon={<CalendarX className="h-4 w-4" />}
           busy={action.busy === 'cancel'}
           error={action.error}
           onClose={() => setCancelling(null)}
@@ -267,9 +281,9 @@ function ProcessModal({ order, onClose }: { order: SlaughterOrderFull; onClose: 
         }}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Poids carcasse (kg) *">
+          <IconField label="Poids carcasse (kg) *" icon={<Scale />}>
             <input className={inputCls} inputMode="decimal" value={carcass} onChange={(e) => setCarcass(e.target.value)} required />
-          </Field>
+          </IconField>
           <Field label="Code abattoir">
             <input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} />
           </Field>
@@ -283,7 +297,7 @@ function ProcessModal({ order, onClose }: { order: SlaughterOrderFull; onClose: 
             Annuler
           </Button>
           <Button type="submit" busy={save.isPending} disabled={kg <= 0}>
-            Enregistrer
+            <Check className="h-4 w-4" /> Enregistrer
           </Button>
         </div>
       </form>
@@ -364,14 +378,17 @@ function NewOrderModal({
     <Modal title="Nouvel ordre d'abattage" onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4">
         <Field label="Lot *">
-          <select className={inputCls} value={batchId} onChange={(e) => setBatchId(e.target.value)} required>
-            <option value="">Sélectionner un lot…</option>
-            {eligible.map((l) => (
-              <option key={l.id} value={l.id}>
-                {lotOption(l)}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <PhotoThumb src={lot ? lotImage(lot.breedName, lot.species) : null} />
+            <select className={`${inputCls} min-w-0`} value={batchId} onChange={(e) => setBatchId(e.target.value)} required>
+              <option value="">Sélectionner un lot…</option>
+              {eligible.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {lotOption(l)}
+                </option>
+              ))}
+            </select>
+          </div>
         </Field>
         {lot ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -387,18 +404,18 @@ function NewOrderModal({
                 )
               }
             >
-              <FileDown className="h-4 w-4" /> Passeport du lot
+              <Printer className="h-4 w-4" /> Passeport du lot
             </Button>
           </div>
         ) : null}
         <ErrorNote error={pdf.error} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Destination">
+          <IconField label="Destination" icon={destination === 'INTERNE' ? <Building /> : <Truck />}>
             <select className={inputCls} value={destination} onChange={(e) => setDestination(e.target.value as 'INTERNE' | 'EXTERNE')}>
               <option value="INTERNE">Interne (abattage sur place)</option>
               <option value="EXTERNE">Externe (abattoir partenaire)</option>
             </select>
-          </Field>
+          </IconField>
           {destination === 'EXTERNE' ? (
             <Field
               label="Type"
@@ -414,15 +431,15 @@ function NewOrderModal({
               <input className={inputCls} value="Abattu" disabled />
             </Field>
           )}
-          <Field label="Nombre d'oiseaux *">
+          <IconField label="Nombre d'oiseaux *" icon={<Bird />}>
             <input className={inputCls} inputMode="numeric" value={birdCount} onChange={(e) => setBirdCount(e.target.value.replace(/\D/g, ''))} required />
-          </Field>
-          <Field label="Date prévue *">
+          </IconField>
+          <IconField label="Date prévue *" icon={<Calendar />}>
             <input className={inputCls} type="date" value={plannedDate} onChange={(e) => setPlannedDate(e.target.value)} required />
-          </Field>
-          <Field label="Poids vif total (kg)">
+          </IconField>
+          <IconField label="Poids vif total (kg)" icon={<Scale />}>
             <input className={inputCls} inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} />
-          </Field>
+          </IconField>
           {destination === 'EXTERNE' ? (
             <>
               <Field label="Code abattoir">
@@ -448,7 +465,7 @@ function NewOrderModal({
             Annuler
           </Button>
           <Button type="submit" busy={create.isPending} disabled={!canSubmit}>
-            Créer l'ordre
+            <FileText className="h-4 w-4" /> Créer l'ordre
           </Button>
         </div>
       </form>

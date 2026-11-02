@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Plus, Scale } from 'lucide-react';
+import { Download, Landmark, Plus, Scale } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client';
 import type {
@@ -144,6 +144,7 @@ export function AccountingPage() {
       <PageHeader
         title="Comptabilité SYSCOHADA"
         subtitle={farm?.name ?? 'Ferme'}
+        icon={<Landmark />}
         actions={
           <>
             <Button tone="secondary" busy={init.isPending} onClick={() => init.mutate()}>
