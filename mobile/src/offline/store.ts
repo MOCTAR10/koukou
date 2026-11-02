@@ -27,6 +27,8 @@ export interface OfflineOp {
   userId?: string;
   /** Server errors (5xx) met so far, see MAX_SERVER_ATTEMPTS. */
   attempts?: number;
+  /** Cash waiting for a session: the caisse was closed after it was collected. */
+  heldByClosedCaisse?: boolean;
 }
 
 const KEY = 'koukou.offline.queue';
@@ -102,6 +104,16 @@ export function bumpAttempts(id: string): number {
   op.attempts = (op.attempts ?? 0) + 1;
   persist(ops);
   return op.attempts;
+}
+
+/** Marks an op as waiting for the caisse to be opened (shown to the user). */
+export function setHeldByClosedCaisse(id: string, held: boolean): void {
+  const ops = readOps();
+  const op = ops.find((o) => o.id === id);
+  if (!op || !!op.heldByClosedCaisse === held) return;
+  op.heldByClosedCaisse = held;
+  persist(ops);
+  notify();
 }
 
 export function clearQueue(): void {

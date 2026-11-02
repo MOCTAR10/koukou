@@ -20,6 +20,7 @@ import {
   createSlaughterOrder,
   createTreatment,
   deleteSchedule,
+  CaisseClosedSinceError,
   ensureCashOpen,
   generateProphylaxis,
   generateVaccineProgram,
@@ -424,6 +425,25 @@ describe('ensureCashOpen', () => {
     ]);
     await ensureCashOpen('f-1');
     expect(JSON.parse(readCall(fetchMock, 2).init.body as string)).toEqual({ openingBalanceFcfa: 0 });
+  });
+
+  it('rejeu : caisse clôturée après l’encaissement → ne rouvre pas', async () => {
+    const fetchMock = stubFetchSequence([
+      jsonResponse(200, null),
+      jsonResponse(200, [{ closingBalanceFcfa: 42000, closedAt: '2026-11-02T18:00:00.000Z' }]),
+    ]);
+    await expect(ensureCashOpen('f-1', '2026-11-02T17:00:00.000Z')).rejects.toBeInstanceOf(CaisseClosedSinceError);
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
+  it('rejeu : encaissement après la clôture → ouvre', async () => {
+    const fetchMock = stubFetchSequence([
+      jsonResponse(200, null),
+      jsonResponse(200, [{ closingBalanceFcfa: 42000, closedAt: '2026-11-02T18:00:00.000Z' }]),
+      jsonResponse(201, { session: { id: 's-1' } }),
+    ]);
+    await ensureCashOpen('f-1', '2026-11-02T19:00:00.000Z');
+    expect(JSON.parse(readCall(fetchMock, 2).init.body as string)).toEqual({ openingBalanceFcfa: 42000 });
   });
 
   it('n’ouvre pas si une session existe déjà', async () => {

@@ -17,6 +17,7 @@ import {
   deletePointOfSaleQueued,
   deliverOrderQueued,
   flushQueue,
+  heldCashSummary,
   recordCustomerPaymentQueued,
   recordOrderPaymentQueued,
   recordStockLossQueued,
@@ -36,7 +37,7 @@ import {
   type RejectedOp,
 } from './store';
 
-export { clearQueue, clearRejected, dismissRejected, flushQueue, loadOps, loadRejected };
+export { clearQueue, clearRejected, dismissRejected, flushQueue, heldCashSummary, loadOps, loadRejected };
 export type { FlushSummary, OfflineOp, RejectedOp, SendResult };
 
 export {

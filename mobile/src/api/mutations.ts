@@ -288,15 +288,27 @@ export function createDailyEntry(
   });
 }
 
-export async function ensureCashOpen(farmId: string): Promise<void> {
+/** The caisse was closed after this cash was collected: it must not reopen by itself. */
+export class CaisseClosedSinceError extends Error {}
+
+/**
+ * Opens the caisse if none is open. `collectedAt` is given when replaying cash
+ * collected offline: if the caisse has been closed since, someone counted it for
+ * the evening, so a phone coming back online must not silently reopen it.
+ */
+export async function ensureCashOpen(farmId: string, collectedAt?: string): Promise<void> {
   interface OpenSession {
     session: unknown;
   }
   const current = await apiFetch<OpenSession | null>(`/farms/${farmId}/caisse/current`);
   if (current) return;
+  const last = await lastClosedSession(farmId);
+  if (collectedAt && last?.closedAt && Date.parse(last.closedAt) >= Date.parse(collectedAt)) {
+    throw new CaisseClosedSinceError('Caisse clôturée depuis cet encaissement.');
+  }
   await apiFetch(`/farms/${farmId}/caisse/open`, {
     method: 'POST',
-    body: { openingBalanceFcfa: await lastClosingBalance(farmId) },
+    body: { openingBalanceFcfa: last?.closingBalanceFcfa ?? 0 },
   });
 }
 
@@ -305,16 +317,19 @@ export async function ensureCashOpen(farmId: string): Promise<void> {
  * change from it at opening, so opening at 0 would post the whole float as a
  * withdrawal. Without `caisse:lire` the history is unreadable: fall back to 0.
  */
-async function lastClosingBalance(farmId: string): Promise<number> {
+async function lastClosedSession(
+  farmId: string,
+): Promise<{ closingBalanceFcfa: number; closedAt?: string | null } | null> {
   try {
-    const sessions = await apiFetch<{ closingBalanceFcfa: number | null }[]>(
+    const sessions = await apiFetch<{ closingBalanceFcfa: number | null; closedAt?: string | null }[]>(
       `/farms/${farmId}/caisse/sessions`,
     );
-    return sessions.find((s) => s.closingBalanceFcfa != null)?.closingBalanceFcfa ?? 0;
+    const last = sessions.find((s) => s.closingBalanceFcfa != null);
+    return last ? { closingBalanceFcfa: last.closingBalanceFcfa as number, closedAt: last.closedAt } : null;
   } catch (e) {
     // Network failure: let the caller queue the op instead of opening at 0.
     if (e instanceof TypeError || (e instanceof ApiError && e.status >= 500)) throw e;
-    return 0;
+    return null;
   }
 }
 

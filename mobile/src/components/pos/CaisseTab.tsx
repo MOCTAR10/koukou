@@ -8,6 +8,7 @@ import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
+import { HeldCashNotice } from '@/components/HeldCashNotice';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
@@ -270,6 +271,7 @@ export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClo
   return (
     <>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <HeldCashNotice farmId={farmId} />
       {loading ? (
         <Spinner label="Lecture de la caisse…" />
       ) : (
