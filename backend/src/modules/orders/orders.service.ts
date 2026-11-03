@@ -151,6 +151,8 @@ export interface OrderCreationExtras {
   deliveryFeeFcfa?: number;
   /** Type given to the customer when this order creates it. */
   customerType?: CustomerType;
+  /** Lets ABATTU_PIECE lines with a slaughter source through. */
+  allowCarcassLines?: boolean;
 }
 
 export enum BuyerCancelOutcome {
@@ -271,8 +273,15 @@ export class OrdersService {
     let total = 0;
     let passport: OrderPassportSnapshot | null = null;
 
+    const carcasses = new Map<string, number>();
+
     for (const it of dto.items) {
-      if (!ORDERABLE_TYPES.includes(it.productType)) {
+      const carcassSource =
+        extras.allowCarcassLines &&
+        it.productType === SaleItemProductType.ABATTU_PIECE
+          ? it.sourceSlaughterOrderId
+          : undefined;
+      if (!carcassSource && !ORDERABLE_TYPES.includes(it.productType)) {
         throw new BadRequestException(
           'Les commandes concernent la volaille sur pied (pièce / au kilo) et les œufs. Vente d’abattu, provende ou article divers : passer par la vente directe (POS).',
         );
@@ -305,7 +314,14 @@ export class OrdersService {
         }
         batchId = it.batchId;
         pieceCount = Math.ceil(it.quantity);
-        birdsRequested += pieceCount;
+        if (carcassSource) {
+          carcasses.set(
+            carcassSource,
+            (carcasses.get(carcassSource) ?? 0) + pieceCount,
+          );
+        } else {
+          birdsRequested += pieceCount;
+        }
       } else if (it.productType === SaleItemProductType.POULET_KG ||
                  it.productType === SaleItemProductType.ABATTU_KG) {
         if (unit !== SaleItemUnit.KG) {
@@ -375,7 +391,12 @@ export class OrdersService {
         amountFcfa: amount,
         batchId: batchId ?? eggBatchId,
         inputLotId: it.inputLotId ?? null,
+        sourceSlaughterOrderId: carcassSource ?? null,
       });
+    }
+
+    for (const [source, pieces] of carcasses) {
+      await this.salesService.decrementCarcassPool(em, farmId, source, pieces);
     }
 
     const deliveryFee = extras.deliveryFeeFcfa ?? 0;
@@ -477,6 +498,7 @@ export class OrdersService {
           amountFcfa: snap.amountFcfa,
           batchId: snap.batchId,
           inputLotId: snap.inputLotId,
+          sourceSlaughterOrderId: snap.sourceSlaughterOrderId ?? null,
         }),
       );
       snap.saleItemId = item.id;
@@ -659,7 +681,12 @@ export class OrdersService {
       // Sanitary rules are advisory for a farm's own sales, but a Market buyer
       // can't judge them: the platform doesn't deliver during a withdrawal.
       if (order.source === OrderSource.MARKET) {
-        const batchIds = new Set(items.flatMap((i) => i.batchId ?? []));
+        // A carcass was slaughtered already: a later treatment can't reach it.
+        const batchIds = new Set(
+          items.flatMap((i) =>
+            i.batchId && !i.sourceSlaughterOrderId ? i.batchId : [],
+          ),
+        );
         for (const batchId of batchIds) {
           const holds = await sanitaryHolds(em, farmId, batchId);
           if (holds.withdrawalEndDate) {
@@ -700,6 +727,28 @@ export class OrdersService {
         item.amountFcfa = Math.round(o.quantity * item.unitPriceFcfa);
       }
       if (overrides.length > 0) await itemRepo.save(items);
+
+      // Carcasses left the pool at creation: only the difference moves now.
+      for (const snap of order.items) {
+        const item = byId.get(snap.saleItemId);
+        if (!item?.sourceSlaughterOrderId) continue;
+        const delta = item.quantity - snap.quantity;
+        if (delta > 0) {
+          await this.salesService.decrementCarcassPool(
+            em,
+            farmId,
+            item.sourceSlaughterOrderId,
+            delta,
+          );
+        } else if (delta < 0) {
+          await this.salesService.restoreCarcassPool(
+            em,
+            farmId,
+            item.sourceSlaughterOrderId,
+            -delta,
+          );
+        }
+      }
 
       const batchBirds = new Map<string, number>();
       let eggsToDeliver = 0;
@@ -843,6 +892,7 @@ export class OrdersService {
           'Commande déjà livrée : annuler la vente associée si nécessaire.',
         );
       }
+      await this.restoreOrderCarcasses(em, order);
       // Les oiseaux n'ont jamais été décrémentés à la création : on ne réintègre
       // rien. Le remboursement des acomptes est géré par l'annulation de vente.
       // Même EntityManager → une seule unité de travail (annule + rembourse
@@ -896,6 +946,7 @@ export class OrdersService {
       const farm = await em.getRepository(Farm).findOneOrFail({
         where: { id: farmId },
       });
+      await this.restoreOrderCarcasses(em, order);
       await this.salesService.cancelInTransaction(
         em,
         { id: farm.ownerId, role: UserRole.PROPRIETAIRE },
@@ -914,6 +965,26 @@ export class OrdersService {
       await this.afterOrderChange(farmId, result.batchId ? [result.batchId] : []);
     }
     return result.outcome;
+  }
+
+  /**
+   * Unlike birds, carcasses leave their pool when the order is created, and
+   * skipStockRestore makes the sale's cancellation leave them out.
+   */
+  private async restoreOrderCarcasses(
+    em: EntityManager,
+    order: Order,
+  ): Promise<void> {
+    for (const snap of order.items ?? []) {
+      if (snap.sourceSlaughterOrderId) {
+        await this.salesService.restoreCarcassPool(
+          em,
+          order.farmId,
+          snap.sourceSlaughterOrderId,
+          snap.quantity,
+        );
+      }
+    }
   }
 
   /** Follows a moved Market date. Delivered and cancelled orders keep theirs. */

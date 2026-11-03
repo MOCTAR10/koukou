@@ -53,6 +53,12 @@ import {
   REQUEST_LIFETIME_MS,
 } from './market-order-rules.js';
 
+const PRODUCT_LINE: Record<MarketProduct, SaleItemProductType> = {
+  [MarketProduct.BIRDS]: SaleItemProductType.POULET_PIECE,
+  [MarketProduct.EGGS]: SaleItemProductType.OEUFS,
+  [MarketProduct.CARCASS]: SaleItemProductType.ABATTU_PIECE,
+};
+
 const DEPOSIT_EXPIRED_REASON = 'Acompte non reçu dans le délai de 24 heures.';
 const BUYER_CANCEL_REASON = 'Annulée par l’acheteur sur le Market.';
 
@@ -369,7 +375,11 @@ export class MarketOrdersService {
         user,
         farm,
         await this.orderDtoFor(em, user, farm, mo, listing),
-        { source: OrderSource.MARKET, deliveryFeeFcfa: mo.deliveryFeeFcfa },
+        {
+          source: OrderSource.MARKET,
+          deliveryFeeFcfa: mo.deliveryFeeFcfa,
+          allowCarcassLines: listing.product === MarketProduct.CARCASS,
+        },
       );
 
       const now = new Date();
@@ -648,13 +658,13 @@ export class MarketOrdersService {
       customerId: await this.customerFor(em, operator, farm.id, mo),
       items: [
         {
-          productType:
-            listing.product === MarketProduct.EGGS
-              ? SaleItemProductType.OEUFS
-              : SaleItemProductType.POULET_PIECE,
+          productType: PRODUCT_LINE[listing.product],
           quantity: mo.quantity,
           unitPriceFcfa: mo.unitPriceFcfa,
           batchId: listing.batchId,
+          ...(listing.slaughterOrderId
+            ? { sourceSlaughterOrderId: listing.slaughterOrderId }
+            : {}),
         },
       ],
     };

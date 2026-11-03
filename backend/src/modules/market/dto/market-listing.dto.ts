@@ -13,6 +13,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import {
   MarketListingKind,
@@ -27,8 +28,14 @@ export class CreateMarketListingDto {
   @IsEnum(MarketProduct, { message: 'Produit invalide.' })
   product: MarketProduct;
 
+  /** Birds and eggs. A carcass listing takes its lot from the slaughter order. */
+  @ValidateIf((o) => o.product !== MarketProduct.CARCASS)
   @IsUUID('4', { message: 'Identifiant de lot invalide.' })
-  batchId: string;
+  batchId?: string;
+
+  @ValidateIf((o) => o.product === MarketProduct.CARCASS)
+  @IsUUID('4', { message: 'Identifiant d’ordre d’abattage invalide.' })
+  slaughterOrderId?: string;
 
   @IsOptional()
   @IsString({ message: 'La description doit être une chaîne.' })

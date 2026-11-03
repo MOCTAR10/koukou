@@ -14,11 +14,14 @@ import {
   MarketProduct,
 } from '../../common/enums/market.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
+import { SlaughterStatus } from '../../common/enums/slaughter-status.enum.js';
+import { SlaughterType } from '../../common/enums/slaughter-type.enum.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { BreedStandard } from '../breeds/entities/breed-standard.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
+import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
 import {
   CreateMarketListingDto,
@@ -71,12 +74,26 @@ export class MarketListingsService {
         'Seule la volaille peut être proposée en précommande.',
       );
     }
-    await this.loadOpenBatch(farmId, dto.batchId);
+    let batchId = dto.batchId!;
+    let slaughterOrderId: string | null = null;
+    if (dto.product === MarketProduct.CARCASS) {
+      if (dto.kind !== MarketListingKind.NOW) {
+        throw new BadRequestException(
+          'Des carcasses se vendent immédiatement, pas en précommande.',
+        );
+      }
+      const source = await this.loadCarcassSource(farmId, dto.slaughterOrderId!);
+      batchId = source.batchId;
+      slaughterOrderId = source.id;
+    } else {
+      await this.loadOpenBatch(farmId, batchId);
+    }
     const listing = this.listingRepo.create({
       farmId,
       kind: dto.kind,
       product: dto.product,
-      batchId: dto.batchId,
+      batchId,
+      slaughterOrderId,
       description: dto.description?.trim() || null,
       unitPriceFcfa: dto.unitPriceFcfa,
       quantityPublished: dto.quantityPublished,
@@ -157,7 +174,9 @@ export class MarketListingsService {
       );
     }
     this.assertConsistent(listing);
-    await this.loadOpenBatch(farmId, listing.batchId);
+    if (listing.product !== MarketProduct.CARCASS) {
+      await this.loadOpenBatch(farmId, listing.batchId);
+    }
     if (
       listing.kind === MarketListingKind.PRE &&
       listing.readyDate! <= todayStr()
@@ -208,7 +227,7 @@ export class MarketListingsService {
     await this.farmsService.assertAccessible(user, farmId);
     const listings = await this.listingRepo.find({
       where: { farmId },
-      relations: { farm: true, batch: { breed: true } },
+      relations: { farm: true, batch: { breed: true }, slaughterOrder: true },
       order: { createdAt: 'DESC' },
     });
     return Promise.all(listings.map((l) => this.toFarmView(l)));
@@ -218,7 +237,7 @@ export class MarketListingsService {
     await this.loadForFarm(user, farmId, listingId);
     const listing = await this.listingRepo.findOneOrFail({
       where: { id: listingId },
-      relations: { farm: true, batch: { breed: true } },
+      relations: { farm: true, batch: { breed: true }, slaughterOrder: true },
     });
     return this.toFarmView(listing);
   }
@@ -263,6 +282,7 @@ export class MarketListingsService {
       .innerJoinAndSelect('listing.farm', 'farm')
       .innerJoinAndSelect('listing.batch', 'batch')
       .leftJoinAndSelect('batch.breed', 'breed')
+      .leftJoinAndSelect('listing.slaughterOrder', 'slaughterOrder')
       .where('listing.status = :status', {
         status: MarketListingStatus.PUBLISHED,
       })
@@ -309,7 +329,7 @@ export class MarketListingsService {
   async catalogueItem(listingId: string) {
     const listing = await this.listingRepo.findOne({
       where: { id: listingId },
-      relations: { farm: true, batch: { breed: true } },
+      relations: { farm: true, batch: { breed: true }, slaughterOrder: true },
     });
     // Same answer for an unknown and a hidden listing: a draft stays private.
     if (!listing) throw new NotFoundException('Annonce introuvable.');
@@ -340,6 +360,24 @@ export class MarketListingsService {
       );
     }
     return batch;
+  }
+
+  private async loadCarcassSource(farmId: string, id: string) {
+    const source = await this.dataSource.manager
+      .getRepository(SlaughterOrder)
+      .findOne({ where: { id, farmId } });
+    if (!source) {
+      throw new NotFoundException('Ordre d’abattage introuvable dans cette ferme.');
+    }
+    if (
+      source.status !== SlaughterStatus.PROCESSED ||
+      source.slaughterType !== SlaughterType.ABATTU
+    ) {
+      throw new BadRequestException(
+        'Seules les carcasses d’un abattage traité peuvent être mises en vente.',
+      );
+    }
+    return source;
   }
 
   private assertConsistent(listing: MarketListing) {
@@ -390,7 +428,7 @@ export class MarketListingsService {
     const toCover = listing.quantityPublished - accepted;
     if (toCover > free) {
       throw new BadRequestException(
-        `Stock insuffisant : ${free} ${listing.product === MarketProduct.EGGS ? 'alvéole(s)' : 'oiseau(x)'} libre(s) sur ce lot, ${toCover} à publier.`,
+        `Stock insuffisant : ${free} ${listing.product === MarketProduct.EGGS ? 'alvéole(s)' : listing.product === MarketProduct.CARCASS ? 'carcasse(s)' : 'oiseau(x)'} libre(s) sur ce lot, ${toCover} à publier.`,
       );
     }
   }
@@ -402,6 +440,12 @@ export class MarketListingsService {
         listing.farmId,
         listing.batchId,
       );
+    }
+    if (listing.product === MarketProduct.CARCASS) {
+      const source = await em
+        .getRepository(SlaughterOrder)
+        .findOneBy({ id: listing.slaughterOrderId! });
+      return source?.carcassesAvailable ?? 0;
     }
     const batch = await em
       .getRepository(ProductionBatch)
@@ -437,7 +481,7 @@ export class MarketListingsService {
 
   private async toFarmView(listing: MarketListing) {
     const state = await this.stateOf(this.dataSource.manager, listing);
-    const { farm: _farm, batch, ...fields } = listing;
+    const { farm: _farm, batch, slaughterOrder: _source, ...fields } = listing;
     return {
       ...fields,
       batchName: batch.batchName,
@@ -468,6 +512,8 @@ export class MarketListingsService {
       customSpecies: batch.customSpecies,
       breedName: batch.breed?.name ?? batch.customBreed,
       batchType: batch.type,
+      // How fresh a carcass is: a buyer has to be able to judge it.
+      slaughteredAt: listing.slaughterOrder?.processedAt ?? null,
       farm: {
         id: farm.id,
         name: farm.name,

@@ -10,6 +10,8 @@ export enum MarketProduct {
   BIRDS = 'BIRDS',
   /** Eggs, per tray (alvéole). */
   EGGS = 'EGGS',
+  /** Slaughtered birds, per piece, from one processed slaughter order. */
+  CARCASS = 'CARCASS',
 }
 
 export enum MarketListingStatus {

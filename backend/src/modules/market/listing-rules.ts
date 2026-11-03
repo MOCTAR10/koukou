@@ -3,6 +3,7 @@ import {
   MarketHiddenReason,
   MarketListingKind,
   MarketListingStatus,
+  MarketProduct,
 } from '../../common/enums/market.enum.js';
 
 function addDays(date: string, days: number): string {
@@ -14,12 +15,19 @@ function addDays(date: string, days: number): string {
 /**
  * Whether a lot's sanitary state stops it being sold on the Market. A
  * pre-order is delivered on its ready date, so only a withdrawal period still
- * running then matters: overdue care can be caught up before that.
+ * running then matters: overdue care can be caught up before that. Carcasses
+ * were already slaughtered, and slaughter itself refuses a lot on hold: what
+ * happens to the live birds afterwards can't reach them.
  */
 export function blockedBySanitaryHold(
-  listing: { kind: MarketListingKind; readyDate: string | null },
+  listing: {
+    kind: MarketListingKind;
+    product: MarketProduct;
+    readyDate: string | null;
+  },
   holds: { withdrawalEndDate: string | null; prophylaxisOverdue: boolean },
 ): boolean {
+  if (listing.product === MarketProduct.CARCASS) return false;
   if (listing.kind === MarketListingKind.PRE) {
     return (
       holds.withdrawalEndDate != null &&
@@ -34,6 +42,7 @@ export function blockedBySanitaryHold(
 export function hiddenReason(input: {
   listing: {
     kind: MarketListingKind;
+    product: MarketProduct;
     status: MarketListingStatus;
     readyDate: string | null;
   };
@@ -49,7 +58,11 @@ export function hiddenReason(input: {
   }
   if (!farm.active) return MarketHiddenReason.FARM_SUSPENDED;
   if (!farm.isVerified) return MarketHiddenReason.FARM_NOT_VERIFIED;
-  if (batchStatus === BatchStatus.CLOTURE || batchStatus === BatchStatus.FINI) {
+  // A lot often ends by being slaughtered: its carcasses remain for sale.
+  if (
+    listing.product !== MarketProduct.CARCASS &&
+    (batchStatus === BatchStatus.CLOTURE || batchStatus === BatchStatus.FINI)
+  ) {
     return MarketHiddenReason.LOT_ENDED;
   }
   if (

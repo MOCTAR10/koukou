@@ -59,6 +59,12 @@ export class CreateOrderItemDto {
   @IsOptional()
   @IsUUID('4', { message: 'Identifiant de lot d’intrant invalide.' })
   inputLotId?: string;
+
+  /**
+   * Internal only: no validator on purpose, so the API's whitelist strips it.
+   * Honoured with OrderCreationExtras.allowCarcassLines.
+   */
+  sourceSlaughterOrderId?: string;
 }
 
 export class OrderDepositDto {

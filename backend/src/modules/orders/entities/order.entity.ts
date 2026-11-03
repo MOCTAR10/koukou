@@ -35,6 +35,8 @@ export interface OrderItemSnapshot {
   amountFcfa: number;
   batchId: string | null;
   inputLotId: string | null;
+  /** Carcass line: the slaughter order its pieces came out of. */
+  sourceSlaughterOrderId?: string | null;
 }
 
 /** Alerte sanitaire active figée au bon de commande (DELAI_ATTENTE / PROPHYLAXIE / MALADIE). */

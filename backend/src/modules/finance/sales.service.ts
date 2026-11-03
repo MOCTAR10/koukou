@@ -925,7 +925,7 @@ export class SalesService {
   }
 
   /** Décrémente le pool de carcasses d’un ordre d’abattage traité (vente « abattu » traçable). */
-  private async decrementCarcassPool(
+  async decrementCarcassPool(
     em: EntityManager,
     farmId: string,
     orderId: string,
@@ -963,7 +963,7 @@ export class SalesService {
   }
 
   /** Réintègre des carcasses sur l’ordre d’abattage (annulation de vente traçable). */
-  private async restoreCarcassPool(
+  async restoreCarcassPool(
     em: EntityManager,
     farmId: string,
     orderId: string,
