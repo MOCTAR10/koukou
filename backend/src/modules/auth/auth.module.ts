@@ -7,6 +7,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
+import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { UsersModule } from '../users/users.module.js';
 import { Farm } from '../farms/entities/farm.entity.js';
@@ -18,7 +19,7 @@ import { JwtStrategy } from './jwt.strategy.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Farm]),
+    TypeOrmModule.forFeature([User, Farm, BuyerProfile]),
     UsersModule,
     FarmsModule,
     PassportModule,

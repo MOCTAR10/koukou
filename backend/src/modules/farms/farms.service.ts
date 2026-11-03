@@ -173,6 +173,7 @@ export class FarmsService {
     if (user.role === UserRole.PROPRIETAIRE) {
       return this.farmRepo.find({ where: { ownerId: user.id } });
     }
+    if (user.role === UserRole.ACHETEUR) return [];
     const employments = await this.employeeRepo.find({
       where: { userId: user.id },
       relations: { farm: true },

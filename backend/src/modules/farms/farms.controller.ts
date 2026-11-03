@@ -43,7 +43,8 @@ export class FarmsController {
   }
 
   @Get()
-  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  // A buyer gets an empty list: the apps call this at sign-in.
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.ACHETEUR)
   @ApiOperation({ summary: 'Lister mes fermes (selon rôle)' })
   findMine(@CurrentUser() user: AuthUser) {
     return this.farmsService.findMine(user);

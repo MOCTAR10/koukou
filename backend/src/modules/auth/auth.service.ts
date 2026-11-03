@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -6,11 +7,19 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { CustomerType } from '../../common/enums/customer-type.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
+import {
+  BecomeFarmerDto,
+  BuyerProfileDto,
+  RegisterBuyerDto,
+} from './dto/buyer.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 
@@ -25,6 +34,9 @@ export class AuthService {
     private readonly usersRepo: Repository<User>,
     @InjectRepository(Farm)
     private readonly farmsRepo: Repository<Farm>,
+    @InjectRepository(BuyerProfile)
+    private readonly buyerProfileRepo: Repository<BuyerProfile>,
+    private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly farmsService: FarmsService,
   ) {}
@@ -61,6 +73,82 @@ export class AuthService {
     await this.ensureOwnerFarm(user, dto.farmName, dto.farmCity);
 
     return this.buildAuthResponse(user);
+  }
+
+  /** A buyer has an account and a profile, but no farm. */
+  async registerBuyer(dto: RegisterBuyerDto) {
+    const taken = await this.usersRepo.exists({ where: { phone: dto.phone } });
+    if (taken) {
+      throw new ConflictException(
+        'Un compte existe déjà avec ce numéro de téléphone.',
+      );
+    }
+    const passwordHash = await bcrypt.hash(dto.code, 10);
+    try {
+      const user = await this.dataSource.transaction(async (em) => {
+        const created = await em.getRepository(User).save(
+          em.getRepository(User).create({
+            phone: dto.phone,
+            fullName: dto.fullName,
+            passwordHash,
+            role: UserRole.ACHETEUR,
+          }),
+        );
+        await em.getRepository(BuyerProfile).save(
+          em.getRepository(BuyerProfile).create({
+            userId: created.id,
+            type: dto.type ?? CustomerType.PARTICULIER,
+            organizationName: dto.organizationName ?? null,
+            city: dto.city ?? null,
+          }),
+        );
+        return created;
+      });
+      return this.buildAuthResponse(user);
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException(
+          'Un compte existe déjà avec ce numéro de téléphone.',
+        );
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * A phone number holds one account, so a buyer who starts farming upgrades
+   * that account rather than registering again. The conditional update lets
+   * only one of two concurrent calls through. The buyer profile stays: an
+   * owner can keep buying.
+   */
+  async becomeFarmer(authUser: AuthUser, dto: BecomeFarmerDto) {
+    const claimed = await this.usersRepo.update(
+      { id: authUser.id, role: UserRole.ACHETEUR },
+      { role: UserRole.PROPRIETAIRE },
+    );
+    if (!claimed.affected) {
+      throw new BadRequestException('Ce compte n’est pas un compte acheteur.');
+    }
+    const user = await this.usersRepo.findOneByOrFail({ id: authUser.id });
+    await this.ensureOwnerFarm(user, dto.farmName, dto.farmCity);
+    return this.buildAuthResponse(user);
+  }
+
+  getBuyerProfile(user: AuthUser) {
+    return this.buyerProfileRepo.findOne({ where: { userId: user.id } });
+  }
+
+  async saveBuyerProfile(user: AuthUser, dto: BuyerProfileDto) {
+    await this.buyerProfileRepo.upsert(
+      {
+        userId: user.id,
+        type: dto.type,
+        organizationName: dto.organizationName ?? null,
+        city: dto.city ?? null,
+      },
+      ['userId'],
+    );
+    return this.getBuyerProfile(user);
   }
 
   async login(dto: LoginDto) {

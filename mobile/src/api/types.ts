@@ -69,7 +69,7 @@ export interface Farm {
   longitude: number | null;
 }
 
-export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN';
+export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN' | 'ACHETEUR';
 
 /** Rôle de membre du staff ferme (Administrateur Fermia / Éleveur Fermia). */
 export type FarmStaffRole = 'ADMIN' | 'ELEVEUR';
