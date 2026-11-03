@@ -916,6 +916,24 @@ export class OrdersService {
     return result.outcome;
   }
 
+  /** Follows a moved Market date. Delivered and cancelled orders keep theirs. */
+  async moveExpectedDate(
+    em: EntityManager,
+    farmId: string,
+    orderIds: string[],
+    expectedDate: string,
+  ): Promise<void> {
+    if (orderIds.length === 0) return;
+    await em.getRepository(Order).update(
+      {
+        id: In(orderIds),
+        farmId,
+        status: In([OrderStatus.PENDING, OrderStatus.CONFIRMED]),
+      },
+      { expectedDate },
+    );
+  }
+
   /**
    * Surpaiement d'acompte après réduction du total final : rembourse l'excédent
    * en caisse (mouvement OUT) et plafonne l'acompte retracé sur le bon.

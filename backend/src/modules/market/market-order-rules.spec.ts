@@ -22,6 +22,7 @@ describe('buyerStatus', () => {
     state: MarketOrderState.ACCEPTED,
     depositRequiredFcfa: 9000,
     depositExpiredAt: null,
+    cancelRequestedAt: null,
   };
   const open = { status: OrderStatus.PENDING, depositFcfa: 0 };
 
@@ -63,6 +64,19 @@ describe('buyerStatus', () => {
         { status: OrderStatus.CANCELLED, depositFcfa: 0 },
       ),
     ).toBe(MarketBuyerStatus.DEPOSIT_EXPIRED);
+  });
+
+  it('shows a cancellation request until the farm acts', () => {
+    const asked = { ...accepted, cancelRequestedAt: new Date() };
+    expect(
+      buyerStatus(asked, { status: OrderStatus.CONFIRMED, depositFcfa: 9000 }),
+    ).toBe(MarketBuyerStatus.CANCEL_REQUESTED);
+    expect(
+      buyerStatus(asked, { status: OrderStatus.CANCELLED, depositFcfa: 9000 }),
+    ).toBe(MarketBuyerStatus.CANCELLED);
+    expect(
+      buyerStatus(asked, { status: OrderStatus.LIVRE, depositFcfa: 9000 }),
+    ).toBe(MarketBuyerStatus.DELIVERED);
   });
 
   it('treats a deleted order as cancelled', () => {

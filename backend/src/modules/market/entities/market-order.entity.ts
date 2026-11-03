@@ -116,6 +116,10 @@ export class MarketOrder {
   @Column({ name: 'deposit_expired_at', type: 'timestamptz', nullable: true })
   depositExpiredAt: Date | null;
 
+  /** The buyer wants out of an order holding money. Birds stay reserved. */
+  @Column({ name: 'cancel_requested_at', type: 'timestamptz', nullable: true })
+  cancelRequestedAt: Date | null;
+
   @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
   idempotencyKey: string | null;
 

@@ -52,6 +52,8 @@ export enum MarketBuyerStatus {
   REQUEST_EXPIRED = 'REQUEST_EXPIRED',
   AWAITING_DEPOSIT = 'AWAITING_DEPOSIT',
   CONFIRMED = 'CONFIRMED',
+  /** Money was recorded, so the farm has to refund before cancelling. */
+  CANCEL_REQUESTED = 'CANCEL_REQUESTED',
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
   DEPOSIT_EXPIRED = 'DEPOSIT_EXPIRED',
