@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { OrderCanal } from '../../../common/enums/order-canal.enum.js';
+import { OrderSource } from '../../../common/enums/order-source.enum.js';
 import { OrderStatus } from '../../../common/enums/order-status.enum.js';
 import { AlertLevel } from '../../../common/enums/alert-level.enum.js';
 import {
@@ -133,6 +134,10 @@ export class Order {
   @Column({ name: 'sale_id', type: 'uuid' })
   @Index()
   saleId: string;
+
+  /** Where the order came from: null for an order the farm entered itself. */
+  @Column({ type: 'enum', enum: OrderSource, nullable: true })
+  source: OrderSource | null;
 
   @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
   idempotencyKey: string | null;
