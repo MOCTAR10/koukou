@@ -56,7 +56,7 @@ export function PeriodFilter({
           </button>
         ))}
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <CalendarRange className="h-4 w-4 shrink-0 text-brand-600" />
         <button type="button" aria-label="Jour précédent" onClick={() => shift(-1)} className={arrowCls}>
           <ChevronLeft className="h-4 w-4" />

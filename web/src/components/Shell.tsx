@@ -102,6 +102,19 @@ const NAV: Array<{
   },
 ];
 
+/** Hidden in the collapsed rail, back when it opens on hover or keyboard focus. */
+const RAIL_TEXT = 'md:max-xl:hidden md:max-xl:group-hover/side:inline md:max-xl:group-has-[:focus-visible]/side:inline';
+const RAIL_BLOCK = 'md:max-xl:hidden md:max-xl:group-hover/side:block md:max-xl:group-has-[:focus-visible]/side:block';
+
+function navLinkCls({ isActive }: { isActive: boolean }) {
+  return classNames(
+    'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm md:max-xl:justify-center md:max-xl:group-hover/side:justify-start md:max-xl:group-has-[:focus-visible]/side:justify-start',
+    isActive
+      ? 'bg-white/12 font-semibold text-white shadow-[inset_3px_0_0_var(--color-emerald-400)]'
+      : 'text-brand-100 hover:bg-white/5 hover:text-white',
+  );
+}
+
 export function Shell() {
   const { user, logout } = useAuth();
   const { farms, farmId, farm, setFarm } = useFarm();
@@ -113,6 +126,12 @@ export function Shell() {
   const onPlatform = pathname.startsWith('/app/platform');
   const reduced = useReducedMotion();
   const { hasPermission, isGroundEleveur } = useFarmProfile();
+  const farmOptions = farms.map((f) => (
+    <option key={f.id} value={f.id}>
+      {f.name}
+      {!f.active ? ' (suspendue)' : ''}
+    </option>
+  ));
   const nav = NAV.map((group) => ({
     ...group,
     items: [
@@ -127,18 +146,18 @@ export function Shell() {
     <div className="min-h-screen bg-slate-50">
       <aside
         className={classNames(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 transition-transform lg:translate-x-0',
+          'group/side fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 transition-[transform,width] duration-200 motion-reduce:transition-none md:translate-x-0 md:max-xl:w-[76px] md:max-xl:hover:w-64 md:max-xl:hover:shadow-2xl md:max-xl:has-[:focus-visible]:w-64',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         <div className="flex items-center gap-2 px-5 py-5">
-          <Logo className="h-9 w-auto" />
-          <div>
+          <Logo className="h-9 w-auto shrink-0" />
+          <div className={classNames('whitespace-nowrap', RAIL_BLOCK)}>
             <p className="text-sm font-bold text-white">Fermia</p>
             <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : 'Espace ferme'}</p>
           </div>
           <button
-            className="ml-auto rounded p-1 text-brand-200 hover:text-white lg:hidden"
+            className="ml-auto rounded p-1 text-brand-200 hover:text-white md:hidden"
             onClick={() => setMobileOpen(false)}
             aria-label="Fermer le menu"
           >
@@ -147,29 +166,24 @@ export function Shell() {
         </div>
 
         {!onPlatform ? (
-          <div className="px-3">
+          <div className="px-3 md:max-xl:hidden">
             <label className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">
               {isAdmin ? 'Ferme à consulter' : 'Ferme active'}
             </label>
             <select
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-sm text-white outline-none focus:border-brand-400 [&>option]:text-slate-900"
+              className="select-on-dark w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-sm text-white outline-none focus:border-brand-400 [&>option]:text-slate-900"
               value={farmId ?? ''}
               onChange={(e) => setFarm(e.target.value)}
             >
-              {farms.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                  {!f.active ? ' (suspendue)' : ''}
-                </option>
-              ))}
+              {farmOptions}
             </select>
           </div>
         ) : null}
 
-        <nav className="mt-5 flex-1 overflow-y-auto px-3">
+        <nav className="mt-5 flex-1 overflow-y-auto overflow-x-hidden px-3">
           {nav.map((group) => (
             <div key={group.title} className="mb-4">
-              <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300">
+              <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
                 {group.title}
               </p>
               <div className="space-y-0.5">
@@ -178,17 +192,11 @@ export function Shell() {
                     key={item.to}
                     to={item.to}
                     onClick={() => setMobileOpen(false)}
-                    className={({ isActive }) =>
-                      classNames(
-                        'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm',
-                        isActive
-                          ? 'bg-white/12 font-semibold text-white shadow-[inset_3px_0_0_var(--color-emerald-400)]'
-                          : 'text-brand-100 hover:bg-white/5 hover:text-white',
-                      )
-                    }
+                    aria-label={item.label}
+                    className={navLinkCls}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className={RAIL_TEXT}>{item.label}</span>
                   </NavLink>
                 ))}
               </div>
@@ -196,24 +204,18 @@ export function Shell() {
           ))}
           {isAdmin ? (
             <div>
-              <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300">
+              <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
                 Plateforme
               </p>
               <div className="space-y-0.5">
                 <NavLink
                   to="/app/platform"
                   onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    classNames(
-                      'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm',
-                      isActive
-                        ? 'bg-white/12 font-semibold text-white shadow-[inset_3px_0_0_var(--color-emerald-400)]'
-                        : 'text-brand-100 hover:bg-white/5 hover:text-white',
-                    )
-                  }
+                  aria-label="Cockpit plateforme"
+                  className={navLinkCls}
                 >
-                  <Shield className="h-4 w-4" />
-                  Cockpit plateforme
+                  <Shield className="h-4 w-4 shrink-0" />
+                  <span className={RAIL_TEXT}>Cockpit plateforme</span>
                 </NavLink>
               </div>
             </div>
@@ -221,11 +223,11 @@ export function Shell() {
         </nav>
 
         <div className="border-t border-white/10 px-3 py-3">
-          <div className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-2">
+          <div className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-2 md:max-xl:flex-col md:max-xl:px-0 md:max-xl:group-hover/side:flex-row md:max-xl:group-hover/side:px-2.5 md:max-xl:group-has-[:focus-visible]/side:flex-row md:max-xl:group-has-[:focus-visible]/side:px-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-700 text-xs font-semibold text-white">
               {user ? initials(user.fullName) : '?'}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className={classNames('min-w-0 flex-1', RAIL_BLOCK)}>
               <p className="truncate text-sm font-medium text-white">
                 {user?.fullName}
               </p>
@@ -237,6 +239,7 @@ export function Shell() {
               onClick={logout}
               className="rounded p-1 text-brand-200 hover:text-white"
               title="Se déconnecter"
+              aria-label="Se déconnecter"
             >
               <LogOut className="h-4 w-4" />
             </button>
@@ -246,25 +249,36 @@ export function Shell() {
 
       {mobileOpen ? (
         <div
-          className="fixed inset-0 z-30 bg-brand-950/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-brand-950/50 md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       ) : null}
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
+      <div className="md:pl-[76px] xl:pl-64">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6 xl:h-16 xl:px-8">
           <button
-            className="rounded p-1 text-slate-500 hover:bg-slate-100 lg:hidden"
+            className="rounded p-1 text-slate-500 hover:bg-slate-100 md:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Ouvrir le menu"
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="text-sm font-medium text-slate-700">
+          <div className="flex min-w-0 items-center text-sm font-medium text-slate-700">
             {!onPlatform && farm ? (
               <>
-                {isAdmin ? <span className="text-slate-400">Ferme : </span> : null}
-                {farm.name}
+                {/* The rail has no room for the farm picker: it moves up here. */}
+                <select
+                  aria-label={isAdmin ? 'Ferme à consulter' : 'Ferme active'}
+                  className="hidden max-w-56 rounded-lg border border-slate-200 bg-white py-1.5 pl-2.5 text-sm font-medium text-slate-700 outline-none focus:border-brand-500 md:max-xl:block"
+                  value={farmId ?? ''}
+                  onChange={(e) => setFarm(e.target.value)}
+                >
+                  {farmOptions}
+                </select>
+                <span className="truncate md:max-xl:hidden">
+                  {isAdmin ? <span className="text-slate-400">Ferme : </span> : null}
+                  {farm.name}
+                </span>
                 <span className="ml-2 hidden text-xs font-normal text-slate-400 sm:inline">
                   {farm.administrativeCity} · {farm.active ? 'ferme active' : 'ferme suspendue'}
                 </span>
@@ -273,10 +287,10 @@ export function Shell() {
               'Console administrateur plateforme'
             )}
           </div>
-          <div className="ml-auto flex items-center gap-2 text-xs text-slate-400">
+          <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
             {!onPlatform && farm?.capacityPerBuilding ? <span>Capacité {farm.capacityPerBuilding} ois./bât.</span> : null}
           </div>
-          {!onPlatform && farmId ? <QuickCreate /> : null}
+          <div className="ml-auto lg:ml-0">{!onPlatform && farmId ? <QuickCreate /> : null}</div>
           {isAdmin ? (
             <button
               onClick={() => navigate('/app/platform')}
@@ -294,7 +308,7 @@ export function Shell() {
 
         <OfflineBar />
 
-        <main className="mx-auto max-w-7xl p-4 sm:p-6">
+        <main className="mx-auto max-w-page p-4 sm:p-6 xl:p-8">
           <motion.div
             key={pathname}
             initial={reduced ? false : { opacity: 0, y: 8 }}

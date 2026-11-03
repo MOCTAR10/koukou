@@ -3,9 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
 import { BUYER_TYPES } from '../components/market/shared';
-import { Card } from '../components/ui';
 import { isGabonPhoneValid, normalizeGabonPhone } from '../lib/phone';
 import { useAuth } from './AuthContext';
+import { AuthLayout, authLinkCls } from './AuthLayout';
+
+const inputTallCls = `${inputCls} !py-2.5`;
 
 /** Account of someone who buys: no farm is created. */
 export function BuyerRegisterPage() {
@@ -50,16 +52,38 @@ export function BuyerRegisterPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <Card className="p-5">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900">Créer un compte acheteur</h1>
-        <p className="mb-5 mt-1 text-sm text-slate-500">Pour commander et précommander auprès des fermes.</p>
-        <form onSubmit={onSubmit} className="space-y-4">
+    <AuthLayout
+      audience="buyer"
+      eyebrow="Marché Fermia"
+      title="Créer un compte acheteur"
+      subtitle="Pour commander et précommander auprès des fermes."
+      backTo="/marche"
+      backLabel="Retour au marché"
+      wide
+      footer={
+        <>
+          <p>
+            Déjà un compte ?{' '}
+            <Link to="/login" state={{ from: from ?? '/marche' }} className={authLinkCls}>
+              Me connecter
+            </Link>
+          </p>
+          <p>
+            Vous êtes éleveur ?{' '}
+            <Link to="/register" className={authLinkCls}>
+              Créer un compte ferme
+            </Link>
+          </p>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nom complet">
-            <input className={inputCls} value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required />
+            <input className={inputTallCls} value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required />
           </Field>
           <Field label="Je suis">
-            <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)}>
+            <select className={inputTallCls} value={type} onChange={(e) => setType(e.target.value)}>
               {BUYER_TYPES.map((t) => (
                 <option key={t.key} value={t.key}>{t.label}</option>
               ))}
@@ -67,39 +91,29 @@ export function BuyerRegisterPage() {
           </Field>
           {type !== 'PARTICULIER' ? (
             <Field label="Nom de l’établissement">
-              <input className={inputCls} maxLength={120} value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} autoComplete="organization" />
+              <input className={inputTallCls} maxLength={120} value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} autoComplete="organization" />
             </Field>
           ) : null}
-          <Field label="Ville">
-            <input className={inputCls} maxLength={80} value={city} onChange={(e) => setCity(e.target.value)} />
+          <Field label="Ville" className={type === 'PARTICULIER' ? 'sm:col-span-2' : undefined}>
+            <input className={inputTallCls} maxLength={80} value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
-          <Field label="Téléphone" hint="Il vous servira d’identifiant.">
-            <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="074 12 34 56" inputMode="tel" autoComplete="username" required />
-          </Field>
+        </div>
+        <Field label="Téléphone" hint="Il vous servira d’identifiant.">
+          <input className={inputTallCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="074 12 34 56" inputMode="tel" autoComplete="username" required />
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Code secret" hint="Au moins 6 caractères.">
-            <input type="password" className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="new-password" required />
+            <input type="password" className={inputTallCls} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="new-password" required />
           </Field>
           <Field label="Confirmer le code secret">
-            <input type="password" className={inputCls} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required />
+            <input type="password" className={inputTallCls} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required />
           </Field>
-          <ErrorNote error={error} />
-          <Button type="submit" className="w-full" busy={submitting}>
-            Créer mon compte
-          </Button>
-        </form>
-        <p className="mt-5 text-center text-sm text-slate-500">
-          Déjà un compte ?{' '}
-          <Link to="/login" state={{ from: from ?? '/marche' }} className="font-semibold text-brand-600 hover:text-brand-700">
-            Me connecter
-          </Link>
-        </p>
-        <p className="mt-2 text-center text-sm text-slate-500">
-          Vous êtes éleveur ?{' '}
-          <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">
-            Créer un compte ferme
-          </Link>
-        </p>
-      </Card>
-    </div>
+        </div>
+        <ErrorNote error={error} />
+        <Button type="submit" className="w-full !py-2.5" busy={submitting}>
+          Créer mon compte
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

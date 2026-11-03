@@ -14,7 +14,7 @@ export function Card({
   return (
     <div
       className={classNames(
-        'rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(16,34,47,0.04)]',
+        'rounded-2xl border border-slate-200 bg-white shadow-card',
         className,
       )}
     >
@@ -40,7 +40,7 @@ const TILE_SIZES = {
   lg: 'h-12 w-12 rounded-2xl [&>svg]:h-6 [&>svg]:w-6',
 };
 
-/** Tinted square behind an icon, the same treatment as the mobile tiles. */
+/** Tinted square behind an icon. */
 export function IconTile({
   icon,
   tone = 'brand',
@@ -105,9 +105,9 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
-        {icon ? <IconTile icon={icon} tone={iconTone} size="lg" /> : null}
+        {icon ? <IconTile icon={icon} tone={iconTone} size="md" /> : null}
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 lg:text-[1.75rem] lg:leading-tight">{title}</h1>
           {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
         </div>
       </div>
@@ -130,7 +130,7 @@ export function StatCard({
   value: ReactNode;
   hint?: ReactNode;
   icon?: ReactNode;
-  /** Photo tile, larger than an icon: the value then gets its own full-width line. */
+  /** Photo in place of the icon. */
   image?: string | null;
   onClick?: () => void;
   /** Accessible name of the card when it is clickable. */
@@ -151,34 +151,18 @@ export function StatCard({
     warn: 'amber',
     accent: 'accent',
   };
-  const labelEl = <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>;
-  const details = (
-    <>
-      <p className={classNames('mt-1 truncate text-2xl font-bold tracking-tight tabular-nums', tones[tone])}>
-        {value}
-      </p>
-      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
-    </>
-  );
   const card = (
     <Card className={classNames('h-full p-4', onClick && 'transition hover:border-slate-300 hover:shadow-md')}>
-      {image ? (
-        <>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">{labelEl}</div>
-            <PhotoThumb src={image} size="lg" />
-          </div>
-          {details}
-        </>
-      ) : (
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            {labelEl}
-            {details}
-          </div>
-          {icon ? <IconTile icon={icon} tone={iconTones[tone]} /> : null}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-500">{label}</p>
+          <p className={classNames('mt-1 truncate text-2xl font-bold tracking-tight tabular-nums', tones[tone])}>
+            {value}
+          </p>
+          {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
         </div>
-      )}
+        {image ? <PhotoThumb src={image} size="md" /> : icon ? <IconTile icon={icon} tone={iconTones[tone]} size="sm" /> : null}
+      </div>
     </Card>
   );
   if (!onClick) return card;

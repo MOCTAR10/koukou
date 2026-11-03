@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Banknote,
   BarChart3,
+  ChevronDown,
   Bell,
   Building,
   CircleCheck,
@@ -212,7 +213,7 @@ export function PerformanceTiles({ batches }: { batches: PosBatch[] }) {
 
 function StatGroup({ title, icon: Icon, iconCls, children }: { title: string; icon: LucideIcon; iconCls: string; children: ReactNode }) {
   return (
-    <div>
+    <div className="mb-5 break-inside-avoid">
       <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <Icon className={`h-3.5 w-3.5 ${iconCls}`} /> {title}
       </h3>
@@ -256,11 +257,13 @@ export function OwnerStats({
   const avgYield = yields.length ? yields.reduce((s, o) => s + (o.rendementPercent ?? 0), 0) / yields.length : null;
 
   return (
-    <Card className="p-4">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-700">
+    <Card>
+      <details className="group/stats">
+      <summary className="flex list-none items-center gap-2 rounded-2xl p-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
         <BarChart3 className="h-4 w-4 text-brand-600" /> Statistiques détaillées
-      </h2>
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <ChevronDown className="ml-auto h-4 w-4 text-slate-400 transition-transform group-open/stats:rotate-180 motion-reduce:transition-none" />
+      </summary>
+      <div className="gap-5 px-4 md:columns-2 xl:columns-3">
         <StatGroup title="Lots" icon={BarChart3} iconCls="text-brand-600">
           <Tile label="Âge moyen" value={avgAge != null ? `${num(avgAge)} j` : '—'} />
           <Tile
@@ -324,6 +327,7 @@ export function OwnerStats({
         </StatGroup>
         ) : null}
       </div>
+      </details>
     </Card>
   );
 }
@@ -407,11 +411,11 @@ export function Ranking({ dash, batches, typeLabel }: { dash: OwnerDashboard; ba
     .reduce<OwnerDashboard['healthOverview'][number] | null>((b, h) => (!b || deviation(h) < deviation(b) ? h : b), null);
   if (!top && !best) return null;
   return (
-    <Card className="p-4">
+    <Card className="@container p-4">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
         <Trophy className="h-4 w-4 text-brand-600" /> Classement
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 @lg:grid-cols-2">
         {top ? (
           <Tile
             label="Meilleur lot"
