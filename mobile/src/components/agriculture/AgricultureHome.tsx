@@ -77,7 +77,7 @@ export function AgricultureHome() {
   const recolteStockQuery = useQuery({
     queryKey: ['recoltes-stock', farmId],
     queryFn: () => fetchRecolteStock(farmId),
-    enabled: parcelles.some((p) => p.status === 'ACTIVE'),
+    // Harvested stock stays for sale after its parcel is no longer active.
     staleTime: 30_000,
   });
   const recolteStock = recolteStockQuery.data ?? [];

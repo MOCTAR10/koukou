@@ -6,6 +6,7 @@ import {
   geoJsonOuterRing,
   parcelleCenter,
   parcellesCenter,
+  parcellesSpanDelta,
   ringLatDelta,
 } from './geo';
 import type { GeoJsonGeometry, Parcelle } from '@/api/types';
@@ -135,5 +136,27 @@ describe('ringLatDelta', () => {
 
   it('force un minimum non nul', () => {
     expect(ringLatDelta([])).toBe(0.001);
+  });
+});
+
+describe('parcellesSpanDelta', () => {
+  const square = (lat: number, lng: number, side: number) =>
+    ({
+      boundaryGeoJson: {
+        type: 'Polygon',
+        coordinates: [[[lng, lat], [lng + side, lat], [lng + side, lat + side], [lng, lat + side], [lng, lat]]],
+      },
+    }) as never;
+
+  it('covers every parcel, not only the first', () => {
+    expect(parcellesSpanDelta([square(0, 9, 0.001), square(0.05, 9, 0.001)])).toBeCloseTo(0.051);
+  });
+
+  it('counts an east-west spread too', () => {
+    expect(parcellesSpanDelta([square(0, 9, 0.001), square(0, 9.2, 0.001)])).toBeCloseTo(0.201);
+  });
+
+  it('has a small default with no outline', () => {
+    expect(parcellesSpanDelta([{ boundaryGeoJson: null } as never])).toBe(0.001);
   });
 });

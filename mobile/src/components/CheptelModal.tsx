@@ -35,7 +35,8 @@ interface BreedGroup {
   image: ImageSourcePropType;
   alive: number;
   started: number;
-  losses: number;
+  /** Started minus alive: dead, but also sold or slaughtered. */
+  gone: number;
 }
 
 export function CheptelModal({ visible, batches, onClose }: CheptelModalProps) {
@@ -64,7 +65,7 @@ export function CheptelModal({ visible, batches, onClose }: CheptelModalProps) {
           image,
           alive: 0,
           started: 0,
-          losses: 0,
+          gone: 0,
         };
         byKey.set(key, g);
       }
@@ -73,7 +74,7 @@ export function CheptelModal({ visible, batches, onClose }: CheptelModalProps) {
     }
     const list = [...byKey.values()].filter((g) => g.started > 0 || g.alive > 0);
     list.forEach((g) => {
-      g.losses = Math.max(0, g.started - g.alive);
+      g.gone = Math.max(0, g.started - g.alive);
     });
     return list.sort((a, b) => b.alive - a.alive);
   }, [batches]);
@@ -129,8 +130,8 @@ export function CheptelModal({ visible, batches, onClose }: CheptelModalProps) {
                       </View>
                       <View style={styles.statDivider} />
                       <View style={styles.stat}>
-                        <AppText size="body" weight="bold" color={g.losses > 0 ? 'danger' : 'muted'}>{fmtNumber(g.losses)}</AppText>
-                        <AppText size="caption" color="faint">Pertes</AppText>
+                        <AppText size="body" weight="bold" color="muted">{fmtNumber(g.gone)}</AppText>
+                        <AppText size="caption" color="faint">Sortis</AppText>
                       </View>
                     </View>
                   </View>
