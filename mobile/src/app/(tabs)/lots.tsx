@@ -70,6 +70,8 @@ import { SlaughterBadge, SlaughterInfoCard } from '@/components/slaughter/Slaugh
 import { CreateLotSheet } from '@/components/CreateLotSheet';
 import { useCreateCenter } from '@/components/create/CreateCenter';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
+import { ApiError } from '@/api/client';
+import { toast } from '@/components/ui/Feedback';
 
 // ── Filters ──
 type FilterType = 'all' | 'active' | 'selling' | 'chair' | 'layer';
@@ -192,7 +194,10 @@ function StarLabel({ label }: { label: string }) {
 }
 
 function recentSales(s?: SaleSummary[]): SaleSummary[] {
-  return [...(s ?? [])].sort((a, b) => b.saleDate.localeCompare(a.saleDate)).slice(0, 5);
+  return (s ?? [])
+    .filter((sale) => sale.status !== 'CANCELLED')
+    .sort((a, b) => b.saleDate.localeCompare(a.saleDate))
+    .slice(0, 5);
 }
 
 function recentExpenses(e?: Expense[]): Expense[] {
@@ -1103,10 +1108,14 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
   const queryClient = useQueryClient();
   const canRapports = useFarmProfile().hasPermission('compta:rapports');
   const completeCare = useCallback((eventId: string) => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     void completeProphylaxis(farmId, batch.id, eventId)
-      .then(() => invalidateFarmQueries(queryClient, { farmId, batchId: batch.id }))
-      .catch(() => {});
+      .then(() => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        return invalidateFarmQueries(queryClient, { farmId, batchId: batch.id });
+      })
+      .catch((e: unknown) => {
+        toast.error('Soin non enregistré', e instanceof ApiError ? e.message : 'Vérifiez la connexion puis réessayez.');
+      });
   }, [farmId, batch.id, queryClient]);
   const healthQ = useQuery({
     queryKey: ['batch-health', farmId, batch.id],

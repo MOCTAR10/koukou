@@ -71,13 +71,9 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
     [],
   );
 
-  const items = useMemo(
-    () =>
-      CREATE_ACTIONS.filter((a) => (Array.isArray(a.perm) ? a.perm : [a.perm]).some((code) => hasPermission(code))).map(
-        ({ perm: _perm, ...item }): RadialItem => item,
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [farms, farmId],
+  // Not memoized: the rights load after the first render and change with the farm.
+  const items = CREATE_ACTIONS.filter((a) => (Array.isArray(a.perm) ? a.perm : [a.perm]).some((code) => hasPermission(code))).map(
+    ({ perm: _perm, ...item }): RadialItem => item,
   );
 
   const handlePick = (key: CreateKey) => {
