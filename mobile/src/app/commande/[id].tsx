@@ -493,7 +493,7 @@ Livrer ?`
           <View style={[styles.divider, { marginVertical: 12 }]} />
           <View style={{ gap: 8 }}>
             <InfoRow icon={<TicketCheck size={15} color={color.ink[400]} />} label="Canal" value={orderCanalLabel(order.canal)} />
-            <InfoRow icon={<Truck size={15} color={color.ink[400]} />} label="Retrait" value={pdv ? `${pdv.name} (point de vente)` : order.address ?? 'À la ferme'} />
+            <InfoRow icon={<Truck size={15} color={color.ink[400]} />} label={order.source === 'MARKET' && order.address ? 'Livraison' : 'Retrait'} value={pdv ? `${pdv.name} (point de vente)` : order.address ?? 'À la ferme'} />
             <InfoRow icon={<Store size={15} color={color.ink[400]} />} label="Lot" value={order.batch?.batchName ?? 'Œufs (stock)'} />
             <InfoRow
               icon={<MapPin size={15} color={color.ink[400]} />}

@@ -2,6 +2,17 @@ export function canManageFarm(role: string | undefined): boolean {
   return role !== 'ELEVEUR' && role !== 'ACHETEUR';
 }
 
+/** Where an account lands once signed in: a buyer has no farm screens. */
+export function homeRouteFor(role: string | undefined): string {
+  return role === 'ACHETEUR' ? '/accueil' : '/';
+}
+
+/** A screen to come back to after signing in. Only a path inside the app, never another site. */
+export function safeReturnPath(from: string | string[] | undefined): string | null {
+  if (typeof from !== 'string' || !from.startsWith('/') || from.startsWith('//')) return null;
+  return from;
+}
+
 export function roleLabel(role: string | undefined): string {
   if (role === 'ELEVEUR') return 'Éleveur';
   if (role === 'PLATFORM_ADMIN') return 'Administrateur';

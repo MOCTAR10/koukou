@@ -6,7 +6,16 @@ import { clearSession, loadSession, saveSession, type StoredSession } from '@/ap
 import { clearQueue, clearRejected, loadOps } from '@/offline';
 import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
-import type { Farm, PublicUser } from '@/api/types';
+import type { CustomerType, Farm, PublicUser } from '@/api/types';
+
+export interface RegisterBuyerInput {
+  phone: string;
+  fullName: string;
+  code: string;
+  type: CustomerType;
+  organizationName?: string;
+  city?: string;
+}
 
 const EMPTY_USER: PublicUser = { id: '', fullName: '', phone: '', role: 'PROPRIETAIRE' };
 
@@ -28,6 +37,9 @@ interface AuthContextValue {
   setFarmMode: (farmMode: FarmMode) => void;
   signIn: (phone: string, code: string) => Promise<boolean>;
   signUp: (phone: string, fullName: string, code: string, farmName?: string) => Promise<boolean>;
+  registerBuyer: (input: RegisterBuyerInput) => Promise<boolean>;
+  /** A buyer starts farming: the answer carries a token with the new role. */
+  becomeFarmer: (farmName: string, farmCity?: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   /** Recharge /farms et met à jour la session (après renommage / logo). */
   refreshFarms: () => Promise<void>;
@@ -113,6 +125,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient],
   );
 
+  const authenticate = useCallback(
+    async (path: string, body: object, fallbackError: string): Promise<boolean> => {
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await apiFetch<{ accessToken: string; user: PublicUser }>(path, { method: 'POST', body });
+        const next: StoredSession = { token: res.accessToken, user: res.user, farms: [] };
+        saveSession(next);
+        const farms = await apiFetch<Farm[]>('/farms');
+        const full: StoredSession = { ...next, farms };
+        saveSession(full);
+        queryClient.clear();
+        setSession(full);
+        return true;
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : fallbackError);
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [queryClient],
+  );
+
+  const registerBuyer = useCallback(
+    (input: RegisterBuyerInput) => authenticate('/auth/register-buyer', input, 'Erreur inconnue lors de l’inscription.'),
+    [authenticate],
+  );
+
+  const becomeFarmer = useCallback(
+    (farmName: string, farmCity?: string) => authenticate('/auth/become-farmer', { farmName, farmCity }, 'Erreur inconnue lors de la création de la ferme.'),
+    [authenticate],
+  );
+
   const signOut = useCallback(async () => {
     // The queue may hold unsynced cash sales: never wipe it silently.
     const pending = loadOps().length;
@@ -187,12 +233,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       error,
       signIn,
       signUp,
+      registerBuyer,
+      becomeFarmer,
       signOut,
       setActiveFarmId,
       setFarmMode,
       refreshFarms,
     };
-  }, [session, busy, error, signIn, signUp, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
+  }, [session, busy, error, signIn, signUp, registerBuyer, becomeFarmer, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
