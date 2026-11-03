@@ -139,7 +139,6 @@ const SPECIES_LIST: { key: Species; label: string; icon: string }[] = [
   { key: 'CAILLE', label: 'Caille', icon: '🐤' },
   { key: 'CANARD', label: 'Canard', icon: '🦆' },
   { key: 'OIE', label: 'Oie', icon: '🦢' },
-  { key: 'FAISAN', label: 'Faisan', icon: '🦚' },
   { key: 'AUTRE', label: 'Autre', icon: '🐓' },
 ];
 
@@ -685,7 +684,6 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
                       style={[
                         styles.speciesCardImg,
                         s.key === 'PINTADE' && styles.speciesCardImgShiftLeft,
-                        s.key === 'FAISAN' && styles.speciesCardImgShiftFaisan,
                       ]}
                       resizeMode='cover'
                     />
@@ -748,7 +746,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
             <RNTextInput
               value={customSpecies}
               onChangeText={setCustomSpecies}
-              placeholder={'Ex : Canard, Oie, Faisan, Autruche…'}
+              placeholder={'Ex : Canard, Oie, Autruche…'}
               placeholderTextColor={color.ink[300]}
               style={styles.customBreedInput}
             />
@@ -1555,7 +1553,6 @@ const styles = StyleSheet.create({
   },
   speciesCardImg: { width: '100%', height: 84 },
   speciesCardImgShiftLeft: { transform: [{ scale: 0.84 }, { translateX: -18 }] },
-  speciesCardImgShiftFaisan: { transform: [{ scale: 0.8 }, { translateX: -18 }, { translateY: 6 }] },
   speciesCardPlaceholder: {
     width: '100%', height: 84, alignItems: 'center', justifyContent: 'center',
     backgroundColor: semantic.primarySoft,

@@ -4,11 +4,12 @@ import { useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import type { Order, PointOfSale } from '../../api/types-orders';
 import { useFarm } from '../../app/FarmContext';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import { IconTile, Loading, Td, Th } from '../ui';
 import { ORDER_CANAL_LABEL, PRODUCT_LABEL, UNIT_LABEL, invalidateOrderQueries, newIdempotencyKey, parseWhole } from './helpers';
-import { ensureCashOpen } from '../sales/pos';
+import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
 import { PassportCard } from './PassportCard';
 import { ConfirmDialog, OrderStatusBadge } from './shared';
 
@@ -24,7 +25,7 @@ function Info({ label, icon, children }: { label: string; icon: ReactNode; child
   );
 }
 
-function DepositModal({ order, onClose }: { order: Order; onClose: () => void }) {
+function DepositModal({ order, onClose, onQueued }: { order: Order; onClose: () => void; onQueued: () => void }) {
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState(0);
@@ -35,13 +36,18 @@ function DepositModal({ order, onClose }: { order: Order; onClose: () => void })
   const pending = order.status === 'PENDING';
 
   const pay = useMutation({
-    mutationFn: async () => {
-      // A deposit is cash: same automatic opening as a sale, and as the mobile app.
-      await ensureCashOpen(farmId!);
-      return api.post(`/farms/${farmId}/orders/${order.id}/deposit`, { amountFcfa: amount, idempotencyKey });
-    },
-    onSuccess: () => {
-      invalidateOrderQueries(queryClient, farmId);
+    mutationFn: () =>
+      sendOrQueue({
+        kind: 'order-payment',
+        farmId: farmId!,
+        path: `/farms/${farmId}/orders/${order.id}/deposit`,
+        body: { amountFcfa: amount, idempotencyKey },
+        label: `Paiement · ${order.referenceNumber}`,
+        cashFcfa: amount,
+      }),
+    onSuccess: (res) => {
+      if (res.status === 'queued') onQueued();
+      else invalidateOrderQueries(queryClient, farmId);
       onClose();
     },
   });
@@ -110,6 +116,8 @@ type Dialog = 'deposit' | 'deliver' | 'cancel' | null;
 
 export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canCollect = hasPermission('vente:commande', 'vente:creer');
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -128,19 +136,37 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
   });
 
   const deliver = useMutation({
-    mutationFn: () => api.post(`/farms/${farmId}/orders/${orderId}/livrer`, {}),
-    onSuccess: () => {
-      invalidateOrderQueries(queryClient, farmId);
+    mutationFn: () =>
+      sendOrQueue({
+        kind: 'order-deliver',
+        farmId: farmId!,
+        path: `/farms/${farmId}/orders/${orderId}/livrer`,
+        body: {},
+        label: `Livraison · ${order?.referenceNumber ?? 'commande'}`,
+      }),
+    onSuccess: (res) => {
       setDialog(null);
+      if (res.status === 'queued') {
+        setNotice(QUEUED_MESSAGE);
+        return;
+      }
+      invalidateOrderQueries(queryClient, farmId);
       setNotice('Commande livrée : cheptel mis à jour et bon de commande généré.');
     },
   });
   const cancel = useMutation({
     mutationFn: () =>
-      api.del(`/farms/${farmId}/orders/${orderId}?reason=${encodeURIComponent('Annulée sur demande de la ferme')}`),
-    onSuccess: () => {
-      invalidateOrderQueries(queryClient, farmId);
+      sendOrQueue({
+        kind: 'order-cancel',
+        farmId: farmId!,
+        method: 'DELETE',
+        path: `/farms/${farmId}/orders/${orderId}?reason=${encodeURIComponent('Annulée sur demande de la ferme')}`,
+        label: `Annulation · ${order?.referenceNumber ?? 'commande'}`,
+      }),
+    onSuccess: (res) => {
       setDialog(null);
+      if (res.status === 'queued') setNotice(QUEUED_MESSAGE);
+      else invalidateOrderQueries(queryClient, farmId);
     },
   });
   const pdf = useMutation({
@@ -257,7 +283,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
         <ErrorNote error={pdf.error} />
 
         <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
-          {isOpen ? (
+          {isOpen && hasPermission('vente:commande') ? (
             <Button tone="danger" onClick={() => setDialog('cancel')}>
               <XCircle className="h-4 w-4" /> Annuler la commande
             </Button>
@@ -267,12 +293,12 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
               <Printer className="h-4 w-4" /> Télécharger le bon de commande
             </Button>
           ) : null}
-          {isOpen && remaining > 0 ? (
+          {isOpen && remaining > 0 && canCollect ? (
             <Button tone="secondary" onClick={() => setDialog('deposit')}>
               <Wallet className="h-4 w-4" /> {order.status === 'PENDING' ? 'Encaisser un acompte' : 'Encaisser un paiement'}
             </Button>
           ) : null}
-          {isOpen ? (
+          {isOpen && canCollect ? (
             <Button onClick={() => setDialog('deliver')}>
               <Truck className="h-4 w-4" /> Livrer · reste {fcfa(remaining)}
             </Button>
@@ -280,7 +306,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
         </div>
       </div>
 
-      {dialog === 'deposit' ? <DepositModal order={order} onClose={closeDialog} /> : null}
+      {dialog === 'deposit' ? <DepositModal order={order} onClose={closeDialog} onQueued={() => setNotice(QUEUED_MESSAGE)} /> : null}
       {dialog === 'deliver' ? (
         <ConfirmDialog
           title="Livrer la commande"

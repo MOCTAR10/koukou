@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import type { BatchType } from '../../api/types';
 import type { Building } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import { dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import { EmptyState, Loading, Td, Th } from '../ui';
@@ -89,6 +90,7 @@ export function BuildingFormModal({ onClose, onCreated }: { onClose: () => void;
 }
 
 export function BuildingsPanel() {
+  const { hasPermission } = useFarmProfile();
   const buildings = useBuildings();
   const [adding, setAdding] = useState(false);
 
@@ -101,9 +103,11 @@ export function BuildingsPanel() {
       subtitle="Occupation, densité et vide sanitaire"
       flush
       actions={
-        <Button onClick={() => setAdding(true)}>
-          <Plus className="h-4 w-4" /> Nouveau bâtiment
-        </Button>
+        hasPermission('production:gerer') ? (
+          <Button onClick={() => setAdding(true)}>
+            <Plus className="h-4 w-4" /> Nouveau bâtiment
+          </Button>
+        ) : undefined
       }
     >
       <ErrorNote error={buildings.error} />

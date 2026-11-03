@@ -334,6 +334,11 @@ function NewOrderModal({
     .filter((o) => o.batchId === batchId && (o.status === 'DRAFT' || o.status === 'SENT'))
     .reduce((s, o) => s + o.birdCount, 0);
   const remaining = Math.max(0, alive - ordered);
+  const processedBirds = orders
+    .filter((o) => o.batchId === batchId && o.status === 'PROCESSED')
+    .reduce((s, o) => s + o.birdCount, 0);
+  const ordersExceedAlive = ordered > alive;
+  const fillPct = alive > 0 ? Math.min(100, Math.round((ordered / alive) * 100)) : 0;
   const overbooked = lot != null && birds > remaining;
   const type = destination === 'INTERNE' ? 'ABATTU' : slaughterType;
 
@@ -391,9 +396,24 @@ function NewOrderModal({
           </div>
         </Field>
         {lot ? (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-slate-600">
-              {speciesName(lot)} : {num(alive)} vivants, {num(ordered)} déjà en ordre, {num(remaining)} disponibles.
+          <div className="space-y-3 rounded-xl border border-slate-200 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Disposition du lot : {speciesName(lot)}</p>
+            <div className="grid grid-cols-3 gap-2">
+              <Metric label="Vivants" icon={<Bird />} value={num(alive, 0)} />
+              <Metric label="Déjà ordonnés" icon={<FileText />} value={num(ordered, 0)} tone={ordersExceedAlive ? 'bad' : undefined} />
+              <Metric label="Restants" icon={<Check />} value={num(remaining, 0)} tone={remaining <= 0 ? 'bad' : 'good'} />
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full ${ordersExceedAlive ? 'bg-red-500' : fillPct >= 70 ? 'bg-amber-500' : 'bg-brand-500'}`}
+                style={{ width: `${fillPct}%` }}
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className={`text-xs ${ordersExceedAlive ? 'text-amber-700' : 'text-slate-500'}`}>
+              {ordersExceedAlive
+                ? 'Attention : les ordres en cours du lot couvrent déjà le cheptel vivant.'
+                : `${processedBirds > 0 ? `${num(processedBirds, 0)} oiseaux déjà traités · ` : ''}${num(remaining, 0)} oiseaux encore disponibles à planifier.`}
             </p>
             <Button
               tone="secondary"
@@ -406,6 +426,7 @@ function NewOrderModal({
             >
               <Printer className="h-4 w-4" /> Passeport du lot
             </Button>
+            </div>
           </div>
         ) : null}
         <ErrorNote error={pdf.error} />

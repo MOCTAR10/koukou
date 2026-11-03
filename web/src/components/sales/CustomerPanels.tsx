@@ -10,7 +10,8 @@ import { classNames, dateFr, fcfa, num } from '../../lib/format';
 import { CustomerPicker } from './Checkout';
 import { CUSTOMER_TYPE_LABEL, CUSTOMER_TYPES, productTypeLabel, SEGMENT_LABEL } from './labels';
 import { useIdempotencyKey } from '../../lib/idempotency';
-import { ensureCashOpen, invalidateCash } from './pos';
+import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
+import { invalidateCash } from './pos';
 import { salePaid } from './SaleDetail';
 
 export function CreateCustomerModal({ farmId, onClose }: { farmId: string | null; onClose: () => void }) {
@@ -93,6 +94,7 @@ export function CollectModal({
   const [customer, setCustomer] = useState<CustomerFull | null>(initial);
   const [value, setValue] = useState(initial ? String(initial.balance?.outstandingFcfa ?? 0) : '');
   const [done, setDone] = useState<number | null>(null);
+  const [queued, setQueued] = useState(false);
   const [invalid, setInvalid] = useState<string | null>(null);
 
   const due = customer?.balance?.outstandingFcfa ?? 0;
@@ -101,17 +103,22 @@ export function CollectModal({
 
   const paymentKey = useIdempotencyKey('customer-payment');
   const collect = useMutation({
-    mutationFn: async () => {
-      // Mobile opens a closed caisse (from the last closing) before collecting.
-      await ensureCashOpen(farmId!);
-      return api.post(`/farms/${farmId}/customers/${customer!.id}/payments`, {
-        amountFcfa: amount,
-        idempotencyKey: paymentKey.keyFor({ customerId: customer!.id, amount }),
-      });
-    },
-    onSuccess: () => {
+    mutationFn: () =>
+      sendOrQueue({
+        kind: 'customer-payment',
+        farmId: farmId!,
+        path: `/farms/${farmId}/customers/${customer!.id}/payments`,
+        body: {
+          amountFcfa: amount,
+          idempotencyKey: paymentKey.keyFor({ customerId: customer!.id, amount }),
+        },
+        label: `Encaissement · ${customer!.fullName}`,
+        cashFcfa: amount,
+      }),
+    onSuccess: (res) => {
       paymentKey.settle();
-      invalidateCash(queryClient, farmId);
+      if (res.status === 'sent') invalidateCash(queryClient, farmId);
+      else setQueued(true);
       setDone(amount);
     },
     onError: () => invalidateCash(queryClient, farmId),
@@ -126,12 +133,12 @@ export function CollectModal({
 
   if (done != null) {
     return (
-      <Modal title="Encaissement enregistré" onClose={onClose}>
+      <Modal title={queued ? 'Encaissement enregistré hors ligne' : 'Encaissement enregistré'} onClose={onClose}>
         <div className="space-y-4">
           <p className="flex items-center gap-3 text-sm text-slate-600">
             <IconTile icon={<Check />} tone="green" />
             <span>
-              {fcfa(done)} · {customer?.fullName}. Ajouté à la caisse journalière.
+              {fcfa(done)} · {customer?.fullName}. {queued ? QUEUED_MESSAGE : 'Ajouté à la caisse journalière.'}
             </span>
           </p>
           <div className="flex justify-end">

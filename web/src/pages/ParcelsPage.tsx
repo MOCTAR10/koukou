@@ -14,10 +14,13 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Parcelle } from '../api/types-agri';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote } from '../components/form';
 import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { ParcelleStatusBadge, StageSummary } from '../components/agri/AgriBits';
 import { ParcelleFormModal } from '../components/agri/ParcelleFormModal';
+import { ParcelleMapPanel } from '../components/agri/ParcelleMap';
+import { Tabs } from '../components/flock/shared';
 import {
   adviceForCulture,
   CROP_CATEGORY_LABELS,
@@ -35,9 +38,13 @@ type Editor = { parcelle: Parcelle | null };
 
 export function ParcelsPage() {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canManage = hasPermission('agri:gerer');
   const parcellesQuery = useParcelles(farmId);
   const stockQuery = useRecolteStock(farmId);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [view, setView] = useState<'liste' | 'carte'>('liste');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const parcelles = useMemo(() => parcellesQuery.data ?? [], [parcellesQuery.data]);
   const sorted = useMemo(
@@ -72,9 +79,11 @@ export function ParcelsPage() {
         icon={<Sprout />}
         iconTone="green"
         actions={
-          <Button onClick={() => setEditor({ parcelle: null })}>
-            <Plus className="h-4 w-4" /> Nouvelle parcelle
-          </Button>
+          canManage ? (
+            <Button onClick={() => setEditor({ parcelle: null })}>
+              <Plus className="h-4 w-4" /> Nouvelle parcelle
+            </Button>
+          ) : undefined
         }
       />
 
@@ -133,6 +142,23 @@ export function ParcelsPage() {
             </div>
           ) : null}
 
+          <Tabs
+            value={view}
+            onChange={setView}
+            options={[
+              { key: 'liste', label: 'Liste', icon: <Layers3 /> },
+              { key: 'carte', label: 'Carte', icon: <MapIcon /> },
+            ]}
+          />
+
+          {view === 'carte' ? (
+            <ParcelleMapPanel
+              parcelles={sorted}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onEdit={(parcelle) => setEditor({ parcelle })}
+            />
+          ) : (
           <Card className="overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -171,11 +197,24 @@ export function ParcelsPage() {
                         <Td>
                           <ParcelleStatusBadge status={p.status} />
                         </Td>
-                        <Td className="text-right">
-                          <Button tone="secondary" onClick={() => setEditor({ parcelle: p })}>
-                            <Pencil className="h-4 w-4" />
-                            Modifier
-                          </Button>
+                        <Td className="whitespace-nowrap text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedId(p.id);
+                              setView('carte');
+                            }}
+                            className="mr-2 inline-flex rounded-lg p-2 align-middle text-brand-700 hover:bg-brand-50"
+                            aria-label={`Voir ${p.name} sur la carte`}
+                          >
+                            <MapIcon className="h-4 w-4" />
+                          </button>
+                          {canManage ? (
+                            <Button tone="secondary" onClick={() => setEditor({ parcelle: p })}>
+                              <Pencil className="h-4 w-4" />
+                              Modifier
+                            </Button>
+                          ) : null}
                         </Td>
                       </tr>
                     );
@@ -184,11 +223,7 @@ export function ParcelsPage() {
               </table>
             </div>
           </Card>
-
-          <p className="flex items-center gap-1.5 text-xs text-slate-400">
-            <MapIcon className="h-3.5 w-3.5 shrink-0" />
-            La carte des parcelles reste sur l’application mobile. Ici, la surface se saisit en hectares.
-          </p>
+          )}
         </>
       )}
 

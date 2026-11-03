@@ -8,6 +8,7 @@ import {
   Egg,
   Eye,
   Layers,
+  Lightbulb,
   Plus,
   Scale,
   ShieldCheck,
@@ -21,6 +22,7 @@ import { api } from '../../api/client';
 import type { BatchType } from '../../api/types';
 import type { BreedStandard, Lot, SanitaryProtocol, SanitaryProtocolWithSteps } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import { EGG_IMAGES, SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
@@ -62,6 +64,9 @@ const FEED_ADVICE: Record<BatchType, Array<{ label: string; from: number; to: nu
   ],
 };
 
+// Pheasant is no longer offered for new lots; existing ones keep displaying it through SPECIES_LABEL.
+const CREATABLE_SPECIES = Object.entries(SPECIES_LABEL).filter(([k]) => k !== 'FAISAN');
+
 function defaultProtocol(list: SanitaryProtocol[] | undefined, species: string, type: BatchType) {
   return (
     list?.find((p) => p.species === species && p.type === type && p.isDefault) ??
@@ -85,6 +90,9 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
   const invalidate = useInvalidateFarm();
   const buildings = useBuildings();
   const breeds = useBreeds();
+  // The care records are posted after the lot: a 403 there would leave a created lot and an error.
+  const { hasPermission } = useFarmProfile();
+  const canRecordCare = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
 
   const [running, setRunning] = useState(false);
   const [type, setType] = useState<BatchType>('CHAIR');
@@ -187,7 +195,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
       if (hatchDate) body.hatchDate = hatchDate;
       if (chickPrice.trim()) body.chickUnitPriceFcfa = parseInt(chickPrice, 10);
       const lot = await api.post<Lot>(`/farms/${farmId}/batches`, body);
-      const selected = running ? dueSteps.filter((s) => doneSteps.includes(s.id)) : [];
+      const selected = running && canRecordCare ? dueSteps.filter((s) => doneSteps.includes(s.id)) : [];
       await Promise.all(
         selected.map((step) =>
           api.post(`/farms/${farmId}/batches/${lot.id}/treatments`, {
@@ -243,8 +251,8 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
 
         <div>
           <p className="mb-1 text-xs font-medium text-slate-600">Espèce *</p>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8" role="group" aria-label="Espèce">
-            {Object.entries(SPECIES_LABEL).map(([k, v]) => (
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7" role="group" aria-label="Espèce">
+            {CREATABLE_SPECIES.map(([k, v]) => (
               <button
                 key={k}
                 type="button"
@@ -259,7 +267,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
                   species === k ? 'ring-2 ring-brand-600' : 'ring-1 ring-slate-200 hover:ring-slate-300',
                 )}
               >
-                <img src={SPECIES_IMAGES[k]} alt="" loading="lazy" className="aspect-square w-full object-cover" />
+                <img src={SPECIES_IMAGES[k]} alt="" loading="lazy" className="aspect-square w-full bg-white object-contain" />
                 <span
                   className={classNames(
                     'flex flex-1 items-center justify-center px-1 py-1 text-[11px] font-medium leading-tight',
@@ -446,7 +454,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             <p className="flex items-center gap-1.5 text-sm text-slate-600">
               <Wheat className="h-4 w-4 shrink-0 text-amber-600" /> Alimentation recommandée : {feedAdvice.label}
             </p>
-            {dueSteps.length > 0 ? (
+            {dueSteps.length > 0 && canRecordCare ? (
               <div>
                 <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                   <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Soins prophylactiques déjà réalisés (cochez-les pour les enregistrer)
@@ -586,6 +594,14 @@ function LotForecast({
             </>
           ) : null}
         </div>
+        <LotTimeline
+          start={start}
+          steps={[
+            { week: 0, label: 'Poussins', desc: 'Démarrage, chaleur, eau et vitamines' },
+            { week: readyWeek, label: 'Prêt à vendre', desc: `${finalWeight.toFixed(1)} kg, IC ${(last?.targetFcr ?? 0).toFixed(2)}` },
+            { week: last?.week ?? 12, label: 'Fin de cycle', desc: 'Abattage ou vente vivante' },
+          ]}
+        />
       </div>
     );
   }
@@ -596,6 +612,8 @@ function LotForecast({
   const peakRate = peak.targetLayRatePercent ?? 85;
   const dailyEggs = Math.round((qty * peakRate) / 100);
   const monthlyEggs = dailyEggs * 30;
+  // Weeks before the peak also sit under 60 %: only a drop after the peak ends the laying cycle.
+  const endWeek = standards.find((s) => s.week > peak.week && (s.targetLayRatePercent ?? 0) < 60)?.week ?? last?.week ?? 72;
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-slate-700">
@@ -615,6 +633,56 @@ function LotForecast({
           </>
         ) : null}
       </div>
+      <LotTimeline
+        start={start}
+        steps={[
+          { week: 0, label: 'Poussins', desc: 'Démarrage, croissance' },
+          { week: startLaying?.week ?? 18, label: 'Début de ponte', desc: 'Premiers œufs, montée en cadence' },
+          { week: peak.week, label: 'Pic de production', desc: `${peakRate.toFixed(0)} % de ponte` },
+          { week: endWeek, label: 'Fin de ponte', desc: 'Transition vers la vente vivante ou l’abattage' },
+        ]}
+      />
+      <div className="mt-3">
+        <Note tone="brand" icon={<Lightbulb />}>
+          <p className="font-semibold">Conseil de fin de cycle</p>
+          <p>Après {endWeek} semaines, les pondeuses peuvent être vendues vivantes, abattues pour la viande, ou gardées pour la reproduction si la souche s’y prête.</p>
+        </Note>
+      </div>
+    </div>
+  );
+}
+
+/** Key dates of the lot, computed from the breed curve: indicative, not a promise. */
+function LotTimeline({
+  start,
+  steps,
+}: {
+  start: string;
+  steps: Array<{ week: number; label: string; desc: string }>;
+}) {
+  return (
+    <div className="mt-3">
+      <p className="mb-2 text-xs font-semibold text-slate-500">Chronologie du lot</p>
+      <ol className="space-y-2 border-l-2 border-slate-200 pl-3">
+        {steps.map((step, i) => (
+          <li key={step.label} className="relative text-sm">
+            <span
+              aria-hidden="true"
+              className={classNames(
+                'absolute -left-[1.0625rem] top-1.5 h-2 w-2 rounded-full',
+                i === 0 ? 'bg-brand-600' : i === steps.length - 1 ? 'bg-slate-400' : 'bg-accent-500',
+              )}
+            />
+            <span className="font-semibold text-slate-800">
+              {dateFr(weeksAfter(start, step.week))} : {step.label}
+            </span>
+            <span className="block text-xs text-slate-500">{step.desc}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 text-xs text-slate-500">
+        Projections calculées à partir des standards de la souche, à titre indicatif : ce n’est pas une garantie des résultats réels.
+      </p>
     </div>
   );
 }

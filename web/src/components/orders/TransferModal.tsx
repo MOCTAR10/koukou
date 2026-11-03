@@ -7,6 +7,7 @@ import type { CarcassPool, PointOfSale, SellableBatch, StockTransferBody, StockT
 import { useFarm } from '../../app/FarmContext';
 import { lotImage } from '../../lib/animalImages';
 import { classNames, num, pct } from '../../lib/format';
+import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import { IconTile, Loading, PhotoThumb } from '../ui';
 import { invalidateTransferQueries, newIdempotencyKey, parseWhole } from './helpers';
@@ -157,11 +158,22 @@ export function TransferModal({ boutiques, onClose }: { boutiques: PointOfSale[]
         ...(product === 'OEUFS' ? { batchId: sourceId } : {}),
         ...(product === 'PROVENDE' ? { inputLotId: sourceId, unit } : {}),
       };
-      return api.post(`/farms/${farmId}/stock-transfers`, body);
+      const destination = boutiques.find((b) => b.id === boutiqueId)?.name ?? 'point de vente';
+      return sendOrQueue({
+        kind: 'stock-transfer-create',
+        farmId: farmId!,
+        path: `/farms/${farmId}/stock-transfers`,
+        body,
+        label: `Transfert · ${PRODUCT_NOUN[product]} vers ${destination}`,
+      });
     },
-    onSuccess: () => {
-      invalidateTransferQueries(queryClient, farmId);
-      setDone(`Transfert enregistré : ${PRODUCT_NOUN[tab as StockTransferProductType].toLowerCase()} en réserve boutique.`);
+    onSuccess: (res) => {
+      if (res.status === 'queued') {
+        setDone(QUEUED_MESSAGE);
+      } else {
+        invalidateTransferQueries(queryClient, farmId);
+        setDone(`Transfert enregistré : ${PRODUCT_NOUN[tab as StockTransferProductType].toLowerCase()} en réserve boutique.`);
+      }
       setQuantity(0);
       setIdempotencyKey(newIdempotencyKey('transfer'));
     },

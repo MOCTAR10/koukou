@@ -14,6 +14,7 @@ import type {
   StockTransfer,
 } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote, todayIso } from '../components/form';
 import { Card, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Th, Td } from '../components/ui';
 import { Checkout } from '../components/sales/Checkout';
@@ -37,6 +38,8 @@ type LineModal = { initial?: PosLine; preset?: LinePreset };
 
 export function SalesPage() {
   const { farmId, farm } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canManagePos = hasPermission('pdv:gerer');
   const [params, setParams] = useSearchParams();
   const today = todayIso();
 
@@ -100,7 +103,7 @@ export function SalesPage() {
   const caisseSessions = useQuery({
     queryKey: ['caisse-sessions', farmId],
     queryFn: () => api.get<CashSession[]>(`/farms/${farmId}/caisse/sessions`),
-    enabled,
+    enabled: enabled && hasPermission('caisse:lire', 'caisse:fermer'),
   });
 
   const allPos = useMemo(() => pointsOfSale.data ?? [], [pointsOfSale.data]);
@@ -208,16 +211,28 @@ export function SalesPage() {
         subtitle="Panier, encaissement en espèces ou à crédit, reçus et annulations."
         icon={<ShoppingCart />}
         actions={
-          <Link
-            to="/app/finance/caisse"
-            className={classNames(
-              'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold',
-              caisse.data ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600',
-            )}
-          >
-            <Coins className="h-4 w-4" />
-            {caisse.data ? `Caisse ouverte · ${fcfa(caisse.data.expectedBalanceFcfa)}` : 'Caisse fermée'}
-          </Link>
+          hasPermission('caisse:lire') ? (
+            <Link
+              to="/app/finance/caisse"
+              className={classNames(
+                'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold',
+                caisse.data ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600',
+              )}
+            >
+              <Coins className="h-4 w-4" />
+              {caisse.data ? `Caisse ouverte · ${fcfa(caisse.data.expectedBalanceFcfa)}` : 'Caisse fermée'}
+            </Link>
+          ) : (
+            <span
+              className={classNames(
+                'flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold',
+                caisse.data ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600',
+              )}
+            >
+              <Coins className="h-4 w-4" />
+              {caisse.data ? 'Caisse ouverte' : 'Caisse fermée'}
+            </span>
+          )
         }
       />
 
@@ -228,9 +243,11 @@ export function SalesPage() {
       ) : activePos.length === 0 ? (
         <div className="space-y-2">
           <EmptyState icon={<Store />} message="Aucun point de vente actif : activez ou créez-en un pour commencer à encaisser." />
-          <Link to="/app/points-of-sale" className="block text-center text-sm font-semibold text-brand-700 hover:underline">
-            Gérer les points de vente
-          </Link>
+          {canManagePos ? (
+            <Link to="/app/points-of-sale" className="block text-center text-sm font-semibold text-brand-700 hover:underline">
+              Gérer les points de vente
+            </Link>
+          ) : null}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -423,10 +440,12 @@ export function SalesPage() {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
-                  <Link to="/app/points-of-sale" className="flex items-center gap-1.5 text-xs font-medium text-brand-700 hover:underline">
-                    <ArrowRightLeft className="h-3.5 w-3.5" />
-                    {isBoutique ? 'Réapprovisionner cette boutique' : 'Envoyer du stock à une boutique'}
-                  </Link>
+                  {canManagePos ? (
+                    <Link to="/app/points-of-sale" className="flex items-center gap-1.5 text-xs font-medium text-brand-700 hover:underline">
+                      <ArrowRightLeft className="h-3.5 w-3.5" />
+                      {isBoutique ? 'Réapprovisionner cette boutique' : 'Envoyer du stock à une boutique'}
+                    </Link>
+                  ) : null}
                   <Button tone="secondary" onClick={() => setLineModal({})}>
                     <Plus className="h-4 w-4" /> Ajouter un article
                   </Button>

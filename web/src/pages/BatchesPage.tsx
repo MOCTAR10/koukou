@@ -24,10 +24,12 @@ import {
 import { api } from '../api/client';
 import type { OverviewPnl } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { BuildingFormModal, BuildingsPanel } from '../components/flock/Buildings';
 import { CreateLotModal } from '../components/flock/CreateLotModal';
 import { DailyEntryModal } from '../components/flock/DailyEntryModal';
 import { LotDetail } from '../components/flock/LotDetail';
+import { LotsBreakdown } from '../components/flock/LotsBreakdown';
 import {
   LEVEL_LABEL,
   Metric,
@@ -67,6 +69,8 @@ const LEVEL_RANK: Record<string, number> = { ROUGE: 0, JAUNE: 1, VERT: 2 };
 
 export function BatchesPage() {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canReports = hasPermission('compta:rapports');
   const [params, setParams] = useSearchParams();
   const selectedId = params.get('lot');
   const [view, setView] = useState<'lots' | 'buildings'>('lots');
@@ -94,12 +98,12 @@ export function BatchesPage() {
   const overview = useQuery({
     queryKey: ['rentabilite-overview', farmId, from, to],
     queryFn: () => api.get<OverviewPnl>(`/farms/${farmId}/rentabilite/overview?from=${from}&to=${to}`),
-    enabled: !!farmId,
+    enabled: !!farmId && canReports,
   });
   const previous = useQuery({
     queryKey: ['rentabilite-overview', farmId, prevFrom, prevTo],
     queryFn: () => api.get<OverviewPnl>(`/farms/${farmId}/rentabilite/overview?from=${prevFrom}&to=${prevTo}`),
-    enabled: !!farmId,
+    enabled: !!farmId && canReports,
   });
 
   const all = useMemo(() => lots.data ?? [], [lots.data]);
@@ -132,8 +136,6 @@ export function BatchesPage() {
   const summary = useMemo(() => {
     const running = all.filter((b) => b.status !== 'CLOTURE');
     const avg = (vals: number[]) => (vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null);
-    const groups = new Map<string, number>();
-    for (const b of running) groups.set(kindLabel(b), (groups.get(kindLabel(b)) ?? 0) + b.metrics.liveCount);
     return {
       active: running.length,
       selling: running.filter((b) => b.status === 'EN_VENTE').length,
@@ -147,9 +149,10 @@ export function BatchesPage() {
       ready: running.filter((b) => b.metrics.readyForSale).length,
       red: running.filter((b) => b.metrics.status === 'ROUGE').length,
       yellow: running.filter((b) => b.metrics.status === 'JAUNE').length,
-      groups: [...groups.entries()],
     };
   }, [all]);
+
+  const runningLots = useMemo(() => all.filter((b) => b.status !== 'CLOTURE'), [all]);
 
   const selected = all.find((b) => b.id === selectedId) ?? null;
   if (selectedId && selected) {
@@ -176,12 +179,16 @@ export function BatchesPage() {
         subtitle={`${summary.active} lot${summary.active > 1 ? 's' : ''} en cours${asOf ? ` au ${dateFr(asOf)}` : ''}`}
         actions={
           <div className="flex gap-2">
-            <Button tone="secondary" onClick={() => setEntering(true)} disabled={summary.active === 0}>
-              <PenLine className="h-4 w-4" /> Saisie journalière
-            </Button>
-            <Button onClick={() => (noBuilding ? setAddingBuilding(true) : setCreating(true))}>
-              {noBuilding ? <Building2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {noBuilding ? 'Créer un bâtiment' : 'Nouveau lot'}
-            </Button>
+            {hasPermission('saisie:creer') ? (
+              <Button tone="secondary" onClick={() => setEntering(true)} disabled={summary.active === 0}>
+                <PenLine className="h-4 w-4" /> Saisie journalière
+              </Button>
+            ) : null}
+            {hasPermission('production:gerer') ? (
+              <Button onClick={() => (noBuilding ? setAddingBuilding(true) : setCreating(true))}>
+                {noBuilding ? <Building2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {noBuilding ? 'Créer un bâtiment' : 'Nouveau lot'}
+              </Button>
+            ) : null}
           </div>
         }
       />
@@ -227,6 +234,8 @@ export function BatchesPage() {
               <Metric label="En vente" icon={<BadgeCheck />} value={summary.selling} sub={`${summary.ready} prêts à vendre`} />
               <Metric label="Lots critiques" icon={<AlertTriangle />} value={summary.red} tone={summary.red > 0 ? 'bad' : undefined} />
               <Metric label="À surveiller" icon={<Info />} value={summary.yellow} tone={summary.yellow > 0 ? 'warn' : undefined} />
+              {canReports ? (
+                <>
               <Metric
                 label="Encaissé (30 j)"
                 icon={<Coins />}
@@ -240,16 +249,10 @@ export function BatchesPage() {
                 tone={overview.data ? (overview.data.netFcfa >= 0 ? 'good' : 'bad') : undefined}
                 sub={delta(overview.data?.netFcfa, previous.data?.netFcfa)}
               />
+                </>
+              ) : null}
             </div>
-            {summary.groups.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {summary.groups.map(([label, count]) => (
-                  <Pill key={label}>
-                    {label} : {num(count)}
-                  </Pill>
-                ))}
-              </div>
-            ) : null}
+            <LotsBreakdown lots={runningLots} historical={!!asOf} />
           </SectionCard>
 
           <div className="flex flex-wrap items-center gap-2">

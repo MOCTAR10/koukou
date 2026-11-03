@@ -20,6 +20,7 @@ import { api } from '../api/client';
 import type { Alert } from '../api/types';
 import type { AdvisoryNextActions, NextAction, OwnerDashboard } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../components/form';
 import { Card, EmptyState, IconTile, Loading, PageHeader, Th, Td } from '../components/ui';
 import { ActionTile } from '../components/sales/DashboardPanels';
@@ -102,6 +103,7 @@ function ActionRow({
   onAck: () => void;
   onCare: () => void;
 }) {
+  const { hasPermission } = useFarmProfile();
   const [open, setOpen] = useState(false);
   const isReady = action.id.startsWith('ready:');
   const why = recommendation ?? action.description;
@@ -116,25 +118,25 @@ function ActionRow({
           </Button>
         ) : null;
       case 'SOIN':
-        return (
+        return hasPermission('sanitaire:gerer', 'sanitaire:signaler') ? (
           <Button className="px-2.5 py-1 text-xs" onClick={onCare}>
             <Check className="h-3.5 w-3.5" /> Fait
           </Button>
-        );
+        ) : null;
       case 'SAISIE':
-        return (
+        return hasPermission('saisie:creer') ? (
           <Link to="/app/batches" className={primaryLinkCls}>
             <ClipboardList className="h-3.5 w-3.5" /> Saisir
           </Link>
-        );
+        ) : null;
       case 'STOCK_PROVENDE':
-        return (
+        return hasPermission('stock:gerer') ? (
           <Link to="/app/stock" className={primaryLinkCls}>
             <PackageOpen className="h-3.5 w-3.5" /> Commander
           </Link>
-        );
+        ) : null;
       case 'VENTE':
-        return isReady ? null : (
+        return isReady || !hasPermission('vente:creer') ? null : (
           <Link
             to={action.batchId ? `/app/finance/ventes?batch=${action.batchId}` : '/app/finance/ventes'}
             className={primaryLinkCls}

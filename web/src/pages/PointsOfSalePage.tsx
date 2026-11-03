@@ -12,6 +12,7 @@ import { TransferModal } from '../components/orders/TransferModal';
 import { batchPhoto } from '../components/sales/pos';
 import { Card, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Td, Th } from '../components/ui';
 import { fcfa, num } from '../lib/format';
+import { sendOrQueue, showQueuedNotice } from '../offline';
 
 type PeriodKey = 'today' | 'week' | 'month';
 
@@ -213,16 +214,31 @@ export function PointsOfSalePage() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => api.del(`/farms/${farmId}/points-of-sale/${id}`),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['points-of-sale', farmId] });
+    mutationFn: (id: string) =>
+      sendOrQueue({
+        kind: 'pdv-delete',
+        farmId: farmId!,
+        method: 'DELETE',
+        path: `/farms/${farmId}/points-of-sale/${id}`,
+        label: `Suppression · ${toDelete?.name ?? 'point de vente'}`,
+      }),
+    onSuccess: (res) => {
+      if (res.status === 'queued') showQueuedNotice();
+      else void queryClient.invalidateQueries({ queryKey: ['points-of-sale', farmId] });
       setToDelete(null);
     },
   });
   const cancelTransfer = useMutation({
-    mutationFn: (id: string) => api.post(`/farms/${farmId}/stock-transfers/${id}/cancel`),
-    onSuccess: () => {
-      invalidateTransferQueries(queryClient, farmId);
+    mutationFn: (id: string) =>
+      sendOrQueue({
+        kind: 'stock-transfer-cancel',
+        farmId: farmId!,
+        path: `/farms/${farmId}/stock-transfers/${id}/cancel`,
+        label: `Annulation de transfert · ${toCancel ? transferSource(toCancel).name : 'stock'}`,
+      }),
+    onSuccess: (res) => {
+      if (res.status === 'queued') showQueuedNotice();
+      else invalidateTransferQueries(queryClient, farmId);
       setToCancel(null);
     },
   });

@@ -19,7 +19,7 @@ export function LoginPage() {
 
   useEffect(() => {
     const u = getStoredUser();
-    if (u && u.role !== 'ELEVEUR') navigate('/app');
+    if (u) navigate('/app');
   }, [navigate]);
 
   async function onSubmit(e: React.FormEvent) {

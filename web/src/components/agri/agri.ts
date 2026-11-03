@@ -37,6 +37,14 @@ export const PARCELLE_STATUS_HINTS: Record<ParcelleStatus, string> = {
   CLOTURE: 'Parcelle arrêtée ou retirée du suivi.',
 };
 
+/** Map stroke per status, same colors as the mobile map. */
+export const PARCELLE_STATUS_STROKE: Record<ParcelleStatus, string> = {
+  PREPARATION: '#C25F0E',
+  ACTIVE: '#4C8A33',
+  JACHERE: '#997100',
+  CLOTURE: '#58788C',
+};
+
 export const RECOLTE_UNITS: RecolteUnit[] = ['KG', 'PIECE', 'SAC'];
 
 export const RECOLTE_UNIT_LABELS: Record<RecolteUnit, string> = {

@@ -24,6 +24,7 @@ import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type { DailyEntryRecord, Lot } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
@@ -68,6 +69,9 @@ function phasesFor(b: Lot): string[] {
 }
 
 /** Picks the lot and the date, then mounts a form initialised for that pair. */
+/** Average egg weight behind the egg-mass figure, as on mobile. */
+const EGG_MASS_G = 60;
+
 export function DailyEntryModal({
   initialBatchId,
   initialDate,
@@ -315,10 +319,17 @@ function EntryForm({
       if (sendEgg(smallN)) p.eggsSmall = smallN;
       if (sendEgg(doubleN)) p.eggsDoubleYolk = doubleN;
       if (sendEgg(dirtyN)) p.eggsDirty = dirtyN;
-      return api.post(`/farms/${farmId}/batches/${lot.id}/daily-entries`, p);
+      return sendOrQueue({
+        kind: 'daily-entry',
+        farmId: farmId!,
+        path: `/farms/${farmId}/batches/${lot.id}/daily-entries`,
+        body: p,
+        label: `Saisie du ${date.slice(8, 10)}/${date.slice(5, 7)} · ${lot.batchName ?? 'Lot'}`,
+      });
     },
-    onSuccess: async () => {
-      await invalidate();
+    onSuccess: async (res) => {
+      if (res.status === 'queued') showQueuedNotice();
+      else await invalidate();
       onClose();
     },
   });
@@ -536,6 +547,9 @@ function EntryForm({
             value={`${num(weightGN * 0.03, 0)} à ${num(weightGN * 0.05, 0)} g`}
             sub="par oiseau et par jour"
           />
+          {isLayer && eggs > 0 ? (
+            <Metric label="Masse ovulaire / jour" icon={<Egg />} value={`${num((eggs * EGG_MASS_G) / 1000, 1)} kg`} sub="à 60 g l'œuf" />
+          ) : null}
         </div>
       ) : null}
 

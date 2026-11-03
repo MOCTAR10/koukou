@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BadgePercent, Banknote, Check, Coins, ReceiptText, UserRound, Wallet, X } from 'lucide-react';
+import { BadgePercent, Banknote, Check, CloudOff, Coins, ReceiptText, UserRound, Wallet, X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { CustomerFull, PromotionFull, SaleCreated } from '../../api/types-sales';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../form';
+import { localYmd } from '../flock/shared';
 import { Card } from '../ui';
 import { classNames, fcfa, num } from '../../lib/format';
 import { customerTypeLabel } from './labels';
 import { useIdempotencyKey } from '../../lib/idempotency';
-import { buildSaleItem, discountFor, ensureCashOpen, findPromotion, invalidateCash, subtotalOf, type PosLine } from './pos';
+import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
+import { buildSaleItem, discountFor, findPromotion, invalidateCash, subtotalOf, type PosLine } from './pos';
 import { ReceiptButton } from './shared';
 
 const QUICK_CASH = [1000, 2000, 5000, 10000, 20000, 50000];
@@ -117,6 +119,7 @@ export function Checkout({
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [sold, setSold] = useState<(SaleCreated & { credit: boolean; customerName: string | null }) | null>(null);
+  const [queuedSale, setQueuedSale] = useState<{ totalFcfa: number; credit: boolean; customerName: string | null } | null>(null);
 
   const customers = useQuery({
     queryKey: ['customers', farmId],
@@ -142,9 +145,9 @@ export function Checkout({
   const saleKey = useIdempotencyKey('sale');
   const sell = useMutation({
     mutationFn: async () => {
-      // Mobile opens a closed caisse before collecting cash; a credit sale moves no cash.
-      if (!isCredit) await ensureCashOpen(farmId!);
       const body = {
+        // Explicit: a sale queued offline must keep its real day when it's replayed.
+        saleDate: localYmd(),
         items: lines.map(buildSaleItem),
         pointOfSaleId,
         ...(customer ? { customerId: customer.id } : {}),
@@ -153,16 +156,29 @@ export function Checkout({
         ...(promo ? { promoCode: promo.code } : {}),
       };
       const idempotencyKey = saleKey.keyFor({ body, isCredit, total });
-      return api.post<SaleCreated>(`/farms/${farmId}/sales`, {
-        ...body,
-        idempotencyKey,
-        payments: isCredit ? [] : [{ method: 'CASH', amountFcfa: total, idempotencyKey: `${idempotencyKey}-pay` }],
+      return sendOrQueue<SaleCreated>({
+        kind: 'sale',
+        farmId: farmId!,
+        path: `/farms/${farmId}/sales`,
+        body: {
+          ...body,
+          idempotencyKey,
+          payments: isCredit ? [] : [{ method: 'CASH', amountFcfa: total, idempotencyKey: `${idempotencyKey}-pay` }],
+        },
+        label: `${isCredit ? 'Vente à crédit' : 'Vente'} · ${fcfa(total)}`,
+        // A credit sale moves no cash, so it doesn't open the caisse.
+        cashFcfa: isCredit ? 0 : total,
       });
     },
     onSuccess: (res) => {
       saleKey.settle();
-      invalidateCash(queryClient, farmId);
-      setSold({ ...res, credit: isCredit, customerName: customer?.fullName ?? (name.trim() || null) });
+      const customerName = customer?.fullName ?? (name.trim() || null);
+      if (res.status === 'sent') {
+        invalidateCash(queryClient, farmId);
+        setSold({ ...res.data, credit: isCredit, customerName });
+      } else {
+        setQueuedSale({ totalFcfa: total, credit: isCredit, customerName });
+      }
       setPromoCode('');
       setTendered('');
       setCustomer(null);
@@ -344,6 +360,28 @@ export function Checkout({
             <div className="flex items-start justify-end gap-2">
               <ReceiptButton farmId={farmId} saleId={sold.sale.id} reference={sold.sale.referenceNumber} />
               <Button onClick={() => setSold(null)}>Fermer</Button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+
+      {queuedSale ? (
+        <Modal title="Vente enregistrée hors ligne" onClose={() => setQueuedSale(null)}>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                <CloudOff className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="font-semibold text-slate-900">
+                  {fcfa(queuedSale.totalFcfa)} · {posName}
+                  {queuedSale.credit ? ` · à crédit, ${queuedSale.customerName ?? 'client'}` : ''}
+                </p>
+                <p className="text-sm text-slate-500">{QUEUED_MESSAGE} Le reçu sera disponible après l’envoi.</p>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setQueuedSale(null)}>Fermer</Button>
             </div>
           </div>
         </Modal>

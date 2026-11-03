@@ -1,11 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowDownRight, Box, Calendar, Check, Package, PackageOpen, PackageX, Pill, Scale, Truck, Wheat } from 'lucide-react';
-import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type { FeedEntryType, FeedLossReason } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { num } from '../../lib/format';
+import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import {
   ENTRY_TYPE_LABEL,
@@ -178,10 +178,17 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
         body.tonnageMt = parseNum(tonnage);
         if (totalCost.trim()) body.totalCostFcfa = intFcfa(totalCost);
       }
-      return api.post(`/farms/${farmId}/inputs`, body);
+      return sendOrQueue({
+        kind: 'feed-input',
+        farmId: farmId!,
+        path: `/farms/${farmId}/inputs`,
+        body,
+        label: `Réception · ${productName.trim()}`,
+      });
     },
-    onSuccess: async () => {
-      await invalidate();
+    onSuccess: async (res) => {
+      if (res.status === 'queued') showQueuedNotice();
+      else await invalidate();
       onClose();
     },
   });
@@ -350,16 +357,23 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
 
   const save = useMutation({
     mutationFn: () =>
-      api.post(`/farms/${farmId}/feed-stock/losses`, {
-        inputLotId: lotId,
-        quantity: qty,
-        unit,
-        reason,
-        occurredAt,
-        notes: notes.trim() || undefined,
+      sendOrQueue({
+        kind: 'stock-loss',
+        farmId: farmId!,
+        path: `/farms/${farmId}/feed-stock/losses`,
+        body: {
+          inputLotId: lotId,
+          quantity: qty,
+          unit,
+          reason,
+          occurredAt,
+          notes: notes.trim() || undefined,
+        },
+        label: `Perte · ${lot?.productName ?? 'Aliment'}`,
       }),
-    onSuccess: async () => {
-      await invalidate();
+    onSuccess: async (res) => {
+      if (res.status === 'queued') showQueuedNotice();
+      else await invalidate();
       onClose();
     },
   });
