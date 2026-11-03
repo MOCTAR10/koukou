@@ -85,6 +85,7 @@ export type PermissionCode =
   | 'vente:annuler'
   | 'vente:commande'
   | 'vente:promotion'
+  | 'market:publier'
   | 'compta:depense'
   | 'compta:client'
   | 'compta:rapports'

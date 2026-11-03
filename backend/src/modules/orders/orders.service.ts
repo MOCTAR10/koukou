@@ -1399,6 +1399,34 @@ export class OrdersService {
     }
   }
 
+  /** Birds of a batch not promised elsewhere: what a new order could take. */
+  async freeBirds(
+    em: EntityManager,
+    batch: ProductionBatch,
+  ): Promise<number> {
+    const { birds: reserved } = await batchReservation(
+      em,
+      batch.farmId,
+      batch.id,
+    );
+    const atAbattoir = await sentSlaughterBirds(em, batch.farmId, batch.id);
+    return Math.max(0, batch.quantityAlive - reserved - atAbattoir);
+  }
+
+  /** Egg trays a new order could take from this batch, within the farm's stock. */
+  async freeEggAlveoles(
+    em: EntityManager,
+    farmId: string,
+    batchId: string,
+  ): Promise<number> {
+    const farmEggs = await this.farmAvailableEggs(em, farmId);
+    const farmAlveoles = Math.max(0, Math.floor(farmEggs / EGGS_PER_ALVEOL));
+    return Math.min(
+      farmAlveoles,
+      await this.availableBatchEggAlveoles(em, farmId, batchId),
+    );
+  }
+
   /** Garde de stock œufs (identique au POS/dashboard). */
   private async assertEggsAvailable(
     em: EntityManager,
@@ -1406,6 +1434,22 @@ export class OrdersService {
     alveoles: number,
     excludeSaleId?: string,
   ): Promise<void> {
+    const requestedEggs = alveoles * EGGS_PER_ALVEOL;
+    const availableEggs = await this.farmAvailableEggs(em, farmId, excludeSaleId);
+    if (requestedEggs > availableEggs) {
+      throw new BadRequestException(
+        `Stock d’œufs insuffisant : ${Math.max(0, availableEggs)} œuf(s) disponible(s) (≈${Math.floor(
+          Math.max(0, availableEggs) / EGGS_PER_ALVEOL,
+        )} alvéoles), commande demandée ${alveoles} alvéoles.`,
+      );
+    }
+  }
+
+  private async farmAvailableEggs(
+    em: EntityManager,
+    farmId: string,
+    excludeSaleId?: string,
+  ): Promise<number> {
     const farmBatches = await em.getRepository(ProductionBatch).find({
       where: { farmId },
     });
@@ -1450,15 +1494,7 @@ export class OrdersService {
       (s, t) => s + (t.quantity - t.quantitySold) * EGGS_PER_ALVEOL,
       0,
     );
-    const requestedEggs = alveoles * EGGS_PER_ALVEOL;
-    const availableEggs = produced - soldEggs - transferredEggs;
-    if (requestedEggs > availableEggs) {
-      throw new BadRequestException(
-        `Stock d’œufs insuffisant : ${Math.max(0, availableEggs)} œuf(s) disponible(s) (≈${Math.floor(
-          Math.max(0, availableEggs) / EGGS_PER_ALVEOL,
-        )} alvéoles), commande demandée ${alveoles} alvéoles.`,
-      );
-    }
+    return produced - soldEggs - transferredEggs;
   }
 
   /** Alvéoles d'œufs propres à UN lot (produit − vendu − déjà transféré),

@@ -20,6 +20,7 @@ import { SanitaryModule } from './modules/sanitary/sanitary.module.js';
 import { FeedStockModule } from './modules/feed-stock/feed-stock.module.js';
 import { FinanceModule } from './modules/finance/finance.module.js';
 import { SlaughterModule } from './modules/slaughter/slaughter.module.js';
+import { MarketModule } from './modules/market/market.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { PointsOfSaleModule } from './modules/points-of-sale/points-of-sale.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
@@ -85,6 +86,7 @@ import { DatabaseModule } from './database/database.module.js';
     FinanceModule,
     SlaughterModule,
     OrdersModule,
+    MarketModule,
     PointsOfSaleModule,
     TasksModule,
     WeatherModule,

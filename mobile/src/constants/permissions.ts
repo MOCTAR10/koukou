@@ -40,6 +40,11 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
     ],
   },
   {
+    key: 'market',
+    label: 'Market',
+    items: [{ code: 'market:publier', label: 'Publier sur le Market' }],
+  },
+  {
     key: 'compta',
     label: 'Comptabilité',
     items: [
@@ -128,6 +133,7 @@ export const STAFF_PROFILES_LOCAL: StaffProfile[] = [
       'vente:annuler',
       'vente:commande',
       'vente:promotion',
+      'market:publier',
       'compta:depense',
       'compta:client',
       'compta:rapports',
