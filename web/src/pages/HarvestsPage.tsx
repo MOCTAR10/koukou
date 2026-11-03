@@ -2,6 +2,7 @@ import { ArrowRight, CalendarClock, Lightbulb, Package, PiggyBank, Plus, Sprout,
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote } from '../components/form';
 import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { ParcelleStatusBadge, StageSummary } from '../components/agri/AgriBits';
@@ -19,6 +20,8 @@ import { dateFr, num } from '../lib/format';
 
 export function HarvestsPage() {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canManage = hasPermission('agri:gerer');
   const parcellesQuery = useParcelles(farmId);
   const recoltesQuery = useRecoltes(farmId);
   const stockQuery = useRecolteStock(farmId);
@@ -54,7 +57,7 @@ export function HarvestsPage() {
         icon={<Tractor />}
         iconTone="green"
         actions={
-          parcelles.length > 0 ? (
+          parcelles.length > 0 && canManage ? (
             <Button onClick={() => setFormOpen(true)}>
               <Wheat className="h-4 w-4" /> Journaliser une récolte
             </Button>
@@ -72,15 +75,17 @@ export function HarvestsPage() {
             message="Aucune parcelle à suivre. Enregistrez vos parcelles et leurs cultures : vous verrez ici les stades de croissance, les échéances de récolte et des conseils adaptés."
             icon={<Tractor />}
           />
-          <div className="text-center">
-            <Link
-              to="/app/parcels"
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
-            >
-              <Plus className="h-4 w-4" />
-              Ajouter une parcelle
-            </Link>
-          </div>
+          {canManage ? (
+            <div className="text-center">
+              <Link
+                to="/app/parcels"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
+              >
+                <Plus className="h-4 w-4" />
+                Ajouter une parcelle
+              </Link>
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
@@ -211,13 +216,15 @@ export function HarvestsPage() {
                 <IconTile icon={<Sprout />} tone="green" size="sm" />
                 Parcelles et cultures
               </h2>
-              <Link
-                to="/app/parcels"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
-              >
-                Gérer les parcelles
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              {canManage ? (
+                <Link
+                  to="/app/parcels"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
+                >
+                  Gérer les parcelles
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : null}
             </div>
             {plan.withStage.length === 0 ? (
               <EmptyState message="Toutes les parcelles sont clôturées." icon={<Sprout />} />

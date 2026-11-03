@@ -379,10 +379,12 @@ export function StockTab({ data }: { data: StockProvende }) {
 
 export function ExercicesTab({
   data,
+  canClose,
   closingId,
   onClose,
 }: {
   data: ExerciceInfo[];
+  canClose: boolean;
   closingId: string | null;
   onClose: (ex: ExerciceInfo) => void;
 }) {
@@ -429,7 +431,7 @@ export function ExercicesTab({
                   </span>
                 </Td>
                 <Td className="text-right">
-                  {past ? (
+                  {past && !canClose ? null : past ? (
                     <Button
                       tone="danger"
                       busy={closingId === ex.id}

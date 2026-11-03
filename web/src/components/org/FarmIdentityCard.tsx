@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Camera, Check, Pencil, Trash2 } from 'lucide-react';
 import { useRef, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import type { FarmWithLogo } from '../../api/types-org';
 import { Button, ErrorNote, inputCls } from '../form';
 import { Card } from '../ui';
@@ -11,6 +12,8 @@ import { ConfirmModal, farmLogoSrc, Pill, uploadFarmLogo } from './shared';
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
 export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
+  const { hasPermission } = useFarmProfile();
+  const canEdit = hasPermission('reglages:ferme');
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
@@ -97,6 +100,7 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
           ) : (
             <div className="flex items-center gap-2">
               <p className="truncate text-base font-bold text-slate-900">{farm.name}</p>
+              {canEdit ? (
               <button
                 type="button"
                 title="Renommer la ferme"
@@ -109,6 +113,7 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
               >
                 <Pencil className="h-4 w-4" />
               </button>
+              ) : null}
             </div>
           )}
           <p className="mt-0.5 text-sm text-slate-500">{farm.administrativeCity || 'Commune non renseignée'}</p>
@@ -118,6 +123,7 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
 
       <ErrorNote error={nameError ?? rename.error} />
 
+      {canEdit ? (
       <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
         <input
           ref={fileRef}
@@ -154,6 +160,7 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
           <span className="text-xs text-slate-400">Sans logo, c’est la marque Fermia qui s’affiche. PNG, JPEG ou WEBP, 2 Mo maximum.</span>
         )}
       </div>
+      ) : null}
 
       <ErrorNote error={fileError ?? upload.error} />
 

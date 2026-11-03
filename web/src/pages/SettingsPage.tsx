@@ -17,6 +17,7 @@ import type { ReactNode } from 'react';
 import { api } from '../api/client';
 import type { FarmMemberProfile, FarmWithLogo } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
 import { SectionTitle } from '../components/finance/shared';
@@ -50,6 +51,7 @@ function Section({ title, subtitle, icon, children }: { title: string; subtitle:
 
 export function SettingsPage() {
   const { farmId, farm: currentFarm } = useFarm();
+  const { hasPermission } = useFarmProfile();
   const { user, logout } = useAuth();
   const farm: FarmWithLogo | null = currentFarm;
 
@@ -114,7 +116,7 @@ export function SettingsPage() {
         ) : null}
       </div>
 
-      <Section title="Ma ferme" subtitle="Nom et logo modifiables" icon={<Crosshair className="h-4 w-4" />}>
+      <Section title="Ma ferme" subtitle={hasPermission('reglages:ferme') ? 'Nom et logo modifiables' : 'Informations de la ferme'} icon={<Crosshair className="h-4 w-4" />}>
         {farm ? <FarmIdentityCard key={farm.id} farm={farm} /> : <Loading />}
       </Section>
 

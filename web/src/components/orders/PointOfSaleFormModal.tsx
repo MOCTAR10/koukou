@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, Home, Plus, Store } from 'lucide-react';
 import { useState } from 'react';
-import { api } from '../../api/client';
 import type { PointOfSale, PointOfSaleBody } from '../../api/types-orders';
 import { useFarm } from '../../app/FarmContext';
+import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import { geocodeGabonAddress } from './geo';
 import { newIdempotencyKey } from './helpers';
@@ -40,11 +40,25 @@ export function PointOfSaleFormModal({ initial, onClose }: { initial?: PointOfSa
         ...(latitude != null && longitude != null ? { latitude, longitude } : {}),
       };
       return initial
-        ? api.patch(`/farms/${farmId}/points-of-sale/${initial.id}`, body)
-        : api.post(`/farms/${farmId}/points-of-sale`, { ...body, idempotencyKey });
+        ? sendOrQueue({
+            kind: 'pdv-update',
+            farmId: farmId!,
+            method: 'PATCH',
+            path: `/farms/${farmId}/points-of-sale/${initial.id}`,
+            body,
+            label: `Modification · ${body.name}`,
+          })
+        : sendOrQueue({
+            kind: 'pdv-create',
+            farmId: farmId!,
+            path: `/farms/${farmId}/points-of-sale`,
+            body: { ...body, idempotencyKey },
+            label: `Nouveau point de vente · ${body.name}`,
+          });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['points-of-sale', farmId] });
+    onSuccess: (res) => {
+      if (res.status === 'queued') showQueuedNotice();
+      else void queryClient.invalidateQueries({ queryKey: ['points-of-sale', farmId] });
       onClose();
     },
   });

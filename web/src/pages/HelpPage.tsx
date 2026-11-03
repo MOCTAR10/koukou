@@ -40,7 +40,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
         title: '2. Votre équipe',
         lines: [
           'Menu → Équipe : ajoutez un compte éleveur (terrain) pour les saisies.',
-          'L’éleveur saisit, vend et encaisse depuis l’application mobile ; l’ouverture/clôture de caisse reste au propriétaire.',
+          'L’éleveur saisit, vend et encaisse depuis le site web ou l’application mobile ; l’ouverture et la clôture de caisse demandent un droit accordé par le propriétaire.',
         ],
       },
       {
@@ -71,8 +71,8 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
         iconTone: 'red',
         title: 'Connexion et hors-ligne',
         lines: [
-          'Sur le site web, chaque opération part directement au serveur : une connexion est nécessaire.',
-          'Sans réseau, utilisez l’application mobile : une saisie ou une vente y est mise en attente, puis synchronisée automatiquement dès que la connexion revient.',
+          'Sur le site web comme sur l’application mobile, une saisie ou une vente faite sans réseau est mise en attente, puis synchronisée automatiquement dès que la connexion revient.',
+          'Les données déjà consultées restent lisibles hors ligne. Quelques actions demandent le réseau : un message vous le signale.',
         ],
       },
       {

@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import type { CashSession } from '../api/types';
 import type { CaisseSummary, CashMovement } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../components/form';
 import { Card, EmptyState, Loading, PageHeader, StatusBadge, Th, Td } from '../components/ui';
 import { MOVEMENT_SOURCE_LABEL } from '../components/sales/labels';
@@ -87,6 +88,7 @@ function MovementForm({
 
 export function CaissePage() {
   const { farmId } = useFarm();
+  const { hasPermission, isOwner } = useFarmProfile();
   const queryClient = useQueryClient();
 
   const [amount, setAmount] = useState('');
@@ -110,6 +112,7 @@ export function CaissePage() {
 
   const summary = current.data ?? null;
   const hasOpen = !!summary;
+  const canToggle = hasPermission(hasOpen ? 'caisse:fermer' : 'caisse:ouvrir');
   // Opening defaults to the last declared closing: the server books only the
   // change from it, so opening at 0 would post the whole float as a withdrawal.
   const lastClosing = lastClosingOf(sessions.data);
@@ -236,9 +239,12 @@ export function CaissePage() {
               </div>
             </>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">Ouvrez la caisse pour pouvoir encaisser des ventes en espèces.</p>
+            <p className="mt-3 text-sm text-slate-500">
+              {canToggle ? 'Ouvrez la caisse pour pouvoir encaisser des ventes en espèces.' : 'La caisse n’est pas ouverte pour le moment.'}
+            </p>
           )}
 
+          {canToggle ? (
           <form
             className="mt-5 space-y-3 border-t border-slate-100 pt-4"
             onSubmit={(e) => {
@@ -272,6 +278,7 @@ export function CaissePage() {
               {hasOpen ? 'Clôturer la caisse' : 'Ouvrir la caisse'}
             </Button>
           </form>
+          ) : null}
         </Card>
 
         <Card className="overflow-hidden">
@@ -279,7 +286,7 @@ export function CaissePage() {
             <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <Coins className="h-4 w-4 text-brand-600" /> Mouvements de la session
             </h2>
-            {hasOpen ? (
+            {hasOpen && isOwner ? (
               <div className="flex gap-2">
                 <Button
                   tone="secondary"
@@ -312,7 +319,7 @@ export function CaissePage() {
             <div className="p-4">
               <EmptyState
                 icon={<Coins />}
-                message={hasOpen ? 'Aucun mouvement pour cette session.' : 'Ouvrez la caisse pour suivre les mouvements de la session.'}
+                message={hasOpen ? 'Aucun mouvement pour cette session.' : canToggle ? 'Ouvrez la caisse pour suivre les mouvements de la session.' : 'Aucune session de caisse ouverte.'}
               />
             </div>
           ) : (
@@ -347,7 +354,7 @@ export function CaissePage() {
                       </Td>
                       <Td>
                         {/* Sale, refund and expense movements are immutable. */}
-                        {m.source === 'MANUAL' ? (
+                        {m.source === 'MANUAL' && isOwner ? (
                           <div className="flex justify-end gap-1">
                             <button
                               type="button"

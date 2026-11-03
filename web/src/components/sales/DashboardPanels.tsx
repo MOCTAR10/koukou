@@ -41,6 +41,8 @@ import { BarChart } from '../Charts';
 import { Card, IconTile, PhotoThumb, type IconTone } from '../ui';
 import { EGG_IMAGES } from '../../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct } from '../../lib/format';
+import { MetricInfoButtons } from './MetricInfoModal';
+import { batchPhoto } from './pos';
 import { AlertLevelBadge, FilterChip } from './shared';
 
 const ACTION_ICON: Record<NextActionCategory, LucideIcon> = {
@@ -143,15 +145,18 @@ export function ActionQueue({ advisory, error }: { advisory: AdvisoryNextActions
   );
 }
 
-function Tile({ label, value, sub, tone, icon: Icon }: { label: string; value: string; sub?: string; tone?: string; icon?: LucideIcon }) {
+function Tile({ label, value, sub, tone, icon: Icon, photo }: { label: string; value: string; sub?: string; tone?: string; icon?: LucideIcon; photo?: string | null }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3">
-      <p className="flex items-center gap-1.5 text-xs text-slate-500">
-        {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-brand-600" /> : null}
-        {label}
-      </p>
-      <p className={classNames('text-lg font-bold tabular-nums', tone ?? 'text-slate-900')}>{value}</p>
-      {sub ? <p className="text-xs text-slate-500">{sub}</p> : null}
+    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+      {photo ? <PhotoThumb src={photo} size="lg" /> : null}
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-xs text-slate-500">
+          {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 text-brand-600" /> : null}
+          {label}
+        </p>
+        <p className={classNames('text-lg font-bold tabular-nums', tone ?? 'text-slate-900')}>{value}</p>
+        {sub ? <p className="text-xs text-slate-500">{sub}</p> : null}
+      </div>
     </div>
   );
 }
@@ -177,6 +182,7 @@ export function PerformanceTiles({ batches }: { batches: PosBatch[] }) {
     <Card className="p-4">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
         <Activity className="h-4 w-4 text-brand-600" /> Performance moyenne des lots
+        <MetricInfoButtons />
       </h2>
       <div className="grid grid-cols-3 gap-3">
         <Tile
@@ -226,12 +232,16 @@ export function OwnerStats({
   slaughter,
   pnl,
   clients,
+  showFinance,
+  showClients,
 }: {
   dash: OwnerDashboard;
   batches: PosBatch[];
   slaughter: CarcassPool[];
   pnl: OverviewPnl | undefined;
   clients: CustomerSummary | undefined;
+  showFinance: boolean;
+  showClients: boolean;
 }) {
   const active = batches.filter((b) => b.status !== 'CLOTURE');
   const avgAge = active.length ? Math.round(active.reduce((s, b) => s + b.metrics.ageDays, 0) / active.length) : null;
@@ -295,12 +305,15 @@ export function OwnerStats({
             sub={avgYield != null ? `Rendement ${num(avgYield)} %` : 'Sans rendement'}
           />
         </StatGroup>
+        {showFinance ? (
         <StatGroup title="Finances (30 jours)" icon={Banknote} iconCls="text-emerald-700">
           <Tile label="Ventes" value={pnl ? fcfa(pnl.sales.totalFcfa) : '—'} />
           <Tile label="Charges" value={pnl ? fcfa(pnl.expenses.totalFcfa) : '—'} />
           <Tile label="Résultat net" value={pnl ? fcfa(pnl.netFcfa) : '—'} tone={pnl && pnl.netFcfa < 0 ? 'text-red-600' : 'text-emerald-600'} />
           <Tile label="Créances" value={pnl ? fcfa(pnl.outstandingFcfa) : '—'} tone={pnl && pnl.outstandingFcfa > 0 ? 'text-amber-600' : undefined} />
         </StatGroup>
+        ) : null}
+        {showClients ? (
         <StatGroup title="Clients" icon={Users} iconCls="text-accent-600">
           <Tile label="Portefeuille" value={clients ? num(clients.total) : '—'} sub={clients ? `${num(clients.debtors)} débiteur(s)` : undefined} />
           <Tile
@@ -309,6 +322,7 @@ export function OwnerStats({
             sub={clients ? `sur ${fcfa(clients.totalInvoicedFcfa)} facturés` : undefined}
           />
         </StatGroup>
+        ) : null}
       </div>
     </Card>
   );
@@ -383,7 +397,8 @@ export function EggStockPanel({
 }
 
 /** Best lot and the breed closest to its reference curve. */
-export function Ranking({ dash, typeLabel }: { dash: OwnerDashboard; typeLabel: (t: DashboardData['leaderboard'][number]['type']) => string }) {
+export function Ranking({ dash, batches, typeLabel }: { dash: OwnerDashboard; batches: PosBatch[]; typeLabel: (t: DashboardData['leaderboard'][number]['type']) => string }) {
+  const lotOf = (batchId: string) => batches.find((b) => b.id === batchId);
   const top = dash.leaderboard[0] ?? null;
   const deviation = (h: OwnerDashboard['healthOverview'][number]) =>
     Math.abs(h.breedStatus?.fcrDeviationPct ?? h.breedStatus?.layRateDeviationPct ?? 999);
@@ -401,6 +416,7 @@ export function Ranking({ dash, typeLabel }: { dash: OwnerDashboard; typeLabel: 
           <Tile
             label="Meilleur lot"
             icon={Medal}
+            photo={batchPhoto(lotOf(top.batchId))}
             value={top.batchName ?? 'Lot'}
             sub={`${typeLabel(top.type)} · IC ${top.fcr != null ? num(top.fcr, 2) : '—'} · ${num(top.liveCount)} vivants`}
           />
@@ -409,6 +425,7 @@ export function Ranking({ dash, typeLabel }: { dash: OwnerDashboard; typeLabel: 
           <Tile
             label="Souche la plus proche de sa référence"
             icon={BarChart3}
+            photo={batchPhoto({ breedName: best.breedStatus.breedName, species: lotOf(best.batchId)?.species })}
             value={best.breedStatus.breedName}
             sub={`${best.batchName ?? 'Lot'} · semaine ${num(best.breedStatus.week)}${
               best.breedStatus.fcrDeviationPct != null

@@ -67,7 +67,7 @@ export function IconTile({
   );
 }
 
-/** Round photo of a breed, species or egg. Decorative: the name sits next to it. */
+/** Whole photo of a breed, species or egg, never cropped. Decorative: the name sits next to it. */
 export function PhotoThumb({
   src,
   size = 'md',
@@ -84,7 +84,7 @@ export function PhotoThumb({
       src={src}
       alt=""
       loading="lazy"
-      className={classNames('shrink-0 rounded-xl object-cover ring-1 ring-slate-200', box, className)}
+      className={classNames('shrink-0 rounded-xl bg-white object-contain ring-1 ring-slate-200', box, className)}
     />
   );
 }
@@ -121,12 +121,20 @@ export function StatCard({
   value,
   hint,
   icon,
+  image,
+  onClick,
+  actionLabel,
   tone = 'default',
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   icon?: ReactNode;
+  /** Photo tile, larger than an icon: the value then gets its own full-width line. */
+  image?: string | null;
+  onClick?: () => void;
+  /** Accessible name of the card when it is clickable. */
+  actionLabel?: string;
   tone?: 'default' | 'good' | 'bad' | 'warn' | 'accent';
 }) {
   const tones: Record<string, string> = {
@@ -143,21 +151,41 @@ export function StatCard({
     warn: 'amber',
     accent: 'accent',
   };
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            {label}
-          </p>
-          <p className={classNames('mt-1 truncate text-2xl font-bold tracking-tight tabular-nums', tones[tone])}>
-            {value}
-          </p>
-          {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+  const labelEl = <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>;
+  const details = (
+    <>
+      <p className={classNames('mt-1 truncate text-2xl font-bold tracking-tight tabular-nums', tones[tone])}>
+        {value}
+      </p>
+      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+    </>
+  );
+  const card = (
+    <Card className={classNames('h-full p-4', onClick && 'transition hover:border-slate-300 hover:shadow-md')}>
+      {image ? (
+        <>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">{labelEl}</div>
+            <PhotoThumb src={image} size="lg" />
+          </div>
+          {details}
+        </>
+      ) : (
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {labelEl}
+            {details}
+          </div>
+          {icon ? <IconTile icon={icon} tone={iconTones[tone]} /> : null}
         </div>
-        {icon ? <IconTile icon={icon} tone={iconTones[tone]} /> : null}
-      </div>
+      )}
     </Card>
+  );
+  if (!onClick) return card;
+  return (
+    <button type="button" onClick={onClick} aria-label={actionLabel} className="block h-full w-full rounded-2xl text-left">
+      {card}
+    </button>
   );
 }
 

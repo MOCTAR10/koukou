@@ -5,6 +5,8 @@ import { api } from '../api/client';
 import type { BatchWithMetrics } from '../api/types';
 import type { AssignableMember, FarmMember, FarmTask, TaskStatus } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote, todayIso } from '../components/form';
 import { ConfirmModal, invalidateFarm, TaskStatusBadge } from '../components/org/shared';
 import { TaskFormModal } from '../components/org/TaskFormModal';
@@ -39,6 +41,9 @@ function dueLabel(task: FarmTask): { text: string; cls: string } | null {
 
 export function TasksPage() {
   const { farmId } = useFarm();
+  const { user } = useAuth();
+  const { hasPermission } = useFarmProfile();
+  const canManage = hasPermission('equipe:taches');
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>('OPEN');
   const [form, setForm] = useState<{ task: FarmTask | null } | null>(null);
@@ -53,13 +58,13 @@ export function TasksPage() {
   const assignable = useQuery({
     queryKey: ['assignable-team', farmId],
     queryFn: () => api.get<AssignableMember[]>(`/farms/${farmId}/team`),
-    enabled: !!farmId,
+    enabled: !!farmId && canManage,
   });
   // The full list too: a suspended assignee is no longer in the assignable team.
   const members = useQuery({
     queryKey: ['eleveurs', farmId],
     queryFn: () => api.get<FarmMember[]>(`/farms/${farmId}/eleveurs`),
-    enabled: !!farmId,
+    enabled: !!farmId && hasPermission('equipe:gerer', 'rh:lire'),
   });
   const batches = useQuery({
     queryKey: ['batches', farmId],
@@ -91,7 +96,11 @@ export function TasksPage() {
   };
   const rows = list.filter((t) => (filter === 'OPEN' ? isOpen(t) : filter === 'DONE' ? t.status === 'FAIT' : true));
 
-  const memberName = (id: string | null) => (id ? members.data?.find((m) => m.userId === id)?.user.fullName : null);
+  const memberName = (id: string | null) => {
+    if (!id) return null;
+    if (id === user?.id) return user.fullName;
+    return members.data?.find((m) => m.userId === id)?.user.fullName ?? assignable.data?.find((m) => m.userId === id)?.fullName ?? null;
+  };
   const batchName = (id: string | null) => (id ? (batches.data?.find((b) => b.id === id)?.batchName ?? 'Lot') : null);
 
   return (
@@ -101,9 +110,11 @@ export function TasksPage() {
         icon={<ListTodo className="h-6 w-6" />}
         subtitle={`${counts.OPEN} à traiter · ${counts.DONE} terminée${counts.DONE > 1 ? 's' : ''}`}
         actions={
-          <Button onClick={() => setForm({ task: null })} disabled={!farmId}>
-            <Plus className="h-4 w-4" /> Nouvelle tâche
-          </Button>
+          canManage ? (
+            <Button onClick={() => setForm({ task: null })} disabled={!farmId}>
+              <Plus className="h-4 w-4" /> Nouvelle tâche
+            </Button>
+          ) : undefined
         }
       />
 
@@ -153,7 +164,8 @@ export function TasksPage() {
               <tbody>
                 {rows.map((t) => {
                   const due = dueLabel(t);
-                  const next = NEXT_ACTION[t.status];
+                  // Without equipe:taches the server only lets you move your own task forward.
+                  const next = canManage || (t.assigneeId === user?.id && t.status !== 'FAIT') ? NEXT_ACTION[t.status] : undefined;
                   const rowBusy = setStatus.isPending && setStatus.variables?.task.id === t.id && !cancelling;
                   return (
                     <tr key={t.id} className="border-t border-slate-100 align-top">
@@ -183,10 +195,12 @@ export function TasksPage() {
                               {next.label}
                             </Button>
                           ) : null}
-                          <IconButton label="Modifier" onClick={() => setForm({ task: t })}>
-                            <Pencil className="h-4 w-4" />
-                          </IconButton>
-                          {t.status === 'ANNULEE' ? (
+                          {canManage ? (
+                            <IconButton label="Modifier" onClick={() => setForm({ task: t })}>
+                              <Pencil className="h-4 w-4" />
+                            </IconButton>
+                          ) : null}
+                          {!canManage ? null : t.status === 'ANNULEE' ? (
                             <IconButton
                               label="Supprimer la tâche"
                               danger

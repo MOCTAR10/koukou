@@ -9,6 +9,8 @@ interface FarmContextValue {
   farmId: string | null;
   farm: Farm | null;
   setFarm: (id: string) => void;
+  /** The farm list hasn't answered yet: farmId may still be about to change. */
+  farmsLoading: boolean;
 }
 
 const FarmContext = createContext<FarmContextValue | null>(null);
@@ -21,7 +23,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     localStorage.getItem(STORAGE_KEY),
   );
 
-  const { data: farms = [] } = useQuery({
+  const { data: farms = [], isLoading: farmsLoading } = useQuery({
     queryKey: ['farms'],
     queryFn: () => api.get<Farm[]>('/farms'),
     enabled: !!user,
@@ -44,8 +46,9 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
         setFarmId(id);
         localStorage.setItem(STORAGE_KEY, id);
       },
+      farmsLoading,
     }),
-    [farms, farmId],
+    [farms, farmId, farmsLoading],
   );
 
   return <FarmContext.Provider value={value}>{children}</FarmContext.Provider>;

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { FarmMember } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { ErrorNote } from '../components/form';
 import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL } from '../components/org/shared';
 import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
@@ -11,6 +12,7 @@ import { dateFr, fcfa } from '../lib/format';
 
 export function HrPage() {
   const { farmId, farm } = useFarm();
+  const { hasPermission } = useFarmProfile();
 
   const members = useQuery({
     queryKey: ['eleveurs', farmId],
@@ -29,12 +31,14 @@ export function HrPage() {
         icon={<Briefcase className="h-6 w-6" />}
         subtitle={farm?.name}
         actions={
-          <Link
-            to="/app/team"
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            <PencilLine className="h-4 w-4" /> Gérer les dossiers dans Équipe
-          </Link>
+          hasPermission('equipe:gerer') ? (
+            <Link
+              to="/app/team"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              <PencilLine className="h-4 w-4" /> Gérer les dossiers dans Équipe
+            </Link>
+          ) : undefined
         }
       />
 

@@ -74,6 +74,7 @@ export interface OverviewPnl {
   breakdown: {
     byProduct: BreakdownProduct[];
     byExpenseCategory: BreakdownExpense[];
+    byPaymentMethod?: { method: string; label: string; amountFcfa: number }[];
   };
 }
 

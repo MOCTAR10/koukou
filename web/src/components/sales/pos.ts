@@ -1,8 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client';
 import type { CashSession } from '../../api/types';
 import type {
-  CaisseSummary,
   PointOfSaleKind,
   PromotionFull,
   StockTransfer,
@@ -181,18 +179,6 @@ export function formatEggAlveoles(eggCount: number): string {
 
 export function lastClosingOf(sessions: CashSession[] | undefined): number | null {
   return sessions?.find((s) => s.closingBalanceFcfa != null)?.closingBalanceFcfa ?? null;
-}
-
-/**
- * Opens the caisse if none is open, as mobile does before collecting cash. It
- * starts from the last declared closing, never 0: the server books only the
- * change from it, so 0 would post the whole float as a withdrawal.
- */
-export async function ensureCashOpen(farmId: string): Promise<void> {
-  const current = await api.get<CaisseSummary | null>(`/farms/${farmId}/caisse/current`);
-  if (current) return;
-  const sessions = await api.get<CashSession[]>(`/farms/${farmId}/caisse/sessions`);
-  await api.post(`/farms/${farmId}/caisse/open`, { openingBalanceFcfa: lastClosingOf(sessions) ?? 0 });
 }
 
 /** A sale or a payment moves the stock, the cash, the balances and the overview. */

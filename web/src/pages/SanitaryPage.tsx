@@ -38,6 +38,7 @@ import type {
   TreatmentRecord,
 } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { BarChart } from '../components/Charts';
 import { ConfirmModal, EditScheduleModal, HealthEventModal, PlanCareModal } from '../components/flock/SanitaryModals';
 import {
@@ -77,6 +78,8 @@ const STATUS_RANK: Record<string, number> = { EN_RETARD: 0, PLANIFIE: 1, FAIT: 2
 
 export function SanitaryPage() {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
   const [params, setParams] = useSearchParams();
   const lots = useLots();
   const active = useMemo(() => (lots.data ?? []).filter((b) => b.status === 'ACTIF' || b.status === 'EN_VENTE'), [lots.data]);
@@ -115,14 +118,16 @@ export function SanitaryPage() {
         icon={<ScrollText />}
         subtitle="Santé des lots, soins et traitements"
         actions={
-          <div className="flex gap-2">
-            <Button tone="secondary" disabled={!lot} onClick={() => setReporting(true)}>
-              <Plus className="h-4 w-4" /> Signaler un événement
-            </Button>
-            <Button disabled={active.length === 0} onClick={() => setPlanning(true)}>
-              <Syringe className="h-4 w-4" /> Planifier un soin
-            </Button>
-          </div>
+          canReport ? (
+            <div className="flex gap-2">
+              <Button tone="secondary" disabled={!lot} onClick={() => setReporting(true)}>
+                <Plus className="h-4 w-4" /> Signaler un événement
+              </Button>
+              <Button disabled={active.length === 0} onClick={() => setPlanning(true)}>
+                <Syringe className="h-4 w-4" /> Planifier un soin
+              </Button>
+            </div>
+          ) : undefined
         }
       />
       <ErrorNote error={lots.error} />
@@ -163,8 +168,8 @@ export function SanitaryPage() {
           {tab === 'traitements' ? <TreatmentsPanel lot={lot} period={period} /> : null}
         </>
       )}
-      {planning ? <PlanCareModal lots={active} initialLotId={lot?.id} onClose={() => setPlanning(false)} /> : null}
-      {reporting && lot ? <HealthEventModal lot={lot} onClose={() => setReporting(false)} /> : null}
+      {planning && canReport ? <PlanCareModal lots={active} initialLotId={lot?.id} onClose={() => setPlanning(false)} /> : null}
+      {reporting && lot && canReport ? <HealthEventModal lot={lot} onClose={() => setReporting(false)} /> : null}
     </div>
   );
 }
@@ -276,6 +281,8 @@ function CheckPanel({ health, loading }: { health: BatchHealth | undefined; load
 
 function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: () => void }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canManage = hasPermission('sanitaire:gerer');
   const invalidate = useInvalidateFarm();
   const action = useAsyncAction();
   const [toDelete, setToDelete] = useState<HealthEvent | null>(null);
@@ -293,9 +300,11 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
       icon={<Stethoscope />}
       flush
       actions={
-        <Button tone="secondary" onClick={onAdd}>
-          <Plus className="h-4 w-4" /> Signaler
-        </Button>
+        hasPermission('sanitaire:gerer', 'sanitaire:signaler') ? (
+          <Button tone="secondary" onClick={onAdd}>
+            <Plus className="h-4 w-4" /> Signaler
+          </Button>
+        ) : undefined
       }
     >
       <ErrorNote error={events.error ?? action.error} />
@@ -342,7 +351,7 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
                     <Pill tone={e.status === 'RESOLU' ? 'emerald' : 'amber'}>{e.status === 'RESOLU' ? 'Résolu' : 'En cours'}</Pill>
                   </Td>
                   <Td className="whitespace-nowrap text-right">
-                    {e.status !== 'RESOLU' ? (
+                    {e.status !== 'RESOLU' && canManage ? (
                       <Button
                         tone="secondary"
                         className="mr-1"
@@ -357,9 +366,11 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
                         <Check className="h-4 w-4" /> Résoudre
                       </Button>
                     ) : null}
-                    <Button tone="secondary" onClick={() => setToDelete(e)}>
-                      <Trash2 className="h-4 w-4" /> Supprimer
-                    </Button>
+                    {canManage ? (
+                      <Button tone="secondary" onClick={() => setToDelete(e)}>
+                        <Trash2 className="h-4 w-4" /> Supprimer
+                      </Button>
+                    ) : null}
                   </Td>
                 </tr>
               ))}
@@ -409,6 +420,9 @@ function CalendarPanel({
   onPlan: () => void;
 }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canManage = hasPermission('sanitaire:gerer');
+  const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
   const invalidate = useInvalidateFarm();
   const action = useAsyncAction();
   const [editing, setEditing] = useState<ProphylaxisEvent | null>(null);
@@ -449,20 +463,26 @@ function CalendarPanel({
       flush
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <select className={`${inputCls} !w-56`} aria-label="Protocole" value={protocolId} onChange={(e) => setProtocolId(e.target.value)}>
-            <option value="">Protocole par défaut</option>
-            {(protocols.data ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <Button tone="secondary" busy={generate.isPending} onClick={() => generate.mutate()}>
-            <ShieldPlus className="h-4 w-4" /> Générer le calendrier
-          </Button>
-          <Button onClick={onPlan}>
-            <Syringe className="h-4 w-4" /> Planifier
-          </Button>
+          {canManage ? (
+            <>
+              <select className={`${inputCls} !w-56`} aria-label="Protocole" value={protocolId} onChange={(e) => setProtocolId(e.target.value)}>
+                <option value="">Protocole par défaut</option>
+                {(protocols.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <Button tone="secondary" busy={generate.isPending} onClick={() => generate.mutate()}>
+                <ShieldPlus className="h-4 w-4" /> Générer le calendrier
+              </Button>
+            </>
+          ) : null}
+          {canReport ? (
+            <Button onClick={onPlan}>
+              <Syringe className="h-4 w-4" /> Planifier
+            </Button>
+          ) : null}
         </div>
       }
     >
@@ -515,14 +535,18 @@ function CalendarPanel({
                     <Td className="whitespace-nowrap text-right">
                       {open ? (
                         <div className="flex justify-end gap-1">
-                          <Button
-                            busy={action.busy === `c-${e.id}`}
-                            onClick={() =>
-                              run(`c-${e.id}`, () => api.post(`${base}/prophylaxis/${e.id}/complete`, { completedAt: utcYmd() }))
-                            }
-                          >
-                            <Check className="h-4 w-4" /> Fait
-                          </Button>
+                          {canReport ? (
+                            <Button
+                              busy={action.busy === `c-${e.id}`}
+                              onClick={() =>
+                                run(`c-${e.id}`, () => api.post(`${base}/prophylaxis/${e.id}/complete`, { completedAt: utcYmd() }))
+                              }
+                            >
+                              <Check className="h-4 w-4" /> Fait
+                            </Button>
+                          ) : null}
+                          {canManage ? (
+                            <>
                           <Button
                             tone="secondary"
                             busy={action.busy === `p-${e.id}`}
@@ -543,6 +567,8 @@ function CalendarPanel({
                           <Button tone="secondary" onClick={() => setConfirm({ kind: 'delete', event: e })}>
                             <Trash2 className="h-4 w-4" /> Supprimer
                           </Button>
+                            </>
+                          ) : null}
                         </div>
                       ) : null}
                     </Td>
@@ -586,6 +612,8 @@ function CalendarPanel({
 
 function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canRecord = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
   const invalidate = useInvalidateFarm();
   const [careFilter, setCareFilter] = useState<'all' | CareType>('all');
   const [careType, setCareType] = useState<CareType>('ANTIBIOTIQUE');
@@ -633,7 +661,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <div className="lg:col-span-2">
+      <div className={canRecord ? 'lg:col-span-2' : 'lg:col-span-3'}>
         <SectionCard
           title="Historique des traitements"
           icon={<History />}
@@ -704,6 +732,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
           )}
         </SectionCard>
       </div>
+      {canRecord ? (
       <SectionCard title="Enregistrer un traitement" icon={<Syringe />}>
         <form onSubmit={submit} className="space-y-3">
           <Field label="Type de soin">
@@ -741,6 +770,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
           </Button>
         </form>
       </SectionCard>
+      ) : null}
     </div>
   );
 }

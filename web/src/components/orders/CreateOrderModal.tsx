@@ -10,7 +10,7 @@ import { fcfa, num } from '../../lib/format';
 import { normalizeGabonPhone } from '../../lib/phone';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import { PhotoThumb } from '../ui';
-import { ensureCashOpen } from '../sales/pos';
+import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { geocodeGabonAddress } from './geo';
 import {
   DEFAULT_AVG_WEIGHT_KG,
@@ -286,13 +286,24 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
         items: items.map(({ amountFcfa: _amount, ...item }) => item),
         ...(deposit > 0 ? { deposit: { amountFcfa: deposit } } : {}),
       };
-      // A deposit is cash: same automatic opening as a sale, and as the mobile app.
-      if (deposit > 0) await ensureCashOpen(farmId!);
-      return api.post<Order>(`/farms/${farmId}/orders`, body);
+      return sendOrQueue<Order>({
+        kind: 'order-create',
+        farmId: farmId!,
+        path: `/farms/${farmId}/orders`,
+        body,
+        label: `Commande · ${fcfa(total)}`,
+        cashFcfa: deposit,
+      });
     },
-    onSuccess: (order) => {
+    onSuccess: (res) => {
+      if (res.status === 'queued') {
+        // No order to open yet: the server gives it its id and reference.
+        showQueuedNotice();
+        onClose();
+        return;
+      }
       invalidateOrderQueries(queryClient, farmId);
-      onCreated(order.id);
+      onCreated(res.data.id);
     },
   });
 
