@@ -19,12 +19,24 @@ export interface RegisterInput {
   code: string;
 }
 
+export interface RegisterBuyerInput {
+  fullName: string;
+  phone: string;
+  code: string;
+  type: string;
+  organizationName?: string;
+  city?: string;
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
   isAdmin: boolean;
   isOwnerOrAdmin: boolean;
-  login: (phone: string, code: string) => Promise<void>;
+  /** `to`: where to go once signed in, by default the account's home. */
+  login: (phone: string, code: string, to?: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
+  registerBuyer: (input: RegisterBuyerInput, to?: string) => Promise<void>;
+  becomeFarmer: (input: { farmName?: string; farmCity?: string }) => Promise<void>;
   logout: () => void;
 }
 
@@ -44,20 +56,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const value = useMemo<AuthContextValue>(() => {
-    const startSession = (res: LoginResult) => {
+    const startSession = (res: LoginResult, to = '/app') => {
       // Never show the previous account's cached data.
       queryClient.clear();
       if (getStoredUser()?.id !== res.user.id) void clearReadCache();
       setSession(res.accessToken, res.user);
       setUser(res.user);
-      navigate('/app');
+      navigate(to);
     };
     return {
       user,
       isAdmin: user?.role === 'PLATFORM_ADMIN',
       isOwnerOrAdmin:
         user?.role === 'PROPRIETAIRE' || user?.role === 'PLATFORM_ADMIN',
-      login: async (phone: string, code: string) => {
+      login: async (phone: string, code: string, to?: string) => {
         // Mobile accounts are stored as 0XXXXXXXX; the seeded platform admin
         // may be stored as typed, in international form.
         const normalized = normalizeGabonPhone(phone);
@@ -68,10 +80,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!(err instanceof ApiError) || err.status !== 401 || !phone.startsWith('+')) throw err;
           res = await api.post<LoginResult>('/auth/login', { phone, code });
         }
-        startSession(res);
+        startSession(res, to);
       },
       register: async (input: RegisterInput) => {
         startSession(await api.post<LoginResult>('/auth/register', input));
+      },
+      registerBuyer: async (input: RegisterBuyerInput, to = '/marche') => {
+        startSession(await api.post<LoginResult>('/auth/register-buyer', input), to);
+      },
+      becomeFarmer: async (input) => {
+        // The answer carries a token with the new role.
+        startSession(await api.post<LoginResult>('/auth/become-farmer', input));
       },
       logout: () => {
         const pending = loadOps().length;

@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldCheck,
   Sprout,
+  Store,
   Stethoscope,
   UserCog,
   UserPlus,
@@ -44,6 +45,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   stock: Wheat,
   sanitaire: Stethoscope,
   reglages: Settings,
+  market: Store,
 };
 
 /** Not offered by the server: Administrator role with hand-picked rights. */

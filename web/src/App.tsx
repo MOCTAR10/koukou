@@ -1,10 +1,12 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FarmProvider } from './app/FarmContext';
 import { useFarmProfile } from './app/useFarmProfile';
-import { RequiresAuth, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
+import { RequiresAuth, RequiresFarmAccount, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { RegisterPage } from './auth/RegisterPage';
+import { BuyerRegisterPage } from './auth/BuyerRegisterPage';
+import { MarketLayout } from './components/market/MarketLayout';
 import { Shell } from './components/Shell';
 import { Loading } from './components/ui';
 import { DashboardPage } from './pages/DashboardPage';
@@ -32,6 +34,11 @@ import { ActivitiesPage } from './pages/ActivitiesPage';
 import { ParcelsPage } from './pages/ParcelsPage';
 import { HarvestsPage } from './pages/HarvestsPage';
 import { HelpPage } from './pages/HelpPage';
+import { MarketCataloguePage } from './pages/MarketCataloguePage';
+import { MarketListingPage } from './pages/MarketListingPage';
+import { MarketFarmPage } from './pages/MarketFarmPage';
+import { BuyerAccountPage } from './pages/BuyerAccountPage';
+import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
 
 function HomeRedirect() {
   const { user } = useAuth();
@@ -48,7 +55,18 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/" element={<Navigate to="/app" replace />} />
+      <Route path="/marche" element={<MarketLayout />}>
+        <Route index element={<MarketCataloguePage />} />
+        <Route path="inscription" element={<BuyerRegisterPage />} />
+        <Route element={<RequiresAuth />}>
+          <Route path="commandes" element={<BuyerOrdersPage />} />
+          <Route path="commandes/:id" element={<BuyerOrderPage />} />
+          <Route path="compte" element={<BuyerAccountPage />} />
+        </Route>
+        <Route path=":id" element={<MarketListingPage />} />
+      </Route>
       <Route element={<RequiresAuth />}>
+        <Route element={<RequiresFarmAccount />}>
         <Route
           path="/app"
           element={
@@ -73,6 +91,7 @@ export function App() {
           <Route path="team" element={<RequiresPermission any={['equipe:gerer']}><TeamPage /></RequiresPermission>} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="orders" element={<RequiresPermission any={['vente:commande', 'vente:creer']}><OrdersPage /></RequiresPermission>} />
+          <Route path="market" element={<RequiresPermission any={['market:publier', 'vente:commande']}><MarketFarmPage /></RequiresPermission>} />
           <Route path="points-of-sale" element={<RequiresPermission any={['pdv:gerer']}><PointsOfSalePage /></RequiresPermission>} />
           <Route path="expenses" element={<RequiresPermission any={['compta:depense']}><ExpensesPage /></RequiresPermission>} />
           <Route path="accounting" element={<RequiresPermission any={['compta:rapports']}><AccountingPage /></RequiresPermission>} />
@@ -86,6 +105,7 @@ export function App() {
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>
+        </Route>
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/app" replace />} />

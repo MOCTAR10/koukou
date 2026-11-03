@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Lock, User } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useAuth } from './AuthContext';
@@ -11,6 +11,7 @@ import { EASE, durations } from '../lib/motion';
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const from = (useLocation().state as { from?: string } | null)?.from;
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +20,8 @@ export function LoginPage() {
 
   useEffect(() => {
     const u = getStoredUser();
-    if (u) navigate('/app');
-  }, [navigate]);
+    if (u) navigate(from ?? '/app');
+  }, [navigate, from]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +29,7 @@ export function LoginPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await login(phone.trim(), code);
+      await login(phone.trim(), code, from);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -111,6 +112,12 @@ export function LoginPage() {
           Pas encore de compte ?{' '}
           <Link to="/register" className="font-semibold text-brand-600 hover:text-brand-700">
             Créer mon compte
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-sm text-slate-500">
+          Vous voulez acheter ?{' '}
+          <Link to="/marche" className="font-semibold text-brand-600 hover:text-brand-700">
+            Voir le marché
           </Link>
         </p>
       </motion.div>
