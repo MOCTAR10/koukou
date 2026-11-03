@@ -6,7 +6,7 @@ import type { Customer } from '../api/types';
 import type { CustomerFull, CustomerSummary } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { Button, ErrorNote, inputCls } from '../components/form';
-import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
 import { CollectModal, CreateCustomerModal, CustomerDetail } from '../components/sales/CustomerPanels';
 import { CUSTOMER_TYPE_LABEL, CUSTOMER_TYPES, SEGMENT_LABEL } from '../components/sales/labels';
 import { FilterChip } from '../components/sales/shared';
@@ -185,17 +185,16 @@ export function CustomersPage() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Client</Th>
-                  <Th>Code</Th>
+                  <Th className="hidden lg:table-cell">Code</Th>
                   <Th>Contact</Th>
                   <Th>Type</Th>
-                  <Th>Segment</Th>
+                  <Th className="hidden lg:table-cell">Segment</Th>
                   <Th className="text-right">Dû</Th>
-                  <Th>Inscrit le</Th>
+                  <Th className="hidden xl:table-cell">Inscrit le</Th>
                   <Th></Th>
                 </tr>
               </thead>
@@ -212,11 +211,11 @@ export function CustomersPage() {
                           </button>
                         </span>
                       </Td>
-                      <Td>
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">{c.code ?? '—'}</span>
+                      <Td label="Code" className="md:max-lg:hidden">
+                        <span className="whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600">{c.code ?? '—'}</span>
                       </Td>
-                      <Td>{[c.phone, c.city].filter(Boolean).join(' · ') || '—'}</Td>
-                      <Td>
+                      <Td label="Contact">{[c.phone, c.city].filter(Boolean).join(' · ') || '—'}</Td>
+                      <Td label="Type">
                         <select
                           aria-label={`Type de ${c.fullName}`}
                           value={c.type}
@@ -232,12 +231,12 @@ export function CustomersPage() {
                           ))}
                         </select>
                       </Td>
-                      <Td>
+                      <Td label="Segment" className="md:max-lg:hidden">
                         <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
                           {SEGMENT_LABEL[c.segment] ?? '—'}
                         </span>
                       </Td>
-                      <Td className="whitespace-nowrap text-right tabular-nums">
+                      <Td label="Dû" className="whitespace-nowrap text-right tabular-nums">
                         {due > 0 ? (
                           <span className="font-medium text-red-600">{fcfa(due)}</span>
                         ) : (
@@ -246,7 +245,7 @@ export function CustomersPage() {
                           </span>
                         )}
                       </Td>
-                      <Td className="whitespace-nowrap">{dateFr(c.createdAt)}</Td>
+                      <Td label="Inscrit le" className="whitespace-nowrap md:max-xl:hidden">{dateFr(c.createdAt)}</Td>
                       <Td className="text-right">
                         {due > 0 ? (
                           <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setCollect({ customer: c })}>
@@ -258,8 +257,7 @@ export function CustomersPage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+          </DataTable>
         )}
       </Card>
 

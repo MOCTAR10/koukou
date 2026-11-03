@@ -135,6 +135,74 @@ select.select-on-dark {
   }
 }
 
+/* The dialog takes the focus to hand it to its fields, it has no ring of its own. */
+[role='dialog']:focus-visible {
+  outline: none;
+}
+
+/* Header stays in view while a long table scrolls in its frame. */
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--color-slate-50);
+}
+
+/* On a phone, each row becomes a block of label and value, not a table to scroll sideways. */
+@media (max-width: 767.98px) {
+  .data-table thead {
+    display: none;
+  }
+  .data-table,
+  .data-table tbody,
+  .data-table tr {
+    display: block;
+  }
+  .data-table tr {
+    padding: 0.75rem 1rem;
+  }
+  .data-table tbody tr:first-child {
+    border-top: 0;
+  }
+  .data-table td {
+    display: block;
+    padding: 0.25rem 0;
+    text-align: left;
+  }
+  .data-table td[data-label] {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    text-align: right;
+    white-space: normal;
+  }
+  .data-table td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--color-slate-500);
+  }
+  .data-table td:empty,
+  .data-table td.row-chevron {
+    display: none;
+  }
+}
+
+/* A side panel slides in. No fill mode: a lasting transform would trap the dialogs opened from inside it. */
+@media (prefers-reduced-motion: no-preference) {
+  .side-panel {
+    animation: side-panel-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes side-panel-in {
+  from {
+    transform: translateX(2.5rem);
+    opacity: 0;
+  }
+}
+
 /* Figures line up in tables and stat tiles. */
 td,
 .tabular-nums {

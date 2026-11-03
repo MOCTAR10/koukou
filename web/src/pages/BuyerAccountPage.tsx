@@ -78,8 +78,9 @@ export function BuyerAccountPage() {
   });
 
   return (
-    <div className="mx-auto max-w-xl space-y-4">
+    <div>
       <PageHeader title="Mon compte" subtitle={user?.fullName} icon={<UserRound className="h-5 w-5" />} />
+      <div className="grid items-start gap-4 lg:grid-cols-2">
       <Card className="p-5">
         <h2 className="font-semibold text-slate-900">Mon profil d’acheteur</h2>
         <p className="mt-1 text-sm text-slate-500">La ferme voit ces informations avec vos demandes.</p>
@@ -120,6 +121,7 @@ export function BuyerAccountPage() {
         )}
       </Card>
       {user?.role === 'ACHETEUR' ? <BecomeFarmerCard /> : null}
+      </div>
     </div>
   );
 }

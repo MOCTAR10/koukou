@@ -260,7 +260,7 @@ export function CustomerDetail({
   const rate = invoiced > 0 ? Math.round(Math.min(1, paid / invoiced) * 100) : 0;
 
   return (
-    <Modal title={customer.fullName} onClose={onClose} wide>
+    <Modal title={customer.fullName} onClose={onClose} wide side>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500">

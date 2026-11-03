@@ -48,7 +48,7 @@ import {
   useLots,
 } from '../components/flock/shared';
 import { Button, ErrorNote, inputCls } from '../components/form';
-import { EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { EGG_IMAGES, lotImage } from '../lib/animalImages';
 import { dateFr, fcfa, num } from '../lib/format';
 
@@ -310,18 +310,18 @@ export function BatchesPage() {
               }
             />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full">
+            <Card className="overflow-hidden">
+              <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Lot</Th>
-                    <Th>Espèce et souche</Th>
-                    <Th>Bâtiment</Th>
+                    <Th className="hidden lg:table-cell">Espèce et souche</Th>
+                    <Th className="hidden xl:table-cell">Bâtiment</Th>
                     <Th>Âge</Th>
                     <Th>Vivants</Th>
                     <Th>Mortalité</Th>
                     <Th>IC</Th>
-                    <Th>Ponte</Th>
+                    <Th className="hidden lg:table-cell">Ponte</Th>
                     <Th>Étape</Th>
                     <Th>État</Th>
                   </tr>
@@ -346,20 +346,20 @@ export function BatchesPage() {
                             {lotName(b)}
                           </span>
                         </Td>
-                        <Td>
+                        <Td label="Espèce et souche" className="md:max-lg:hidden">
                           {kindLabel(b)}
                           <span className="block text-xs text-slate-500">{b.breedName ?? b.customBreed ?? '—'}</span>
                         </Td>
-                        <Td>{buildingName(b.buildingId)}</Td>
-                        <Td>J{b.metrics.ageDays}</Td>
-                        <Td>{num(b.metrics.liveCount)}</Td>
-                        <Td>{num(b.metrics.mortalityPercent)} %</Td>
-                        <Td>{b.metrics.fcr != null ? num(b.metrics.fcr, 2) : '—'}</Td>
-                        <Td>{b.metrics.layRatePercent != null && b.type === 'PONDEUSE' ? `${num(b.metrics.layRatePercent)} %` : '—'}</Td>
-                        <Td>
+                        <Td label="Bâtiment" className="md:max-xl:hidden">{buildingName(b.buildingId)}</Td>
+                        <Td label="Âge">J{b.metrics.ageDays}</Td>
+                        <Td label="Vivants">{num(b.metrics.liveCount)}</Td>
+                        <Td label="Mortalité">{num(b.metrics.mortalityPercent)} %</Td>
+                        <Td label="IC">{b.metrics.fcr != null ? num(b.metrics.fcr, 2) : '—'}</Td>
+                        <Td label="Ponte" className="md:max-lg:hidden">{b.metrics.layRatePercent != null && b.type === 'PONDEUSE' ? `${num(b.metrics.layRatePercent)} %` : '—'}</Td>
+                        <Td label="Étape">
                           <Pill tone={stage.tone}>{stage.label}</Pill>
                         </Td>
-                        <Td>
+                        <Td label="État">
                           {pill ? (
                             <Pill tone={pill.tone}>{pill.label}</Pill>
                           ) : b.status === 'CLOTURE' ? (
@@ -372,8 +372,8 @@ export function BatchesPage() {
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
+            </Card>
           )}
         </>
       )}
