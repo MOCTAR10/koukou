@@ -121,6 +121,17 @@ describe('Market : annonces et catalogue public (e2e)', () => {
       await request(server).get(`/market/listings/${id}`).expect(404);
     });
 
+    it('donne à la ferme l’espèce et la souche de ses annonces', async () => {
+      const batchId = await newBatch({ species: 'AUTRE', customSpecies: 'Canard', customBreed: 'Coureur indien' });
+      const created = await request(server).post(base()).set(auth()).send(preDraft({ batchId })).expect(201);
+      const expected = { species: 'AUTRE', customSpecies: 'Canard', breedName: 'Coureur indien' };
+
+      const read = await request(server).get(`${base()}/${created.body.id}`).set(auth()).expect(200);
+      expect(read.body).toMatchObject(expected);
+      const list = await request(server).get(base()).set(auth()).expect(200);
+      expect(list.body.find((l: { id: string }) => l.id === created.body.id)).toMatchObject(expected);
+    });
+
     it.each([
       ['des œufs en précommande', { product: 'EGGS' }],
       ['une précommande sans date', { readyDate: undefined }],
