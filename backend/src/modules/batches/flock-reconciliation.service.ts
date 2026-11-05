@@ -12,6 +12,7 @@ import { HealthEvent } from '../sanitary/entities/health-event.entity.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
+import { RETRAIT_FAMILIES, Sortie } from '../bandes/entities/sortie.entity.js';
 
 /**
  * Reconcilie les sorties réelles d'un lot : ventes POULET (PIECE/KG, nettes des
@@ -31,33 +32,44 @@ export class FlockReconciliationService {
     private readonly slaughterRepo: Repository<SlaughterOrder>,
     @InjectRepository(HealthEvent)
     private readonly healthEventRepo: Repository<HealthEvent>,
+    @InjectRepository(Sortie)
+    private readonly sortieRepo: Repository<Sortie>,
   ) {}
 
   /**
    * Birds that left the lot per date (sales, slaughter, sanitary culls), with
    * the same rules as the net totals below. Daily-entry deaths are not
    * included (they live on the entries). Feeds per-day population figures.
+   * Pass `em` to read inside the caller's transaction.
    */
-  async removalsByDate(batchId: string): Promise<Map<string, number>> {
-    const [sold, slaughtered, sanitary] = await Promise.all([
-      this.soldQuery(batchId)
+  async removalsByDate(
+    batchId: string,
+    em?: EntityManager,
+  ): Promise<Map<string, number>> {
+    const [sold, slaughtered, sanitary, retraits] = await Promise.all([
+      this.soldQuery(batchId, em)
         .select("TO_CHAR(sale.sale_date, 'YYYY-MM-DD')", 'day')
         .addSelect('COALESCE(SUM(COALESCE(item.piece_count, 0)), 0)', 'total')
         .groupBy('sale.sale_date')
         .getRawMany<{ day: string; total: string }>(),
-      this.slaughterQuery(batchId)
+      this.slaughterQuery(batchId, em)
         .select("TO_CHAR(order.planned_date, 'YYYY-MM-DD')", 'day')
         .addSelect('COALESCE(SUM(order.bird_count), 0)', 'total')
         .groupBy('order.planned_date')
         .getRawMany<{ day: string; total: string }>(),
-      this.sanitaryQuery(batchId)
+      this.sanitaryQuery(batchId, em)
         .select("TO_CHAR(event.occurred_at, 'YYYY-MM-DD')", 'day')
         .addSelect('COALESCE(SUM(event.quantity), 0)', 'total')
         .groupBy('event.occurred_at')
         .getRawMany<{ day: string; total: string }>(),
+      this.retraitQuery(batchId, em)
+        .select("TO_CHAR(sortie.sortie_date, 'YYYY-MM-DD')", 'day')
+        .addSelect('COALESCE(SUM(sortie.count), 0)', 'total')
+        .groupBy('sortie.sortie_date')
+        .getRawMany<{ day: string; total: string }>(),
     ]);
     const out = new Map<string, number>();
-    for (const r of [...sold, ...slaughtered, ...sanitary]) {
+    for (const r of [...sold, ...slaughtered, ...sanitary, ...retraits]) {
       // TO_CHAR: a raw `date` column comes back as a local-midnight Date,
       // which toISOString() would shift to the previous day east of UTC.
       const n = Number(r.total) || 0;
@@ -73,9 +85,11 @@ export class FlockReconciliationService {
    */
   async deathEvents(
     batchIds: string[],
+    em?: EntityManager,
   ): Promise<Array<{ batchId: string; date: string; quantity: number }>> {
     if (batchIds.length === 0) return [];
-    const rows = await this.healthEventRepo
+    const repo = em ? em.getRepository(HealthEvent) : this.healthEventRepo;
+    const rows = await repo
       .createQueryBuilder('event')
       .select('event.batch_id', 'batchId')
       .addSelect("TO_CHAR(event.occurred_at, 'YYYY-MM-DD')", 'date')
@@ -142,6 +156,37 @@ export class FlockReconciliationService {
       .andWhere('event.kind IN (:...kinds)', {
         kinds: [HealthEventKind.REFORME, HealthEventKind.MORTALITE],
       });
+  }
+
+  /**
+   * POUFA sorties that are removals of their own (REFORME/AUTRE families).
+   * VENTE and ABATTOIR sorties are counted through their sale or slaughter
+   * order, never here.
+   */
+  private retraitQuery(batchId: string, em?: EntityManager) {
+    const repo = em ? em.getRepository(Sortie) : this.sortieRepo;
+    return repo
+      .createQueryBuilder('sortie')
+      .where('sortie.batch_id = :batchId', { batchId })
+      .andWhere('sortie.reason_family IN (:...retraitFamilies)', {
+        retraitFamilies: RETRAIT_FAMILIES,
+      });
+  }
+
+  /** Birds removed by REFORME/AUTRE sorties (on or before `asOf`). */
+  async netRetraitBirds(
+    batchId: string,
+    em?: EntityManager,
+    asOf?: string,
+  ): Promise<number> {
+    let qb = this.retraitQuery(batchId, em);
+    if (asOf) {
+      qb = qb.andWhere('sortie.sortie_date <= :asOf', { asOf });
+    }
+    const row = await qb
+      .select('COALESCE(SUM(sortie.count), 0)', 'total')
+      .getRawOne();
+    return Math.max(0, Number(row?.total ?? 0));
   }
 
   async netSoldBirds(
@@ -221,18 +266,21 @@ export class FlockReconciliationService {
       .getRepository(DailyEntry)
       .find({ where: { batchId } });
     const totalDeaths = rows.reduce((s, e) => s + e.deaths, 0);
-    const [soldBirds, slaughteredBirds, sanitaryRemovedBirds] = await Promise.all([
-      this.netSoldBirds(batchId, em),
-      this.netSlaughteredBirds(batchId, em),
-      this.netSanitaryRemovedBirds(batchId, em),
-    ]);
+    const [soldBirds, slaughteredBirds, sanitaryRemovedBirds, retraitBirds] =
+      await Promise.all([
+        this.netSoldBirds(batchId, em),
+        this.netSlaughteredBirds(batchId, em),
+        this.netSanitaryRemovedBirds(batchId, em),
+        this.netRetraitBirds(batchId, em),
+      ]);
     locked.quantityAlive = Math.max(
       0,
       locked.quantityAtStart -
         totalDeaths -
         soldBirds -
         slaughteredBirds -
-        sanitaryRemovedBirds,
+        sanitaryRemovedBirds -
+        retraitBirds,
     );
     await em.getRepository(ProductionBatch).save(locked);
   }

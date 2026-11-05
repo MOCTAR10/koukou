@@ -8,6 +8,7 @@ import { DailyEntriesController } from './daily-entries.controller.js';
 import { DailyEntriesService } from './daily-entries.service.js';
 import { DailyEntry } from './entities/daily-entry.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
+import { SyncModule } from '../sync/sync.module.js';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { InputLot } from '../inputs/entities/input-lot.entity.js';
     FarmsModule,
     BatchesModule,
     FeedStockModule,
+    SyncModule,
   ],
   controllers: [DailyEntriesController],
   providers: [DailyEntriesService],

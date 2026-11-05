@@ -34,6 +34,12 @@ import {
   BatchCurveController,
   FarmDashboardController,
 } from './dashboard.controller.js';
+import { AfterCommitSubscriber } from '../../common/utils/after-commit.js';
+import { Sortie } from '../bandes/entities/sortie.entity.js';
+import { ProgrammeModule } from '../programme/programme.module.js';
+import { BandeDailyStat } from './entities/bande-daily-stat.entity.js';
+import { BandeOpeningService } from './poufa/bande-opening.service.js';
+import { BandeStatsService } from './poufa/bande-stats.service.js';
 
 @Module({
   imports: [
@@ -54,6 +60,8 @@ import {
       SlaughterOrder,
       HealthEvent,
       StockTransfer,
+      Sortie,
+      BandeDailyStat,
     ]),
     FarmsModule,
     BreedsModule,
@@ -62,6 +70,7 @@ import {
     ReferenceConstantsModule,
     FeedStockModule,
     WeatherModule,
+    ProgrammeModule,
   ],
   controllers: [
     BatchesController,
@@ -75,7 +84,15 @@ import {
     FlockReconciliationService,
     PondageService,
     DashboardService,
+    BandeStatsService,
+    BandeOpeningService,
+    AfterCommitSubscriber,
   ],
-  exports: [MetricsService, BatchesService, FlockReconciliationService],
+  exports: [
+    MetricsService,
+    BatchesService,
+    FlockReconciliationService,
+    BandeStatsService,
+  ],
 })
 export class BatchesModule {}

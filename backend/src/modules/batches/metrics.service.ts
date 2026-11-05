@@ -212,7 +212,7 @@ export class MetricsService {
     // supprimés sortent de l'équation, comme en temps réel).
     let liveCount = Math.max(0, batch.quantityAlive);
     if (historical && asOf) {
-      const [soldBirds, slaughteredBirds, sanitaryRemovedBirds] =
+      const [soldBirds, slaughteredBirds, sanitaryRemovedBirds, retraitBirds] =
         await Promise.all([
           this.flockReconciliation.netSoldBirds(batch.id, undefined, asOf),
           this.flockReconciliation.netSlaughteredBirds(
@@ -225,6 +225,7 @@ export class MetricsService {
             undefined,
             asOf,
           ),
+          this.flockReconciliation.netRetraitBirds(batch.id, undefined, asOf),
         ]);
       liveCount = Math.max(
         0,
@@ -233,7 +234,8 @@ export class MetricsService {
           entryDeaths -
           soldBirds -
           slaughteredBirds -
-          sanitaryRemovedBirds,
+          sanitaryRemovedBirds -
+          retraitBirds,
       );
     }
     const mortalityPercent =

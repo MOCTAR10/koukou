@@ -120,6 +120,18 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     ownerProfile: OWNER_PROFILE.DGE,
     defaultValue: 95,
   },
+  {
+    // Offline conflicts (architecture §14): a phone whose clock is off by more
+    // than this has its capture times corrected by the measured skew.
+    key: 'SYNC_ECART_HORLOGE_MAX_S',
+    label: "Écart d'horloge toléré pour un téléphone",
+    type: 'integer',
+    unit: 'secondes',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 0,
+    max: 86_400,
+    defaultValue: 300,
+  },
   ...POUFA_DEFAULT_FORMULAS.map((f): ParameterDefinition => ({
     key: formulaParameterKey(f.key),
     label: `Formule : ${f.label}`,

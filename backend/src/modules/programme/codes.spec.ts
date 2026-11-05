@@ -2,10 +2,28 @@ import { NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
 import { describe, expect, it } from 'vitest';
-import { farmCode, localiteCode } from './codes.js';
+import {
+  bandeCode,
+  bandeCounterScope,
+  farmCode,
+  localiteCode,
+} from './codes.js';
 import { GABON_PROVINCES } from './data/gabon-provinces.js';
 import type { Program } from './entities/program.entity.js';
 import { ProgrammeService } from './programme.service.js';
+
+describe('bandeCode', () => {
+  it('appends the 2-digit rank to the farm code', () => {
+    expect(bandeCode('G1-0012', 7)).toBe('G1-0012-B07');
+    expect(bandeCode('G1-0012', 100)).toBe('G1-0012-B100');
+    expect(bandeCounterScope('G1-0012')).toBe('BANDE:G1-0012');
+  });
+
+  it('refuses a non-positive or non-integer rank', () => {
+    expect(() => bandeCode('G1-0012', 0)).toThrow(RangeError);
+    expect(() => bandeCode('G1-0012', 2.5)).toThrow(RangeError);
+  });
+});
 
 describe('farmCode', () => {
   it('pads to 4 digits after the province code', () => {

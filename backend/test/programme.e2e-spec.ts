@@ -188,7 +188,7 @@ describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2
     it('sème les paramètres proposés par le cahier des charges', async () => {
       const res = await get('/programme/parameters', ownerToken).expect(200);
       const byKey = new Map(res.body.map((p: any) => [p.key, p]));
-      expect(res.body).toHaveLength(7 + 12);
+      expect(res.body).toHaveLength(8 + 12);
       expect(byKey.get('SEUIL_TRACABILITE_QR_PCT')).toMatchObject({
         value: 95,
         ownerProfile: 'DGE',

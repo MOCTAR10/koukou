@@ -33,6 +33,7 @@ import {
   UpdateSlaughterOrderDto,
 } from './dto/slaughter.dto.js';
 import { SlaughterOrder } from './entities/slaughter-order.entity.js';
+import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 
 // Préfixe codé en dur (même convention que VTE pour les ventes — pas de compteur séparé).
 const SLAUGHTER_PREFIX = 'ABT';
@@ -87,11 +88,27 @@ export class SlaughterService {
     private readonly metricsService: MetricsService,
     private readonly pdfService: PdfService,
     private readonly dataSource: DataSource,
+    private readonly bandeStats: BandeStatsService,
   ) {}
 
-  async create(user: AuthUser, farmId: string, dto: CreateSlaughterOrderDto) {
+  /**
+   * With `opts.em` the order is created inside the caller's transaction (a
+   * POUFA sortie) and returned as saved.
+   */
+  async create(
+    user: AuthUser,
+    farmId: string,
+    dto: CreateSlaughterOrderDto,
+    opts?: { em?: EntityManager },
+  ) {
     await this.farmsService.assertAccessible(user, farmId);
-    const batch = await this.batchRepo.findOne({
+    const batchRepo = opts?.em
+      ? opts.em.getRepository(ProductionBatch)
+      : this.batchRepo;
+    const orderRepo = opts?.em
+      ? opts.em.getRepository(SlaughterOrder)
+      : this.orderRepo;
+    const batch = await batchRepo.findOne({
       where: { id: dto.batchId, farmId },
     });
     if (!batch)
@@ -104,7 +121,7 @@ export class SlaughterService {
       );
     }
 
-    const order = this.orderRepo.create({
+    const order = orderRepo.create({
       farmId,
       batchId: batch.id,
       referenceNumber: await this.nextReference(),
@@ -120,7 +137,8 @@ export class SlaughterService {
       createdById: user.id,
     });
     this.refreshRendement(order);
-    await this.orderRepo.save(order);
+    await orderRepo.save(order);
+    if (opts?.em) return order;
     return this.getOne(user, farmId, order.id);
   }
 
@@ -363,6 +381,8 @@ export class SlaughterService {
         order.carcassesAvailable = order.birdCount;
       }
       await em.getRepository(SlaughterOrder).save(order);
+      // POUFA band projection (no-op outside a programme).
+      await this.bandeStats.refresh(em, batch.id);
       return order;
     });
   }
