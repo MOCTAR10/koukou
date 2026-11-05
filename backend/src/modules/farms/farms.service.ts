@@ -6,11 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { isUniqueViolation } from '../../common/utils/idempotency.js';
 import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
 import { ContractType } from '../../common/enums/contract-type.enum.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -37,6 +38,15 @@ export interface CreateFarmInput {
   longitude?: number | null;
   latitude?: number | null;
   isVerified?: boolean;
+}
+
+export interface ProprietaireInput {
+  /** Normalized (`normalizePhone`). */
+  phone: string;
+  email?: string | null;
+  fullName: string;
+  /** Login secret, hashed. */
+  code: string;
 }
 
 /** Fichier reçu en multipart. `multer` écrit en mémoire par défaut dans Nest,
@@ -129,32 +139,9 @@ export class FarmsService {
   /** Provisionnement plateforme : compte Propriétaire + sa ferme (admin). */
   async provision(
     farmInput: CreateFarmInput,
-    ownerInput: {
-      phone: string;
-      email?: string;
-      fullName: string;
-      code: string;
-    },
+    ownerInput: ProprietaireInput,
   ): Promise<{ farm: Farm; owner: PublicUser }> {
-    const where: Array<Partial<{ phone: string; email: string }>> = [
-      { phone: ownerInput.phone },
-    ];
-    if (ownerInput.email) where.push({ email: ownerInput.email });
-    const existing = await this.userRepo.findOne({ where });
-    if (existing) {
-      throw new ConflictException(
-        'Un compte existe déjà avec ce numéro ou cet e-mail.',
-      );
-    }
-    const owner = await this.userRepo.save(
-      this.userRepo.create({
-        phone: ownerInput.phone,
-        email: ownerInput.email ?? null,
-        fullName: ownerInput.fullName,
-        passwordHash: await bcrypt.hash(ownerInput.code, 10),
-        role: UserRole.PROPRIETAIRE,
-      }),
-    );
+    const owner = await this.createProprietaire(ownerInput);
     let farm: Farm;
     try {
       farm = await this.create(owner as AuthUser, farmInput, owner.id);
@@ -164,6 +151,52 @@ export class FarmsService {
       throw err;
     }
     return { farm, owner: this.publicUser(owner) };
+  }
+
+  /** Existing account holding this (normalized) phone or e-mail, if any. */
+  async findAccount(
+    phone: string,
+    email?: string | null,
+    em?: EntityManager,
+  ): Promise<User | null> {
+    const where: Array<Partial<{ phone: string; email: string }>> = [{ phone }];
+    if (email) where.push({ email });
+    return (em ? em.getRepository(User) : this.userRepo).findOne({ where });
+  }
+
+  /**
+   * Creates a PROPRIETAIRE account (provisioning, programme owner
+   * activation). The phone must already be normalized (`normalizePhone`).
+   * @throws ConflictException when the phone or e-mail has an account
+   */
+  async createProprietaire(
+    input: ProprietaireInput,
+    em?: EntityManager,
+  ): Promise<User> {
+    const repo = em ? em.getRepository(User) : this.userRepo;
+    if (await this.findAccount(input.phone, input.email, em)) {
+      throw new ConflictException(
+        'Un compte existe déjà avec ce numéro ou cet e-mail.',
+      );
+    }
+    try {
+      return await repo.save(
+        repo.create({
+          phone: input.phone,
+          email: input.email ?? null,
+          fullName: input.fullName,
+          passwordHash: await bcrypt.hash(input.code, 10),
+          role: UserRole.PROPRIETAIRE,
+        }),
+      );
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException(
+          'Un compte existe déjà avec ce numéro ou cet e-mail.',
+        );
+      }
+      throw err;
+    }
   }
 
   async findMine(user: AuthUser): Promise<Farm[]> {
@@ -209,7 +242,11 @@ export class FarmsService {
     if (user.role === UserRole.PLATFORM_ADMIN) {
       return farm;
     }
-    if (user.role === UserRole.PROPRIETAIRE && farm.ownerId === user.id) {
+    if (
+      user.role === UserRole.PROPRIETAIRE &&
+      farm.ownerId !== null &&
+      farm.ownerId === user.id
+    ) {
       return farm;
     }
     if (user.role === UserRole.ELEVEUR) {
@@ -247,7 +284,8 @@ export class FarmsService {
     if (user.role === UserRole.PLATFORM_ADMIN) return 'ALL';
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     if (!farm) return null;
-    if (farm.ownerId === user.id) return 'ALL';
+    // A programme farm may have no owner yet (ownerId null).
+    if (farm.ownerId !== null && farm.ownerId === user.id) return 'ALL';
     const link = await this.employeeRepo.findOne({
       where: { farmId, userId: user.id },
     });
@@ -289,7 +327,7 @@ export class FarmsService {
       };
     }
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
-    if (farm?.ownerId === user.id) {
+    if (farm?.ownerId != null && farm.ownerId === user.id) {
       return {
         farmId,
         role: 'PROPRIETAIRE',
@@ -317,7 +355,8 @@ export class FarmsService {
     };
   }
 
-  /** Liste toutes les fermes (plateforme) avec un aperçu du propriétaire. */
+  /** Liste toutes les fermes (plateforme) avec un aperçu du propriétaire
+   *  (null pour une ferme du programme encore sans compte). */
   async listAll(): Promise<Farm[]> {
     return this.farmRepo
       .createQueryBuilder('farm')
@@ -335,6 +374,9 @@ export class FarmsService {
         'farm.isVerified',
         'farm.active',
         'farm.createdAt',
+        'farm.programId',
+        'farm.code',
+        'farm.statusCode',
         'owner.id',
         'owner.fullName',
         'owner.phone',
@@ -373,8 +415,28 @@ export class FarmsService {
   async setFarmActive(farmId: string, active: boolean): Promise<Farm> {
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     if (!farm) throw new NotFoundException('Ferme introuvable.');
+    this.assertActiveNotProgrammeDriven(farm);
     farm.active = active;
     return this.farmRepo.save(farm);
+  }
+
+  /**
+   * A programme farm's `active` follows its programme status (SUSPENDUE →
+   * inactive): it is changed through the status, never directly.
+   */
+  assertActiveNotProgrammeDriven(farm: Pick<Farm, 'programId'>): void {
+    if (farm.programId) {
+      throw new BadRequestException(
+        'Ferme du programme : la suspension passe par son statut (POST /programme/farms/:farmId/status).',
+      );
+    }
+  }
+
+  /** @throws NotFoundException */
+  async findById(farmId: string): Promise<Farm> {
+    const farm = await this.farmRepo.findOne({ where: { id: farmId } });
+    if (!farm) throw new NotFoundException('Ferme introuvable.');
+    return farm;
   }
 
   /** Remplace le logo de la ferme : écrit le fichier sous /uploads/logos et

@@ -259,6 +259,12 @@ export class PlatformAdminController {
     @Body() dto: UpdateFarmDto,
   ) {
     const { active, ...fields } = dto;
+    if (active != null) {
+      // Checked before any write: a programme farm is suspended through its status.
+      this.farmsService.assertActiveNotProgrammeDriven(
+        await this.farmsService.findById(farmId),
+      );
+    }
     const farm = await this.farmsService.updateFarm(user, farmId, fields);
     if (active != null) {
       return this.farmsService.setFarmActive(farmId, active);
