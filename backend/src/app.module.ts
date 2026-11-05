@@ -30,6 +30,7 @@ import { AdvisoryModule } from './modules/advisory/advisory.module.js';
 import { AgricultureModule } from './modules/agriculture/agriculture.module.js';
 import { SpatialModule } from './modules/spatial/spatial.module.js';
 import { PushModule } from './modules/push/push.module.js';
+import { ProgrammeModule } from './modules/programme/programme.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import {
   dbConnection,
@@ -100,6 +101,7 @@ import {
     SpatialModule,
     AgricultureModule,
     PushModule,
+    ProgrammeModule,
     DatabaseModule,
   ],
   controllers: [AppController],
