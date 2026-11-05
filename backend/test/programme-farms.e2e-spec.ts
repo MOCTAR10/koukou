@@ -80,10 +80,9 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       `DELETE FROM farm_status_history WHERE farm_id IN (${scope})`,
       [programId],
     );
-    await ds.query(
-      `DELETE FROM farm_gps_history WHERE farm_id IN (${scope})`,
-      [programId],
-    );
+    await ds.query(`DELETE FROM farm_gps_history WHERE farm_id IN (${scope})`, [
+      programId,
+    ]);
     await ds.query(
       `DELETE FROM farm_infrastructures WHERE farm_id IN (${scope})`,
       [programId],
@@ -153,9 +152,9 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         matched: 0,
         rejected: 0,
       });
-      expect(
-        res.body.lines.every((l: any) => l.outcome === 'A_CREER'),
-      ).toBe(true);
+      expect(res.body.lines.every((l: any) => l.outcome === 'A_CREER')).toBe(
+        true,
+      );
       const [{ n }] = await ds.query(
         `SELECT COUNT(*)::int AS n FROM farms WHERE program_id = $1`,
         [programId],
@@ -243,7 +242,11 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
             cohorte: '9',
           },
           // Same farm written differently: already present (line 1).
-          { nom: `FERME AVICOLE COMPLETE ${stamp}`, province: 'G1', amiRef: `AMI-JSON-${stamp}` },
+          {
+            nom: `FERME AVICOLE COMPLETE ${stamp}`,
+            province: 'G1',
+            amiRef: `AMI-JSON-${stamp}`,
+          },
           // An imported farm written without its space: the same key.
           { nom: 'AGRIVERT', province: 'Estuaire' },
           // A typo of it: probable duplicate, rejected.
@@ -266,13 +269,20 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         reason: 'Province inconnue : « Atlantide ».',
       });
       expect(noName.reason).toBe('Nom manquant.');
-      expect(unknown.reason).toContain('Localité inconnue dans la province Estuaire');
+      expect(unknown.reason).toContain(
+        'Localité inconnue dans la province Estuaire',
+      );
       expect(unknown.reason).toContain('Cohorte inconnue : « 9 »');
-      expect(again).toMatchObject({ outcome: 'DEJA_PRESENTE', code: created.code });
+      expect(again).toMatchObject({
+        outcome: 'DEJA_PRESENTE',
+        code: created.code,
+      });
       // "AGRIVERT" = "AGRI VERT" once spaces are ignored: an exact match.
       expect(same.outcome).toBe('DEJA_PRESENTE');
       expect(typo.outcome).toBe('REJETEE');
-      expect(typo.reason).toMatch(/^Doublon probable de G1-\d{4} « AGRI VERT »/);
+      expect(typo.reason).toMatch(
+        /^Doublon probable de G1-\d{4} « AGRI VERT »/,
+      );
       expect(typo.duplicates[0].reasons).toEqual([
         'nom très proche dans la même province',
       ]);
@@ -501,7 +511,10 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       farmA = a.body.id;
       expect(a.body.exploitant.phone).toBe(phone);
 
-      const res = await post(`/programme/farms/${farmA}/activate-owner`, {}).expect(201);
+      const res = await post(
+        `/programme/farms/${farmA}/activate-owner`,
+        {},
+      ).expect(201);
       expect(res.body).toMatchObject({
         linkedExistingAccount: false,
         owner: { fullName: 'Paul Exploitant', phone },
@@ -542,7 +555,10 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       }).expect(201);
       farmB = b.body.id;
 
-      const refused = await post(`/programme/farms/${farmB}/activate-owner`, {}).expect(409);
+      const refused = await post(
+        `/programme/farms/${farmB}/activate-owner`,
+        {},
+      ).expect(409);
       expect(refused.body).toMatchObject({ existingAccount: true });
       expect(refused.body.message).toContain('linkExistingUser');
       expect(JSON.stringify(refused.body)).not.toContain('Paul');
@@ -574,21 +590,28 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         [farmA, farmB].sort(),
       );
       await get(`/programme/farms/${farmB}`, token).expect(200);
-      const someoneElse = (
-        await get('/programme/farms?province=G1&pageSize=1')
-      ).body.items[0].id;
+      const someoneElse = (await get('/programme/farms?province=G1&pageSize=1'))
+        .body.items[0].id;
       await get(`/programme/farms/${someoneElse}`, token).expect(403);
     });
 
     it('refuse le registre à un compte non administrateur', async () => {
       await get('/programme/farms', ownerToken).expect(403);
-      await post('/programme/farms', { name: 'X', provinceCode: 'G1' }, ownerToken).expect(403);
+      await post(
+        '/programme/farms',
+        { name: 'X', provinceCode: 'G1' },
+        ownerToken,
+      ).expect(403);
       await request(server)
         .post('/programme/farms/import')
         .set(auth(ownerToken))
         .attach('file', POUFA_CSV, 'fermes-poufa.csv')
         .expect(403);
-      await post(`/programme/farms/${farmA}/activate-owner`, {}, ownerToken).expect(403);
+      await post(
+        `/programme/farms/${farmA}/activate-owner`,
+        {},
+        ownerToken,
+      ).expect(403);
     });
   });
 

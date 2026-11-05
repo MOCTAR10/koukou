@@ -71,10 +71,7 @@ describe('duplicate scoring', () => {
   });
 
   it('flags the same farm written differently in the same province', () => {
-    const s = duplicateScore(
-      key('Ferme avicole Ngoma'),
-      key('NGOMA (ferme)'),
-    );
+    const s = duplicateScore(key('Ferme avicole Ngoma'), key('NGOMA (ferme)'));
     expect(s.score).toBe(1);
     expect(s.reasons).toEqual(['MEME_NOM']);
     expect(isProbableDuplicate(s)).toBe(true);
@@ -97,7 +94,10 @@ describe('duplicate scoring', () => {
   it('does not confuse distinct farms sharing a word', () => {
     expect(
       isProbableDuplicate(
-        duplicateScore(key('FERME AVICOLE LA GRÂCE'), key('FERME AVICOLE GRÂCE DIVINE')),
+        duplicateScore(
+          key('FERME AVICOLE LA GRÂCE'),
+          key('FERME AVICOLE GRÂCE DIVINE'),
+        ),
       ),
     ).toBe(false);
   });
@@ -193,9 +193,7 @@ describe('CSV parsing', () => {
   });
 
   it('refuses an unterminated quote', () => {
-    expect(() => parseCsv('nom,province\n"Ferme,Estuaire\n')).toThrow(
-      CsvError,
-    );
+    expect(() => parseCsv('nom,province\n"Ferme,Estuaire\n')).toThrow(CsvError);
   });
 
   it('reads the whole POUFA list: 150 rows', () => {
@@ -286,7 +284,11 @@ describe('import mapping', () => {
       },
       {
         line: 2,
-        values: { name: 'Ferme B', province: 'Nyanga', exploitantPhone: '+241 77' },
+        values: {
+          name: 'Ferme B',
+          province: 'Nyanga',
+          exploitantPhone: '+241 77',
+        },
       },
     ]);
   });

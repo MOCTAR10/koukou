@@ -127,7 +127,15 @@ export class FarmImportService {
     const program = await this.programme.current();
     const ctx = await this.context(program);
     const run = (em: EntityManager) =>
-      this.process(em, program, ctx, mapped, user, dryRun, input.confirmDuplicate === true);
+      this.process(
+        em,
+        program,
+        ctx,
+        mapped,
+        user,
+        dryRun,
+        input.confirmDuplicate === true,
+      );
     return dryRun
       ? run(this.dataSource.manager)
       : this.dataSource.transaction(async (em) => {
@@ -160,7 +168,8 @@ export class FarmImportService {
       relations: { localites: true },
       order: { sort: 'ASC' },
     })) as (Province & { localites: Localite[] })[];
-    for (const p of provinces) p.localites = p.localites.filter((l) => l.active);
+    for (const p of provinces)
+      p.localites = p.localites.filter((l) => l.active);
     const statuses = await this.registry.statusItems();
     return {
       provinces,
@@ -179,7 +188,10 @@ export class FarmImportService {
     dryRun: boolean,
     confirmDuplicate: boolean,
   ): Promise<ImportReport> {
-    const pool: RegistryEntry[] = await this.registry.loadEntries(em, program.id);
+    const pool: RegistryEntry[] = await this.registry.loadEntries(
+      em,
+      program.id,
+    );
     const lines: ImportLine[] = [];
     for (const { line, values } of mapped.rows) {
       const name = values.name ?? null;
@@ -208,7 +220,9 @@ export class FarmImportService {
           farmId: existing.id,
           code: existing.code,
           ...(existing.id === null
-            ? { reason: `Déjà présente plus haut dans le fichier (ligne ${existing.line}).` }
+            ? {
+                reason: `Déjà présente plus haut dans le fichier (ligne ${existing.line}).`,
+              }
             : {}),
         });
         continue;
@@ -230,8 +244,13 @@ export class FarmImportService {
           name,
           outcome: 'REJETEE',
           reason: `Doublon probable de ${duplicates
-            .map((d) => `${d.code ?? `la ligne ${d.line}`} « ${d.name} » (${d.reasons.join(', ')})`)
-            .join(' ; ')}. Relancez avec confirmDuplicate pour la créer quand même.`,
+            .map(
+              (d) =>
+                `${d.code ?? `la ligne ${d.line}`} « ${d.name} » (${d.reasons.join(', ')})`,
+            )
+            .join(
+              ' ; ',
+            )}. Relancez avec confirmDuplicate pour la créer quand même.`,
           duplicates,
         });
         continue;
@@ -250,7 +269,13 @@ export class FarmImportService {
         resolved.gps ? 'Position importée' : null,
       );
       pool.push({ ...entry, id: farm.id, code: farm.code });
-      lines.push({ line, name, outcome: 'CREEE', farmId: farm.id, code: farm.code });
+      lines.push({
+        line,
+        name,
+        outcome: 'CREEE',
+        farmId: farm.id,
+        code: farm.code,
+      });
     }
     const count = (...o: ImportOutcome[]) =>
       lines.filter((l) => o.includes(l.outcome)).length;
@@ -295,11 +320,15 @@ export class FarmImportService {
   }
 
   /** Validated entry, or the French reason of the rejection. */
-  private resolve(values: RawFarmRow, ctx: ImportContext): ResolvedEntry | string {
+  private resolve(
+    values: RawFarmRow,
+    ctx: ImportContext,
+  ): ResolvedEntry | string {
     const errors: string[] = [];
     const name = values.name?.trim();
     if (!name) errors.push('Nom manquant.');
-    else if (name.length > 200) errors.push('Nom trop long (200 caractères au maximum).');
+    else if (name.length > 200)
+      errors.push('Nom trop long (200 caractères au maximum).');
     let province: (Province & { localites: Localite[] }) | null = null;
     if (!values.province) errors.push('Province manquante.');
     else {
@@ -342,7 +371,9 @@ export class FarmImportService {
     const lat = parseDecimal(values.latitude);
     const lng = parseDecimal(values.longitude);
     if ((lat === undefined) !== (lng === undefined)) {
-      errors.push('Coordonnées GPS incomplètes : latitude et longitude vont ensemble.');
+      errors.push(
+        'Coordonnées GPS incomplètes : latitude et longitude vont ensemble.',
+      );
     } else if (lat !== undefined && lng !== undefined) {
       if (Number.isNaN(lat) || lat < -90 || lat > 90) {
         errors.push(`Latitude invalide : « ${values.latitude} ».`);

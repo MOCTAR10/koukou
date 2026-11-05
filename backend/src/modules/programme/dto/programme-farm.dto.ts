@@ -106,7 +106,9 @@ export class SetFarmInfrastructuresDto {
 
 /** Sheet fields shared by creation, update and enrolment. */
 class FarmSheetFieldsDto {
-  @ApiPropertyOptional({ description: 'Localité (doit appartenir à la province)' })
+  @ApiPropertyOptional({
+    description: 'Localité (doit appartenir à la province)',
+  })
   @IsOptional()
   @IsUUID('4', { message: 'Localité invalide.' })
   localiteId?: string | null;
@@ -133,7 +135,10 @@ class FarmSheetFieldsDto {
   })
   amiRef?: string | null;
 
-  @ApiPropertyOptional({ description: 'Code de la liste COHORTE', example: 'COHORTE_1' })
+  @ApiPropertyOptional({
+    description: 'Code de la liste COHORTE',
+    example: 'COHORTE_1',
+  })
   @IsOptional()
   @IsString({ message: 'La cohorte doit être un code de liste.' })
   cohort?: string | null;
@@ -148,7 +153,8 @@ class FarmSheetFieldsDto {
 /** Status and duplicate confirmation, at creation and enrolment. */
 class FarmEntryDto extends FarmSheetFieldsDto {
   @ApiPropertyOptional({
-    description: 'Code de la liste STATUT_FERME (défaut : la famille PREPARATION)',
+    description:
+      'Code de la liste STATUT_FERME (défaut : la famille PREPARATION)',
   })
   @IsOptional()
   @IsString({ message: 'Le statut doit être un code de liste.' })
@@ -208,7 +214,8 @@ export class UpdateProgrammeFarmDto extends FarmSheetFieldsDto {
   name?: string;
 
   @ApiPropertyOptional({
-    description: 'Correction de la province (le code de la ferme ne change pas)',
+    description:
+      'Correction de la province (le code de la ferme ne change pas)',
   })
   @IsOptional()
   @IsString({ message: 'Le code de province doit être un texte.' })
@@ -235,7 +242,9 @@ export class SetFarmStatusDto {
   @IsDateString({}, { message: "Date d'effet invalide." })
   from?: string;
 
-  @ApiPropertyOptional({ description: 'Motif (obligatoire pour une suspension)' })
+  @ApiPropertyOptional({
+    description: 'Motif (obligatoire pour une suspension)',
+  })
   @IsOptional()
   @IsString({ message: 'Le motif doit être un texte.' })
   @MaxLength(500, { message: 'Le motif ne doit pas dépasser 500 caractères.' })

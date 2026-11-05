@@ -112,9 +112,7 @@ function mapRecords(
         .join(', ')}.`,
     };
   }
-  const format: ImportFormat = [...used].every((f) =>
-    POUFA_LIST_FIELDS.has(f),
-  )
+  const format: ImportFormat = [...used].every((f) => POUFA_LIST_FIELDS.has(f))
     ? 'LISTE_POUFA'
     : 'COMPLET';
   const rows = records.map(({ line, cells }) => {

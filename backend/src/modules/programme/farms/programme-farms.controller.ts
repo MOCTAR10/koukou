@@ -12,12 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiBody,
-  ApiConsumes,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   CurrentUser,
   type AuthUser,
@@ -122,10 +117,7 @@ export class ProgrammeFarmsController {
     summary:
       "Fiche d'une ferme du programme (administrateur, ou propriétaire de la ferme)",
   })
-  sheet(
-    @CurrentUser() user: AuthUser,
-    @Param('farmId', uuid) farmId: string,
-  ) {
+  sheet(@CurrentUser() user: AuthUser, @Param('farmId', uuid) farmId: string) {
     return this.registry.sheet(user, farmId);
   }
 
@@ -159,7 +151,9 @@ export class ProgrammeFarmsController {
 
   @Get(':farmId/status-history')
   @Roles(UserRole.PLATFORM_ADMIN)
-  @ApiOperation({ summary: 'Historique des statuts, le plus récent en premier' })
+  @ApiOperation({
+    summary: 'Historique des statuts, le plus récent en premier',
+  })
   statusHistory(@Param('farmId', uuid) farmId: string) {
     return this.registry.statusHistory(farmId);
   }

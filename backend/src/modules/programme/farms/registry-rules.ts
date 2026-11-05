@@ -75,14 +75,14 @@ export const GENERIC_NAME_WORDS: ReadonlySet<string> = new Set([
  */
 export function normalizeFarmName(name: string): string {
   const folded = foldText(name);
-  const kept = folded
-    .split(' ')
-    .filter((w) => w && !GENERIC_NAME_WORDS.has(w));
+  const kept = folded.split(' ').filter((w) => w && !GENERIC_NAME_WORDS.has(w));
   return kept.length > 0 ? kept.join(' ') : folded;
 }
 
 /** AMI reference as stored: trimmed, inner spaces collapsed, uppercase; null when blank. */
-export function normalizeAmiRef(value: string | null | undefined): string | null {
+export function normalizeAmiRef(
+  value: string | null | undefined,
+): string | null {
   const v = value?.trim().replace(/\s+/g, ' ').toUpperCase();
   return v ? v : null;
 }
@@ -130,10 +130,7 @@ export interface RegistryFarmKey {
 }
 
 export type DuplicateReason =
-  | 'MEME_NOM'
-  | 'NOM_PROCHE'
-  | 'MEME_TELEPHONE'
-  | 'MEME_LOCALITE';
+  'MEME_NOM' | 'NOM_PROCHE' | 'MEME_TELEPHONE' | 'MEME_LOCALITE';
 
 export interface DuplicateScore {
   /** 0 = unrelated; ≥ `NAME_SIMILARITY_THRESHOLD` = probable duplicate. */
@@ -154,10 +151,7 @@ export function duplicateScore(
 ): DuplicateScore {
   const reasons: DuplicateReason[] = [];
   let score = 0;
-  if (
-    candidate.provinceId &&
-    candidate.provinceId === existing.provinceId
-  ) {
+  if (candidate.provinceId && candidate.provinceId === existing.provinceId) {
     const sim = nameSimilarity(
       candidate.normalizedName,
       existing.normalizedName,
@@ -193,7 +187,9 @@ export function isProbableDuplicate(s: DuplicateScore): boolean {
 }
 
 /** French label of a duplicate reason. */
-export const DUPLICATE_REASON_LABELS: Readonly<Record<DuplicateReason, string>> = {
+export const DUPLICATE_REASON_LABELS: Readonly<
+  Record<DuplicateReason, string>
+> = {
   MEME_NOM: 'même nom dans la même province',
   NOM_PROCHE: 'nom très proche dans la même province',
   MEME_TELEPHONE: 'même téléphone de l’exploitant',

@@ -179,7 +179,8 @@ export class ProgrammeFarmsService {
     const items = await this.statusItems();
     if (!code) return this.defaultStatus(items);
     const item = items.find((i) => i.code === code);
-    if (!item) throw new BadRequestException(`Statut inconnu ou désactivé : ${code}.`);
+    if (!item)
+      throw new BadRequestException(`Statut inconnu ou désactivé : ${code}.`);
     return item;
   }
 
@@ -187,7 +188,9 @@ export class ProgrammeFarmsService {
     if (code === undefined || code === null || code === '') return null;
     const items = await this.lists.list(ProgramListType.COHORTE);
     if (!items.some((i) => i.code === code)) {
-      throw new BadRequestException(`Cohorte inconnue ou désactivée : ${code}.`);
+      throw new BadRequestException(
+        `Cohorte inconnue ou désactivée : ${code}.`,
+      );
     }
     return code;
   }
@@ -211,7 +214,9 @@ export class ProgrammeFarmsService {
   gpsFix(dto: FarmGpsDto, defaultSource: GpsSource): GpsFix {
     const capturedAt = dto.capturedAt ? new Date(dto.capturedAt) : new Date();
     if (capturedAt.getTime() > Date.now() + 5 * 60_000) {
-      throw new BadRequestException('La date du relevé GPS ne peut pas être future.');
+      throw new BadRequestException(
+        'La date du relevé GPS ne peut pas être future.',
+      );
     }
     return {
       latitude: dto.latitude,
@@ -236,7 +241,10 @@ export class ProgrammeFarmsService {
   }
 
   /** Every farm of the programme, as registry entries (import). */
-  async loadEntries(em: EntityManager, programId: string): Promise<RegistryEntry[]> {
+  async loadEntries(
+    em: EntityManager,
+    programId: string,
+  ): Promise<RegistryEntry[]> {
     const rows = await em.getRepository(Farm).find({
       where: { programId },
       select: {
@@ -384,7 +392,14 @@ export class ProgrammeFarmsService {
     );
     await this.recordStatus(em, farm, entry.status, new Date(), actorId, null);
     if (entry.gps) {
-      await this.applyGps(em, farm, entry.province, entry.gps, actorId, gpsReason);
+      await this.applyGps(
+        em,
+        farm,
+        entry.province,
+        entry.gps,
+        actorId,
+        gpsReason,
+      );
     }
     return farm;
   }
@@ -518,7 +533,13 @@ export class ProgrammeFarmsService {
       if (duplicates.length > 0 && !dto.confirmDuplicate) {
         throw this.duplicateConflict(duplicates);
       }
-      const created = await this.insertEntry(em, program, entry, user.id, duplicates);
+      const created = await this.insertEntry(
+        em,
+        program,
+        entry,
+        user.id,
+        duplicates,
+      );
       if (infra) await this.writeInfrastructures(em, created.id, infra);
       return created;
     });
@@ -596,7 +617,14 @@ export class ProgrammeFarmsService {
         exploitantPhone: farm.exploitantPhone,
         duplicateOverride: farm.duplicateOverride,
       });
-      await this.recordStatus(em, farm, status, new Date(), user.id, 'Inscription au programme');
+      await this.recordStatus(
+        em,
+        farm,
+        status,
+        new Date(),
+        user.id,
+        'Inscription au programme',
+      );
       if (gps) {
         await this.applyGps(em, farm, province, gps, user.id, null);
       } else if (farm.latitude != null && farm.longitude != null) {
@@ -631,7 +659,9 @@ export class ProgrammeFarmsService {
       const provinceChanged =
         dto.provinceCode !== undefined && dto.provinceCode !== province.code;
       if (provinceChanged) {
-        province = await this.territory.provinceByCode(dto.provinceCode as string);
+        province = await this.territory.provinceByCode(
+          dto.provinceCode as string,
+        );
       }
       const patch: Partial<
         Pick<
@@ -668,7 +698,8 @@ export class ProgrammeFarmsService {
         patch.amiRef = normalizeAmiRef(dto.amiRef);
         await this.assertAmiRefFree(em, program.id, patch.amiRef, farm.id);
       }
-      if (dto.cohort !== undefined) patch.cohort = await this.resolveCohort(dto.cohort);
+      if (dto.cohort !== undefined)
+        patch.cohort = await this.resolveCohort(dto.cohort);
       if (dto.capacityPlaces !== undefined) {
         patch.capacityPlaces = dto.capacityPlaces ?? null;
       }
@@ -693,7 +724,11 @@ export class ProgrammeFarmsService {
       }
       if (provinceChanged && farm.latitude != null && farm.longitude != null) {
         patch.gpsProvinceWarning = (
-          await this.geo.checkPoint(farm.latitude, farm.longitude, province.code)
+          await this.geo.checkPoint(
+            farm.latitude,
+            farm.longitude,
+            province.code,
+          )
         ).warning;
       }
       if (Object.keys(patch).length > 0) {
@@ -708,16 +743,22 @@ export class ProgrammeFarmsService {
     const item = await this.resolveStatus(dto.statusCode);
     const from = dto.from ? new Date(dto.from) : new Date();
     if (from.getTime() > Date.now() + 5 * 60_000) {
-      throw new BadRequestException("La date d'effet du statut ne peut pas être future.");
+      throw new BadRequestException(
+        "La date d'effet du statut ne peut pas être future.",
+      );
     }
     const reason = dto.reason?.trim() || null;
     if (item.family === SUSPENDED_FAMILY && !reason) {
-      throw new BadRequestException('Le motif est obligatoire pour suspendre une ferme.');
+      throw new BadRequestException(
+        'Le motif est obligatoire pour suspendre une ferme.',
+      );
     }
     await this.dataSource.transaction(async (em) => {
       const farm = await this.lockedProgrammeFarm(em, program.id, farmId);
       if (farm.statusCode === item.code) {
-        throw new BadRequestException(`La ferme a déjà le statut « ${item.label} ».`);
+        throw new BadRequestException(
+          `La ferme a déjà le statut « ${item.label} ».`,
+        );
       }
       if (farm.statusSince && from < farm.statusSince) {
         throw new BadRequestException(
@@ -776,7 +817,9 @@ export class ProgrammeFarmsService {
     const seen = new Set<string>();
     for (const item of items) {
       if (seen.has(item.code)) {
-        throw new BadRequestException(`Infrastructure en double : ${item.code}.`);
+        throw new BadRequestException(
+          `Infrastructure en double : ${item.code}.`,
+        );
       }
       seen.add(item.code);
       const ref = all.find((r) => r.code === item.code);
@@ -883,7 +926,9 @@ export class ProgrammeFarmsService {
     return this.dataSource.transaction(async (em) => {
       const farm = await this.lockedProgrammeFarm(em, program.id, farmId);
       if (farm.ownerId) {
-        throw new ConflictException('Cette ferme a déjà un compte propriétaire.');
+        throw new ConflictException(
+          'Cette ferme a déjà un compte propriétaire.',
+        );
       }
       if (!farm.exploitantPhone) {
         throw new BadRequestException(
@@ -905,7 +950,7 @@ export class ProgrammeFarmsService {
             statusCode: 409,
             error: 'Conflict',
             message:
-              "Un compte existe déjà pour ce numéro de téléphone. Pour rattacher la ferme à ce compte, renvoyez la demande avec linkExistingUser: true.",
+              'Un compte existe déjà pour ce numéro de téléphone. Pour rattacher la ferme à ce compte, renvoyez la demande avec linkExistingUser: true.',
             existingAccount: true,
           });
         }
@@ -951,9 +996,12 @@ export class ProgrammeFarmsService {
       });
     }
     if (query.localiteId) {
-      qb.andWhere('f.localite_id = :localiteId', { localiteId: query.localiteId });
+      qb.andWhere('f.localite_id = :localiteId', {
+        localiteId: query.localiteId,
+      });
     }
-    if (query.cohort) qb.andWhere('f.cohort = :cohort', { cohort: query.cohort });
+    if (query.cohort)
+      qb.andWhere('f.cohort = :cohort', { cohort: query.cohort });
     if (query.status) {
       qb.andWhere('f.status_code = :status', { status: query.status });
     }
@@ -1017,7 +1065,9 @@ export class ProgrammeFarmsService {
       user.role !== UserRole.PLATFORM_ADMIN &&
       (farm.ownerId === null || farm.ownerId !== user.id)
     ) {
-      throw new ForbiddenException('Accès refusé : cette fiche ne vous concerne pas.');
+      throw new ForbiddenException(
+        'Accès refusé : cette fiche ne vous concerne pas.',
+      );
     }
     return this.sheetOf(farmId);
   }
@@ -1031,13 +1081,17 @@ export class ProgrammeFarmsService {
     if (!farm || !farm.programId) {
       throw new NotFoundException('Ferme du programme introuvable.');
     }
-    const [statuses, cohorts, infraLabels, infra, occupation] = await Promise.all([
-      this.statusMap(),
-      this.labels(ProgramListType.COHORTE),
-      this.labels(ProgramListType.INFRASTRUCTURE),
-      this.infraRows.find({ where: { farmId }, order: { refItemCode: 'ASC' } }),
-      this.occupation(farm),
-    ]);
+    const [statuses, cohorts, infraLabels, infra, occupation] =
+      await Promise.all([
+        this.statusMap(),
+        this.labels(ProgramListType.COHORTE),
+        this.labels(ProgramListType.INFRASTRUCTURE),
+        this.infraRows.find({
+          where: { farmId },
+          order: { refItemCode: 'ASC' },
+        }),
+        this.occupation(farm),
+      ]);
     return {
       id: farm.id,
       code: farm.code,
@@ -1045,10 +1099,18 @@ export class ProgrammeFarmsService {
       name: farm.name,
       administrativeCity: farm.administrativeCity,
       province: farm.province
-        ? { id: farm.province.id, code: farm.province.code, name: farm.province.name }
+        ? {
+            id: farm.province.id,
+            code: farm.province.code,
+            name: farm.province.name,
+          }
         : null,
       localite: farm.localite
-        ? { id: farm.localite.id, code: farm.localite.code, name: farm.localite.name }
+        ? {
+            id: farm.localite.id,
+            code: farm.localite.code,
+            name: farm.localite.name,
+          }
         : null,
       amiRef: farm.amiRef,
       cohort: farm.cohort
@@ -1056,7 +1118,11 @@ export class ProgrammeFarmsService {
         : null,
       exploitant: { name: farm.exploitantName, phone: farm.exploitantPhone },
       owner: farm.owner
-        ? { id: farm.owner.id, fullName: farm.owner.fullName, phone: farm.owner.phone }
+        ? {
+            id: farm.owner.id,
+            fullName: farm.owner.fullName,
+            phone: farm.owner.phone,
+          }
         : null,
       hasOwnerAccount: farm.ownerId !== null,
       capacityPlaces: farm.capacityPlaces,
@@ -1103,14 +1169,18 @@ export class ProgrammeFarmsService {
       .getRawOne();
     const chicksPlaced = Number(row?.placed ?? 0);
     const expression =
-      (await this.parameters.get<string>(formulaParameterKey('taux_occupation'))) ??
-      FALLBACK_OCCUPATION_FORMULA;
+      (await this.parameters.get<string>(
+        formulaParameterKey('taux_occupation'),
+      )) ?? FALLBACK_OCCUPATION_FORMULA;
     let ratePct: number | null = null;
     try {
-      ratePct = evaluateFormula(parseFormula(expression, POUFA_BASE_VARIABLE_NAMES), {
-        mis_en_place: chicksPlaced,
-        capacite_places: farm.capacityPlaces,
-      });
+      ratePct = evaluateFormula(
+        parseFormula(expression, POUFA_BASE_VARIABLE_NAMES),
+        {
+          mis_en_place: chicksPlaced,
+          capacite_places: farm.capacityPlaces,
+        },
+      );
     } catch {
       // A formula built on other indicators can't be evaluated from these two values.
       ratePct = null;
@@ -1124,7 +1194,10 @@ export class ProgrammeFarmsService {
 
   // ---------------------------------------------------------------------
 
-  private async programmeFarm(programId: string, farmId: string): Promise<Farm> {
+  private async programmeFarm(
+    programId: string,
+    farmId: string,
+  ): Promise<Farm> {
     const farm = await this.farms.findOne({ where: { id: farmId, programId } });
     if (!farm) throw new NotFoundException('Ferme du programme introuvable.');
     return farm;
@@ -1143,7 +1216,9 @@ export class ProgrammeFarmsService {
     return farm;
   }
 
-  private async labels(listType: ProgramListType): Promise<Map<string, string>> {
+  private async labels(
+    listType: ProgramListType,
+  ): Promise<Map<string, string>> {
     const items = await this.lists.list(listType, true);
     return new Map(items.map((i) => [i.code, i.label]));
   }
