@@ -7,7 +7,7 @@ import type { CaisseSummary, CashMovement } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, StatusBadge, Th, Td } from '../components/ui';
+import { Card, DataTable, EmptyState, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
 import { MOVEMENT_SOURCE_LABEL } from '../components/sales/labels';
 import { lastClosingOf } from '../components/sales/pos';
 import { ConfirmDialog } from '../components/sales/shared';
@@ -323,12 +323,11 @@ export function CaissePage() {
               />
             </div>
           ) : (
-            <div className="max-h-[380px] overflow-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Date</Th>
-                    <Th>Origine</Th>
+                    <Th className="lg:max-xl:hidden">Origine</Th>
                     <Th>Motif</Th>
                     <Th className="text-right">Montant</Th>
                     <Th></Th>
@@ -338,7 +337,7 @@ export function CaissePage() {
                   {movements.map((m) => (
                     <tr key={m.id} className="border-t border-slate-100">
                       <Td className="whitespace-nowrap">{dateFr(m.movementDate)}</Td>
-                      <Td>
+                      <Td label="Origine" className="lg:max-xl:hidden">
                         <span className="flex items-center gap-2">
                           {m.type === 'IN' ? (
                             <ArrowDownToLine className="h-4 w-4 shrink-0 text-emerald-600" />
@@ -348,8 +347,8 @@ export function CaissePage() {
                           {MOVEMENT_SOURCE_LABEL[m.source] ?? 'Caisse'}
                         </span>
                       </Td>
-                      <Td className="max-w-[320px]">{m.reason ?? (m.saleId ? 'Encaissement vente' : '—')}</Td>
-                      <Td className={classNames('whitespace-nowrap text-right font-medium tabular-nums', m.type === 'IN' ? 'text-emerald-600' : 'text-red-600')}>
+                      <Td label="Motif" className="max-w-[320px]">{m.reason ?? (m.saleId ? 'Encaissement vente' : '—')}</Td>
+                      <Td label="Montant" className={classNames('whitespace-nowrap text-right font-medium tabular-nums', m.type === 'IN' ? 'text-emerald-600' : 'text-red-600')}>
                         {m.type === 'IN' ? '+' : '−'} {fcfa(m.amountFcfa)}
                       </Td>
                       <Td>
@@ -384,8 +383,7 @@ export function CaissePage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           )}
         </Card>
       </div>
@@ -404,8 +402,7 @@ export function CaissePage() {
               <EmptyState icon={<Coins />} message="Aucune session de caisse." />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Ouverte</Th>
@@ -423,11 +420,11 @@ export function CaissePage() {
                     return (
                       <tr key={s.id} className="border-t border-slate-100">
                         <Td>{dateTimeFr(s.openedAt)}</Td>
-                        <Td>{s.closedAt ? dateTimeFr(s.closedAt) : '—'}</Td>
-                        <Td>{fcfa(s.openingBalanceFcfa)}</Td>
-                        <Td>{s.closingExpectedFcfa != null ? fcfa(s.closingExpectedFcfa) : '—'}</Td>
-                        <Td>{s.closingBalanceFcfa != null ? fcfa(s.closingBalanceFcfa) : '—'}</Td>
-                        <Td>
+                        <Td label="Fermée">{s.closedAt ? dateTimeFr(s.closedAt) : '—'}</Td>
+                        <Td label="Fonds initial">{fcfa(s.openingBalanceFcfa)}</Td>
+                        <Td label="Attendu">{s.closingExpectedFcfa != null ? fcfa(s.closingExpectedFcfa) : '—'}</Td>
+                        <Td label="Déclaré">{s.closingBalanceFcfa != null ? fcfa(s.closingBalanceFcfa) : '—'}</Td>
+                        <Td label="Écart">
                           {gap != null ? (
                             <span className={classNames('font-medium', gap === 0 ? 'text-emerald-600' : 'text-red-600')}>
                               {gap > 0 ? '+' : ''}
@@ -437,15 +434,14 @@ export function CaissePage() {
                             '—'
                           )}
                         </Td>
-                        <Td>
+                        <Td label="Statut">
                           <StatusBadge status={s.status} />
                         </Td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           )}
         </Card>
       )}

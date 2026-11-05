@@ -63,7 +63,7 @@ import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
 import { Button, ErrorNote, Modal } from '../form';
-import { EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
+import { DataTable, EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
 import { DailyEntryModal } from './DailyEntryModal';
 import { ageWeek } from './feedRecommendation';
 import {
@@ -816,8 +816,7 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
           <EmptyState message="Aucune saisie pour ce lot." icon={<PenLine />} />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <DataTable>
             <thead className="bg-slate-50">
               <tr>
                 <Th>Date</Th>
@@ -835,16 +834,16 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-slate-100">
                   <Td>{dateFr(r.entryDate)}</Td>
-                  <Td>{num(r.deaths, 0)}</Td>
-                  <Td>
+                  <Td label="Morts">{num(r.deaths, 0)}</Td>
+                  <Td label="Aliment">
                     {r.feedQuantity > 0 ? `${num(r.feedQuantity)} kg` : '—'}
                     {r.skipStockDeduction ? <span className="ml-1 text-xs text-slate-400">(hors stock)</span> : null}
                   </Td>
-                  <Td>{phaseLabel(r.feedPhase, r.customFeedPhaseName)}</Td>
-                  <Td>{r.waterL > 0 ? `${num(r.waterL)} L` : '—'}</Td>
-                  <Td>{r.avgWeightKg != null ? `${num(r.avgWeightKg, 2)} kg` : '—'}</Td>
-                  <Td>{r.eggsCollected > 0 ? num(r.eggsCollected, 0) : '—'}</Td>
-                  <Td>{r.eggsCollected > 0 ? num(r.eggsSellable, 0) : '—'}</Td>
+                  <Td label="Phase">{phaseLabel(r.feedPhase, r.customFeedPhaseName)}</Td>
+                  <Td label="Eau">{r.waterL > 0 ? `${num(r.waterL)} L` : '—'}</Td>
+                  <Td label="Poids">{r.avgWeightKg != null ? `${num(r.avgWeightKg, 2)} kg` : '—'}</Td>
+                  <Td label="Œufs">{r.eggsCollected > 0 ? num(r.eggsCollected, 0) : '—'}</Td>
+                  <Td label="Vendables">{r.eggsCollected > 0 ? num(r.eggsSellable, 0) : '—'}</Td>
                   <Td className="text-right">
                     {lot.status !== 'CLOTURE' && canEdit ? (
                       <button
@@ -859,8 +858,7 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </DataTable>
       )}
     </SectionCard>
   );

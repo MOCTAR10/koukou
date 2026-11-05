@@ -11,7 +11,7 @@ import {
 import { api } from '../api/client';
 import type { PlatformFarmRow, PlatformMetrics, ReferenceConstant } from '../api/types';
 import type { PublicUser } from '../api/types';
-import { Card, EmptyState, LevelBadge, Loading, PageHeader, StatusBadge, Th, Td } from '../components/ui';
+import { Card, DataTable, EmptyState, LevelBadge, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
 import { classNames, fcfa, num } from '../lib/format';
 
 const tabs = [
@@ -208,8 +208,7 @@ export function PlatformPage() {
           )}
 
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Ferme</Th>
@@ -228,13 +227,13 @@ export function PlatformPage() {
                         <p className="font-medium">{r.farm.name}</p>
                         <p className="text-xs text-slate-400">{r.farm.administrativeCity ?? ''}</p>
                       </Td>
-                      <Td>{r.owner?.fullName ?? '—'}</Td>
-                      <Td>
+                      <Td label="Propriétaire">{r.owner?.fullName ?? '—'}</Td>
+                      <Td label="Lots / cheptel">
                         {r.lots.active} lot(s) · {num(r.lots.cheptel)} têtes
                       </Td>
-                      <Td>{fcfa(r.sales.revenueFcfa)}</Td>
-                      <Td>{r.alertsActive}</Td>
-                      <Td>
+                      <Td label="CA">{fcfa(r.sales.revenueFcfa)}</Td>
+                      <Td label="Alertes">{r.alertsActive}</Td>
+                      <Td label="Vérif.">
                         <button
                           onClick={() =>
                             patchFarm.mutate({
@@ -251,7 +250,7 @@ export function PlatformPage() {
                           {r.farm.isVerified ? 'Vérifiée' : 'Non vérifiée'}
                         </button>
                       </Td>
-                      <Td>
+                      <Td label="Actif">
                         <button
                           onClick={() =>
                             confirm(
@@ -284,16 +283,14 @@ export function PlatformPage() {
                     </tr>
                   ) : null}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           </Card>
         </div>
       ) : null}
 
       {tab === 'users' ? (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Utilisateur</Th>
@@ -307,12 +304,12 @@ export function PlatformPage() {
                 {(users.data ?? []).map((u) => (
                   <tr key={u.id} className="border-t border-slate-100">
                     <Td className="font-medium">{u.fullName}</Td>
-                    <Td>
+                    <Td label="Contact">
                       <div>{u.phone}</div>
                       {u.email ? <div className="text-xs text-slate-400">{u.email}</div> : null}
                     </Td>
-                    <Td><StatusBadge status={u.role} /></Td>
-                    <Td><StatusBadge status={u.active ? 'active' : 'inactive'} /></Td>
+                    <Td label="Rôle"><StatusBadge status={u.role} /></Td>
+                    <Td label="Statut"><StatusBadge status={u.active ? 'active' : 'inactive'} /></Td>
                     <Td>
                       {u.role !== 'PLATFORM_ADMIN' ? (
                         <button
@@ -342,8 +339,7 @@ export function PlatformPage() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         </Card>
       ) : null}
 
@@ -353,8 +349,7 @@ export function PlatformPage() {
 
       {tab === 'rules' ? (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Règle</Th>
@@ -366,8 +361,8 @@ export function PlatformPage() {
                 {(rules.data ?? []).map((r) => (
                   <tr key={r.id} className="border-t border-slate-100">
                     <Td className="font-medium">{r.id}</Td>
-                    <Td className="font-mono text-xs">{r.code}</Td>
-                    <Td><StatusBadge status={r.isActive ? 'active' : 'inactive'} /></Td>
+                    <Td label="Code" className="font-mono text-xs">{r.code}</Td>
+                    <Td label="Active"><StatusBadge status={r.isActive ? 'active' : 'inactive'} /></Td>
                   </tr>
                 ))}
                 {!rules.data?.length ? (
@@ -378,15 +373,13 @@ export function PlatformPage() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         </Card>
       ) : null}
 
       {tab === 'constants' ? (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Clé</Th>
@@ -399,8 +392,8 @@ export function PlatformPage() {
                 {(constants.data ?? []).map((c) => (
                   <tr key={c.key} className="border-t border-slate-100">
                     <Td className="font-mono text-xs">{c.key}</Td>
-                    <Td><b>{num(c.value)}</b></Td>
-                    <Td className="text-xs text-slate-400">{c.description ?? '—'}</Td>
+                    <Td label="Valeur"><b>{num(c.value)}</b></Td>
+                    <Td label="Description" className="text-xs text-slate-400">{c.description ?? '—'}</Td>
                     <Td>
                       {c.isEditable ? (
                         <form
@@ -445,8 +438,7 @@ export function PlatformPage() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         </Card>
       ) : null}
     </div>
@@ -501,8 +493,7 @@ function PaymentMethods() {
       <div className="border-b border-slate-100 px-4 py-3">
         <h2 className="text-sm font-semibold text-slate-700">Méthodes de paiement</h2>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <DataTable>
           <thead className="bg-slate-50">
             <tr>
               <Th>Code</Th>
@@ -515,8 +506,8 @@ function PaymentMethods() {
             {methods.map((m) => (
               <tr key={m.code} className="border-t border-slate-100">
                 <Td className="font-mono">{m.code}</Td>
-                <Td>{m.label}</Td>
-                <Td><StatusBadge status={m.enabled ? 'active' : 'inactive'} /></Td>
+                <Td label="Libellé">{m.label}</Td>
+                <Td label="Statut"><StatusBadge status={m.enabled ? 'active' : 'inactive'} /></Td>
                 <Td>
                   {m.cash ? (
                     <span className="text-xs text-slate-400">Non désactivable</span>
@@ -527,8 +518,7 @@ function PaymentMethods() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+        </DataTable>
     </Card>
   );
 }

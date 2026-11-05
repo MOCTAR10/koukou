@@ -87,7 +87,8 @@ export function MarketCataloguePage() {
         subtitle="Volaille, œufs et carcasses de fermes vérifiées. Vous payez directement la ferme."
         icon={<Store className="h-5 w-5" />}
       />
-      <div className="mb-5 flex flex-wrap items-center gap-3">
+      <div className="grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <aside className="flex flex-wrap items-center gap-3 lg:sticky lg:top-20 lg:flex-col lg:items-stretch lg:rounded-2xl lg:border lg:border-slate-200 lg:bg-white lg:p-4 lg:shadow-card">
         <Segmented<MarketKind | ''>
           ariaLabel="Disponibilité"
           value={kind}
@@ -98,27 +99,28 @@ export function MarketCataloguePage() {
             { key: 'PRE', label: 'Précommande' },
           ]}
         />
-        <select aria-label="Produit" className={`${inputCls} !w-auto`} value={product} onChange={(e) => setProduct(e.target.value as MarketProduct | '')}>
+        <select aria-label="Produit" className={`${inputCls} !w-auto lg:!w-full`} value={product} onChange={(e) => setProduct(e.target.value as MarketProduct | '')}>
           <option value="">Tous les produits</option>
           {(Object.keys(PRODUCT_NAME) as MarketProduct[]).map((p) => (
             <option key={p} value={p}>{PRODUCT_NAME[p]}</option>
           ))}
         </select>
-        <select aria-label="Espèce" className={`${inputCls} !w-auto`} value={species} onChange={(e) => setSpecies(e.target.value)}>
+        <select aria-label="Espèce" className={`${inputCls} !w-auto lg:!w-full`} value={species} onChange={(e) => setSpecies(e.target.value)}>
           <option value="">Toutes les espèces</option>
           {Object.entries(SPECIES_LABEL).map(([key, label]) => (
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
-        <input aria-label="Ville" placeholder="Ville" className={`${inputCls} !w-40`} value={city} onChange={(e) => setCity(e.target.value)} />
-      </div>
+        <input aria-label="Ville" placeholder="Ville" className={`${inputCls} !w-40 lg:!w-full`} value={city} onChange={(e) => setCity(e.target.value)} />
+      </aside>
 
+      <div className="min-w-0">
       {query.isLoading ? <Loading /> : null}
       {query.error ? <ErrorNote error={query.error} /> : null}
       {!query.isLoading && !query.error && items.length === 0 ? (
         <EmptyState message="Aucune annonce pour le moment avec ces critères." icon={<Store className="h-5 w-5" />} />
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {items.map((l) => (
           <ListingCard key={l.id} listing={l} />
         ))}
@@ -130,6 +132,8 @@ export function MarketCataloguePage() {
           </Button>
         </div>
       ) : null}
+      </div>
+      </div>
     </div>
   );
 }

@@ -68,7 +68,7 @@ import {
   utcYmd,
 } from '../components/flock/shared';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
-import { EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { lotImage } from '../lib/animalImages';
 import { dateFr, num } from '../lib/format';
 
@@ -315,8 +315,7 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
           <EmptyState message="Aucun événement de santé sur cette période." icon={<Stethoscope />} />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <DataTable>
             <thead className="bg-slate-50">
               <tr>
                 <Th>Date</Th>
@@ -332,8 +331,8 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
               {rows.map((e) => (
                 <tr key={e.id} className="border-t border-slate-100 align-top">
                   <Td>{dateFr(e.occurredAt)}</Td>
-                  <Td>{HEALTH_KIND_LABEL[e.kind]}</Td>
-                  <Td className="max-w-md">
+                  <Td label="Type">{HEALTH_KIND_LABEL[e.kind]}</Td>
+                  <Td label="Événement" className="max-w-md">
                     <span className="font-medium">{e.title}</span>
                     {e.symptoms ? <span className="block text-xs text-slate-500">Symptômes : {e.symptoms}</span> : null}
                     {e.description ? <span className="block text-xs text-slate-500">{e.description}</span> : null}
@@ -343,11 +342,11 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
                     ) : null}
                     {e.notes ? <span className="block text-xs text-slate-500">{e.notes}</span> : null}
                   </Td>
-                  <Td>{e.quantity > 0 ? num(e.quantity, 0) : '—'}</Td>
-                  <Td>
+                  <Td label="Oiseaux">{e.quantity > 0 ? num(e.quantity, 0) : '—'}</Td>
+                  <Td label="Gravité">
                     <Pill tone={levelTone(e.severity)}>{LEVEL_LABEL[e.severity]}</Pill>
                   </Td>
-                  <Td>
+                  <Td label="État">
                     <Pill tone={e.status === 'RESOLU' ? 'emerald' : 'amber'}>{e.status === 'RESOLU' ? 'Résolu' : 'En cours'}</Pill>
                   </Td>
                   <Td className="whitespace-nowrap text-right">
@@ -375,8 +374,7 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </DataTable>
       )}
       {toDelete ? (
         <ConfirmModal
@@ -494,8 +492,7 @@ function CalendarPanel({
           <EmptyState message="Aucun soin sur cette période. Générez le calendrier ou planifiez un soin." icon={<Calendar />} />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <DataTable>
             <thead className="bg-slate-50">
               <tr>
                 <Th>Date prévue</Th>
@@ -516,10 +513,10 @@ function CalendarPanel({
                       {dateFr(e.scheduledDate)}
                       {e.completedAt ? <span className="block text-xs text-slate-500">fait le {dateFr(e.completedAt)}</span> : null}
                     </Td>
-                    <Td className="font-medium">{e.name}</Td>
-                    <Td>{CARE_TYPE_LABEL[e.careType]}</Td>
-                    <Td>{[e.route, e.dosage].filter(Boolean).join(' · ') || '—'}</Td>
-                    <Td>
+                    <Td label="Soin" className="font-medium">{e.name}</Td>
+                    <Td label="Type">{CARE_TYPE_LABEL[e.careType]}</Td>
+                    <Td label="Voie et dosage">{[e.route, e.dosage].filter(Boolean).join(' · ') || '—'}</Td>
+                    <Td label="Origine">
                       <Pill>{e.protocolId ? 'Programme' : 'Manuel'}</Pill>
                       {e.decrementStock ? (
                         <span className="ml-1">
@@ -527,7 +524,7 @@ function CalendarPanel({
                         </span>
                       ) : null}
                     </Td>
-                    <Td>
+                    <Td label="Statut">
                       <Pill tone={e.status === 'FAIT' ? 'emerald' : e.status === 'EN_RETARD' ? 'red' : e.status === 'ANNULE' ? 'slate' : 'brand'}>
                         {CARE_STATUS_LABEL[e.status]}
                       </Pill>
@@ -576,8 +573,7 @@ function CalendarPanel({
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </DataTable>
       )}
       {editing ? <EditScheduleModal lot={lot} event={editing} onClose={() => setEditing(null)} /> : null}
       {confirm ? (
@@ -693,8 +689,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
               <EmptyState message="Aucun traitement sur cette période." icon={<Syringe />} />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Date</Th>
@@ -710,13 +705,13 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
                     return (
                       <tr key={t.id} className="border-t border-slate-100 align-top">
                         <Td>{dateFr(t.administeredAt)}</Td>
-                        <Td className="font-medium">
+                        <Td label="Produit" className="font-medium">
                           {t.productName}
                           {t.notes ? <span className="block text-xs font-normal text-slate-500">{t.notes}</span> : null}
                         </Td>
-                        <Td>{CARE_TYPE_LABEL[t.careType]}</Td>
-                        <Td>{[t.route, t.dosage].filter(Boolean).join(' · ') || '—'}</Td>
-                        <Td>
+                        <Td label="Type">{CARE_TYPE_LABEL[t.careType]}</Td>
+                        <Td label="Voie et dosage">{[t.route, t.dosage].filter(Boolean).join(' · ') || '—'}</Td>
+                        <Td label="Fin d'attente">
                           {t.withdrawalEndDate && t.withdrawalDays > 0 ? (
                             <Pill tone={holding ? 'amber' : 'slate'}>{dateFr(t.withdrawalEndDate)}</Pill>
                           ) : (
@@ -727,8 +722,7 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           )}
         </SectionCard>
       </div>

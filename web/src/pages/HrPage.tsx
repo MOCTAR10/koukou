@@ -7,7 +7,7 @@ import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { ErrorNote } from '../components/form';
 import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL } from '../components/org/shared';
-import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
 
 export function HrPage() {
@@ -66,17 +66,16 @@ export function HrPage() {
                 <EmptyState message="Aucun employé rattaché à la ferme pour le moment." icon={<Users className="h-6 w-6" />} />
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <DataTable>
                   <thead className="bg-slate-50">
                     <tr>
                       <Th>Employé</Th>
                       <Th>Poste</Th>
                       <Th>Contrat</Th>
                       <Th>Embauche</Th>
-                      <Th>Fin</Th>
+                      <Th className="hidden lg:table-cell">Fin</Th>
                       <Th className="text-right">Salaire mensuel</Th>
-                      <Th>Observations</Th>
+                      <Th className="hidden lg:table-cell">Observations</Th>
                       <Th>Statut</Th>
                     </tr>
                   </thead>
@@ -92,23 +91,22 @@ export function HrPage() {
                             </div>
                           </div>
                         </Td>
-                        <Td>
+                        <Td label="Poste">
                           {m.jobTitle?.trim() || STAFF_ROLE_LABEL[m.role]}
                           {m.department ? <div className="text-xs text-slate-500">{m.department}</div> : null}
                         </Td>
-                        <Td>{m.contractType ? <Pill tone="brand">{CONTRACT_LABEL[m.contractType]}</Pill> : <span className="text-slate-400">—</span>}</Td>
-                        <Td className="whitespace-nowrap">{dateFr(m.hireDate)}</Td>
-                        <Td className="whitespace-nowrap">{dateFr(m.endDate)}</Td>
-                        <Td className="whitespace-nowrap text-right tabular-nums">
+                        <Td label="Contrat">{m.contractType ? <Pill tone="brand">{CONTRACT_LABEL[m.contractType]}</Pill> : <span className="text-slate-400">—</span>}</Td>
+                        <Td label="Embauche" className="whitespace-nowrap">{dateFr(m.hireDate)}</Td>
+                        <Td label="Fin" className="whitespace-nowrap md:max-lg:hidden">{dateFr(m.endDate)}</Td>
+                        <Td label="Salaire mensuel" className="whitespace-nowrap text-right tabular-nums">
                           {m.salaryFcfa != null ? fcfa(m.salaryFcfa) : <span className="text-slate-400">Non renseigné</span>}
                         </Td>
-                        <Td className="max-w-xs whitespace-pre-line text-xs text-slate-500">{m.notes ?? '—'}</Td>
-                        <Td>{m.active ? <Pill tone="emerald">Actif</Pill> : <Pill tone="red">Inactif</Pill>}</Td>
+                        <Td label="Observations" className="max-w-xs whitespace-pre-line text-xs text-slate-500 md:max-lg:hidden">{m.notes ?? '—'}</Td>
+                        <Td label="Statut">{m.active ? <Pill tone="emerald">Actif</Pill> : <Pill tone="red">Inactif</Pill>}</Td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </DataTable>
             )}
           </Card>
         </>

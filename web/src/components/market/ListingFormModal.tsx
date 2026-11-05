@@ -144,8 +144,10 @@ export function ListingFormModal({
   }
 
   return (
-    <Modal title={editing ? 'Modifier l’annonce' : 'Nouvelle annonce'} onClose={onClose}>
+    <Modal title={editing ? 'Modifier l’annonce' : 'Nouvelle annonce'} onClose={onClose} wide>
       <form onSubmit={onSubmit} className="space-y-4">
+        <div className="grid items-start gap-5 md:grid-cols-2">
+        <div className="min-w-0 space-y-4">
         {!editing ? (
           <>
             <div>
@@ -203,7 +205,7 @@ export function ListingFormModal({
           </p>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-2">
           <Field label={`Prix par ${unitName(product)} (FCFA)`}>
             <input type="number" min={1} className={inputCls} value={price} onChange={(e) => setPrice(e.target.value)} required />
           </Field>
@@ -215,6 +217,9 @@ export function ListingFormModal({
           </Field>
         </div>
 
+        </div>
+
+        <div className="min-w-0 space-y-4">
         {isPre ? (
           <div className="space-y-3 rounded-lg bg-slate-50 p-3">
             {dateLocked ? (
@@ -260,6 +265,8 @@ export function ListingFormModal({
         <Field label="Description (facultatif)">
           <textarea className={inputCls} rows={3} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
+        </div>
+        </div>
 
         <ErrorNote error={formError ?? save.error} />
         <div className="flex justify-end gap-2">

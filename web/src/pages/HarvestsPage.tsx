@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote } from '../components/form';
-import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { ParcelleStatusBadge, StageSummary } from '../components/agri/AgriBits';
 import { RecolteFormModal } from '../components/agri/RecolteFormModal';
 import {
@@ -123,8 +123,7 @@ export function HarvestsPage() {
                 <EmptyState message="Aucune récolte journalisée pour le moment." icon={<Wheat />} />
               ) : (
                 <Card className="overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <DataTable>
                       <thead className="bg-slate-50">
                         <tr>
                           <Th>Date</Th>
@@ -139,7 +138,7 @@ export function HarvestsPage() {
                           return (
                             <tr key={r.id} className="border-t border-slate-100">
                               <Td className="whitespace-nowrap">{dateFr(r.harvestDate)}</Td>
-                              <Td className="font-medium text-slate-900">
+                              <Td label="Parcelle" className="font-medium text-slate-900">
                                 {parcelle?.name ?? 'Parcelle'}
                                 {parcelle ? (
                                   <span className="block text-xs font-normal text-slate-500">
@@ -147,16 +146,15 @@ export function HarvestsPage() {
                                   </span>
                                 ) : null}
                               </Td>
-                              <Td className="whitespace-nowrap text-right tabular-nums">
+                              <Td label="Quantité" className="whitespace-nowrap text-right tabular-nums">
                                 {num(r.quantity, 2)} {RECOLTE_UNIT_LABELS[r.unit]}
                               </Td>
-                              <Td className="text-slate-500">{r.notes ?? '—'}</Td>
+                              <Td label="Notes" className="text-slate-500">{r.notes ?? '—'}</Td>
                             </tr>
                           );
                         })}
                       </tbody>
-                    </table>
-                  </div>
+                    </DataTable>
                 </Card>
               )}
             </section>
@@ -175,8 +173,7 @@ export function HarvestsPage() {
                 />
               ) : (
                 <Card className="overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <DataTable>
                       <thead className="bg-slate-50">
                         <tr>
                           <Th>Parcelle</Th>
@@ -194,16 +191,15 @@ export function HarvestsPage() {
                                 <span className="block text-xs font-normal text-slate-500">{s.cultureName}</span>
                               ) : null}
                             </Td>
-                            <Td className="whitespace-nowrap text-right tabular-nums">{num(s.harvested, 2)}</Td>
-                            <Td className="whitespace-nowrap text-right tabular-nums">{num(s.sold, 2)}</Td>
-                            <Td className="whitespace-nowrap text-right font-semibold tabular-nums text-emerald-700">
+                            <Td label="Récolté" className="whitespace-nowrap text-right tabular-nums">{num(s.harvested, 2)}</Td>
+                            <Td label="Vendu" className="whitespace-nowrap text-right tabular-nums">{num(s.sold, 2)}</Td>
+                            <Td label="Restant" className="whitespace-nowrap text-right font-semibold tabular-nums text-emerald-700">
                               {num(s.available, 2)} {RECOLTE_UNIT_LABELS[s.unit]}
                             </Td>
                           </tr>
                         ))}
                       </tbody>
-                    </table>
-                  </div>
+                    </DataTable>
                 </Card>
               )}
               <p className="text-xs text-slate-400">Se vend au point de vente Ferme avec l’article « Récolte ».</p>

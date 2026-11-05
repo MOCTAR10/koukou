@@ -27,7 +27,7 @@ import { useFarm } from '../../app/FarmContext';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
 import { EmptyState, Loading, PhotoThumb } from '../ui';
 import { ageWeek, estimateDailyFeed } from './feedRecommendation';
 import {
@@ -100,7 +100,7 @@ export function DailyEntryModal({
   const yesterday = addLocalDays(today, -1);
 
   return (
-    <Modal title="Saisie journalière" onClose={onClose} wide>
+    <Modal title="Saisie journalière" onClose={onClose} large>
       {lots.isLoading ? (
         <Loading label="Chargement des lots…" />
       ) : active.length === 0 || !lot ? (
@@ -350,6 +350,8 @@ function EntryForm({
         </Note>
       ) : null}
 
+      <FormColumns>
+      <div className="min-w-0 space-y-4">
       <div className="grid gap-4 sm:grid-cols-3">
         <IconField label="Morts du jour" icon={<Skull className="text-red-600" />}>
           <input className={inputCls} inputMode="numeric" value={deaths} onChange={(e) => setDeaths(e.target.value.replace(/\D/g, ''))} placeholder="0" />
@@ -463,12 +465,14 @@ function EntryForm({
           </Note>
         ) : null}
       </fieldset>
+      </div>
 
+      <div className="min-w-0 space-y-4">
       <fieldset className="space-y-3 rounded-xl border border-slate-200 p-4">
         <legend className="inline-flex items-center gap-1.5 px-1 text-xs font-semibold text-slate-600">
           <Egg className="h-3.5 w-3.5 text-accent-700" /> Œufs{isLayer ? '' : ' (si le lot pond)'}
         </legend>
-        <div className="grid items-end gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid items-end gap-4 sm:grid-cols-3 lg:grid-cols-2">
           <IconField label={`Alvéoles (${EGGS_PER_ALVEOL} œufs)`} image={EGG_IMAGES.alveole}>
             <input
               className={inputCls}
@@ -501,7 +505,7 @@ function EntryForm({
           </IconField>
         </div>
         {eggs > 0 || rejects > 0 ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
             <Metric label="Total collecté" image={EGG_IMAGES.oeuf} value={num(eggs, 0)} />
             <Metric label="Commercialisables" icon={<PackageCheck />} value={num(sellable, 0)} />
             <Metric
@@ -526,7 +530,7 @@ function EntryForm({
       </fieldset>
 
       {weightGN > 0 ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
           <Metric
             label="Écart à la souche"
             icon={<Target />}
@@ -552,6 +556,8 @@ function EntryForm({
           ) : null}
         </div>
       ) : null}
+      </div>
+      </FormColumns>
 
       <ErrorNote error={save.error} />
       <div className="flex justify-end gap-2">

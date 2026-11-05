@@ -8,7 +8,7 @@ import { useFarm } from '../../app/FarmContext';
 import { lotImage } from '../../lib/animalImages';
 import { fcfa, num } from '../../lib/format';
 import { normalizeGabonPhone } from '../../lib/phone';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
 import { PhotoThumb } from '../ui';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { geocodeGabonAddress } from './geo';
@@ -320,7 +320,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
     deposit === 0 ? 'Aucun acompte' : deposit === total ? 'Total réglé' : total > 0 ? `${Math.round((deposit / total) * 100)} % du total` : '';
 
   return (
-    <Modal title="Nouvelle commande" onClose={onClose} wide>
+    <Modal title="Nouvelle commande" onClose={onClose} large>
       <form
         className="space-y-6"
         onSubmit={(e) => {
@@ -328,6 +328,8 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
           submit();
         }}
       >
+        <FormColumns>
+        <div className="min-w-0 space-y-6">
         <section>
           <SectionTitle icon={client ? <Contact /> : <UserPlus />}>Client de la commande</SectionTitle>
           {client ? (
@@ -520,6 +522,9 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
           </Button>
         </section>
 
+        </div>
+
+        <div className="min-w-0 space-y-6 lg:sticky lg:top-4">
         {items.length > 0 ? (
           <section>
             <SectionTitle icon={<Package />}>{`Articles de la commande (${items.length})`}</SectionTitle>
@@ -556,7 +561,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
 
         <section>
           <SectionTitle icon={<Wallet />}>Acompte encaissé</SectionTitle>
-          <div className="grid items-start gap-3 sm:grid-cols-2">
+          <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <Field label={`Montant reçu (FCFA) · ${depositShare}`}>
               <input
                 inputMode="numeric"
@@ -566,7 +571,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
                 className={inputCls}
               />
             </Field>
-            <p className="text-xs text-slate-500 sm:pt-6">
+            <p className="text-xs text-slate-500 sm:pt-6 lg:pt-0">
               {deposit > 0
                 ? `Commande confirmée dès l’encaissement (la caisse s’ouvre si besoin). Reste ${fcfa(Math.max(total - deposit, 0))} à la réception.`
                 : 'Rien saisi : aucun argent reçu, la commande se règle à la réception.'}
@@ -576,7 +581,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
 
         <ErrorNote error={localError ?? create.error} />
 
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-4">
           <Button tone="secondary" onClick={onClose} disabled={create.isPending}>
             Fermer
           </Button>
@@ -585,6 +590,8 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
             {deposit > 0 ? `Créer et encaisser ${fcfa(deposit)}` : 'Créer la commande'}
           </Button>
         </div>
+        </div>
+        </FormColumns>
       </form>
     </Modal>
   );

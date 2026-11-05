@@ -22,7 +22,7 @@ import {
   useLots,
 } from '../components/flock/shared';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../components/form';
-import { EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { lotImage } from '../lib/animalImages';
 import { dateFr, num } from '../lib/format';
 
@@ -86,18 +86,17 @@ export function SlaughterPage() {
     if (rows.length === 0) return null;
     return (
       <SectionCard key={status} title={`${title} (${rows.length})`} icon={SECTION_ICON[status]} iconTone={status === 'CANCELLED' ? 'slate' : 'brand'} flush>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <DataTable>
             <thead className="bg-slate-50">
               <tr>
                 <Th>Référence</Th>
                 <Th>Lot</Th>
-                <Th>Type et destination</Th>
+                <Th className="hidden lg:table-cell">Type et destination</Th>
                 <Th>Date prévue</Th>
                 <Th>Oiseaux</Th>
-                <Th>Poids vif</Th>
-                <Th>Carcasse</Th>
-                <Th>Code</Th>
+                <Th className="hidden 2xl:table-cell">Poids vif</Th>
+                <Th className="hidden lg:table-cell">Carcasse</Th>
+                <Th className="hidden 2xl:table-cell">Code</Th>
                 <Th> </Th>
               </tr>
             </thead>
@@ -108,24 +107,24 @@ export function SlaughterPage() {
                     {o.referenceNumber}
                     {o.abattoirNotes ? <span className="block text-xs font-normal text-slate-500">{o.abattoirNotes}</span> : null}
                   </Td>
-                  <Td>{name(o)}</Td>
-                  <Td>
+                  <Td label="Lot">{name(o)}</Td>
+                  <Td label="Type et destination" className="md:max-lg:hidden">
                     {TYPE_LABEL[o.slaughterType]}
                     <span className="block text-xs text-slate-500">{DEST_LABEL[o.destination]}</span>
                   </Td>
-                  <Td>
+                  <Td label="Date prévue">
                     {dateFr(o.plannedDate)}
                     {o.processedAt ? <span className="block text-xs text-slate-500">traité le {dateFr(o.processedAt)}</span> : null}
                   </Td>
-                  <Td>{num(o.birdCount, 0)}</Td>
-                  <Td>{o.totalWeightKg != null ? `${num(o.totalWeightKg)} kg` : '—'}</Td>
-                  <Td>
+                  <Td label="Oiseaux">{num(o.birdCount, 0)}</Td>
+                  <Td label="Poids vif" className="md:max-2xl:hidden">{o.totalWeightKg != null ? `${num(o.totalWeightKg)} kg` : '—'}</Td>
+                  <Td label="Carcasse" className="md:max-lg:hidden">
                     {o.carcassWeightKg != null ? `${num(o.carcassWeightKg)} kg` : '—'}
                     {o.rendementPercent != null ? (
                       <span className="block text-xs text-slate-500">rendement {num(o.rendementPercent)} %</span>
                     ) : null}
                   </Td>
-                  <Td>{o.abattoirLotCode ?? o.internalBatchCode ?? '—'}</Td>
+                  <Td label="Code" className="md:max-2xl:hidden">{o.abattoirLotCode ?? o.internalBatchCode ?? '—'}</Td>
                   <Td className="whitespace-nowrap text-right">
                     <div className="flex justify-end gap-1">
                       {o.status === 'DRAFT' ? (
@@ -169,8 +168,7 @@ export function SlaughterPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </DataTable>
       </SectionCard>
     );
   };

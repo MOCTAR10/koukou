@@ -20,7 +20,7 @@ import type {
 import { useFarm } from '../../app/FarmContext';
 import { classNames } from '../../lib/format';
 import { Card, IconTile, type IconTone } from '../ui';
-import { inputCls } from '../form';
+import { inlineInputCls } from '../form';
 
 export const EGGS_PER_ALVEOL = 30;
 
@@ -177,9 +177,19 @@ const TONES: Record<Tone, string> = {
   slate: 'bg-slate-100 text-slate-600 ring-slate-200',
 };
 
+/** Past this many characters, a pill may wrap inside a table (`pill-wrap`). */
+const PILL_WRAP_AT = 16;
+
 export function Pill({ tone = 'slate', children }: { tone?: Tone; children: ReactNode }) {
+  const long = typeof children === 'string' && children.length > PILL_WRAP_AT;
   return (
-    <span className={classNames('inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1', TONES[tone])}>
+    <span
+      className={classNames(
+        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1',
+        long ? 'pill-wrap' : 'whitespace-nowrap',
+        TONES[tone],
+      )}
+    >
       {children}
     </span>
   );
@@ -504,7 +514,7 @@ export function PeriodBar({ value, onChange }: { value: Period; onChange: (p: Pe
           max={localYmd()}
           value={value.to ?? ''}
           onChange={(e) => onChange({ ...value, to: e.target.value || null })}
-          className={classNames(inputCls, 'w-auto py-1 text-xs')}
+          className={classNames(inlineInputCls, 'w-auto py-1 text-xs')}
         />
       </label>
       {value.to ? (

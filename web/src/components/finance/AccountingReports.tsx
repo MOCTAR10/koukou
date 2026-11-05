@@ -12,7 +12,7 @@ import type {
 } from '../../api/types-finance';
 import { classNames, dateFr, fcfa, num } from '../../lib/format';
 import { Button, todayIso } from '../form';
-import { Card, EmptyState, IconTile, Td, Th } from '../ui';
+import { Card, DataTable, EmptyState, IconTile, Td, Th } from '../ui';
 import { KeyValue, SectionTitle } from './shared';
 
 const SOURCE_LABEL: Record<AccountingSource, string> = {
@@ -61,8 +61,7 @@ export function JournalTab({
   }
   return (
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
+        <DataTable>
           <thead className="bg-slate-50">
             <tr>
               <Th>Compte</Th>
@@ -96,11 +95,11 @@ export function JournalTab({
                     <Td className="w-24">
                       <AccountCode code={line.accountCode} />
                     </Td>
-                    <Td className="text-slate-500">{line.label ?? accountLabels.get(line.accountCode) ?? ''}</Td>
-                    <Td className="whitespace-nowrap text-right tabular-nums">
+                    <Td label="Libellé" className="text-slate-500">{line.label ?? accountLabels.get(line.accountCode) ?? ''}</Td>
+                    <Td label="Débit" className="whitespace-nowrap text-right tabular-nums">
                       {line.debitFcfa > 0 ? fcfa(line.debitFcfa) : ''}
                     </Td>
-                    <Td className="whitespace-nowrap text-right tabular-nums">
+                    <Td label="Crédit" className="whitespace-nowrap text-right tabular-nums">
                       {line.creditFcfa > 0 ? fcfa(line.creditFcfa) : ''}
                     </Td>
                   </tr>
@@ -112,12 +111,11 @@ export function JournalTab({
             <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold">
               <Td className="font-semibold" />
               <Td className="font-semibold">Total</Td>
-              <Td className="whitespace-nowrap text-right font-semibold tabular-nums">{fcfa(data.totals.debit)}</Td>
-              <Td className="whitespace-nowrap text-right font-semibold tabular-nums">{fcfa(data.totals.credit)}</Td>
+              <Td label="Débit" className="whitespace-nowrap text-right font-semibold tabular-nums">{fcfa(data.totals.debit)}</Td>
+              <Td label="Crédit" className="whitespace-nowrap text-right font-semibold tabular-nums">{fcfa(data.totals.credit)}</Td>
             </tr>
           </tfoot>
-        </table>
-      </div>
+        </DataTable>
     </Card>
   );
 }
@@ -158,8 +156,7 @@ export function BalanceTab({ data }: { data: BalanceData }) {
         />
       ) : (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Compte</Th>
@@ -183,17 +180,16 @@ export function BalanceTab({ data }: { data: BalanceData }) {
                         <Td className="w-24">
                           <AccountCode code={a.code} />
                         </Td>
-                        <Td>{a.label}</Td>
-                        <Td className="whitespace-nowrap text-right tabular-nums">{fcfa(a.debitTotalFcfa)}</Td>
-                        <Td className="whitespace-nowrap text-right tabular-nums">{fcfa(a.creditTotalFcfa)}</Td>
-                        <Td className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(a.soldeFcfa)}</Td>
+                        <Td label="Libellé">{a.label}</Td>
+                        <Td label="Débit" className="whitespace-nowrap text-right tabular-nums">{fcfa(a.debitTotalFcfa)}</Td>
+                        <Td label="Crédit" className="whitespace-nowrap text-right tabular-nums">{fcfa(a.creditTotalFcfa)}</Td>
+                        <Td label="Solde" className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(a.soldeFcfa)}</Td>
                       </tr>
                     ))}
                   </Fragment>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </DataTable>
         </Card>
       )}
     </div>
@@ -352,7 +348,7 @@ export function StockTab({ data }: { data: StockProvende }) {
         </p>
       </Card>
       <Card className="overflow-hidden">
-        <table className="w-full">
+        <DataTable>
           <thead className="bg-slate-50">
             <tr>
               <Th>Produit</Th>
@@ -365,13 +361,13 @@ export function StockTab({ data }: { data: StockProvende }) {
             {data.lots.map((lot) => (
               <tr key={lot.lotId} className="border-t border-slate-100">
                 <Td className="font-medium">{lot.productName}</Td>
-                <Td>{lot.supplierLotNumber}</Td>
-                <Td className="whitespace-nowrap text-right tabular-nums">{num(lot.availableKg)} kg</Td>
-                <Td className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(lot.valueFcfa)}</Td>
+                <Td label="Lot fournisseur">{lot.supplierLotNumber}</Td>
+                <Td label="Disponible" className="whitespace-nowrap text-right tabular-nums">{num(lot.availableKg)} kg</Td>
+                <Td label="Valeur" className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(lot.valueFcfa)}</Td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </DataTable>
       </Card>
     </div>
   );
@@ -399,7 +395,7 @@ export function ExercicesTab({
   const today = todayIso();
   return (
     <Card className="overflow-hidden">
-      <table className="w-full">
+      <DataTable>
         <thead className="bg-slate-50">
           <tr>
             <Th>Exercice</Th>
@@ -415,10 +411,10 @@ export function ExercicesTab({
             return (
               <tr key={ex.id} className="border-t border-slate-100">
                 <Td className="font-medium">{ex.label}</Td>
-                <Td className="whitespace-nowrap">
+                <Td label="Période" className="whitespace-nowrap">
                   {dateFr(ex.startDate)} → {dateFr(ex.endDate)}
                 </Td>
-                <Td>
+                <Td label="Statut">
                   <span
                     className={classNames(
                       'inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1',
@@ -430,7 +426,7 @@ export function ExercicesTab({
                     {open ? 'Ouvert' : 'Clôturé'}
                   </span>
                 </Td>
-                <Td className="text-right">
+                <Td label="Clôture" className="text-right">
                   {past && !canClose ? null : past ? (
                     <Button
                       tone="danger"
@@ -453,7 +449,7 @@ export function ExercicesTab({
             );
           })}
         </tbody>
-      </table>
+      </DataTable>
     </Card>
   );
 }

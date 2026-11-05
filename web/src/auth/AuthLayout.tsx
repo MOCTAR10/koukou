@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, Store } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
-import { EGG_IMAGES, SPECIES_IMAGES } from '../lib/animalImages';
 import { EASE, durations } from '../lib/motion';
 
 const AUDIENCES = {
@@ -12,9 +11,12 @@ const AUDIENCES = {
     points: [
       'Lots, saisies du jour et alertes sanitaires',
       'Stock, ventes, caisse et comptabilité',
-      'Vos stocks et précommandes sur le Marché',
       'Le travail continue, même sans réseau',
     ],
+    insight: {
+      title: 'Vendez aussi sur le Marché Fermia',
+      text: 'Publiez vos stocks et vos précommandes : hôtels, restaurants et particuliers commandent directement à votre ferme.',
+    },
   },
   buyer: {
     headline: 'Achetez directement aux fermes.',
@@ -25,10 +27,9 @@ const AUDIENCES = {
       'Retrait à la ferme ou livraison par la ferme',
       'Vous payez directement la ferme',
     ],
+    insight: null,
   },
 } as const;
-
-const PHOTOS = [SPECIES_IMAGES.POULET, EGG_IMAGES.alveole, SPECIES_IMAGES.PINTADE];
 
 /** Sign-in and sign-up frame: a brand panel beside the form on a computer, the form alone under a compact band on a phone. */
 export function AuthLayout({
@@ -60,14 +61,14 @@ export function AuthLayout({
       <aside className="relative hidden overflow-hidden bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950 text-white lg:block">
         <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 h-[28rem] w-[28rem] rounded-full bg-brand-400/20 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -bottom-48 -left-32 h-[28rem] w-[28rem] rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="relative flex h-screen flex-col justify-between gap-8 p-10 xl:p-14 lg:sticky lg:top-0">
-          <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-16 w-fit xl:h-20" />
+        <div className="relative flex min-h-screen flex-col justify-between gap-8 p-10 xl:p-14 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:px-10 [@media(max-height:720px)]:py-7">
+          <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-16 w-fit xl:h-20 [@media(max-height:720px)]:h-12" />
           <div className="max-w-lg">
-            <h2 className="text-display font-bold leading-[1.1] tracking-tight">{copy.headline}</h2>
-            <p className="mt-4 text-base text-brand-100 xl:text-lg">{copy.intro}</p>
-            <ul className="mt-7 space-y-3">
+            <h2 className="text-display font-bold leading-[1.1] tracking-tight [@media(max-height:720px)]:text-3xl">{copy.headline}</h2>
+            <p className="mt-4 text-base text-brand-100 xl:text-lg [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:text-sm">{copy.intro}</p>
+            <ul className="mt-7 space-y-3 [@media(max-height:720px)]:mt-4 [@media(max-height:720px)]:space-y-2">
               {copy.points.map((point) => (
-                <li key={point} className="flex items-start gap-3 text-sm text-brand-50 xl:text-base">
+                <li key={point} className="flex items-start gap-3 text-sm text-brand-50 xl:text-base [@media(max-height:720px)]:text-sm">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15">
                     <Check className="h-3 w-3" />
                   </span>
@@ -76,11 +77,17 @@ export function AuthLayout({
               ))}
             </ul>
           </div>
-          <div aria-hidden className="flex gap-3">
-            {PHOTOS.map((src) => (
-              <img key={src} src={src} alt="" className="h-20 w-20 rounded-2xl bg-white object-contain p-1.5 shadow-raised xl:h-24 xl:w-24" />
-            ))}
-          </div>
+          {copy.insight ? (
+            <div className="flex max-w-lg items-start gap-4 rounded-2xl border border-white/15 bg-white/10 p-4 xl:p-5 [@media(max-height:720px)]:p-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                <Store className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold xl:text-base [@media(max-height:720px)]:text-sm">{copy.insight.title}</p>
+                <p className="mt-1 text-sm text-brand-100">{copy.insight.text}</p>
+              </div>
+            </div>
+          ) : null}
         </div>
       </aside>
 

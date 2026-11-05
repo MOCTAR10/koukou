@@ -29,7 +29,7 @@ import type {
 } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
-import { Card, EmptyState, Loading, PageHeader, PhotoThumb, StatCard, StatusBadge, Th, Td } from '../components/ui';
+import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, StatCard, StatusBadge, Td, Th } from '../components/ui';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
 import { ErrorNote } from '../components/form';
@@ -330,8 +330,7 @@ function LivestockDashboard() {
               <Medal className="h-4 w-4 text-brand-600" /> Palmarès des lots
             </h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Lot</Th>
@@ -351,11 +350,11 @@ function LivestockDashboard() {
                         <span className="min-w-0">{b.batchName ?? 'Lot'}</span>
                       </div>
                     </Td>
-                    <Td><StatusBadge status={b.type} /></Td>
-                    <Td className="whitespace-nowrap">{b.ageDays} j</Td>
-                    <Td className="font-semibold">{b.perfIndex != null ? num(b.perfIndex) : '—'}</Td>
-                    <Td>{b.fcr != null ? num(b.fcr, 2) : '—'}</Td>
-                    <Td>{num(b.liveCount)}</Td>
+                    <Td label="Type"><StatusBadge status={b.type} /></Td>
+                    <Td label="Âge" className="whitespace-nowrap">{b.ageDays} j</Td>
+                    <Td label="Perf." className="font-semibold">{b.perfIndex != null ? num(b.perfIndex) : '—'}</Td>
+                    <Td label="IC">{b.fcr != null ? num(b.fcr, 2) : '—'}</Td>
+                    <Td label="Vivants">{num(b.liveCount)}</Td>
                   </tr>
                 ))}
                 {d.leaderboard.length === 0 ? (
@@ -366,8 +365,7 @@ function LivestockDashboard() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         </Card>
 
         <Card className="overflow-hidden">
@@ -376,8 +374,7 @@ function LivestockDashboard() {
               <ShieldAlert className="h-4 w-4 text-brand-600" /> Vigilance lots
             </h2>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Lot</Th>
@@ -400,15 +397,15 @@ function LivestockDashboard() {
                         </div>
                       </div>
                     </Td>
-                    <Td><StatusBadge status={b.status} /></Td>
-                    <Td>
+                    <Td label="Statut"><StatusBadge status={b.status} /></Td>
+                    <Td label="Alertes">
                       <div className="flex items-center gap-1">
                         {b.alertesRouges > 0 ? <AlertLevelBadge level="ROUGE" /> : null}
                         {b.alertesJaunes > 0 ? <AlertLevelBadge level="JAUNE" /> : null}
                         {b.alertesRouges === 0 && b.alertesJaunes === 0 ? <span className="text-xs text-slate-400">—</span> : null}
                       </div>
                     </Td>
-                    <Td>
+                    <Td label="Dernière saisie">
                       <div className="text-xs">{dateFr(b.lastEntryDate)}</div>
                       {b.lastEntryLagDays && b.lastEntryLagDays > 0 ? (
                         <div className="text-xs font-medium text-amber-600">
@@ -426,8 +423,7 @@ function LivestockDashboard() {
                   </tr>
                 ) : null}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         </Card>
       </div>
   );

@@ -148,6 +148,17 @@ select.select-on-dark {
   background-color: var(--color-slate-50);
 }
 
+/*
+ * Status pills stay on one line; only a long one (`pill-wrap`: a sanitary
+ * hold, a building's advice) wraps instead of pushing the last columns out.
+ */
+.data-table .rounded-full {
+  white-space: nowrap;
+}
+.data-table .rounded-full.pill-wrap {
+  white-space: normal;
+}
+
 /* On a phone, each row becomes a block of label and value, not a table to scroll sideways. */
 @media (max-width: 767.98px) {
   .data-table thead {
@@ -155,6 +166,7 @@ select.select-on-dark {
   }
   .data-table,
   .data-table tbody,
+  .data-table tfoot,
   .data-table tr {
     display: block;
   }

@@ -10,7 +10,7 @@ import { PointOfSaleFormModal } from '../components/orders/PointOfSaleFormModal'
 import { ConfirmDialog, Pill, ProvinceSelect, Segmented } from '../components/orders/shared';
 import { TransferModal } from '../components/orders/TransferModal';
 import { batchPhoto } from '../components/sales/pos';
-import { Card, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Td, Th } from '../components/ui';
 import { fcfa, num } from '../lib/format';
 import { sendOrQueue, showQueuedNotice } from '../offline';
 
@@ -86,8 +86,7 @@ function PosTable({
 }) {
   return (
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <DataTable>
           <thead className="bg-slate-50">
             <tr>
               <Th>Nom</Th>
@@ -95,7 +94,7 @@ function PosTable({
               <Th>Statut</Th>
               <Th className="text-right">Ventes</Th>
               <Th className="text-right">Tickets</Th>
-              <Th>Répartition</Th>
+              <Th className="hidden lg:table-cell">Répartition</Th>
               <Th>Stock</Th>
               <Th className="text-right">Actions</Th>
             </tr>
@@ -114,15 +113,15 @@ function PosTable({
                       {p.isDefault ? <Star className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500" aria-label="Ferme mère" /> : null}
                     </span>
                   </Td>
-                  <Td>{[p.province, p.address].filter(Boolean).join(' · ') || '—'}</Td>
-                  <Td>
+                  <Td label="Lieu">{[p.province, p.address].filter(Boolean).join(' · ') || '—'}</Td>
+                  <Td label="Statut">
                     <Pill tone={p.isActive ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-500 ring-slate-200'}>
                       {p.isActive ? 'Actif' : 'En pause'}
                     </Pill>
                   </Td>
-                  <Td className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(range.revenue)}</Td>
-                  <Td className="text-right tabular-nums">{num(range.count, 0)}</Td>
-                  <Td>
+                  <Td label="Ventes" className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(range.revenue)}</Td>
+                  <Td label="Tickets" className="text-right tabular-nums">{num(range.count, 0)}</Td>
+                  <Td label="Répartition" className="md:max-lg:hidden">
                     {products.length > 0 ? (
                       <span className="flex flex-wrap gap-1">
                         {products.slice(0, 4).map(([label, amount]) => (
@@ -135,7 +134,7 @@ function PosTable({
                       <span className="text-slate-400">—</span>
                     )}
                   </Td>
-                  <Td className="text-xs">
+                  <Td label="Stock" className="text-xs">
                     {p.kind === 'FERME' ? (
                       'Vivant, abattu, œufs et provende'
                     ) : (
@@ -145,7 +144,7 @@ function PosTable({
                       </span>
                     )}
                   </Td>
-                  <Td>
+                  <Td label="Actions">
                     <span className="flex justify-end gap-1">
                       <button
                         type="button"
@@ -173,8 +172,7 @@ function PosTable({
               );
             })}
           </tbody>
-        </table>
-      </div>
+        </DataTable>
     </Card>
   );
 }
@@ -413,12 +411,11 @@ export function PointsOfSalePage() {
             </h2>
             {activeTransfers.length > 0 ? (
               <Card className="overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <DataTable>
                     <thead className="bg-slate-50">
                       <tr>
                         <Th>Produit</Th>
-                        <Th>Source</Th>
+                        <Th className="hidden lg:table-cell">Source</Th>
                         <Th>Destination</Th>
                         <Th className="text-right">Restant / transféré</Th>
                         <Th className="text-right">Actions</Th>
@@ -433,7 +430,7 @@ export function PointsOfSalePage() {
                             <Td>
                               <Pill tone={product.tone}>{product.label}</Pill>
                             </Td>
-                            <Td className="font-medium">
+                            <Td label="Source" className="font-medium md:max-lg:hidden">
                               <span className="flex items-center gap-2.5">
                                 {t.productType === 'PROVENDE' ? (
                                   <IconTile icon={<Wheat />} tone="amber" size="sm" />
@@ -446,11 +443,11 @@ export function PointsOfSalePage() {
                                 </span>
                               </span>
                             </Td>
-                            <Td>{t.pointOfSale.name}</Td>
-                            <Td className="whitespace-nowrap text-right tabular-nums">
+                            <Td label="Destination">{t.pointOfSale.name}</Td>
+                            <Td label="Restant / transféré" className="whitespace-nowrap text-right tabular-nums">
                               {num(remainingOf(t), 0)} / {num(t.quantity, 0)} {transferUnit(t)}
                             </Td>
-                            <Td>
+                            <Td label="Actions">
                               <span className="flex justify-end">
                                 <Button tone="secondary" onClick={() => setToCancel(t)} aria-label={`Annuler le transfert ${source.name}`}>
                                   <RotateCcw className="h-4 w-4" /> Annuler
@@ -461,8 +458,7 @@ export function PointsOfSalePage() {
                         );
                       })}
                     </tbody>
-                  </table>
-                </div>
+                  </DataTable>
               </Card>
             ) : (
               <EmptyState icon={<Package />} message="Aucune réserve active. Transférez du stock depuis la ferme (carcasses, œufs ou provende) pour le vendre en boutique." />

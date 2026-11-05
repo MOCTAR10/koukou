@@ -28,7 +28,7 @@ import {
   useInvalidateFarm,
 } from '../components/flock/shared';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
-import { Card, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr, fcfa, num } from '../lib/format';
 
 type TabKey = 'stock' | 'lots' | 'mouvements' | 'catalogue';
@@ -265,20 +265,19 @@ export function StockPage() {
                 <EmptyState message="Aucun stock : enregistrez votre première réception." icon={<Scale />} />
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <DataTable>
                   <thead className="bg-slate-50">
                     <tr>
                       <Th>Phase</Th>
-                      <Th>Reçu</Th>
-                      <Th>Consommé</Th>
-                      <Th>Perdu</Th>
-                      <Th>Vendu</Th>
+                      <Th className="hidden lg:table-cell">Reçu</Th>
+                      <Th className="hidden lg:table-cell">Consommé</Th>
+                      <Th className="hidden xl:table-cell">Perdu</Th>
+                      <Th className="hidden xl:table-cell">Vendu</Th>
                       <Th>Disponible</Th>
                       <Th>Autonomie</Th>
                       <Th>Valeur</Th>
                       <Th>État</Th>
-                      <Th>Lot à utiliser</Th>
+                      <Th className="hidden lg:table-cell">Lot à utiliser</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -292,23 +291,22 @@ export function StockPage() {
                               {t.feedPhase ? phaseLabel(t.feedPhase) : (t.foodType ?? 'Sans phase')}
                             </IconLabel>
                           </Td>
-                          <Td>{num(t.receivedKg)} kg</Td>
-                          <Td>{num(t.usedKg)} kg</Td>
-                          <Td>{num(t.lostKg)} kg</Td>
-                          <Td>{num(t.soldKg)} kg</Td>
-                          <Td className="font-semibold">{num(t.availableKg)} kg</Td>
-                          <Td>{t.autonomyDays != null ? `${num(t.autonomyDays)} j` : '—'}</Td>
-                          <Td>{price ? fcfa(Math.round(t.availableKg * price)) : '—'}</Td>
-                          <Td>
+                          <Td label="Reçu" className="md:max-lg:hidden">{num(t.receivedKg)} kg</Td>
+                          <Td label="Consommé" className="md:max-lg:hidden">{num(t.usedKg)} kg</Td>
+                          <Td label="Perdu" className="md:max-xl:hidden">{num(t.lostKg)} kg</Td>
+                          <Td label="Vendu" className="md:max-xl:hidden">{num(t.soldKg)} kg</Td>
+                          <Td label="Disponible" className="font-semibold">{num(t.availableKg)} kg</Td>
+                          <Td label="Autonomie">{t.autonomyDays != null ? `${num(t.autonomyDays)} j` : '—'}</Td>
+                          <Td label="Valeur">{price ? fcfa(Math.round(t.availableKg * price)) : '—'}</Td>
+                          <Td label="État">
                             <Pill tone={s.tone}>{s.label}</Pill>
                           </Td>
-                          <Td>{t.suggestedLotName ?? '—'}</Td>
+                          <Td label="Lot à utiliser" className="md:max-lg:hidden">{t.suggestedLotName ?? '—'}</Td>
                         </tr>
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
+                </DataTable>
             )}
           </SectionCard>
         </>
@@ -321,15 +319,14 @@ export function StockPage() {
               <EmptyState message="Aucun lot reçu." icon={<Package />} />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Produit</Th>
                     <Th>Type</Th>
                     <Th>Phase</Th>
-                    <Th>Fournisseur</Th>
-                    <Th>N° de lot</Th>
+                    <Th className="hidden lg:table-cell">Fournisseur</Th>
+                    <Th className="hidden lg:table-cell">N° de lot</Th>
                     <Th>Reçu le</Th>
                     <Th>Reçu</Th>
                     <Th>Restant</Th>
@@ -340,16 +337,16 @@ export function StockPage() {
                   {stock.data.lots.map((l) => (
                     <tr key={l.id} className="border-t border-slate-100">
                       <Td className="font-medium">{l.productName}</Td>
-                      <Td>
+                      <Td label="Type">
                         <IconLabel icon={entryIcon(l.entryType)}>{entryLabel(l.entryType)}</IconLabel>
                       </Td>
-                      <Td>{phaseLabel(l.feedPhase, l.customFeedPhaseName)}</Td>
-                      <Td>{l.supplier}</Td>
-                      <Td>{l.supplierLotNumber}</Td>
-                      <Td>{dateFr(l.receivedDate)}</Td>
-                      <Td>{num(l.receivedKg)} kg</Td>
-                      <Td className="font-semibold">{num(l.availableKg)} kg</Td>
-                      <Td>
+                      <Td label="Phase">{phaseLabel(l.feedPhase, l.customFeedPhaseName)}</Td>
+                      <Td label="Fournisseur" className="md:max-lg:hidden">{l.supplier}</Td>
+                      <Td label="N° de lot" className="md:max-lg:hidden">{l.supplierLotNumber}</Td>
+                      <Td label="Reçu le">{dateFr(l.receivedDate)}</Td>
+                      <Td label="Reçu">{num(l.receivedKg)} kg</Td>
+                      <Td label="Restant" className="font-semibold">{num(l.availableKg)} kg</Td>
+                      <Td label="Péremption">
                         {l.expirationDate ? dateFr(l.expirationDate) : '—'}
                         {l.expired ? (
                           <span className="ml-1">
@@ -360,8 +357,7 @@ export function StockPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           )}
         </SectionCard>
       ) : null}
@@ -376,8 +372,7 @@ export function StockPage() {
               <EmptyState message="Aucun mouvement sur cette période." icon={<ArrowDownRight />} />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Date</Th>
@@ -395,19 +390,18 @@ export function StockPage() {
                     .map((m) => (
                       <tr key={m.id} className="border-t border-slate-100">
                         <Td>{dateFr(m.date)}</Td>
-                        <Td>
+                        <Td label="Type">
                           <Pill tone={m.type === 'PERTE' ? 'red' : m.type === 'VENTE' ? 'emerald' : 'slate'}>{MOVEMENT_TYPE_LABEL[m.type]}</Pill>
                         </Td>
-                        <Td>{m.productName ?? '—'}</Td>
-                        <Td>{phaseLabel(m.feedPhase)}</Td>
-                        <Td>{num(m.quantityKg)} kg</Td>
-                        <Td>{m.valueFcfa != null ? fcfa(m.valueFcfa) : '—'}</Td>
-                        <Td>{m.type === 'PERTE' ? reasonLabel(m.reason) : '—'}</Td>
+                        <Td label="Produit">{m.productName ?? '—'}</Td>
+                        <Td label="Phase">{phaseLabel(m.feedPhase)}</Td>
+                        <Td label="Quantité">{num(m.quantityKg)} kg</Td>
+                        <Td label="Valeur">{m.valueFcfa != null ? fcfa(m.valueFcfa) : '—'}</Td>
+                        <Td label="Raison">{m.type === 'PERTE' ? reasonLabel(m.reason) : '—'}</Td>
                       </tr>
                     ))}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           )}
         </SectionCard>
       ) : null}
@@ -474,8 +468,7 @@ function CatalogPanel() {
               <EmptyState message="Aucun produit au catalogue." icon={<Package />} />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Produit</Th>
@@ -491,10 +484,10 @@ function CatalogPanel() {
                   {products.data.map((p) => (
                     <tr key={p.id} className="border-t border-slate-100">
                       <Td className="font-medium">{p.name}</Td>
-                      <Td>{entryLabel(p.entryType)}</Td>
-                      <Td>{phaseLabel(p.feedPhase)}</Td>
-                      <Td>{p.supplier ?? '—'}</Td>
-                      <Td>
+                      <Td label="Type">{entryLabel(p.entryType)}</Td>
+                      <Td label="Phase">{phaseLabel(p.feedPhase)}</Td>
+                      <Td label="Fournisseur">{p.supplier ?? '—'}</Td>
+                      <Td label="Prix">
                         {p.entryType === 'BULKER'
                           ? p.defaultCostPerMtFcfa != null
                             ? `${fcfa(p.defaultCostPerMtFcfa)} / t`
@@ -503,15 +496,14 @@ function CatalogPanel() {
                             ? fcfa(p.defaultUnitPriceFcfa)
                             : '—'}
                       </Td>
-                      <Td>{p.defaultBagSizeKg != null ? `${num(p.defaultBagSizeKg)} kg` : '—'}</Td>
-                      <Td>
+                      <Td label="Sac">{p.defaultBagSizeKg != null ? `${num(p.defaultBagSizeKg)} kg` : '—'}</Td>
+                      <Td label="Statut">
                         <Pill tone={p.active ? 'emerald' : 'slate'}>{p.active ? 'Actif' : 'Archivé'}</Pill>
                       </Td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           )}
         </SectionCard>
       </div>
