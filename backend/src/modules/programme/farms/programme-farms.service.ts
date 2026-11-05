@@ -28,7 +28,6 @@ import { User } from '../../users/entities/user.entity.js';
 import type {
   ActivateOwnerDto,
   CreateProgrammeFarmDto,
-  EnrolFarmDto,
   FarmGpsDto,
   FarmInfrastructureDto,
   ListProgrammeFarmsQueryDto,
@@ -118,8 +117,8 @@ function escapeLike(value: string): string {
 /**
  * Farm registry of the programme (POUFA §5.1): identification sheet with a
  * never-changing code, GPS with its province check (warning only), capacity
- * and infrastructures, status with history, duplicate blocking, enrolment of
- * an existing farm and activation of the exploitant's account.
+ * and infrastructures, status with history, duplicate blocking and activation of
+ * the exploitant's account.
  *
  * Writes that run the duplicate check take a per-programme advisory lock, so
  * two concurrent creations can't both miss each other.
@@ -552,107 +551,6 @@ export class ProgrammeFarmsService {
       return created;
     });
     return this.sheetOf(farm.id);
-  }
-
-  /**
-   * Enrols an existing Fermia farm (it keeps its owner and data) into the
-   * programme: code, territory, sheet fields and a first status row.
-   */
-  async enrol(user: AuthUser, farmId: string, dto: EnrolFarmDto) {
-    const program = await this.programme.current();
-    const province = await this.territory.provinceByCode(dto.provinceCode);
-    const localite = await this.resolveLocalite(province, dto.localiteId);
-    const cohort = await this.resolveCohort(dto.cohort);
-    const status = await this.resolveStatus(dto.statusCode);
-    const gps = dto.gps ? this.gpsFix(dto.gps, GpsSource.APPAREIL) : null;
-    await this.dataSource.transaction(async (em) => {
-      await this.lockRegistry(em, program.id);
-      const farm = await em.getRepository(Farm).findOne({
-        where: { id: farmId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!farm) throw new NotFoundException('Ferme introuvable.');
-      const owner = farm.ownerId
-        ? await em.getRepository(User).findOneBy({ id: farm.ownerId })
-        : null;
-      if (farm.programId) {
-        throw new ConflictException(
-          `Cette ferme est déjà inscrite au programme (${farm.code ?? 'sans code'}).`,
-        );
-      }
-      const amiRef = normalizeAmiRef(dto.amiRef);
-      await this.assertAmiRefFree(em, program.id, amiRef);
-      const exploitantName =
-        dto.exploitantName?.trim() || owner?.fullName || null;
-      const exploitantPhone =
-        dto.exploitantPhone ||
-        (owner?.phone ? normalizePhone(owner.phone) : null);
-      const duplicates = await this.findDuplicates(em, program.id, {
-        id: farm.id,
-        code: null,
-        name: farm.name,
-        normalizedName: normalizeFarmName(farm.name),
-        provinceId: province.id,
-        localiteId: localite?.id ?? null,
-        phone: exploitantPhone,
-        amiRef,
-      });
-      if (duplicates.length > 0 && !dto.confirmDuplicate) {
-        throw this.duplicateConflict(duplicates);
-      }
-      const code = await this.counters.nextFarmCode(province.code, em);
-      Object.assign(farm, {
-        programId: program.id,
-        code,
-        provinceId: province.id,
-        localiteId: localite?.id ?? null,
-        amiRef,
-        cohort,
-        capacityPlaces: dto.capacityPlaces ?? null,
-        exploitantName,
-        exploitantPhone,
-        duplicateOverride: this.override(duplicates, user.id),
-      });
-      await em.getRepository(Farm).update(farm.id, {
-        programId: farm.programId,
-        code: farm.code,
-        provinceId: farm.provinceId,
-        localiteId: farm.localiteId,
-        amiRef: farm.amiRef,
-        cohort: farm.cohort,
-        capacityPlaces: farm.capacityPlaces,
-        exploitantName: farm.exploitantName,
-        exploitantPhone: farm.exploitantPhone,
-        duplicateOverride: farm.duplicateOverride,
-      });
-      await this.recordStatus(
-        em,
-        farm,
-        status,
-        new Date(),
-        user.id,
-        'Inscription au programme',
-      );
-      if (gps) {
-        await this.applyGps(em, farm, province, gps, user.id, null);
-      } else if (farm.latitude != null && farm.longitude != null) {
-        await this.applyGps(
-          em,
-          farm,
-          province,
-          {
-            latitude: farm.latitude,
-            longitude: farm.longitude,
-            capturedAt: new Date(),
-            source: GpsSource.MANUEL,
-            accuracyM: null,
-          },
-          user.id,
-          "Position reprise de la ferme à l'inscription",
-        );
-      }
-    });
-    return this.sheetOf(farmId);
   }
 
   /** Sheet corrections; the code and the programme never change. */

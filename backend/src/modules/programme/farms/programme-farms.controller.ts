@@ -22,7 +22,6 @@ import { UserRole } from '../../../common/enums/role.enum.js';
 import {
   ActivateOwnerDto,
   CreateProgrammeFarmDto,
-  EnrolFarmDto,
   ImportFarmsDto,
   ListProgrammeFarmsQueryDto,
   SetFarmGpsDto,
@@ -44,8 +43,7 @@ const uuid = new ParseUUIDPipe({ version: '4' });
  * « Aucun programme configuré » when `PROGRAM_CODE` is unset.
  *
  * Platform admin, or an institutional account whose profile grants REGISTRE
- * (owner activation: ADMINISTRATION; enrolment of a Fermia farm: platform
- * admin only), always within its scope (ScopeResolver: list filtered, sheet
+ * (owner activation: ADMINISTRATION), always within its scope (ScopeResolver: list filtered, sheet
  * and writes checked, import national scope only). The owner of a programme
  * farm can read his own sheet.
  */
@@ -214,18 +212,4 @@ export class ProgrammeFarmsController {
     return this.registry.activateOwner(farmId, dto);
   }
 
-  @Post(':farmId/enrol')
-  @Domain('PLATEFORME')
-  @Roles(UserRole.PLATFORM_ADMIN)
-  @ApiOperation({
-    summary:
-      'Inscrire au programme une ferme Fermia existante (elle garde son propriétaire et ses données)',
-  })
-  enrol(
-    @CurrentUser() user: AuthUser,
-    @Param('farmId', uuid) farmId: string,
-    @Body() dto: EnrolFarmDto,
-  ) {
-    return this.registry.enrol(user, farmId, dto);
-  }
 }

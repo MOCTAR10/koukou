@@ -615,39 +615,6 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     });
   });
 
-  describe('inscription d’une ferme Fermia existante', () => {
-    it('inscrit la ferme d’un propriétaire existant, une seule fois', async () => {
-      const phone = `+24168${digits}`;
-      await register(phone, 'Marie Existante');
-      const token = await login(phone);
-      const [farm] = (await get('/farms', token).expect(200)).body;
-
-      const res = await post(`/programme/farms/${farm.id}/enrol`, {
-        provinceCode: 'G2',
-        cohort: 'COHORTE_1',
-        capacityPlaces: 1000,
-      }).expect(201);
-      // Haut-Ogooué: 17 imported farms.
-      expect(res.body).toMatchObject({
-        id: farm.id,
-        code: 'G2-0018',
-        province: { code: 'G2' },
-        status: { code: 'EN_PREPARATION' },
-        exploitant: { name: 'Marie Existante', phone },
-        owner: { fullName: 'Marie Existante' },
-        hasOwnerAccount: true,
-        capacityPlaces: 1000,
-      });
-      await post(`/programme/farms/${farm.id}/enrol`, {
-        provinceCode: 'G2',
-      }).expect(409);
-      // The owner keeps his farm and reads its programme sheet.
-      const mine = await get('/farms', token).expect(200);
-      expect(mine.body.map((f: any) => f.id)).toEqual([farm.id]);
-      await get(`/programme/farms/${farm.id}`, token).expect(200);
-    });
-  });
-
   describe('fermes sans propriétaire dans les parcours existants', () => {
     it('les listes de fermes et la plateforme les acceptent', async () => {
       const mine = await get('/farms').expect(200);

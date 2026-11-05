@@ -104,7 +104,7 @@ export class SetFarmInfrastructuresDto {
   items: FarmInfrastructureDto[];
 }
 
-/** Sheet fields shared by creation, update and enrolment. */
+/** Sheet fields shared by creation and update. */
 class FarmSheetFieldsDto {
   @ApiPropertyOptional({
     description: 'Localité (doit appartenir à la province)',
@@ -150,7 +150,7 @@ class FarmSheetFieldsDto {
   capacityPlaces?: number | null;
 }
 
-/** Status and duplicate confirmation, at creation and enrolment. */
+/** Status and duplicate confirmation, at creation. */
 class FarmEntryDto extends FarmSheetFieldsDto {
   @ApiPropertyOptional({
     description:
@@ -195,13 +195,6 @@ export class CreateProgrammeFarmDto extends FarmEntryDto {
   @ValidateNested({ each: true })
   @Type(() => FarmInfrastructureDto)
   infrastructures?: FarmInfrastructureDto[];
-}
-
-export class EnrolFarmDto extends FarmEntryDto {
-  @ApiProperty({ example: 'G1' })
-  @IsString({ message: 'Le code de province doit être un texte.' })
-  @IsNotEmpty({ message: 'La province est obligatoire.' })
-  provinceCode: string;
 }
 
 /** The code and the programme are never editable; GPS and status have their own routes. */
