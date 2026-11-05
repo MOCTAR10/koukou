@@ -1,5 +1,7 @@
 // The whole suite runs from one IP; disable rate limiting (see app.module.ts).
 process.env.THROTTLE_DISABLED = 'true';
+// POUFA-only instance: every farm belongs to the programme (see AGENTS.md).
+process.env.PROGRAM_CODE = 'POUFA';
 // Specs boot the app many times on a shared DB: no background overdue-task
 // sweep (tests call TasksService.sweepOverdue() directly when needed).
 process.env.TASK_SWEEP_DISABLED = 'true';
