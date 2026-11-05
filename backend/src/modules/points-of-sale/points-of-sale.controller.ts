@@ -18,8 +18,10 @@ import {
   CreatePointOfSaleDto,
   UpdatePointOfSaleDto,
 } from './dto/point-of-sale.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Points de vente')
+@Domain('VENTES')
 @Controller('farms/:farmId/points-of-sale')
 @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
 export class PointsOfSaleController {

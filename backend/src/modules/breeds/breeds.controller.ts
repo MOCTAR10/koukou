@@ -15,6 +15,7 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { BreedsService } from './breeds.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 class CreateBreedDto {
   @IsString()
@@ -40,6 +41,7 @@ class CreateBreedDto {
 }
 
 @ApiTags('Souches (Breed)')
+@Domain('TECHNIQUE')
 @Controller('breeds')
 export class BreedsController {
   constructor(

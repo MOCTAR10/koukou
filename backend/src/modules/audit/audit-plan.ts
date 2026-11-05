@@ -1,5 +1,5 @@
 import { AuditAction } from '../../common/enums/audit-action.enum.js';
-import { LOGIN_ROUTE, WRITE_METHODS } from './audit-route.js';
+import { LOGIN_OTP_ROUTE, LOGIN_ROUTE, WRITE_METHODS } from './audit-route.js';
 
 /** What the journal records for one request, decided before the handler runs. */
 export type AuditPlan =
@@ -23,7 +23,9 @@ export function resolveAuditPlan(
   exportMeta: unknown,
 ): AuditPlan | null {
   const verb = method.toUpperCase();
-  if (verb === 'POST' && route === LOGIN_ROUTE) return { kind: 'LOGIN' };
+  if (verb === 'POST' && (route === LOGIN_ROUTE || route === LOGIN_OTP_ROUTE)) {
+    return { kind: 'LOGIN' };
+  }
   if (exportMeta) {
     return {
       kind: AuditAction.EXPORT,

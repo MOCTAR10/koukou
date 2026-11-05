@@ -9,6 +9,12 @@ import { ROLES_KEY } from '../decorators/roles.decorator.js';
 import { UserRole } from '../enums/role.enum.js';
 import { AuthUser } from '../decorators/current-user.decorator.js';
 
+const INSTITUTION_PASSES: ReadonlySet<UserRole> = new Set([
+  UserRole.PLATFORM_ADMIN,
+  UserRole.PROPRIETAIRE,
+  UserRole.ELEVEUR,
+]);
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
@@ -32,6 +38,17 @@ export class RolesGuard implements CanActivate {
       requiredRoles.includes(role) ||
       (role === UserRole.PLATFORM_ADMIN &&
         requiredRoles.includes(UserRole.PROPRIETAIRE))
+    ) {
+      return true;
+    }
+    // An institutional account passes like a farm member or the platform
+    // admin: ProgramAccessGuard, which ran before, already checked its domain,
+    // action and farm scope; services narrow it further (assertAccessible,
+    // resolveEffectivePermissions, ScopeResolver). Buyer-only routes stay
+    // closed to it.
+    if (
+      role === UserRole.INSTITUTION &&
+      requiredRoles.some((r) => INSTITUTION_PASSES.has(r))
     ) {
       return true;
     }

@@ -30,14 +30,17 @@ import { CreateElevageDto } from './dto/create-eleveur.dto.js';
 import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
 import { CreateFarmDto } from './dto/create-farm.dto.js';
 import { UpdateFarmSettingsDto } from './dto/update-farm-settings.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Fermes')
+@Domain('REGISTRE')
 @Controller('farms')
 export class FarmsController {
   constructor(private readonly farmsService: FarmsService) {}
 
   @Post()
   @Roles(UserRole.PROPRIETAIRE)
+  @Domain('COMPTE')
   @ApiOperation({ summary: 'Créer une ferme (Propriétaire)' })
   createFarm(@CurrentUser() user: AuthUser, @Body() dto: CreateFarmDto) {
     return this.farmsService.create(user, dto);
@@ -52,6 +55,7 @@ export class FarmsController {
   }
 
   @Patch(':farmId')
+  @Domain('COMPTE')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('reglages:ferme')
   @ApiOperation({
@@ -67,6 +71,7 @@ export class FarmsController {
   }
 
   @Post(':farmId/logo')
+  @Domain('COMPTE')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('reglages:ferme')
   // Refused while streaming: the 2 MB check in the service only ran after
@@ -99,6 +104,7 @@ export class FarmsController {
   }
 
   @Delete(':farmId/logo')
+  @Domain('COMPTE')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('reglages:ferme')
   @ApiOperation({
@@ -114,6 +120,7 @@ export class FarmsController {
   }
 
   @Post(':farmId/eleveurs')  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Domain('EQUIPE')
   @Permissions('equipe:gerer')
   @ApiOperation({
     summary:
@@ -128,6 +135,7 @@ export class FarmsController {
   }
 
   @Patch(':farmId/eleveurs/:employmentId')
+  @Domain('EQUIPE')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('equipe:gerer')
   @ApiOperation({
@@ -144,6 +152,7 @@ export class FarmsController {
   }
 
   @Get(':farmId/eleveurs')
+  @Domain('EQUIPE')
   @AuditRead('Dossiers RH des membres (contrats, salaires)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('equipe:gerer', 'rh:lire')
@@ -167,6 +176,7 @@ export class FarmsController {
   }
 
   @Get(':farmId/permissions')
+  @Domain('EQUIPE')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('equipe:gerer', 'rh:lire')
   @ApiOperation({
@@ -179,6 +189,7 @@ export class FarmsController {
   }
 
   @Get(':farmId/team')
+  @Domain('EQUIPE')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('equipe:taches')
   @ApiOperation({

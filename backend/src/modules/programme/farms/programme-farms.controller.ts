@@ -35,6 +35,7 @@ import {
   type UploadedCsvFile,
 } from './farm-import.service.js';
 import { ProgrammeFarmsService } from './programme-farms.service.js';
+import { Action, Domain } from '../../../common/decorators/domain.decorator.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 
@@ -42,12 +43,14 @@ const uuid = new ParseUUIDPipe({ version: '4' });
  * Farm registry of the programme (POUFA §5.1). Every route answers 404
  * « Aucun programme configuré » when `PROGRAM_CODE` is unset.
  *
- * TODO(access lot): PLATFORM_ADMIN only for now; the access module will open
- * the registry to the institutional profiles (DGE, agents techniques…) with
- * their province / farm scopes. The owner of a programme farm can already
- * read his own sheet.
+ * Platform admin, or an institutional account whose profile grants REGISTRE
+ * (owner activation: ADMINISTRATION; enrolment of a Fermia farm: platform
+ * admin only), always within its scope (ScopeResolver: list filtered, sheet
+ * and writes checked, import national scope only). The owner of a programme
+ * farm can read his own sheet.
  */
 @ApiTags('Programme (POUFA) — registre des fermes')
+@Domain('REGISTRE')
 @Controller('programme/farms')
 export class ProgrammeFarmsController {
   constructor(
@@ -61,8 +64,11 @@ export class ProgrammeFarmsController {
     summary:
       'Fermes du programme, filtrées (province, localité, cohorte, statut, recherche) et paginées',
   })
-  list(@Query() query: ListProgrammeFarmsQueryDto) {
-    return this.registry.list(query);
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListProgrammeFarmsQueryDto,
+  ) {
+    return this.registry.list(user, query);
   }
 
   @Post()
@@ -136,6 +142,7 @@ export class ProgrammeFarmsController {
   }
 
   @Post(':farmId/status')
+  @Action('MODIFIER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
@@ -193,6 +200,8 @@ export class ProgrammeFarmsController {
   }
 
   @Post(':farmId/activate-owner')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
@@ -206,6 +215,7 @@ export class ProgrammeFarmsController {
   }
 
   @Post(':farmId/enrol')
+  @Domain('PLATEFORME')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:

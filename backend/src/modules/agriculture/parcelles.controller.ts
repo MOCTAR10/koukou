@@ -16,8 +16,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { CreateParcelleDto } from './dto/create-parcelle.dto.js';
 import { UpdateParcelleDto } from './dto/update-parcelle.dto.js';
 import { ParcellesService } from './parcelles.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Parcelles (Agriculture)')
+@Domain('CULTURES')
 @Controller('farms/:farmId/parcelles')
 export class ParcellesController {
   constructor(private readonly parcellesService: ParcellesService) {}

@@ -16,8 +16,10 @@ import { SanitaryService } from './sanitary.service.js';
 import { GenerateProgramDto } from './dto/generate-program.dto.js';
 import { CreateManualScheduleDto } from './dto/create-manual-schedule.dto.js';
 import { UpdateScheduleDto } from './dto/update-schedule.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Sanitaire & Prophylaxie')
+@Domain('SANITAIRE')
 @Controller('farms/:farmId')
 export class VaccineSchedulesController {
   constructor(private readonly sanitaryService: SanitaryService) {}

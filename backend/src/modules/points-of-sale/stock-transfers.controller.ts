@@ -8,8 +8,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
 import { StockTransfersService } from './stock-transfers.service.js';
 import { CreateStockTransferDto } from './dto/stock-transfer.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Stock & transferts')
+@Domain('VENTES')
 @Controller('farms/:farmId/stock-transfers')
 export class StockTransfersController {
   constructor(private readonly transfersService: StockTransfersService) {}

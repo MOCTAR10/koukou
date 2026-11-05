@@ -4,8 +4,10 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { ReferenceConstantsService } from './reference-constants.service.js';
 import { UpdateReferenceConstantDto } from './dto/update-reference-constant.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Réglages (constantes de référence)')
+@Domain('TECHNIQUE')
 @Controller('reference-constants')
 export class ReferenceConstantsController {
   constructor(private readonly constantsService: ReferenceConstantsService) {}
@@ -21,6 +23,7 @@ export class ReferenceConstantsController {
   }
 
   @Patch(':key')
+  @Domain('PLATEFORME')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:

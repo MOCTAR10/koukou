@@ -11,8 +11,10 @@ import { CompleteProphylaxisDto } from './dto/complete-prophylaxis.dto.js';
 import { GenerateCalendarDto } from './dto/generate-calendar.dto.js';
 import { RescheduleProphylaxisDto } from './dto/reschedule-prophylaxis.dto.js';
 import { CreateTreatmentDto } from './dto/create-treatment.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Sanitaire & Prophylaxie')
+@Domain('SANITAIRE')
 @Controller('farms/:farmId/batches/:batchId')
 export class SanitaryController {
   constructor(private readonly sanitaryService: SanitaryService) {}

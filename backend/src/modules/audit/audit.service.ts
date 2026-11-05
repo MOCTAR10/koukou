@@ -117,8 +117,18 @@ export class AuditService {
     let summary: unknown;
     if (plan.kind === 'LOGIN') {
       action = failed ? AuditAction.LOGIN_FAILED : AuditAction.LOGIN;
-      // Never the code: only the masked phone number.
-      summary = { phone: maskPhone((req.body as { phone?: unknown })?.phone) };
+      // Never a code: the masked phone number (password step) or the
+      // challenge id (SMS step), and whether an SMS code was sent.
+      const body = req.body as { phone?: unknown; challengeId?: unknown };
+      const otpSent =
+        (outcome.body as { otpRequired?: unknown })?.otpRequired === true;
+      summary =
+        typeof body?.challengeId === 'string'
+          ? { step: 'CODE_SMS', challengeId: body.challengeId.slice(0, 40) }
+          : {
+              phone: maskPhone(body?.phone),
+              ...(otpSent ? { step: 'CODE_SMS_ENVOYE' } : {}),
+            };
       const loggedIn = (
         outcome.body as { user?: { id?: string; role?: string } }
       )?.user;
