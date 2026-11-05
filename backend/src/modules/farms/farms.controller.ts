@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { AuditRead } from '../../common/decorators/audit.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -143,6 +144,7 @@ export class FarmsController {
   }
 
   @Get(':farmId/eleveurs')
+  @AuditRead('Dossiers RH des membres (contrats, salaires)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('equipe:gerer', 'rh:lire')
   @ApiOperation({ summary: 'Lister les membres de la ferme' })

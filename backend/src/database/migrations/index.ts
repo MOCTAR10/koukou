@@ -1,5 +1,6 @@
 import { Baseline1793909600725 } from './1793909600725-Baseline.js';
 import { BandsNeverDeleted1793909660080 } from './1793909660080-BandsNeverDeleted.js';
+import { AuditJournal1793911381642 } from './1793911381642-AuditJournal.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -10,4 +11,5 @@ import { BandsNeverDeleted1793909660080 } from './1793909660080-BandsNeverDelete
 export const MIGRATIONS = [
   Baseline1793909600725,
   BandsNeverDeleted1793909660080,
+  AuditJournal1793911381642,
 ];

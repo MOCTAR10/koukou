@@ -1,6 +1,16 @@
-﻿import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+﻿import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AuditExport } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
@@ -200,6 +210,7 @@ export class AccountingController {
   }
 
   @Get('export')
+  @AuditExport('Export comptable (PDF ou CSV)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
   @ApiOperation({
@@ -216,7 +227,7 @@ export class AccountingController {
     @Param('farmId') farmId: string,
     @Query('report') report: string,
     @Query('format') format: string | undefined,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
@@ -230,8 +241,7 @@ export class AccountingController {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="koukou-${kind}-${from ?? 'all'}-${to ?? 'now'}.csv"`,
       });
-      res.send(csv);
-      return;
+      return new StreamableFile(csv);
     }
 
     const reportData = await this.buildPdfData(user, farmId, kind, from, to);
@@ -259,7 +269,7 @@ export class AccountingController {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="koukou-${kind}-${from ?? 'all'}-${to ?? 'now'}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 
   private async buildPdfData(
