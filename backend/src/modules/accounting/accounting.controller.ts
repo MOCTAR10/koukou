@@ -21,8 +21,10 @@ import { PdfService } from '../../common/services/pdf.service.js';
 import { AccountingService } from './accounting.service.js';
 import { CreateRegularisationDto } from './dto/accounting.dto.js';
 import type { AccountSoldes } from './accounting.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Comptabilité SYSCOHADA')
+@Domain('COMPTABILITE')
 @Controller('farms/:farmId/accounting')
 export class AccountingController {
   constructor(

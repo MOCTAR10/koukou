@@ -7,8 +7,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { SanitaryService } from './sanitary.service.js';
 import { CreateSanitaryProtocolDto } from './dto/create-protocol.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Protocoles sanitaires')
+@Domain('SANITAIRE')
 @Controller('sanitary/protocols')
 export class SanitaryProtocolsController {
   constructor(

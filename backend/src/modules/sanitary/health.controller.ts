@@ -15,9 +15,11 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { HealthService } from './health.service.js';
 import { CreateHealthEventDto } from './dto/create-health-event.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Sanitaire & Prophylaxie')
 @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+@Domain('SANITAIRE')
 @Controller('farms/:farmId/batches/:batchId')
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}

@@ -11,8 +11,10 @@ import { PondageService } from './pondage.service.js';
 import { ChangeTypeDto } from './dto/change-type.dto.js';
 import { CreateBatchDto } from './dto/create-batch.dto.js';
 import { UpdateBatchDto } from './dto/update-batch.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Lots (Module 1)')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId/batches')
 export class BatchesController {
   constructor(

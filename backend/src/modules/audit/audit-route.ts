@@ -82,3 +82,5 @@ export function offlineOpId(req: AuditRequestLike): string | null {
 export const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export const LOGIN_ROUTE = '/auth/login';
+/** Second login step of an institutional account (SMS code). */
+export const LOGIN_OTP_ROUTE = '/auth/login/otp';

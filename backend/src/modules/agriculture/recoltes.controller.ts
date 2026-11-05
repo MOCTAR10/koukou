@@ -7,8 +7,10 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { CreateRecolteDto } from './dto/create-recolte.dto.js';
 import { RecoltesService } from './recoltes.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Récoltes (Agriculture)')
+@Domain('CULTURES')
 @Controller('farms/:farmId/recoltes')
 export class RecoltesController {
   constructor(private readonly recoltesService: RecoltesService) {}

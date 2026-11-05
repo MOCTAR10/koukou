@@ -16,8 +16,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { FeedProductsService } from './feed-products.service.js';
 import { CreateFeedProductDto } from './dto/create-feed-product.dto.js';
 import { UpdateFeedProductDto } from './dto/update-feed-product.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Catalogue provende (Stock & Inventaire — Module 3)')
+@Domain('INTRANTS')
 @Controller('farms/:farmId/feed-products')
 export class FeedProductsController {
   constructor(private readonly productsService: FeedProductsService) {}

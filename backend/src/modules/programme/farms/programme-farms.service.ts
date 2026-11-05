@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { randomInt } from 'node:crypto';
 import { Brackets, DataSource, EntityManager, Repository } from 'typeorm';
 import type { AuthUser } from '../../../common/decorators/current-user.decorator.js';
 import { BatchStatus } from '../../../common/enums/batch-type.enum.js';
@@ -17,6 +16,9 @@ import { normalizePhone } from '../../../common/utils/phone.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { Farm } from '../../farms/entities/farm.entity.js';
 import { FarmsService } from '../../farms/farms.service.js';
+import { generateLoginCode } from '../../../common/utils/login-code.js';
+import { scopeReachesFarms } from '../../access/access-rules.js';
+import { ScopeResolver } from '../../access/scope-resolver.service.js';
 import { POUFA_BASE_VARIABLE_NAMES } from '../../indicators/formula/formula-catalog.js';
 import {
   evaluateFormula,
@@ -109,11 +111,6 @@ export interface ResolvedEntry {
   readonly gps: GpsFix | null;
 }
 
-/** 8-digit login code given once to a newly activated owner. */
-function generateLoginCode(): string {
-  return String(randomInt(0, 100_000_000)).padStart(8, '0');
-}
-
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
@@ -137,6 +134,7 @@ export class ProgrammeFarmsService {
     private readonly geo: GeoService,
     private readonly parameters: ParametersService,
     private readonly farmsService: FarmsService,
+    private readonly scope: ScopeResolver,
     @InjectRepository(Farm) private readonly farms: Repository<Farm>,
     @InjectRepository(FarmStatusHistory)
     private readonly statusRows: Repository<FarmStatusHistory>,
@@ -498,10 +496,20 @@ export class ProgrammeFarmsService {
   // Routes
   // ---------------------------------------------------------------------
 
+  /** An institutional account writes farms in the provinces of its scope only. */
+  private async assertProvinceInScope(
+    user: AuthUser,
+    provinceId: string,
+  ): Promise<void> {
+    if (!this.scope.isInstitution(user)) return;
+    this.scope.assertProvince(await this.scope.requireAccess(user), provinceId);
+  }
+
   /** One programme farm (POST /programme/farms). */
   async create(user: AuthUser, dto: CreateProgrammeFarmDto) {
     const program = await this.programme.current();
     const province = await this.territory.provinceByCode(dto.provinceCode);
+    await this.assertProvinceInScope(user, province.id);
     const entry: ResolvedEntry = {
       name: dto.name.trim(),
       province,
@@ -662,6 +670,7 @@ export class ProgrammeFarmsService {
         province = await this.territory.provinceByCode(
           dto.provinceCode as string,
         );
+        await this.assertProvinceInScope(user, province.id);
       }
       const patch: Partial<
         Pick<
@@ -980,9 +989,20 @@ export class ProgrammeFarmsService {
     });
   }
 
-  /** Paginated, filtered list of the programme farms (administration). */
-  async list(query: ListProgrammeFarmsQueryDto) {
+  /**
+   * Paginated, filtered list of the programme farms (administration), cut
+   * to the scope of an institutional account (ScopeResolver).
+   */
+  async list(user: AuthUser, query: ListProgrammeFarmsQueryDto) {
     const program = await this.programme.current();
+    const access = this.scope.isInstitution(user)
+      ? await this.scope.requireAccess(user)
+      : null;
+    if (access && !scopeReachesFarms(access.scopeKind)) {
+      throw new ForbiddenException(
+        'Accès refusé : votre profil ne donne accès à aucune fiche de ferme.',
+      );
+    }
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 50;
     const qb = this.farms
@@ -990,6 +1010,7 @@ export class ProgrammeFarmsService {
       .leftJoinAndSelect('f.province', 'p')
       .leftJoinAndSelect('f.localite', 'l')
       .where('f.program_id = :programId', { programId: program.id });
+    if (access) this.scope.applyFarmScope(qb, 'f', access);
     if (query.province) {
       qb.andWhere('UPPER(p.code) = UPPER(:province)', {
         province: query.province.trim(),
@@ -1057,10 +1078,17 @@ export class ProgrammeFarmsService {
     };
   }
 
-  /** Sheet read: the platform admin, or the farm's own owner. */
+  /**
+   * Sheet read: the platform admin, an institutional account with the farm
+   * in its scope, or the farm's own owner.
+   */
   async sheet(user: AuthUser, farmId: string) {
     const program = await this.programme.current();
     const farm = await this.programmeFarm(program.id, farmId);
+    if (this.scope.isInstitution(user)) {
+      this.scope.assertFarm(await this.scope.requireAccess(user), farm);
+      return this.sheetOf(farmId);
+    }
     if (
       user.role !== UserRole.PLATFORM_ADMIN &&
       (farm.ownerId === null || farm.ownerId !== user.id)

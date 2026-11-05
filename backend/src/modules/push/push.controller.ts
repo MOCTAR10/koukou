@@ -11,8 +11,10 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { RegisterDeviceDto } from './dto/register-device.dto.js';
 import { PushService } from './push.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Notifications')
+@Domain('COMPTE')
 @Controller('push/devices')
 export class PushController {
   constructor(private readonly pushService: PushService) {}

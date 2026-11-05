@@ -40,6 +40,7 @@ import { toPhone } from '../../common/utils/phone.js';
 import { Transform, Type } from 'class-transformer';
 import { FarmsService } from '../farms/farms.service.js';
 import { PlatformService } from './platform.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 class ProvisionFarmOwnerDto {
   @IsString()
@@ -205,6 +206,7 @@ function assertPeriodOrder(from?: string, to?: string): void {
 
 @ApiTags('Administration plateforme')
 @ApiBearerAuth()
+@Domain('PLATEFORME')
 @Controller('admin')
 @Roles(UserRole.PLATFORM_ADMIN)
 export class PlatformAdminController {

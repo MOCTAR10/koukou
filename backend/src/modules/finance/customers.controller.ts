@@ -14,8 +14,10 @@ import {
   CustomerPaymentDto,
   UpdateCustomerDto,
 } from './dto/customer.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Clients (POS)')
+@Domain('VENTES')
 @Controller('farms/:farmId/customers')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}

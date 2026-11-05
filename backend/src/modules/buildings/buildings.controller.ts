@@ -16,8 +16,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { BuildingsService } from './buildings.service.js';
 import { CreateBuildingDto } from './dto/create-building.dto.js';
 import { UpdateBuildingDto } from './dto/update-building.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Bâtiments')
+@Domain('REGISTRE')
 @Controller('farms/:farmId/buildings')
 export class BuildingsController {
   constructor(private readonly buildingsService: BuildingsService) {}

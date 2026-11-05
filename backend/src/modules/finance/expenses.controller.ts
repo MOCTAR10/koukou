@@ -20,8 +20,10 @@ import {
   ListExpensesQueryDto,
   UpdateExpenseDto,
 } from './dto/expense.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Dépenses (catégorisées par CDCF)')
+@Domain('ECONOMIQUE')
 @Controller('farms/:farmId/expenses')
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}

@@ -1,6 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service.js';
+import { Domain } from './common/decorators/domain.decorator.js';
 
+@Domain('PLATEFORME')
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}

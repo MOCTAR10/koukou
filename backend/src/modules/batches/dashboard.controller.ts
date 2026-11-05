@@ -5,8 +5,10 @@ import type { AuthUser } from '../../common/decorators/current-user.decorator.js
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { DashboardService } from './dashboard.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Tableau de bord (agrégats)')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId')
 export class FarmDashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
@@ -41,6 +43,7 @@ export class FarmDashboardController {
 }
 
 @ApiTags('Tableau de bord (agrégats)')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId/batches')
 export class BatchCurveController {
   constructor(private readonly dashboardService: DashboardService) {}

@@ -1,7 +1,14 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { UserRole } from '../../common/enums/role.enum.js';
+import { mayChangeParameter } from '../access/access-rules.js';
+import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { ProgramParameter } from './entities/program-parameter.entity.js';
 import {
   checkFormulaSet,
@@ -43,6 +50,7 @@ export class ParametersService {
     @InjectRepository(ProgramParameter)
     private readonly params: Repository<ProgramParameter>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly scope: ScopeResolver,
   ) {}
 
   /** @throws BadRequestException on a key outside the catalog */
@@ -98,6 +106,7 @@ export class ParametersService {
     validFrom?: Date,
   ): Promise<ProgramParameter> {
     const def = this.definition(key);
+    await this.assertOwner(def, actor);
     const checked = checkParameterValue(def, value);
     if (!checked.ok) throw new BadRequestException(checked.error);
     const now = Date.now();
@@ -143,6 +152,28 @@ export class ParametersService {
         }),
       );
     });
+  }
+
+  /**
+   * A parameter is changed by its owner profile only (a VETERINAIRE threshold
+   * by the veterinary services); the platform admin may change any. A null
+   * actor is the server itself (seed).
+   * @throws ForbiddenException
+   */
+  private async assertOwner(
+    def: ParameterDefinition,
+    actor: AuthUser | null,
+  ): Promise<void> {
+    if (!actor) return;
+    const profileCode =
+      actor.role === UserRole.INSTITUTION
+        ? ((await this.scope.accessOf(actor.id))?.profileCode ?? null)
+        : null;
+    if (!mayChangeParameter(actor.role, profileCode, def.ownerProfile)) {
+      throw new ForbiddenException(
+        `Accès refusé : le paramètre « ${def.label} » relève du profil « ${def.ownerProfile} ».`,
+      );
+    }
   }
 
   private async assertFormulaSet(

@@ -9,8 +9,10 @@ import { BatchesService } from '../batches/batches.service.js';
 import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { DailyEntriesService } from './daily-entries.service.js';
 import { CreateDailyEntryDto } from './dto/create-daily-entry.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Saisie journalière (Ouvrier)')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId/batches/:batchId/daily-entries')
 export class DailyEntriesController {
   constructor(

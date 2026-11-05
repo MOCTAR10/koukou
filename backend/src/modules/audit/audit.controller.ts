@@ -25,14 +25,16 @@ import {
   AuditSealsQueryDto,
   VerifySealsDto,
 } from './dto/audit-query.dto.js';
+import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 
 /**
  * Consultation of the audit journal. Every route here is itself journaled.
- * TODO(POUFA L2): open these routes to the ANINF auditor profile
- * (`AccessProfile`), not only to the platform administrator.
+ * Platform admin and the ANINF audit profile (AUDIT domain; an AUDIT scope
+ * reaches nothing else), enforced by ProgramAccessGuard.
  */
 @ApiTags('Journal d’audit')
 @ApiBearerAuth()
+@Domain('AUDIT')
 @Controller('audit')
 @Roles(UserRole.PLATFORM_ADMIN)
 export class AuditController {
@@ -126,6 +128,7 @@ export class AuditController {
   }
 
   @Post('seals/verify')
+  @Action('CONSULTER')
   @HttpCode(200)
   @AuditRead('Vérification des sceaux du journal')
   @ApiOperation({

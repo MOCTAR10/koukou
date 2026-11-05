@@ -14,8 +14,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { AlertStatus } from '../../common/enums/alert-level.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { AlertsService } from './alerts.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Alertes (Assistant)')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId/alerts')
 export class AlertsController {
   constructor(

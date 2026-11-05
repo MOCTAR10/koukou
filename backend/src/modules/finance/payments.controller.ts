@@ -6,8 +6,10 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { PaymentsService } from './payments.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Paiements')
+@Domain('VENTES')
 @Controller('farms/:farmId/payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
@@ -32,6 +34,7 @@ export class PaymentsController {
 }
 
 @ApiTags('Finance — Méthodes de paiement')
+@Domain('VENTES')
 @Controller('farms/:farmId/payment-methods')
 export class PaymentMethodsController {
   constructor(

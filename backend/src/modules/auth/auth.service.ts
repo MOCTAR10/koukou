@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -22,6 +23,14 @@ import {
 } from './dto/buyer.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { VerifyOtpDto } from './dto/verify-otp.dto.js';
+import {
+  INSTITUTION_SESSION_SECONDS,
+  LoginChallengeService,
+  institutionOtpMode,
+} from './login-challenge.service.js';
+import { NO_MEMBERSHIP_MESSAGE } from '../access/access-rules.js';
+import { ScopeResolver } from '../access/scope-resolver.service.js';
 
 const DEFAULT_FARM_CITY = 'Libreville';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
@@ -39,6 +48,9 @@ export class AuthService {
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly farmsService: FarmsService,
+    private readonly challenges: LoginChallengeService,
+    private readonly scope: ScopeResolver,
+    private readonly config: ConfigService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -171,14 +183,50 @@ export class AuthService {
         'Ce compte a été suspendu. Contactez l’administrateur.',
       );
     }
+    if (user.role === UserRole.OPERATEUR) {
+      throw new UnauthorizedException(
+        'Les comptes opérateurs ne sont pas encore ouverts.',
+      );
+    }
+    if (user.role === UserRole.INSTITUTION) {
+      await this.assertMembership(user);
+      // Strengthened login (INSTITUTION_OTP=sms): the token comes with the
+      // SMS code (POST /auth/login/otp), never with the phone + code alone.
+      if (institutionOtpMode(this.config) === 'sms') {
+        return this.challenges.start(user);
+      }
+      return this.buildAuthResponse(user, false);
+    }
     await this.ensureOwnerFarm(user);
     return this.buildAuthResponse(user);
+  }
+
+  /** Second step of an institutional login: the SMS code opens an 8 h session. */
+  async verifyOtp(dto: VerifyOtpDto) {
+    if (institutionOtpMode(this.config) !== 'sms') {
+      throw new BadRequestException(
+        'La connexion par code SMS n’est pas activée sur cette instance.',
+      );
+    }
+    const user = await this.challenges.verify(dto.challengeId, dto.code);
+    await this.assertMembership(user);
+    return this.buildAuthResponse(user, true);
+  }
+
+  private async assertMembership(user: User): Promise<void> {
+    if (!(await this.scope.accessOf(user.id))) {
+      throw new UnauthorizedException(NO_MEMBERSHIP_MESSAGE);
+    }
   }
 
   /** Un Propriétaire dispose toujours d'une ferme : crée la ferme par défaut sinon.
    *  Le nom saisie à l'inscription prime ; à défaut on retombe sur « Ferme de <nom> »
    *  (les farms déjà créées gardent leur nom — renommable via PATCH /farms/:farmId). */
-  private async ensureOwnerFarm(user: User, farmName?: string, farmCity?: string) {
+  private async ensureOwnerFarm(
+    user: User,
+    farmName?: string,
+    farmCity?: string,
+  ) {
     if (user.role !== UserRole.PROPRIETAIRE) return;
     const count = await this.farmsRepo.count({ where: { ownerId: user.id } });
     if (count > 0) return;
@@ -188,11 +236,19 @@ export class AuthService {
     });
   }
 
-  private buildAuthResponse(user: User) {
-    const payload = { sub: user.id, role: user.role };
-    const accessToken = this.jwtService.sign(payload);
+  /** `mfa`: the SMS code step was passed (checked by JwtStrategy when on). */
+  private buildAuthResponse(user: User, mfa = false) {
+    const institution = user.role === UserRole.INSTITUTION;
+    // An institutional session lasts 8 h instead of the default one.
+    const accessToken = institution
+      ? this.jwtService.sign(
+          { sub: user.id, role: user.role, ...(mfa ? { mfa: true } : {}) },
+          { expiresIn: INSTITUTION_SESSION_SECONDS },
+        )
+      : this.jwtService.sign({ sub: user.id, role: user.role });
     return {
       accessToken,
+      ...(institution ? { expiresIn: INSTITUTION_SESSION_SECONDS } : {}),
       user: {
         id: user.id,
         phone: user.phone,

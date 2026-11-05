@@ -6,8 +6,10 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { WeatherService } from './weather.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Météo (heat-stress THI)')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId/weather')
 export class WeatherController {
   constructor(

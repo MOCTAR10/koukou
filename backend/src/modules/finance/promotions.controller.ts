@@ -15,8 +15,10 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { PromotionsService } from './promotions.service.js';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Promotions (coupons réduction)')
+@Domain('VENTES')
 @Controller('farms/:farmId/promotions')
 export class PromotionsController {
   constructor(private readonly promotionsService: PromotionsService) {}
