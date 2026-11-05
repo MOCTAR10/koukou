@@ -546,6 +546,70 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       ).expect(201);
     });
 
+    it('masks duplicates out of scope, and only a national admin confirms them', async () => {
+      const exploitantPhone = phone();
+      const exploitant = {
+        exploitantName: `Jeanne Doublon ${digits}`,
+        exploitantPhone,
+      };
+      const south = await post(
+        '/programme/farms',
+        { name: `Bilongo ${digits}`, provinceCode: 'G2', ...exploitant },
+        adminToken,
+      ).expect(201);
+      const entry = {
+        name: `Ferme Bilongo ${digits}`,
+        provinceCode: 'G1',
+        ...exploitant,
+      };
+      const dup = await post('/programme/farms', entry, provToken).expect(409);
+      expect(dup.body.duplicates).toEqual([
+        {
+          hidden: true,
+          score: 1,
+          reasons: [
+            'nom ressemblant',
+            'même téléphone de l’exploitant',
+            'même nom d’exploitant',
+          ],
+        },
+      ]);
+      expect(dup.body.message).toContain('hors de votre périmètre');
+      expect(dup.body.message).not.toContain('confirmDuplicate');
+      const body = JSON.stringify(dup.body);
+      expect(body).not.toContain(south.body.code);
+      expect(body).not.toContain(south.body.id);
+      expect(body).not.toContain(`Bilongo ${digits}"`);
+      // A provincial agent cannot confirm against a farm it cannot see.
+      await post(
+        '/programme/farms',
+        { ...entry, confirmDuplicate: true },
+        provToken,
+      ).expect(409);
+      // The national admin sees the candidate and decides.
+      const seen = await post('/programme/farms', entry, adminToken).expect(
+        409,
+      );
+      expect(seen.body.duplicates[0]).toMatchObject({
+        farmId: south.body.id,
+        code: south.body.code,
+      });
+      const created = await post(
+        '/programme/farms',
+        { ...entry, confirmDuplicate: true },
+        adminToken,
+      ).expect(201);
+      expect(created.body.duplicateOverride.candidateCodes).toEqual([
+        south.body.code,
+      ]);
+      // The provincial agent reads the new sheet without the other code.
+      const sheet = await get(
+        `/programme/farms/${created.body.id}`,
+        provToken,
+      ).expect(200);
+      expect(sheet.body.duplicateOverride.candidateCodes).toEqual([]);
+    });
+
     it('FARMS: the listed farms only', async () => {
       const token = accounts.AGENT_TECHNIQUE.token;
       const list = await get('/programme/farms?pageSize=200', token).expect(

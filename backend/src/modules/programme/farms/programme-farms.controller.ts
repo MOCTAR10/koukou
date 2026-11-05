@@ -211,5 +211,4 @@ export class ProgrammeFarmsController {
   ) {
     return this.registry.activateOwner(farmId, dto);
   }
-
 }

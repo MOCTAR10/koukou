@@ -537,23 +537,31 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     });
 
     it('une 2e ferme du même exploitant se rattache à son compte existant', async () => {
-      const dup = await post('/programme/farms', {
-        name: `Ferme Exploitant B ${stamp}`,
-        provinceCode: 'G9',
-        exploitantName: 'Paul Exploitant',
-        exploitantPhone: phone,
-      }).expect(409);
-      expect(dup.body.duplicates[0].reasons).toEqual([
-        'même téléphone de l’exploitant',
-      ]);
+      // Same exploitant and phone, another name: a second farm, not a duplicate.
       const b = await post('/programme/farms', {
-        name: `Ferme Exploitant B ${stamp}`,
+        name: 'Poulailler Mboumba',
         provinceCode: 'G9',
         exploitantName: 'Paul Exploitant',
         exploitantPhone: phone,
-        confirmDuplicate: true,
       }).expect(201);
       farmB = b.body.id;
+      expect(b.body.duplicateOverride).toBeNull();
+      // The same exploitant and phone with a resembling name: blocked.
+      const dup = await post('/programme/farms', {
+        name: `Exploitant A ${stamp}`,
+        provinceCode: 'G9',
+        exploitantName: 'PAUL EXPLOITANT',
+        exploitantPhone: phone,
+      }).expect(409);
+      expect(dup.body.duplicates).toHaveLength(1);
+      expect(dup.body.duplicates[0]).toMatchObject({
+        farmId: farmA,
+        reasons: [
+          'nom ressemblant',
+          'même téléphone de l’exploitant',
+          'même nom d’exploitant',
+        ],
+      });
 
       const refused = await post(
         `/programme/farms/${farmB}/activate-owner`,

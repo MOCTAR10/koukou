@@ -224,6 +224,9 @@ export class FarmImportService {
         provinceId: resolved.province.id,
         localiteId: resolved.localite?.id ?? null,
         phone: resolved.exploitantPhone,
+        exploitantName: resolved.exploitantName,
+        latitude: resolved.gps?.latitude ?? null,
+        longitude: resolved.gps?.longitude ?? null,
         amiRef: resolved.amiRef,
         line,
       };

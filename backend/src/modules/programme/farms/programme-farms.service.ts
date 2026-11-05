@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { Brackets, DataSource, EntityManager, Repository } from 'typeorm';
+import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import type { AuthUser } from '../../../common/decorators/current-user.decorator.js';
 import { BatchStatus } from '../../../common/enums/batch-type.enum.js';
 import { GpsSource } from '../../../common/enums/gps-source.enum.js';
@@ -17,7 +17,11 @@ import { ProductionBatch } from '../../batches/entities/production-batch.entity.
 import { Farm } from '../../farms/entities/farm.entity.js';
 import { FarmsService } from '../../farms/farms.service.js';
 import { generateLoginCode } from '../../../common/utils/login-code.js';
-import { scopeReachesFarms } from '../../access/access-rules.js';
+import {
+  includesFarm,
+  scopeReachesFarms,
+  type InstitutionAccess,
+} from '../../access/access-rules.js';
 import { ScopeResolver } from '../../access/scope-resolver.service.js';
 import { POUFA_BASE_VARIABLE_NAMES } from '../../indicators/formula/formula-catalog.js';
 import {
@@ -74,6 +78,9 @@ export interface RegistryEntry {
   readonly provinceId: string | null;
   readonly localiteId: string | null;
   readonly phone: string | null;
+  readonly exploitantName: string | null;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
   readonly amiRef: string | null;
   /** Import only: line of the file that will create it (dry run). */
   readonly line?: number;
@@ -86,6 +93,19 @@ export interface DuplicateCandidate {
   readonly score: number;
   readonly reasons: string[];
   readonly line?: number;
+}
+
+/** A candidate out of the caller's scope: neither its code nor its name is shown. */
+export interface HiddenDuplicate {
+  readonly hidden: true;
+  readonly score: number;
+  readonly reasons: string[];
+}
+
+/** A database candidate with what the scope check needs. */
+interface ScopedDuplicate extends DuplicateCandidate {
+  readonly farmId: string;
+  readonly provinceId: string | null;
 }
 
 export interface GpsFix {
@@ -233,6 +253,9 @@ export class ProgrammeFarmsService {
       provinceId: farm.provinceId,
       localiteId: farm.localiteId,
       phone: farm.exploitantPhone,
+      exploitantName: farm.exploitantName,
+      latitude: farm.latitude,
+      longitude: farm.longitude,
       amiRef: farm.amiRef,
     };
   }
@@ -251,6 +274,9 @@ export class ProgrammeFarmsService {
         provinceId: true,
         localiteId: true,
         exploitantPhone: true,
+        exploitantName: true,
+        latitude: true,
+        longitude: true,
         amiRef: true,
       },
     });
@@ -281,52 +307,105 @@ export class ProgrammeFarmsService {
       }));
   }
 
-  /** Probable duplicates in the database (same province, or same phone). */
+  /**
+   * Probable duplicates in the database. Every farm of the programme is
+   * scored (a name that resembles counts in any province, for a farm entered
+   * in the wrong one); the programme holds a few hundred farms.
+   */
   async findDuplicates(
     em: EntityManager,
     programId: string,
     entry: RegistryEntry,
-  ): Promise<DuplicateCandidate[]> {
-    const qb = em
-      .getRepository(Farm)
-      .createQueryBuilder('f')
-      .select([
-        'f.id',
-        'f.code',
-        'f.name',
-        'f.provinceId',
-        'f.localiteId',
-        'f.exploitantPhone',
-        'f.amiRef',
-      ])
-      .where('f.program_id = :programId', { programId })
-      .andWhere(
-        new Brackets((w) => {
-          w.where('f.province_id = :provinceId', {
-            provinceId: entry.provinceId,
-          });
-          if (entry.phone) {
-            w.orWhere('f.exploitant_phone = :phone', { phone: entry.phone });
-          }
-        }),
-      );
-    if (entry.id) qb.andWhere('f.id <> :id', { id: entry.id });
-    const rows = await qb.getMany();
-    return this.scoreAgainst(
-      entry,
-      rows.map((f) => this.entryOf(f)),
+  ): Promise<ScopedDuplicate[]> {
+    const pool = (await this.loadEntries(em, programId)).filter(
+      (e) => !entry.id || e.id !== entry.id,
     );
+    const provinces = new Map(pool.map((e) => [e.id, e.provinceId]));
+    return this.scoreAgainst(entry, pool).map((c) => ({
+      ...c,
+      farmId: c.farmId as string,
+      provinceId: provinces.get(c.farmId) ?? null,
+    }));
   }
 
-  duplicateConflict(candidates: DuplicateCandidate[]): ConflictException {
-    const list = candidates
-      .map((c) => `${c.code ?? `ligne ${c.line}`} « ${c.name} »`)
-      .join(', ');
+  /**
+   * Blocks a creation or a sheet change that looks like an existing farm
+   * (CDC §5 « blocage des doublons »). Candidates out of an institutional
+   * caller's scope are masked (CDC §3 and §8, cloisonnement), and such a
+   * caller cannot confirm against them: a national administrator, who sees
+   * both sheets, decides.
+   * @returns the candidates confirmed (recorded in `duplicateOverride`)
+   * @throws ConflictException
+   */
+  private async checkDuplicates(
+    user: AuthUser,
+    programId: string,
+    duplicates: ScopedDuplicate[],
+    confirm: boolean | undefined,
+  ): Promise<DuplicateCandidate[]> {
+    if (duplicates.length === 0) return [];
+    const access: InstitutionAccess | null = this.scope.isInstitution(user)
+      ? await this.scope.requireAccess(user)
+      : null;
+    const visible: DuplicateCandidate[] = [];
+    const hidden: HiddenDuplicate[] = [];
+    for (const d of duplicates) {
+      const inScope =
+        !access ||
+        includesFarm(access, {
+          id: d.farmId,
+          programId,
+          provinceId: d.provinceId,
+        });
+      if (inScope) {
+        visible.push({
+          farmId: d.farmId,
+          code: d.code,
+          name: d.name,
+          score: d.score,
+          reasons: d.reasons,
+        });
+      } else {
+        hidden.push({ hidden: true, score: d.score, reasons: d.reasons });
+      }
+    }
+    if (hidden.length > 0 || !confirm) {
+      throw this.duplicateConflict(visible, hidden);
+    }
+    return visible;
+  }
+
+  duplicateConflict(
+    candidates: DuplicateCandidate[],
+    hidden: HiddenDuplicate[] = [],
+  ): ConflictException {
+    const parts: string[] = [];
+    if (candidates.length > 0) {
+      const list = candidates
+        .map((c) => `${c.code ?? `ligne ${c.line}`} « ${c.name} »`)
+        .join(', ');
+      parts.push(`Doublon probable : ${list}.`);
+    }
+    if (hidden.length > 0) {
+      const reasons = [...new Set(hidden.flatMap((h) => h.reasons))].join(', ');
+      parts.push(
+        hidden.length === 1
+          ? `Une ferme hors de votre périmètre ressemble à cette fiche (${reasons}).`
+          : `${hidden.length} fermes hors de votre périmètre ressemblent à cette fiche (${reasons}).`,
+      );
+      parts.push(
+        "Seul un administrateur national du programme peut confirmer l'enregistrement : transmettez-lui la fiche.",
+      );
+    } else {
+      parts.push(
+        "Vérifiez la fiche, ou renvoyez la demande avec confirmDuplicate: true pour l'enregistrer quand même.",
+      );
+    }
     return new ConflictException({
       statusCode: 409,
       error: 'Conflict',
-      message: `Doublon probable : ${list}. Vérifiez la fiche, ou renvoyez la demande avec confirmDuplicate: true pour l'enregistrer quand même.`,
-      duplicates: candidates,
+      message: parts.join(' '),
+      duplicates: [...candidates, ...hidden],
     });
   }
 
@@ -527,19 +606,24 @@ export class ProgrammeFarmsService {
     const farm = await this.dataSource.transaction(async (em) => {
       await this.lockRegistry(em, program.id);
       await this.assertAmiRefFree(em, program.id, entry.amiRef);
-      const duplicates = await this.findDuplicates(em, program.id, {
-        id: null,
-        code: null,
-        name: entry.name,
-        normalizedName: normalizeFarmName(entry.name),
-        provinceId: province.id,
-        localiteId: entry.localite?.id ?? null,
-        phone: entry.exploitantPhone,
-        amiRef: entry.amiRef,
-      });
-      if (duplicates.length > 0 && !dto.confirmDuplicate) {
-        throw this.duplicateConflict(duplicates);
-      }
+      const duplicates = await this.checkDuplicates(
+        user,
+        program.id,
+        await this.findDuplicates(em, program.id, {
+          id: null,
+          code: null,
+          name: entry.name,
+          normalizedName: normalizeFarmName(entry.name),
+          provinceId: province.id,
+          localiteId: entry.localite?.id ?? null,
+          phone: entry.exploitantPhone,
+          exploitantName: entry.exploitantName,
+          latitude: entry.gps?.latitude ?? null,
+          longitude: entry.gps?.longitude ?? null,
+          amiRef: entry.amiRef,
+        }),
+        dto.confirmDuplicate,
+      );
       const created = await this.insertEntry(
         em,
         program,
@@ -550,7 +634,7 @@ export class ProgrammeFarmsService {
       if (infra) await this.writeInfrastructures(em, created.id, infra);
       return created;
     });
-    return this.sheetOf(farm.id);
+    return this.sheetFor(user, farm.id);
   }
 
   /** Sheet corrections; the code and the programme never change. */
@@ -615,16 +699,15 @@ export class ProgrammeFarmsService {
         patch.name !== undefined ||
         provinceChanged ||
         patch.localiteId !== undefined ||
+        patch.exploitantName !== undefined ||
         patch.exploitantPhone !== undefined;
       if (identityChanged) {
-        const duplicates = await this.findDuplicates(
-          em,
+        const duplicates = await this.checkDuplicates(
+          user,
           program.id,
-          this.entryOf(next),
+          await this.findDuplicates(em, program.id, this.entryOf(next)),
+          dto.confirmDuplicate,
         );
-        if (duplicates.length > 0 && !dto.confirmDuplicate) {
-          throw this.duplicateConflict(duplicates);
-        }
         if (duplicates.length > 0) {
           patch.duplicateOverride = this.override(duplicates, user.id);
         }
@@ -642,7 +725,7 @@ export class ProgrammeFarmsService {
         await em.getRepository(Farm).update(farm.id, patch);
       }
     });
-    return this.sheetOf(farmId);
+    return this.sheetFor(user, farmId);
   }
 
   async setStatus(user: AuthUser, farmId: string, dto: SetFarmStatusDto) {
@@ -674,7 +757,7 @@ export class ProgrammeFarmsService {
       }
       await this.recordStatus(em, farm, item, from, user.id, reason);
     });
-    return this.sheetOf(farmId);
+    return this.sheetFor(user, farmId);
   }
 
   async statusHistory(farmId: string) {
@@ -985,7 +1068,7 @@ export class ProgrammeFarmsService {
     const farm = await this.programmeFarm(program.id, farmId);
     if (this.scope.isInstitution(user)) {
       this.scope.assertFarm(await this.scope.requireAccess(user), farm);
-      return this.sheetOf(farmId);
+      return this.sheetFor(user, farmId);
     }
     if (
       user.role !== UserRole.PLATFORM_ADMIN &&
@@ -995,7 +1078,35 @@ export class ProgrammeFarmsService {
         'Accès refusé : cette fiche ne vous concerne pas.',
       );
     }
-    return this.sheetOf(farmId);
+    return this.sheetFor(user, farmId);
+  }
+
+  /**
+   * The sheet as `viewer` may see it: the codes of the farms a duplicate was
+   * confirmed against are kept only when in the viewer's scope (all of them
+   * for the platform admin, none for the farm's owner).
+   */
+  async sheetFor(viewer: AuthUser, farmId: string) {
+    const sheet = await this.sheetOf(farmId);
+    const override = sheet.duplicateOverride;
+    if (!override || viewer.role === UserRole.PLATFORM_ADMIN) return sheet;
+    let codes: string[] = [];
+    if (this.scope.isInstitution(viewer) && override.candidateCodes.length) {
+      const access = await this.scope.requireAccess(viewer);
+      const program = await this.programme.current();
+      const farms = await this.farms.find({
+        where: { programId: program.id, code: In(override.candidateCodes) },
+        select: { id: true, code: true, programId: true, provinceId: true },
+      });
+      const visible = new Set(
+        farms.filter((f) => includesFarm(access, f)).map((f) => f.code),
+      );
+      codes = override.candidateCodes.filter((c) => visible.has(c));
+    }
+    return {
+      ...sheet,
+      duplicateOverride: { ...override, candidateCodes: codes },
+    };
   }
 
   /** Full registry sheet of a programme farm. */
