@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -17,8 +18,13 @@ import { SortiesService } from './sorties.service.js';
  * POUFA bands (programme farms only; any other farm answers 404). A band is
  * an ordinary lot (`/farms/:farmId/batches`): these routes add its number,
  * sorties, official indicators, daily projection and frozen bilans.
+ *
+ * Domain TECHNIQUE for institutional accounts (within their scope); a VENTE
+ * sortie also needs `vente:creer` (Fermia-only VENTES domain), so it stays
+ * with the farm. Corrections of a closed band: platform admin only for now.
  */
 @ApiTags('Bandes POUFA')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId/bandes')
 export class BandesController {
   constructor(
@@ -137,6 +143,9 @@ export class BandesController {
   }
 
   @Post(':batchId/corrections')
+  // PLATEFORME: no institutional profile reaches it (RolesGuard would let an
+  // INSTITUTION through a PLATFORM_ADMIN route if the domain allowed it).
+  @Domain('PLATEFORME')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:

@@ -127,15 +127,29 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         .expect(201)
     ).body.accessToken;
 
-    ownerToken = await register(`+24162${digits}`, 'Éleveur Bandes');
-    [{ id: farmId }] = (await get('/farms').expect(200)).body;
-    await ds.query(`UPDATE farms SET name = $2 WHERE id = $1`, [farmId, NAME]);
-    const enrolled = await post(
-      `/programme/farms/${farmId}/enrol`,
-      { provinceCode: 'G1', capacityPlaces: 2000, confirmDuplicate: true },
+    // A POUFA instance starts empty: the registry creates the farm, then
+    // links it to the exploitant's existing account.
+    const ownerPhone = `+24162${digits}`;
+    ownerToken = await register(ownerPhone, 'Éleveur Bandes');
+    const created = await post(
+      '/programme/farms',
+      {
+        name: NAME,
+        provinceCode: 'G1',
+        capacityPlaces: 2000,
+        exploitantName: 'Éleveur Bandes',
+        exploitantPhone: ownerPhone,
+        confirmDuplicate: true,
+      },
       adminToken,
     ).expect(201);
-    farmCode = enrolled.body.code;
+    farmId = created.body.id;
+    farmCode = created.body.code;
+    await post(
+      `/programme/farms/${farmId}/activate-owner`,
+      { linkExistingUser: true },
+      adminToken,
+    ).expect(201);
 
     plainToken = await register(`+24163${digits}`, 'Fermia Classique');
     [{ id: plainFarmId }] = (await get('/farms', plainToken).expect(200)).body;
