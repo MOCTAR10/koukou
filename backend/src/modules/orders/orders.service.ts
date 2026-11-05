@@ -949,7 +949,9 @@ export class OrdersService {
       await this.restoreOrderCarcasses(em, order);
       await this.salesService.cancelInTransaction(
         em,
-        { id: farm.ownerId, role: UserRole.PROPRIETAIRE },
+        // Only used as the operator of the books (nullable columns): a
+        // programme farm with no owner account yet records none.
+        { id: farm.ownerId as string, role: UserRole.PROPRIETAIRE },
         farmId,
         order.saleId,
         reason,

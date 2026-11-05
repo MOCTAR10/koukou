@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -8,8 +9,30 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { GpsSource } from '../../../common/enums/gps-source.enum.js';
 import { User } from '../../users/entities/user.entity.js';
+import type { Localite } from '../../programme/entities/localite.entity.js';
+import type { Program } from '../../programme/entities/program.entity.js';
+import type { Province } from '../../programme/entities/province.entity.js';
 
+/** Who confirmed a programme farm despite probable duplicates, and which ones. */
+export interface DuplicateOverride {
+  confirmedAt: string;
+  confirmedById: string | null;
+  candidateCodes: string[];
+}
+
+/**
+ * A farm. Programme farms (`programId` set) also carry the registry sheet:
+ * code, territory, exploitant, capacity, GPS and current status (history in
+ * `farm_status_history`). They may exist before the exploitant has an account,
+ * so `ownerId` is nullable — only for them: every other farm has an owner.
+ */
+@Check(
+  'CHK_farms_owner_or_program',
+  '"owner_id" IS NOT NULL OR "program_id" IS NOT NULL',
+)
+@Index('UQ_farms_program_ami_ref', ['programId', 'amiRef'], { unique: true })
 @Entity('farms')
 export class Farm {
   @PrimaryGeneratedColumn('uuid')
@@ -22,12 +45,13 @@ export class Farm {
   @Index()
   administrativeCity: string;
 
-  @ManyToOne(() => User, { onDelete: 'RESTRICT' })
+  /** Null only for a programme farm whose exploitant has no account yet. */
+  @ManyToOne(() => User, { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'owner_id' })
-  owner: User;
+  owner: User | null;
 
-  @Column({ name: 'owner_id', type: 'uuid' })
-  ownerId: string;
+  @Column({ name: 'owner_id', type: 'uuid', nullable: true })
+  ownerId: string | null;
 
   @Column({ type: 'int', nullable: true })
   buildingCount: number | null;
@@ -57,6 +81,86 @@ export class Farm {
 
   @Column({ default: true })
   active: boolean;
+
+  // ----- Programme registry sheet (null outside a programme) -----
+
+  @ManyToOne('Program', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'program_id' })
+  program?: Program | null;
+
+  @Column({ name: 'program_id', type: 'uuid', nullable: true })
+  programId: string | null;
+
+  /** `G1-0012`: province code + IdCounter number. Never changed nor reused (DB trigger). */
+  @Column({ type: 'varchar', length: 32, nullable: true, unique: true })
+  code: string | null;
+
+  @ManyToOne('Province', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'province_id' })
+  province?: Province | null;
+
+  @Column({ name: 'province_id', type: 'uuid', nullable: true })
+  @Index()
+  provinceId: string | null;
+
+  @ManyToOne('Localite', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'localite_id' })
+  localite?: Localite | null;
+
+  @Column({ name: 'localite_id', type: 'uuid', nullable: true })
+  localiteId: string | null;
+
+  /** Reference of the AMI application form; unique per programme. */
+  @Column({ name: 'ami_ref', type: 'varchar', length: 64, nullable: true })
+  amiRef: string | null;
+
+  /** Code of a COHORTE list item. */
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  cohort: string | null;
+
+  /** Places (birds): base of the occupation rate. */
+  @Column({ name: 'capacity_places', type: 'int', nullable: true })
+  capacityPlaces: number | null;
+
+  @Column({ name: 'gps_captured_at', type: 'timestamptz', nullable: true })
+  gpsCapturedAt: Date | null;
+
+  @Column({
+    name: 'gps_source',
+    type: 'enum',
+    enum: GpsSource,
+    nullable: true,
+  })
+  gpsSource: GpsSource | null;
+
+  @Column({ name: 'gps_accuracy_m', type: 'float', nullable: true })
+  gpsAccuracyM: number | null;
+
+  /** GPS ↔ province warning (GeoService), never a block. */
+  @Column({ name: 'gps_province_warning', type: 'text', nullable: true })
+  gpsProvinceWarning: string | null;
+
+  /** Exploitant identity on the sheet (the account may not exist yet). */
+  @Column({ name: 'exploitant_name', type: 'varchar', nullable: true })
+  exploitantName: string | null;
+
+  /** Normalized like account phones (`normalizePhone`). */
+  @Column({ name: 'exploitant_phone', type: 'varchar', nullable: true })
+  @Index()
+  exploitantPhone: string | null;
+
+  /**
+   * Current STATUT_FERME code: a copy of the latest `farm_status_history`
+   * row (written in the same transaction), kept for list filters.
+   */
+  @Column({ name: 'status_code', type: 'varchar', length: 40, nullable: true })
+  statusCode: string | null;
+
+  @Column({ name: 'status_since', type: 'timestamptz', nullable: true })
+  statusSince: Date | null;
+
+  @Column({ name: 'duplicate_override', type: 'jsonb', nullable: true })
+  duplicateOverride: DuplicateOverride | null;
 
   @CreateDateColumn()
   createdAt: Date;
