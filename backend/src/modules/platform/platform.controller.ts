@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Patch,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -292,6 +293,16 @@ export class PlatformAdminController {
   })
   suspendUser(@Param('userId') userId: string, @Body() dto: SuspendUserDto) {
     return this.platformService.suspendUser(userId, dto.suspended);
+  }
+
+  @Post('users/:userId/login-code')
+  @ApiParam({ name: 'userId', description: 'Identifiant de l’utilisateur' })
+  @ApiOperation({
+    summary:
+      'Générer un nouveau code de connexion pour un compte (exploitant, membre, agent institutionnel). Le code est renvoyé une seule fois.',
+  })
+  resetLoginCode(@Param('userId', new ParseUUIDPipe()) userId: string) {
+    return this.platformService.resetLoginCode(userId);
   }
 
   @Get('rules')
