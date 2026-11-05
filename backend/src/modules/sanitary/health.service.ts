@@ -25,6 +25,7 @@ import { HealthEvent } from './entities/health-event.entity.js';
 import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
 import { HealthEventStatus } from '../../common/enums/health-event-status.enum.js';
 import { CreateHealthEventDto } from './dto/create-health-event.dto.js';
+import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 
 const EGGS_PER_TRAY = 30;
 const round2 = (n: number): number => Math.round(n * 100) / 100;
@@ -66,6 +67,7 @@ export class HealthService {
     private readonly dataSource: DataSource,
     private readonly flockReconciliation: FlockReconciliationService,
     private readonly batchesService: BatchesService,
+    private readonly bandeStats: BandeStatsService,
   ) {}
 
   async getHealth(user: AuthUser, farmId: string, batchId: string) {
@@ -276,9 +278,11 @@ export class HealthService {
    * count was floored at 0 by an earlier reconciliation.
    */
   private async recomputeLiveCount(batchId: string): Promise<void> {
-    await this.dataSource.transaction((em) =>
-      this.flockReconciliation.recomputeLiveCount(em, batchId),
-    );
+    await this.dataSource.transaction(async (em) => {
+      await this.flockReconciliation.recomputeLiveCount(em, batchId);
+      // POUFA band projection (no-op outside a programme).
+      await this.bandeStats.refresh(em, batchId);
+    });
   }
 
   private computeHealthScore(mortalityPercent: number, fcr: number | null): number {

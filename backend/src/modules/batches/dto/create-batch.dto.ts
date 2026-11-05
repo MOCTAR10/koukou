@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 import { BatchType } from '../../../common/enums/batch-type.enum.js';
@@ -129,4 +130,29 @@ export class CreateBatchDto {
   @IsInt({ message: 'La quantité vivante doit être un entier.' })
   @Min(0, { message: 'La quantité vivante ne peut pas être négative.' })
   quantityAlive?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Bande POUFA ouverte en cours de cycle (J+x) : âge des sujets à l’ouverture, en jours (fermes du programme uniquement)',
+  })
+  @IsOptional()
+  @IsInt({
+    message: 'L’âge à l’ouverture doit être un nombre entier de jours.',
+  })
+  @Min(0, { message: 'L’âge à l’ouverture ne peut pas être négatif.' })
+  @Max(365, { message: 'L’âge à l’ouverture ne peut pas dépasser 365 jours.' })
+  initialAgeDays?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Bande POUFA : poids moyen des sujets à l’ouverture, en grammes (fermes du programme uniquement)',
+  })
+  @IsOptional()
+  @IsNumber(
+    {},
+    { message: 'Le poids moyen à l’ouverture doit être un nombre.' },
+  )
+  @Min(1, { message: 'Le poids moyen à l’ouverture doit être positif.' })
+  @Max(20_000, { message: 'Le poids moyen à l’ouverture est trop élevé.' })
+  initialAvgWeightG?: number;
 }

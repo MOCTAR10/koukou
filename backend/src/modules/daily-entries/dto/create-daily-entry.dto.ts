@@ -5,9 +5,11 @@ import {
   IsEnum,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -150,4 +152,54 @@ export class CreateDailyEntryDto {
   @IsOptional()
   @IsEnum(ConsumptionSource)
   source?: ConsumptionSource;
+
+  @ApiPropertyOptional({
+    description:
+      'Pesée : nombre de sujets pesés pour le poids moyen (échantillon POUFA)',
+  })
+  @IsOptional()
+  @IsInt({ message: 'Le nombre de sujets pesés doit être un entier.' })
+  @Min(1, { message: 'Le nombre de sujets pesés doit être au moins 1.' })
+  sampleSize?: number;
+
+  // --- Offline synchronization (programme farms, backend/docs/poufa-conflits-hors-ligne.md)
+
+  @ApiPropertyOptional({
+    description: 'Hors ligne : heure de la saisie sur le téléphone (ISO 8601)',
+  })
+  @IsOptional()
+  @IsDateString()
+  capturedAt?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Hors ligne : `updatedAt` de la saisie connue du téléphone au moment de la saisie (absent pour une création)',
+  })
+  @IsOptional()
+  @IsDateString()
+  baseUpdatedAt?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Hors ligne : valeurs connues du téléphone avant la modification (deaths, feedQuantity en kg, waterL, avgWeightKg, sampleSize, eggs*)',
+  })
+  @IsOptional()
+  @IsObject()
+  baseValues?: Record<string, number | null>;
+
+  @ApiPropertyOptional({
+    description:
+      'Hors ligne : heure du téléphone au moment de l’envoi (mesure de l’écart d’horloge)',
+  })
+  @IsOptional()
+  @IsDateString()
+  deviceSentAt?: string;
+
+  @ApiPropertyOptional({
+    description: 'Hors ligne : identifiant de l’appareil',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  deviceId?: string;
 }

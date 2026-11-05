@@ -90,6 +90,7 @@ import {
 } from './order-reservations.js';
 import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
+import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 
 const ORDER_PREFIX = 'CMD';
 const ORDERABLE_TYPES = [
@@ -209,6 +210,7 @@ export class OrdersService {
     private readonly batchesService: BatchesService,
     private readonly pdfService: PdfService,
     private readonly accountingService: AccountingService,
+    private readonly bandeStats: BandeStatsService,
   ) {}
 
   // ---------- Création (bon de commande) ----------
@@ -859,6 +861,10 @@ export class OrdersService {
         operatorId: user.id,
       });
 
+      // POUFA band projection (no-op outside a programme).
+      for (const batchId of touchedBatches) {
+        await this.bandeStats.refresh(em, batchId);
+      }
       return { order, touchedBatches };
     });
 

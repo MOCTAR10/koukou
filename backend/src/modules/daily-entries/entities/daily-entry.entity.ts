@@ -16,6 +16,14 @@ import { ProductionBatch } from '../../batches/entities/production-batch.entity.
 import { InputLot } from '../../inputs/entities/input-lot.entity.js';
 import { User } from '../../users/entities/user.entity.js';
 
+/** Who wrote a daily-entry field last, and when it was captured. */
+export interface FieldSyncMeta {
+  capturedAt: string;
+  updatedAt: string;
+  userId: string | null;
+  deviceId: string | null;
+}
+
 @Entity('daily_entries')
 @Unique(['batch', 'entryDate'])
 export class DailyEntry {
@@ -74,6 +82,28 @@ export class DailyEntry {
 
   @Column({ name: 'avg_weight_kg', type: 'float', nullable: true })
   avgWeightKg: number | null;
+
+  /** Number of birds weighed for `avgWeightKg` (POUFA weighing sample). */
+  @Column({ name: 'sample_size', type: 'int', nullable: true })
+  sampleSize: number | null;
+
+  /**
+   * Catch-up entry (programme farms): recorded after the day following its
+   * date, e.g. copied from the paper sheet.
+   */
+  @Column({ name: 'catch_up', type: 'boolean', default: false })
+  catchUp: boolean;
+
+  /** When the last accepted values were captured (phone time, corrected). */
+  @Column({ name: 'captured_at', type: 'timestamptz', nullable: true })
+  capturedAt: Date | null;
+
+  /**
+   * Per-field write metadata for offline conflicts (programme farms):
+   * `{ deaths: { capturedAt, updatedAt, userId, deviceId } }`.
+   */
+  @Column({ name: 'field_sync', type: 'jsonb', nullable: true })
+  fieldSync: Record<string, FieldSyncMeta> | null;
 
   @Column({ name: 'eggs_collected', type: 'int', default: 0 })
   eggsCollected: number;

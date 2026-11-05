@@ -109,6 +109,35 @@ export class ProductionBatch {
   @Column({ name: 'ready_for_sale_at', type: 'date', nullable: true })
   readyForSaleAt: string | null;
 
+  /**
+   * POUFA band number `G1-0012-B07` (farm code + rank from IdCounter), set at
+   * opening for programme farms only. Never changed nor reused (DB trigger
+   * `production_batches_code_immutable`).
+   */
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  @Index('UQ_production_batches_code', { unique: true })
+  code: string | null;
+
+  /** Age of the birds (days) when the band was opened (J+x); 0 at placement. */
+  @Column({ name: 'initial_age_days', type: 'int', nullable: true })
+  initialAgeDays: number | null;
+
+  /** Average weight (g) at opening: chick weight, or measured at J+x. */
+  @Column({ name: 'initial_avg_weight_g', type: 'float', nullable: true })
+  initialAvgWeightG: number | null;
+
+  /** `BANDE_DUREE_REFERENCE_J` in force at opening, copied (programme farms). */
+  @Column({ name: 'reference_duration_days', type: 'int', nullable: true })
+  referenceDurationDays: number | null;
+
+  /** `AUTO` when a POUFA band closed itself at zero headcount; null = manual. */
+  @Column({ name: 'closure_kind', type: 'varchar', length: 10, nullable: true })
+  closureKind: 'AUTO' | null;
+
+  /** Due date of the last "weighing late" event sent (one per due date). */
+  @Column({ name: 'weighing_late_notified_on', type: 'date', nullable: true })
+  weighingLateNotifiedOn: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

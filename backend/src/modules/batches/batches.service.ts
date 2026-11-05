@@ -24,6 +24,7 @@ import { UpdateBatchDto } from './dto/update-batch.dto.js';
 import { MetricsService } from './metrics.service.js';
 import { AdvisoryEngine } from './advisory.engine.js';
 import { KOUKOU_EVENTS, koukouBus } from '../../common/utils/event-bus.js';
+import { BandeOpeningService } from './poufa/bande-opening.service.js';
 
 @Injectable()
 export class BatchesService {
@@ -43,6 +44,7 @@ export class BatchesService {
     private readonly alertsService: AlertsService,
     private readonly accountingService: AccountingService,
     private readonly dataSource: DataSource,
+    private readonly bandeOpening: BandeOpeningService,
   ) {}
 
   async create(
@@ -100,7 +102,14 @@ export class BatchesService {
       hatchDate: dto.hatchDate ?? null,
       chickUnitPriceFcfa: dto.chickUnitPriceFcfa ?? null,
     });
-    await this.batchRepo.save(batch);
+    if (farm.programId) {
+      // POUFA band: number, J+x opening and projection in one transaction.
+      await this.dataSource.transaction((em) =>
+        this.bandeOpening.open(em, farm, batch, dto),
+      );
+    } else {
+      await this.batchRepo.save(batch);
+    }
     await this.afterChange(user, farmId, batch);
 
     // Auto-create expense for chick purchase cost (ACHAT_POUSSINS)
