@@ -23,7 +23,7 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - Prettier: `npm run format` exists in **backend and web only** — mobile has no `format` script (and no `.prettierrc` anywhere except `backend/`). Format is separate from lint.
 - `web`: `npm run types` regenerates `src/api/schema.d.ts` from a **running** backend. Output is **not imported** — `src/api/types.ts` is hand-maintained and authoritative. Never edit `schema.d.ts` to fix a type error.
 - `mobile`: use `npm run lint`, **not** `npx expo lint` (Node 22 issue).
-- Green baseline (verified): backend unit BASELINE_UNIT, backend e2e BASELINE_E2E, mobile 24 files/391 tests.
+- Green baseline (verified): backend unit 17 files/164 tests, backend e2e 44 files/529 tests (built by migrations on a fresh DB), mobile 24 files/391 tests.
 - **Full backend e2e is expensive**: 36 specs, forced sequential (`fileParallelism:false`, `maxWorkers:1`), each boots the whole AppModule (pending migrations run, then the seed) against the same DB. ~4 min locally, ~2 min on CI. Filter by name while iterating.
 - **`vite-tsconfig-paths` is deliberately not installed.** It was a no-op (backend tsconfigs declare no `compilerOptions.paths`, no source file uses alias imports) while pulling in the deprecated `tsconfck`, whose optional peer `typescript@^5.0.0` conflicts with TypeScript 6 — newer npm resolves that peer to 5.x and aborts `npm ci` with `Missing: typescript@5.9.3 from lock file`, which **only reproduces on CI**, never on npm 10.x. Do not re-add it. (`mobile` defines its own `@`→`src` alias inside `vitest.config.mts`.)
 
