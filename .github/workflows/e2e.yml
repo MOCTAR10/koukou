@@ -6,7 +6,9 @@
 #
 # The database is a throwaway service container with the backend's default
 # credentials (postgres/postgres@localhost:5432/koukou_ferme), so no secrets
-# are needed. `synchronize` builds the schema at boot; the seed runs on start.
+# are needed. The versioned migrations build the schema (exactly as a fresh
+# deployment would), the drift check proves they match the entities, then the
+# app's seed runs on start.
 
 name: E2E
 
@@ -60,7 +62,7 @@ jobs:
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       DB_DATABASE: koukou_ferme
-      DB_SYNCHRONIZE: "true"
+      DB_SYNCHRONIZE: "false"
       # Fixed test secret so tokens survive the whole run (the fallback is a
       # random secret per boot). Not a real credential.
       JWT_SECRET: ci-e2e-only-not-a-secret-7f3c9a1e5b
@@ -78,6 +80,16 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Apply migrations
+        run: npm run migration:run
+
+      # Fails when an entity changed without its migration.
+      - name: Check the schema has no drift
+        run: npm run migration:check
 
       # Specs are forced sequential in vitest.config.e2e.ts (one shared DB).
       - name: E2E tests
