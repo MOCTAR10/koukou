@@ -109,7 +109,9 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
     ds = app.get(DataSource);
@@ -117,9 +119,10 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
 
     const adminPhone = `+24161${digits}`;
     await register(adminPhone, 'Admin Bandes');
-    await ds.query(`UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`, [
-      adminPhone,
-    ]);
+    await ds.query(
+      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
+      [adminPhone],
+    );
     adminToken = (
       await request(server)
         .post('/auth/login')
@@ -393,10 +396,11 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
       ).expect(200);
       expect(JSON.stringify(sale.body)).toContain('250000');
       expect(await alive(band.id)).toBe(870);
-      await post(
-        `/farms/${farmId}/bandes/${band.id}/sorties`,
-        { sortieDate: day(0), count: 1, reasonCode: 'VENTE_VIF' },
-      ).expect(400);
+      await post(`/farms/${farmId}/bandes/${band.id}/sorties`, {
+        sortieDate: day(0),
+        count: 1,
+        reasonCode: 'VENTE_VIF',
+      }).expect(400);
     });
 
     it('un envoi à l’abattoir crée l’ordre d’abattage', async () => {
@@ -578,7 +582,11 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
       expect(v1[0].variables.morts_cumules).toBe(6);
 
       const url = `/farms/${farmId}/bandes/${band.id}/corrections`;
-      const fix = { entryDate: day(-3), deaths: 9, reason: 'Fiche papier relue par l’agent' };
+      const fix = {
+        entryDate: day(-3),
+        deaths: 9,
+        reason: 'Fiche papier relue par l’agent',
+      };
       await post(url, fix).expect(403);
       await post(url, { ...fix, reason: ' ' }, adminToken).expect(400);
       const res = await post(url, fix, adminToken).expect(201);
@@ -614,6 +622,59 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         fix,
         adminToken,
       ).expect(400);
+    });
+
+    it('la correction s’accorde à un profil depuis l’administration (TECHNIQUE + ADMINISTRER)', async () => {
+      const band = await openBand({ quantityAtStart: 100 });
+      await entry(band.id, { entryDate: day(-2), deaths: 1 }).expect(201);
+      await post(`/farms/${farmId}/batches/${band.id}/cloture`, {}).expect(201);
+      const profile = await post(
+        '/programme/access/profiles',
+        {
+          code: `CORR${digits}`,
+          label: `Agent correcteur ${digits}`,
+          scopeKind: 'ALL',
+          matrix: { TECHNIQUE: ['CONSULTER'] },
+        },
+        adminToken,
+      ).expect(201);
+      const agentPhone = `+24164${digits}`;
+      const member = await post(
+        '/programme/access/memberships',
+        {
+          fullName: `Agent correcteur ${digits}`,
+          phone: agentPhone,
+          profileCode: `CORR${digits}`,
+        },
+        adminToken,
+      ).expect(201);
+      const agentToken = (
+        await request(server)
+          .post('/auth/login')
+          .send({ phone: agentPhone, code: member.body.loginCode })
+          .expect(201)
+      ).body.accessToken;
+
+      const url = `/farms/${farmId}/bandes/${band.id}/corrections`;
+      const fix = {
+        entryDate: day(-2),
+        deaths: 2,
+        reason: 'Recomptage terrain',
+      };
+      // Reading the band is enough for CONSULTER, not correcting it.
+      await get(`/farms/${farmId}/bandes/${band.id}`, agentToken).expect(200);
+      await post(url, fix, agentToken).expect(403);
+
+      await request(server)
+        .patch(`/programme/access/profiles/${profile.body.id}`)
+        .set(auth(adminToken))
+        .send({ matrix: { TECHNIQUE: ['CONSULTER', 'ADMINISTRER'] } })
+        .expect(200);
+      const res = await post(url, fix, agentToken).expect(201);
+      expect(res.body.snapshot).toMatchObject({
+        version: 2,
+        trigger: 'CORRECTION',
+      });
     });
   });
 
@@ -678,7 +739,11 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         )
       ).body;
       expect(conflicts).toHaveLength(2);
-      const winners = conflicts.map((c: any) => [c.winner, c.serverValue, c.incomingValue]);
+      const winners = conflicts.map((c: any) => [
+        c.winner,
+        c.serverValue,
+        c.incomingValue,
+      ]);
       expect(winners).toEqual(
         expect.arrayContaining([
           ['APPAREIL', 4, 7],
@@ -686,7 +751,9 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         ]),
       );
       await new Promise((r) => setTimeout(r, 20));
-      expect(conflictEvents.filter((e) => e.batchId === band.id)).toHaveLength(2);
+      expect(conflictEvents.filter((e) => e.batchId === band.id)).toHaveLength(
+        2,
+      );
       expect(await alive(band.id)).toBe(493);
     });
 
@@ -704,7 +771,9 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         deaths: 3,
         capturedAt: minutes(119),
         deviceSentAt: minutes(120),
-        baseUpdatedAt: new Date(Date.parse(first.body.updatedAt) - 60_000).toISOString(),
+        baseUpdatedAt: new Date(
+          Date.parse(first.body.updatedAt) - 60_000,
+        ).toISOString(),
         deviceId: `avance-${stamp}`,
       }).expect(201);
       const conflicts = (
@@ -712,8 +781,13 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
           200,
         )
       ).body;
-      const skewed = conflicts.find((c: any) => c.incomingDeviceId === `avance-${stamp}`);
-      expect(skewed).toMatchObject({ winner: 'APPAREIL', clockCorrected: true });
+      const skewed = conflicts.find(
+        (c: any) => c.incomingDeviceId === `avance-${stamp}`,
+      );
+      expect(skewed).toMatchObject({
+        winner: 'APPAREIL',
+        clockCorrected: true,
+      });
       expect(Date.parse(skewed.incomingCapturedAt)).toBeLessThan(Date.now());
       const [sample] = await ds.query(
         `SELECT skew_ms, corrected FROM sync_clock_samples

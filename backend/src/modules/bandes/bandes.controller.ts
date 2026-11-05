@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -21,7 +21,9 @@ import { SortiesService } from './sorties.service.js';
  *
  * Domain TECHNIQUE for institutional accounts (within their scope); a VENTE
  * sortie also needs `vente:creer` (Fermia-only VENTES domain), so it stays
- * with the farm. Corrections of a closed band: platform admin only for now.
+ * with the farm. Correcting a closed band takes TECHNIQUE + ADMINISTRER,
+ * granted per profile by the programme administration (no default profile
+ * has it; CDC §8 « profil habilité »).
  */
 @ApiTags('Bandes POUFA')
 @Domain('TECHNIQUE')
@@ -38,7 +40,9 @@ export class BandesController {
 
   @Get()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @ApiOperation({ summary: 'Historique des bandes de la ferme (fiche de chaque bande)' })
+  @ApiOperation({
+    summary: 'Historique des bandes de la ferme (fiche de chaque bande)',
+  })
   @ApiParam({ name: 'farmId' })
   list(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
     return this.bandes.list(user, farmId);
@@ -77,7 +81,9 @@ export class BandesController {
 
   @Get(':batchId/snapshots')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @ApiOperation({ summary: 'Bilans figés de la bande (une version par correction)' })
+  @ApiOperation({
+    summary: 'Bilans figés de la bande (une version par correction)',
+  })
   snapshotsOf(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
@@ -143,9 +149,9 @@ export class BandesController {
   }
 
   @Post(':batchId/corrections')
-  // PLATEFORME: no institutional profile reaches it (RolesGuard would let an
-  // INSTITUTION through a PLATFORM_ADMIN route if the domain allowed it).
-  @Domain('PLATEFORME')
+  // Platform admin, or an institutional profile granted TECHNIQUE +
+  // ADMINISTRER from the administration (ProgramAccessGuard, within scope).
+  @Action('ADMINISTRER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
