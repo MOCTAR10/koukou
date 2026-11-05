@@ -1,6 +1,14 @@
-import { Controller, Get, Param, Query, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AuditExport } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
@@ -33,6 +41,7 @@ export class RentabiliteController {
   }
 
   @Get('overview/export')
+  @AuditExport('Rapport de rentabilité PDF')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
   @ApiOperation({
@@ -46,7 +55,7 @@ export class RentabiliteController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Query() query: { from?: string; to?: string },
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdf = await this.rentabiliteService.exportOverviewPdf(
       user,
@@ -58,7 +67,7 @@ export class RentabiliteController {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="rapport-${query.from ?? 'all'}-${query.to ?? 'now'}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 
   @Get('batches/:batchId')
@@ -78,6 +87,7 @@ export class RentabiliteController {
   }
 
   @Get('batches/:batchId/export')
+  @AuditExport('Compte de résultat du lot PDF')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
   @ApiOperation({
@@ -88,7 +98,7 @@ export class RentabiliteController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('batchId') batchId: string,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdf = await this.rentabiliteService.exportBatchPnlPdf(
       user,
@@ -99,6 +109,6 @@ export class RentabiliteController {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="resultat-lot-${batchId.slice(0, 8)}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 }

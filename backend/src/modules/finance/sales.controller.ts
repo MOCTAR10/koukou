@@ -7,9 +7,11 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AuditExport } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -89,6 +91,7 @@ export class SalesController {
   }
 
   @Get(':saleId/receipt')
+  @AuditExport('Reçu de vente PDF')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Reçu de vente PDF avec code QR de vérification',
@@ -98,14 +101,14 @@ export class SalesController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('saleId') saleId: string,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdf = await this.salesService.generateReceipt(user, farmId, saleId);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="recu-${saleId}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 
   @Delete(':saleId')

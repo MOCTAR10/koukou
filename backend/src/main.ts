@@ -40,7 +40,9 @@ async function bootstrap() {
   app.enableCors({
     origin: corsOrigins === '*' ? '*' : corsOrigins.split(',').map((o: string) => o.trim()),
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    // The audit journal's request id, echoed on every response.
+    exposedHeaders: ['X-Request-Id'],
   });
 
   const swaggerPath = configService.get('SWAGGER_PATH', 'api-docs');

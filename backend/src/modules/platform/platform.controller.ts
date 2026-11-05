@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { AuditRead } from '../../common/decorators/audit.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
@@ -223,6 +224,7 @@ export class PlatformAdminController {
   }
 
   @Get('metrics/by-farm')
+  @AuditRead('Métriques détaillées de toutes les fermes (administration)')
   @ApiOperation({
     summary:
       'Métriques détaillées pour chaque ferme de la plateforme (cheptel, ventes, encaissés, alertes, clients).',
@@ -233,6 +235,7 @@ export class PlatformAdminController {
   }
 
   @Get('farms')
+  @AuditRead('Liste de toutes les fermes et de leurs propriétaires (administration)')
   @ApiOperation({
     summary: 'Lister toutes les fermes de la plateforme (avec propriétaire).',
   })
@@ -267,6 +270,7 @@ export class PlatformAdminController {
   }
 
   @Get('users')
+  @AuditRead('Liste de tous les utilisateurs (administration)')
   @ApiOperation({ summary: 'Lister tous les utilisateurs de la plateforme.' })
   listUsers() {
     return this.platformService.listUsers();

@@ -4,6 +4,8 @@ process.env.THROTTLE_DISABLED = 'true';
 // sweep (tests call TasksService.sweepOverdue() directly when needed).
 process.env.TASK_SWEEP_DISABLED = 'true';
 process.env.MARKET_SWEEP_DISABLED = 'true';
+// No hourly audit seal: the audit spec calls AuditSealService directly.
+process.env.AUDIT_SEAL_DISABLED = 'true';
 // Never call the real Expo Push service (the push spec swaps the transport).
 process.env.PUSH_DISABLED = 'true';
 

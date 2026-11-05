@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { AuditRead } from '../../common/decorators/audit.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -20,6 +21,7 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Get()
+  @AuditRead('Liste des clients (données personnelles)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Liste des clients avec solde à recouvrer',
@@ -78,6 +80,7 @@ export class CustomersController {
   }
 
   @Get(':customerId')
+  @AuditRead('Fiche client (données personnelles)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Profil d\'un client (coordonnées + solde + segment)',
@@ -92,6 +95,7 @@ export class CustomersController {
   }
 
   @Get(':customerId/history')
+  @AuditRead('Historique d’achats d’un client')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Historique d\'achats d\'un client (articles + paiements)',
