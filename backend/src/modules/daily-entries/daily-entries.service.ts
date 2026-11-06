@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { InputKind } from '../../common/enums/input-kind.enum.js';
@@ -17,7 +17,16 @@ import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
 import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
 import { DailyEntry } from './entities/daily-entry.entity.js';
 import { CreateDailyEntryDto } from './dto/create-daily-entry.dto.js';
-import { FeedStockService, entryPhaseKeyOf } from '../feed-stock/feed-stock.service.js';
+import {
+  FeedStockService,
+  entryPhaseKeyOf,
+} from '../feed-stock/feed-stock.service.js';
+import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
+import { isCatchUp } from '../batches/poufa/bande-rules.js';
+import {
+  SyncService,
+  type DailyEntryReconciliation,
+} from '../sync/sync.service.js';
 
 @Injectable()
 export class DailyEntriesService {
@@ -32,6 +41,8 @@ export class DailyEntriesService {
     private readonly flockReconciliation: FlockReconciliationService,
     private readonly dataSource: DataSource,
     private readonly feedStock: FeedStockService,
+    private readonly bandeStats: BandeStatsService,
+    private readonly sync: SyncService,
   ) {}
 
   async create(
@@ -40,7 +51,9 @@ export class DailyEntriesService {
     batchId: string,
     dto: CreateDailyEntryDto,
   ) {
-    await this.farmsService.assertAccessible(user, farmId);
+    const farm = await this.farmsService.assertAccessible(user, farmId);
+    // POUFA band: weighing sample, catch-up flag, offline conflicts.
+    const programId = farm.programId;
     const batch = await this.batchRepo.findOne({
       where: { id: batchId, farmId },
     });
@@ -104,6 +117,9 @@ export class DailyEntriesService {
         const existing = await entryRepo.findOne({
           where: { batchId, entryDate: dto.entryDate },
         });
+        const sync = programId
+          ? await this.reconcileSync(em, programId, user, batch, existing, dto)
+          : null;
         // Like health events: more new deaths than live birds is refused
         // (quantityAlive would silently floor at 0).
         if (dto.deaths !== undefined) {
@@ -230,12 +246,27 @@ export class DailyEntriesService {
           data.eggsDoubleYolk = dto.eggsDoubleYolk;
         if (dto.eggsDirty !== undefined) data.eggsDirty = dto.eggsDirty;
         if (dto.source !== undefined) data.source = dto.source;
+        if (dto.sampleSize !== undefined)
+          data.sampleSize = dto.sampleSize ?? null;
+        if (sync) {
+          if (sync.applied || !existing) {
+            data.fieldSync = sync.fieldSync;
+            data.capturedAt = sync.capturedAt;
+            data.updatedAt = sync.updatedAt;
+          } else {
+            // Nothing sent is written: the row keeps its last writer.
+            delete data.createdById;
+          }
+          if (!existing) data.catchUp = isCatchUp(dto.entryDate);
+          if (dto.avgWeightKg === null) data.sampleSize = null;
+        }
 
         const entry = existing
           ? entryRepo.merge(existing, data)
           : entryRepo.create(data);
         await entryRepo.save(entry);
         await this.flockReconciliation.recomputeLiveCount(em, batch.id);
+        await this.bandeStats.refresh(em, batch.id);
         return entry;
       })
       .then((entry) => {
@@ -246,6 +277,71 @@ export class DailyEntriesService {
         });
         return entry;
       });
+  }
+
+  /**
+   * Programme farms: decides field by field what an offline write may change
+   * (`SyncService`), removes the fields the server keeps from `dto`, then
+   * checks the weighing sample.
+   */
+  private async reconcileSync(
+    em: EntityManager,
+    programId: string,
+    user: AuthUser,
+    batch: ProductionBatch,
+    existing: DailyEntry | null,
+    dto: CreateDailyEntryDto,
+  ): Promise<DailyEntryReconciliation> {
+    const feedSent =
+      dto.feedQuantity !== undefined || dto.feedBags !== undefined;
+    const sync = await this.sync.reconcileDailyEntry(
+      em,
+      {
+        programId,
+        farmId: batch.farmId,
+        batchId: batch.id,
+        user,
+        existing,
+        values: {
+          deaths: dto.deaths,
+          feedQuantity: feedSent ? this.toKg(dto, batch, existing) : undefined,
+          waterL: dto.waterL,
+          avgWeightKg: dto.avgWeightKg,
+          sampleSize: dto.sampleSize,
+          eggsCollected: dto.eggsCollected,
+          eggsSellable: dto.eggsSellable,
+          eggsCracked: dto.eggsCracked,
+          eggsSmall: dto.eggsSmall,
+          eggsDoubleYolk: dto.eggsDoubleYolk,
+          eggsDirty: dto.eggsDirty,
+        },
+      },
+      dto,
+    );
+    for (const field of sync.dropped) {
+      if (field === 'feedQuantity') {
+        dto.feedQuantity = undefined;
+        dto.feedBags = undefined;
+        dto.feedUnit = undefined;
+        dto.bagSizeKg = undefined;
+      } else {
+        (dto as unknown as Record<string, unknown>)[field] = undefined;
+      }
+    }
+    if (dto.sampleSize != null) {
+      const weight = dto.avgWeightKg ?? existing?.avgWeightKg ?? null;
+      if (weight == null || weight <= 0) {
+        throw new BadRequestException(
+          'Le nombre de sujets pesés accompagne un poids moyen.',
+        );
+      }
+      if (dto.sampleSize > batch.quantityAlive) {
+        throw new BadRequestException(
+          `Échantillon impossible : ${dto.sampleSize} sujet(s) pesé(s) pour ${batch.quantityAlive} présent(s).`,
+        );
+      }
+    }
+    return sync;
   }
 
   async listForBatch(user: AuthUser, farmId: string, batchId: string) {

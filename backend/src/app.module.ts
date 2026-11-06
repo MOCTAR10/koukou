@@ -33,6 +33,8 @@ import { SpatialModule } from './modules/spatial/spatial.module.js';
 import { PushModule } from './modules/push/push.module.js';
 import { ProgrammeModule } from './modules/programme/programme.module.js';
 import { AccessModule } from './modules/access/access.module.js';
+import { BandesModule } from './modules/bandes/bandes.module.js';
+import { SyncModule } from './modules/sync/sync.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import {
   dbConnection,
@@ -108,6 +110,8 @@ import {
     PushModule,
     ProgrammeModule,
     AccessModule,
+    BandesModule,
+    SyncModule,
     DatabaseModule,
   ],
   controllers: [AppController],

@@ -66,6 +66,7 @@ import { CreateSaleDto } from './dto/sale.dto.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
+import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 
 const SALE_PREFIX = 'VTE';
 const ITEM_LABELS: Record<SaleItemProductType, string> = {
@@ -123,11 +124,22 @@ export class SalesService {
     private readonly alertsService: AlertsService,
     private readonly pdfService: PdfService,
     private readonly accountingService: AccountingService,
+    private readonly bandeStats: BandeStatsService,
   ) {}
 
   // ---------- Création (transaction POS) ----------
 
-  async create(user: AuthUser, farmId: string, dto: CreateSaleDto) {
+  /**
+   * With `opts.em` the sale is booked inside the caller's transaction (a
+   * POUFA sortie): the caller then runs `afterSaleCommitted` once committed,
+   * and gets no alert warnings back.
+   */
+  async create(
+    user: AuthUser,
+    farmId: string,
+    dto: CreateSaleDto,
+    opts?: { em?: EntityManager },
+  ) {
     const farm = await this.farmsService.assertAccessible(user, farmId);
     if (dto.idempotencyKey) {
       const existing = await this.findByIdempotent(farmId, dto.idempotencyKey);
@@ -146,7 +158,7 @@ export class SalesService {
 
     const involvedBatches = new Set<string>();
 
-    const result = await this.dataSource.transaction(async (em) => {
+    const book = async (em: EntityManager) => {
       const saleRepo = em.getRepository(Sale);
 
       // Verrouille TOUS les lots impliqués dans un ordre trié, AVANT de traiter
@@ -313,8 +325,22 @@ export class SalesService {
         operatorId: user.id,
       });
 
+      // POUFA band projection (no-op outside a programme).
+      for (const batchId of involvedBatches) {
+        await this.bandeStats.refresh(em, batchId);
+      }
       return { savedSale, items, payments };
-    }).catch(async (err: unknown) => {
+    };
+    if (opts?.em) {
+      const within = await book(opts.em);
+      return {
+        sale: within.savedSale,
+        items: within.items,
+        payments: within.payments,
+        warnings: [],
+      };
+    }
+    const result = await this.dataSource.transaction(book).catch(async (err: unknown) => {
       // Deux créations concurrentes avec la même clé : l'index unique
       // (ferme, clé) tranche → on renvoie la vente existante.
       if (!dto.idempotencyKey || !isUniqueViolation(err)) throw err;
@@ -1221,6 +1247,11 @@ export class SalesService {
     return eggItems.reduce((s, i) => s + i.quantity * EGGS_PER_ALVEOL, 0);
   }
 
+  /** After-commit work of a sale booked with `create(..., { em })`. */
+  async afterSaleCommitted(farmId: string, batchIds: string[]) {
+    await this.afterSaleChange(farmId, batchIds);
+  }
+
   /** Vérifie que l'id feed sale existe bien dans la transaction (validate). */
   private async afterSaleChange(farmId: string, batchIds: string[]) {
     await Promise.all([
@@ -1588,6 +1619,10 @@ export class SalesService {
           operatorId: user.id,
         });
       }
+    }
+    // POUFA band projection (no-op outside a programme).
+    for (const batchId of involvedBatches) {
+      await this.bandeStats.refresh(em, batchId);
     }
     return involvedBatches;
   }

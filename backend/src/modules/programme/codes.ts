@@ -19,6 +19,22 @@ export function localiteCode(provinceCode: string, n: number): string {
   return `${provinceCode}-${String(n).padStart(2, '0')}`;
 }
 
+/**
+ * Band code: farm code + `B` + 2-digit rank (`G1-0012-B07`); widens past 99.
+ * The rank counts every band ever opened on the farm (never reused).
+ */
+export function bandeCode(farmCode: string, rank: number): string {
+  if (!Number.isSafeInteger(rank) || rank < 1) {
+    throw new RangeError(`Invalid band rank: ${rank}`);
+  }
+  return `${farmCode}-B${String(rank).padStart(2, '0')}`;
+}
+
+/** `IdCounter` scope of the band ranks of a farm (by its programme code). */
+export function bandeCounterScope(farmCode: string): string {
+  return `BANDE:${farmCode}`;
+}
+
 /** `IdCounter` scope of the farm numbers of a province. */
 export function farmCounterScope(provinceCode: string): string {
   return `FARM:${provinceCode}`;

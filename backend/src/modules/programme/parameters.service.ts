@@ -40,6 +40,36 @@ export interface ParameterView {
 }
 
 /**
+ * Every version of one programme's parameters, resolved at any date without a
+ * query per reading (indicators evaluate one formula set per day of a band).
+ */
+export class ParameterResolver {
+  private readonly byKey = new Map<string, ProgramParameter[]>();
+
+  constructor(rows: readonly ProgramParameter[]) {
+    for (const row of rows) {
+      const list = this.byKey.get(row.key);
+      if (list) list.push(row);
+      else this.byKey.set(row.key, [row]);
+    }
+  }
+
+  /** Version of `key` in force at `at`, or null (none stored yet). */
+  version(key: string, at: Date): ProgramParameter | null {
+    return versionInForce(this.byKey.get(key) ?? [], at);
+  }
+
+  /** Value in force at `at`, else the catalog « Proposé » default. */
+  value<T = unknown>(key: string, at: Date): T {
+    const row = this.version(key, at);
+    if (row) return row.value as T;
+    const def = parameterDefinition(key);
+    if (!def) throw new BadRequestException(`Paramètre inconnu : ${key}.`);
+    return def.defaultValue as T;
+  }
+}
+
+/**
  * Versioned programme parameters. Rows are immutable: `set` inserts a new
  * version, and a reading picks the version in force at the date of the fact.
  */
@@ -71,6 +101,18 @@ export class ParametersService {
       where: { programId: program.id, key },
     });
     return (versionInForce(rows, at)?.value as T | undefined) ?? null;
+  }
+
+  /**
+   * Resolver over every version of `programId`'s parameters (a farm's
+   * programme). Pass `em` to read inside the caller's transaction.
+   */
+  async resolver(
+    programId: string,
+    em?: EntityManager,
+  ): Promise<ParameterResolver> {
+    const repo = em ? em.getRepository(ProgramParameter) : this.params;
+    return new ParameterResolver(await repo.find({ where: { programId } }));
   }
 
   /** Every catalog parameter with the version in force at `at` (default now). */
