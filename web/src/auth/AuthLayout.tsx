@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Store } from 'lucide-react';
+import { ArrowLeft, Check, Gauge, ShieldCheck, Store, Target, Warehouse } from 'lucide-react';
 import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
@@ -68,6 +68,7 @@ export function AuthLayout({
 }) {
   const reduced = useReducedMotion();
   const copy = AUDIENCES[audience];
+  const programme = audience === 'programme';
   return (
     <div className={'min-h-screen bg-white lg:grid ' + (audience === 'programme' ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]')}>
       {audience === 'programme' ? <ProgrammeAside /> : (
@@ -105,9 +106,15 @@ export function AuthLayout({
       </aside>
       )}
 
-      <div className="flex min-h-screen flex-col lg:min-h-0">
-        <div className="bg-gradient-to-br from-brand-800 to-brand-950 px-5 py-4 lg:hidden">
-          {audience === 'programme' ? (
+      <div className={'relative flex min-h-screen flex-col lg:min-h-0 ' + (programme ? 'bg-slate-50' : '')}>
+        {programme ? (
+          <>
+            <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px]" />
+            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-600 via-amber-400 to-sky-600" />
+          </>
+        ) : null}
+        <div className="relative bg-gradient-to-br from-brand-800 to-brand-950 px-5 py-4 lg:hidden">
+          {programme ? (
             <ProgrammeLockup compact />
           ) : (
             <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-12 w-auto" />
@@ -120,25 +127,44 @@ export function AuthLayout({
             </Link>
           </div>
         ) : null}
-        <div className="flex flex-1 items-start justify-center px-5 py-8 sm:px-10 lg:items-center lg:py-10">
+        <div className="relative flex flex-1 items-start justify-center px-5 py-8 sm:px-10 lg:items-center lg:py-10">
           <motion.div
             className={wide ? 'w-full max-w-xl' : 'w-full max-w-md'}
             initial={reduced ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: durations.base, ease: EASE }}
           >
-            {audience === 'programme' ? (
-              <img
-                src="/maedr-logo-full.webp"
-                alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
-                className="mb-6 hidden h-32 w-32 object-contain lg:block"
-              />
+            <div className={programme ? 'rounded-3xl bg-white p-7 shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 sm:p-9' : ''}>
+              {eyebrow ? (
+                <p
+                  className={
+                    programme
+                      ? 'inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-700 ring-1 ring-brand-100'
+                      : 'text-xs font-semibold uppercase tracking-wider text-brand-600'
+                  }
+                >
+                  {programme ? <ShieldCheck className="h-3.5 w-3.5" /> : null}
+                  {eyebrow}
+                </p>
+              ) : null}
+              <h1
+                className={`${programme ? 'mt-4 lg:text-[1.75rem]' : 'mt-1 lg:text-[2rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
+              >
+                {title}
+              </h1>
+              {subtitle ? <p className="mt-2 text-sm text-slate-500 lg:text-base">{subtitle}</p> : null}
+              <div className="mt-6 lg:mt-8">{children}</div>
+              {footer ? (
+                <div className={`mt-6 space-y-2 text-center text-sm text-slate-500 ${programme ? 'border-t border-slate-100 pt-5' : ''}`}>
+                  {footer}
+                </div>
+              ) : null}
+            </div>
+            {programme ? (
+              <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+                <ShieldCheck className="h-3.5 w-3.5" /> Connexion sécurisée · Accès réservé aux comptes du programme
+              </p>
             ) : null}
-            {eyebrow ? <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{eyebrow}</p> : null}
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 lg:text-[2rem] lg:leading-tight">{title}</h1>
-            {subtitle ? <p className="mt-2 text-sm text-slate-500 lg:text-base">{subtitle}</p> : null}
-            <div className="mt-6 lg:mt-8">{children}</div>
-            {footer ? <div className="mt-6 space-y-2 text-center text-sm text-slate-500">{footer}</div> : null}
           </motion.div>
         </div>
       </div>
@@ -150,57 +176,58 @@ export function AuthLayout({
 export const authLinkCls = 'font-semibold text-brand-600 hover:text-brand-700';
 
 const PROGRAMME_FIGURES = [
-  { value: '150', label: 'fermes avicoles' },
-  { value: '100 000 t', label: 'objectif de production' },
-  { value: '2030', label: 'horizon de suivi' },
+  { icon: Warehouse, value: '150', label: 'fermes avicoles suivies' },
+  { icon: Target, value: '100 000 t', label: 'objectif national de production' },
+  { icon: Gauge, value: '2030', label: 'horizon de pilotage' },
 ] as const;
 
-/** Programme sign-in: full-height field photo, official programme title, ministry seal. */
+/** Programme sign-in: full-height field photo, ministry seal, official programme title. */
 function ProgrammeAside() {
   return (
     <aside className="relative hidden overflow-hidden bg-brand-950 text-white lg:block">
-      <img
-        src="/login-poufa.webp"
-        alt=""
-        aria-hidden
-        className="absolute inset-0 h-full w-full object-cover object-[30%_35%]"
-      />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/40 via-40% to-transparent" />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-brand-950/30 to-transparent" />
-      <div className="relative flex min-h-screen flex-col justify-between p-10 xl:p-14 [@media(max-height:720px)]:px-10 [@media(max-height:720px)]:py-7">
-        <div className="flex items-center gap-3 self-start rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/20 backdrop-blur-md">
-                    <div className="text-[11px] uppercase leading-tight tracking-wider text-white/90">
-            <p className="font-semibold">République gabonaise</p>
-            <p className="text-white/70">Ministère de l’Agriculture, de l’Élevage et du Développement rural</p>
-          </div>
+      <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_35%]" />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/45 via-45% to-transparent" />
+      <div aria-hidden className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black/35 to-transparent" />
+      <div className="relative flex min-h-screen flex-col p-10 xl:p-12 [@media(max-height:760px)]:py-6">
+        <div className="w-fit rounded-2xl bg-white/95 p-2.5 shadow-2xl shadow-black/30 ring-1 ring-white">
+          <img
+            src="/maedr-logo-full.webp"
+            alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
+            className="h-28 w-28 object-contain xl:h-32 xl:w-32 [@media(max-height:760px)]:h-20 [@media(max-height:760px)]:w-20"
+          />
         </div>
-        <div className="max-w-2xl">
-          <p className="inline-flex items-center gap-2 rounded-full bg-amber-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200 ring-1 ring-amber-300/30">
-            Programme POUFA
-          </p>
-          <h2 className="mt-4 text-3xl font-bold leading-[1.15] tracking-tight drop-shadow xl:text-4xl [@media(max-height:720px)]:text-3xl">
-            Suivi technico-économique et traçabilité de la filière avicole
+
+        <div className="relative mt-auto overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.14] to-white/[0.04] p-6 shadow-[0_30px_80px_-30px_rgb(0_0_0/0.7)] ring-1 ring-white/20 backdrop-blur-2xl xl:p-8 [@media(max-height:760px)]:p-5">
+          <div aria-hidden className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
+          <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
+          <div className="flex items-center gap-3">
+            <span className="h-px w-8 bg-amber-300" />
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200">Programme POUFA</p>
+          </div>
+          <h2 className="mt-3 whitespace-nowrap text-[clamp(1rem,1.45vw,1.9rem)] font-bold leading-tight tracking-tight">
+            Suivi technico-économique et traçabilité{' '}
+            <span className="bg-gradient-to-r from-amber-200 to-emerald-200 bg-clip-text text-transparent">de la filière avicole</span>
           </h2>
-          <p className="mt-3 max-w-lg text-sm text-white/85 xl:text-base [@media(max-height:720px)]:text-sm">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/80 xl:text-[0.95rem] [@media(max-height:760px)]:mt-2">
             Le système d’information national du programme : registre des fermes, production, surveillance sanitaire et
             traçabilité des lots, de la ferme au consommateur.
           </p>
-          <dl className="mt-6 grid max-w-lg grid-cols-3 gap-3 [@media(max-height:720px)]:mt-5">
-            {PROGRAMME_FIGURES.map((f) => (
-              <div key={f.label} className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/15 backdrop-blur-md">
-                <dt className="sr-only">{f.label}</dt>
-                <dd>
-                  <span className="block text-xl font-bold xl:text-2xl">{f.value}</span>
-                  <span className="text-xs text-white/70">{f.label}</span>
-                </dd>
+          <dl className="mt-6 grid grid-cols-3 gap-3 [@media(max-height:760px)]:mt-4">
+            {PROGRAMME_FIGURES.map(({ icon: Icon, value, label }) => (
+              <div key={label} className="flex flex-col gap-1 rounded-2xl bg-black/20 px-4 py-3.5 ring-1 ring-white/10 [@media(max-height:760px)]:py-3">
+                <span className="mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-amber-300/15 ring-1 ring-amber-200/25"><Icon className="h-3.5 w-3.5 text-amber-200" aria-hidden /></span>
+                <dt className="sr-only">{label}</dt>
+                <dd className="text-xl font-bold tabular-nums xl:text-2xl">{value}</dd>
+                <dd aria-hidden className="text-xs leading-snug text-white/65">{label}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-8 flex items-center gap-2 text-xs text-white/60 [@media(max-height:720px)]:mt-5">
-            <img src="/logo.png" alt="" className="h-4 w-auto opacity-80" />
-            Plateforme propulsée par Fermia
-          </p>
         </div>
+
+        <p className="mt-5 flex items-center gap-2 text-xs text-white/55">
+          <img src="/logo.png" alt="" className="h-4 w-auto opacity-80" />
+          République gabonaise · Plateforme propulsée par Fermia
+        </p>
       </div>
     </aside>
   );
