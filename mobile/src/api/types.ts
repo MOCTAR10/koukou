@@ -961,6 +961,8 @@ export interface SlaughterOrder {
   internalBatchCode: string | null;
   abattoirLotCode: string | null;
   status: SlaughterStatus;
+  /** F4: abattoir operator of the programme register, when chosen. */
+  operatorId?: string | null;
   processedAt: string | null;
   abattoirNotes: string | null;
   createdById: string | null;

@@ -625,6 +625,8 @@ export interface CreateSlaughterOrderInput {
   carcassWeightKg?: number;
   abattoirLotCode?: string;
   abattoirNotes?: string;
+  /** F4: abattoir of the programme register (external destination only). */
+  operatorId?: string;
 }
 
 export function createSlaughterOrder(farmId: string, input: CreateSlaughterOrderInput): Promise<unknown> {
