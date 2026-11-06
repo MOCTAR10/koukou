@@ -8,9 +8,9 @@ import { useFarm } from '../../app/FarmContext';
 import { dateFr } from '../../lib/format';
 import { Button, ErrorNote, inlineInputCls, inputCls, Modal } from '../form';
 import { ConfirmModal, Pill, SuccessNote } from '../org/shared';
+import { ONE_TIME_CODE_MUTATION, OneTimeCodeModal, useOneTimeCode } from '../login-code/OneTimeCodeModal';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { farmLabel } from './FarmMultiPicker';
-import { LoginCodeModal } from './LoginCodeModal';
 import {
   dateFromValidUntil,
   MEMBERSHIP_STATUS_LABEL,
@@ -77,7 +77,9 @@ export function MembershipsView({
   const [filters, setFilters] = useState<MembershipFilters>(NO_FILTERS);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [form, setForm] = useState<{ membership: Membership | null } | null>(null);
-  const [code, setCode] = useState<{ title: string; fullName: string; phone: string; code: string } | null>(null);
+  const [code, dispatch] = useOneTimeCode();
+  const revealCode = (title: string, holder: { fullName: string; phone: string }, loginCode: string, regenerated: boolean) =>
+    dispatch({ type: 'reveal', code: loginCode, holder, title, regenerated });
   const [success, setSuccess] = useState<string | null>(null);
 
   // Farm names and provinces from the farm list (every farm for an admin of the whole programme).
@@ -227,7 +229,7 @@ export function MembershipsView({
           canResetCode={canResetCode}
           onClose={() => setDetailId(null)}
           onEdit={() => setForm({ membership: detail })}
-          onCode={setCode}
+          onCode={(holder, loginCode) => revealCode('Nouveau code de connexion', holder, loginCode, true)}
           onDone={setSuccess}
         />
       ) : null}
@@ -242,12 +244,12 @@ export function MembershipsView({
           onCreated={(created: CreatedMembership) => {
             setForm(null);
             setSuccess(`Compte de ${created.user?.fullName ?? ''} créé.`);
-            setCode({
-              title: 'Compte créé : code de connexion',
-              fullName: created.user?.fullName ?? '',
-              phone: created.user?.phone ?? '',
-              code: created.loginCode,
-            });
+            revealCode(
+              'Compte créé : code de connexion',
+              { fullName: created.user?.fullName ?? '', phone: created.user?.phone ?? '' },
+              created.loginCode,
+              false,
+            );
           }}
           onSaved={(message) => {
             setForm(null);
@@ -256,7 +258,11 @@ export function MembershipsView({
         />
       ) : null}
 
-      {code ? <LoginCodeModal title={code.title} fullName={code.fullName} phone={code.phone} code={code.code} onClose={() => setCode(null)} /> : null}
+      <OneTimeCodeModal
+        state={code}
+        dispatch={dispatch}
+        recoveryHint="En cas de perte, générez-en un nouveau depuis la fiche du compte : l’ancien cessera alors de fonctionner."
+      />
     </div>
   );
 }
@@ -281,7 +287,7 @@ function MembershipPanel({
   canResetCode: boolean;
   onClose: () => void;
   onEdit: () => void;
-  onCode: (c: { title: string; fullName: string; phone: string; code: string }) => void;
+  onCode: (holder: { fullName: string; phone: string }, loginCode: string) => void;
   onDone: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
@@ -301,10 +307,13 @@ function MembershipPanel({
   });
 
   const resetCode = useMutation({
+    ...ONE_TIME_CODE_MUTATION,
     mutationFn: () => api.post<LoginCodeReset>(`/admin/users/${m.user?.id}/login-code`),
     onSuccess: (res) => {
       setConfirm(null);
-      onCode({ title: 'Nouveau code de connexion', fullName: res.user.fullName, phone: res.user.phone, code: res.loginCode });
+      onCode(res.user, res.loginCode);
+      // The code now lives in the dialog's state only.
+      resetCode.reset();
     },
   });
 

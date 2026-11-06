@@ -4,10 +4,10 @@ import { KeyRound, Link2, PencilLine, UserCheck, UserPlus } from 'lucide-react';
 import { api } from '../../api/client';
 import type { ActivateOwnerResult, LoginCodeResult, RegistrySheet } from '../../api/types-programme';
 import { Button, ErrorNote } from '../form';
-import { activationBlocker, classifyActivationError } from './oneTimeCode';
+import { ONE_TIME_CODE_MUTATION, OneTimeCodeModal, useOneTimeCode } from '../login-code/OneTimeCodeModal';
+import { activationBlocker, classifyActivationError } from './ownerActivation';
 import { invalidateRegistry } from './queries';
 import type { RegistryRights } from './registryAccess';
-import { OneTimeCodeModal, useOneTimeCode } from './shared';
 
 /**
  * The exploitant's account: activation (code shown once), link to his
@@ -19,12 +19,13 @@ export function OwnerAccountSection({ sheet, rights, onEditSheet }: { sheet: Reg
   const [linkedTo, setLinkedTo] = useState<string | null>(null);
 
   const activate = useMutation({
+    ...ONE_TIME_CODE_MUTATION,
     mutationFn: (linkExistingUser: boolean) =>
       api.post<ActivateOwnerResult>(`/programme/farms/${sheet.id}/activate-owner`, linkExistingUser ? { linkExistingUser: true } : {}),
     onSuccess: (result) => {
       invalidateRegistry(queryClient, sheet.id);
       if (result.loginCode) {
-        dispatch({ type: 'reveal', code: result.loginCode, holder: result.owner, reason: 'activation' });
+        dispatch({ type: 'reveal', code: result.loginCode, holder: result.owner, title: 'Compte de l’exploitant activé', regenerated: false });
       } else {
         setLinkedTo(result.owner.fullName);
       }
@@ -34,9 +35,10 @@ export function OwnerAccountSection({ sheet, rights, onEditSheet }: { sheet: Reg
   });
 
   const regenerate = useMutation({
+    ...ONE_TIME_CODE_MUTATION,
     mutationFn: (userId: string) => api.post<LoginCodeResult>(`/admin/users/${userId}/login-code`),
     onSuccess: (result) => {
-      dispatch({ type: 'reveal', code: result.loginCode, holder: result.user, reason: 'regeneration' });
+      dispatch({ type: 'reveal', code: result.loginCode, holder: result.user, title: 'Nouveau code de connexion', regenerated: true });
       regenerate.reset();
     },
   });
@@ -143,7 +145,7 @@ export function OwnerAccountSection({ sheet, rights, onEditSheet }: { sheet: Reg
         </div>
       ) : null}
       <ErrorNote error={refusal?.kind === 'other' ? refusal.error : regenerate.error} />
-      <OneTimeCodeModal state={code} dispatch={dispatch} />
+      <OneTimeCodeModal state={code} dispatch={dispatch} recoveryHint="En cas de perte, générez-en un nouveau depuis la fiche de la ferme : l’ancien cessera alors de fonctionner." />
     </div>
   );
 }

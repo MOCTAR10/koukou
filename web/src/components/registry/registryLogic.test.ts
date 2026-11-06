@@ -4,14 +4,7 @@ import type { MyAccess } from '../../api/types-access';
 import type { ImportReport, RegistrySheet } from '../../api/types-programme';
 import { candidateProvince, candidateTitle, readDuplicateConflict, scoreLabel } from './duplicates';
 import { checkImportFile, importFormData, linesOf, outcomeCounts, summarizeImport } from './importReport';
-import {
-  activationBlocker,
-  classifyActivationError,
-  dismissNeedsConfirm,
-  formatLoginCode,
-  NO_CODE,
-  oneTimeCodeReducer,
-} from './oneTimeCode';
+import { activationBlocker, classifyActivationError } from './ownerActivation';
 import { registryRights } from './registryAccess';
 import { buildCreateBody, buildGpsBody, buildUpdateBody, checkInfrastructures, draftOfSheet, EMPTY_CREATE_DRAFT, parseDecimal } from './sheetForm';
 
@@ -107,40 +100,14 @@ describe('import report', () => {
   });
 });
 
-describe('one-time login code', () => {
-  const holder = { fullName: 'Jean Mba', phone: '074000000' };
-
-  it('is shown once, then forgotten', () => {
-    let s = oneTimeCodeReducer(NO_CODE, { type: 'reveal', code: '12345678', holder, reason: 'activation' });
-    expect(s.status).toBe('shown');
-    expect(dismissNeedsConfirm(s)).toBe(true);
-    s = oneTimeCodeReducer(s, { type: 'copied' });
-    expect(dismissNeedsConfirm(s)).toBe(false);
-    s = oneTimeCodeReducer(s, { type: 'dismiss' });
-    expect(s).toEqual(NO_CODE);
-    expect(JSON.stringify(s)).not.toContain('12345678');
-  });
-
-  it('closes without confirmation once noted', () => {
-    const s = oneTimeCodeReducer(oneTimeCodeReducer(NO_CODE, { type: 'reveal', code: '1', holder, reason: 'regeneration' }), {
-      type: 'noted',
-      value: true,
-    });
-    expect(dismissNeedsConfirm(s)).toBe(false);
-    expect(oneTimeCodeReducer(NO_CODE, { type: 'copied' })).toEqual(NO_CODE);
-  });
-
-  it('groups the digits for reading', () => {
-    expect(formatLoginCode('12345678')).toBe('1234 5678');
-    expect(formatLoginCode(' 123 45 ')).toBe('1234 5');
-  });
-
+describe('owner account', () => {
   it('sorts the activation refusals', () => {
     expect(classifyActivationError(new ApiError(409, 'Un compte existe', { existingAccount: true })).kind).toBe('existingAccount');
     expect(classifyActivationError(new ApiError(409, 'Acheteur', { buyerAccount: true })).kind).toBe('buyerAccount');
     expect(classifyActivationError(new ApiError(409, 'Pas propriétaire', { message: 'x' })).kind).toBe('other');
     expect(classifyActivationError(new ApiError(400, 'x', { existingAccount: true })).kind).toBe('other');
   });
+
 
   it('needs the exploitant’s name and phone first', () => {
     expect(activationBlocker({ exploitant: { name: 'Jean', phone: '074' }, hasOwnerAccount: false })).toBeNull();

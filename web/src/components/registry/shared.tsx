@@ -1,11 +1,9 @@
-import { useReducer, useState } from 'react';
-import { AlertTriangle, Check, Copy, EyeOff, KeyRound, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, EyeOff, ShieldAlert } from 'lucide-react';
 import type { DuplicateCandidate, HiddenDuplicate, RegistryStatus } from '../../api/types-programme';
 import { Pill, type Tone } from '../flock/shared';
-import { Button, Modal } from '../form';
+import { Button } from '../form';
 import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../programme/farmStatus';
 import { candidateProvince, candidateTitle, reasonsLabel, scoreLabel, type DuplicateConflict } from './duplicates';
-import { dismissNeedsConfirm, formatLoginCode, NO_CODE, oneTimeCodeReducer, type OneTimeCodeAction, type OneTimeCodeState } from './oneTimeCode';
 
 export function statusTone(status: Pick<RegistryStatus, 'family'> | null | undefined, active = true): Tone {
   if (!active || status?.family === SUSPENDED_FAMILY) return 'red';
@@ -72,73 +70,5 @@ export function DuplicateNotice({
         </p>
       )}
     </div>
-  );
-}
-
-/** The one-time code state of a screen (activation, regeneration). */
-export function useOneTimeCode(): [OneTimeCodeState, (a: OneTimeCodeAction) => void] {
-  return useReducer(oneTimeCodeReducer, NO_CODE);
-}
-
-/**
- * Shows a login code the server will never give again: copy button, « noté »
- * box, and a confirmation before closing when neither was used.
- */
-export function OneTimeCodeModal({ state, dispatch }: { state: OneTimeCodeState; dispatch: (a: OneTimeCodeAction) => void }) {
-  const [copyFailed, setCopyFailed] = useState(false);
-  if (state.status !== 'shown') return null;
-
-  const close = () => {
-    if (dismissNeedsConfirm(state) && !window.confirm('Ce code ne sera plus affiché. Fermer sans l’avoir noté ?')) return;
-    setCopyFailed(false);
-    dispatch({ type: 'dismiss' });
-  };
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(state.code);
-      setCopyFailed(false);
-      dispatch({ type: 'copied' });
-    } catch {
-      setCopyFailed(true);
-    }
-  };
-
-  return (
-    <Modal title={state.reason === 'activation' ? 'Compte de l’exploitant activé' : 'Nouveau code de connexion'} onClose={close}>
-      <div className="space-y-4">
-        <p className="text-sm text-slate-600">
-          Code de connexion de <span className="font-semibold text-slate-900">{state.holder.fullName}</span> (téléphone{' '}
-          <span className="font-mono">{state.holder.phone}</span>)
-          {state.reason === 'regeneration' ? ' ; l’ancien code ne fonctionne plus.' : '.'}
-        </p>
-        <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-900 px-4 py-4 text-white">
-          <span className="flex items-center gap-2">
-            <KeyRound className="h-5 w-5 text-emerald-300" />
-            <span className="select-all font-mono text-2xl font-bold tracking-widest" aria-label={`Code ${state.code.split('').join(' ')}`}>
-              {formatLoginCode(state.code)}
-            </span>
-          </span>
-          <Button tone="secondary" onClick={() => void copy()}>
-            {state.copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {state.copied ? 'Copié' : 'Copier'}
-          </Button>
-        </div>
-        {copyFailed ? <p className="text-xs text-red-600">La copie a échoué : sélectionnez le code et notez-le.</p> : null}
-        <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            <b>Notez ce code maintenant : il ne sera plus affiché.</b> Remettez-le à l’exploitant en main propre ; il se connecte avec son
-            téléphone et ce code. En cas de perte, générez-en un nouveau depuis la fiche.
-          </span>
-        </div>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" checked={state.noted} onChange={(e) => dispatch({ type: 'noted', value: e.target.checked })} />
-          J’ai noté le code
-        </label>
-        <div className="flex justify-end">
-          <Button onClick={close}>Terminer</Button>
-        </div>
-      </div>
-    </Modal>
   );
 }

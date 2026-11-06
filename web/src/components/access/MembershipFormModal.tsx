@@ -13,6 +13,7 @@ import {
 } from '../../api/types-access';
 import { classNames } from '../../lib/format';
 import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
+import { ONE_TIME_CODE_MUTATION } from '../login-code/OneTimeCodeModal';
 import { FarmMultiPicker } from './FarmMultiPicker';
 import {
   dateFromValidUntil,
@@ -64,6 +65,8 @@ export function MembershipFormModal({
   const initialDate = dateFromValidUntil(membership?.validUntil);
 
   const save = useMutation({
+    // A creation answers the login code: never kept once the form closes.
+    ...ONE_TIME_CODE_MUTATION,
     mutationFn: async (): Promise<CreatedMembership | Membership> => {
       const scope = scopeFieldsOf(kind, provinceCodes, farmIds);
       if (!membership) {
