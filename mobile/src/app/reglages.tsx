@@ -42,7 +42,7 @@ import { FarmIdentityCard } from '@/components/farm/FarmIdentityCard';
 import { RemindersCard } from '@/components/RemindersCard';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
-import { useFarmProvince } from '@/hooks/useFarmProvince';
+import { farmProvinceLabel } from '@/api/format';
 import { fetchReferenceConstants } from '@/api';
 import { farmRoleLabel, roleLabel } from '@/api/roles';
 import type { ReferenceConstant } from '@/api/types';
@@ -120,7 +120,7 @@ export default function ReglagesScreen() {
   const { farms, user, signOut, farmId } = useAuth();
   const farm = farms.find((f) => f.id === farmId) ?? farms[0];
   const profileHook = useFarmProfile();
-  const province = useFarmProvince(farm);
+  const province = farmProvinceLabel(farm);
   const [constantsOpen, setConstantsOpen] = useState(false);
 
   const constants = useQuery({ queryKey: ['reference-constants'], queryFn: () => fetchReferenceConstants() });

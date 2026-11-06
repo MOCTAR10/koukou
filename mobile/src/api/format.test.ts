@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { givenName, initials, provinceName } from './format';
+import { farmProvinceLabel, givenName, initials } from './format';
 
 describe('format', () => {
   it('initials : deux premières initiales en majuscules', () => {
@@ -18,19 +18,19 @@ describe('format', () => {
   });
 });
 
-describe('provinceName', () => {
-  const provinces = [
-    { id: 'p-1', name: 'Estuaire' },
-    { id: 'p-2', name: 'Haut-Ogooué' },
-  ];
-
-  it('retrouve la province de la ferme', () => {
-    expect(provinceName(provinces, 'p-2')).toBe('Haut-Ogooué');
+describe('farmProvinceLabel', () => {
+  it('affiche la province servie par GET /farms', () => {
+    expect(farmProvinceLabel({ provinceCode: 'G2', provinceName: 'Haut-Ogooué' })).toBe('Haut-Ogooué');
   });
 
-  it('null sans province, liste absente ou identifiant inconnu', () => {
-    expect(provinceName(provinces, null)).toBeNull();
-    expect(provinceName(undefined, 'p-1')).toBeNull();
-    expect(provinceName(provinces, 'p-9')).toBeNull();
+  it('repli sur le code quand le nom manque', () => {
+    expect(farmProvinceLabel({ provinceCode: 'G1', provinceName: null })).toBe('G1');
+    expect(farmProvinceLabel({ provinceCode: 'G1', provinceName: '  ' })).toBe('G1');
+  });
+
+  it('null sans province ou sans ferme (session enregistrée avant ces champs)', () => {
+    expect(farmProvinceLabel({ provinceCode: null, provinceName: null })).toBeNull();
+    expect(farmProvinceLabel({})).toBeNull();
+    expect(farmProvinceLabel(undefined)).toBeNull();
   });
 });

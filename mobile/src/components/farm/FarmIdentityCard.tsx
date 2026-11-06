@@ -11,7 +11,7 @@ import { FarmLogo } from '@/components/ui/FarmLogo';
 import { uploadFarmLogo, deleteFarmLogo } from '@/api/mutations';
 import { useAuth } from '@/auth/AuthContext';
 import type { Farm } from '@/api/types';
-import { useFarmProvince } from '@/hooks/useFarmProvince';
+import { farmProvinceLabel } from '@/api/format';
 import { color, palette, radii, semantic } from '@/constants/theme';
 import { Camera, Check, Lock, Trash2, X } from 'lucide-react-native';
 
@@ -32,7 +32,7 @@ interface FarmIdentityCardProps {
  *  (upload ou marque Fermia blanche par défaut). */
 export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
   const { refreshFarms } = useAuth();
-  const province = useFarmProvince(farm);
+  const province = farmProvinceLabel(farm);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);

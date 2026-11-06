@@ -70,16 +70,11 @@ export interface Farm {
   /** Programme farm code (`G1-0012`), set by the registry; null on old rows. */
   code?: string | null;
   provinceId?: string | null;
+  /** Province of the registry sheet, served by `GET /farms` (null without a province). */
+  provinceCode?: string | null;
+  provinceName?: string | null;
   /** Registry status (STATUT_FERME list code), e.g. ACTIVE / SUSPENDUE. */
   statusCode?: string | null;
-}
-
-/** Province of the programme (`GET /programme/provinces`, outlines excluded). */
-export interface ProgrammeProvince {
-  id: string;
-  code: string;
-  name: string;
-  chefLieu: string;
 }
 
 /** Mirror of the backend `UserRole`: INSTITUTION = programme institutions

@@ -1,4 +1,4 @@
-import type { FeedEntryType, FeedPhase, ProgrammeProvince, Species } from './types';
+import type { Farm, FeedEntryType, FeedPhase, Species } from './types';
 
 export function initials(name: string): string {
   return name
@@ -61,11 +61,9 @@ export const FEED_ENTRY_TYPE_LABELS: Record<FeedEntryType, string> = {
   MATIERE_PREMIERE: 'Matière première',
 };
 
-/** Name of a farm's province from the programme list; null when unknown or not loaded. */
-export function provinceName(
-  provinces: readonly Pick<ProgrammeProvince, 'id' | 'name'>[] | undefined,
-  provinceId: string | null | undefined,
+/** Province of a farm as `GET /farms` serves it: its name, else its code; null without one. */
+export function farmProvinceLabel(
+  farm: Pick<Farm, 'provinceName' | 'provinceCode'> | undefined,
 ): string | null {
-  if (!provinceId || !provinces) return null;
-  return provinces.find((p) => p.id === provinceId)?.name ?? null;
+  return farm?.provinceName?.trim() || farm?.provinceCode?.trim() || null;
 }

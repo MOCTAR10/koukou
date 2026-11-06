@@ -55,7 +55,6 @@ import type {
   Promotion,
   ProphylaxisEvent,
   ReadyReason,
-  ProgrammeProvince,
   ReferenceConstant,
   SaleFull,
   SaleSummary,
@@ -749,11 +748,6 @@ export class LiveApi {
 
   async fetchDailyEntries(farmId: string, batchId: string): Promise<DailyEntryRecord[]> {
     return apiFetch<DailyEntryRecord[]>(`/farms/${farmId}/batches/${batchId}/daily-entries`);
-  }
-
-  /** Provinces of the programme (owner and staff; an institution may be refused). */
-  async fetchProvinces(): Promise<ProgrammeProvince[]> {
-    return apiFetch<ProgrammeProvince[]>('/programme/provinces');
   }
 
   async fetchReferenceConstants(): Promise<ReferenceConstant[]> {

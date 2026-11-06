@@ -43,7 +43,6 @@ import type {
   StockTransferProductType,
   Promotion,
   ProphylaxisEvent,
-  ProgrammeProvince,
   ReferenceConstant,
   SaleFull,
   SaleSummary,
@@ -341,10 +340,6 @@ export function unregisterPushDevice(token: string): Promise<void> {
 
 export function fetchAssignableTeam(farmId: string): Promise<AssignableTeamMember[]> {
   return live.fetchAssignableTeam(farmId);
-}
-
-export function fetchProvinces(): Promise<ProgrammeProvince[]> {
-  return live.fetchProvinces();
 }
 
 export function fetchReferenceConstants(): Promise<ReferenceConstant[]> {
