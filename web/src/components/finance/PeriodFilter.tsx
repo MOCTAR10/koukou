@@ -1,6 +1,6 @@
 import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
 import { classNames } from '../../lib/format';
-import { inlineInputCls, todayIso } from '../form';
+import { inlineInputCls, todayIso, DateInput } from '../form';
 import { addDays, spanWindow, type PeriodWindow } from './pnl';
 
 const SPANS = [
@@ -61,8 +61,8 @@ export function PeriodFilter({
         <button type="button" aria-label="Jour précédent" onClick={() => shift(-1)} className={arrowCls}>
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <input
-          type="date"
+        <DateInput
+          
           aria-label="Date de début"
           value={isAll ? '' : value.from}
           max={today}
@@ -70,8 +70,8 @@ export function PeriodFilter({
           className={classNames(inlineInputCls, 'w-40')}
         />
         <span className="text-sm text-slate-400">au</span>
-        <input
-          type="date"
+        <DateInput
+          
           aria-label="Date de fin"
           value={value.to}
           max={today}

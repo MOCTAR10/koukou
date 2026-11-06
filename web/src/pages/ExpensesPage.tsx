@@ -10,7 +10,7 @@ import { EXPENSE_CATEGORIES, ExpenseFormModal } from '../components/finance/Expe
 import { ConfirmModal, SuccessNote } from '../components/finance/shared';
 import { Button, ErrorNote } from '../components/form';
 import { Card, DataTable, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
-import { dateFr, fcfa } from '../lib/format';
+import { dateFr, fcfa, plural } from '../lib/format';
 
 const isAutoCreated = (e: Expense) => typeof e.notes === 'string' && e.notes.startsWith('[Auto]');
 
@@ -74,7 +74,7 @@ export function ExpensesPage() {
     onSuccess: (r) => {
       setSyncNote(
         r.batchesSynced + r.inputsSynced > 0
-          ? `Synchronisation terminée : ${r.batchesSynced} lot(s) et ${r.inputsSynced} intrant(s) synchronisés.`
+          ? `Synchronisation terminée : ${plural(r.batchesSynced, 'lot')} et ${plural(r.inputsSynced, 'intrant')} ${r.batchesSynced + r.inputsSynced < 2 ? 'synchronisé' : 'synchronisés'}.`
           : 'Synchronisation terminée : toutes les dépenses sont déjà synchronisées.',
       );
       refresh();

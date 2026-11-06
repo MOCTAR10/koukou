@@ -6,7 +6,7 @@ import { api } from '../../api/client';
 import type { AuditEvent, AuditPage } from '../../api/types-admin';
 import { dateTimeFr, num } from '../../lib/format';
 import { Note, Pill } from '../flock/shared';
-import { Button, ErrorNote, Field, inputCls } from '../form';
+import { Button, ErrorNote, Field, inputCls, DateInput } from '../form';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import {
   ACTION_LABELS,
@@ -56,7 +56,7 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
     setFilters(next);
     setPage(1);
   };
-  const set = (key: keyof EventFilters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDraft((d) => ({ ...d, [key]: e.target.value }));
+  const set = (key: keyof EventFilters) => (e: { target: { value: string } }) => setDraft((d) => ({ ...d, [key]: e.target.value }));
 
   const data = events.data;
   const rows = data?.items ?? [];
@@ -74,10 +74,10 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Du">
-              <input type="date" className={inputCls} value={draft.from} onChange={set('from')} />
+              <DateInput className={inputCls} value={draft.from} onChange={set('from')} />
             </Field>
             <Field label="Au (inclus)">
-              <input type="date" className={inputCls} value={draft.to} onChange={set('to')} />
+              <DateInput className={inputCls} value={draft.to} onChange={set('to')} />
             </Field>
             <Field label="Action">
               <select className={inputCls} value={draft.action} onChange={set('action')}>

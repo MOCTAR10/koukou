@@ -9,7 +9,7 @@
 import type { BandHistoryRow, BandSummary, BandSummaryIndicator } from '../../api/types-pilotage';
 import { indicatorValueLabel } from './bandSummary';
 
-export const CONDUITE_LABEL = 'indicateur de conduite (Fermia)';
+export const CONDUITE_LABEL = 'indicateur de conduite';
 
 /** The CDC's band indicators (n° 12-15). */
 export type HeadlineKey = 'taux_mortalite' | 'viabilite' | 'gmq_g_j' | 'ic';

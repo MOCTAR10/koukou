@@ -215,10 +215,10 @@ export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
   PARAMETRES: 'Paramètres du programme',
   AUDIT: 'Journal d’audit',
   ADMINISTRATION: 'Administration',
-  VENTES: 'Ventes et caisse (Fermia)',
-  MARCHE: 'Market (Fermia)',
-  COMPTABILITE: 'Comptabilité (Fermia)',
-  EQUIPE: 'Équipe et RH (Fermia)',
+  VENTES: 'Ventes et caisse',
+  MARCHE: 'Market',
+  COMPTABILITE: 'Comptabilité',
+  EQUIPE: 'Équipe et RH',
 };
 
 export const ACTION_LABELS: Readonly<Record<AccessAction, string>> = {

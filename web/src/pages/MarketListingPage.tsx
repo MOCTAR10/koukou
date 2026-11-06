@@ -6,7 +6,7 @@ import { api, ApiError } from '../api/client';
 import type { BuyerMarketOrder, MarketFulfilment, MarketListing } from '../api/types-market';
 import { useAuth } from '../auth/AuthContext';
 import { canUseBuyerArea } from '../app/roles';
-import { Button, ErrorNote, Field, inputCls, todayIso } from '../components/form';
+import { Button, ErrorNote, Field, inputCls, todayIso, DateInput } from '../components/form';
 import { depositFor, orderTotal, unitName } from '../components/market/rules';
 import { invalidateBuyerQueries, listingPhoto, listingTitle } from '../components/market/shared';
 import { Segmented } from '../components/orders/shared';
@@ -95,7 +95,7 @@ function OrderForm({ listing }: { listing: MarketListing }) {
       ) : null}
       {listing.kind === 'NOW' ? (
         <Field label="Date souhaitée (facultatif)">
-          <input type="date" min={todayIso()} className={inputCls} value={desiredDate} onChange={(e) => setDesiredDate(e.target.value)} />
+          <DateInput min={todayIso()} className={inputCls} value={desiredDate} onChange={(e) => setDesiredDate(e.target.value)} />
         </Field>
       ) : null}
       <Field label="Téléphone de contact (facultatif)" hint="Si différent de celui de votre compte.">

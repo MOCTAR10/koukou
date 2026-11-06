@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { PosBatch } from '../../api/types-sales';
 import { SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
-import { classNames, num } from '../../lib/format';
+import { classNames, num, plural } from '../../lib/format';
 import { ErrorNote, Modal } from '../form';
 import { Loading, PhotoThumb } from '../ui';
 import { SPECIES_LABEL } from './shared';
@@ -100,7 +100,7 @@ export function CheptelModal({
       ) : (
         <>
           <p className="mb-3 text-sm text-slate-500">
-            {num(groups.length)} souche(s) · {num(totalAlive)} oiseau(x)
+            {plural(groups.length, 'souche')} · {plural(totalAlive, 'oiseau', 'oiseaux')}
           </p>
           <ul className="space-y-2.5">
             {groups.map((g) => (

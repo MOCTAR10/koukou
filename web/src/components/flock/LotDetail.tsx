@@ -498,7 +498,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
               fermiaFormula={FERMIA_FORMULAS.gmq}
             />
             <Metric
-              label="IPE (Fermia)"
+              label="IPE"
               icon={<Activity />}
               value={<span title={FERMIA_FORMULAS.ipe}>{m.ipe != null ? num(m.ipe, 0) : '—'}</span>}
               sub={`${m.ipeTarget != null ? `cible ${num(m.ipeTarget, 0)} · ` : ''}${CONDUITE_LABEL}`}
@@ -1154,13 +1154,13 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                 tone={health.data.healthScore >= 80 ? 'good' : health.data.healthScore >= 60 ? 'warn' : 'bad'}
               />
               <Metric
-                label="Viabilité (Fermia)"
+                label="Viabilité"
                 icon={<HeartPulse />}
                 value={<span title={FERMIA_FORMULAS.viability}>{num(health.data.viabilityPercent)} %</span>}
                 sub={CONDUITE_LABEL}
               />
               <Metric
-                label="Mortalité (Fermia)"
+                label="Mortalité"
                 icon={<HeartPulse />}
                 value={<span title={FERMIA_FORMULAS.mortality}>{num(health.data.mortalityPercent)} %</span>}
                 sub={CONDUITE_LABEL}

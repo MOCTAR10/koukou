@@ -128,3 +128,25 @@ export function initials(name: string): string {
 export function classNames(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
 }
+/** « 2026-11-06 » -> « 06/11/2026 » (empty when not an ISO date). */
+export function isoToFr(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '');
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+/** « 06/11/2026 » (or 6-11-2026, 6.11.26) -> « 2026-11-06 »; '' when incomplete or impossible. */
+export function frToIso(text: string): string {
+  const m = /^\s*(\d{1,2})[/.\-\s](\d{1,2})[/.\-\s](\d{4})\s*$/.exec(text);
+  if (!m) return '';
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return '';
+  return `${m[3]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** « 1 lot » / « 2 lots »: real French plural (0 and 1 are singular). */
+export function plural(n: number, one: string, many?: string): string {
+  return `${n.toLocaleString('fr-FR')} ${n < 2 ? one : (many ?? `${one}s`)}`;
+}

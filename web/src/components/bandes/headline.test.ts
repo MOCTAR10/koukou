@@ -65,7 +65,7 @@ describe('official values and Fermia’s second line', () => {
   it('gives the formula in force as a tooltip and always names Fermia’s figure', () => {
     expect(officialTooltip(ind('ic', 1.7))).toBe('Indice de consommation (IC) (officiel) = ic = …');
     expect(conduiteLine('3,4 %')).toBe(`3,4 % · ${CONDUITE_LABEL}`);
-    expect(CONDUITE_LABEL).toBe('indicateur de conduite (Fermia)');
+    expect(CONDUITE_LABEL).toBe('indicateur de conduite');
   });
 
   it('reads the margin label of the formula in force', () => {

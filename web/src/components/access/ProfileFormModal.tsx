@@ -1,3 +1,4 @@
+import { plural } from '../../lib/format';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ShieldCheck, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
@@ -200,7 +201,7 @@ export function ProfileFormModal({
           title="Supprimer le profil"
           message={
             memberCount
-              ? `${memberCount} compte(s) utilisent « ${profile.label} » : changez-les de profil avant de le supprimer.`
+              ? `${plural(memberCount, 'compte')} ${memberCount < 2 ? 'utilise' : 'utilisent'} « ${profile.label} » : changez-les de profil avant de le supprimer.`
               : `Le profil « ${profile.label} » sera supprimé. Cette action est définitive.`
           }
           confirmLabel="Supprimer"

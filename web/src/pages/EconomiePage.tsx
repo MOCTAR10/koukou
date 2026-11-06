@@ -27,9 +27,9 @@ import {
   type EconomieFilters,
   type EconomieView,
 } from '../components/economie/economie';
-import { Button, ErrorNote, Field, inputCls } from '../components/form';
+import { Button, ErrorNote, Field, inputCls, DateInput } from '../components/form';
 import { Card, DataTable, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
-import { classNames, fcfa, num, pct } from '../lib/format';
+import { classNames, fcfa, num, pct, plural } from '../lib/format';
 
 const FORMATS: Array<{ format: EconomieFormat; label: string }> = [
   { format: 'csv', label: 'CSV' },
@@ -222,10 +222,10 @@ export function EconomiePage() {
       <Card className="p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Du">
-            <input type="date" className={inputCls} value={filters.from} max={filters.to || undefined} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
+            <DateInput className={inputCls} value={filters.from} max={filters.to || undefined} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
           </Field>
           <Field label="Au">
-            <input type="date" className={inputCls} value={filters.to} min={filters.from || undefined} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
+            <DateInput className={inputCls} value={filters.to} min={filters.from || undefined} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
           </Field>
           <Field label="Province">
             <select className={inputCls} value={filters.provinceId} onChange={(e) => setFilters((f) => ({ ...f, provinceId: e.target.value }))}>
@@ -256,12 +256,12 @@ export function EconomiePage() {
           {view === 'ventes' ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {cols.sales ? (
-                <StatCard label="Chiffre d’affaires" value={fcfa(total.salesFcfa)} hint={`${num(total.salesCount ?? 0, 0)} vente(s) · ${num(total.farmCount ?? data.farms.length, 0)} ferme(s)`} icon={<TrendingUp />} tone="accent" />
+                <StatCard label="Chiffre d’affaires" value={fcfa(total.salesFcfa)} hint={`${plural(total.salesCount ?? 0, 'vente')} · ${plural(total.farmCount ?? data.farms.length, 'ferme')}`} icon={<TrendingUp />} tone="accent" />
               ) : null}
               <StatCard label="Charges" value={fcfa(total.expensesFcfa)} hint={cols.collected ? `Encaissé : ${fcfa(total.collectedFcfa)}` : undefined} icon={<Wallet />} />
               <StatCard label="Marge" value={fcfa(total.marginFcfa)} hint={pct(marginRate(total))} icon={<Banknote />} tone={marginTone(total.marginFcfa)} />
               {cols.payroll ? (
-                <StatCard label="Masse salariale mensuelle" value={fcfa(total.payrollMonthlyFcfa)} hint={`${num(total.employeeCount ?? 0, 0)} employé(s) actif(s)`} icon={<Briefcase />} />
+                <StatCard label="Masse salariale mensuelle" value={fcfa(total.payrollMonthlyFcfa)} hint={`${plural(total.employeeCount ?? 0, 'employé actif', 'employés actifs')}`} icon={<Briefcase />} />
               ) : cols.stock ? (
                 <StatCard label="Stock d’aliment" value={kg(total.feedStockKg)} icon={<Warehouse />} />
               ) : null}

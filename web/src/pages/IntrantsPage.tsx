@@ -7,7 +7,7 @@ import type { DeliveryPage, DeliveryView } from '../api/types-supply';
 import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
 import { useInstitutionAccess } from '../app/useInstitutionAccess';
-import { Button, ErrorNote, Field, inputCls, Modal } from '../components/form';
+import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../components/form';
 import { FarmPicker } from '../components/programme/FarmPicker';
 import { useProvinces } from '../components/registry/queries';
 import { DeliveryDetail, DeliveryStatusPill, supplierOf } from '../components/supply/DeliveryParts';
@@ -102,8 +102,8 @@ export function IntrantsPage() {
             ))}
           </select>
           <FarmPicker tone="light" farms={farms} farmId={filters.farmId || null} onPick={(id) => setFilter('farmId', id)} label="Ferme" />
-          <input aria-label="Expédiées à partir du" type="date" className={inputCls} value={filters.from} onChange={(e) => setFilter('from', e.target.value)} />
-          <input aria-label="Expédiées jusqu’au" type="date" className={inputCls} value={filters.to} onChange={(e) => setFilter('to', e.target.value)} />
+          <DateInput aria-label="Expédiées à partir du" className={inputCls} value={filters.from} onChange={(e) => setFilter('from', e.target.value)} />
+          <DateInput aria-label="Expédiées jusqu’au" className={inputCls} value={filters.to} onChange={(e) => setFilter('to', e.target.value)} />
         </div>
         {hasDeliveryFilter(filters) ? (
           <button type="button" className="text-xs font-semibold text-brand-700 hover:underline" onClick={() => update(NO_FILTERS)}>

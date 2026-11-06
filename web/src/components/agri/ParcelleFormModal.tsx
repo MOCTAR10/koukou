@@ -4,7 +4,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { CropCategory, Parcelle, ParcelleInput, ParcelleStatus } from '../../api/types-agri';
 import { useFarm } from '../../app/FarmContext';
-import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../form';
 import { StageSummary } from './AgriBits';
 import {
   cultureStage,
@@ -197,8 +197,8 @@ export function ParcelleFormModal({ parcelle, onClose }: { parcelle: Parcelle | 
             </select>
           </Field>
           <Field label="Date de plantation" hint="Indispensable pour calculer le stade et suivre la culture.">
-            <input
-              type="date"
+            <DateInput
+              
               className={inputCls}
               value={plantedAt}
               onChange={(e) => setPlantedAt(e.target.value)}

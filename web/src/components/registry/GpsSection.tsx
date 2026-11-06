@@ -4,7 +4,7 @@ import { AlertTriangle, Crosshair, ExternalLink, History, LocateFixed } from 'lu
 import { api } from '../../api/client';
 import type { RegistryGps, RegistrySheet, SetGpsResult } from '../../api/types-programme';
 import { dateFr, dateTimeFr } from '../../lib/format';
-import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../form';
+import { Button, ErrorNote, Field, inputCls, Modal, todayIso, DateInput } from '../form';
 import { Loading } from '../ui';
 import { invalidateRegistry, useGpsHistory } from './queries';
 import {
@@ -157,7 +157,7 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
       if (!result.provinceWarning && result.applied !== false) onClose();
     },
   });
-  const set = (key: keyof typeof draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const set = (key: keyof typeof draft) => (e: { target: { value: string } }) => {
     setDraft((d) => ({ ...d, [key]: e.target.value }));
     setFormError(null);
   };
@@ -223,7 +223,7 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
               <input className={inputCls} inputMode="decimal" value={draft.accuracyM} onChange={set('accuracyM')} />
             </Field>
             <Field label="Date du relevé" hint="Vide : maintenant.">
-              <input type="date" className={inputCls} max={today} value={draft.capturedAt} onChange={set('capturedAt')} />
+              <DateInput className={inputCls} max={today} value={draft.capturedAt} onChange={set('capturedAt')} />
             </Field>
           </div>
           <Field label="Motif" hint="Par exemple : erreur de saisie, nouveau relevé sur place.">

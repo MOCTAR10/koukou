@@ -3,7 +3,7 @@ import { useId, useMemo, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { BalanceData, RegularisationBody } from '../../api/types-finance';
 import { classNames, fcfa } from '../../lib/format';
-import { Button, ErrorNote, Field, Modal, inputCls, todayIso } from '../form';
+import { Button, ErrorNote, Field, Modal, inputCls, todayIso, DateInput } from '../form';
 
 const FREQUENT_ACCOUNTS = ['571', '108', '401', '411', '6011', '7011', '658', '758', '471', '421'];
 
@@ -79,7 +79,7 @@ export function RegularisationModal({
             />
           </Field>
           <Field label="Date">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+            <DateInput value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
           </Field>
         </div>
 

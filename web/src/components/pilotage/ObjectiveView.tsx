@@ -46,7 +46,7 @@ export function ObjectiveView({ filters }: { filters: PilotageFilters }) {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Objectif national" value={tonnesLabel(d.objective.tonnes)} hint={`${d.objective.unit} par an · paramètre ${d.objective.parameterKey}`} icon={<Target className="h-4 w-4" />} />
+        <StatCard label="Objectif national" value={tonnesLabel(d.objective.tonnes)} hint={`${d.objective.unit} par an · fixé dans les Paramètres`} icon={<Target className="h-4 w-4" />} />
         <StatCard label="Réalisé depuis le début" value={a ? tonnesLabel(a.tonnes) : '—'} hint={a ? `${headsLabel(a.heads)} sorties vivantes` : undefined} icon={<TrendingUp className="h-4 w-4" />} />
         <StatCard label="12 derniers mois" value={a ? tonnesLabel(a.last12MonthsTonnes) : '—'} hint={`${pctLabel(share, 2)} de l’objectif annuel`} icon={<TrendingUp className="h-4 w-4" />} />
         <StatCard label="Année en cours" value={a ? tonnesLabel(a.yearToDateTonnes) : '—'} icon={<TrendingUp className="h-4 w-4" />} />

@@ -21,7 +21,7 @@ import {
   pendingStateDeliveries,
 } from '../supply/stateDeliveryMatch';
 import { farmDeliveryRights } from '../supply/supplyAccess';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, Modal, inputCls, DateInput } from '../form';
 import {
   ENTRY_TYPE_LABEL,
   FEED_PHASES,
@@ -295,10 +295,10 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
             <input className={inputCls} value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} required />
           </Field>
           <IconField label="Date de réception *" icon={<Calendar />}>
-            <input className={inputCls} type="date" max={localYmd()} value={received} onChange={(e) => setReceived(e.target.value)} required />
+            <DateInput className={inputCls} max={localYmd()} value={received} onChange={(e) => setReceived(e.target.value)} required />
           </IconField>
           <IconField label="Date de péremption" icon={<Calendar />}>
-            <input className={inputCls} type="date" value={expiration} onChange={(e) => setExpiration(e.target.value)} />
+            <DateInput className={inputCls} value={expiration} onChange={(e) => setExpiration(e.target.value)} />
           </IconField>
           {isFeed ? (
             <IconField label="Phase d'alimentation" icon={<Wheat />}>
@@ -489,7 +489,7 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
             </select>
           </Field>
           <IconField label="Date" icon={<Calendar />}>
-            <input className={inputCls} type="date" max={localYmd()} value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} />
+            <DateInput className={inputCls} max={localYmd()} value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} />
           </IconField>
         </div>
         <Field label="Notes">

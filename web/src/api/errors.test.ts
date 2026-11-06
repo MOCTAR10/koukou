@@ -8,9 +8,16 @@ describe('errorMessage', () => {
   });
 
   it('falls back on the status without a usable message', () => {
-    expect(errorMessage(500, null)).toBe('Erreur serveur (500)');
-    expect(errorMessage(502, 'gateway')).toBe('Erreur serveur (502)');
-    expect(errorMessage(400, { message: [] })).toBe('Erreur serveur (400)');
+    expect(errorMessage(500, null)).toMatch(/erreur est survenue/);
+    expect(errorMessage(502, 'gateway')).toMatch(/indisponible/);
+    expect(errorMessage(400, { message: [] })).toMatch(/Demande invalide/);
+  });
+
+  it('never shows raw English or exception names', () => {
+    expect(errorMessage(500, { message: 'Internal server error' })).toMatch(/erreur est survenue/);
+    expect(errorMessage(429, { message: 'ThrottlerException: Too Many Requests' })).toMatch(/Trop de tentatives/);
+    expect(errorMessage(403, { message: 'Forbidden resource' })).toMatch(/droits/);
+    expect(errorMessage(400, { message: ['Nom requis.', 'Bad Request'] })).toBe('Nom requis.');
   });
 });
 
@@ -26,7 +33,7 @@ describe('apiErrorFrom', () => {
 
   it('survives an empty or non-JSON body', async () => {
     const empty = await apiErrorFrom(new Response('', { status: 404 }));
-    expect(empty.message).toBe('Erreur serveur (404)');
+    expect(empty.message).toBe('Élément introuvable.');
     expect(empty.body).toBeNull();
     const html = await apiErrorFrom(new Response('<html>oops</html>', { status: 500 }));
     expect(html.body).toBeNull();

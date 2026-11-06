@@ -134,8 +134,41 @@ export function formatParameterValue(type: ParameterType, value: unknown, unit?:
   if ((type === 'number' || type === 'integer') && typeof value === 'number') {
     return `${frNumber(value)}${unit ? ` ${unit}` : ''}`;
   }
-  if (type === 'json' || typeof value === 'object') return JSON.stringify(value);
+  if (type === 'json' || typeof value === 'object') return readableJson(value);
   return String(value);
+}
+
+/** « FIN_DE_BANDE » / « ref_bande » -> « Fin de bande » / « Ref bande ». */
+export function humanizeKey(key: string): string {
+  const t = key.replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim().toLowerCase();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : key;
+}
+
+function readableScalar(v: unknown): string {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'number') return frNumber(v);
+  if (typeof v === 'boolean') return v ? 'oui' : 'non';
+  if (typeof v === 'string') return /^[A-Z0-9_]{3,}$/.test(v) ? humanizeKey(v) : v;
+  return readableJson(v);
+}
+
+/** A JSON value as a sentence-like text (no braces, quotes or raw keys). */
+export function readableJson(value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (Array.isArray(value)) return value.map((v) => (v && typeof v === 'object' ? `(${readableJson(v)})` : readableScalar(v))).join(' ; ');
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${humanizeKey(k)} : ${v && typeof v === 'object' ? readableJson(v) : readableScalar(v)}`)
+      .join(', ');
+  }
+  return readableScalar(value);
+}
+
+/** Versions older than 2001 are the seeded defaults (sentinel date), not a real start. */
+export function isDefaultSince(validFrom: string | null | undefined): boolean {
+  if (!validFrom) return false;
+  const t = Date.parse(validFrom);
+  return !Number.isNaN(t) && t < Date.UTC(2001, 0, 1);
 }
 
 /** The value as the form's text field starts (decimal comma for numbers). */

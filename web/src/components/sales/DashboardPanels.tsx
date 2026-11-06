@@ -210,7 +210,7 @@ export function PerformanceTiles({ batches, official }: { batches: PosBatch[]; o
           tone={gmq != null && gmq < 0 ? 'text-red-600' : undefined}
         />
         <Tile
-          label="IPE moyen (Fermia)"
+          label="IPE moyen"
           icon={Scale}
           value={ipe != null && ipe > 0 ? num(Math.round(ipe)) : '—'}
           sub={ipe == null ? 'Pas de donnée' : `Indice de performance · ${CONDUITE_LABEL}`}

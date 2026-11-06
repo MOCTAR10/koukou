@@ -102,7 +102,6 @@ export function NotificationRulesPage() {
                   <Td label="Événement">{eventLabel(r.event)}</Td>
                   <Td label="Règle">
                     <span className="font-medium text-slate-900">{r.label}</span>
-                    <span className="block text-xs text-slate-400">{r.code}</span>
                   </Td>
                   <Td label="Destinataires">
                     {AUDIENCE_LABELS[r.audience] ?? r.audience}
@@ -200,7 +199,7 @@ function RuleModal({
         ) : (
           <p className="text-sm text-slate-600">
             Événement : <span className="font-medium text-slate-900">{events.find((e) => e.event === rule.event)?.label ?? rule.event}</span>
-            <span className="text-slate-400"> · {rule.code}</span>
+            
           </p>
         )}
         {confidential ? (

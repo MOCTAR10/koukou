@@ -8,7 +8,7 @@ import { useFarm } from '../../app/FarmContext';
 import { lotImage } from '../../lib/animalImages';
 import { fcfa, num } from '../../lib/format';
 import { normalizeGabonPhone } from '../../lib/phone';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
 import { PhotoThumb } from '../ui';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { geocodeGabonAddress } from './geo';
@@ -418,8 +418,8 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
               </Field>
             ) : null}
             <Field label={place === 'LIVRAISON' ? 'Livraison prévue le' : 'Retrait prévu le'}>
-              <input
-                type="date"
+              <DateInput
+                
                 required
                 min={today}
                 value={expectedDate}

@@ -32,7 +32,7 @@ import { FilterChip, ProductThumb } from '../components/sales/shared';
 import { SalesHistory } from '../components/sales/SalesHistory';
 import { unitLabel } from '../components/sales/labels';
 import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
-import { classNames, fcfa, num, statusLabel } from '../lib/format';
+import { classNames, fcfa, num, statusLabel, plural } from '../lib/format';
 
 type LineModal = { initial?: PosLine; preset?: LinePreset };
 
@@ -272,7 +272,7 @@ export function SalesPage() {
                     {p.kind === 'FERME' ? 'Ferme · volaille vivante, œufs, carcasses' : 'Boutique · stock transféré depuis la ferme'}
                   </span>
                   <span className="mt-1 block text-sm font-medium text-slate-700">
-                    {fcfa(s.revenue)} · {num(s.count)} ticket(s) aujourd’hui
+                    {fcfa(s.revenue)} · {plural(s.count, 'ticket')} aujourd’hui
                   </span>
                 </span>
               </button>
@@ -411,7 +411,7 @@ export function SalesPage() {
                                     {b.batchName ?? 'Lot'}
                                     <span className="block text-xs font-normal text-slate-400">
                                       {statusLabel(b.type)} · J{b.metrics.ageDays}
-                                      {sold > 0 ? ` · ${num(sold)} article(s) vendu(s) aujourd’hui` : ''}
+                                      {sold > 0 ? ` · ${plural(sold, 'article vendu', 'articles vendus')} aujourd’hui` : ''}
                                     </span>
                                   </div>
                                 </div>
