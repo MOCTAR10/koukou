@@ -61,6 +61,8 @@ function RootNavigator() {
         <Stack.Screen name="rh" />
         <Stack.Screen name="sanitary" />
         <Stack.Screen name="slaughter" />
+        {/* POUFA lot A droits: programme economic synthesis (DGE / platform admin). */}
+        <Stack.Screen name="synthese" />
         <Stack.Screen name="tasks" />
         {/* ── POUFA field work (M2) ── */}
         <Stack.Screen name="livraisons/index" />
