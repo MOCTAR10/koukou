@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, LifeBuoy, ArrowLeft, Building2, Calculator, Check, Map, QrCode, ScrollText, ShieldCheck, Stethoscope, Store } from 'lucide-react';
+import { Activity, LifeBuoy, ArrowLeft, Building2, Calculator, Check, Map, QrCode, ScrollText, Stethoscope, Store } from 'lucide-react';
 import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
@@ -135,17 +135,13 @@ export function AuthLayout({
             transition={{ duration: durations.base, ease: EASE }}
           >
             <div className={programme ? 'rounded-3xl bg-white p-7 shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 sm:p-9 [@media(max-height:760px)]:p-6' : ''}>
-              {eyebrow ? (
-                <p
-                  className={
-                    programme
-                      ? 'inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-700 ring-1 ring-brand-100'
-                      : 'text-xs font-semibold uppercase tracking-wider text-brand-600'
-                  }
-                >
-                  {programme ? <ShieldCheck className="h-3.5 w-3.5" /> : null}
-                  {eyebrow}
-                </p>
+              {programme ? (
+                <div className="flex items-center gap-2.5">
+                  <img src="/logo.png" alt="" className="h-10 w-auto [@media(max-height:760px)]:h-8" />
+                  <span className="text-2xl font-bold tracking-tight text-brand-900 [@media(max-height:760px)]:text-xl">Fermia</span>
+                </div>
+              ) : eyebrow ? (
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{eyebrow}</p>
               ) : null}
               <h1
                 className={`${programme ? 'mt-4 lg:text-[2.25rem] [@media(max-height:760px)]:mt-2 [@media(max-height:760px)]:lg:text-[1.75rem]' : 'mt-1 lg:text-[2rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
@@ -163,6 +159,10 @@ export function AuthLayout({
             {programme ? (
               <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400 [@media(max-height:760px)]:mt-3">
                 <LifeBuoy className="h-3.5 w-3.5" /> Code oublié ou compte bloqué : contactez l’administrateur du programme
+              </p>
+            ) : null}
+            {programme ? (
+              <p className="mt-2 text-center text-[11px] text-slate-400">Version {__APP_VERSION__}
               </p>
             ) : null}
           </motion.div>
