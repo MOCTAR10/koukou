@@ -113,3 +113,11 @@ describe('noFarmMessage', () => {
     expect(noFarmMessage('PROPRIETAIRE').body).not.toMatch(/inscri|créez/i);
   });
 });
+
+describe('worksWithoutFarm (POUFA W6)', () => {
+  it('opens the programme inputs and traceability pages without a farm, not the farm deliveries', () => {
+    expect(worksWithoutFarm('/app/intrants?livraison=abc')).toBe(true);
+    expect(worksWithoutFarm('/app/tracabilite/operateurs')).toBe(true);
+    expect(worksWithoutFarm('/app/livraisons')).toBe(false);
+  });
+});

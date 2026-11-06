@@ -28,6 +28,9 @@ import type { AccessAction, AccessDomain, AccessMatrix, MyAccess, ScopeKind } fr
  * | /app/parametres         | PARAMETRES or ADMINISTRATION:CONSULTER | programme/parameters (PARAMETRES), lists (REFERENCE) |
  * | /app/audit              | AUDIT:CONSULTER          | audit/events, row-changes, seals (AUDIT)                  |
  * | /app/reprise            | REGISTRE:CONSULTER       | programme/imports (REGISTRE, national scope)              |
+ * | /app/intrants           | INTRANTS:CONSULTER       | programme/input-deliveries (INTRANTS)                     |
+ * | /app/livraisons         | INTRANTS:CONSULTER       | farms/:id/input-deliveries, declarative-stock (INTRANTS)  |
+ * | /app/tracabilite…       | TRACABILITE or ADMINISTRATION:CONSULTER | trace/lots (TRACABILITE), trace/operators (REFERENCE) |
  * | /app/mon-acces, /app/help | always                 | programme/access/me (SESSION), none                       |
  * | /app/surveillance(/…)   | SANITAIRE:CONSULTER      | surveillance/alerts, lists, calendars (SANITAIRE)         |
  * | /app/notifications      | always                   | notifications (SESSION: the account's own inbox)          |
@@ -81,6 +84,10 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/audit': consult('AUDIT'),
   '/app/reprise': consult('REGISTRE'),
   // --- end programme administration ---
+  // POUFA W6: programme inputs, the farm deliveries, traceability (lots, code lookup, operators registry).
+  '/app/intrants': consult('INTRANTS'),
+  '/app/livraisons': consult('INTRANTS'),
+  '/app/tracabilite': { kind: 'grant', any: [['TRACABILITE', 'CONSULTER'], ['ADMINISTRATION', 'CONSULTER']] },
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   '/app/finance': fermia('VENTES'),

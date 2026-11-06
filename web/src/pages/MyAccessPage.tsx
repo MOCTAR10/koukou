@@ -43,6 +43,10 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/audit': 'Journal d’audit',
   '/app/reprise': 'Reprise des données',
   // --- end programme administration ---
+  // POUFA W6
+  '/app/intrants': 'Intrants (livraisons du programme)',
+  '/app/livraisons': 'Livraisons d’intrants de la ferme',
+  '/app/tracabilite': 'Traçabilité et opérateurs',
 };
 
 /** Programme-wide pages: open without a farm in the scope (POUFA L5 adds surveillance and notification rules). */

@@ -15,7 +15,10 @@ export type OfflineKind =
   | 'stock-transfer-create'
   | 'stock-transfer-cancel'
   // Web only for now (POUFA L5): a sanitary declaration, with its clinical signs and suspicion.
-  | 'health-event';
+  | 'health-event'
+  // POUFA: the farmer's input-delivery confirmation and a band sortie (both keyed).
+  | 'delivery-confirm'
+  | 'band-sortie';
 
 export interface OfflineOp {
   /** Unique across devices; also the idempotency key of the creations. */

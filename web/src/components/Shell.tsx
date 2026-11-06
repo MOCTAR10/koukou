@@ -56,6 +56,9 @@ import { useNotificationRights, useSurveillanceRights } from './surveillance/use
 import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
 import { motion, useReducedMotion } from 'motion/react';
+// POUFA W6: inputs and traceability entries.
+import { QrCode, Truck } from 'lucide-react';
+import { FARM_DELIVERIES_PATH, isProgrammeWidePath, programmeEntries, programmeWideLabel } from './trace/traceAccess';
 
 /** `perms`: at least one is required to show the entry; absent means visible to all. */
 const NAV: Array<{
@@ -77,6 +80,7 @@ const NAV: Array<{
       { to: '/app/activities', label: 'Activités', icon: NotebookPen },
       { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText, perms: ['sanitaire:lecture'] },
       { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse, perms: ['stock:gerer'] },
+      { to: FARM_DELIVERIES_PATH, label: 'Livraisons d’intrants', icon: Truck }, // POUFA W6
       { to: '/app/slaughter', label: 'Abattage', icon: Factory, perms: ['production:abattage'] },
     ],
   },
@@ -153,7 +157,8 @@ export function Shell() {
         ? 'Reprise des données du programme'
         : null;
   // --- end programme administration ---
-  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null;
+  const onProgrammeWide = isProgrammeWidePath(pathname); // POUFA W6
+  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null || onProgrammeWide;
   const reduced = useReducedMotion();
   const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
     useMenuAccess();
@@ -172,6 +177,8 @@ export function Shell() {
     ...(admin.audit.view ? [{ to: '/app/audit', label: 'Journal d’audit', icon: FileSearch }] : []),
     ...(admin.recovery.view ? [{ to: '/app/reprise', label: 'Reprise des données', icon: DatabaseBackup }] : []),
     // --- end programme administration ---
+    // POUFA W6: programme inputs and traceability.
+    ...programmeEntries(user?.role, (to) => showEntry(to)).map((e) => ({ to: e.to, label: e.label, icon: e.kind === 'intrants' ? Truck : QrCode })),
     ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
     // POUFA L5: programme sanitary surveillance, notification rules.
     ...(surveillance.view ? [{ to: '/app/surveillance', label: 'Surveillance sanitaire', icon: ShieldAlert }] : []),
@@ -345,6 +352,8 @@ export function Shell() {
               'Console administrateur plateforme'
             ) : onRegistry ? (
               'Registre des fermes du programme'
+            ) : onProgrammeWide ? (
+              programmeWideLabel(pathname)
             ) : onAccess ? (
               'Accès institutionnels du programme'
             ) : onPilotage ? (

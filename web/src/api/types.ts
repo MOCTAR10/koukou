@@ -232,6 +232,8 @@ export interface Customer {
   /** Type commercial (défaut PARTICULIER) — purement indicatif. */
   type: string;
   segment: string;
+  /** Programme operator this customer is (POUFA traceability), when linked. */
+  operatorId?: string | null;
   createdAt: string;
   balance?: CustomerBalance;
 }
