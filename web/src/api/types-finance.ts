@@ -222,3 +222,27 @@ export interface RegularisationBody {
   label: string;
   lines: { account: string; debitFcfa?: number; creditFcfa?: number }[];
 }
+
+export interface GrandLivreMovement {
+  date: string;
+  reference: string;
+  label: string;
+  source: AccountingSource;
+  sourceId: string;
+  debitFcfa: number;
+  creditFcfa: number;
+}
+
+export interface GrandLivreAccount {
+  account: string;
+  label: string | null;
+  classe: number | null;
+  nature: string | null;
+  debitTotalFcfa: number;
+  creditTotalFcfa: number;
+  /** Net balance of the period (debit - credit). */
+  soldeFcfa: number;
+  mouvements: GrandLivreMovement[];
+}
+
+export type GrandLivreData = GrandLivreAccount[];

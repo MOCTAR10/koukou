@@ -22,16 +22,18 @@ import {
   ResultatTab,
   StockTab,
 } from '../components/finance/AccountingReports';
+import { GrandLivreTab } from '../components/finance/GrandLivreTab';
 import { RegularisationModal } from '../components/finance/RegularisationModal';
 import { ConfirmModal, SuccessNote } from '../components/finance/shared';
 import { Button, ErrorNote } from '../components/form';
 import { Loading, PageHeader } from '../components/ui';
 import { classNames, dateFr, fcfa } from '../lib/format';
 
-type Tab = 'journal' | 'balance' | 'resultat' | 'bilan' | 'stock' | 'exercices';
+type Tab = 'journal' | 'grand-livre' | 'balance' | 'resultat' | 'bilan' | 'stock' | 'exercices';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'journal', label: 'Journal' },
+  { key: 'grand-livre', label: 'Grand livre' },
   { key: 'balance', label: 'Balance' },
   { key: 'resultat', label: 'Résultat' },
   { key: 'bilan', label: 'Bilan' },
@@ -50,6 +52,8 @@ const EXPORT_REPORT: Partial<Record<Tab, string>> = {
 const QUERY_KEYS = [
   'accounting-journal',
   'accounting-balance',
+  'accounting-grand-livre',
+  'accounting-grand-livre-opening',
   'accounting-resultat',
   'accounting-bilan',
   'accounting-stock',
@@ -86,7 +90,7 @@ export function AccountingPage() {
   const balance = useQuery({
     queryKey: ['accounting-balance', farmId],
     queryFn: () => api.get<BalanceData>(`${base}/balance`),
-    enabled: !!farmId && (tab === 'balance' || tab === 'journal'),
+    enabled: !!farmId && (tab === 'balance' || tab === 'journal' || tab === 'grand-livre'),
   });
   const resultat = useQuery({
     queryKey: ['accounting-resultat', farmId],
@@ -141,7 +145,8 @@ export function AccountingPage() {
     mutationFn: () => api.download(`${base}/export?report=${report}&format=pdf`, `fermia-${report}.pdf`),
   });
 
-  const current = { journal, balance, resultat, bilan, stock, exercices }[tab];
+  const noQuery = { error: null, isLoading: false };
+  const current = tab === 'grand-livre' ? noQuery : { journal, balance, resultat, bilan, stock, exercices }[tab];
 
   return (
     <div className="space-y-5">
@@ -205,6 +210,9 @@ export function AccountingPage() {
 
       {current.isLoading ? <Loading /> : null}
       {tab === 'journal' && journal.data ? <JournalTab data={journal.data} accountLabels={accountLabels} /> : null}
+      {tab === 'grand-livre' && farmId ? (
+        <GrandLivreTab farmId={farmId} accounts={(balance.data?.accounts ?? []).map((a) => ({ code: a.code, label: a.label }))} />
+      ) : null}
       {tab === 'balance' && balance.data ? <BalanceTab data={balance.data} /> : null}
       {tab === 'resultat' && resultat.data ? <ResultatTab data={resultat.data} /> : null}
       {tab === 'bilan' && bilan.data ? <BilanTab data={bilan.data} /> : null}
