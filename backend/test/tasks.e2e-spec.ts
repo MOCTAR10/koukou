@@ -4,6 +4,10 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 import { TasksService } from './../src/modules/tasks/tasks.service.js';
 
 function today(offsetDays = 0): string {
@@ -35,32 +39,12 @@ describe('Tâches & équipe — module Tâches (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24172${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Tâches',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Tâches ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
-
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Tâches ${Date.now()}`,
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
     const eleveurPhone = `+24173${Date.now()}`;
     const eleveur = await request(server)
       .post(`/farms/${farmId}/eleveurs`)
@@ -79,20 +63,7 @@ describe('Tâches & équipe — module Tâches (e2e)', () => {
       .expect(201);
     eleveurToken = eleveurLogin.body.accessToken;
 
-    const otherPhone = `+24174${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
+    otherToken = (await createProgrammeFarm(server, admin.token)).ownerToken;
   });
 
   it('création : tâche assignée à un Éleveur, statut A_FAIRE', async () => {

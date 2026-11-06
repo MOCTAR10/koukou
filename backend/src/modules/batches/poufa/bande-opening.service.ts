@@ -14,7 +14,7 @@ export interface BandeOpeningInput {
 }
 
 /**
- * Opening of a POUFA band (programme farms only): band number from the farm
+ * Opening of a POUFA band (every lot is one): band number from the farm
  * code and an IdCounter rank, age and weight at a mid-cycle opening (J+x),
  * reference duration copied from the parameter in force at the opening date.
  */
@@ -26,16 +26,13 @@ export class BandeOpeningService {
     private readonly stats: BandeStatsService,
   ) {}
 
-  /** Saves `batch` in `em` as a new band of the programme farm `farm`. */
+  /** Saves `batch` in `em` as a new band of `farm`. */
   async open(
     em: EntityManager,
     farm: Farm,
     batch: ProductionBatch,
     input: BandeOpeningInput,
   ): Promise<ProductionBatch> {
-    if (!farm.programId) {
-      throw new Error('BandeOpeningService.open: not a programme farm');
-    }
     if (!farm.code) {
       throw new BadRequestException(
         "La ferme n'a pas encore de code du programme : impossible d'ouvrir une bande.",

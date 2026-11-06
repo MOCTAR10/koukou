@@ -2,7 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -35,46 +41,18 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24192${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Commandes',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Commandes ${uniquePhone('')}`,
+      exploitantName: 'Proprio Commandes',
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Commandes ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
-
-    const otherPhone = `+24193${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
+    const other = await createProgrammeFarm(server, admin.token, {
+      exploitantName: 'Autre Proprio',
+    });
+    otherToken = other.ownerToken;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -106,7 +84,7 @@ describe('Module précommandes & bons de commande (orders, e2e)', () => {
       })
       .expect(201);
     customerId = cust.body.id;
-  });
+  }, 60_000);
 
   it('lot jeune : la précommande est acceptée (conseil non bloquant) avec passeport TOO_YOUNG', async () => {
     const jeune = await request(server)

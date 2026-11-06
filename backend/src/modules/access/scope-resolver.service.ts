@@ -23,6 +23,7 @@ import {
   type InstitutionAccess,
 } from './access-rules.js';
 import { ProgramMembership } from './entities/program-membership.entity.js';
+import { requireProgramCode } from '../programme/program-code.js';
 
 /** Farm columns the scope reads. */
 type ScopedFarm = Pick<Farm, 'id' | 'programId' | 'provinceId'>;
@@ -40,12 +41,17 @@ export class ScopeResolver {
     Map<string, Promise<InstitutionAccess | null>>
   >();
 
+  /** `PROGRAM_CODE` (mandatory: the boot stops without it). */
+  private readonly programCode: string;
+
   constructor(
-    private readonly config: ConfigService,
+    config: ConfigService,
     @InjectRepository(ProgramMembership)
     private readonly memberships: Repository<ProgramMembership>,
     @InjectRepository(Farm) private readonly farms: Repository<Farm>,
-  ) {}
+  ) {
+    this.programCode = requireProgramCode(config.get<string>('PROGRAM_CODE'));
+  }
 
   isInstitution(user: Pick<AuthUser, 'role'> | null | undefined): boolean {
     return user?.role === UserRole.INSTITUTION;
@@ -53,8 +59,8 @@ export class ScopeResolver {
 
   /**
    * Effective access of an account: its membership, active and not expired,
-   * on a profile of the configured programme. Null otherwise (no programme
-   * configured, no membership, suspended, expired).
+   * on a profile of the configured programme. Null otherwise (no
+   * membership, another programme's profile, suspended, expired).
    */
   accessOf(userId: string): Promise<InstitutionAccess | null> {
     const store = RequestContext.current();
@@ -134,14 +140,15 @@ export class ScopeResolver {
   }
 
   private async load(userId: string): Promise<InstitutionAccess | null> {
-    const code = this.config.get<string>('PROGRAM_CODE')?.trim();
-    if (!code || !isUuid(userId)) return null;
+    if (!isUuid(userId)) return null;
     const m = await this.memberships.findOne({
       where: { userId },
       relations: { profile: { program: true } },
     });
     const profile = m?.profile;
-    if (!m || !profile || profile.program?.code !== code) return null;
+    if (!m || !profile || profile.program?.code !== this.programCode) {
+      return null;
+    }
     if (!isMembershipEffective(m)) return null;
     return {
       membershipId: m.id,

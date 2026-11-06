@@ -325,7 +325,7 @@ export class SalesService {
         operatorId: user.id,
       });
 
-      // POUFA band projection (no-op outside a programme).
+      // POUFA band projection, same transaction.
       for (const batchId of involvedBatches) {
         await this.bandeStats.refresh(em, batchId);
       }
@@ -1620,7 +1620,7 @@ export class SalesService {
         });
       }
     }
-    // POUFA band projection (no-op outside a programme).
+    // POUFA band projection, same transaction.
     for (const batchId of involvedBatches) {
       await this.bandeStats.refresh(em, batchId);
     }

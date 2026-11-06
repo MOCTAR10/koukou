@@ -2,7 +2,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  addProgrammeFarm,
+  createPlatformAdmin,
+  createProgrammeFarm,
+  login,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -26,25 +34,15 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
   let batchId: string;
   let sale2Id: string;
 
-  async function login(phone: string, code: string) {
-    const res = await request(server)
-      .post('/auth/login')
-      .send({ phone, code })
-      .expect(201);
-    return res.body.accessToken as string;
-  }
+  let platformToken: string;
+  let ownerPhone: string;
 
+  /** Another programme farm of the same owner. */
   async function createFarm(name: string) {
-    const res = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    return res.body.id as string;
+    const farm = await addProgrammeFarm(server, platformToken, ownerPhone, {
+      name,
+    });
+    return farm.farmId;
   }
 
   async function journalEntries() {
@@ -61,25 +59,28 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
 
     const stamp = Date.now();
-    const phone = (n: number) => `+24171${stamp}${n}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(1), fullName: 'Proprio Compta', code: 'secret123' })
-      .expect(201);
-    token = await login(phone(1), 'secret123');
+    platformToken = (await createPlatformAdmin(server, app.get(DataSource)))
+      .token;
+    const owner = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Compta ${stamp}`,
+      exploitantName: 'Proprio Compta',
+    });
+    token = owner.ownerToken;
+    ownerPhone = owner.ownerPhone;
+    farmId = owner.farmId;
+    otherToken = (
+      await createProgrammeFarm(server, platformToken, {
+        exploitantName: 'Autre Proprio',
+      })
+    ).ownerToken;
 
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(2), fullName: 'Autre Proprio', code: 'secret123' })
-      .expect(201);
-    otherToken = await login(phone(2), 'secret123');
-
-    farmId = await createFarm(`Ferme Compta ${stamp}`);
     authzFarmId = await createFarm(`Ferme Compta Authz ${stamp}`);
 
     const batch = await request(server)
@@ -100,11 +101,12 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
     batchId = batch.body.id;
 
     // ADMIN par défaut : pas de droits comptables.
+    const adminPhone = uniquePhone();
     const admin = await request(server)
       .post(`/farms/${farmId}/eleveurs`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        phone: phone(3),
+        phone: adminPhone,
         fullName: 'Admin Compta',
         code: 'secret456',
         role: 'ADMIN',
@@ -112,7 +114,7 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       })
       .expect(201);
     adminEmploymentId = admin.body.employment.id;
-    adminToken = await login(phone(3), 'secret456');
+    adminToken = await login(server, adminPhone, 'secret456');
   }, 180000);
 
   afterAll(async () => {
@@ -163,7 +165,9 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       expect.objectContaining({ accountCode: '411', debitFcfa: 10000 }),
       expect.objectContaining({ accountCode: '7011', creditFcfa: 10000 }),
     ]);
-    const payment = entries.find((e) => e.sourceId === `payment:${res.body.payments[0].id}`);
+    const payment = entries.find(
+      (e) => e.sourceId === `payment:${res.body.payments[0].id}`,
+    );
     expect(payment.lines).toEqual([
       expect.objectContaining({ accountCode: '571', debitFcfa: 10000 }),
       expect.objectContaining({ accountCode: '411', creditFcfa: 10000 }),
@@ -283,7 +287,9 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
     expect(res.body.totals.totalDebit).toBe(res.body.totals.totalCredit);
 
     const byCode = Object.fromEntries(
-      (res.body.byClasse as any[]).flatMap((g: any) => g.accounts).map((a: any) => [a.code, a]),
+      (res.body.byClasse as any[])
+        .flatMap((g: any) => g.accounts)
+        .map((a: any) => [a.code, a]),
     );
     expect(byCode['571'].soldeFcfa).toBe(99000);
     expect(byCode['108'].soldeFcfa).toBe(-97000);
@@ -330,7 +336,12 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
     const after = await journalEntries();
     expect(after.length).toBe(before.length);
     for (const a of after) {
-      expect(a.lines.reduce((s: number, l: any) => s + (l.debitFcfa ?? 0) - (l.creditFcfa ?? 0), 0)).toBe(0);
+      expect(
+        a.lines.reduce(
+          (s: number, l: any) => s + (l.debitFcfa ?? 0) - (l.creditFcfa ?? 0),
+          0,
+        ),
+      ).toBe(0);
     }
   });
 
@@ -360,7 +371,11 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
         date: today(),
         label: 'Ajustement provende non étiquetée',
         lines: [
-          { account: '6011', debitFcfa: 1000, label: 'Provende sans étiquette' },
+          {
+            account: '6011',
+            debitFcfa: 1000,
+            label: 'Provende sans étiquette',
+          },
           { account: '471', creditFcfa: 1000, label: 'Comptes d’attente' },
         ],
       })
@@ -378,7 +393,9 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       .get(`/farms/${farmId}/accounting/balance`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    expect(balance.body.totals.totalDebit).toBe(balance.body.totals.totalCredit);
+    expect(balance.body.totals.totalDebit).toBe(
+      balance.body.totals.totalCredit,
+    );
   });
 
   it('refuse une régularisation déséquilibrée (400)', async () => {
@@ -412,7 +429,10 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       .send({
         date: today(),
         label: 'Sans droit',
-        lines: [{ account: '6011', debitFcfa: 100 }, { account: '471', creditFcfa: 100 }],
+        lines: [
+          { account: '6011', debitFcfa: 100 },
+          { account: '471', creditFcfa: 100 },
+        ],
       })
       .expect(403);
 
@@ -614,19 +634,27 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
     // Snapshot at today: 2025's loss is carried forward, not mixed into the
     // current exercice's result.
     expect(bilanGlobal.body.asOf).toBe(today());
-    expect(bilanGlobal.body.exercice.startDate).toBe(`${today().slice(0, 4)}-01-01`);
+    expect(bilanGlobal.body.exercice.startDate).toBe(
+      `${today().slice(0, 4)}-01-01`,
+    );
     expect(bilanGlobal.body.reportANouveauFcfa).toBe(-2000);
-    const ranLine = (bilanGlobal.body.capitaux as any[]).find((c) => c.code === '13');
+    const ranLine = (bilanGlobal.body.capitaux as any[]).find(
+      (c) => c.code === '13',
+    );
     expect(ranLine.soldeFcfa).toBe(2000);
     expect(
-      (bilanGlobal.body.capitaux as any[]).filter((c) => ['12', '129'].includes(c.code)),
+      (bilanGlobal.body.capitaux as any[]).filter((c) =>
+        ['12', '129'].includes(c.code),
+      ),
     ).toHaveLength(0);
     const resultatCourant = await request(server)
       .get(`/farms/${farmId}/accounting/compte-resultat`)
       .set('Authorization', `Bearer ${token}`)
       .query({ from: `${today().slice(0, 4)}-01-01`, to: today() })
       .expect(200);
-    expect(bilanGlobal.body.resultatFcfa).toBe(resultatCourant.body.resultatFcfa);
+    expect(bilanGlobal.body.resultatFcfa).toBe(
+      resultatCourant.body.resultatFcfa,
+    );
 
     // The closed exercice is frozen for manual regularisations.
     const refused = await request(server)
@@ -671,7 +699,9 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       .expect(200);
     const code = (rows: any[]) => rows.map((r) => r.code);
     expect(code(res.body.actif)).toEqual(['401']);
-    expect(code(res.body.passif)).toEqual(expect.arrayContaining(['52', '471']));
+    expect(code(res.body.passif)).toEqual(
+      expect.arrayContaining(['52', '471']),
+    );
     expect(res.body.totalActif).toBe(1000);
     expect(res.body.totalPassifExterne).toBe(6000);
     expect(res.body.resultatFcfa).toBe(-5000);

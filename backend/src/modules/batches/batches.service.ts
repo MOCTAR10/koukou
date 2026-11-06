@@ -102,14 +102,10 @@ export class BatchesService {
       hatchDate: dto.hatchDate ?? null,
       chickUnitPriceFcfa: dto.chickUnitPriceFcfa ?? null,
     });
-    if (farm.programId) {
-      // POUFA band: number, J+x opening and projection in one transaction.
-      await this.dataSource.transaction((em) =>
-        this.bandeOpening.open(em, farm, batch, dto),
-      );
-    } else {
-      await this.batchRepo.save(batch);
-    }
+    // POUFA band: number, J+x opening and projection in one transaction.
+    await this.dataSource.transaction((em) =>
+      this.bandeOpening.open(em, farm, batch, dto),
+    );
     await this.afterChange(user, farmId, batch);
 
     // Auto-create expense for chick purchase cost (ACHAT_POUSSINS)

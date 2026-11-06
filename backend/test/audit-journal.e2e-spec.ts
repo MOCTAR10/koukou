@@ -9,6 +9,11 @@ import { AppModule } from './../src/app.module.js';
 import { AuditEvent } from './../src/modules/audit/entities/audit-event.entity.js';
 import { AuditSealService } from './../src/modules/audit/audit-seal.service.js';
 import { addUtcDays, utcDay } from './../src/modules/audit/audit-canonical.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -22,9 +27,9 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
   let ds: DataSource;
 
   const stamp = Date.now();
-  const ownerPhone = `+24171${stamp}`;
-  const adminPhone = `+24172${stamp}`;
-  const code = 'secret123';
+  let ownerPhone: string;
+  /** The owner's one-time login code (activate-owner). */
+  let code: string;
   let ownerToken: string;
   let ownerId: string;
   let adminToken: string;
@@ -40,21 +45,6 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
     )) as any[];
   }
 
-  async function register(phone: string, fullName: string) {
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName, code })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code })
-      .expect(201);
-    return {
-      token: login.body.accessToken as string,
-      id: login.body.user.id as string,
-    };
-  }
-
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -67,22 +57,14 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
     server = app.getHttpServer();
     ds = app.get(DataSource);
 
-    ({ token: ownerToken, id: ownerId } = await register(
-      ownerPhone,
-      'Proprio Audit',
-    ));
-    ({ token: adminToken } = await register(adminPhone, 'Admin Audit'));
-    await ds.query(
-      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-      [adminPhone],
-    );
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ name: `Ferme Audit ${stamp}`, administrativeCity: 'Libreville' })
-      .expect(201);
-    farmId = farm.body.id;
+    ({ token: adminToken } = await createPlatformAdmin(server, ds, {
+      fullName: 'Admin Audit',
+    }));
+    const owner = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme Audit ${stamp}`,
+      exploitantName: 'Proprio Audit',
+    });
+    ({ ownerToken, ownerId, ownerPhone, ownerCode: code, farmId } = owner);
   });
 
   afterAll(async () => {
@@ -345,7 +327,7 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
     const throwaway = randomUUID();
     await ds.query(
       `INSERT INTO users (id, phone, "passwordHash", "fullName") VALUES ($1, $2, 'h1', 'Jetable')`,
-      [throwaway, `+24173${stamp}`],
+      [throwaway, uniquePhone()],
     );
     await ds.query(`UPDATE users SET "passwordHash" = 'h2' WHERE id = $1`, [
       throwaway,

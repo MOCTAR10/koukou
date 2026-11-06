@@ -4,6 +4,12 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  registerBuyer,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -21,6 +27,7 @@ describe('Audit — robustesse finance/inventaire/sécurité (e2e, passe 2)', ()
   let feedLotId: string;
   let foreignLotId: string;
   let empToken: string;
+  let platformToken: string;
 
   async function createBatch(name: string, chickUnitPriceFcfa?: number) {
     const res = await request(server)
@@ -49,55 +56,23 @@ describe('Audit — robustesse finance/inventaire/sécurité (e2e, passe 2)', ()
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24120${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Robustesse',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Robustesse ${Date.now()}`,
-        administrativeCity: 'Libreville',
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    platformToken = (await createPlatformAdmin(server, app.get(DataSource)))
+      .token;
+    const owner = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Robustesse ${Date.now()}`,
+      exploitantName: 'Proprio Robustesse',
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
 
     // Seconde ferme (autre propriétaire) pour tester les fuites cross-ferme.
-    const otherPhone = `+24121${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
-    const otherFarm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${otherToken}`)
-      .send({
-        name: `Autre Ferme ${Date.now()}`,
-        administrativeCity: 'Port-Gentil',
-      })
-      .expect(201);
-    otherFarmId = otherFarm.body.id;
+    const other = await createProgrammeFarm(server, platformToken, {
+      name: `Autre Ferme ${Date.now()}`,
+      provinceCode: 'G2',
+      exploitantName: 'Autre Proprio',
+    });
+    otherToken = other.ownerToken;
+    otherFarmId = other.farmId;
 
     batchAId = await createBatch('Lot Robuste P&L', 1000);
     slaughterBatchId = await createBatch('Lot Abattage Robuste');
@@ -332,7 +307,7 @@ describe('Audit — robustesse finance/inventaire/sécurité (e2e, passe 2)', ()
   });
 
   it('compte Éleveur : passwordHash jamais exposé, accès POS, 403 sur les actes Propriétaire', async () => {
-    const empPhone = `+24122${Date.now()}`;
+    const empPhone = uniquePhone();
     const created = await request(server)
       .post(`/farms/${farmId}/eleveurs`)
       .set('Authorization', `Bearer ${token}`)
@@ -410,41 +385,16 @@ describe('Audit — robustesse finance/inventaire/sécurité (e2e, passe 2)', ()
     expect(missing.body.message).toContain('Identifiants invalides');
     expect(missing.body.message).not.toContain('introuvable');
 
-    const upperPhone = `+24123${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: upperPhone,
-        fullName: 'Cas Téléphone',
-        code: 'secret123',
-      })
-      .expect(201);
+    // The only open sign-up is the buyer's.
+    const buyer = await registerBuyer(server, { fullName: 'Cas Téléphone' });
     await request(server)
       .post('/auth/login')
-      .send({ phone: `  ${upperPhone.toUpperCase()}  `, code: 'secret123' })
+      .send({ phone: `  ${buyer.phone.toUpperCase()}  `, code: buyer.code })
       .expect(201);
   });
 
   it('constante de référence : valeur 0 refusée (strictement positive), admin uniquement', async () => {
-    const adminPhone = `+24124${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: adminPhone,
-        fullName: 'Admin Robuste',
-        code: 'secret123',
-      })
-      .expect(201);
-    const ds = app.get(DataSource);
-    await ds.query(
-      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-      [adminPhone],
-    );
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone: adminPhone, code: 'secret123' })
-      .expect(201);
-    const adminToken = login.body.accessToken;
+    const adminToken = platformToken;
 
     // Un Propriétaire n’a plus le droit de modifier les constantes.
     await request(server)

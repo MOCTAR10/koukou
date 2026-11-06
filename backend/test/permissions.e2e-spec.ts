@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 /**
  * M10 — Permissions & gestion d'équipe (create/update member, catalogue,
@@ -18,6 +23,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
   let adminEmploymentId: string;
   let eleveurEmploymentId: string;
   let eleveurUserId: string;
+  let platformToken: string;
 
   const stamp = Date.now();
   const phone = (n: number) => `+24170${stamp}${n}`;
@@ -35,27 +41,21 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
 
-    const ownerPhone = phone(1);
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: ownerPhone, fullName: 'Proprio Perms', code: 'secret123' })
-      .expect(201);
-    ownerToken = await login(ownerPhone, 'secret123');
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${ownerToken}`)
-      .send({
-        name: `Ferme Perms ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    // Programme farm handed to its owner (registry + activate-owner).
+    const platform = await createPlatformAdmin(server, app.get(DataSource));
+    platformToken = platform.token;
+    const farm = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Perms ${stamp}`,
+      exploitantName: 'Proprio Perms',
+    });
+    farmId = farm.farmId;
+    ownerToken = farm.ownerToken;
 
     const admin = await request(server)
       .post(`/farms/${farmId}/eleveurs`)
@@ -86,7 +86,7 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     eleveurEmploymentId = eleveur.body.employment.id;
     eleveurUserId = eleveur.body.user.id;
     eleveurToken = await login(phone(3), 'secret789');
-  });
+  }, 120_000);
 
   it('profil /me : Propriétaire → droits totaux, ADMIN → défauts admin, ÉLEVEUR → bloc fixe', async () => {
     const ownerMe = await request(server)
@@ -103,7 +103,12 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     expect(adminMe.body.role).toBe('ADMIN');
     expect(adminMe.body.jobTitle).toBe('Comptable');
     expect(adminMe.body.buildingAssignment).toBe('B1');
-    expect(adminMe.body.permissions.sort()).toEqual(['caisse:lire', 'saisie:creer', 'sanitaire:lecture', 'sanitaire:signaler']);
+    expect(adminMe.body.permissions.sort()).toEqual([
+      'caisse:lire',
+      'saisie:creer',
+      'sanitaire:lecture',
+      'sanitaire:signaler',
+    ]);
 
     const eleveurMe = await request(server)
       .get(`/farms/${farmId}/me`)
@@ -214,7 +219,12 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
         fullName: 'Admin Sur Mesure',
         code: 'secret555',
         role: 'ADMIN',
-        permissions: ['equipe:gerer', 'caisse:ouvrir', 'vente:annuler', 'sanitaire:lecture'],
+        permissions: [
+          'equipe:gerer',
+          'caisse:ouvrir',
+          'vente:annuler',
+          'sanitaire:lecture',
+        ],
       })
       .expect(201);
     expect(created.body.employment.permissions.sort()).toEqual([
@@ -282,7 +292,12 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .set('Authorization', `Bearer ${eleveurToken}`)
       .expect(200);
     expect(me.body.role).toBe('ADMIN');
-    expect(me.body.permissions.sort()).toEqual(['caisse:lire', 'saisie:creer', 'sanitaire:lecture', 'sanitaire:signaler']);
+    expect(me.body.permissions.sort()).toEqual([
+      'caisse:lire',
+      'saisie:creer',
+      'sanitaire:lecture',
+      'sanitaire:signaler',
+    ]);
   });
 
   it('basculer Admin → Éleveur, puis tenter de re-gruder des droits fixes', async () => {
@@ -332,7 +347,11 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     await request(server)
       .patch(`/farms/${farmId}/eleveurs/${adminEmploymentId}`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ active: true, role: 'ADMIN', permissions: ['equipe:taches', 'vente:creer'] })
+      .send({
+        active: true,
+        role: 'ADMIN',
+        permissions: ['equipe:taches', 'vente:creer'],
+      })
       .expect(200);
 
     await request(server)
@@ -361,7 +380,11 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     const okTask = await request(server)
       .post(`/farms/${farmId}/tasks`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ title: 'Tâche autorisée', dueDate: '2099-01-02', assigneeId: eleveurUserId })
+      .send({
+        title: 'Tâche autorisée',
+        dueDate: '2099-01-02',
+        assigneeId: eleveurUserId,
+      })
       .expect(201);
     expect(okTask.body.status).toBe('A_FAIRE');
   });
@@ -370,7 +393,9 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     await request(server)
       .patch(`/farms/${farmId}/eleveurs/${adminEmploymentId}`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ permissions: ['equipe:taches', 'caisse:ouvrir', 'caisse:fermer'] })
+      .send({
+        permissions: ['equipe:taches', 'caisse:ouvrir', 'caisse:fermer'],
+      })
       .expect(200);
 
     const open = await request(server)
@@ -396,7 +421,9 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(Array.isArray(team.body)).toBe(true);
-    const member = (team.body as any[]).find((m: any) => m.userId === eleveurUserId);
+    const member = (team.body as any[]).find(
+      (m: any) => m.userId === eleveurUserId,
+    );
     expect(member).toBeTruthy();
     expect(member.fullName).toBe('Éleveur Terrain');
     expect(member.active).toBe(true);
@@ -409,12 +436,11 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
   });
 
   it('autre ferme → 403 pour membres et liste', async () => {
-    const otherPhone = phone(9);
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: otherPhone, fullName: 'Autre Proprio', code: 'secret123' })
-      .expect(201);
-    const otherToken = await login(otherPhone, 'secret123');
+    const { ownerToken: otherToken } = await createProgrammeFarm(
+      server,
+      platformToken,
+      { exploitantName: 'Autre Proprio' },
+    );
 
     await request(server)
       .get(`/farms/${farmId}/eleveurs`)

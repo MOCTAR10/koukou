@@ -71,20 +71,3 @@ export class RegisterBuyerDto {
   @MaxLength(80, { message: 'Le nom de la ville est trop long.' })
   city?: string;
 }
-
-export class BecomeFarmerDto {
-  @ApiPropertyOptional({ example: 'Ferme de SunPark' })
-  @IsOptional()
-  @Transform(trimmed)
-  @IsString()
-  @MinLength(2, {
-    message: 'Le nom de la ferme doit contenir au moins 2 caractères.',
-  })
-  farmName?: string;
-
-  @ApiPropertyOptional({ example: 'Libreville' })
-  @IsOptional()
-  @Transform(trimmed)
-  @IsString()
-  farmCity?: string;
-}

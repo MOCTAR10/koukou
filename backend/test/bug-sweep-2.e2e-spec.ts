@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function dayOffset(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
@@ -36,26 +41,12 @@ describe('Revue de bugs 2 : intrants, parcelles, tâches, dépenses (e2e)', () =
     await app.init();
     server = app.getHttpServer();
 
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(1), fullName: 'Proprio Revue 2', code: 'secret123' })
-      .expect(201);
-    token = (
-      await request(server)
-        .post('/auth/login')
-        .send({ phone: phone(1), code: 'secret123' })
-        .expect(201)
-    ).body.accessToken;
-    farmId = (
-      await owner()
-        .post('/farms')
-        .send({
-          name: `Ferme Revue 2 ${stamp}`,
-          administrativeCity: 'Libreville',
-          capacityPerBuilding: 1000,
-        })
-        .expect(201)
-    ).body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const created = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Revue 2 ${stamp}`,
+    });
+    token = created.ownerToken;
+    farmId = created.farmId;
   }, 180000);
 
   afterAll(async () => {

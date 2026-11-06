@@ -32,7 +32,7 @@ const INSERT_CHUNK = 500;
  * Keeps `bande_daily_stats` in step with a POUFA band, inside the caller's
  * transaction (daily entry, sortie, sale, slaughter, sanitary removal), and
  * closes the band automatically once its headcount reaches zero (CDC « Clôture
- * à effectif nul »). Bands of farms outside a programme are left alone.
+ * à effectif nul »).
  */
 @Injectable()
 export class BandeStatsService {
@@ -42,7 +42,7 @@ export class BandeStatsService {
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
-  /** Programme of the band's farm, or null for a plain Fermia band. */
+  /** Programme of the band's farm, or null when the band does not exist. */
   async programIdOf(
     batchId: string,
     em: EntityManager = this.dataSource.manager,
@@ -57,7 +57,7 @@ export class BandeStatsService {
   }
 
   /**
-   * Rewrites the band's projection in `em` (no-op outside a programme) and
+   * Rewrites the band's projection in `em` (no-op for an unknown band) and
    * closes it when nobody is left. Takes the band's row lock: callers that
    * lock other rows lock the band first (same order as sales and slaughter).
    */
@@ -83,7 +83,7 @@ export class BandeStatsService {
   }
 
   /**
-   * Extends to today the projection of open programme bands nobody wrote to
+   * Extends to today the projection of open bands nobody wrote to
    * since an earlier day (their "entry not done" days must still appear).
    * Returns the number of bands refreshed.
    */
@@ -91,11 +91,10 @@ export class BandeStatsService {
     const stale: { id: string }[] = await this.dataSource.query(
       `SELECT b.id
          FROM production_batches b
-         JOIN farms f ON f.id = b.farm_id
          LEFT JOIN LATERAL (
            SELECT MAX(s.day) AS last FROM bande_daily_stats s WHERE s.batch_id = b.id
          ) s ON TRUE
-        WHERE f.program_id IS NOT NULL AND b.status <> $1
+        WHERE b.status <> $1
           AND (s.last IS NULL OR s.last < $2::date)`,
       [BatchStatus.CLOTURE, today],
     );

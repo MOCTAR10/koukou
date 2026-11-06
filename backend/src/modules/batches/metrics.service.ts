@@ -23,6 +23,11 @@ import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
 import { BreedStandard } from '../breeds/entities/breed-standard.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { Farm } from '../farms/entities/farm.entity.js';
+import { Building } from '../buildings/entities/building.entity.js';
+import {
+  moduleRatioVsCapacity as capacityRatio,
+  referenceCapacity,
+} from './capacity-ratio.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
@@ -328,10 +333,20 @@ export class MetricsService {
     const moduleFraction = batch.quantityAtStart / standardModule;
 
     const farm = await this.farmRepo.findOne({ where: { id: batch.farmId } });
-    const moduleRatioVsCapacity =
-      farm?.capacityPerBuilding != null && farm.capacityPerBuilding > 0
-        ? batch.quantityAtStart / farm.capacityPerBuilding
-        : null;
+    const building = batch.buildingId
+      ? await this.farmRepo.manager.findOne(Building, {
+          where: { id: batch.buildingId },
+          select: { id: true, capacity: true },
+        })
+      : null;
+    const moduleRatioVsCapacity = capacityRatio(
+      batch.quantityAtStart,
+      referenceCapacity({
+        buildingCapacity: building?.capacity,
+        capacityPerBuilding: farm?.capacityPerBuilding,
+        capacityPlaces: farm?.capacityPlaces,
+      }),
+    );
 
     const status = this.computeStatus({
       mortalityPercent,

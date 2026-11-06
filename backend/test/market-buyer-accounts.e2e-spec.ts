@@ -2,29 +2,43 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 describe('Comptes acheteurs du Market (e2e)', () => {
   let app: INestApplication<App>;
   let server: App;
-  let seq = 0;
+  let adminToken: string;
 
-  const phone = () => `+24176${String(Date.now()).slice(-6)}${seq++}`;
+  const phone = () => uniquePhone('+24176');
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
   const registerBuyer = (over: Record<string, unknown> = {}) =>
     request(server)
       .post('/auth/register-buyer')
-      .send({ phone: phone(), fullName: 'Acheteur Test', code: 'secret123', ...over });
+      .send({
+        phone: phone(),
+        fullName: 'Acheteur Test',
+        code: 'secret123',
+        ...over,
+      });
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
-  });
+    adminToken = (await createPlatformAdmin(server, app.get(DataSource))).token;
+  }, 120_000);
 
   afterAll(async () => {
     await app.close();
@@ -72,10 +86,9 @@ describe('Comptes acheteurs du Market (e2e)', () => {
     const number = phone();
     await registerBuyer({ phone: number }).expect(201);
     await registerBuyer({ phone: number }).expect(409);
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: number, fullName: 'X', code: 'secret123' })
-      .expect(409);
+    // An exploitant's account holds its phone too.
+    const owner = await createProgrammeFarm(server, adminToken);
+    await registerBuyer({ phone: owner.ownerPhone }).expect(409);
 
     const racing = phone();
     const answers = await Promise.all([
@@ -98,17 +111,12 @@ describe('Comptes acheteurs du Market (e2e)', () => {
     beforeAll(async () => {
       const buyer = await registerBuyer().expect(201);
       buyerToken = buyer.body.accessToken;
-      const owner = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Proprio', code: 'secret123' })
-        .expect(201);
-      ownerToken = owner.body.accessToken;
-      const farms = await request(server)
-        .get('/farms')
-        .set(bearer(ownerToken))
-        .expect(200);
-      farmId = farms.body[0].id;
-    });
+      const owner = await createProgrammeFarm(server, adminToken, {
+        exploitantName: 'Proprio',
+      });
+      ownerToken = owner.ownerToken;
+      farmId = owner.farmId;
+    }, 60_000);
 
     it.each([
       ['get', () => `/farms/${farmId}/batches`],
@@ -118,10 +126,10 @@ describe('Comptes acheteurs du Market (e2e)', () => {
       ['get', () => `/farms/${farmId}/caisse/current`],
       ['get', () => `/farms/${farmId}/dashboard`],
       ['post', () => `/farms/${farmId}/orders`],
-      ['post', () => '/farms'],
       ['get', () => '/admin/metrics'],
     ] as const)('%s %s : 403 pour un acheteur', async (method, path) => {
-      await request(server)[method](path())
+      await request(server)
+        [method](path())
         .set(bearer(buyerToken))
         .send({})
         .expect(403);
@@ -148,11 +156,11 @@ describe('Comptes acheteurs du Market (e2e)', () => {
 
   describe('profil', () => {
     it('un propriétaire peut aussi avoir un profil d’acheteur', async () => {
-      const owner = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Proprio Acheteur', code: 'secret123' })
-        .expect(201);
-      const token = owner.body.accessToken;
+      const { ownerToken: token } = await createProgrammeFarm(
+        server,
+        adminToken,
+        { exploitantName: 'Proprio Acheteur' },
+      );
       const none = await request(server)
         .get('/auth/buyer-profile')
         .set(bearer(token))
@@ -178,70 +186,52 @@ describe('Comptes acheteurs du Market (e2e)', () => {
     });
   });
 
-  describe('devenir éleveur', () => {
-    it('garde le compte et le profil, et crée la ferme', async () => {
-      const number = phone();
-      const buyer = await registerBuyer({ phone: number, type: 'HOTEL' }).expect(201);
-      const oldToken = buyer.body.accessToken;
-
-      const res = await request(server)
-        .post('/auth/become-farmer')
-        .set(bearer(oldToken))
-        .send({ farmName: 'Ferme Nouvelle', farmCity: 'Oyem' })
-        .expect(201);
-      expect(res.body.user.role).toBe('PROPRIETAIRE');
-      expect(res.body.user.id).toBe(buyer.body.user.id);
-
-      const farms = await request(server)
-        .get('/farms')
-        .set(bearer(res.body.accessToken))
-        .expect(200);
-      expect(farms.body).toHaveLength(1);
-      expect(farms.body[0].name).toBe('Ferme Nouvelle');
-
-      await request(server)
-        .get(`/farms/${farms.body[0].id}/batches`)
-        .set(bearer(res.body.accessToken))
-        .expect(200);
-
-      // The role is read from the database, so the old token follows.
-      await request(server)
-        .get(`/farms/${farms.body[0].id}/batches`)
-        .set(bearer(oldToken))
-        .expect(200);
-
-      const profile = await request(server)
-        .get('/auth/buyer-profile')
-        .set(bearer(res.body.accessToken))
-        .expect(200);
-      expect(profile.body.type).toBe('HOTEL');
-    });
-
-    it('ne crée qu’une ferme sur deux appels simultanés', async () => {
+  describe('un acheteur ne devient pas éleveur par lui-même', () => {
+    it('become-farmer n’existe plus (404) : le compte reste acheteur, sans ferme', async () => {
       const buyer = await registerBuyer().expect(201);
       const token = buyer.body.accessToken;
-      const answers = await Promise.all([
-        request(server).post('/auth/become-farmer').set(bearer(token)).send({}),
-        request(server).post('/auth/become-farmer').set(bearer(token)).send({}),
-      ]);
-      expect(answers.filter((r) => r.status === 201)).toHaveLength(1);
-      const farms = await request(server)
-        .get('/farms')
-        .set(bearer(token))
-        .expect(200);
-      expect(farms.body).toHaveLength(1);
-    });
-
-    it('est réservé aux acheteurs', async () => {
-      const owner = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Proprio', code: 'secret123' })
-        .expect(201);
       await request(server)
         .post('/auth/become-farmer')
-        .set(bearer(owner.body.accessToken))
-        .send({})
-        .expect(403);
+        .set(bearer(token))
+        .send({ farmName: 'Ferme Nouvelle', farmCity: 'Oyem' })
+        .expect(404);
+      const login = await request(server)
+        .post('/auth/login')
+        .send({ phone: buyer.body.user.phone, code: 'secret123' })
+        .expect(201);
+      expect(login.body.user.role).toBe('ACHETEUR');
+      const farms = await request(server)
+        .get('/farms')
+        .set(bearer(login.body.accessToken))
+        .expect(200);
+      expect(farms.body).toEqual([]);
+    });
+
+    it('le registre ne rattache pas une ferme au compte acheteur du même numéro', async () => {
+      const number = phone();
+      await registerBuyer({ phone: number }).expect(201);
+      const created = await request(server)
+        .post('/programme/farms')
+        .set(bearer(adminToken))
+        .send({
+          name: `Ferme Acheteur ${number}`,
+          provinceCode: 'G1',
+          capacityPlaces: 2000,
+          exploitantName: 'Acheteur Exploitant',
+          exploitantPhone: number,
+          confirmDuplicate: true,
+        })
+        .expect(201);
+      const activate = (linkExistingUser: boolean) =>
+        request(server)
+          .post(`/programme/farms/${created.body.id}/activate-owner`)
+          .set(bearer(adminToken))
+          .send({ linkExistingUser });
+      expect((await activate(false)).body.existingAccount).toBe(true);
+      const refused = await activate(true).expect(409);
+      expect(String(refused.body.message)).toMatch(
+        /pas un compte Propriétaire/,
+      );
     });
   });
 });

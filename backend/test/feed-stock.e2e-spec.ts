@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -99,58 +104,20 @@ describe('Module 3 — Stocks & Inventaire provende (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24180${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Stock',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Stock ${Date.now()}`,
-        administrativeCity: 'Franceville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Stock ${Date.now()}`,
+      provinceCode: 'G2',
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
     // Propriétaire tiers + ferme tierce pour les contrôles d'accès / lot étranger.
-    const otherPhone = `+24181${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
-
-    const otherFarm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${otherToken}`)
-      .send({
-        name: `Ferme Tiers ${Date.now()}`,
-        administrativeCity: 'Kango',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    otherFarmId = otherFarm.body.id;
+    const otherFarm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Tiers ${Date.now()}`,
+    });
+    otherToken = otherFarm.ownerToken;
+    otherFarmId = otherFarm.farmId;
 
     const foreignLot = await request(server)
       .post(`/farms/${otherFarmId}/inputs`)

@@ -4,6 +4,11 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -22,34 +27,17 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
   let server: App;
   let token: string;
 
-  async function ownerToken(_prefix: string): Promise<string> {
-    const phone = `+2419${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Audit',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    return login.body.accessToken;
-  }
+  let platformToken: string;
 
-  async function createFarm(t: string, name: string): Promise<string> {
-    const res = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${t}`)
-      .send({
-        name,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 2000,
-      })
-      .expect(201);
-    return res.body.id;
+  /** A new owner and his (only) programme farm. */
+  async function ownerFarm(
+    name: string,
+  ): Promise<{ t: string; farmId: string }> {
+    const farm = await createProgrammeFarm(server, platformToken, {
+      name,
+      exploitantName: 'Proprio Audit',
+    });
+    return { t: farm.ownerToken, farmId: farm.farmId };
   }
 
   async function createBuilding(
@@ -109,11 +97,14 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
     );
     await app.init();
     server = app.getHttpServer();
+    platformToken = (await createPlatformAdmin(server, app.get(DataSource)))
+      .token;
   });
 
   beforeAll(async () => {
-    token = await ownerToken('audit');
-    mainFarmId = await createFarm(token, `Ferme Audit ${Date.now()}`);
+    ({ t: token, farmId: mainFarmId } = await ownerFarm(
+      `Ferme Audit ${Date.now()}`,
+    ));
     buildingAudit = await createBuilding(token, mainFarmId, 'Bât Audit', 30);
   });
 
@@ -288,8 +279,7 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
 
   describe('Péremption au niveau ferme (provende non rattachée)', () => {
     it('n’élève aucune alerte quand aucun lot alimentaire n’est périmé', async () => {
-      const t = await ownerToken('peremOK');
-      const farmId = await createFarm(t, `Ferme Perem OK ${Date.now()}`);
+      const { t, farmId } = await ownerFarm(`Ferme Perem OK ${Date.now()}`);
       await request(server)
         .get(`/farms/${farmId}/feed-stock`)
         .set('Authorization', `Bearer ${t}`)
@@ -306,8 +296,7 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
     });
 
     it('signale ROUGE une provende périmée au stock (batchId null)', async () => {
-      const t = await ownerToken('peremExp');
-      const farmId = await createFarm(t, `Ferme Perem Exp ${Date.now()}`);
+      const { t, farmId } = await ownerFarm(`Ferme Perem Exp ${Date.now()}`);
       await request(server)
         .post(`/farms/${farmId}/inputs`)
         .set('Authorization', `Bearer ${t}`)
@@ -336,8 +325,9 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
     });
 
     it('signale JAUNE une provende sous 14 jours, ROUGE sous 7 jours', async () => {
-      const warn = await ownerToken('peremWarn');
-      const warnFarm = await createFarm(warn, `Ferme Perem Warn ${Date.now()}`);
+      const { t: warn, farmId: warnFarm } = await ownerFarm(
+        `Ferme Perem Warn ${Date.now()}`,
+      );
       await request(server)
         .post(`/farms/${warnFarm}/inputs`)
         .set('Authorization', `Bearer ${warn}`)
@@ -362,9 +352,7 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
       expect(warnPer).toBeTruthy();
       expect(warnPer.level).toBe('JAUNE');
 
-      const urgent = await ownerToken('peremUrgent');
-      const urgentFarm = await createFarm(
-        urgent,
+      const { t: urgent, farmId: urgentFarm } = await ownerFarm(
         `Ferme Perem Urgent ${Date.now()}`,
       );
       await request(server)
@@ -428,25 +416,7 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
     let adminToken: string;
 
     beforeAll(async () => {
-      const adminPhone = `+2417${Date.now()}`;
-      await request(server)
-        .post('/auth/register')
-        .send({
-          phone: adminPhone,
-          fullName: 'Admin Audit',
-          code: 'secret123',
-        })
-        .expect(201);
-      const ds = app.get(DataSource);
-      await ds.query(
-        `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-        [adminPhone],
-      );
-      const login = await request(server)
-        .post('/auth/login')
-        .send({ phone: adminPhone, code: 'secret123' })
-        .expect(201);
-      adminToken = login.body.accessToken;
+      adminToken = platformToken;
     });
 
     it('liste les constantes ; un Propriétaire peut lire mais ne modifie plus (403)', async () => {
@@ -493,7 +463,7 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
         .send({ value: 1 })
         .expect(404);
 
-      const empPhone = `+2418${Date.now()}`;
+      const empPhone = uniquePhone();
       await request(server)
         .post(`/farms/${mainFarmId}/eleveurs`)
         .set('Authorization', `Bearer ${token}`)

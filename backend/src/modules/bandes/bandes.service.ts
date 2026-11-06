@@ -18,7 +18,7 @@ import { BandeSnapshot } from './entities/bande-snapshot.entity.js';
 import { WeighingsService } from './weighings.service.js';
 
 export interface Band {
-  farm: Farm & { programId: string };
+  farm: Farm;
   batch: ProductionBatch;
 }
 
@@ -42,9 +42,6 @@ export interface BandSheet {
   lastSnapshotVersion: number | null;
 }
 
-export const NOT_A_BAND =
-  'Bande introuvable : cette ferme ne fait pas partie du programme.';
-
 /** Read side of POUFA bands and the access check shared by the band routes. */
 @Injectable()
 export class BandesService {
@@ -58,7 +55,7 @@ export class BandesService {
     private readonly snapshots: Repository<BandeSnapshot>,
   ) {}
 
-  /** Farm access + programme farm + band of that farm, or 403/404. */
+  /** Farm access + band of that farm, or 403/404. */
   async load(user: AuthUser, farmId: string, batchId: string): Promise<Band> {
     const farm = await this.programmeFarm(user, farmId);
     const batch = await this.batches.findOne({
@@ -68,13 +65,8 @@ export class BandesService {
     return { farm, batch };
   }
 
-  async programmeFarm(
-    user: AuthUser,
-    farmId: string,
-  ): Promise<Farm & { programId: string }> {
-    const farm = await this.farms.assertAccessible(user, farmId);
-    if (!farm.programId) throw new NotFoundException(NOT_A_BAND);
-    return farm as Farm & { programId: string };
+  programmeFarm(user: AuthUser, farmId: string): Promise<Farm> {
+    return this.farms.assertAccessible(user, farmId);
   }
 
   async sheet(user: AuthUser, farmId: string, batchId: string) {

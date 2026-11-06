@@ -1,4 +1,3 @@
-import { NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
 import { describe, expect, it } from 'vitest';
@@ -10,6 +9,10 @@ import {
 } from './codes.js';
 import { GABON_PROVINCES } from './data/gabon-provinces.js';
 import type { Program } from './entities/program.entity.js';
+import {
+  PROGRAM_CODE_MISSING_MESSAGE,
+  requireProgramCode,
+} from './program-code.js';
 import { ProgrammeService } from './programme.service.js';
 
 describe('bandeCode', () => {
@@ -77,20 +80,34 @@ describe('ProgrammeService', () => {
       } as unknown as Repository<Program>,
     );
 
-  it('is inert without PROGRAM_CODE', async () => {
-    const svc = make(undefined, program);
-    expect(svc.configuredCode()).toBeNull();
-    expect(await svc.find()).toBeNull();
-    await expect(svc.current()).rejects.toThrow(
-      new NotFoundException('Aucun programme configuré.'),
+  it('refuses to start without PROGRAM_CODE', () => {
+    expect(() => make(undefined, program)).toThrow(
+      PROGRAM_CODE_MISSING_MESSAGE,
     );
-    expect(make('  ', program).configuredCode()).toBeNull();
+    expect(() => make('  ', program)).toThrow(PROGRAM_CODE_MISSING_MESSAGE);
   });
 
   it('serves the configured programme', async () => {
-    expect(await make('POUFA', program).current()).toBe(program);
-    await expect(make('POUFA', null).current()).rejects.toBeInstanceOf(
-      NotFoundException,
+    const svc = make(' POUFA ', program);
+    expect(svc.configuredCode()).toBe('POUFA');
+    expect(await svc.current()).toBe(program);
+    await expect(make('POUFA', null).current()).rejects.toThrow(
+      /Programme POUFA absent/,
     );
+  });
+});
+
+describe('requireProgramCode', () => {
+  it('returns the trimmed code', () => {
+    expect(requireProgramCode(' POUFA ')).toBe('POUFA');
+  });
+
+  it('stops the boot with a clear message when unset or blank', () => {
+    for (const raw of [undefined, null, '', '   ', 42]) {
+      expect(() => requireProgramCode(raw)).toThrow(
+        PROGRAM_CODE_MISSING_MESSAGE,
+      );
+    }
+    expect(PROGRAM_CODE_MISSING_MESSAGE).toMatch(/PROGRAM_CODE=POUFA/);
   });
 });

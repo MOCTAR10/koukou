@@ -3,6 +3,12 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  addProgrammeFarm,
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -16,8 +22,8 @@ describe('Module 1 — Gestion des Lots (e2e)', () => {
   let token: string;
   let farmId: string;
   let batchId: string;
-
-  const ownerPhone = `+24170${Date.now()}`;
+  let adminToken: string;
+  let ownerPhone: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -33,33 +39,19 @@ describe('Module 1 — Gestion des Lots (e2e)', () => {
   });
 
   beforeAll(async () => {
-    // Inscription + connexion Propriétaire
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: ownerPhone,
-        fullName: 'Proprio E2E',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone: ownerPhone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+    adminToken = (await createPlatformAdmin(server, app.get(DataSource))).token;
   });
 
-  it('crée une ferme', async () => {
-    const res = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme E2E ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1500,
-      })
-      .expect(201);
-    farmId = res.body.id;
+  it('crée une ferme (registre du programme) et connecte son exploitant', async () => {
+    // Registry capacity: what moduleRatioVsCapacity uses when the band has
+    // no building and the farm no per-building capacity.
+    const created = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme E2E ${Date.now()}`,
+      extra: { capacityPlaces: 1500 },
+    });
+    token = created.ownerToken;
+    ownerPhone = created.ownerPhone;
+    farmId = created.farmId;
     expect(farmId).toBeTruthy();
   });
 
@@ -210,18 +202,14 @@ describe('Module 1 — Gestion des Lots (e2e)', () => {
       .expect(201);
     const empToken = empLogin.body.accessToken;
 
-    // ferme sans lien (autre ferme) -> 403
-    const otherFarm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Autre Ferme ${Date.now()}`,
-        administrativeCity: 'Oyem',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
+    // ferme sans lien (autre ferme du même propriétaire) -> 403
+    const otherFarm = await addProgrammeFarm(server, adminToken, ownerPhone, {
+      name: `Autre Ferme ${Date.now()}`,
+      provinceCode: 'G9',
+    });
     await request(server)
-      .get(`/farms/${otherFarm.body.id}/batches`)
+      .get(`/farms/${otherFarm.farmId}/batches`)
+
       .set('Authorization', `Bearer ${empToken}`)
       .expect(403);
   });

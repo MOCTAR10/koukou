@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 describe('Module 3 — Catalogue provende & types d’entrée (e2e)', () => {
   let app: INestApplication<App>;
@@ -24,49 +29,19 @@ describe('Module 3 — Catalogue provende & types d’entrée (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24190${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Catalogue', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Catalogue ${Date.now()}`,
+      provinceCode: 'G3',
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Catalogue ${Date.now()}`,
-        administrativeCity: 'Lambarene',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
-
-    const otherPhone = `+24191${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: otherPhone, fullName: 'Autre Proprio', code: 'secret123' })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
-
-    const otherFarm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${otherToken}`)
-      .send({
-        name: `Ferme Tiers Cat ${Date.now()}`,
-        administrativeCity: 'Kango',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    otherFarmId = otherFarm.body.id;
+    const otherFarm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Tiers Cat ${Date.now()}`,
+    });
+    otherToken = otherFarm.ownerToken;
+    otherFarmId = otherFarm.farmId;
   });
 
   it('créer un produit BAG avec phase et prix, puis le lister', async () => {
@@ -187,7 +162,9 @@ describe('Module 3 — Catalogue provende & types d’entrée (e2e)', () => {
       .get(`/farms/${farmId}/feed-stock`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    const croiss = stock.body.byType.find((t: any) => t.feedPhase === 'CROISSANCE');
+    const croiss = stock.body.byType.find(
+      (t: any) => t.feedPhase === 'CROISSANCE',
+    );
     expect(croiss).toBeTruthy();
     expect(croiss.receivedKg).toBe(2000);
   });
@@ -220,7 +197,9 @@ describe('Module 3 — Catalogue provende & types d’entrée (e2e)', () => {
     expect(lot.entryType).toBe('MEDICAMENT');
     // Le médicament est visible dans lots[] (FEFO) mais n'influe pas sur l'autonomie en kg :
     // le byType CROISSANCE doit rester inchangé (2000 kg du bulker, pas + le médicament).
-    const croiss = stock.body.byType.find((t: any) => t.feedPhase === 'CROISSANCE');
+    const croiss = stock.body.byType.find(
+      (t: any) => t.feedPhase === 'CROISSANCE',
+    );
     expect(croiss).toBeTruthy();
     expect(croiss.receivedKg).toBe(2000);
   });

@@ -15,7 +15,7 @@ import { CorrectClosedBandeDto, CreateSortieDto } from './dto/sortie.dto.js';
 import { SortiesService } from './sorties.service.js';
 
 /**
- * POUFA bands (programme farms only; any other farm answers 404). A band is
+ * POUFA bands (every farm is a programme farm). A band is
  * an ordinary lot (`/farms/:farmId/batches`): these routes add its number,
  * sorties, official indicators, daily projection and frozen bilans.
  *

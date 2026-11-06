@@ -1,5 +1,4 @@
 import {
-  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -23,15 +22,11 @@ export interface DuplicateOverride {
 }
 
 /**
- * A farm. Programme farms (`programId` set) also carry the registry sheet:
- * code, territory, exploitant, capacity, GPS and current status (history in
- * `farm_status_history`). They may exist before the exploitant has an account,
- * so `ownerId` is nullable — only for them: every other farm has an owner.
+ * A farm, always of the programme (POUFA-only instance): created by the
+ * registry with its sheet (code, territory, exploitant, capacity, GPS and
+ * current status, history in `farm_status_history`). It may exist before
+ * the exploitant has an account, so `ownerId` is nullable.
  */
-@Check(
-  'CHK_farms_owner_or_program',
-  '"owner_id" IS NOT NULL OR "program_id" IS NOT NULL',
-)
 @Index('UQ_farms_program_ami_ref', ['programId', 'amiRef'], { unique: true })
 @Entity('farms')
 export class Farm {
@@ -45,7 +40,7 @@ export class Farm {
   @Index()
   administrativeCity: string;
 
-  /** Null only for a programme farm whose exploitant has no account yet. */
+  /** Null while the exploitant has no account (`activate-owner`). */
   @ManyToOne(() => User, { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'owner_id' })
   owner: User | null;
@@ -82,14 +77,15 @@ export class Farm {
   @Column({ default: true })
   active: boolean;
 
-  // ----- Programme registry sheet (null outside a programme) -----
+  // ----- Programme registry sheet -----
 
-  @ManyToOne('Program', { onDelete: 'RESTRICT', nullable: true })
+  /** Never changes once set (DB trigger `farms_programme_code_immutable`). */
+  @ManyToOne('Program', { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({ name: 'program_id' })
-  program?: Program | null;
+  program?: Program;
 
-  @Column({ name: 'program_id', type: 'uuid', nullable: true })
-  programId: string | null;
+  @Column({ name: 'program_id', type: 'uuid' })
+  programId: string;
 
   /** `G1-0012`: province code + IdCounter number. Never changed nor reused (DB trigger). */
   @Column({ type: 'varchar', length: 32, nullable: true, unique: true })

@@ -24,90 +24,18 @@ import { Species } from '../../common/enums/species.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { MetricsPeriodQueryDto } from './dto/metrics-period.dto.js';
 import {
-  IsEmail,
   IsEnum,
   IsInt,
   IsNotEmpty,
   IsNumber,
-  IsObject,
   IsOptional,
   IsBoolean,
   IsString,
   Min,
-  MinLength,
-  ValidateNested,
 } from 'class-validator';
-import { toPhone } from '../../common/utils/phone.js';
-import { Transform, Type } from 'class-transformer';
 import { FarmsService } from '../farms/farms.service.js';
 import { PlatformService } from './platform.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
-
-class ProvisionFarmOwnerDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Le nom complet du propriétaire est requis.' })
-  fullName: string;
-
-  // Normalized like /auth/register and /auth/login, or the owner could never
-  // log in with a pasted "077 12 34 56 ".
-  @Transform(toPhone)
-  @IsString()
-  @IsNotEmpty({ message: 'Le numéro de téléphone est requis.' })
-  phone: string;
-
-  @IsOptional()
-  @IsEmail({}, { message: 'Adresse e-mail invalide.' })
-  email?: string;
-
-  @IsString()
-  @MinLength(6, {
-    message: 'Le code doit contenir au moins 6 caractères.',
-  })
-  code: string;
-}
-
-class ProvisionFarmDto {
-  @IsString()
-  @IsNotEmpty({ message: 'Le nom de la ferme est requis.' })
-  name: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'La commune est requise.' })
-  administrativeCity: string;
-
-  @IsOptional()
-  @IsInt({ message: 'Le nombre de bâtiments doit être un entier.' })
-  @Min(1, { message: 'Le nombre de bâtiments doit être supérieur à 0.' })
-  buildingCount?: number;
-
-  @IsOptional()
-  @IsInt({ message: 'La capacité par bâtiment doit être un entier.' })
-  @Min(1, { message: 'La capacité par bâtiment doit être supérieure à 0.' })
-  capacityPerBuilding?: number;
-
-  @IsOptional()
-  @IsNumber({}, { message: 'La surface doit être un nombre.' })
-  @Min(0, { message: 'La surface doit être positive.' })
-  buildingAreaM2?: number;
-
-  @IsOptional()
-  @IsInt({ message: 'Le poids du sac doit être un entier.' })
-  @Min(1, { message: 'Le poids du sac doit être supérieur à 0.' })
-  defaultSacKg?: number;
-
-  @IsOptional()
-  @IsNumber({}, { message: 'La longitude doit être un nombre.' })
-  longitude?: number;
-
-  @IsOptional()
-  @IsNumber({}, { message: 'La latitude doit être un nombre.' })
-  latitude?: number;
-
-  @IsObject()
-  @ValidateNested()
-  @Type(() => ProvisionFarmOwnerDto)
-  owner: ProvisionFarmOwnerDto;
-}
 
 class UpdateFarmDto {
   @IsOptional()
@@ -148,6 +76,7 @@ class UpdateFarmDto {
   @IsNumber({})
   latitude?: number;
 
+  /** Refused (400): a farm's `active` follows its programme status. */
   @IsOptional()
   @IsBoolean({ message: 'active doit être un booléen.' })
   active?: boolean;
@@ -246,36 +175,25 @@ export class PlatformAdminController {
     return this.farmsService.listAll();
   }
 
-  @Post('farms')
-  @ApiOperation({
-    summary:
-      'Provisionner une ferme : crée le compte Propriétaire puis sa ferme.',
-  })
-  provision(@Body() dto: ProvisionFarmDto) {
-    const { owner, ...farmInput } = dto;
-    return this.farmsService.provision(farmInput, owner);
-  }
-
   @Patch('farms/:farmId')
   @ApiParam({ name: 'farmId', description: 'Identifiant de la ferme' })
-  @ApiOperation({ summary: 'Modifier une ferme (détails, suspension).' })
-  async updateFarm(
+  @ApiOperation({
+    summary:
+      'Modifier une ferme (détails). La suspension passe par le statut du programme.',
+  })
+  updateFarm(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Body() dto: UpdateFarmDto,
   ) {
     const { active, ...fields } = dto;
     if (active != null) {
-      // Checked before any write: a programme farm is suspended through its status.
-      this.farmsService.assertActiveNotProgrammeDriven(
-        await this.farmsService.findById(farmId),
+      // Checked before any write: `active` follows the programme status.
+      throw new BadRequestException(
+        'Ferme du programme : la suspension passe par son statut (POST /programme/farms/:farmId/status).',
       );
     }
-    const farm = await this.farmsService.updateFarm(user, farmId, fields);
-    if (active != null) {
-      return this.farmsService.setFarmActive(farmId, active);
-    }
-    return farm;
+    return this.farmsService.updateFarm(user, farmId, fields);
   }
 
   @Get('users')

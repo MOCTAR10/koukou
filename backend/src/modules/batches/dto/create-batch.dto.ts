@@ -133,7 +133,7 @@ export class CreateBatchDto {
 
   @ApiPropertyOptional({
     description:
-      'Bande POUFA ouverte en cours de cycle (J+x) : âge des sujets à l’ouverture, en jours (fermes du programme uniquement)',
+      'Bande POUFA ouverte en cours de cycle (J+x) : âge des sujets à l’ouverture, en jours',
   })
   @IsOptional()
   @IsInt({
@@ -145,7 +145,7 @@ export class CreateBatchDto {
 
   @ApiPropertyOptional({
     description:
-      'Bande POUFA : poids moyen des sujets à l’ouverture, en grammes (fermes du programme uniquement)',
+      'Bande POUFA : poids moyen des sujets à l’ouverture, en grammes',
   })
   @IsOptional()
   @IsNumber(

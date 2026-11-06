@@ -26,8 +26,8 @@ import { TerritoryService } from './territory.service.js';
 /**
  * Programme layer above the farms (POUFA first, generic): registry,
  * territories, configurable lists, versioned parameters, id counters, farm
- * registry (programme farms, import, status history). Inert
- * when `PROGRAM_CODE` is unset.
+ * registry (programme farms, import, status history). `PROGRAM_CODE` is
+ * mandatory (`ProgrammeService` stops the boot without it).
  */
 @Module({
   imports: [

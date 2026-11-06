@@ -2,7 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  login,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -63,31 +70,13 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24162${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Zone',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Zone ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Zone ${uniquePhone('')}`,
+      exploitantName: 'Proprio Zone',
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -108,18 +97,14 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
       openingBalanceFcfa: 500000,
     }).expect(201);
 
-    const empPhone = `+24163${Date.now()}`;
+    const empPhone = uniquePhone();
     await post('/farms/' + farmId + '/eleveurs', {
       phone: empPhone,
       fullName: 'Éleveur Zone',
       code: 'secret123',
     }).expect(201);
-    const empLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: empPhone, code: 'secret123' })
-      .expect(201);
-    empToken = empLogin.body.accessToken;
-  });
+    empToken = await login(server, empPhone, 'secret123');
+  }, 60_000);
 
   it('1ʳᵉ vente avec téléphone : fiche client auto-créée (téléphone normalisé)', async () => {
     const res = await createAUTORESale(5000, {
@@ -603,7 +588,12 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     const credit = await post('/farms/' + farmId + '/sales', {
       customerPhone: phone,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 40000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 40000,
+        },
       ],
       payments: [],
     });
@@ -623,7 +613,12 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     const first = await post('/farms/' + farmId + '/sales', {
       customerId: cust.body.id,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 40000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 40000,
+        },
       ],
       payments: [],
     });
@@ -634,13 +629,19 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     const second = await post('/farms/' + farmId + '/sales', {
       customerId: cust.body.id,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 200000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 200000,
+        },
       ],
       payments: [],
     });
     expect(second.status).toBe(201);
 
-    const profile = (await get(`/farms/${farmId}/customers/${cust.body.id}`)).body;
+    const profile = (await get(`/farms/${farmId}/customers/${cust.body.id}`))
+      .body;
     expect(profile.balance.outstandingFcfa).toBe(240000);
   });
 
@@ -656,7 +657,12 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     const sale = await post('/farms/' + farmId + '/sales', {
       customerId: gros.body.id,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 600000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 600000,
+        },
       ],
       payments: [],
     });
@@ -674,7 +680,12 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     const res = await post('/farms/' + farmId + '/sales', {
       customerId: cust.body.id,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 40000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 40000,
+        },
       ],
       payments: [],
     });
@@ -702,14 +713,24 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     const saleA = await post('/farms/' + farmId + '/sales', {
       customerId: cust.body.id,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 30000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 30000,
+        },
       ],
       payments: [],
     });
     const saleB = await post('/farms/' + farmId + '/sales', {
       customerId: cust.body.id,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 20000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 20000,
+        },
       ],
       payments: [],
     });
@@ -717,38 +738,56 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     expect(saleB.status).toBe(201);
 
     // 25 000 → sale A (30 000) partiellement soldée (reste 5 000), sale B intacte.
-    const paid = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
-      amountFcfa: 25000,
-    });
+    const paid = await post(
+      `/farms/${farmId}/customers/${cust.body.id}/payments`,
+      {
+        amountFcfa: 25000,
+      },
+    );
     expect(paid.status).toBe(201);
     expect(paid.body.balance.outstandingFcfa).toBe(25000);
-    const saleADetail = await get(`/farms/${farmId}/sales/${saleA.body.sale.id}`);
+    const saleADetail = await get(
+      `/farms/${farmId}/sales/${saleA.body.sale.id}`,
+    );
     expect(saleADetail.body.status).toBe('OUTSTANDING');
 
     // Montant > solde dû → 400.
-    const over = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
-      amountFcfa: 25001,
-    });
+    const over = await post(
+      `/farms/${farmId}/customers/${cust.body.id}/payments`,
+      {
+        amountFcfa: 25001,
+      },
+    );
     expect(over.status).toBe(400);
 
     // Montant négatif → 400.
-    const negative = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
-      amountFcfa: -1000,
-    });
+    const negative = await post(
+      `/farms/${farmId}/customers/${cust.body.id}/payments`,
+      {
+        amountFcfa: -1000,
+      },
+    );
     expect(negative.status).toBe(400);
 
     // Solde complet → les deux ventes passent en SETTLED.
-    const settled = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
-      amountFcfa: 25000,
-    });
+    const settled = await post(
+      `/farms/${farmId}/customers/${cust.body.id}/payments`,
+      {
+        amountFcfa: 25000,
+      },
+    );
     expect(settled.status).toBe(201);
     expect(settled.body.balance.outstandingFcfa).toBe(0);
     const saleA2 = await get(`/farms/${farmId}/sales/${saleA.body.sale.id}`);
     expect(saleA2.body.status).toBe('SETTLED');
-    const saleBDetail = await get(`/farms/${farmId}/sales/${saleB.body.sale.id}`);
+    const saleBDetail = await get(
+      `/farms/${farmId}/sales/${saleB.body.sale.id}`,
+    );
     expect(saleBDetail.body.status).toBe('SETTLED');
 
-    const history = await get(`/farms/${farmId}/customers/${cust.body.id}/history`);
+    const history = await get(
+      `/farms/${farmId}/customers/${cust.body.id}/history`,
+    );
     expect(history.status).toBe(200);
   });
 
@@ -761,24 +800,35 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
     const sale = await post('/farms/' + farmId + '/sales', {
       customerId: cust.body.id,
       items: [
-        { productType: 'AUTRE', quantity: 1, unit: 'UNITE', unitPriceFcfa: 30000 },
+        {
+          productType: 'AUTRE',
+          quantity: 1,
+          unit: 'UNITE',
+          unitPriceFcfa: 30000,
+        },
       ],
       payments: [],
     });
     expect(sale.status).toBe(201);
 
     const key = `e2e-${Date.now()}`;
-    const first = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
-      amountFcfa: 30000,
-      idempotencyKey: key,
-    });
+    const first = await post(
+      `/farms/${farmId}/customers/${cust.body.id}/payments`,
+      {
+        amountFcfa: 30000,
+        idempotencyKey: key,
+      },
+    );
     expect(first.status).toBe(201);
     expect(first.body.balance.outstandingFcfa).toBe(0);
 
-    const replay = await post(`/farms/${farmId}/customers/${cust.body.id}/payments`, {
-      amountFcfa: 30000,
-      idempotencyKey: key,
-    });
+    const replay = await post(
+      `/farms/${farmId}/customers/${cust.body.id}/payments`,
+      {
+        amountFcfa: 30000,
+        idempotencyKey: key,
+      },
+    );
     expect(replay.status).toBe(201);
     expect(replay.body.balance.outstandingFcfa).toBe(0);
     expect(replay.body.payments).toHaveLength(1);
