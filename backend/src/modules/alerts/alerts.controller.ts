@@ -14,6 +14,7 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { AlertStatus } from '../../common/enums/alert-level.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { AlertsService } from './alerts.service.js';
+import { visibleAlerts } from './economic-alerts.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Alertes (Assistant)')
@@ -43,7 +44,11 @@ export class AlertsController {
     ) {
       throw new BadRequestException('Statut d’alerte invalide.');
     }
-    return this.alertsService.listForFarm(farmId, status);
+    // POUFA lot A droits: margin and sales alerts for economic readers only (F6).
+    return visibleAlerts(
+      await this.alertsService.listForFarm(farmId, status),
+      await this.farmsService.readsEconomics(user),
+    );
   }
 
   @Get('history')
@@ -58,7 +63,10 @@ export class AlertsController {
     @Param('farmId') farmId: string,
   ) {
     await this.farmsService.assertAccessible(user, farmId);
-    return this.alertsService.historyForFarm(farmId);
+    return visibleAlerts(
+      await this.alertsService.historyForFarm(farmId),
+      await this.farmsService.readsEconomics(user),
+    );
   }
 
   @Post(':alertId/acknowledge')

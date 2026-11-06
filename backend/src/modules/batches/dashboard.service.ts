@@ -35,6 +35,7 @@ import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
 import { AlertsService } from '../alerts/alerts.service.js';
+import { visibleAlerts } from '../alerts/economic-alerts.js';
 import { Building } from '../buildings/entities/building.entity.js';
 import { Payment } from '../finance/entities/payment.entity.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
@@ -150,7 +151,8 @@ export interface DashboardData {
   mortalityPercent: number | null;
   viabilityPercent: number | null;
   feedAutonomyDays: number | null;
-  collectedTodayFcfa: number;
+  /** Null for an institution without ECONOMIQUE or VENTES consultation (F6). */
+  collectedTodayFcfa: number | null;
   teamCount: number;
   alerts: { total: number; rouge: number; jaune: number; vert: number };
   health: DashboardHealth;
@@ -286,7 +288,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     const refDate = date ?? todayStr();
     const refDatetime = time ? new Date(`${refDate}T${time}:00`) : undefined;
 
-    const [batches, alerts, employees, feedSummary, collectedToday] =
+    const [batches, farmAlerts, employees, feedSummary, collectedToday] =
       await Promise.all([
         this.batchRepo.find({ where: { farmId } }),
         this.alertRepo.find({
@@ -311,6 +313,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
               status: PaymentStatus.CONFIRMED,
             }),
       ]);
+
+    // POUFA lot A droits: economic data for its readers only (audit F6).
+    const alerts = visibleAlerts(
+      farmAlerts,
+      await this.farmsService.readsEconomics(user),
+    );
+    const showCollected = await this.farmsService.readsCollected(user);
 
     const missingEntries = await this.evaluateDailyEntryAlerts(farmId, refDate);
 
@@ -431,7 +440,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       mortalityPercent,
       viabilityPercent,
       feedAutonomyDays,
-      collectedTodayFcfa: collectedToday ?? 0,
+      collectedTodayFcfa: showCollected ? (collectedToday ?? 0) : null,
       teamCount: employees,
       alerts: { total: alerts.length, ...alertLevels },
       health,

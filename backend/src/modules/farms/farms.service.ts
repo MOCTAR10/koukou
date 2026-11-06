@@ -155,6 +155,25 @@ export class FarmsService {
     private readonly scope: ScopeResolver,
   ) {}
 
+  // POUFA lot A droits (begin): economic gating (audit F6).
+  /**
+   * Whether `user` reads the farm's economic data (prices, margins, sales
+   * alerts): every farm account and the platform admin; an institution with
+   * ECONOMIQUE:CONSULTER. Gating by the matrix, never masking a granted one.
+   */
+  readsEconomics(user: AuthUser): Promise<boolean> {
+    return this.scope.consults(user, 'ECONOMIQUE');
+  }
+
+  /** Whether `user` reads the cash collected (ECONOMIQUE or VENTES consult). */
+  async readsCollected(user: AuthUser): Promise<boolean> {
+    return (
+      (await this.scope.consults(user, 'ECONOMIQUE')) ||
+      this.scope.consults(user, 'VENTES')
+    );
+  }
+  // POUFA lot A droits (end)
+
   /** Existing account holding this (normalized) phone or e-mail, if any. */
   async findAccount(
     phone: string,

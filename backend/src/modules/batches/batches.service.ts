@@ -240,7 +240,20 @@ export class BatchesService {
       where: { farmId },
       order: { createdAt: 'DESC' },
     });
-    return Promise.all(batches.map((b) => this.withMetrics(b, asOf)));
+    const economics = await this.farmsService.readsEconomics(user);
+    return Promise.all(
+      batches.map(async (b) =>
+        this.gateEconomics(await this.withMetrics(b, asOf), economics),
+      ),
+    );
+  }
+
+  // POUFA lot A droits: the chick price for economic readers only (audit F6).
+  private gateEconomics<T extends { chickUnitPriceFcfa: number | null }>(
+    batch: T,
+    readsEconomics: boolean,
+  ): T {
+    return readsEconomics ? batch : { ...batch, chickUnitPriceFcfa: null };
   }
 
   async findOne(
@@ -255,7 +268,10 @@ export class BatchesService {
     });
     if (!batch)
       throw new NotFoundException('Lot introuvable dans cette ferme.');
-    return this.withMetrics(batch, asOf);
+    return this.gateEconomics(
+      await this.withMetrics(batch, asOf),
+      await this.farmsService.readsEconomics(user),
+    );
   }
 
   async changeType(

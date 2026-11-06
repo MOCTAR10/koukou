@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlertsService } from '../alerts/alerts.service.js';
+import { coarseCoordinate } from './coarse-coordinate.js';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import {
@@ -115,11 +116,15 @@ export class WeatherService {
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     if (!farm) throw new NotFoundException('Ferme introuvable.');
 
-    let latitude = farm.latitude;
-    let longitude = farm.longitude;
+    // POUFA lot A droits (F11): the farm point leaves for open-meteo rounded
+    // to 0.1° (about 11 km), like the scans' geo cells: enough for the
+    // forecast, not a farm location.
+    let latitude = coarseCoordinate(farm.latitude);
+    let longitude = coarseCoordinate(farm.longitude);
     if (latitude == null || longitude == null) {
       const geo = await this.geocode(farm.administrativeCity);
       if (geo) {
+        // A town centre is public: sent as geocoded.
         latitude = geo.latitude;
         longitude = geo.longitude;
       }
