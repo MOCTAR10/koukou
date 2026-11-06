@@ -57,7 +57,7 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
       TRACABILITE: ['CONSULTER'],
       PILOTAGE: ['CONSULTER'],
       // POUFA lot A2 divers: CREER = shared breed reference (F8).
-      PARAMETRES: ['CONSULTER', 'MODIFIER', 'CREER'],
+      PARAMETRES: ['CONSULTER', 'CREER', 'MODIFIER'],
       // POUFA lot A droits: the Fermia bonus domains, in consultation (user
       // decision 2026-11-06; migration InstitutionFermiaGrants for existing
       // programmes).
