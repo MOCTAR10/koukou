@@ -1,0 +1,9 @@
+node_modules
+dist
+uploads
+*.log
+e2e-*.txt
+.env
+.env.*
+!.env.example
+coverage

@@ -1,0 +1,40 @@
+# Fermia on the greenleaves server. Run from /opt/fermia (holds .env, not committed).
+name: fermia
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: fermia_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fermia
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: fermia
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [fermia]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fermia -d fermia"]
+      interval: 5s
+      retries: 20
+  api:
+    image: fermia-api:latest
+    container_name: fermia_api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: fermia
+      DB_DATABASE: fermia
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:3400:3000"
+    volumes:
+      - uploads:/data/uploads
+    networks: [fermia]
+volumes:
+  pgdata:
+  uploads:
+networks:
+  fermia:
