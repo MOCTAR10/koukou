@@ -106,7 +106,7 @@ export function AuthLayout({
       </aside>
       )}
 
-      <div className={'relative flex min-h-screen flex-col lg:min-h-0 lg:overflow-y-auto ' + (programme ? 'bg-slate-50' : '')}>
+      <div className={'relative flex min-h-screen flex-col lg:min-h-0 ' + (programme ? 'lg:h-screen lg:overflow-hidden ' : 'lg:overflow-y-auto ') + (programme ? 'bg-slate-50' : '')}>
         {programme ? (
           <>
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px]" />

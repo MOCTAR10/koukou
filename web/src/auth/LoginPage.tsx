@@ -160,12 +160,9 @@ export function LoginPage() {
           </p>
         ) : (
           <>
-            <p className="text-[13px] leading-relaxed">
-              Exploitant d’une ferme du programme : votre code vous est remis à l’activation de votre compte.
-            </p>
             <Link
               to="/marche"
-              className="mt-1 inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-[13px] font-semibold text-brand-700 ring-1 ring-slate-200 transition hover:bg-brand-50 hover:ring-brand-200"
+              className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-[13px] font-semibold text-brand-700 ring-1 ring-slate-200 transition hover:bg-brand-50 hover:ring-brand-200"
             >
               <Store className="h-4 w-4" /> Acheter sur le Marché Fermia
             </Link>
