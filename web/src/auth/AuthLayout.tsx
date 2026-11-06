@@ -195,14 +195,12 @@ function ProgrammeAside() {
       <div aria-hidden className="absolute inset-x-0 top-0 h-[22rem] bg-gradient-to-b from-black/55 to-transparent" />
       <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
         <div className="flex items-center gap-4">
-          <div className="rounded-2xl bg-white p-2 shadow-2xl shadow-black/30">
-            <img
-              src="/maedr-logo-full.webp"
-              alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
-              className="h-24 w-24 object-contain xl:h-28 xl:w-28 [@media(max-height:780px)]:h-16 [@media(max-height:780px)]:w-16"
-            />
-          </div>
-          <div className="border-l border-white/30 pl-4 text-xs uppercase tracking-[0.2em] text-white/85">
+          <img
+            src="/maedr-logo-light.png"
+            alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
+            className="h-36 w-auto drop-shadow-[0_4px_14px_rgb(0_0_0/0.55)] xl:h-44 [@media(max-height:780px)]:h-28"
+          />
+          <div className="border-l border-white/30 pl-5 text-xs uppercase tracking-[0.2em] text-white/85">
             <p className="font-semibold text-white">République gabonaise</p>
             <p className="mt-1 text-[11px] tracking-[0.15em] text-white/70">Système d’information officiel</p>
           </div>
