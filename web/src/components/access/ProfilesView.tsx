@@ -1,3 +1,4 @@
+import { plural } from '../../lib/format';
 import { ChevronRight, Plus, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import type { AccessCatalog, AccessProfile, Membership } from '../../api/types-access';
@@ -92,7 +93,7 @@ export function ProfilesView({
                       <span className="text-xs text-slate-600">
                         {domains.length === 0
                           ? 'Aucun droit'
-                          : `${grantCount(p.matrix)} droit(s) : ${domains.map((d) => domainLabels.get(d) ?? d).join(', ')}`}
+                          : `${plural(grantCount(p.matrix), 'droit')} : ${domains.map((d) => domainLabels.get(d) ?? d).join(', ')}`}
                       </span>
                     </Td>
                     <Td label="Type">{p.system ? <Pill tone="brand">Système</Pill> : <Pill>Personnalisé</Pill>}</Td>

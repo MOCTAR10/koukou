@@ -1,10 +1,10 @@
+import { plural } from '../lib/format';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, ApiError, clearSession, getStoredUser, setSession } from '../api/client';
+import { api, clearSession, getStoredUser, setSession } from '../api/client';
 import type { AuthUser } from '../api/client';
 import { landingAfterLogin } from '../app/roles';
-import { normalizeGabonPhone } from '../lib/phone';
 import { clearReadCache } from '../offline/readCache';
 import { clearOfflineOps, loadOps } from '../offline/store';
 import { normalizeOtpCode, readLoginAnswer, type LoginSession, type OtpChallenge } from './login';
@@ -67,16 +67,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isOwnerOrAdmin:
         user?.role === 'PROPRIETAIRE' || user?.role === 'PLATFORM_ADMIN',
       login: async (phone: string, code: string, from?: string) => {
-        // Mobile accounts are stored as 0XXXXXXXX; the seeded platform admin
-        // may be stored as typed, in international form.
-        const normalized = normalizeGabonPhone(phone);
-        let raw: unknown;
-        try {
-          raw = await api.post<unknown>('/auth/login', { phone: normalized, code });
-        } catch (err) {
-          if (!(err instanceof ApiError) || err.status !== 401 || !phone.startsWith('+')) throw err;
-          raw = await api.post<unknown>('/auth/login', { phone, code });
-        }
+        // The server tries every usual spelling of a Gabon number
+        // (+241XXXXXXXX, 0XXXXXXXX, local 8 digits): send what was typed.
+        const raw = await api.post<unknown>('/auth/login', { phone: phone.trim(), code });
         const answer = readLoginAnswer(raw);
         if (answer.kind === 'otp') return answer;
         startSession(answer.session, from);
@@ -99,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (
           pending > 0 &&
           !window.confirm(
-            `${pending} opération(s) (ventes, saisies…) n’ont pas encore été envoyées au serveur. Elles seront perdues si vous vous déconnectez maintenant.
+            `${plural(pending, 'opération')} (ventes, saisies…) ${pending < 2 ? 'n’a' : 'n’ont'} pas encore été envoyée${pending < 2 ? '' : 's'} au serveur. Elles seront perdues si vous vous déconnectez maintenant.
 
 Se déconnecter quand même ?`,
           )

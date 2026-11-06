@@ -5,7 +5,7 @@ import { api } from '../../api/client';
 import type { OperatorView } from '../../api/types-trace';
 import { dateFr } from '../../lib/format';
 import { Pill } from '../flock/shared';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
 import { useProvinces } from '../registry/queries';
 import { useListItems } from '../supply/queries';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
@@ -189,7 +189,7 @@ function OperatorFormModal({ operator, canEdit, onClose }: { operator: OperatorV
               <input className={inputCls} value={draft.conventionRef} onChange={(e) => set('conventionRef', e.target.value)} />
             </Field>
             <Field label="Date de signature">
-              <input className={inputCls} type="date" value={draft.conventionSignedAt} onChange={(e) => set('conventionSignedAt', e.target.value)} />
+              <DateInput className={inputCls} value={draft.conventionSignedAt} onChange={(e) => set('conventionSignedAt', e.target.value)} />
             </Field>
             <Field label="Personne à contacter">
               <input className={inputCls} value={draft.contactName} onChange={(e) => set('contactName', e.target.value)} />

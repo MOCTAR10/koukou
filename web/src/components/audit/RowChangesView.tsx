@@ -5,7 +5,7 @@ import { api } from '../../api/client';
 import type { AuditPage, AuditRowChange } from '../../api/types-admin';
 import { dateTimeFr, num } from '../../lib/format';
 import { Pill } from '../flock/shared';
-import { Button, ErrorNote, Field, inputCls } from '../form';
+import { Button, ErrorNote, Field, inputCls, DateInput } from '../form';
 import { Card, EmptyState, Loading } from '../ui';
 import { diffSummary, EMPTY_ROW_FILTERS, OP_LABELS, pageCount, rowChangeFilterError, rowChangesQueryString, type RowChangeFilters } from './audit';
 import { DiffView } from './DiffView';
@@ -81,7 +81,7 @@ export function RowChangesView({ initialRequestId }: { initialRequestId: string 
     setFilters(next);
     setPage(1);
   };
-  const set = (key: keyof RowChangeFilters) => (e: React.ChangeEvent<HTMLInputElement>) => setDraft((d) => ({ ...d, [key]: e.target.value }));
+  const set = (key: keyof RowChangeFilters) => (e: { target: { value: string } }) => setDraft((d) => ({ ...d, [key]: e.target.value }));
   const data = changes.data;
   const pages = data ? pageCount(data.total, data.limit) : 1;
 
@@ -97,10 +97,10 @@ export function RowChangesView({ initialRequestId }: { initialRequestId: string 
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Field label="Du">
-              <input type="date" className={inputCls} value={draft.from} onChange={set('from')} />
+              <DateInput className={inputCls} value={draft.from} onChange={set('from')} />
             </Field>
             <Field label="Au (inclus)">
-              <input type="date" className={inputCls} value={draft.to} onChange={set('to')} />
+              <DateInput className={inputCls} value={draft.to} onChange={set('to')} />
             </Field>
             <Field label="Table">
               <input className={`${inputCls} font-mono text-xs`} list="audit-tables" value={draft.table} onChange={set('table')} placeholder="farms" />

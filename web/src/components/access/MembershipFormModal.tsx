@@ -12,7 +12,7 @@ import {
   type UpdateMembershipBody,
 } from '../../api/types-access';
 import { classNames } from '../../lib/format';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
 import { ONE_TIME_CODE_MUTATION } from '../login-code/OneTimeCodeModal';
 import { FarmMultiPicker } from './FarmMultiPicker';
 import { grantRefusal, provinceGrantable, type Granter } from './grantRules';
@@ -201,7 +201,7 @@ export function MembershipFormModal({
 
             <Field label="Fin de validité" hint="Vide : sans limite. L’accès cesse à la fin de ce jour.">
               <div className="flex gap-2">
-                <input type="date" className={inputCls} value={validDate} onChange={(e) => setValidDate(e.target.value)} />
+                <DateInput className={inputCls} value={validDate} onChange={(e) => setValidDate(e.target.value)} />
                 {validDate ? (
                   <Button tone="secondary" className="shrink-0" onClick={() => setValidDate('')}>
                     Sans limite

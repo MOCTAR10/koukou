@@ -1,10 +1,22 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Check, Store } from 'lucide-react';
+import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
 
 const AUDIENCES = {
+  programme: {
+    headline: 'Programme POUFA, console de pilotage.',
+    intro: 'Le suivi des fermes avicoles du programme, du registre national aux indicateurs de production.',
+    points: [
+      'Registre national des fermes et de leurs exploitants',
+      'Pilotage de l’objectif national de 100 000 tonnes',
+      'Surveillance sanitaire et alertes du programme',
+      'Journal d’audit et droits d’accès par institution',
+    ],
+    insight: null,
+  },
   farm: {
     headline: 'Toute votre ferme, au même endroit.',
     intro: 'Suivez vos bandes, vos stocks et vos ventes, depuis le bureau comme sur le terrain.',
@@ -33,7 +45,7 @@ const AUDIENCES = {
 
 /** Sign-in and sign-up frame: a brand panel beside the form on a computer, the form alone under a compact band on a phone. */
 export function AuthLayout({
-  audience = 'farm',
+  audience = 'programme',
   eyebrow,
   title,
   subtitle,
@@ -62,7 +74,11 @@ export function AuthLayout({
         <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 h-[28rem] w-[28rem] rounded-full bg-brand-400/20 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute -bottom-48 -left-32 h-[28rem] w-[28rem] rounded-full bg-emerald-500/10 blur-3xl" />
         <div className="relative flex min-h-screen flex-col justify-between gap-8 p-10 xl:p-14 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:px-10 [@media(max-height:720px)]:py-7">
-          <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-16 w-fit xl:h-20 [@media(max-height:720px)]:h-12" />
+          {audience === 'programme' ? (
+            <ProgrammeLockup />
+          ) : (
+            <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-16 w-fit xl:h-20 [@media(max-height:720px)]:h-12" />
+          )}
           <div className="max-w-lg">
             <h2 className="text-display font-bold leading-[1.1] tracking-tight [@media(max-height:720px)]:text-3xl">{copy.headline}</h2>
             <p className="mt-4 text-base text-brand-100 xl:text-lg [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:text-sm">{copy.intro}</p>
@@ -87,13 +103,22 @@ export function AuthLayout({
                 <p className="mt-1 text-sm text-brand-100">{copy.insight.text}</p>
               </div>
             </div>
+          ) : audience === 'programme' ? (
+            <p className="flex items-center gap-2 text-xs text-brand-200">
+              <img src="/logo.png" alt="" className="h-5 w-auto opacity-90" />
+              Plateforme propulsée par Fermia
+            </p>
           ) : null}
         </div>
       </aside>
 
       <div className="flex min-h-screen flex-col lg:min-h-0">
         <div className="bg-gradient-to-br from-brand-800 to-brand-950 px-5 py-4 lg:hidden">
-          <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-12 w-auto" />
+          {audience === 'programme' ? (
+            <ProgrammeLockup compact />
+          ) : (
+            <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-12 w-auto" />
+          )}
         </div>
         {backTo ? (
           <div className="px-5 pt-5 sm:px-10">

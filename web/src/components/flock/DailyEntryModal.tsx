@@ -32,7 +32,7 @@ import { dailyEntryBase } from '../../offline/syncMeta';
 import { initialSampleSize, sampleBelowExpected, sampleSizeError } from './weighing';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
 import { EmptyState, Loading, PhotoThumb } from '../ui';
 import { ageWeek, estimateDailyFeed } from './feedRecommendation';
 import {
@@ -133,8 +133,8 @@ export function DailyEntryModal({
                 <DateChip active={date === yesterday} onClick={() => setDate(yesterday)}>
                   Hier
                 </DateChip>
-                <input
-                  type="date"
+                <DateInput
+                  
                   className={inputCls}
                   aria-label="Date de la saisie"
                   max={today}

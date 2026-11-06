@@ -29,7 +29,7 @@ import { buildActionQueue, buildJournal } from '../components/flock/activityFeed
 import { Metric, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { ErrorNote } from '../components/form';
 import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Td, Th, type IconTone } from '../components/ui';
-import { dateTimeFr, fcfa, num } from '../lib/format';
+import { dateTimeFr, fcfa, num, plural } from '../lib/format';
 
 type Panel = 'taches' | 'lots' | 'caisse' | 'rapports';
 
@@ -296,7 +296,7 @@ export function ActivitiesPage() {
                   ))}
                   {journal.truncatedGroups > 0 ? (
                     <p className="text-xs text-slate-400">
-                      {journal.truncatedGroups} jour(s) plus ancien(s) non affiché(s).
+                      {plural(journal.truncatedGroups, 'jour plus ancien non affiché', 'jours plus anciens non affichés')}.
                     </p>
                   ) : null}
                 </div>

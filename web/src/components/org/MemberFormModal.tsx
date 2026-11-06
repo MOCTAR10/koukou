@@ -29,7 +29,7 @@ import type {
 } from '../../api/types-org';
 import { classNames } from '../../lib/format';
 import { isGabonPhoneValid, normalizeGabonPhone } from '../../lib/phone';
-import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../form';
 import { ConfirmModal, CONTRACT_LABEL, CONTRACT_TYPES, invalidateFarm, Pill, STAFF_ROLE_LABEL } from './shared';
 
 /** Same icon per permission group as the mobile settings screen. */
@@ -366,10 +366,10 @@ export function MemberFormModal({
                 </select>
               </Field>
               <Field label="Date d’embauche">
-                <input type="date" className={inputCls} value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
+                <DateInput className={inputCls} value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
               </Field>
               <Field label="Fin de contrat">
-                <input type="date" className={inputCls} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                <DateInput className={inputCls} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
               </Field>
               <Field label="Salaire de référence (FCFA)">
                 <input className={inputCls} inputMode="numeric" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="Ex : 150000" />

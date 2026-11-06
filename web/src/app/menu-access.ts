@@ -211,13 +211,13 @@ export function scopeReachesFarms(kind: ScopeKind): boolean {
 /** The institution's landing page. */
 export function institutionLanding(access: Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> | null, farmCount: number): string {
   if (!access) return MY_ACCESS_PATH;
+  // The programme steering (KPIs and map) is the console's home when the profile opens it.
+  if (institutionShowsEntry(PILOTAGE_PATH, access)) return PILOTAGE_PATH;
   if (scopeReachesFarms(access.scopeKind) && farmCount > 0) {
     const page = INSTITUTION_LANDING_ORDER.find((p) => institutionShowsEntry(p, access));
     if (page) return page;
   }
   if (institutionShowsEntry(AUDIT_PATH, access)) return AUDIT_PATH;
-  // Programme steering works without a farm (aggregate scope included).
-  if (institutionShowsEntry(PILOTAGE_PATH, access)) return PILOTAGE_PATH;
   if (institutionShowsEntry(ACCESS_ADMIN_PATH, access)) return ACCESS_ADMIN_PATH;
   return MY_ACCESS_PATH;
 }

@@ -1,7 +1,7 @@
-import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
-import { AlertTriangle, Loader2, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { AlertTriangle, CalendarDays, Loader2, X } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { classNames } from '../lib/format';
+import { classNames, frToIso, isoToFr } from '../lib/format';
 
 export const inputCls =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
@@ -187,4 +187,96 @@ export function Modal({
 /** Today in the same UTC calendar the backend compares dates with. */
 export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Date field always shown « jj/mm/aaaa » (a native `type="date"` follows the
+ * browser locale, often mm/dd/yyyy). Drop-in for `<input type="date">`: `value`
+ * and `min`/`max` are ISO « aaaa-mm-jj », `onChange` receives `{ target: { value } }`
+ * with an ISO date, or '' while the typed text is incomplete or impossible.
+ */
+export function DateInput({
+  value,
+  onChange,
+  min,
+  max,
+  required,
+  disabled,
+  className,
+  id,
+  title,
+  'aria-label': ariaLabel,
+}: {
+  value: string | null | undefined;
+  onChange?: (e: { target: { value: string } }) => void;
+  min?: string;
+  max?: string;
+  required?: boolean;
+  disabled?: boolean;
+  className?: string;
+  id?: string;
+  title?: string;
+  'aria-label'?: string;
+}) {
+  const iso = value ? value.slice(0, 10) : '';
+  const [text, setText] = useState(isoToFr(iso));
+  const picker = useRef<HTMLInputElement>(null);
+
+  // Follow external changes (reset, prefill) without fighting the typing.
+  useEffect(() => {
+    setText((t) => (frToIso(t) === iso ? t : isoToFr(iso)));
+  }, [iso]);
+
+  const type = (raw: string) => {
+    const t = raw.replace(/[^\d/.\-\s]/g, '').slice(0, 10);
+    setText(t);
+    const next = frToIso(t);
+    if (next !== iso) onChange?.({ target: { value: next } });
+  };
+
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="jj/mm/aaaa"
+        maxLength={10}
+        title={title}
+        aria-label={ariaLabel}
+        className={classNames(className ?? inputCls, 'pr-9')}
+        value={text}
+        required={required}
+        disabled={disabled}
+        onChange={(e) => type(e.target.value)}
+        onBlur={() => setText(isoToFr(iso))}
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        disabled={disabled}
+        aria-label="Choisir une date"
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 disabled:opacity-50"
+        onClick={() => picker.current?.showPicker?.()}
+      >
+        <CalendarDays className="h-4 w-4" />
+      </button>
+      <input
+        ref={picker}
+        type="date"
+        lang="fr"
+        tabIndex={-1}
+        aria-hidden
+        className="pointer-events-none absolute bottom-0 right-0 h-0 w-0 opacity-0"
+        value={iso}
+        min={min}
+        max={max}
+        onChange={(e) => {
+          setText(isoToFr(e.target.value));
+          onChange?.({ target: { value: e.target.value } });
+        }}
+      />
+    </div>
+  );
 }

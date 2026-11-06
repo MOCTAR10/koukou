@@ -8,7 +8,7 @@ import { useFarm } from '../../app/FarmContext';
 import { useCanRead } from '../../app/useMenuAccess';
 import { fcfa } from '../../lib/format';
 import { FEED_PHASE_LABEL, Note } from '../flock/shared';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, todayIso } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, todayIso, DateInput } from '../form';
 import { FarmPicker } from '../programme/FarmPicker';
 import {
   DELIVERY_SOURCE_LABEL,
@@ -174,7 +174,7 @@ export function NewDeliveryModal({ onClose, onCreated }: { onClose: () => void; 
                       <input className={inputCls} value={line.supplierLotNumber} onChange={(e) => setLine(line.key, { supplierLotNumber: e.target.value })} />
                     </Field>
                     <Field label="Péremption">
-                      <input className={inputCls} type="date" value={line.expirationDate} onChange={(e) => setLine(line.key, { expirationDate: e.target.value })} />
+                      <DateInput className={inputCls} value={line.expirationDate} onChange={(e) => setLine(line.key, { expirationDate: e.target.value })} />
                     </Field>
                   </div>
                   {lineErrors.length > 0 ? <p className="text-xs text-red-700">{lineErrors.join(' · ')}</p> : null}
@@ -227,7 +227,7 @@ export function NewDeliveryModal({ onClose, onCreated }: { onClose: () => void; 
               <input className={inputCls} value={draft.supplierName} onChange={(e) => set('supplierName', e.target.value)} />
             </Field>
             <Field label="Date d’expédition *">
-              <input className={inputCls} type="date" value={draft.shippedAt} max={todayIso()} onChange={(e) => set('shippedAt', e.target.value)} />
+              <DateInput className={inputCls} value={draft.shippedAt} max={todayIso()} onChange={(e) => set('shippedAt', e.target.value)} />
             </Field>
             <Field label="Notes">
               <textarea className={inputCls} rows={2} value={draft.notes} onChange={(e) => set('notes', e.target.value)} />

@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BarChart3, ClipboardCheck, FileText, GitMerge, History, PenLine, Play, Scale, Sigma, Users } from 'lucide-react';
@@ -18,7 +18,7 @@ import { useInstitutionAccess } from '../../app/useInstitutionAccess';
 import { useMenuAccess } from '../../app/useMenuAccess';
 import { useAuth } from '../../auth/AuthContext';
 import { classNames, dateFr, dateTimeFr, fcfa } from '../../lib/format';
-import { Button, ErrorNote, Field, FormColumns, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, FormColumns, Modal, inputCls, DateInput } from '../form';
 import { Note, Pill, SectionCard, useInvalidateFarm } from '../flock/shared';
 import { canCorrectClosedBand } from '../pilotage/pilotageAccess';
 import { END_OF_BAND_TEMPLATE, runsQueryString } from '../pilotage/reports';
@@ -88,8 +88,8 @@ export function BandSummaryTab({ lot }: { lot: Lot }) {
         actions={
           <label className="flex items-center gap-2 text-xs text-slate-500">
             À la date
-            <input
-              type="date"
+            <DateInput
+              
               className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
               value={asOf}
               min={lot.integrationDate.slice(0, 10)}
@@ -474,7 +474,7 @@ function CorrectionModal({ lot, sheet, onClose }: { lot: Lot; sheet: BandSheet; 
       onClose();
     },
   });
-  const set = (k: keyof CorrectionForm) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: keyof CorrectionForm) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   const submit = () => {
     const err = correctionError(form, bounds);
     setCheckError(err);
@@ -490,7 +490,7 @@ function CorrectionModal({ lot, sheet, onClose }: { lot: Lot; sheet: BandSheet; 
         <FormColumns>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Jour corrigé">
-              <input type="date" className={inputCls} value={form.entryDate} min={bounds.from} max={bounds.to ?? undefined} onChange={set('entryDate')} />
+              <DateInput className={inputCls} value={form.entryDate} min={bounds.from} max={bounds.to ?? undefined} onChange={set('entryDate')} />
             </Field>
             <Field label="Morts">
               <input inputMode="numeric" className={inputCls} value={form.deaths} onChange={set('deaths')} />

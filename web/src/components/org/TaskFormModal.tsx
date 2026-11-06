@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { BatchWithMetrics } from '../../api/types';
 import type { AssignableMember, CreateTaskInput, FarmMember, FarmTask, UpdateTaskInput } from '../../api/types-org';
-import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../form';
+import { Button, ErrorNote, Field, inputCls, Modal, todayIso, DateInput } from '../form';
 import { invalidateFarm } from './shared';
 
 export function TaskFormModal({
@@ -81,7 +81,7 @@ export function TaskFormModal({
           />
         </Field>
         <Field label="Échéance *">
-          <input type="date" className={inputCls} value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
+          <DateInput className={inputCls} value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
         </Field>
         <Field
           label="Assigner à"

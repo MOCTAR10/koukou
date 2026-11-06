@@ -24,8 +24,8 @@ import type { BreedStandard, Lot, SanitaryProtocol, SanitaryProtocolWithSteps } 
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { EGG_IMAGES, SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
-import { classNames, dateFr, num } from '../../lib/format';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
+import { classNames, dateFr, num, plural } from '../../lib/format';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
 import { PhotoThumb } from '../ui';
 import {
   bandOpening,
@@ -410,9 +410,9 @@ export function CreateLotModal({
                 : `La bande s’ouvre ce jour-là.${ageDays > 0 ? ` J${ageDays} aujourd’hui.` : ''}`
             }
           >
-            <input
+            <DateInput
               className={inputCls}
-              type="date"
+              
               value={integrationDate}
               onChange={(e) => setIntegrationDate(e.target.value || localYmd())}
               required
@@ -522,7 +522,7 @@ export function CreateLotModal({
               <input className={inputCls} value={chickLot} onChange={(e) => setChickLot(e.target.value)} />
             </Field>
             <IconField label="Date d'éclosion" icon={<Calendar />}>
-              <input className={inputCls} type="date" value={hatchDate} onChange={(e) => setHatchDate(e.target.value)} />
+              <DateInput className={inputCls} value={hatchDate} onChange={(e) => setHatchDate(e.target.value)} />
             </IconField>
             {prefill ? (
               <p className="text-xs text-slate-500">Poussins reçus d’une livraison du programme : leur coût est déjà passé en dépense, pas de prix à saisir.</p>
@@ -573,7 +573,7 @@ export function CreateLotModal({
                 </div>
                 {dueSteps.length > doneSteps.length ? (
                   <p className="mt-1 text-xs text-amber-700">
-                    {dueSteps.length - doneSteps.length} soin(s) prévu(s) à cet âge ne seront pas marqués comme faits.
+                    {plural(dueSteps.length - doneSteps.length, 'soin prévu', 'soins prévus')} à cet âge ne {dueSteps.length - doneSteps.length < 2 ? 'sera' : 'seront'} pas marqué{dueSteps.length - doneSteps.length < 2 ? '' : 's'} comme fait{dueSteps.length - doneSteps.length < 2 ? '' : 's'}.
                   </p>
                 ) : null}
               </div>

@@ -21,7 +21,7 @@ import { useFarm } from '../../app/FarmContext';
 import { useCanRead } from '../../app/useMenuAccess';
 import { classNames } from '../../lib/format';
 import { Card, IconTile, type IconTone } from '../ui';
-import { inlineInputCls } from '../form';
+import { inlineInputCls, DateInput } from '../form';
 
 export const EGGS_PER_ALVEOL = 30;
 
@@ -510,8 +510,8 @@ export function PeriodBar({ value, onChange }: { value: Period; onChange: (p: Pe
       </div>
       <label className="flex items-center gap-1.5 text-xs text-slate-500">
         Jusqu'au
-        <input
-          type="date"
+        <DateInput
+          
           max={localYmd()}
           value={value.to ?? ''}
           onChange={(e) => onChange({ ...value, to: e.target.value || null })}

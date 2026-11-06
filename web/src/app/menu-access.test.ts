@@ -200,8 +200,11 @@ describe('access administration', () => {
 });
 
 describe('institutionLanding', () => {
-  it('opens the first page the profile reaches on a farm', () => {
-    expect(institutionLanding(DGE, 12)).toBe('/app/dashboard');
+  it('opens the programme steering first when the profile reaches it', () => {
+    expect(institutionLanding(DGE, 12)).toBe(PILOTAGE_PATH);
+  });
+
+  it('otherwise opens the first page the profile reaches on a farm', () => {
     expect(institutionLanding(AGENT_TECHNIQUE, 3)).toBe('/app/dashboard');
     expect(institutionLanding(VETERINAIRE, 12)).toBe('/app/sanitary');
   });

@@ -37,7 +37,7 @@ import { SectionTitle } from '../components/finance/shared';
 import { ShareBars, type ShareRow } from '../components/finance/ShareBars';
 import { Button, ErrorNote, Field, inputCls, todayIso } from '../components/form';
 import { Card, EmptyState, Loading, PageHeader, StatCard } from '../components/ui';
-import { fcfa, num, pct, statusLabel } from '../lib/format';
+import { fcfa, num, pct, statusLabel, plural } from '../lib/format';
 
 /** A hint with the sales/expense count and the change over the previous window. */
 function countHint(count: number, noun: string, delta: number | null): string {
@@ -192,7 +192,7 @@ export function ReportsPage() {
               label="Taux de marge de la période"
               value={pct(margin)}
               tone={margin != null && margin < 0 ? 'bad' : 'default'}
-              hint="(CA − dépenses) ÷ CA · indicateur de conduite (Fermia)"
+              hint="(CA − dépenses) ÷ CA · indicateur de conduite"
               icon={<PieChart className="h-5 w-5" />}
             />
           </div>
@@ -217,7 +217,7 @@ export function ReportsPage() {
                 icon={<Store />}
                 subtitle={
                   channelRows.length > 0
-                    ? `${channelRows.length} point(s) de vente · ${fcfa(sumFcfa(channelRows))}`
+                    ? `${plural(channelRows.length, 'point de vente', 'points de vente')} · ${fcfa(sumFcfa(channelRows))}`
                     : undefined
                 }
               />

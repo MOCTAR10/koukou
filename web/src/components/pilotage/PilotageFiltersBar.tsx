@@ -1,7 +1,7 @@
 import { RotateCcw } from 'lucide-react';
 import { useInstitutionAccess } from '../../app/useInstitutionAccess';
 import { classNames } from '../../lib/format';
-import { Field, inputCls } from '../form';
+import { Field, inputCls, DateInput } from '../form';
 import { useFarmStatusItems } from '../programme/FarmStatusModal';
 import { useProgrammeList, useProvinces } from '../registry/queries';
 import { Card } from '../ui';
@@ -43,10 +43,10 @@ export function PilotageFiltersBar({
         {withPeriod ? (
           <>
             <Field label="Du">
-              <input type="date" className={inputCls} value={filters.from} max={filters.to} onChange={(e) => e.target.value && onChange({ ...filters, from: e.target.value })} />
+              <DateInput className={inputCls} value={filters.from} max={filters.to} onChange={(e) => e.target.value && onChange({ ...filters, from: e.target.value })} />
             </Field>
             <Field label="Au">
-              <input type="date" className={inputCls} value={filters.to} min={filters.from} onChange={(e) => e.target.value && onChange({ ...filters, to: e.target.value })} />
+              <DateInput className={inputCls} value={filters.to} min={filters.from} onChange={(e) => e.target.value && onChange({ ...filters, to: e.target.value })} />
             </Field>
           </>
         ) : null}

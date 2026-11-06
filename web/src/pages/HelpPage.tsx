@@ -79,7 +79,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
       {
         icon: RefreshCw,
         iconTone: 'brand',
-        title: 'Alertes & advisory',
+        title: 'Alertes et conseils',
         lines: [
           'La page Alertes priorise vos actions (rouge → jaune) : saisie manquante, soin, stock de provende.',
           'Acquittez une alerte d’un clic ; elle restera historisée.',
@@ -102,7 +102,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
       {
         icon: Globe2,
         iconTone: 'slate',
-        title: 'Langue & support',
+        title: 'Aide et support',
         lines: ['Interface en français (Gabon).', 'Aide détaillée et tutoriels vidéo prévus dans une prochaine version.'],
       },
       {
@@ -118,7 +118,7 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
 export function HelpPage() {
   return (
     <div className="space-y-8">
-      <PageHeader title="Langue & aide" subtitle="Français · Guide de démarrage" icon={<LifeBuoy className="h-6 w-6" />} />
+      <PageHeader title="Aide" subtitle="Français · Guide de démarrage" icon={<LifeBuoy className="h-6 w-6" />} />
 
       {SECTIONS.map((section) => (
         <section key={section.title}>

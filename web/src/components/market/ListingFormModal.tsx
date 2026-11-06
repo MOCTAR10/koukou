@@ -5,7 +5,7 @@ import { api } from '../../api/client';
 import type { FarmMarketListing, MarketKind, MarketListingBody, MarketProduct } from '../../api/types-market';
 import type { CarcassPool, SellableBatch } from '../../api/types-orders';
 import { dateFr } from '../../lib/format';
-import { Button, ErrorNote, errorMessage, Field, inputCls, Modal, todayIso } from '../form';
+import { Button, ErrorNote, errorMessage, Field, inputCls, Modal, todayIso, DateInput } from '../form';
 import { addDaysIso } from '../orders/helpers';
 import { Segmented } from '../orders/shared';
 import { PRODUCT_NAME } from './shared';
@@ -229,7 +229,7 @@ export function ListingFormModal({
             ) : (
               <>
                 <Field label="Date de disponibilité">
-                  <input type="date" min={addDaysIso(todayIso(), 1)} className={inputCls} value={readyDate} onChange={(e) => setReadyDate(e.target.value)} required />
+                  <DateInput min={addDaysIso(todayIso(), 1)} className={inputCls} value={readyDate} onChange={(e) => setReadyDate(e.target.value)} required />
                 </Field>
                 <div className="flex flex-wrap items-end gap-2">
                   <Field label="Poids visé en kg (facultatif)" className="w-44">

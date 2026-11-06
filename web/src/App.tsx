@@ -63,7 +63,8 @@ import { EconomiePage } from './pages/EconomiePage';
 function HomeRedirect() {
   const { user } = useAuth();
   const { isGroundEleveur, isLoading } = useFarmProfile();
-  if (user?.role === 'PLATFORM_ADMIN') return <Navigate to="/app/platform" replace />;
+  // The platform admin lands on the programme steering (KPIs and map), not on a farm screen.
+  if (user?.role === 'PLATFORM_ADMIN') return <Navigate to="/app/pilotage" replace />;
   if (user?.role === 'INSTITUTION') return <InstitutionHomeRedirect />;
   // The landing page depends on the profile: wait for it.
   if (isLoading) return <Loading />;

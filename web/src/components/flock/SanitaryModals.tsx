@@ -24,7 +24,7 @@ import { QUEUED_DECLARATION_MESSAGE, toggleSign, withDeclaration } from '../surv
 import { useSanitaryList } from '../surveillance/queries';
 import type { SanitaryLotRef } from '../surveillance/sanitaryLot';
 import { classNames, dateFr, num } from '../../lib/format';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, Modal, inputCls, DateInput } from '../form';
 import { PhotoThumb } from '../ui';
 import {
   CARE_TYPES,
@@ -244,7 +244,7 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <IconField label="Date *" icon={<Calendar />}>
-            <input className={inputCls} type="date" max={localYmd()} value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} required />
+            <DateInput className={inputCls} max={localYmd()} value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} required />
           </IconField>
           <IconField
             label={needsQty ? "Nombre d'oiseaux *" : "Oiseaux touchés"}
@@ -466,7 +466,7 @@ export function EditScheduleModal({
             </select>
           </Field>
           <IconField label="Date prévue" icon={<Calendar />}>
-            <input className={inputCls} type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} required />
+            <DateInput className={inputCls} value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} required />
           </IconField>
         </div>
         <Field label="Nom *">
@@ -688,7 +688,7 @@ export function PlanCareModal({
                 </Field>
               )}
               <IconField label="Date prévue *" icon={<Calendar />}>
-                <input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                <DateInput className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} required />
               </IconField>
               <Field label="Voie d'administration">
                 <select className={inputCls} value={route} onChange={(e) => setRoute(e.target.value)}>

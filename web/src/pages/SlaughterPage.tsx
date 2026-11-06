@@ -23,7 +23,7 @@ import {
   useInvalidateFarm,
   useLots,
 } from '../components/flock/shared';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../components/form';
+import { Button, ErrorNote, Field, Modal, inputCls, DateInput } from '../components/form';
 import { DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { abattoirs } from '../components/trace/operatorRules';
 import { useOperators } from '../components/trace/queries';
@@ -210,9 +210,9 @@ export function SlaughterPage() {
         {horizon === 'custom' ? (
           <div className="flex items-center gap-2 text-xs text-slate-500">
             Du
-            <input className={`${inputCls} w-auto py-1 text-xs`} aria-label="Début de période" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DateInput className={`${inputCls} w-auto py-1 text-xs`} aria-label="Début de période" value={from} onChange={(e) => setFrom(e.target.value)} />
             au
-            <input className={`${inputCls} w-auto py-1 text-xs`} aria-label="Fin de période" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <DateInput className={`${inputCls} w-auto py-1 text-xs`} aria-label="Fin de période" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         ) : null}
       </div>
@@ -467,7 +467,7 @@ function NewOrderModal({
             <input className={inputCls} inputMode="numeric" value={birdCount} onChange={(e) => setBirdCount(e.target.value.replace(/\D/g, ''))} required />
           </IconField>
           <IconField label="Date prévue *" icon={<Calendar />}>
-            <input className={inputCls} type="date" value={plannedDate} onChange={(e) => setPlannedDate(e.target.value)} required />
+            <DateInput className={inputCls} value={plannedDate} onChange={(e) => setPlannedDate(e.target.value)} required />
           </IconField>
           <IconField label="Poids vif total (kg)" icon={<Scale />}>
             <input className={inputCls} inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} />

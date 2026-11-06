@@ -5,7 +5,7 @@ import { api } from '../../api/client';
 import type { PointOfSale, SaleFull } from '../../api/types-sales';
 import { ErrorNote, inputCls, todayIso } from '../form';
 import { Card, DataTable, EmptyState, Loading, StatusBadge, Td, Th } from '../ui';
-import { classNames, dateFr, fcfa, num } from '../../lib/format';
+import { classNames, dateFr, fcfa, num, plural } from '../../lib/format';
 import { productTypeLabel } from './labels';
 import { FilterChip, ReceiptButton } from './shared';
 import { SaleDetail, salePaid } from './SaleDetail';
@@ -50,7 +50,7 @@ export function SalesHistory({ farmId, pointsOfSale }: { farmId: string | null; 
             <ReceiptText className="h-4 w-4 text-brand-600" /> Reçus et historique
           </h2>
           <p className="text-xs text-slate-500">
-            {num(rows.length)} vente(s) · {fcfa(total)} hors annulations
+            {plural(rows.length, 'vente')} · {fcfa(total)} hors annulations
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

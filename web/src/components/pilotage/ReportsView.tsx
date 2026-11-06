@@ -6,7 +6,7 @@ import { api } from '../../api/client';
 import { SCOPE_KIND_LABELS, type ScopeKind } from '../../api/types-access';
 import type { GenerateReportResult, ReportLevel, ReportRun, ReportSection, ReportTemplate } from '../../api/types-pilotage';
 import { dateFr, dateTimeFr } from '../../lib/format';
-import { Button, ErrorNote, Field, FormColumns, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, FormColumns, Modal, inputCls, DateInput } from '../form';
 import { Note, Pill, SectionCard } from '../flock/shared';
 import { useProvinces } from '../registry/queries';
 import { DataTable, EmptyState, Loading, Td, Th } from '../ui';
@@ -105,7 +105,7 @@ function TemplatesSection({ rights, onRun }: { rights: PilotageRights; onRun: (i
                 {t.hasFarmRows ? <Pill tone="amber">Nomme des fermes</Pill> : null}
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                {t.code} · {LEVEL_LABELS[t.level]} · {PERIODICITY_LABELS[t.periodicity]}
+                {LEVEL_LABELS[t.level]} · {PERIODICITY_LABELS[t.periodicity]}
               </p>
               <p className="mt-2 text-sm text-slate-600">{t.sections.map((s) => s.label).join(' · ')}</p>
               <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-500">
@@ -383,7 +383,7 @@ function GenerateModal({ template, onClose, onDone }: { template: ReportTemplate
           Un rapport porte sur une période close ({PERIODICITY_LABELS[template.periodicity].toLowerCase()}). Sans date, la dernière période terminée est produite.
         </p>
         <Field label="Un jour de la période" hint="Facultatif : la semaine ou le mois qui contient ce jour.">
-          <input type="date" className={inputCls} value={form.periodStart} onChange={(e) => setForm({ ...form, periodStart: e.target.value })} />
+          <DateInput className={inputCls} value={form.periodStart} onChange={(e) => setForm({ ...form, periodStart: e.target.value })} />
         </Field>
         {template.level === 'PROVINCE' ? (
           <Field label="Province">
@@ -467,10 +467,10 @@ function RunsSection({ farmAccount, onOpen }: { farmAccount: boolean; onOpen: (i
           </>
         ) : null}
         <Field label="Période à partir du">
-          <input type="date" className={inputCls} value={q.from} onChange={(e) => setQ({ ...q, from: e.target.value })} />
+          <DateInput className={inputCls} value={q.from} onChange={(e) => setQ({ ...q, from: e.target.value })} />
         </Field>
         <Field label="Jusqu’au">
-          <input type="date" className={inputCls} value={q.to} onChange={(e) => setQ({ ...q, to: e.target.value })} />
+          <DateInput className={inputCls} value={q.to} onChange={(e) => setQ({ ...q, to: e.target.value })} />
         </Field>
       </div>
       {runs.isLoading ? (

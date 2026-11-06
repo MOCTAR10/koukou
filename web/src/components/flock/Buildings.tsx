@@ -7,7 +7,7 @@ import type { Building } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { dateFr, num } from '../../lib/format';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, Modal, inputCls, DateInput } from '../form';
 import { DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { Note, Pill, SectionCard, localYmd, parseNum, useBuildings, useInvalidateFarm, videSanitaireHint } from './shared';
 
@@ -73,7 +73,7 @@ export function BuildingFormModal({ onClose, onCreated }: { onClose: () => void;
           </Note>
         ) : null}
         <Field label="Dernier vide sanitaire">
-          <input className={inputCls} type="date" max={localYmd()} value={lastVide} onChange={(e) => setLastVide(e.target.value)} />
+          <DateInput className={inputCls} max={localYmd()} value={lastVide} onChange={(e) => setLastVide(e.target.value)} />
         </Field>
         <ErrorNote error={create.error} />
         <div className="flex justify-end gap-2">

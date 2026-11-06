@@ -25,7 +25,7 @@ import {
 import { NO_MEMBERSHIP_MESSAGE } from '../access/access-rules.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
-import { normalizePhone } from '../../common/utils/phone.js';
+import { phoneLoginCandidates } from '../../common/utils/phone.js';
 
 @Injectable()
 export class AuthService {
@@ -102,7 +102,7 @@ export class AuthService {
     // Accounts created before phone normalization may still hold spaces.
     const raw = dto.phone.trim();
     const user = await this.usersRepo.findOne({
-      where: [{ phone: normalizePhone(raw) }, { phone: raw }],
+      where: phoneLoginCandidates(raw).map((phone) => ({ phone })),
     });
     const ok = await bcrypt.compare(
       dto.code,

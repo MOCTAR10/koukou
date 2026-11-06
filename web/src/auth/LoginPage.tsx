@@ -146,10 +146,10 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      audience={buying ? 'buyer' : 'farm'}
-      eyebrow={buying ? 'Marché Fermia' : 'Espace ferme'}
-      title="Connexion"
-      subtitle="Entrez votre téléphone et votre code secret."
+      audience={buying ? 'buyer' : 'programme'}
+      eyebrow={buying ? 'Marché Fermia' : 'Accès programme'}
+      title={buying ? 'Connexion' : 'Programme POUFA, console de pilotage'}
+      subtitle="Connectez-vous avec votre téléphone et votre code secret."
       footer={
         buying ? (
           <p>
@@ -187,7 +187,7 @@ export function LoginPage() {
               className={`${inputCls} !py-2.5 pl-9`}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="074 12 34 56"
+              placeholder="+241 74 12 34 56"
               autoComplete="username"
               inputMode="tel"
               required
