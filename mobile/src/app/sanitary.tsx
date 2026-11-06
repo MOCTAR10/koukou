@@ -66,7 +66,6 @@ import { speciesLabel } from '@/api/format';
 import { breedImageForLot } from '@/constants/breedImages';
 import {
   cancelProphylaxis,
-  completeProphylaxis,
   createManualSchedule,
   deleteHealthEvent,
   deleteSchedule,
@@ -105,6 +104,9 @@ import { knownSigns, withDeclarationFields } from '@/poufa/declaration';
 import { openSanitaryLots } from '@/poufa/sanitary-lots';
 import { matrixGrants } from '@/poufa/access';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+// POUFA lot A sante: treatment register and care completion (CDC n° 22-23), offline.
+import { CompleteCareSheet, TreatmentSheet } from '@/components/sanitary/SanitaryRecordSheets';
+import { treatmentPeriodLabel } from '@/poufa/sanitary-records';
 
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements' | 'alertes';
 
@@ -381,6 +383,7 @@ function EventCard({
           <AppText size="caption" color="muted">
             {e.scheduledDate}
             {e.completedAt ? ` · réalisé le ${e.completedAt.slice(0, 10)}` : ''}
+            {e.animalCount != null ? ` · ${e.animalCount} sujets` : ''}
           </AppText>
         </View>
       </View>
@@ -415,8 +418,14 @@ function TreatmentCard({ t }: { t: TreatmentRecord }) {
         </AppText>
         <AppText size="caption" color="muted">
           {CARE_TYPE_LABEL[t.careType] ?? t.careType}
-          {t.dosage ? ` · ${t.dosage}` : ''} · {t.administeredAt?.slice(0, 10)}
+          {t.dosage ? ` · ${t.dosage}` : ''} · {treatmentPeriodLabel(t.administeredAt ?? '', t.endDate ?? null, (d) => d.slice(0, 10))}
+          {t.animalCount != null ? ` · ${t.animalCount} sujets` : ''}
         </AppText>
+        {t.reason ? (
+          <AppText size="caption" color="muted">
+            Motif : {t.reason}
+          </AppText>
+        ) : null}
         {t.withdrawalDays > 0 ? (
           <AppText size="caption" color="warn">
             Délai d’attente {t.withdrawalDays} j · vente suspendue jusqu’au {t.withdrawalEndDate?.slice(0, 10) ?? '—'}
@@ -776,6 +785,8 @@ export default function SanitaryScreen() {
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ProphylaxisEvent | null>(null);
+  const [treatmentOpen, setTreatmentOpen] = useState(false);
+  const [completing, setCompleting] = useState<ProphylaxisEvent | null>(null);
   const [wizardSeq, setWizardSeq] = useState(0);
 
   const openCreateWizard = () => {
@@ -850,6 +861,10 @@ export default function SanitaryScreen() {
   ) => {
     if (!batchId) return;
     setError(null);
+    if (action === 'complete') {
+      if (event) setCompleting(event);
+      return;
+    }
     if (action === 'cancel') {
       void confirm({ title: 'Annuler le soin', message: 'Le soin ne sera pas réalisé. Confirmer ?', cancelLabel: 'Non', confirmLabel: 'Annuler le soin', destructive: true }).then((ok) => {
       if (ok) void run();
@@ -863,9 +878,7 @@ export default function SanitaryScreen() {
       if (action !== 'generate' && !eventId) return;
       setBusy(eventId ?? 'generate');
       try {
-        if (action === 'complete') {
-          await completeProphylaxis(farmId, batchId, eventId!, { completedAt: todayStr() });
-        } else if (action === 'reschedule') {
+        if (action === 'reschedule') {
           await rescheduleProphylaxis(farmId, batchId, eventId!, addUtcDays(event!.scheduledDate, 1));
         } else if (action === 'cancel') {
           await cancelProphylaxis(farmId, batchId, eventId!, 'Annulé depuis le mobile');
@@ -1300,6 +1313,16 @@ export default function SanitaryScreen() {
                 </View>
               )}
 
+              {canCompleteCare && lot ? (
+                <Button
+                  label="Enregistrer un traitement"
+                  tone="success"
+                  icon={Plus}
+                  onPress={() => setTreatmentOpen(true)}
+                  disabled={busy !== null}
+                  style={{ marginTop: 14 }}
+                />
+              ) : null}
               <SectionHeader
                 title="Historique des traitements"
                 subtitle={lot?.batchName ?? ''}
@@ -1358,6 +1381,19 @@ export default function SanitaryScreen() {
           lots={lots}
           currentLot={lot}
           onClose={closeWizard}
+        />
+      ) : null}
+      {treatmentOpen && lot ? (
+        <TreatmentSheet key={`treatment-${lot.id}`} visible farmId={farmId} lot={lot} onClose={() => setTreatmentOpen(false)} />
+      ) : null}
+      {completing ? (
+        <CompleteCareSheet
+          key={`complete-${completing.id}`}
+          visible
+          farmId={farmId}
+          event={completing}
+          defaultCount={lots.find((b) => b.id === completing.batchId)?.quantityAlive}
+          onClose={() => setCompleting(null)}
         />
       ) : null}
       {wizardOpen && editingEvent ? (

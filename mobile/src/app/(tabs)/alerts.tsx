@@ -15,7 +15,9 @@ import { AlertCard } from '@/components/AlertCard';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { fetchAdvisory, fetchAlertHistory } from '@/api';
-import { acknowledgeAlert, completeProphylaxis, todayStr } from '@/api/mutations';
+import { acknowledgeAlert, todayStr } from '@/api/mutations';
+// POUFA lot A sante: a care completion goes through the offline queue (CDC n° 22).
+import { completeProphylaxisQueued } from '@/offline';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import {
   filterAlerts,
@@ -126,7 +128,7 @@ export default function AlertsScreen() {
     setCareBusy(true);
     setCareError(null);
     setOverrides((o) => ({ ...o, [target.id]: 'ACQUITTEE' }));
-    completeProphylaxis(farmId, target.batchId, target.id.replace(/^care:/, ''), {
+    completeProphylaxisQueued(farmId, target.batchId, target.id.replace(/^care:/, ''), {
       completedAt: `${careDate}T12:00:00.000Z`,
       notes: careNotes.trim() ? careNotes.trim() : undefined,
     })

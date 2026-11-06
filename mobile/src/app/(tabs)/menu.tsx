@@ -339,6 +339,9 @@ const REJECTED_KIND_LABEL: Partial<Record<RejectedOp['kind'], string>> = {
   'delivery-confirm': 'Confirmation de livraison',
   sortie: 'Sortie de bande',
   'farm-gps': 'Position GPS de la ferme',
+  // POUFA lot A sante
+  treatment: 'Traitement',
+  'prophylaxis-complete': 'Soin réalisé',
 };
 
 /** Kind of a rejected op, plus the amount collected if any, for display. */

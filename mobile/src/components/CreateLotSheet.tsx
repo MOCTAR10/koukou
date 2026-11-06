@@ -560,6 +560,9 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
             createTreatment(farmId, batchId, {
               careType: step.careType,
               productName: step.name,
+              // POUFA lot A sante: a step of the vets' calendar, accepted outside the PRODUIT_TRAITEMENT list.
+              protocolStepId: step.id,
+              reason: 'Soin du calendrier sanitaire',
               dosage: step.dosage ?? undefined,
               route: step.route ?? undefined,
               // Step of day N = J0 + N (may precede the opening: care given before arrival).
