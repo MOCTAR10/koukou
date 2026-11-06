@@ -60,6 +60,9 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
     String.fromCharCode(65 + (b % 26)),
   ).join('');
 
+  /** A FARMS profile reading the registry only (within the admin profile's rights). */
+  const readerProfile = `LECT${digits}`;
+
   /** Institutional accounts by profile code. */
   const accounts: Record<
     string,
@@ -173,6 +176,17 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       ).expect(201)
     ).body.id;
 
+    await post(
+      '/programme/access/profiles',
+      {
+        code: readerProfile,
+        label: `Lecteur registre ${digits}`,
+        scopeKind: 'FARMS',
+        matrix: { REGISTRE: ['CONSULTER'] },
+      },
+      adminToken,
+    ).expect(201);
+
     for (const p of DEFAULT_PROFILES) {
       accounts[p.code] = await createInstitution(
         p.code,
@@ -251,12 +265,26 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         { profileCode: 'DGE' },
         admin,
       ).expect(403);
+      // It grants only rights it holds itself: the seeded agent profile
+      // carries TECHNIQUE and INTRANTS, which the admin profile does not.
+      const beyond = await post(
+        '/programme/access/memberships',
+        {
+          fullName: `Agent refusé ${digits}`,
+          phone: phone(),
+          profileCode: 'AGENT_TECHNIQUE',
+          farmIds: [farmA],
+        },
+        admin,
+      ).expect(403);
+      expect(beyond.body.message).toContain("droits que vous n'avez pas");
+      expect(beyond.body.message).toContain('Suivi technique : Consulter');
       const created = await post(
         '/programme/access/memberships',
         {
           fullName: `Agent créé par admin ${digits}`,
           phone: phone(),
-          profileCode: 'AGENT_TECHNIQUE',
+          profileCode: readerProfile,
           farmIds: [farmA],
         },
         admin,
@@ -268,11 +296,18 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         {
           fullName: 'Agent hors programme',
           phone: phone(),
-          profileCode: 'AGENT_TECHNIQUE',
+          profileCode: readerProfile,
           farmIds: ['00000000-0000-4000-8000-0000000000c1'],
         },
         admin,
       ).expect(400);
+      // The audit profile (AUDIT domain) is granted by the platform only.
+      const audit = await post(
+        '/programme/access/memberships',
+        { fullName: 'Auditeur', phone: phone(), profileCode: 'ANINF' },
+        admin,
+      ).expect(403);
+      expect(audit.body.message).toContain("Journal d'audit");
     });
   });
 
@@ -744,6 +779,125 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         [agent.id],
       );
       await get('/programme/parameters', agent.token).expect(403);
+    });
+
+    it('a provincial administrator grants only within its own scope and rights', async () => {
+      const adminCode = `PADM${digits}`;
+      const provReader = `PLECT${digits}`;
+      await post(
+        '/programme/access/profiles',
+        {
+          code: adminCode,
+          label: `Admin provincial ${digits}`,
+          scopeKind: 'PROVINCES',
+          matrix: {
+            REGISTRE: ['CONSULTER'],
+            ADMINISTRATION: ['CONSULTER', 'CREER', 'MODIFIER', 'ADMINISTRER'],
+          },
+        },
+        adminToken,
+      ).expect(201);
+      await post(
+        '/programme/access/profiles',
+        {
+          code: provReader,
+          label: `Lecteur provincial ${digits}`,
+          scopeKind: 'PROVINCES',
+          matrix: { REGISTRE: ['CONSULTER'] },
+        },
+        adminToken,
+      ).expect(201);
+      const padm = (
+        await createInstitution(adminCode, { provinceCodes: ['G1'] })
+      ).token;
+      const grant = (body: object) =>
+        post(
+          '/programme/access/memberships',
+          { fullName: `Agent ${digits}`, phone: phone(), ...body },
+          padm,
+        );
+
+      // Farms: only those of its provinces (farm A in G1, farm B in G2).
+      const reader = await grant({
+        profileCode: readerProfile,
+        farmIds: [farmA],
+      }).expect(201);
+      const outFarm = await grant({
+        profileCode: readerProfile,
+        farmIds: [farmA, farmB],
+      }).expect(403);
+      expect(outFarm.body.message).toBe(
+        'Accès refusé : une ferme demandée est hors de votre périmètre.',
+      );
+      // Provinces: a subset of its own.
+      await grant({ profileCode: provReader, provinceCodes: ['G1'] }).expect(
+        201,
+      );
+      const outProvince = await grant({
+        profileCode: provReader,
+        provinceCodes: ['G1', 'G2'],
+      }).expect(403);
+      expect(outProvince.body.message).toBe(
+        'Accès refusé : province hors de votre périmètre (G2).',
+      );
+      // Scope kinds: nothing broader than PROVINCES, no special kind.
+      const national = await grant({ profileCode: 'DGE' }).expect(403);
+      expect(national.body.message).toContain('plus large que le vôtre');
+      const aggregate = await grant({ profileCode: 'MAEDR' }).expect(403);
+      expect(aggregate.body.message).toContain('périmètre national');
+
+      // Editing: never an account broader than itself, nor out of scope.
+      const broader = await patch(
+        `/programme/access/memberships/${accounts.DGE.id}`,
+        { active: false },
+        padm,
+      ).expect(403);
+      expect(broader.body.message).toContain('plus larges que les vôtres');
+      await patch(
+        `/programme/access/memberships/${reader.body.id}`,
+        { farmIds: [farmB] },
+        padm,
+      ).expect(403);
+      await patch(
+        `/programme/access/memberships/${reader.body.id}`,
+        { profileCode: 'AGENT_TECHNIQUE' },
+        padm,
+      ).expect(403);
+      await patch(
+        `/programme/access/memberships/${reader.body.id}`,
+        { active: false },
+        padm,
+      ).expect(200);
+
+      // Profiles: none broader than itself, nor with rights it lacks.
+      const profile = (body: object) =>
+        post(
+          '/programme/access/profiles',
+          { code: `P${digits}${seq++}`, label: 'Profil', ...body },
+          padm,
+        );
+      await profile({
+        scopeKind: 'ALL',
+        matrix: { REGISTRE: ['CONSULTER'] },
+      }).expect(403);
+      const rights = await profile({
+        scopeKind: 'FARMS',
+        matrix: { REGISTRE: ['CONSULTER'], TECHNIQUE: ['CONSULTER'] },
+      }).expect(403);
+      expect(rights.body.message).toContain('Suivi technique : Consulter');
+      await profile({
+        scopeKind: 'FARMS',
+        matrix: { REGISTRE: ['CONSULTER'] },
+      }).expect(201);
+      const profiles = (
+        await get('/programme/access/profiles', adminToken).expect(200)
+      ).body as Array<{ id: string; code: string }>;
+      const dge = profiles.find((p) => p.code === 'DGE')!;
+      await patch(
+        `/programme/access/profiles/${dge.id}`,
+        { label: 'POUFA / DGE' },
+        padm,
+      ).expect(403);
     });
 
     it('changes a scope through the administration', async () => {

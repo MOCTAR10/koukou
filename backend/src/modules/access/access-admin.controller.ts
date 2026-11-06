@@ -66,8 +66,11 @@ export class AccessAdminController {
   @Roles(UserRole.PLATFORM_ADMIN)
   @Action('ADMINISTRER')
   @ApiOperation({ summary: "Créer un profil d'accès (non système)" })
-  createProfile(@Body() dto: CreateAccessProfileDto) {
-    return this.access.createProfile(dto);
+  createProfile(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateAccessProfileDto,
+  ) {
+    return this.access.createProfile(user, dto);
   }
 
   @Patch('profiles/:id')

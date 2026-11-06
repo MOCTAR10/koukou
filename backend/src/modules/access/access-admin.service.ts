@@ -23,7 +23,14 @@ import {
   DOMAIN_LABELS,
   PROGRAMME_DOMAINS,
 } from './access-domains.js';
-import { validateMatrix, type InstitutionAccess } from './access-rules.js';
+import {
+  SCOPE_KIND_LABELS,
+  matrixExcessRefusal,
+  scopeExcess,
+  scopeKindRefusal,
+  validateMatrix,
+  type InstitutionAccess,
+} from './access-rules.js';
 import {
   CreateAccessProfileDto,
   CreateMembershipDto,
@@ -34,15 +41,9 @@ import { AccessProfile } from './entities/access-profile.entity.js';
 import { ProgramMembership } from './entities/program-membership.entity.js';
 import { ScopeResolver } from './scope-resolver.service.js';
 
-export const SCOPE_KIND_LABELS: Readonly<Record<AccessScopeKind, string>> = {
-  ALL: 'Toutes les fermes du programme',
-  PROVINCES: 'Fermes de ses provinces',
-  FARMS: 'Ses fermes',
-  FINANCED: 'Fermes financées (avec consentement)',
-  OPERATOR: 'Lots qui le concernent (opérateur)',
-  AGGREGATE: 'Données agrégées seulement',
-  AUDIT: "Journal d'audit seulement",
-};
+/** Refusal when an institutional admin edits an account or profile beyond its own. */
+const BEYOND_OWN_ACCESS_MESSAGE =
+  "Accès refusé : ce compte ou ce profil a des droits ou un périmètre plus larges que les vôtres ; seul un administrateur qui les détient (ou l'administrateur de la plateforme) peut le modifier.";
 
 /**
  * Administration of the institutional access (programme admin and platform
@@ -108,10 +109,19 @@ export class AccessAdminService {
     });
   }
 
-  async createProfile(dto: CreateAccessProfileDto): Promise<AccessProfile> {
+  async createProfile(
+    actor: AuthUser,
+    dto: CreateAccessProfileDto,
+  ): Promise<AccessProfile> {
     const program = await this.programme.current();
     this.assertScopeKindOpen(dto.scopeKind);
     const matrix = this.checkedMatrix(dto.matrix, dto.scopeKind);
+    // An institutional admin never creates a profile broader than itself.
+    this.assertMayGrantProfile(await this.granterOf(actor), {
+      scopeKind: dto.scopeKind,
+      matrix,
+      label: dto.label,
+    });
     const repo = this.dataSource.getRepository(AccessProfile);
     try {
       return await this.dataSource.transaction((em) =>
@@ -142,8 +152,10 @@ export class AccessAdminService {
     dto: UpdateAccessProfileDto,
   ): Promise<AccessProfile> {
     await this.assertNotOwnProfile(actor, id);
+    const granter = await this.granterOf(actor);
     return this.dataSource.transaction(async (em) => {
       const profile = await this.lockedProfile(em, id);
+      this.assertWithinOwnProfile(granter, profile);
       const scopeKind = dto.scopeKind ?? profile.scopeKind;
       if (scopeKind !== profile.scopeKind) {
         if (profile.system) {
@@ -165,6 +177,11 @@ export class AccessAdminService {
         dto.matrix ?? profile.matrix,
         scopeKind,
       );
+      this.assertMayGrantProfile(granter, {
+        scopeKind,
+        matrix,
+        label: dto.label ?? profile.label,
+      });
       return em.getRepository(AccessProfile).save({
         ...profile,
         label: dto.label ?? profile.label,
@@ -176,8 +193,10 @@ export class AccessAdminService {
 
   async deleteProfile(actor: AuthUser, id: string): Promise<{ deleted: true }> {
     await this.assertNotOwnProfile(actor, id);
+    const granter = await this.granterOf(actor);
     await this.dataSource.transaction(async (em) => {
       const profile = await this.lockedProfile(em, id);
+      this.assertWithinOwnProfile(granter, profile);
       if (profile.system) {
         throw new BadRequestException(
           'Un profil système ne peut pas être supprimé.',
@@ -218,6 +237,7 @@ export class AccessAdminService {
    */
   async createMembership(actor: AuthUser, dto: CreateMembershipDto) {
     const program = await this.programme.current();
+    const granter = await this.granterOf(actor);
     const code = generateLoginCode();
     const passwordHash = await bcrypt.hash(code, 10);
     try {
@@ -231,6 +251,7 @@ export class AccessAdminService {
           provinceIds: [],
           farmIds: [],
         });
+        await this.assertMayGrant(em, granter, profile, scope);
         const users = em.getRepository(User);
         const taken = await users.exists({
           where: [
@@ -282,6 +303,7 @@ export class AccessAdminService {
     dto: UpdateMembershipDto,
   ) {
     const program = await this.programme.current();
+    const granter = await this.granterOf(actor);
     await this.dataSource.transaction(async (em) => {
       const repo = em.getRepository(ProgramMembership);
       const m = await repo.findOne({
@@ -294,15 +316,20 @@ export class AccessAdminService {
           'Vous ne pouvez pas modifier votre propre rattachement.',
         );
       }
-      const profile = dto.profileCode
-        ? await this.profileByCode(em, program.id, dto.profileCode)
-        : await em.getRepository(AccessProfile).findOneByOrFail({
-            id: m.profileId,
-          });
-      if (profile.programId !== program.id) {
+      const current = await em.getRepository(AccessProfile).findOneByOrFail({
+        id: m.profileId,
+      });
+      if (current.programId !== program.id) {
         throw new NotFoundException('Rattachement introuvable.');
       }
+      // The account as it is must be within the caller's own access...
+      await this.assertWithinOwnAccess(em, granter, current, m);
+      const profile = dto.profileCode
+        ? await this.profileByCode(em, program.id, dto.profileCode)
+        : current;
       const scope = await this.resolveScope(em, program.id, profile, dto, m);
+      // ...and so must the access it is given.
+      await this.assertMayGrant(em, granter, profile, scope);
       await repo.save({
         ...m,
         profileId: profile.id,
@@ -339,6 +366,114 @@ export class AccessAdminService {
       throw new ForbiddenException(
         'Vous ne pouvez pas modifier votre propre profil d’accès.',
       );
+    }
+  }
+
+  /**
+   * The caller's own access when it is an institutional administrator; null
+   * for the platform admin, who is not limited.
+   */
+  private async granterOf(actor: AuthUser): Promise<InstitutionAccess | null> {
+    if (actor.role !== UserRole.INSTITUTION) return null;
+    return this.scope.requireAccess(actor);
+  }
+
+  /**
+   * No escalation through a profile: an institutional admin grants (or
+   * creates) only a scope kind within its own (ALL > PROVINCES > FARMS; the
+   * other kinds by an ALL scope only) and only rights its own matrix holds.
+   * @throws ForbiddenException
+   */
+  private assertMayGrantProfile(
+    granter: InstitutionAccess | null,
+    profile: Pick<AccessProfile, 'scopeKind' | 'matrix' | 'label'>,
+  ): void {
+    if (!granter) return;
+    const refusal =
+      scopeKindRefusal(granter.scopeKind, profile.scopeKind) ??
+      matrixExcessRefusal(granter.matrix, profile.matrix ?? {}, profile.label);
+    if (refusal) throw new ForbiddenException(refusal);
+  }
+
+  /**
+   * {@link assertMayGrantProfile}, plus the membership's provinces and farms
+   * within the caller's own scope.
+   * @throws ForbiddenException
+   */
+  private async assertMayGrant(
+    em: EntityManager,
+    granter: InstitutionAccess | null,
+    profile: Pick<AccessProfile, 'scopeKind' | 'matrix' | 'label'>,
+    scope: { provinceIds: readonly string[]; farmIds: readonly string[] },
+  ): Promise<void> {
+    if (!granter) return;
+    this.assertMayGrantProfile(granter, profile);
+    const farms = scope.farmIds.length
+      ? await em.getRepository(Farm).find({
+          where: { id: In([...scope.farmIds]) },
+          select: { id: true, provinceId: true },
+        })
+      : [];
+    const excess = scopeExcess(granter, {
+      scopeKind: profile.scopeKind,
+      provinceIds: scope.provinceIds,
+      farms,
+    });
+    if (excess.provinceIds.length > 0) {
+      const codes = await this.provinceCodes(granter.programId);
+      const list = excess.provinceIds.map((id) => codes.get(id) ?? id);
+      throw new ForbiddenException(
+        `Accès refusé : province hors de votre périmètre (${list.join(', ')}).`,
+      );
+    }
+    if (excess.farmIds.length > 0) {
+      throw new ForbiddenException(
+        excess.farmIds.length === 1
+          ? 'Accès refusé : une ferme demandée est hors de votre périmètre.'
+          : `Accès refusé : ${excess.farmIds.length} fermes demandées sont hors de votre périmètre.`,
+      );
+    }
+  }
+
+  /** An institutional admin edits only a profile it could grant. */
+  private assertWithinOwnProfile(
+    granter: InstitutionAccess | null,
+    profile: AccessProfile,
+  ): void {
+    if (!granter) return;
+    try {
+      this.assertMayGrantProfile(granter, profile);
+    } catch (err) {
+      if (err instanceof ForbiddenException) {
+        throw new ForbiddenException(BEYOND_OWN_ACCESS_MESSAGE);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * An institutional admin manages only an account it could have granted
+   * (profile and scope within its own): no suspending, rescoping or resetting
+   * the code of a broader account.
+   * @throws ForbiddenException
+   */
+  private async assertWithinOwnAccess(
+    em: EntityManager,
+    granter: InstitutionAccess | null,
+    profile: AccessProfile,
+    m: Pick<ProgramMembership, 'provinceIds' | 'farmIds'>,
+  ): Promise<void> {
+    if (!granter) return;
+    try {
+      await this.assertMayGrant(em, granter, profile, {
+        provinceIds: m.provinceIds ?? [],
+        farmIds: m.farmIds ?? [],
+      });
+    } catch (err) {
+      if (err instanceof ForbiddenException) {
+        throw new ForbiddenException(BEYOND_OWN_ACCESS_MESSAGE);
+      }
+      throw err;
     }
   }
 

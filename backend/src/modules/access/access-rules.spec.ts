@@ -9,7 +9,11 @@ import {
   includesFarm,
   includesProvince,
   isMembershipEffective,
+  matrixExcess,
+  matrixExcessRefusal,
   mayChangeParameter,
+  scopeExcess,
+  scopeKindRefusal,
   validateMatrix,
   type InstitutionAccess,
 } from './access-rules.js';
@@ -341,5 +345,90 @@ describe('sanitary declarations', () => {
     expect(
       mayHandleSanitaryDeclarations({ role: UserRole.OPERATEUR }, null),
     ).toBe(false);
+  });
+});
+
+describe('granting access (institutional administrator)', () => {
+  const K = AccessScopeKind;
+
+  it('orders the scope kinds ALL > PROVINCES > FARMS', () => {
+    for (const target of Object.values(K)) {
+      expect(scopeKindRefusal(K.ALL, target)).toBeNull();
+    }
+    expect(scopeKindRefusal(K.PROVINCES, K.PROVINCES)).toBeNull();
+    expect(scopeKindRefusal(K.PROVINCES, K.FARMS)).toBeNull();
+    expect(scopeKindRefusal(K.PROVINCES, K.ALL)).toContain('plus large');
+    expect(scopeKindRefusal(K.FARMS, K.FARMS)).toBeNull();
+    expect(scopeKindRefusal(K.FARMS, K.PROVINCES)).toContain('plus large');
+    for (const special of [K.FINANCED, K.OPERATOR, K.AGGREGATE, K.AUDIT]) {
+      expect(scopeKindRefusal(K.PROVINCES, special)).toContain(
+        'périmètre national',
+      );
+    }
+    // A scope that reaches no farm grants nothing.
+    expect(scopeKindRefusal(K.AGGREGATE, K.FARMS)).toContain('plus large');
+  });
+
+  it('refuses rights the granter does not hold', () => {
+    const admin = access('ADMIN').matrix;
+    expect(matrixExcess(admin, { REGISTRE: ['CONSULTER'] })).toEqual([]);
+    expect(
+      matrixExcess(admin, {
+        REGISTRE: ['CONSULTER', 'CREER'],
+        TECHNIQUE: ['CONSULTER'],
+      }),
+    ).toEqual([
+      ['REGISTRE', 'CREER'],
+      ['TECHNIQUE', 'CONSULTER'],
+    ]);
+    expect(matrixExcessRefusal(admin, { AUDIT: ['CONSULTER'] }, 'ANINF')).toBe(
+      "Accès refusé : le profil « ANINF » donne des droits que vous n'avez pas (Journal d'audit : Consulter).",
+    );
+    expect(matrixExcessRefusal(admin, admin, 'Admin')).toBeNull();
+  });
+
+  it('keeps provinces and farms within the granter scope', () => {
+    const prov = access('ADMIN', {
+      scopeKind: K.PROVINCES,
+      provinceIds: [G1],
+    });
+    expect(
+      scopeExcess(prov, {
+        scopeKind: K.PROVINCES,
+        provinceIds: [G1, G2],
+        farms: [],
+      }),
+    ).toEqual({ provinceIds: [G2], farmIds: [] });
+    expect(
+      scopeExcess(prov, {
+        scopeKind: K.FARMS,
+        provinceIds: [],
+        farms: [
+          { id: FARM_A, provinceId: G1 },
+          { id: FARM_B, provinceId: G2 },
+        ],
+      }),
+    ).toEqual({ provinceIds: [], farmIds: [FARM_B] });
+    const farmsOnly = access('ADMIN', {
+      scopeKind: K.FARMS,
+      farmIds: [FARM_A],
+    });
+    expect(
+      scopeExcess(farmsOnly, {
+        scopeKind: K.FARMS,
+        provinceIds: [],
+        farms: [
+          { id: FARM_A, provinceId: G1 },
+          { id: FARM_B, provinceId: G1 },
+        ],
+      }),
+    ).toEqual({ provinceIds: [], farmIds: [FARM_B] });
+    expect(
+      scopeExcess(access('ADMIN'), {
+        scopeKind: K.PROVINCES,
+        provinceIds: [G1, G2],
+        farms: [],
+      }),
+    ).toEqual({ provinceIds: [], farmIds: [] });
   });
 });
