@@ -68,7 +68,16 @@ export function farmSpaceState(input: { farmsLoading: boolean; farmsFailed: bool
  * (where the first farm gets created).
  */
 export function worksWithoutFarm(pathname: string): boolean {
-  return ['/app/platform', '/app/help', '/app/acces', '/app/mon-acces', '/app/registre'].some((root) => isUnder(pathname, root));
+  return [
+    '/app/platform',
+    '/app/help',
+    '/app/acces',
+    '/app/mon-acces',
+    '/app/registre',
+    // POUFA L5: programme-wide surveillance, and the account's own notifications.
+    '/app/surveillance',
+    '/app/notifications',
+  ].some((root) => isUnder(pathname, root));
 }
 
 /** French text of the no-farm screen, per kind of account. */

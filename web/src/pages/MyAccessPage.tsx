@@ -32,7 +32,14 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/expenses': 'Dépenses',
   '/app/registre': 'Registre des fermes',
   '/app/acces': 'Accès institutionnels',
+  // POUFA L5 (begin)
+  '/app/surveillance': 'Surveillance sanitaire',
+  '/app/notifications/regles': 'Règles de notification',
+  // POUFA L5 (end)
 };
+
+/** Programme-wide pages: open without a farm in the scope (POUFA L5 adds surveillance and notification rules). */
+const WITHOUT_FARM = new Set(['/app/acces', '/app/registre', '/app/surveillance', '/app/notifications/regles']);
 
 /** Domains without a screen in the web app yet: what the account can expect. */
 const NO_SCREEN_YET: Partial<Record<AccessDomain, string>> = {
@@ -135,7 +142,7 @@ export function MyAccessPage() {
               const actions = ACCESS_ACTIONS.filter((a) => grantsAccess(profile, d, a));
               // Farm pages need a farm in scope; the access screens don't.
               const pages = pagesOfDomain(d).filter(
-                (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (p === '/app/acces' || p === '/app/registre' || (reaches && farms.length > 0)),
+                (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (WITHOUT_FARM.has(p) || (reaches && farms.length > 0)),
               );
               const note = NO_SCREEN_YET[d];
               return (

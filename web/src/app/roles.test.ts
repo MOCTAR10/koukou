@@ -87,6 +87,13 @@ describe('worksWithoutFarm', () => {
     expect(worksWithoutFarm('/app/registre')).toBe(true);
     expect(worksWithoutFarm('/app/registre?ferme=abc')).toBe(true);
   });
+
+  it('keeps the programme surveillance and the notifications open (POUFA L5)', () => {
+    expect(worksWithoutFarm('/app/surveillance')).toBe(true);
+    expect(worksWithoutFarm('/app/surveillance/parametres')).toBe(true);
+    expect(worksWithoutFarm('/app/notifications/regles')).toBe(true);
+    expect(worksWithoutFarm('/app/sanitary')).toBe(false);
+  });
 });
 
 describe('noFarmMessage', () => {

@@ -40,6 +40,11 @@ import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
 import { AccessPage } from './pages/AccessPage';
 import { MyAccessPage } from './pages/MyAccessPage';
 import { InstitutionHomeRedirect } from './components/access/InstitutionHomeRedirect';
+// POUFA L5: sanitary surveillance and notifications.
+import { SurveillancePage } from './pages/SurveillancePage';
+import { SurveillanceSettingsPage } from './pages/SurveillanceSettingsPage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { NotificationRulesPage } from './pages/NotificationRulesPage';
 
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
@@ -117,6 +122,12 @@ export function App() {
           <Route element={<RequiresInstitution />}>
             <Route path="mon-acces" element={<MyAccessPage />} />
           </Route>
+          {/* POUFA L5 (begin): sanitary surveillance and notifications; each page checks the server matrix itself. */}
+          <Route path="surveillance" element={<SurveillancePage />} />
+          <Route path="surveillance/parametres" element={<SurveillanceSettingsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="notifications/regles" element={<NotificationRulesPage />} />
+          {/* POUFA L5 (end) */}
         </Route>
         </Route>
       </Route>
