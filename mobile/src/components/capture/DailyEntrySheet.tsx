@@ -1054,7 +1054,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
               </View>
             </View>
             <AppText size="caption" color="muted" numberOfLines={1}>
-              {[ctx.breedCode, ctx.breedName, ctx.isLayer ? 'Pondeuse' : 'Chair'].filter(Boolean).join(' · ')}
+              {[lot.code, ctx.breedCode, ctx.breedName, ctx.isLayer ? 'Pondeuse' : 'Chair'].filter(Boolean).join(' · ')}
             </AppText>
             <View style={styles.ctxStats}>
               <View style={styles.ctxStat}>

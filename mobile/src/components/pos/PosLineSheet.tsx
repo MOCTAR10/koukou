@@ -753,7 +753,7 @@ export function PosLineSheet({
                       {lot?.batchName ?? 'Lot'}
                     </AppText>
                     <AppText size="small" color="muted">
-                      {`${[lot?.breedCode, lot?.breedName, lot?.type === 'CHAIR' ? 'Chair' : 'Pondeuse'].filter(Boolean).join(' · ') || '—'} · J${lot?.metrics.ageDays ?? '—'}`}
+                      {`${[lot?.code, lot?.breedCode, lot?.breedName, lot?.type === 'CHAIR' ? 'Chair' : 'Pondeuse'].filter(Boolean).join(' · ') || '—'} · J${lot?.metrics.ageDays ?? '—'}`}
                     </AppText>
                   </View>
                 </View>

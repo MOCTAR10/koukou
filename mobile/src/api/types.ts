@@ -330,6 +330,14 @@ export interface ProductionBatch {
   breedId?: string | null;
   /** Auto-signal de disponibilité à la vente (persisté côté serveur). */
   readyForSaleAt?: string | null;
+  /** POUFA band code `G1-0012-B07` (farm code + rank), set at opening, never changed. */
+  code?: string | null;
+  /** Age of the birds (days) when the band was opened (J+x); 0 at placement. */
+  initialAgeDays?: number | null;
+  /** `BANDE_DUREE_REFERENCE_J` in force at opening (cycle length of the band). */
+  referenceDurationDays?: number | null;
+  /** Closing date of the band (CLOTURE). */
+  closedAt?: string | null;
 }
 
 /** Saisie journalière existante (upsert par date côté serveur). */

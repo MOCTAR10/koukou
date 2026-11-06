@@ -72,6 +72,7 @@ import { useCreateCenter } from '@/components/create/CreateCenter';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { ApiError } from '@/api/client';
 import { toast } from '@/components/ui/Feedback';
+import { bandCycle, lotSearchText } from '@/utils/band';
 
 // ── Filters ──
 type FilterType = 'all' | 'active' | 'selling' | 'chair' | 'layer';
@@ -95,9 +96,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'health', label: 'Santé' },
 ];
 
-// ── Breed cycle lengths (days) ──
-const CHAIR_CYCLE_DAYS = 84; // ~12 weeks
-const LAYER_CYCLE_DAYS = 504; // ~72 weeks
 const FINANCE_WINDOW_DAYS = 30; // fenêtre financière par défaut
 
 // ── Production stage (stade) thresholds ──
@@ -643,7 +641,7 @@ export default function LotsScreen() {
     let list = filteredList;
     const q = search.trim().toLowerCase();
     if (q) {
-      list = list.filter((b) => (b.batchName ?? '').toLowerCase().includes(q) || (b.breedName ?? '').toLowerCase().includes(q));
+      list = list.filter((b) => lotSearchText(b).includes(q));
     }
 
     list = [...list].sort((a, b) => {
@@ -1188,8 +1186,14 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
   const spec = batch.species ?? 'POULET';
   const customName = spec === 'AUTRE' && batch.customSpecies ? batch.customSpecies : null;
   const specLabel = customName ?? speciesLabel(spec);
-  const cycleDays = isLayer ? LAYER_CYCLE_DAYS : CHAIR_CYCLE_DAYS;
-  const ageProgress = Math.min(100, (m.ageDays / cycleDays) * 100);
+  // Cycle of the band: its reference duration (programme parameter at opening).
+  const cycle = bandCycle({
+    daysSinceOpening: m.ageDays,
+    initialAgeDays: batch.initialAgeDays,
+    referenceDurationDays: batch.referenceDurationDays,
+    type: batch.type,
+  });
+  const ageProgress = cycle.progressPercent;
 
   // Pillule de statut : la décision la plus utile à connaître d'un coup d'œil.
   const pill = batchStatusPill(batch);
@@ -1247,6 +1251,11 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
           <AppText size="body" weight="bold" color="text">
             {batch.batchName ?? 'Lot'}
           </AppText>
+          {batch.code ? (
+            <AppText size="small" weight="semibold" color="brand" numberOfLines={1}>
+              {batch.code}
+            </AppText>
+          ) : null}
           <AppText color="muted" style={{ fontSize: 11, lineHeight: 14 }} allowFontScaling={false}>
             {[batch.breedCode, batch.breedName, isLayer ? 'Pondeuse' : 'Chair'].filter(Boolean).join(' · ')}
           </AppText>
@@ -1322,7 +1331,9 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${ageProgress}%`, backgroundColor: statusColor }]} />
         </View>
-        <AppText size="small" color="faint">{Math.max(0, cycleDays - m.ageDays)}j restants · {ageProgress.toFixed(0)}%</AppText>
+        <AppText size="small" color="faint">
+          {cycle.remainingDays}j restants sur {cycle.cycleDays}j{cycle.fromReference ? ' (durée de référence)' : ''} · {ageProgress.toFixed(0)}%
+        </AppText>
       </View>
 
       {/* ── MAIN METRICS (fortes) ── */}
@@ -2496,7 +2507,7 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
     <Sheet
       visible={visible}
       title={batch.batchName ?? 'Lot'}
-      subtitle={`${[batch.breedCode, batch.breedName, kindLabel(batch)].filter(Boolean).join(' · ')} · ${stage.label} · J${m.ageDays}`}
+      subtitle={`${[batch.code, batch.breedCode, batch.breedName, kindLabel(batch)].filter(Boolean).join(' · ')} · ${stage.label} · J${m.ageDays}`}
       accentColor={m.status === 'ROUGE' ? palette.red[500] : m.status === 'JAUNE' ? palette.amber[500] : palette.brand[500]}
       icon={speciesImage ? (
         <View style={styles.sheetIconTile}>

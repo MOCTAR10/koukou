@@ -84,6 +84,7 @@ import type {
   TreatmentRecord,
 } from '@/api/types';
 import { SPECIES_LABELS } from '@/api/format';
+import { bandCycle } from '@/utils/band';
 
 // ── Tabs ──
 type MainTab = 'overview' | 'curves' | 'history' | 'health';
@@ -302,15 +303,27 @@ export default function LotDetailScreen() {
     enabled: !!breedIdForStandards,
   });
 
-  // ── Cycle progress (week X / Y from breed standards) ──
+  // ── Cycle progress: the band's reference duration (POUFA), else week X / Y from breed standards ──
   const cycleInfo = useMemo(() => {
-    const std: BreedStandard[] = standardsQ.data ?? [];
     const age = m?.ageDays ?? 0;
+    if (b?.referenceDurationDays) {
+      const cycle = bandCycle({
+        daysSinceOpening: age,
+        initialAgeDays: b.initialAgeDays,
+        referenceDurationDays: b.referenceDurationDays,
+        type: b.type,
+      });
+      return {
+        label: `Jour ${cycle.ageDays}/${cycle.cycleDays} · durée de référence`,
+        pct: cycle.progressPercent,
+      };
+    }
+    const std: BreedStandard[] = standardsQ.data ?? [];
     const totalWeeks = std.length > 0 ? Math.max(...std.map((s) => s.week)) : isLayer ? 72 : 12;
     const currentWeek = Math.min(Math.max(Math.ceil(age / 7), 1), totalWeeks);
     const pct = Math.min(100, (age / (totalWeeks * 7)) * 100);
-    return { currentWeek, totalWeeks, pct };
-  }, [standardsQ.data, m?.ageDays, isLayer]);
+    return { label: `Semaine ${currentWeek}/${totalWeeks}`, pct };
+  }, [standardsQ.data, m?.ageDays, isLayer, b?.referenceDurationDays, b?.initialAgeDays, b?.type]);
 
   const lotFeedLots: FeedLotStock[] = useMemo(() => {
     return (feedStockQ.data?.lots ?? []).filter((l) => l.batchId === batchId);
@@ -579,6 +592,7 @@ export default function LotDetailScreen() {
           {/* ── HEADER + FILTRE PÉRIODE (fixes, comme Accueil) ── */}
           <ScreenHeader
             title={b.batchName ?? 'Lot'}
+            subtitle={b.code ? `Bande ${b.code}` : undefined}
             back
             right={<Chip label={b.status === 'EN_VENTE' ? 'En vente' : 'Actif'} tone={b.status === 'EN_VENTE' ? 'green' : 'brand'} />}
           />
@@ -669,7 +683,7 @@ export default function LotDetailScreen() {
       {/* ── CYCLE PROGRESS ── */}
       <View style={styles.cycleCard}>
         <View style={styles.cycleHeader}>
-          <AppText size="small" weight="semibold" color="brand">Semaine {cycleInfo.currentWeek}/{cycleInfo.totalWeeks}</AppText>
+          <AppText size="small" weight="semibold" color="brand">{cycleInfo.label}</AppText>
           <AppText size="small" color="muted">{cycleInfo.pct.toFixed(0)} % du cycle</AppText>
         </View>
         <View style={styles.progressTrack}>
