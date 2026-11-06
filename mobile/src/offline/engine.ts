@@ -229,11 +229,32 @@ function sendDailyEntry(farmId: string, batchId: string, payload: DailyEntryPayl
   return createDailyEntry(farmId, batchId, withSendTime(payload, new Date().toISOString()));
 }
 
+export const WEIGHT_WITHOUT_SAMPLE =
+  'Pesée sans nombre de sujets pesés : indiquez l’échantillon avec le poids moyen.';
+
+/** True when the entry carries an average weight but no sample size. */
+export function weightWithoutSample(entry: Pick<DailyEntryPayload, 'avgWeightKg' | 'sampleSize'>): boolean {
+  return (entry.avgWeightKg ?? 0) > 0 && !((entry.sampleSize ?? 0) > 0);
+}
+
+/**
+ * Reason kept for a refused queued op. A weighing queued before the sample
+ * became mandatory is told apart so the user re-enters it with its sample.
+ */
+export function rejectionReason(op: OfflineOp, serverMessage: string): string {
+  if (op.kind === 'daily-entry' && weightWithoutSample(op.payload as DailyEntryPayload)) {
+    return `${WEIGHT_WITHOUT_SAMPLE} Ressaisissez la pesée (saisie du jour refusée : ${serverMessage})`;
+  }
+  return serverMessage;
+}
+
 export async function createDailyEntryQueued(
   farmId: string,
   batchId: string,
   entry: DailyEntryPayload,
 ): Promise<SendResult> {
+  // CDC n° 8: a weight never leaves (or waits in the queue) without its sample.
+  if (weightWithoutSample(entry)) throw new Error(WEIGHT_WITHOUT_SAMPLE);
   const payload = withCapture(entry, new Date().toISOString(), deviceId());
   return sendOrQueue(
     {
@@ -813,7 +834,7 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       // A refused declaration is re-entered by hand: its kept photo copies go.
       if (op.kind === 'health-event') ((op.payload as HealthEventOpPayload).photos ?? []).forEach(discardPhoto);
       if (isCashOp(op) || isCreation(op)) {
-        rejectOp(op, (e as ApiError).message);
+        rejectOp(op, rejectionReason(op, (e as ApiError).message));
         return 'rejected';
       }
       return 'dropped';

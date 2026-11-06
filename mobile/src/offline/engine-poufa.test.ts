@@ -253,6 +253,29 @@ describe('saisie quotidienne (daily-entry) : règle de conflit hors ligne', () =
     expect(Date.parse(body(replay).deviceSentAt)).not.toBeNaN();
   });
 
+  it('une pesée sans échantillon n’est ni envoyée ni mise en file', async () => {
+    const fetch = stubFetch(networkError);
+    await expect(createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-11-05', deaths: 0, avgWeightKg: 1.2 })).rejects.toThrow(/sujets pesés/);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(loadOps()).toEqual([]);
+  });
+
+  it('une ancienne pesée en file sans échantillon, refusée au rejeu, est rangée avec une raison claire', async () => {
+    enqueueOp({
+      id: 'off-daily-entry-weight',
+      kind: 'daily-entry',
+      farmId: 'f-1',
+      batchId: 'b-1',
+      payload: { entryDate: '2026-11-04', deaths: 0, avgWeightKg: 1.1 },
+      createdAt: '2026-11-04T18:00:00.000Z',
+    });
+    stubFetch(async () => jsonResponse(400, { message: 'Pesée : indiquez le nombre de sujets pesés (échantillon).' }));
+    expect((await flushQueue()).rejected).toBe(1);
+    expect(loadOps()).toEqual([]);
+    const [rejected] = loadRejected();
+    expect(rejected.reason).toMatch(/Ressaisissez la pesée/);
+  });
+
   it('refus (4xx) au rejeu : rangée dans les refus, jamais perdue', async () => {
     stubFetch(networkError);
     await createDailyEntryQueued('f-1', 'b-1', edited);
