@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FarmProvider } from './app/FarmContext';
 import { useFarmProfile } from './app/useFarmProfile';
-import { RequiresAuth, RequiresBuyerArea, RequiresFarmAccount, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
+import { RequiresAuth, RequiresBuyerArea, RequiresFarmAccount, RequiresInstitution, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { BuyerRegisterPage } from './auth/BuyerRegisterPage';
@@ -36,12 +36,15 @@ import { MarketListingPage } from './pages/MarketListingPage';
 import { MarketFarmPage } from './pages/MarketFarmPage';
 import { BuyerAccountPage } from './pages/BuyerAccountPage';
 import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
+import { MyAccessPage } from './pages/MyAccessPage';
+import { InstitutionHomeRedirect } from './components/access/InstitutionHomeRedirect';
 
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
   const { user } = useAuth();
   const { isGroundEleveur, isLoading } = useFarmProfile();
   if (user?.role === 'PLATFORM_ADMIN') return <Navigate to="/app/platform" replace />;
+  if (user?.role === 'INSTITUTION') return <InstitutionHomeRedirect />;
   // The landing page depends on the profile: wait for it.
   if (isLoading) return <Loading />;
   return <Navigate to={isGroundEleveur ? '/app/home' : '/app/dashboard'} replace />;
@@ -102,6 +105,10 @@ export function App() {
           <Route path="help" element={<HelpPage />} />
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
+          </Route>
+          {/* Institutional access (POUFA): the account's own access. */}
+          <Route element={<RequiresInstitution />}>
+            <Route path="mon-acces" element={<MyAccessPage />} />
           </Route>
         </Route>
         </Route>

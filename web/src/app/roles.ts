@@ -62,9 +62,9 @@ export function farmSpaceState(input: { farmsLoading: boolean; farmsFailed: bool
   return 'no-farm';
 }
 
-/** Pages that make sense without a farm (the rest show the no-farm screen). */
+/** Pages that make sense without a farm (the rest show the no-farm screen): the platform console, the help, the institutional access screens. */
 export function worksWithoutFarm(pathname: string): boolean {
-  return isUnder(pathname, '/app/platform') || isUnder(pathname, '/app/help');
+  return ['/app/platform', '/app/help', '/app/acces', '/app/mon-acces'].some((root) => isUnder(pathname, root));
 }
 
 /** French text of the no-farm screen, per kind of account. */

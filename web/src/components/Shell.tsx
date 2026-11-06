@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
+  BadgeCheck,
   AlertTriangle,
   BadgePercent,
   Briefcase,
@@ -10,6 +11,7 @@ import {
   Factory,
   FileBarChart,
   Handshake,
+  KeyRound,
   LayoutDashboard,
   LifeBuoy,
   ListTodo,
@@ -35,7 +37,9 @@ import { useFarm } from '../app/FarmContext';
 import { farmSpaceState, worksWithoutFarm } from '../app/roles';
 import { useMenuAccess } from '../app/useMenuAccess';
 import { Logo } from './Logo';
+import { PageNotOpen } from './access/PageNotOpen';
 import { NoFarmScreen } from './NoFarmScreen';
+import { Loading } from './ui';
 import { OfflineBar } from './OfflineBar';
 import { QuickCreate } from './QuickCreate';
 import { classNames, initials, statusLabel } from '../lib/format';
@@ -120,8 +124,14 @@ export function Shell() {
   const { pathname } = useLocation();
   const onPlatform = pathname.startsWith('/app/platform');
   const reduced = useReducedMotion();
-  const { hasPermission, isGroundEleveur } = useMenuAccess();
+  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess } = useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
+  // Platform console, institutional access administration, an institution's own access.
+  const adminItems = [
+    ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
+    ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
+    ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
+  ];
   const farmOptions = farms.map((f) => (
     <option key={f.id} value={f.id}>
       {f.code ? `${f.code} · ` : ''}
@@ -136,8 +146,8 @@ export function Shell() {
         ? [{ to: '/app/home', label: 'Mon terrain', icon: Tractor }]
         : []),
       // Without a farm, only the pages that work without one.
-      ...group.items.filter((item) =>
-        space === 'ready' ? !item.perms || hasPermission(...item.perms) : worksWithoutFarm(item.to),
+      ...group.items.filter(
+        (item) => (space === 'ready' || worksWithoutFarm(item.to)) && showEntry(item.to, item.perms),
       ),
     ],
   })).filter((group) => group.items.length > 0);
@@ -154,7 +164,7 @@ export function Shell() {
           <Logo className="h-9 w-auto shrink-0" />
           <div className={classNames('whitespace-nowrap', RAIL_BLOCK)}>
             <p className="text-sm font-bold text-white">Fermia</p>
-            <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : 'Espace ferme'}</p>
+            <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : user?.role === 'INSTITUTION' ? 'Espace programme' : 'Espace ferme'}</p>
           </div>
           <button
             className="ml-auto rounded p-1 text-brand-200 hover:text-white md:hidden"
@@ -202,21 +212,24 @@ export function Shell() {
               </div>
             </div>
           ))}
-          {isAdmin ? (
+          {adminItems.length > 0 ? (
             <div>
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
-                Plateforme
+                {isAdmin ? 'Plateforme' : 'Programme'}
               </p>
               <div className="space-y-0.5">
-                <NavLink
-                  to="/app/platform"
-                  onClick={() => setMobileOpen(false)}
-                  aria-label="Cockpit plateforme"
-                  className={navLinkCls}
-                >
-                  <Shield className="h-4 w-4 shrink-0" />
-                  <span className={RAIL_TEXT}>Cockpit plateforme</span>
-                </NavLink>
+                {adminItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    aria-label={item.label}
+                    className={navLinkCls}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className={RAIL_TEXT}>{item.label}</span>
+                  </NavLink>
+                ))}
               </div>
             </div>
           ) : null}
@@ -321,7 +334,13 @@ export function Shell() {
             transition={pageTm}
           >
             {space === 'ready' || worksWithoutFarm(pathname) ? (
-              <Outlet />
+              canOpen(pathname) ? (
+                <Outlet />
+              ) : accessLoading ? (
+                <Loading />
+              ) : (
+                <PageNotOpen />
+              )
             ) : (
               <NoFarmScreen state={space} onRetry={refetchFarms} />
             )}

@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { Farm } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { scopeReachesFarms } from './menu-access';
+import { useInstitutionAccess } from './useInstitutionAccess';
 
 interface FarmContextValue {
   farms: Farm[];
@@ -26,16 +28,21 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     localStorage.getItem(STORAGE_KEY),
   );
 
+  // An institution whose scope reaches no farm (aggregate, audit, financed)
+  // would only get a 403, journaled: it never asks for the list.
+  const inst = useInstitutionAccess();
+  const noFarmScope = !!inst.access && !scopeReachesFarms(inst.access.profile.scopeKind);
   const {
     data: farms = [],
-    isLoading: farmsLoading,
+    isLoading: listLoading,
     isError: farmsFailed,
     refetch,
   } = useQuery({
     queryKey: ['farms'],
     queryFn: () => api.get<Farm[]>('/farms'),
-    enabled: !!user,
+    enabled: !!user && !noFarmScope && !inst.pending && !inst.revoked,
   });
+  const farmsLoading = listLoading || inst.pending;
 
   useEffect(() => {
     if (farms.length > 0 && (!farmId || !farms.some((f) => f.id === farmId))) {
