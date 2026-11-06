@@ -13,7 +13,12 @@ const WRITE_TIMEOUT_MS = 45_000;
 const TOKEN_KEY = 'koukou.token';
 const USER_KEY = 'koukou.user';
 
-export type Role = 'PLATFORM_ADMIN' | 'PROPRIETAIRE' | 'ELEVEUR' | 'ACHETEUR';
+/**
+ * Account roles (backend `UserRole`). ACHETEUR: Market customer only, never a
+ * farm screen. INSTITUTION: programme institution, farm screens of the farms
+ * in its scope (the server enforces it). OPERATEUR is refused at sign-in.
+ */
+export type Role = 'PLATFORM_ADMIN' | 'PROPRIETAIRE' | 'ELEVEUR' | 'ACHETEUR' | 'INSTITUTION';
 
 export interface AuthUser {
   id: string;

@@ -30,7 +30,8 @@ const SECTIONS: Array<{ title: string; subtitle?: string; guides: Guide[] }> = [
         iconTone: 'accent',
         title: '1. Votre ferme',
         lines: [
-          'Votre ferme est créée à l’inscription. Complétez son nom et son logo dans Réglages.',
+          'Votre ferme est enregistrée par le registre du programme POUFA, qui vous remet votre code de connexion à l’activation de votre compte.',
+          'Son nom et son code (G1-0012…) sont ceux du registre ; ajoutez votre logo dans Réglages.',
           'Le même compte vous connecte au site web et à l’application mobile Fermia.',
         ],
       },

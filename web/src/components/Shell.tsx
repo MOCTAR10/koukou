@@ -33,8 +33,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
-import { useFarmProfile } from '../app/useFarmProfile';
+import { farmSpaceState, worksWithoutFarm } from '../app/roles';
+import { useMenuAccess } from '../app/useMenuAccess';
 import { Logo } from './Logo';
+import { NoFarmScreen } from './NoFarmScreen';
 import { OfflineBar } from './OfflineBar';
 import { QuickCreate } from './QuickCreate';
 import { classNames, initials, statusLabel } from '../lib/format';
@@ -117,7 +119,7 @@ function navLinkCls({ isActive }: { isActive: boolean }) {
 
 export function Shell() {
   const { user, logout } = useAuth();
-  const { farms, farmId, farm, setFarm } = useFarm();
+  const { farms, farmId, farm, setFarm, farmsLoading, farmsFailed, refetchFarms } = useFarm();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -125,7 +127,8 @@ export function Shell() {
   const { pathname } = useLocation();
   const onPlatform = pathname.startsWith('/app/platform');
   const reduced = useReducedMotion();
-  const { hasPermission, isGroundEleveur } = useFarmProfile();
+  const { hasPermission, isGroundEleveur } = useMenuAccess();
+  const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const farmOptions = farms.map((f) => (
     <option key={f.id} value={f.id}>
       {f.name}
@@ -138,7 +141,10 @@ export function Shell() {
       ...(group.title === 'Pilotage' && isGroundEleveur
         ? [{ to: '/app/home', label: 'Mon terrain', icon: Tractor }]
         : []),
-      ...group.items.filter((item) => !item.perms || hasPermission(...item.perms)),
+      // Without a farm, only the pages that work without one.
+      ...group.items.filter((item) =>
+        space === 'ready' ? !item.perms || hasPermission(...item.perms) : worksWithoutFarm(item.to),
+      ),
     ],
   })).filter((group) => group.items.length > 0);
 
@@ -165,7 +171,7 @@ export function Shell() {
           </button>
         </div>
 
-        {!onPlatform ? (
+        {!onPlatform && farms.length > 0 ? (
           <div className="px-3 md:max-xl:hidden">
             <label className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">
               {isAdmin ? 'Ferme à consulter' : 'Ferme active'}
@@ -283,9 +289,9 @@ export function Shell() {
                   {farm.administrativeCity} · {farm.active ? 'ferme active' : 'ferme suspendue'}
                 </span>
               </>
-            ) : (
+            ) : onPlatform ? (
               'Console administrateur plateforme'
-            )}
+            ) : null}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
             {!onPlatform && farm?.capacityPerBuilding ? <span>Capacité {farm.capacityPerBuilding} ois./bât.</span> : null}
@@ -315,7 +321,11 @@ export function Shell() {
             animate={{ opacity: 1, y: 0 }}
             transition={pageTm}
           >
-            <Outlet />
+            {space === 'ready' || worksWithoutFarm(pathname) ? (
+              <Outlet />
+            ) : (
+              <NoFarmScreen state={space} onRetry={refetchFarms} />
+            )}
           </motion.div>
         </main>
       </div>

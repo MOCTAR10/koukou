@@ -1,10 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FarmProvider } from './app/FarmContext';
 import { useFarmProfile } from './app/useFarmProfile';
-import { RequiresAuth, RequiresFarmAccount, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
+import { RequiresAuth, RequiresBuyerArea, RequiresFarmAccount, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
-import { RegisterPage } from './auth/RegisterPage';
 import { BuyerRegisterPage } from './auth/BuyerRegisterPage';
 import { MarketLayout } from './components/market/MarketLayout';
 import { Shell } from './components/Shell';
@@ -40,6 +39,7 @@ import { MarketFarmPage } from './pages/MarketFarmPage';
 import { BuyerAccountPage } from './pages/BuyerAccountPage';
 import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
 
+/** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
   const { user } = useAuth();
   const { isGroundEleveur, isLoading } = useFarmProfile();
@@ -53,12 +53,11 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route path="/marche/inscription" element={<BuyerRegisterPage />} />
       <Route path="/marche" element={<MarketLayout />}>
         <Route index element={<MarketCataloguePage />} />
-        <Route element={<RequiresAuth />}>
+        <Route element={<RequiresBuyerArea />}>
           <Route path="commandes" element={<BuyerOrdersPage />} />
           <Route path="commandes/:id" element={<BuyerOrderPage />} />
           <Route path="compte" element={<BuyerAccountPage />} />

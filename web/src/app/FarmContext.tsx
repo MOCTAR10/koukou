@@ -11,6 +11,9 @@ interface FarmContextValue {
   setFarm: (id: string) => void;
   /** The farm list hasn't answered yet: farmId may still be about to change. */
   farmsLoading: boolean;
+  /** The farm list could not be read (offline before any load, server error). */
+  farmsFailed: boolean;
+  refetchFarms: () => void;
 }
 
 const FarmContext = createContext<FarmContextValue | null>(null);
@@ -23,7 +26,12 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     localStorage.getItem(STORAGE_KEY),
   );
 
-  const { data: farms = [], isLoading: farmsLoading } = useQuery({
+  const {
+    data: farms = [],
+    isLoading: farmsLoading,
+    isError: farmsFailed,
+    refetch,
+  } = useQuery({
     queryKey: ['farms'],
     queryFn: () => api.get<Farm[]>('/farms'),
     enabled: !!user,
@@ -47,8 +55,10 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(STORAGE_KEY, id);
       },
       farmsLoading,
+      farmsFailed,
+      refetchFarms: () => void refetch(),
     }),
-    [farms, farmId, farmsLoading],
+    [farms, farmId, farmsLoading, farmsFailed, refetch],
   );
 
   return <FarmContext.Provider value={value}>{children}</FarmContext.Provider>;

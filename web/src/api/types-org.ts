@@ -84,7 +84,8 @@ export interface PermissionCatalog {
 /** GET /farms/:id/me. */
 export interface FarmMemberProfile {
   farmId: string;
-  role: 'PROPRIETAIRE' | StaffRole;
+  /** INSTITUTION: an institutional account on a farm of its scope (`jobTitle` = its access profile). */
+  role: 'PROPRIETAIRE' | StaffRole | 'INSTITUTION';
   jobTitle: string | null;
   buildingAssignment: string | null;
   active: boolean;

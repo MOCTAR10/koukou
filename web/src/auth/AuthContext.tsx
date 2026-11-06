@@ -3,21 +3,14 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError, clearSession, getStoredUser, setSession } from '../api/client';
 import type { AuthUser } from '../api/client';
+import { landingAfterLogin } from '../app/roles';
 import { normalizeGabonPhone } from '../lib/phone';
 import { clearReadCache } from '../offline/readCache';
 import { clearOfflineOps, loadOps } from '../offline/store';
+import { normalizeOtpCode, readLoginAnswer, type LoginSession, type OtpChallenge } from './login';
 
-interface LoginResult {
-  accessToken: string;
-  user: AuthUser;
-}
-
-export interface RegisterInput {
-  fullName: string;
-  farmName: string;
-  phone: string;
-  code: string;
-}
+/** A signed-in session, or the SMS step an institutional account must pass first. */
+export type LoginOutcome = { kind: 'signed-in' } | { kind: 'otp'; challenge: OtpChallenge };
 
 export interface RegisterBuyerInput {
   fullName: string;
@@ -32,11 +25,15 @@ interface AuthContextValue {
   user: AuthUser | null;
   isAdmin: boolean;
   isOwnerOrAdmin: boolean;
-  /** `to`: where to go once signed in, by default the account's home. */
-  login: (phone: string, code: string, to?: string) => Promise<void>;
-  register: (input: RegisterInput) => Promise<void>;
-  registerBuyer: (input: RegisterBuyerInput, to?: string) => Promise<void>;
-  becomeFarmer: (input: { farmName?: string; farmCity?: string }) => Promise<void>;
+  /**
+   * `from`: the page that asked for the sign-in (see `landingAfterLogin`).
+   * An institutional account may answer an SMS challenge: then call verifyOtp.
+   */
+  login: (phone: string, code: string, from?: string) => Promise<LoginOutcome>;
+  /** Second step of an institutional sign-in: the 6-digit code received by SMS. */
+  verifyOtp: (challengeId: string, code: string, from?: string) => Promise<void>;
+  /** Market customer account (the only self sign-up: farm accounts come from the registry). */
+  registerBuyer: (input: RegisterBuyerInput, from?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -56,41 +53,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const value = useMemo<AuthContextValue>(() => {
-    const startSession = (res: LoginResult, to = '/app') => {
+    const startSession = (res: LoginSession, from?: string) => {
       // Never show the previous account's cached data.
       queryClient.clear();
       if (getStoredUser()?.id !== res.user.id) void clearReadCache();
       setSession(res.accessToken, res.user);
       setUser(res.user);
-      navigate(to);
+      navigate(landingAfterLogin(res.user.role, from));
     };
     return {
       user,
       isAdmin: user?.role === 'PLATFORM_ADMIN',
       isOwnerOrAdmin:
         user?.role === 'PROPRIETAIRE' || user?.role === 'PLATFORM_ADMIN',
-      login: async (phone: string, code: string, to?: string) => {
+      login: async (phone: string, code: string, from?: string) => {
         // Mobile accounts are stored as 0XXXXXXXX; the seeded platform admin
         // may be stored as typed, in international form.
         const normalized = normalizeGabonPhone(phone);
-        let res: LoginResult;
+        let raw: unknown;
         try {
-          res = await api.post<LoginResult>('/auth/login', { phone: normalized, code });
+          raw = await api.post<unknown>('/auth/login', { phone: normalized, code });
         } catch (err) {
           if (!(err instanceof ApiError) || err.status !== 401 || !phone.startsWith('+')) throw err;
-          res = await api.post<LoginResult>('/auth/login', { phone, code });
+          raw = await api.post<unknown>('/auth/login', { phone, code });
         }
-        startSession(res, to);
+        const answer = readLoginAnswer(raw);
+        if (answer.kind === 'otp') return answer;
+        startSession(answer.session, from);
+        return { kind: 'signed-in' };
       },
-      register: async (input: RegisterInput) => {
-        startSession(await api.post<LoginResult>('/auth/register', input));
+      verifyOtp: async (challengeId: string, code: string, from?: string) => {
+        const answer = readLoginAnswer(
+          await api.post<unknown>('/auth/login/otp', { challengeId, code: normalizeOtpCode(code) }),
+        );
+        if (answer.kind !== 'session') throw new Error('Réponse de connexion inattendue. Réessayez plus tard.');
+        startSession(answer.session, from);
       },
-      registerBuyer: async (input: RegisterBuyerInput, to = '/marche') => {
-        startSession(await api.post<LoginResult>('/auth/register-buyer', input), to);
-      },
-      becomeFarmer: async (input) => {
-        // The answer carries a token with the new role.
-        startSession(await api.post<LoginResult>('/auth/become-farmer', input));
+      registerBuyer: async (input: RegisterBuyerInput, from?: string) => {
+        const answer = readLoginAnswer(await api.post<unknown>('/auth/register-buyer', input));
+        if (answer.kind !== 'session') throw new Error('Réponse d’inscription inattendue. Réessayez plus tard.');
+        startSession(answer.session, from ?? '/marche');
       },
       logout: () => {
         const pending = loadOps().length;

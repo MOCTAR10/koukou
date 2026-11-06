@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Tractor, UserRound } from 'lucide-react';
+import { UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { BuyerProfile } from '../api/types-market';
@@ -7,43 +7,6 @@ import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
 import { BUYER_TYPES } from '../components/market/shared';
 import { Card, Loading, PageHeader } from '../components/ui';
-
-function BecomeFarmerCard() {
-  const { becomeFarmer } = useAuth();
-  const [farmName, setFarmName] = useState('');
-  const [farmCity, setFarmCity] = useState('');
-  const submit = useMutation({
-    mutationFn: () => becomeFarmer({ farmName: farmName.trim() || undefined, farmCity: farmCity.trim() || undefined }),
-  });
-  return (
-    <Card className="p-5">
-      <h2 className="flex items-center gap-2 font-semibold text-slate-900">
-        <Tractor className="h-4 w-4 text-brand-600" /> Vous avez une ferme ?
-      </h2>
-      <p className="mt-1 text-sm text-slate-500">
-        Créez-la avec ce compte pour gérer vos lots et, une fois vérifiée, publier vos annonces. Vous gardez vos commandes.
-      </p>
-      <form
-        className="mt-4 space-y-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit.mutate();
-        }}
-      >
-        <Field label="Nom de la ferme">
-          <input className={inputCls} value={farmName} onChange={(e) => setFarmName(e.target.value)} required minLength={2} />
-        </Field>
-        <Field label="Ville">
-          <input className={inputCls} value={farmCity} onChange={(e) => setFarmCity(e.target.value)} />
-        </Field>
-        <ErrorNote error={submit.error} />
-        <Button type="submit" tone="secondary" busy={submit.isPending}>
-          Créer ma ferme
-        </Button>
-      </form>
-    </Card>
-  );
-}
 
 export function BuyerAccountPage() {
   const { user } = useAuth();
@@ -120,7 +83,6 @@ export function BuyerAccountPage() {
           </form>
         )}
       </Card>
-      {user?.role === 'ACHETEUR' ? <BecomeFarmerCard /> : null}
       </div>
     </div>
   );

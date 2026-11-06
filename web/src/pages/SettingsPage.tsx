@@ -63,7 +63,13 @@ export function SettingsPage() {
   });
 
   const me = profile.data;
-  const roleLabel = !me ? statusLabel(user?.role) : me.role === 'PROPRIETAIRE' ? 'Propriétaire' : STAFF_ROLE_LABEL[me.role];
+  const roleLabel = !me
+    ? statusLabel(user?.role)
+    : me.role === 'PROPRIETAIRE'
+      ? 'Propriétaire'
+      : me.role === 'INSTITUTION'
+        ? me.jobTitle?.trim() || statusLabel('INSTITUTION')
+        : STAFF_ROLE_LABEL[me.role];
   // The stored session carries the phone although AuthUser doesn't declare it.
   const phone = (user as { phone?: string } | null)?.phone ?? farm?.owner?.phone ?? '—';
   const hasAllRights = me?.permissions.includes('*') === true;
