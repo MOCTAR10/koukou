@@ -14,7 +14,7 @@ export interface RegistryRights {
   activateOwner: boolean;
   /** Bulk import: national scope only. */
   import: boolean;
-  /** `POST /admin/users/:id/login-code`: platform admin only. */
+  /** `POST /programme/farms/:farmId/owner-login-code` (domain ADMINISTRATION:ADMINISTRER, like the activation). */
   regenerateCode: boolean;
 }
 
@@ -26,8 +26,9 @@ const ALL: RegistryRights = { view: true, create: true, edit: true, activateOwne
  * `actionForMethod`: GET = CONSULTER, POST = CREER, PATCH / PUT = MODIFIER):
  * PLATFORM_ADMIN has them all; an INSTITUTION gets them from its access
  * profile (`GET /programme/access/me`): REGISTRE CONSULTER / CREER / MODIFIER,
- * ADMINISTRATION:ADMINISTRER for the owner activation, import with CREER on a
- * national (ALL) scope; never a new login code. Any other account: none.
+ * ADMINISTRATION:ADMINISTRER for the owner activation and a new owner login
+ * code (the server also needs every farm of that owner in scope), import with
+ * CREER on a national (ALL) scope. Any other account: none.
  */
 export function registryRights(
   role: Role | null | undefined,
@@ -36,12 +37,13 @@ export function registryRights(
   if (role === 'PLATFORM_ADMIN') return ALL;
   if (role !== 'INSTITUTION' || !access) return NONE;
   const create = grantsAccess(access, 'REGISTRE', 'CREER');
+  const administer = grantsAccess(access, 'ADMINISTRATION', 'ADMINISTRER');
   return {
     view: grantsAccess(access, 'REGISTRE', 'CONSULTER'),
     create,
     edit: grantsAccess(access, 'REGISTRE', 'MODIFIER'),
-    activateOwner: grantsAccess(access, 'ADMINISTRATION', 'ADMINISTRER'),
+    activateOwner: administer,
     import: create && access.scopeKind === 'ALL',
-    regenerateCode: false,
+    regenerateCode: administer,
   };
 }

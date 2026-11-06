@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, Link2, PencilLine, UserCheck, UserPlus } from 'lucide-react';
 import { api } from '../../api/client';
-import type { ActivateOwnerResult, LoginCodeResult, RegistrySheet } from '../../api/types-programme';
+import type { ActivateOwnerResult, OwnerLoginCodeResult, RegistrySheet } from '../../api/types-programme';
 import { Button, ErrorNote } from '../form';
 import { ONE_TIME_CODE_MUTATION, OneTimeCodeModal, useOneTimeCode } from '../login-code/OneTimeCodeModal';
-import { activationBlocker, classifyActivationError } from './ownerActivation';
+import { activationBlocker, classifyActivationError, isNoOwnerAccount } from './ownerActivation';
 import { invalidateRegistry } from './queries';
 import type { RegistryRights } from './registryAccess';
 
@@ -34,12 +34,17 @@ export function OwnerAccountSection({ sheet, rights, onEditSheet }: { sheet: Reg
     },
   });
 
+  // The registry route: open to an institution's administrator too (every farm of that owner must be in its scope).
   const regenerate = useMutation({
     ...ONE_TIME_CODE_MUTATION,
-    mutationFn: (userId: string) => api.post<LoginCodeResult>(`/admin/users/${userId}/login-code`),
+    mutationFn: () => api.post<OwnerLoginCodeResult>(`/programme/farms/${sheet.id}/owner-login-code`),
     onSuccess: (result) => {
-      dispatch({ type: 'reveal', code: result.loginCode, holder: result.user, title: 'Nouveau code de connexion', regenerated: true });
+      dispatch({ type: 'reveal', code: result.loginCode, holder: result.owner, title: 'Nouveau code de connexion', regenerated: true });
       regenerate.reset();
+    },
+    onError: (err) => {
+      // The sheet on screen was stale: reload it, it then offers the activation.
+      if (isNoOwnerAccount(err)) invalidateRegistry(queryClient, sheet.id);
     },
   });
 
@@ -74,7 +79,7 @@ export function OwnerAccountSection({ sheet, rights, onEditSheet }: { sheet: Reg
               busy={regenerate.isPending}
               onClick={() => {
                 if (window.confirm(`Générer un nouveau code pour ${sheet.owner!.fullName} ? L’ancien code ne fonctionnera plus.`)) {
-                  regenerate.mutate(sheet.owner!.id);
+                  regenerate.mutate();
                 }
               }}
             >

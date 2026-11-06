@@ -4,7 +4,7 @@ import type { MyAccess } from '../../api/types-access';
 import type { ImportReport, RegistrySheet } from '../../api/types-programme';
 import { candidateProvince, candidateTitle, readDuplicateConflict, scoreLabel } from './duplicates';
 import { checkImportFile, importFormData, linesOf, outcomeCounts, summarizeImport } from './importReport';
-import { activationBlocker, classifyActivationError } from './ownerActivation';
+import { activationBlocker, classifyActivationError, isNoOwnerAccount } from './ownerActivation';
 import { registryRights } from './registryAccess';
 import { buildCreateBody, buildGpsBody, buildUpdateBody, checkInfrastructures, draftOfSheet, EMPTY_CREATE_DRAFT, parseDecimal } from './sheetForm';
 
@@ -108,6 +108,11 @@ describe('owner account', () => {
     expect(classifyActivationError(new ApiError(400, 'x', { existingAccount: true })).kind).toBe('other');
   });
 
+  it('spots a new code asked before the activation', () => {
+    expect(isNoOwnerAccount(new ApiError(409, 'Activez d’abord', { noOwnerAccount: true }))).toBe(true);
+    expect(isNoOwnerAccount(new ApiError(403, 'Hors périmètre', { message: 'x' }))).toBe(false);
+    expect(isNoOwnerAccount(new Error('réseau'))).toBe(false);
+  });
 
   it('needs the exploitant’s name and phone first', () => {
     expect(activationBlocker({ exploitant: { name: 'Jean', phone: '074' }, hasOwnerAccount: false })).toBeNull();
@@ -141,10 +146,10 @@ describe('registryRights', () => {
       edit: true,
       activateOwner: true,
       import: false,
-      regenerateCode: false,
+      regenerateCode: true,
     });
     const national: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
-    expect(registryRights('INSTITUTION', national)).toMatchObject({ create: true, import: true, edit: false, activateOwner: false });
+    expect(registryRights('INSTITUTION', national)).toMatchObject({ create: true, import: true, edit: false, activateOwner: false, regenerateCode: false });
     const provincial: Profile = { scopeKind: 'PROVINCES', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
     expect(registryRights('INSTITUTION', provincial).import).toBe(false);
     // An AUDIT-scope profile reads the journal only.

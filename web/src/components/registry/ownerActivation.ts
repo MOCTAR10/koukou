@@ -1,5 +1,5 @@
 import { ApiError, errorBody } from '../../api/errors';
-import type { ActivateOwnerConflictBody } from '../../api/types-programme';
+import type { ActivateOwnerConflictBody, OwnerLoginCodeConflictBody } from '../../api/types-programme';
 
 /** Owner account of a registry farm: activation and new login code refusals. Pure. */
 
@@ -28,3 +28,10 @@ export function activationBlocker(sheet: { exploitant: { name: string | null; ph
   return null;
 }
 
+/**
+ * A new owner login code refused because the farm has no owner account yet
+ * (409 `noOwnerAccount`: the sheet on screen was stale, activate first).
+ */
+export function isNoOwnerAccount(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409 && errorBody<OwnerLoginCodeConflictBody>(err)?.noOwnerAccount === true;
+}

@@ -250,10 +250,21 @@ export interface ActivateOwnerConflictBody {
   buyerAccount: true;
 }
 
-/** `POST /admin/users/:userId/login-code`. */
-export interface LoginCodeResult {
-  user: { id: string; fullName: string; phone: string; role: string };
+/**
+ * `POST /programme/farms/:farmId/owner-login-code` (platform admin, or
+ * ADMINISTRATION:ADMINISTRER with every farm of that owner in scope).
+ */
+export interface OwnerLoginCodeResult {
+  farm: { id: string; code: string | null; name: string };
+  owner: { id: string; fullName: string; phone: string };
+  /** Shown once. */
   loginCode: string;
+}
+
+/** 409 body of a new owner code: the farm has no owner account yet. */
+export interface OwnerLoginCodeConflictBody {
+  message: string;
+  noOwnerAccount: true;
 }
 
 export type ImportOutcome = 'CREEE' | 'A_CREER' | 'DEJA_PRESENTE' | 'REJETEE';
