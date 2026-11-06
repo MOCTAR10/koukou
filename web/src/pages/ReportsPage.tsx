@@ -187,10 +187,10 @@ export function ReportsPage() {
               icon={<Receipt className="h-5 w-5" />}
             />
             <StatCard
-              label="Marge nette"
+              label="Taux de marge de la période"
               value={pct(margin)}
               tone={margin != null && margin < 0 ? 'bad' : 'default'}
-              hint="Coût de revient suivi"
+              hint="(CA − dépenses) ÷ CA · indicateur de conduite (Fermia)"
               icon={<PieChart className="h-5 w-5" />}
             />
           </div>
@@ -237,7 +237,7 @@ export function ReportsPage() {
 
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <SectionTitle title="P&L par lot" subtitle="Coût de revient et marge de chaque lot" icon={<PieChart />} />
+          <SectionTitle title="P&L par lot" subtitle="Marge officielle et coût par kg vendu de chaque lot" icon={<PieChart />} />
           {lots.length > 0 ? (
             <Field label="Lot" className="mb-3 w-72">
               <select value={batchId} onChange={(e) => setLotId(e.target.value)} className={inputCls}>

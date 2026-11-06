@@ -49,6 +49,9 @@ import {
   useLots,
 } from '../components/flock/shared';
 import { Button, ErrorNote, inputCls } from '../components/form';
+// POUFA lot A indic: official headline per band, Fermia's figure second, band history.
+import { BandHistoryCard, ConduiteValue, OfficialMetric, OfficialValue, useBandHistory } from '../components/bandes/OfficialHeadline';
+import { FERMIA_FORMULAS, currentBand, findIndicator, openBandsHeadline, summariesById, type HeadlineKey } from '../components/bandes/headline';
 import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { EGG_IMAGES, lotImage } from '../lib/animalImages';
 import { dateFr, fcfa, num } from '../lib/format';
@@ -88,6 +91,15 @@ export function BatchesPage() {
 
   const lots = useLots(asOf || null);
   const buildings = useBuildings();
+  const bandHistory = useBandHistory();
+  const summaries = useMemo(() => summariesById(bandHistory.data), [bandHistory.data]);
+  const headline = useMemo(() => openBandsHeadline(bandHistory.data), [bandHistory.data]);
+  /** The farm-level official value, shaped like the indicator it averages (label, unit, formula). */
+  const headlineIndicator = (key: HeadlineKey) => {
+    const sample = findIndicator(currentBand(bandHistory.data)?.summary?.indicators, key);
+    return sample ? { ...sample, value: headline[key] } : null;
+  };
+  const officialOf = (batchId: string, key: HeadlineKey) => findIndicator(summaries.get(batchId)?.indicators, key);
 
   const selectLot = (id: string | null) => {
     setParams(id ? { lot: id } : {});
@@ -127,13 +139,18 @@ export function BatchesPage() {
     const by: Record<SortKey, (a: (typeof list)[number], b: (typeof list)[number]) => number> = {
       name: (a, b) => lotName(a).localeCompare(lotName(b), 'fr'),
       age: (a, b) => b.metrics.ageDays - a.metrics.ageDays,
-      mortality: (a, b) => b.metrics.mortalityPercent - a.metrics.mortalityPercent,
-      fcr: (a, b) => (b.metrics.fcr ?? -1) - (a.metrics.fcr ?? -1),
+      // Official values first (programme formulas), Fermia's when a band has none.
+      mortality: (a, b) =>
+        (summaryValue(b.id, 'taux_mortalite') ?? b.metrics.mortalityPercent) - (summaryValue(a.id, 'taux_mortalite') ?? a.metrics.mortalityPercent),
+      fcr: (a, b) => (summaryValue(b.id, 'ic') ?? b.metrics.fcr ?? -1) - (summaryValue(a.id, 'ic') ?? a.metrics.fcr ?? -1),
       live: (a, b) => b.metrics.liveCount - a.metrics.liveCount,
       health: (a, b) => (LEVEL_RANK[a.metrics.status] ?? 3) - (LEVEL_RANK[b.metrics.status] ?? 3),
     };
     return [...list].sort(by[sort]);
-  }, [all, filter, species, healthFilter, search, sort]);
+    function summaryValue(id: string, key: HeadlineKey): number | null {
+      return findIndicator(summaries.get(id)?.indicators, key)?.value ?? null;
+    }
+  }, [all, filter, species, healthFilter, search, sort, summaries]);
 
   const summary = useMemo(() => {
     const running = all.filter((b) => b.status !== 'CLOTURE');
@@ -227,9 +244,27 @@ export function BatchesPage() {
           >
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
               <Metric label="Oiseaux vivants" icon={<Bird />} value={num(summary.birds)} sub={`${summary.active} lots`} />
-              <Metric label="Mortalité moy." icon={<HeartPulse />} value={summary.mortality != null ? `${num(summary.mortality)} %` : '—'} />
-              <Metric label="IC moyen" icon={<Scale />} value={summary.fcr != null ? num(summary.fcr, 2) : '—'} />
-              <Metric label="GMQ moyen" icon={<TrendingUp />} value={summary.gmq != null ? `${num(summary.gmq, 0)} g/j` : '—'} />
+              <OfficialMetric
+                label="Mortalité moy."
+                icon={<HeartPulse />}
+                indicator={headlineIndicator('taux_mortalite')}
+                fermiaText={summary.mortality != null ? `${num(summary.mortality)} %` : null}
+                fermiaFormula={FERMIA_FORMULAS.mortality}
+              />
+              <OfficialMetric
+                label="IC moyen"
+                icon={<Scale />}
+                indicator={headlineIndicator('ic')}
+                fermiaText={summary.fcr != null ? num(summary.fcr, 2) : null}
+                fermiaFormula={FERMIA_FORMULAS.fcr}
+              />
+              <OfficialMetric
+                label="GMQ moyen"
+                icon={<TrendingUp />}
+                indicator={headlineIndicator('gmq_g_j')}
+                fermiaText={summary.gmq != null ? `${num(summary.gmq, 0)} g/j` : null}
+                fermiaFormula={FERMIA_FORMULAS.gmq}
+              />
               <Metric label="Ponte moyenne" icon={<Egg />} value={summary.lay != null ? `${num(summary.lay)} %` : '—'} />
               <Metric label="Aliment consommé" icon={<Wheat />} value={`${num(summary.feed, 0)} kg`} />
               <Metric label="Œufs collectés" image={EGG_IMAGES.oeuf} value={num(summary.eggs, 0)} />
@@ -321,8 +356,8 @@ export function BatchesPage() {
                     <Th className="hidden xl:table-cell">Bâtiment</Th>
                     <Th>Âge</Th>
                     <Th>Vivants</Th>
-                    <Th>Mortalité</Th>
-                    <Th>IC</Th>
+                    <Th>Mortalité (officielle)</Th>
+                    <Th>IC (officiel)</Th>
                     <Th className="hidden lg:table-cell">Ponte</Th>
                     <Th>Étape</Th>
                     <Th>État</Th>
@@ -355,8 +390,18 @@ export function BatchesPage() {
                         <Td label="Bâtiment" className="md:max-xl:hidden">{buildingName(b.buildingId)}</Td>
                         <Td label="Âge">J{b.metrics.ageDays}</Td>
                         <Td label="Vivants">{num(b.metrics.liveCount)}</Td>
-                        <Td label="Mortalité">{num(b.metrics.mortalityPercent)} %</Td>
-                        <Td label="IC">{b.metrics.fcr != null ? num(b.metrics.fcr, 2) : '—'}</Td>
+                        <Td label="Mortalité">
+                          <span className="block font-medium">
+                            <OfficialValue indicator={officialOf(b.id, 'taux_mortalite')} />
+                          </span>
+                          <ConduiteValue text={`${num(b.metrics.mortalityPercent)} %`} formula={FERMIA_FORMULAS.mortality} />
+                        </Td>
+                        <Td label="IC">
+                          <span className="block font-medium">
+                            <OfficialValue indicator={officialOf(b.id, 'ic')} />
+                          </span>
+                          <ConduiteValue text={b.metrics.fcr != null ? num(b.metrics.fcr, 2) : '—'} formula={FERMIA_FORMULAS.fcr} />
+                        </Td>
                         <Td label="Ponte" className="md:max-lg:hidden">{b.metrics.layRatePercent != null && b.type === 'PONDEUSE' ? `${num(b.metrics.layRatePercent)} %` : '—'}</Td>
                         <Td label="Étape">
                           <Pill tone={stage.tone}>{stage.label}</Pill>
@@ -377,6 +422,7 @@ export function BatchesPage() {
               </DataTable>
             </Card>
           )}
+          <BandHistoryCard onOpen={selectLot} />
         </>
       )}
 

@@ -43,6 +43,8 @@ import { Card, IconTile, PhotoThumb, type IconTone } from '../ui';
 import { EGG_IMAGES } from '../../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct } from '../../lib/format';
 import { MetricInfoButtons } from './MetricInfoModal';
+// POUFA lot A indic: official IC/GMQ head the tiles, Fermia's second.
+import { CONDUITE_LABEL, officialText, type HeadlineKey } from '../bandes/headline';
 import { batchPhoto } from './pos';
 import { AlertLevelBadge, FilterChip } from './shared';
 
@@ -174,11 +176,18 @@ function weightedAvg(batches: PosBatch[], pick: (b: PosBatch) => number | null |
   return live > 0 ? sum / live : null;
 }
 
-export function PerformanceTiles({ batches }: { batches: PosBatch[] }) {
+/**
+ * `official`: the open bands' official values (programme formulas, weighted
+ * by live birds); they head the tiles and Fermia's own average comes second.
+ */
+export function PerformanceTiles({ batches, official }: { batches: PosBatch[]; official?: Partial<Record<HeadlineKey, number | null>> }) {
   const active = batches.filter((b) => b.status !== 'CLOTURE');
-  const fcr = weightedAvg(active, (b) => b.metrics.fcr);
-  const gmq = weightedAvg(active, (b) => b.metrics.gmqGramsPerDay);
+  const fermiaFcr = weightedAvg(active, (b) => b.metrics.fcr);
+  const fermiaGmq = weightedAvg(active, (b) => b.metrics.gmqGramsPerDay);
+  const fcr = official ? (official.ic ?? null) : fermiaFcr;
+  const gmq = official ? (official.gmq_g_j ?? null) : fermiaGmq;
   const ipe = weightedAvg(active, (b) => b.metrics.ipe);
+  const fermiaLine = (text: string) => (official ? ` · Fermia ${text} (${CONDUITE_LABEL})` : '');
   return (
     <Card className="p-4">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -187,24 +196,24 @@ export function PerformanceTiles({ batches }: { batches: PosBatch[] }) {
       </h2>
       <div className="grid grid-cols-3 gap-3">
         <Tile
-          label="IC moyen"
+          label={official ? 'IC moyen (officiel)' : 'IC moyen'}
           icon={Activity}
-          value={fcr != null ? num(fcr, 2) : '—'}
-          sub={fcr == null ? 'Pas de donnée' : fcr > 2.2 ? 'Élevé' : fcr < 1.8 ? 'Excellent' : 'Conforme'}
+          value={fcr != null ? officialText({ value: fcr, unit: 'kg aliment/kg vif' }) : '—'}
+          sub={`${fcr == null ? 'Pas de donnée' : fcr > 2.2 ? 'Élevé' : fcr < 1.8 ? 'Excellent' : 'Conforme'}${fermiaLine(fermiaFcr != null ? num(fermiaFcr, 2) : '—')}`}
           tone={fcr != null && fcr > 2.2 ? 'text-red-600' : undefined}
         />
         <Tile
-          label="GMQ moyen"
+          label={official ? 'GMQ moyen (officiel)' : 'GMQ moyen'}
           icon={TrendingUp}
           value={gmq != null ? `${num(gmq)} g/j` : '—'}
-          sub={gmq == null ? 'Pas de donnée' : gmq > 55 ? 'Croissance rapide' : gmq < 0 ? 'Perte de poids' : 'Croissance normale'}
+          sub={`${gmq == null ? 'Pas de donnée' : gmq > 55 ? 'Croissance rapide' : gmq < 0 ? 'Perte de poids' : 'Croissance normale'}${fermiaLine(fermiaGmq != null ? `${num(fermiaGmq)} g/j` : '—')}`}
           tone={gmq != null && gmq < 0 ? 'text-red-600' : undefined}
         />
         <Tile
-          label="IPE moyen"
+          label="IPE moyen (Fermia)"
           icon={Scale}
           value={ipe != null && ipe > 0 ? num(Math.round(ipe)) : '—'}
-          sub={ipe == null ? 'Pas de donnée' : 'Indice de performance'}
+          sub={ipe == null ? 'Pas de donnée' : `Indice de performance · ${CONDUITE_LABEL}`}
         />
       </div>
     </Card>
@@ -422,7 +431,7 @@ export function Ranking({ dash, batches, typeLabel }: { dash: OwnerDashboard; ba
             icon={Medal}
             photo={batchPhoto(lotOf(top.batchId))}
             value={top.batchName ?? 'Lot'}
-            sub={`${typeLabel(top.type)} · IC ${top.fcr != null ? num(top.fcr, 2) : '—'} · ${num(top.liveCount)} vivants`}
+            sub={`${typeLabel(top.type)} · IC Fermia ${top.fcr != null ? num(top.fcr, 2) : '—'} · ${num(top.liveCount)} vivants`}
           />
         ) : null}
         {best?.breedStatus ? (

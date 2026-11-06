@@ -198,7 +198,7 @@ export function ActivitiesPage() {
           { key: 'taches', label: 'Tâches' },
           { key: 'lots', label: 'Lots' },
           ...(canCaisse ? [{ key: 'caisse' as const, label: 'Caisse' }] : []),
-          { key: 'rapports', label: 'Rapports' },
+          { key: 'rapports', label: 'Bilan de la semaine' },
         ]}
       />
 
@@ -420,7 +420,7 @@ export function ActivitiesPage() {
             title="Cette semaine"
             subtitle="Comparé à la semaine précédente"
             icon={<NotebookPen className="h-4 w-4" />}
-            actions={hasPermission('compta:rapports') ? moreLink('/app/reports', 'Tous les rapports') : undefined}
+            actions={hasPermission('compta:rapports') ? moreLink('/app/reports', 'Voir la rentabilité') : undefined}
           >
             <div className="grid grid-cols-3 gap-2">
               <Metric label="Mortalité" value={num(d.deltas.mortalityThisWeek, 0)} sub={deltaText(d.deltas.mortalityDelta, ' morts', 0)} />

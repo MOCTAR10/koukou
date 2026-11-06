@@ -1,7 +1,10 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { api } from '../../api/client';
 import type { BatchPnl } from '../../api/types-finance';
+import type { BandeIndicators } from '../../api/types-pilotage';
+import { useCanRead } from '../../app/useMenuAccess';
+import { COST_PER_KG_SOLD_LABEL, CONDUITE_LABEL, findIndicator, marginLabel, officialText } from '../bandes/headline';
 import { classNames, fcfa, num, pct, statusLabel } from '../../lib/format';
 import { Button, ErrorNote } from '../form';
 import { Card } from '../ui';
@@ -13,6 +16,18 @@ export function BatchPnlPanel({ farmId, pnl }: { farmId: string; pnl: BatchPnl }
     mutationFn: () =>
       api.download(`/farms/${farmId}/rentabilite/batches/${pnl.batchId}/export`, `pnl-lot-${pnl.batchId.slice(0, 8)}.pdf`),
   });
+
+  // The programme formulas in force head the margin and the cost; Fermia's figures come second, named.
+  const canRead = useCanRead();
+  const official = useQuery({
+    queryKey: ['bande-indicators', farmId, pnl.batchId, ''],
+    queryFn: () => api.get<BandeIndicators>(`/farms/${farmId}/bandes/${pnl.batchId}/indicators`),
+    enabled: !!farmId && canRead('TECHNIQUE'),
+    retry: false,
+  });
+  const officialRows = (['marge_fcfa', 'taux_marge', 'cout_production_kg'] as const)
+    .map((key) => findIndicator(official.data?.indicators, key))
+    .filter((i): i is NonNullable<typeof i> => i != null);
 
   const negative = pnl.netFcfa < 0;
   const margin = pnl.marginPct ?? marginPct(pnl.netFcfa, pnl.revenueFcfa);
@@ -54,7 +69,16 @@ export function BatchPnlPanel({ farmId, pnl }: { farmId: string; pnl: BatchPnl }
           </div>
         </div>
         <div>
-          <KeyValue label="Marge nette" value={pct(margin)} strong tone={negative ? 'bad' : 'good'} />
+          {officialRows.map((i) => (
+            <KeyValue
+              key={i.key}
+              label={`${i.key === 'cout_production_kg' ? i.label : marginLabel(official.data?.indicators, i.key as 'marge_fcfa' | 'taux_marge')} (officiel)`}
+              value={officialText(i)}
+              strong
+              tone={i.key !== 'cout_production_kg' && i.value != null && i.value < 0 ? 'bad' : undefined}
+            />
+          ))}
+          <KeyValue label={`Taux de marge — ${CONDUITE_LABEL}`} value={pct(margin)} strong={officialRows.length === 0} tone={negative ? 'bad' : 'good'} />
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
             <div
               className={classNames('h-full rounded-full', negative ? 'bg-red-500' : 'bg-emerald-500')}
@@ -63,7 +87,7 @@ export function BatchPnlPanel({ farmId, pnl }: { farmId: string; pnl: BatchPnl }
           </div>
           <div className="mt-2">
             <KeyValue
-              label="Coût de revient / kg"
+              label={`${COST_PER_KG_SOLD_LABEL} — ${CONDUITE_LABEL}`}
               value={pnl.costPerKgFcfa != null ? fcfa(pnl.costPerKgFcfa) : '—'}
             />
           </div>

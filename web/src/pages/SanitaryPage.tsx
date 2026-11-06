@@ -122,6 +122,15 @@ export function SanitaryPage() {
   useEffect(() => {
     if (tabParam && TAB_KEYS.includes(tabParam as TabKey)) setTab(tabParam as TabKey);
   }, [tabParam]);
+  // POUFA lot A indic: « Déclarer aux services vétérinaires » from a MALADIE advice opens the declaration (`?declarer=1`).
+  const declareParam = params.get('declarer');
+  useEffect(() => {
+    if (declareParam !== '1') return;
+    setReporting(true);
+    const next = new URLSearchParams(params);
+    next.delete('declarer');
+    setParams(next, { replace: true });
+  }, [declareParam, params, setParams]);
   const alertParam = params.get('alerte');
   const closeAlert = () => {
     const next = new URLSearchParams(params);

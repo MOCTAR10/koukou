@@ -107,6 +107,13 @@ function ActionRow({
   const [open, setOpen] = useState(false);
   const isReady = action.id.startsWith('ready:');
   const why = recommendation ?? action.description;
+  // POUFA lot A indic: a disease advice links to the sanitary declaration to the vets (F10).
+  const declare =
+    action.kind === 'MALADIE' && action.batchId && hasPermission('sanitaire:gerer', 'sanitaire:signaler') ? (
+      <Link to={`/app/sanitary?lot=${action.batchId}&declarer=1`} className={primaryLinkCls}>
+        <Stethoscope className="h-3.5 w-3.5" /> Déclarer aux services vétérinaires
+      </Link>
+    ) : null;
 
   const primary = (() => {
     if (action.acknowledged) return <span className="text-xs font-medium text-slate-400">Acquittée</span>;
@@ -170,6 +177,7 @@ function ActionRow({
               <ArrowRight className="h-3.5 w-3.5" /> Voir le lot
             </Link>
           ) : null}
+          {declare}
           {primary}
         </div>
       </div>
@@ -295,7 +303,7 @@ export function AlertsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Alertes & recommandations"
+        title="Conseils d’élevage"
         subtitle="Ce que Fermia a repéré sur vos lots et ce qu’il vous conseille de faire."
         icon={<AlertTriangle className="h-6 w-6" />}
         iconTone="amber"

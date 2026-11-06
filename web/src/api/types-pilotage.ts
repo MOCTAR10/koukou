@@ -351,6 +351,35 @@ export interface BandSheet {
   lastSnapshotVersion: number | null;
 }
 
+/** One official indicator of a band summary (no formula version ids). */
+export interface BandSummaryIndicator {
+  key: string;
+  label: string;
+  unit: string;
+  value: number | null;
+  expression: string;
+}
+
+/**
+ * Official headline of a band (`band-summary.ts`): BILAN = latest frozen
+ * bilan of a closed band, EN_COURS = indicators in force today.
+ */
+export interface BandSummary {
+  source: 'BILAN' | 'EN_COURS';
+  asOf: string;
+  ageDays: number;
+  durationDays: number | null;
+  snapshotVersion: number | null;
+  indicators: BandSummaryIndicator[];
+  revenueFcfa: number | null;
+  chargesFcfa: number | null;
+  marginFcfa: number | null;
+  completenessPct: number | null;
+}
+
+/** `GET /farms/:farmId/bandes[?status=CLOTURE|EN_COURS]`: the farm's band history. */
+export type BandHistoryRow = BandSheet & { summary: BandSummary | null };
+
 /** One official indicator with the formula in force (`OfficialIndicator`). */
 export interface OfficialIndicator {
   key: string;

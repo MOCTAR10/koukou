@@ -42,6 +42,7 @@ function ListingCard({ listing }: { listing: MarketListing }) {
             {listing.farm.name}
             {listing.farm.city ? ` · ${listing.farm.city}` : ''}
           </p>
+          {listing.traceLot ? <p className="mt-0.5 truncate text-xs font-medium text-brand-700">Lot tracé {listing.traceLot.code}</p> : null}
         </div>
         <div className="mt-auto">
           <p className="font-bold tabular-nums text-brand-700">
