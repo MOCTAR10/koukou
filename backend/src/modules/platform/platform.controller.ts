@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Body,
-  ForbiddenException,
   Controller,
   ForbiddenException,
   Get,
