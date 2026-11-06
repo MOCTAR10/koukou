@@ -1,11 +1,9 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { ApiError, clearSession, getToken } from '../../api/client';
+import { api, API_BASE, ApiError } from '../../api/client';
 import type { ContractType, FarmWithLogo, StaffRole, TaskStatus } from '../../api/types-org';
 import { classNames } from '../../lib/format';
 import { Button, ErrorNote, Modal } from '../form';
-
-const API_BASE: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   A_FAIRE: 'À faire',
@@ -113,27 +111,15 @@ export function farmLogoSrc(farm: Pick<FarmWithLogo, 'logoUrl'> | null, version 
   return version ? `${url}?v=${version}` : url;
 }
 
-/** Multipart upload: the shared client only sends JSON. */
+/** Sends the farm logo (multipart, `file`); the server caps it at 2 MiB. */
 export async function uploadFarmLogo(farmId: string, file: File): Promise<FarmWithLogo> {
   const form = new FormData();
   form.append('file', file, file.name);
-  const token = getToken();
-  const res = await fetch(`${API_BASE}/farms/${farmId}/logo`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-    // A stalled upload must end in an error, not in an endless spinner.
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (res.status === 401) {
-    clearSession();
-    window.location.replace('/login');
+  try {
+    return await api.upload<FarmWithLogo>(`/farms/${farmId}/logo`, form);
+  } catch (err) {
+    // A 413 from the proxy has no French message.
+    if (err instanceof ApiError && err.status === 413) throw new ApiError(413, 'Le logo ne doit pas dépasser 2 Mo.');
+    throw err;
   }
-  if (res.status === 413) throw new ApiError(413, 'Le logo ne doit pas dépasser 2 Mo.');
-  if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as { message?: string | string[] } | null;
-    const msg = data?.message;
-    throw new ApiError(res.status, Array.isArray(msg) ? msg.join(', ') : (msg ?? `Erreur serveur (${res.status})`));
-  }
-  return (await res.json()) as FarmWithLogo;
 }
