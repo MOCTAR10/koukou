@@ -17,7 +17,7 @@ describe('ruleFormProblem', () => {
 
   it('needs a profile for the PROFILE audience, a veterinary one for an unpublished sanitary event', () => {
     expect(ruleFormProblem({ ...base, profileCode: '' }, { creating: true, confidential: false })).toMatch(/profil/);
-    expect(ruleFormProblem({ ...base, profileCode: 'DGE' }, { creating: true, confidential: true })).toMatch(/services vétérinaires/);
+    expect(ruleFormProblem({ ...base, profileCode: 'DGE' }, { creating: true, confidential: true })).toBeNull(); // lot A2 vet: the server checks the matrix
     expect(ruleFormProblem({ ...base, profileCode: 'DGE' }, { creating: true, confidential: false })).toBeNull();
   });
 

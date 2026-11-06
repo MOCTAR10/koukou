@@ -1,16 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import type { ReferenceConstant } from '../../api/types';
+import type { AccessMatrix } from '../../api/types-access';
 import { groupOf, groupThresholds, mayEditThreshold, ownerOf, parseThreshold, thresholdValueError } from './thresholds';
 
 const row = (over: Partial<ReferenceConstant>): ReferenceConstant => ({ key: 'k', value: 1, description: null, isEditable: true, ...over });
 
-const rights = (over: Partial<{ write: boolean; profileCode: string | null; anyOwner: boolean }>) => ({
-  view: true,
-  write: true,
-  profileCode: null,
-  anyOwner: false,
-  ...over,
-});
+// POUFA lot A2 vet: the owner right comes from the matrix (seeded VETERINAIRE / DGE).
+const MATRICES: Record<string, AccessMatrix> = {
+  VETERINAIRE: { SANITAIRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'], PARAMETRES: ['CONSULTER', 'MODIFIER'] },
+  DGE: { PARAMETRES: ['CONSULTER', 'MODIFIER', 'VALIDER'] },
+};
+const rights = (over: Partial<{ write: boolean; profileCode: string | null; anyOwner: boolean }>) => {
+  const { profileCode, ...rest } = over;
+  return {
+    view: true,
+    write: true,
+    matrix: profileCode ? (MATRICES[profileCode] ?? null) : null,
+    anyOwner: false,
+    ...rest,
+  };
+};
 
 describe('conduct thresholds (F8)', () => {
   it('groups by owner when the server gives no group', () => {

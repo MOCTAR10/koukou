@@ -7,7 +7,6 @@ import type {
   NotificationRule,
   RuleBody,
 } from '../../api/types-surveillance';
-import { VET_PROFILE_CODE } from './surveillanceAccess';
 
 /**
  * Notification rule form (`/programme/notification-rules`), same checks as
@@ -89,9 +88,8 @@ export function ruleFormProblem(form: RuleForm, opts: { creating: boolean; confi
   if (form.label.trim().length > 200) return 'Le libellé ne doit pas dépasser 200 caractères.';
   if (form.audience === 'PROFILE') {
     if (!form.profileCode) return 'Précisez le profil destinataire.';
-    if (opts.confidential && form.profileCode !== VET_PROFILE_CODE) {
-      return 'Avant publication, les données sanitaires ne vont qu’à la ferme et aux services vétérinaires : choisissez un autre événement ou un autre profil.';
-    }
+    // POUFA lot A2 vet: whether a profile receives unpublished sanitary data is
+    // its matrix (SANITAIRE:VALIDER), checked by the server, never its code.
   }
   if (form.escalate.trim()) {
     if (form.sms) return 'Escalade inutile : la règle envoie déjà un SMS. Choisissez le SMS ou l’escalade, pas les deux.';

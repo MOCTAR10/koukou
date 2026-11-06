@@ -1,5 +1,5 @@
 import type { Role } from '../../api/client';
-import type { MyAccess } from '../../api/types-access';
+import type { AccessAction, AccessDomain, AccessMatrix, MyAccess } from '../../api/types-access';
 import { grantsAccess } from '../../app/menu-access';
 
 type Profile = Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> & { code?: string };
@@ -11,8 +11,9 @@ type Profile = Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> & { code?: stri
  * still shows its French message.
  *
  * - Parameters (`programme.controller.ts`, domain PARAMETRES): read with
- *   CONSULTER; a new version needs MODIFIER **and** the parameter's owner
- *   profile (`ParametersService.set` → `mayChangeParameter`).
+ *   CONSULTER; a new version needs MODIFIER **and** the owner right of the
+ *   parameter's owner key, from the matrix (`ParametersService.set` →
+ *   `mayChangeParameter`, `PARAMETER_OWNER_RIGHTS`; POUFA lot A2 vet).
  * - Lists, localités, boundaries: reads are reference data, writes need
  *   ADMINISTRATION:ADMINISTRER; inactive items and the list history
  *   (`?all=true`, `…/history`) go to the profiles that manage the lists
@@ -26,10 +27,10 @@ type Profile = Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> & { code?: stri
 export interface AdminRights {
   parameters: {
     view: boolean;
-    /** MODIFIER on PARAMETRES; the owner profile is checked per key (`mayPropose`). */
+    /** MODIFIER on PARAMETRES; the owner right is checked per key (`mayPropose`). */
     write: boolean;
-    /** The caller's profile code (institution), matched to `ownerProfile`. */
-    profileCode: string | null;
+    /** The caller's matrix (institution), checked against the owner right. */
+    matrix: AccessMatrix | null;
     /** Platform admin: any owner profile. */
     anyOwner: boolean;
   };
@@ -54,14 +55,14 @@ export interface AdminRights {
 }
 
 const NONE: AdminRights = {
-  parameters: { view: false, write: false, profileCode: null, anyOwner: false },
+  parameters: { view: false, write: false, matrix: null, anyOwner: false },
   lists: { view: false, write: false, readInactive: false, readInactiveSanitary: false },
   audit: { view: false },
   recovery: { view: false, deposit: false, edit: false, validate: false, integrate: false, reject: false },
 };
 
 const ALL: AdminRights = {
-  parameters: { view: true, write: true, profileCode: null, anyOwner: true },
+  parameters: { view: true, write: true, matrix: null, anyOwner: true },
   lists: { view: true, write: true, readInactive: true, readInactiveSanitary: true },
   audit: { view: true },
   recovery: { view: true, deposit: true, edit: true, validate: true, integrate: true, reject: true },
@@ -80,7 +81,7 @@ export function adminRights(role: Role | null | undefined, access?: Profile | nu
     parameters: {
       view: parametersView,
       write: g('PARAMETRES', 'MODIFIER'),
-      profileCode: access.code ?? null,
+      matrix: access.matrix,
       anyOwner: false,
     },
     lists: {
@@ -101,15 +102,40 @@ export function adminRights(role: Role | null | undefined, access?: Profile | nu
   };
 }
 
-// POUFA lot A sante: CDC §5.2 n° 25, mirror of the server's OWNER_PROFILES_CLOSED_TO_PLATFORM.
-/** Owner profiles the platform admin reads but never changes: the veterinary thresholds. */
-export const OWNER_PROFILES_CLOSED_TO_PLATFORM: readonly string[] = ['VETERINAIRE'];
+// POUFA lot A2 vet: mirror of the server's PARAMETER_OWNER_RIGHTS (access-rules.ts):
+// the owner key of a parameter names a matrix right, never a profile code.
+export interface OwnerRight {
+  domain: AccessDomain;
+  action: AccessAction;
+  /** The platform admin reads but never changes these values. */
+  closedToPlatform: boolean;
+}
+
+export const OWNER_RIGHTS: Readonly<Record<string, OwnerRight>> = {
+  VETERINAIRE: { domain: 'SANITAIRE', action: 'MODIFIER', closedToPlatform: true },
+  DGE: { domain: 'PARAMETRES', action: 'VALIDER', closedToPlatform: false },
+  ADMIN: { domain: 'ADMINISTRATION', action: 'ADMINISTRER', closedToPlatform: false },
+};
+
+/** Owner keys the platform admin reads but never changes: the veterinary thresholds. */
+export const OWNER_PROFILES_CLOSED_TO_PLATFORM: readonly string[] = Object.keys(OWNER_RIGHTS).filter((k) => OWNER_RIGHTS[k]!.closedToPlatform);
+
+const DOMAIN_NAMES: Partial<Record<AccessDomain, string>> = { SANITAIRE: 'Sanitaire', PARAMETRES: 'Paramètres', ADMINISTRATION: 'Administration' };
+const ACTION_NAMES: Record<AccessAction, string> = { CONSULTER: 'Consulter', CREER: 'Créer', MODIFIER: 'Modifier', VALIDER: 'Valider', ADMINISTRER: 'Administrer' };
+
+/** « Sanitaire : Modifier », the right that owns a key; null for an unknown key. */
+export function ownerRightLabel(ownerProfile: string): string | null {
+  const right = OWNER_RIGHTS[ownerProfile];
+  return right ? `${DOMAIN_NAMES[right.domain] ?? right.domain} : ${ACTION_NAMES[right.action]}` : null;
+}
 
 /** Whether the caller may record a new version of a parameter owned by `ownerProfile` (server `mayChangeParameter`). */
 export function mayPropose(rights: AdminRights['parameters'], ownerProfile: string): boolean {
   if (!rights.write) return false;
-  if (rights.anyOwner) return !OWNER_PROFILES_CLOSED_TO_PLATFORM.includes(ownerProfile);
-  return rights.profileCode !== null && rights.profileCode === ownerProfile;
+  const right = OWNER_RIGHTS[ownerProfile];
+  if (rights.anyOwner) return !right?.closedToPlatform;
+  if (!right || !rights.matrix) return false;
+  return grantsAccess({ matrix: rights.matrix, scopeKind: 'ALL' }, right.domain, right.action);
 }
 
 /** Whether a programme administration entry shows at all. */

@@ -171,6 +171,8 @@ export const NOTIFICATION_EVENTS = [
   'SYNC_CONFLICT',
   // POUFA lot A pilot: a programme report was produced.
   'REPORT_READY',
+  // POUFA lot A2 vet: the vets examined a declaration.
+  'DECLARATION_REVIEWED',
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 
@@ -243,4 +245,44 @@ export interface RuleBody {
 export interface CreateRuleBody extends RuleBody {
   code: string;
   event: NotificationEvent;
+}
+
+// POUFA lot A2 vet: register and review of the declarations (`/surveillance/declarations`, CDC n° 26).
+export type DeclarationReviewDecision = 'VALIDEE' | 'INFIRMEE' | 'ALERTE';
+export type DeclarationReviewState = 'A_EXAMINER' | DeclarationReviewDecision;
+
+export interface SanitaryDeclaration {
+  id: string;
+  farmId: string;
+  farmCode: string | null;
+  farmName: string | null;
+  batchId: string;
+  batchCode: string | null;
+  provinceCode: string | null;
+  provinceName: string | null;
+  kind: string;
+  occurredAt: string;
+  severity: AlertLevel;
+  quantity: number;
+  title: string;
+  description: string | null;
+  symptoms: string | null;
+  disease: string | null;
+  clinicalSigns: string[];
+  suspicion: boolean;
+  createdByName: string | null;
+  photos: HealthEventPhoto[];
+  alertId: string | null;
+  alertCode: string | null;
+  alertStatusCode: string | null;
+  reviewStatus: DeclarationReviewDecision | null;
+  reviewComment: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  reviewState: DeclarationReviewState;
+}
+
+export interface SanitaryDeclarationPage {
+  items: SanitaryDeclaration[];
+  total: number;
 }

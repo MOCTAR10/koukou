@@ -20,8 +20,10 @@ export interface ParameterView {
   label: string;
   type: ParameterType;
   unit: string | null;
-  /** Profile in charge (DGE, VETERINAIRE, ADMIN): only it or the platform admin changes the value. */
+  /** Owner key (DGE, VETERINAIRE, ADMIN): its matrix right (`ownerRight`) changes the value. */
   ownerProfile: string;
+  /** POUFA lot A2 vet: the right owning the value (server `PARAMETER_OWNER_RIGHTS`). */
+  ownerRight?: { domain: string; action: string } | null;
   min: number | null;
   max: number | null;
   /** Null when no version is in force at the date asked. */

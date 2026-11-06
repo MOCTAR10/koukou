@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Eraser, Settings2, ShieldAlert } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardCheck, Eraser, Settings2, ShieldAlert } from 'lucide-react';
 import { api } from '../api/client';
 import { ALERT_FAMILIES, type SanitaryAlertPage } from '../api/types-surveillance';
 import { PageNotOpen } from '../components/access/PageNotOpen';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
-import { LEVEL_LABEL, Note, Pill, levelTone } from '../components/flock/shared';
+import { LEVEL_LABEL, Note, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { useProvinces } from '../components/registry/queries';
 import { AlertDetailPanel } from '../components/surveillance/AlertDetailPanel';
+import { DeclarationsRegister } from '../components/surveillance/DeclarationsRegister';
 import { AlertStatusPill, PublishedPill } from '../components/surveillance/AlertParts';
 import {
   ALERT_PAGE_SIZE,
@@ -43,11 +44,13 @@ export function SurveillancePage() {
   const signs = useSanitaryList('SIGNE_CLINIQUE', rights.view);
   const provinces = useProvinces(rights.view);
   const badPeriod = periodProblem(filters);
+  // POUFA lot A2 vet: the register of declarations (CDC n° 26), vets only.
+  const view = rights.declarations && params.get('vue') === 'declarations' ? 'declarations' : 'alertes';
 
   const list = useQuery({
     queryKey: [...SURVEILLANCE_KEYS.alerts, filters, offset],
     queryFn: () => api.get<SanitaryAlertPage>(`/surveillance/alerts?${alertQuery(filters, offset)}`),
-    enabled: rights.view && !badPeriod,
+    enabled: rights.view && !badPeriod && view === 'alertes',
     placeholderData: keepPreviousData,
   });
 
@@ -94,6 +97,23 @@ export function SurveillancePage() {
           ) : undefined
         }
       />
+      {rights.declarations ? (
+        <Tabs<'alertes' | 'declarations'>
+          value={view}
+          onChange={(v) => {
+            const next = new URLSearchParams();
+            if (v === 'declarations') next.set('vue', 'declarations');
+            setParams(next, { replace: true });
+          }}
+          options={[
+            { key: 'alertes', label: 'Alertes', icon: <ShieldAlert /> },
+            { key: 'declarations', label: 'Déclarations à valider', icon: <ClipboardCheck /> },
+          ]}
+        />
+      ) : null}
+      {view === 'declarations' ? <DeclarationsRegister canReview={rights.reviewDeclarations} /> : null}
+      {view === 'alertes' ? (
+      <>
       {!rights.seesUnpublished ? (
         <Note tone="slate">
           Avant publication, une alerte reste entre la ferme et les services vétérinaires : vous voyez les alertes publiées de votre périmètre.
@@ -241,6 +261,8 @@ export function SurveillancePage() {
 
       {openId ? (
         <AlertDetailPanel alertId={openId} rights={rights} statuses={statuses.data ?? []} signs={signs.data ?? []} onClose={() => openAlert(null)} />
+      ) : null}
+      </>
       ) : null}
     </div>
   );
