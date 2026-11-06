@@ -15,6 +15,8 @@ process.env.PUSH_DISABLED = 'true';
 // Traceability QR signatures: a fixed test key and public address.
 process.env.TRACE_QR_SECRET = 'e2e-trace-qr-secret';
 process.env.TRACE_PUBLIC_BASE_URL = 'https://poufa.e2e.ga';
+// No minutely notification sweep (escalation, SMS): specs call sweep().
+process.env.NOTIFY_SWEEP_DISABLED = 'true';
 
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {

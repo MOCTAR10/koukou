@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { DiseaseSeverity } from '../../common/enums/disease-severity.enum.js';
@@ -27,8 +27,54 @@ import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
 import { HealthEventStatus } from '../../common/enums/health-event-status.enum.js';
 import { CreateHealthEventDto } from './dto/create-health-event.dto.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { ProgramListType } from '../../common/enums/program-list-type.enum.js';
+import { runAfterCommit } from '../../common/utils/after-commit.js';
+import {
+  KOUKOU_EVENTS,
+  koukouBus,
+  type DeclarationReceivedEvent,
+} from '../../common/utils/event-bus.js';
+import { createOnce } from '../../common/utils/idempotency.js';
+import {
+  hasImageSignature,
+  uploadsRoot,
+  type UploadedImageFile,
+} from '../farms/farms.service.js';
+import { RefListsService } from '../programme/ref-lists.service.js';
+import { SanitaryAlertsService } from '../surveillance/sanitary-alerts.service.js';
+import { HealthEventPhoto } from './entities/health-event-photo.entity.js';
 
 const EGGS_PER_TRAY = 30;
+
+/** Photos of a declaration (CDC « Proposé : photo »), sent after its text. */
+export const DECLARATION_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+export const DECLARATION_PHOTOS_MAX = 5;
+const PHOTO_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/webp': 'webp',
+};
+
+/** Directory of a farm's declaration photos (never served statically). */
+export function declarationPhotosDir(farmId: string): string {
+  return join(uploadsRoot(), 'sanitary', farmId);
+}
+
+/** A photo as the declaration list serves it (no path). */
+export interface HealthEventPhotoView {
+  id: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: Date;
+}
+
+export type HealthEventWithPhotos = HealthEvent & {
+  photos: HealthEventPhotoView[];
+};
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 const DISEASE_SEVERITY_TO_LEVEL: Record<DiseaseSeverity, AlertLevel> = {
@@ -70,6 +116,10 @@ export class HealthService {
     private readonly batchesService: BatchesService,
     private readonly declarations: SanitaryDeclarationPolicy,
     private readonly bandeStats: BandeStatsService,
+    @InjectRepository(HealthEventPhoto)
+    private readonly photoRepo: Repository<HealthEventPhoto>,
+    private readonly lists: RefListsService,
+    private readonly sanitaryAlerts: SanitaryAlertsService,
   ) {}
 
   async getHealth(user: AuthUser, farmId: string, batchId: string) {
@@ -140,15 +190,35 @@ export class HealthService {
     user: AuthUser,
     farmId: string,
     batchId: string,
-  ): Promise<HealthEvent[]> {
+  ): Promise<HealthEventWithPhotos[]> {
     // Legal rule: declarations stay between the farm and the vets.
     await this.declarations.assert(user);
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
-    return this.eventRepo.find({
+    const events = await this.eventRepo.find({
       where: { farmId, batchId },
       order: { occurredAt: 'DESC', createdAt: 'DESC' },
     });
+    return this.withPhotos(events);
+  }
+
+  private async withPhotos(
+    events: HealthEvent[],
+  ): Promise<HealthEventWithPhotos[]> {
+    const ids = events.map((e) => e.id);
+    const photos = ids.length
+      ? await this.photoRepo.find({
+          where: { healthEventId: In(ids) },
+          order: { createdAt: 'ASC' },
+        })
+      : [];
+    const byEvent = new Map<string, HealthEventPhotoView[]>();
+    for (const p of photos) {
+      const list = byEvent.get(p.healthEventId) ?? [];
+      list.push(this.photoView(p));
+      byEvent.set(p.healthEventId, list);
+    }
+    return events.map((e) => ({ ...e, photos: byEvent.get(e.id) ?? [] }));
   }
 
   async createEvent(
@@ -159,9 +229,17 @@ export class HealthService {
   ): Promise<HealthEvent> {
     // Legal rule: declarations stay between the farm and the vets.
     await this.declarations.assert(user);
-    await this.farmsService.assertAccessible(user, farmId);
+    const farm = await this.farmsService.assertAccessible(user, farmId);
     const batch = await this.assertBatchInFarm(farmId, batchId);
     const quantity = dto.quantity ?? 0;
+    // A replayed offline declaration returns the first one, untouched.
+    if (dto.idempotencyKey) {
+      const replay = await this.eventRepo.findOne({
+        where: { farmId, idempotencyKey: dto.idempotencyKey },
+      });
+      if (replay) return replay;
+    }
+    const clinicalSigns = await this.checkClinicalSigns(dto.clinicalSigns);
 
     if (!dto.severity && !dto.diseaseSeverity) {
       throw new BadRequestException('La gravité (ou la sévérité de la maladie) est requise.');
@@ -209,8 +287,39 @@ export class HealthService {
       notes: dto.notes ?? null,
       resolvedAt: resolved ? todayIso() : null,
       createdById: user.id,
+      clinicalSigns,
+      suspicion: dto.suspicion === true,
+      idempotencyKey: dto.idempotencyKey ?? null,
     });
-    const saved = await this.eventRepo.save(event);
+    let created = false;
+    const saved = await createOnce(
+      this.eventRepo,
+      farmId,
+      dto.idempotencyKey,
+      () =>
+        // The declaration and the alert of a suspicion commit together.
+        this.dataSource.transaction(async (em) => {
+          const row = await em.getRepository(HealthEvent).save(event);
+          if (row.suspicion) {
+            await this.sanitaryAlerts.raiseFromDeclaration(em, row, farm);
+          }
+          const received: DeclarationReceivedEvent = {
+            farmId,
+            batchId,
+            healthEventId: row.id,
+            kind: row.kind,
+            severity: row.severity,
+            suspicion: row.suspicion,
+          };
+          runAfterCommit(em, () =>
+            koukouBus.emit(KOUKOU_EVENTS.DECLARATION_RECEIVED, received),
+          );
+          created = true;
+          return row;
+        }),
+    );
+    // A concurrent replay lost on the unique key: nothing more to apply.
+    if (!created) return saved;
 
     if (
       (dto.kind === HealthEventKind.REFORME ||
@@ -263,12 +372,188 @@ export class HealthService {
       (event.kind === HealthEventKind.REFORME ||
         event.kind === HealthEventKind.MORTALITE) &&
       event.quantity > 0;
+    const photos = await this.photoRepo.find({
+      where: { healthEventId: event.id },
+    });
+    // Photo rows go with the event (ON DELETE CASCADE); their files after.
     await this.eventRepo.remove(event);
+    for (const p of photos) {
+      await unlink(join(declarationPhotosDir(farmId), p.fileName)).catch(
+        () => undefined,
+      );
+    }
     if (alreadyApplied) {
       await this.recomputeLiveCount(batchId);
       await this.batchesService.runAdvisoryForBatch(batchId);
     }
     return { deleted: true };
+  }
+
+  /** Active SIGNE_CLINIQUE codes only (the list of the veterinary services). */
+  private async checkClinicalSigns(
+    codes: string[] | undefined,
+  ): Promise<string[]> {
+    const wanted = [...new Set((codes ?? []).map((c) => c.trim()))].filter(
+      (c) => c.length > 0,
+    );
+    if (wanted.length === 0) return [];
+    const known = new Set(
+      (await this.lists.list(ProgramListType.SIGNE_CLINIQUE)).map((i) => i.code),
+    );
+    const unknown = wanted.filter((c) => !known.has(c));
+    if (unknown.length > 0) {
+      throw new BadRequestException(
+        `Signe(s) clinique(s) inconnu(s) ou désactivé(s) : ${unknown.join(', ')}.`,
+      );
+    }
+    return wanted;
+  }
+
+  // ---------- Photos of a declaration ----------
+
+  /**
+   * Adds a photo to a declaration (multipart, after its text). PNG, JPEG or
+   * WEBP checked on the file's own bytes; the same file sent again (offline
+   * retry) returns the photo already stored.
+   */
+  async addPhoto(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    eventId: string,
+    file: UploadedImageFile | undefined,
+  ): Promise<HealthEventPhotoView> {
+    const event = await this.assertEvent(user, farmId, batchId, eventId);
+    if (!file) {
+      throw new BadRequestException('Aucun fichier reçu (champ « file »).');
+    }
+    const extension = PHOTO_EXTENSIONS[file.mimetype];
+    if (!extension) {
+      throw new BadRequestException(
+        'Format de photo non supporté. Utilisez un fichier PNG, JPEG ou WEBP.',
+      );
+    }
+    if (file.size === 0 || file.buffer.length === 0) {
+      throw new BadRequestException('La photo est vide.');
+    }
+    if (file.size > DECLARATION_PHOTO_MAX_BYTES) {
+      throw new BadRequestException('Une photo ne doit pas dépasser 5 Mo.');
+    }
+    // The declared type comes from the client: check the bytes.
+    if (!hasImageSignature(file.buffer, extension)) {
+      throw new BadRequestException(
+        'Le fichier n’est pas une image PNG, JPEG ou WEBP valide.',
+      );
+    }
+    const sha256 = createHash('sha256').update(file.buffer).digest('hex');
+    const same = await this.photoRepo.findOne({
+      where: { healthEventId: event.id, sha256 },
+    });
+    if (same) return this.photoView(same);
+    const count = await this.photoRepo.count({
+      where: { healthEventId: event.id },
+    });
+    if (count >= DECLARATION_PHOTOS_MAX) {
+      throw new BadRequestException(
+        `${DECLARATION_PHOTOS_MAX} photos au plus par déclaration.`,
+      );
+    }
+    const id = randomUUID();
+    const fileName = `${id}.${extension}`;
+    const dir = declarationPhotosDir(farmId);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, fileName), file.buffer);
+    try {
+      const photo = await this.photoRepo.save(
+        this.photoRepo.create({
+          id,
+          healthEventId: event.id,
+          farmId,
+          fileName,
+          mimeType: extension === 'jpg' ? 'image/jpeg' : `image/${extension}`,
+          sizeBytes: file.buffer.length,
+          sha256,
+          createdById: user.id,
+        }),
+      );
+      return this.photoView(photo);
+    } catch (err) {
+      await unlink(join(dir, fileName)).catch(() => undefined);
+      // Two uploads of the same file at once: the first one wins.
+      const winner = await this.photoRepo.findOne({
+        where: { healthEventId: event.id, sha256 },
+      });
+      if (winner) return this.photoView(winner);
+      throw err;
+    }
+  }
+
+  /** The photo's bytes, for the farm and the veterinary services only. */
+  async photoFile(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    eventId: string,
+    photoId: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
+    await this.assertEvent(user, farmId, batchId, eventId);
+    const photo = await this.photoRepo.findOne({
+      where: { id: photoId, healthEventId: eventId, farmId },
+    });
+    if (!photo) throw new NotFoundException('Photo introuvable.');
+    const buffer = await readFile(
+      join(declarationPhotosDir(farmId), photo.fileName),
+    ).catch(() => null);
+    if (!buffer) {
+      throw new NotFoundException('Fichier de la photo introuvable.');
+    }
+    return { buffer, mimeType: photo.mimeType, fileName: photo.fileName };
+  }
+
+  async deletePhoto(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    eventId: string,
+    photoId: string,
+  ): Promise<{ deleted: boolean }> {
+    await this.assertEvent(user, farmId, batchId, eventId);
+    const photo = await this.photoRepo.findOne({
+      where: { id: photoId, healthEventId: eventId, farmId },
+    });
+    if (!photo) throw new NotFoundException('Photo introuvable.');
+    await this.photoRepo.remove(photo);
+    await unlink(join(declarationPhotosDir(farmId), photo.fileName)).catch(
+      () => undefined,
+    );
+    return { deleted: true };
+  }
+
+  /** Declaration rule, farm access and the event in that band. */
+  private async assertEvent(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    eventId: string,
+  ): Promise<HealthEvent> {
+    // Legal rule: declarations stay between the farm and the vets.
+    await this.declarations.assert(user);
+    await this.farmsService.assertAccessible(user, farmId);
+    await this.assertBatchInFarm(farmId, batchId);
+    const event = await this.eventRepo.findOne({
+      where: { id: eventId, farmId, batchId },
+    });
+    if (!event) throw new NotFoundException('Événement sanitaire introuvable.');
+    return event;
+  }
+
+  private photoView(p: HealthEventPhoto): HealthEventPhotoView {
+    return {
+      id: p.id,
+      mimeType: p.mimeType,
+      sizeBytes: p.sizeBytes,
+      createdAt: p.createdAt,
+    };
   }
 
   private async assertBatchInFarm(

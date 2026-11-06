@@ -14,7 +14,9 @@ import { PushService } from './push.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Notifications')
-@Domain('COMPTE')
+// The caller's own phone: SESSION, so institutional accounts (vets) get push
+// too — COMPTE is Fermia-only and never in a programme matrix.
+@Domain('SESSION')
 @Controller('push/devices')
 export class PushController {
   constructor(private readonly pushService: PushService) {}

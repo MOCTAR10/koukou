@@ -116,17 +116,18 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Sends to every device of `userIds`; returns the number of devices. */
   async sendToUsers(
     farmId: string,
     userIds: string[],
     payload: PushPayload,
-  ): Promise<void> {
+  ): Promise<number> {
     const ids = [...new Set(userIds)];
-    if (ids.length === 0) return;
+    if (ids.length === 0) return 0;
     const devices = await this.deviceRepo.find({
       where: { userId: In(ids) },
     });
-    if (devices.length === 0) return;
+    if (devices.length === 0) return 0;
     const messages: PushMessage[] = devices.map((d) => ({
       to: d.token,
       title: payload.title,
@@ -137,6 +138,7 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
       channelId: PUSH_CHANNEL_ID,
     }));
     await this.deliver(messages);
+    return messages.length;
   }
 
   /** Owner and active Administrateurs: the people who manage the farm. */

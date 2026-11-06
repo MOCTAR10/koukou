@@ -802,9 +802,14 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       expect(
         (await get('/farms', accounts.BCEG.token).expect(200)).body,
       ).toEqual([]);
-      // No REGISTRE domain: not even the farm list.
-      await get('/farms', accounts.MAEDR.token).expect(403);
-      await get('/farms', accounts.ANINF.token).expect(403);
+      // The caller's farm list is SESSION: open, but an AGGREGATE scope holds
+      // nor an AUDIT one any farm row.
+      for (const code of ['MAEDR', 'ANINF']) {
+        expect(
+          (await get('/farms', accounts[code].token).expect(200)).body,
+        ).toEqual([]);
+        await get(`/farms/${farmA}/me`, accounts[code].token).expect(403);
+      }
     });
 
     it('sanitary declarations: the farm and the veterinary services only', async () => {

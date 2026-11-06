@@ -38,6 +38,8 @@ import { SupplyModule } from './modules/supply/supply.module.js';
 import { SyncModule } from './modules/sync/sync.module.js';
 import { TraceModule } from './modules/trace/trace.module.js';
 import { DataImportModule } from './modules/data-import/data-import.module.js';
+import { SurveillanceModule } from './modules/surveillance/surveillance.module.js';
+import { NotifyModule } from './modules/notify/notify.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import {
   dbConnection,
@@ -118,6 +120,8 @@ import {
     SyncModule,
     TraceModule,
     DataImportModule,
+    SurveillanceModule,
+    NotifyModule,
     DatabaseModule,
   ],
   controllers: [AppController],
