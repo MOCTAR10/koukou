@@ -188,6 +188,23 @@ describe('Sanitaire conforme — traitements et vaccinations (e2e)', () => {
         reason: 'Prévention',
       }).expect(201);
       expect(listed.body).toMatchObject({ productCode, productName: `Amoxicilline ${tag}` });
+      // A care of the vets' calendar given before the band was opened keeps its name.
+      const protocols = await get('/sanitary/protocols?species=POULET&type=CHAIR').expect(200);
+      const reference = (protocols.body as Array<{ id: string; isDefault: boolean; farmId: string | null }>).find(
+        (p) => p.isDefault && p.farmId === null,
+      )!;
+      const detail = await get(`/sanitary/protocols/${reference.id}`).expect(200);
+      const step = detail.body.steps[0] as { id: string; name: string; careType: string };
+      const fromStep = await post(treatments(), {
+        careType: step.careType,
+        protocolStepId: step.id,
+        administeredAt: day(0),
+      }).expect(201);
+      expect(fromStep.body).toMatchObject({ productCode: null, productName: step.name });
+      await post(treatments(), {
+        careType: 'VACCIN',
+        protocolStepId: '00000000-0000-4000-8000-000000000000',
+      }).expect(400);
       // A replay queued before the list was filled still returns its record.
       const replay = await post(treatments(), {
         careType: 'ANTIBIOTIQUE',

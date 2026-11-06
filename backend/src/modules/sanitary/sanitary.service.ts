@@ -507,10 +507,14 @@ export class SanitaryService {
     if (dto.medicationLotId) {
       await this.assertMedicationLot(farmId, dto.medicationLotId);
     }
-    const product = resolveTreatmentProduct(
-      dto,
-      await this.lists.list(ProgramListType.PRODUIT_TRAITEMENT),
-    );
+    // A care of a usable programme (the vets' calendar, or a farm programme
+    // they set) recorded after the fact carries the step's own name.
+    const product = dto.protocolStepId
+      ? await this.stepProduct(farmId, dto.protocolStepId)
+      : resolveTreatmentProduct(
+          dto,
+          await this.lists.list(ProgramListType.PRODUIT_TRAITEMENT),
+        );
     if (!product.ok) throw new BadRequestException(product.error);
     const administeredAt = dto.administeredAt
       ? new Date(dto.administeredAt)
@@ -1036,6 +1040,23 @@ export class SanitaryService {
         'Soin prophylactique introuvable sur ce lot.',
       );
     return event;
+  }
+
+  /** Product of a step of a programme the farm may use (shared or its own). */
+  private async stepProduct(
+    farmId: string,
+    stepId: string,
+  ): Promise<{ ok: true; productCode: null; productName: string }> {
+    const step = await this.stepRepo.findOne({ where: { id: stepId } });
+    const protocol = step
+      ? await this.findUsableProtocol(step.protocolId, farmId)
+      : null;
+    if (!step || !protocol) {
+      throw new BadRequestException(
+        'Étape de programme sanitaire introuvable pour cette ferme.',
+      );
+    }
+    return { ok: true, productCode: null, productName: step.name };
   }
 
   private async assertBatchInFarm(

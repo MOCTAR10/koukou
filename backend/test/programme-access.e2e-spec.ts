@@ -1005,7 +1005,7 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       return all.find((p) => p.key === key)!.value;
     }
 
-    it('a veterinary threshold is changed by the vets or the admin only', async () => {
+    it('a veterinary threshold is changed by the vets only', async () => {
       const VET_KEY = 'SEUIL_ALERTE_MORTALITE_JOUR_PCT';
       const DGE_KEY = 'PESEE_FREQUENCE_J';
       const vetValue = await current(VET_KEY);
@@ -1023,7 +1023,10 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       await set(DGE_KEY, dgeValue, accounts.VETERINAIRE.token).expect(403);
       await set(VET_KEY, vetValue, accounts.VETERINAIRE.token).expect(201);
       await set(DGE_KEY, dgeValue, accounts.DGE.token).expect(201);
-      await set(VET_KEY, vetValue, adminToken).expect(201);
+      // POUFA lot A sante: CDC n° 25, the platform admin no longer changes a
+      // VETERINAIRE-owned parameter (it keeps read access).
+      const adminRefused = await set(VET_KEY, vetValue, adminToken).expect(403);
+      expect(adminRefused.body.message).toContain('VETERINAIRE');
       // A profile without PARAMETRES:MODIFIER never reaches the service.
       await set(DGE_KEY, dgeValue, accounts.MAEDR.token).expect(403);
     });

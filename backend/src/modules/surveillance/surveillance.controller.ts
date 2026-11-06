@@ -48,7 +48,9 @@ const sanitaryListPipe = new ParseEnumPipe(ProgramListType, {
  * Platform admin, or an institutional profile granted the domain SANITAIRE
  * (the seeded VETERINAIRE profile); before publication an alert stays
  * between the farm and the veterinary services, whatever the matrix
- * (`SanitaryDeclarationPolicy`).
+ * (`SanitaryDeclarationPolicy`). Qualifying and publishing are the veterinary
+ * authority's alone (`veterinary-authority.ts`, CDC n° 25-26): the platform
+ * admin reads the alerts and keeps the lists, never decides an alert.
  */
 @ApiTags('Surveillance sanitaire (programme)')
 @Domain('SANITAIRE')

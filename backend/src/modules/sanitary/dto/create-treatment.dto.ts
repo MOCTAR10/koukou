@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -32,6 +33,14 @@ export class CreateTreatmentDto extends IdempotentDto {
   @IsString({ message: 'Le code du produit doit être une chaîne.' })
   @MaxLength(60, { message: 'Le code du produit est trop long.' })
   productCode?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Étape d’un programme sanitaire déjà réalisée (bande ouverte en cours) : le produit est celui de l’étape, hors liste PRODUIT_TRAITEMENT',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'Identifiant d’étape de programme invalide.' })
+  protocolStepId?: string;
 
   @ApiPropertyOptional({
     description:
