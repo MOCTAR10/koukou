@@ -16,6 +16,7 @@ import { Farm } from '../farms/entities/farm.entity.js';
 import {
   NO_MEMBERSHIP_MESSAGE,
   OUT_OF_SCOPE_MESSAGE,
+  consults,
   farmScopeSql,
   includesFarm,
   includesProvince,
@@ -23,6 +24,7 @@ import {
   type InstitutionAccess,
 } from './access-rules.js';
 import { ProgramMembership } from './entities/program-membership.entity.js';
+import type { GrantableDomain } from './access-domains.js';
 import { requireProgramCode } from '../programme/program-code.js';
 
 /** Farm columns the scope reads. */
@@ -83,6 +85,21 @@ export class ScopeResolver {
     const access = await this.accessOf(user.id);
     if (!access) throw new ForbiddenException(NO_MEMBERSHIP_MESSAGE);
     return access;
+  }
+
+  /**
+   * Whether `user` reads the data of `domain` (gating, never masking: CDC
+   * §3/§8 « chacun n'accède qu'aux informations qui le concernent »). Farm
+   * accounts and the platform admin: always (their farm rights apply);
+   * an institutional account: « Consulter » on that domain in its matrix.
+   */
+  async consults(
+    user: Pick<AuthUser, 'id' | 'role'>,
+    domain: GrantableDomain,
+  ): Promise<boolean> {
+    if (!this.isInstitution(user)) return true;
+    const access = await this.accessOf(user.id);
+    return !!access && consults(access, domain);
   }
 
   /** Whether `farm` is in the scope of `access`. */

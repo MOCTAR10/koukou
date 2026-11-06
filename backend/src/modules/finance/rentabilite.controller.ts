@@ -8,22 +8,24 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuditExport } from '../../common/decorators/audit.decorator.js';
+import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { RentabiliteService } from './rentabilite.service.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Rentabilité & Compte de résultat')
 @Domain('ECONOMIQUE')
+@InstitutionReadOnly('Rentabilité')
 @Controller('farms/:farmId/rentabilite')
 export class RentabiliteController {
   constructor(private readonly rentabiliteService: RentabiliteService) {}
 
   @Get('overview')
+  @AuditThirdPartyRead('Rentabilité d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
   @ApiOperation({
@@ -73,6 +75,7 @@ export class RentabiliteController {
   }
 
   @Get('batches/:batchId')
+  @AuditThirdPartyRead('Compte de résultat d’un lot')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
   @ApiOperation({

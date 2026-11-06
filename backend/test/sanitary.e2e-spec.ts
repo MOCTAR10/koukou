@@ -5,8 +5,11 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
 import { DataSource } from 'typeorm';
 import {
+  auth,
   createPlatformAdmin,
   createProgrammeFarm,
+  login,
+  uniquePhone,
 } from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
@@ -20,6 +23,8 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
   let server: App;
   let token: string;
   let farmId: string;
+  /** Veterinary services: they set a farm's own programme (CDC n° 22). */
+  let vetToken: string;
 
   async function createBatch(integrationDate: string) {
     const res = await request(server)
@@ -53,6 +58,17 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
     });
     token = farm.ownerToken;
     farmId = farm.farmId;
+    const vetPhone = uniquePhone('+2417');
+    const vet = await request(server)
+      .post('/programme/access/memberships')
+      .set(auth(admin.token))
+      .send({
+        fullName: `Vétérinaire sanitaire ${Date.now()}`,
+        phone: vetPhone,
+        profileCode: 'VETERINAIRE',
+      })
+      .expect(201);
+    vetToken = await login(server, vetPhone, vet.body.loginCode as string);
   });
 
   it('seed : les protocoles sanitaires par défaut sont disponibles (chair + pondeuse)', async () => {
@@ -126,7 +142,7 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
         `/farms/${farmId}/batches/${batchId}/prophylaxis/${marek.id}/complete`,
       )
       .set('Authorization', `Bearer ${token}`)
-      .send({ notes: 'Vaccin réalisé avec succès' })
+      .send({ notes: 'Vaccin réalisé avec succès', animalCount: 500 })
       .expect(201);
     expect(done.body.status).toBe('FAIT');
     expect(done.body.performedNotes).toBe('Vaccin réalisé avec succès');
@@ -178,7 +194,7 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
           `/farms/${farmId}/batches/${batchId}/prophylaxis/${e.id}/complete`,
         )
         .set('Authorization', `Bearer ${token}`)
-        .send({})
+        .send({ animalCount: 500 })
         .expect(201);
     }
     const after = await request(server)
@@ -206,6 +222,8 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
         dosage: '1 g/L d’eau',
         route: 'Eau de boisson',
         withdrawalDays: 30,
+        reason: 'Coryza',
+        animalCount: 500,
       })
       .expect(201);
     expect(treatment.body.withdrawalEndDate).toBeTruthy();
@@ -236,6 +254,8 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
         productName: 'Tylosine',
         administeredAt: new Date(Date.now() - 10 * 86400000).toISOString(),
         withdrawalDays: 1,
+        reason: 'Diarrhée',
+        animalCount: 500,
       })
       .expect(201);
     const alerts = await request(server)
@@ -252,9 +272,10 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
   });
 
   it('protocole personnalisé : compléter un soin antibiotique enregistre le traitement HACCP', async () => {
+    // The farm's own programme comes from the veterinary services (CDC n° 22).
     const protocol = await request(server)
       .post('/sanitary/protocols')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${vetToken}`)
       .send({
         farmId,
         name: 'Protocole test antibio',
@@ -282,14 +303,18 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ protocolId: protocol.body.id })
       .expect(201);
-    const event = generated.body[0];
+    // The reference calendar is planned at opening too: pick the farm step.
+    const event = generated.body.find(
+      (e: any) => e.name === 'Antibiotique préventif',
+    );
+    expect(event.isReference).toBe(false);
 
     await request(server)
       .post(
         `/farms/${farmId}/batches/${batchId}/prophylaxis/${event.id}/complete`,
       )
       .set('Authorization', `Bearer ${token}`)
-      .send({})
+      .send({ animalCount: 500 })
       .expect(201);
 
     const treatments = await request(server)
@@ -301,6 +326,9 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
     );
     expect(auto).toBeTruthy();
     expect(auto.withdrawalDays).toBe(3);
+    // POUFA lot A2 sante: a programme step keeps a calendar reason, never empty.
+    expect(auto.reason).toBe('Étape du calendrier sanitaire (prévention)');
+    expect(auto.animalCount).toBe(500);
   });
 
   afterAll(async () => {

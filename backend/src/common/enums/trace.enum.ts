@@ -42,6 +42,10 @@ export enum QrScanResult {
 /** Kinds of the rearing chronology of a lot (CDC « Historique d'élevage »). */
 export enum RearingEventKind {
   OUVERTURE = 'OUVERTURE',
+  /** Input delivery received (CDC T2 « intrants »). */
+  INTRANT = 'INTRANT',
+  /** Feed consumed from one stock lot (CDC T2 « intrants »). */
+  ALIMENT = 'ALIMENT',
   SOIN = 'SOIN',
   TRAITEMENT = 'TRAITEMENT',
   MORTALITE = 'MORTALITE',

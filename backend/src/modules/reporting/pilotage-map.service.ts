@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { utcDay } from '../batches/poufa/bande-rules.js';
 import { ParametersService } from '../programme/parameters.service.js';
-import { metricsOf, sumFacts } from './pilotage-metrics.js';
+import {
+  conductAlertsOf,
+  metricsOf,
+  sumFacts,
+  type ConductAlerts,
+} from './pilotage-metrics.js';
+import { CONDUCT_ALERTS_LABEL } from './pilotage-programme.js';
 import {
   alertLevel,
   boundaryCentre,
   completenessLevel,
   mortalityLevel,
-  pct,
   suppressedKeys,
   type ColourLevel,
   type Period,
@@ -24,7 +29,14 @@ import type { PilotageView } from './pilotage-scope.service.js';
 export interface MapColours {
   mortality: ColourLevel | null;
   completeness: ColourLevel | null;
+  /** ROUGE only with a published sanitary alert (conduct alerts never colour). */
   alert: ColourLevel;
+}
+
+/** Alerts of a point or a cluster: the published ones, conduct ones apart. */
+export interface MapAlerts {
+  published: number;
+  conduct: ConductAlerts;
 }
 
 export interface MapPoint {
@@ -40,7 +52,7 @@ export interface MapPoint {
   headcount: number;
   mortalityPct: number | null;
   completenessPct: number | null;
-  alerts: { activeNow: number; activeRedNow: number; published: number };
+  alerts: MapAlerts;
   colours: MapColours;
 }
 
@@ -56,7 +68,7 @@ export interface MapCluster {
   headcount: number | null;
   mortalityPct: number | null;
   completenessPct: number | null;
-  alerts: { activeNow: number; activeRedNow: number; published: number } | null;
+  alerts: MapAlerts | null;
   colours: MapColours | null;
 }
 
@@ -67,7 +79,7 @@ export interface PilotageMap {
   legend: {
     mortality: Thresholds & { unit: '%'; description: string };
     completeness: Thresholds & { unit: '%'; description: string };
-    alert: { description: string };
+    alert: { description: string; conduct: string };
   };
   /** Farm points (registry GPS). Always empty for an aggregate-only view. */
   points: MapPoint[];
@@ -111,8 +123,6 @@ export class PilotageMapService {
     const colours = (f: {
       mortalityPct: number | null;
       completenessPct: number | null;
-      activeRed: number;
-      active: number;
       published: number;
     }): MapColours => ({
       mortality: mortalityLevel(f.mortalityPct, mortalityT),
@@ -126,8 +136,14 @@ export class PilotageMapService {
     const points: MapPoint[] = view.aggregateOnly
       ? []
       : located.map(({ farm, facts }) => {
-          const mortalityPct = pct(facts.deaths, facts.exposed);
-          const completenessPct = pct(facts.daysEntered, facts.daysElapsed);
+          const mortalityPct = ctx.indicators.mortality(
+            facts.deaths,
+            facts.exposed,
+          );
+          const completenessPct = ctx.indicators.completeness(
+            facts.daysEntered,
+            facts.daysElapsed,
+          );
           return {
             farmId: farm.id,
             code: farm.code,
@@ -144,15 +160,12 @@ export class PilotageMapService {
             mortalityPct,
             completenessPct,
             alerts: {
-              activeNow: facts.alertsActive,
-              activeRedNow: facts.alertsActiveRed,
               published: facts.publishedAlerts,
+              conduct: conductAlertsOf(facts),
             },
             colours: colours({
               mortalityPct,
               completenessPct,
-              activeRed: facts.alertsActiveRed,
-              active: facts.alertsActive,
               published: facts.publishedAlerts,
             }),
           };
@@ -185,7 +198,7 @@ export class PilotageMapService {
           (r) => r.farm.latitude != null && r.farm.longitude != null,
         );
         const suppressed = hidden.has(key);
-        const m = metricsOf(facts);
+        const m = metricsOf(facts, ctx.indicators);
         const centroid =
           boundaryCentre(geometries.get(key)) ??
           (!view.aggregateOnly || withGps.length >= k
@@ -207,17 +220,14 @@ export class PilotageMapService {
             alerts: suppressed
               ? null
               : {
-                  activeNow: facts.alertsActive,
-                  activeRedNow: facts.alertsActiveRed,
                   published: facts.publishedAlerts,
+                  conduct: conductAlertsOf(facts),
                 },
             colours: suppressed
               ? null
               : colours({
                   mortalityPct: m.mortalityPct,
                   completenessPct: m.completeness.pct,
-                  activeRed: facts.alertsActiveRed,
-                  active: facts.alertsActive,
                   published: facts.publishedAlerts,
                 }),
           },
@@ -245,7 +255,8 @@ export class PilotageMapService {
         },
         alert: {
           description:
-            'Rouge : alerte rouge active ou alerte sanitaire publiée ; jaune : autre alerte active ; vert : aucune.',
+            'Rouge : alerte sanitaire publiée par les services vétérinaires sur la période ; vert : aucune.',
+          conduct: `${CONDUCT_ALERTS_LABEL} : comptées à part, elles ne colorent jamais une ferme.`,
         },
       },
       points,

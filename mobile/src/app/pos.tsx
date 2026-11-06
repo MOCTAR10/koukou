@@ -42,13 +42,13 @@ import {
   fetchFeedStock,
   fetchPointsOfSale,
   fetchPromotions,
-  fetchRecolteStock,
   fetchSales,
   fetchSlaughterOrders,
 } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { SPECIES_ICONS, speciesLabel } from '@/api/format';
 import { todayStr, type InvoiceFields } from '@/api/mutations';
 import type { BatchWithMetrics, CaisseSummary, SaleSummary, StockTransfer } from '@/api/types';
@@ -64,27 +64,32 @@ export default function PosScreen() {
   const { farmId, farms, user } = useAuth();
   const queryClient = useQueryClient();
   const { batch, tab: tabParam } = useLocalSearchParams<{ batch?: string; tab?: string }>();
-  const [activeTab, setActiveTab] = useState<'ENCAISSER' | 'CAISSE' | 'RECUS'>('ENCAISSER');
+  const [selectedTab, setActiveTab] = useState<'ENCAISSER' | 'CAISSE' | 'RECUS'>('ENCAISSER');
   const autoOpenDone = useRef(false);
   const today = todayStr();
   // Manual cash movements are owner-only server-side (@Roles PROPRIETAIRE).
   const canManage = canManageFarm(user.role);
   const profile = useFarmProfile();
+  // POUFA lot A droits: an institution granted VENTES reads the caisse (and the
+  // receipts with ÉCONOMIQUE), never the till: no « Encaisser » tab, no stock reads.
+  const readOnly = profile.fermiaReadOnly;
+  const readsSales = profile.readsFermia('ECONOMIQUE');
+  const tillReads = !readOnly;
+  const activeTab = readOnly && (selectedTab === 'ENCAISSER' || (selectedTab === 'RECUS' && !readsSales)) ? 'CAISSE' : selectedTab;
 
   useEffect(() => {
     const p = String(tabParam ?? '').toUpperCase();
     setActiveTab(p === 'CAISSE' || p === 'RECUS' ? p : 'ENCAISSER');
   }, [tabParam]);
 
-  const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
+  const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId), enabled: tillReads });
   const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId) });
-  const slaughterQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId) });
-  const promotionsQuery = useQuery({ queryKey: ['promotions', farmId], queryFn: () => fetchPromotions(farmId) });
-  const transfersQuery = useQuery({ queryKey: ['stock-transfers', farmId], queryFn: () => fetchStockTransfers(farmId) });
-  const salesQuery = useQuery({ queryKey: ['sales', farmId, today, today], queryFn: () => fetchSales(farmId, today, today) });
-  const dashboardQuery = useQuery({ queryKey: ['dashboard', farmId], queryFn: () => fetchDashboard(farmId), staleTime: 30_000 });
-  const feedStockQuery = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
-  const recolteStockQuery = useQuery({ queryKey: ['recoltes-stock', farmId], queryFn: () => fetchRecolteStock(farmId) });
+  const slaughterQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), enabled: tillReads });
+  const promotionsQuery = useQuery({ queryKey: ['promotions', farmId], queryFn: () => fetchPromotions(farmId), enabled: tillReads });
+  const transfersQuery = useQuery({ queryKey: ['stock-transfers', farmId], queryFn: () => fetchStockTransfers(farmId), enabled: tillReads });
+  const salesQuery = useQuery({ queryKey: ['sales', farmId, today, today], queryFn: () => fetchSales(farmId, today, today), enabled: tillReads || readsSales });
+  const dashboardQuery = useQuery({ queryKey: ['dashboard', farmId], queryFn: () => fetchDashboard(farmId), staleTime: 30_000, enabled: tillReads });
+  const feedStockQuery = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId), enabled: tillReads });
   const caisseQuery = useQuery({ queryKey: ['caisse', farmId], queryFn: () => fetchCaisseCurrent(farmId), staleTime: 15_000 });
   const queue = useOfflineQueue(farmId);
 
@@ -480,10 +485,13 @@ export default function PosScreen() {
               POS · espèces {queue.pending.length > 0 ? `· ${fmt(queue.pending.length)} en attente` : ''}
             </AppText>
           </View>
+          {readOnly ? null : (
           <Pressable onPress={() => router.push('/points-vente')} style={styles.settingsBtn} accessibilityRole="button">
             <Settings2 size={20} color={color.ink[600]} />
           </Pressable>
+          )}
         </View>
+        <ReadOnlyNotice what="Caisse et ventes" />
 
         {pdv ? (
           <>
@@ -532,9 +540,9 @@ export default function PosScreen() {
         <View style={styles.tabRow}>
           <Segmented
             options={[
-              { key: 'ENCAISSER', label: 'Encaisser', icon: <ShoppingCart size={13} color={color.ink[500]} /> },
-              { key: 'CAISSE', label: 'Caisse', icon: <Coins size={13} color={color.ink[500]} /> },
-              { key: 'RECUS', label: 'Reçus', icon: <ReceiptText size={13} color={color.ink[500]} /> },
+              ...(readOnly ? [] : [{ key: 'ENCAISSER' as const, label: 'Encaisser', icon: <ShoppingCart size={13} color={color.ink[500]} /> }]),
+              { key: 'CAISSE' as const, label: 'Caisse', icon: <Coins size={13} color={color.ink[500]} /> },
+              ...(readOnly && !readsSales ? [] : [{ key: 'RECUS' as const, label: 'Reçus', icon: <ReceiptText size={13} color={color.ink[500]} /> }]),
             ]}
             value={activeTab}
             onChange={setActiveTab}
@@ -939,9 +947,9 @@ export default function PosScreen() {
           farmId={farmId}
           current={caisseCurrent}
           loading={caisseQuery.isLoading}
-          canManage={canManage}
-          canOpen={profile.hasPermission('caisse:ouvrir')}
-          canClose={profile.hasPermission('caisse:fermer')}
+          canManage={canManage && !readOnly}
+          canOpen={profile.fermiaWrites('caisse:ouvrir')}
+          canClose={profile.fermiaWrites('caisse:fermer')}
           onChanged={refreshCaisse}
         />
       ) : null}
@@ -957,7 +965,6 @@ export default function PosScreen() {
         transfers={isBoutique ? transfers : undefined}
         posKind={pdv?.kind}
         eggStock={dashboardQuery.data?.eggStock ?? null}
-        recolteStock={recolteStockQuery.data ?? []}
         committed={lines}
         initial={editing}
         presetBatchId={presetBatchId}

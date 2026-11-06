@@ -38,10 +38,42 @@ export interface InputFarmSummary {
   inputs: InputStockLine[];
 }
 
+/**
+ * One input (and unit) delivered to the farms over a period (POUFA lot A,
+ * report section « Intrants et ressources »): deliveries shipped in the
+ * period and not cancelled.
+ */
+export interface InputPeriodLine {
+  inputCode: string;
+  inputLabel: string;
+  unitCode: string;
+  unitLabel: string;
+  /** Deliveries holding this input. */
+  deliveries: number;
+  /** Farms that got some. */
+  farms: number;
+  shipped: number;
+  /** Received, on the confirmed deliveries. */
+  received: number;
+  /** Shipped on deliveries still awaiting the farmer. */
+  pending: number;
+  /** Quantity × unit value (received when confirmed, shipped otherwise); null without any value. */
+  valueFcfa: number | null;
+  /** State's share of that value (stored at confirmation, else expected). */
+  subsidyFcfa: number | null;
+  /** Confirmed lines whose received quantity differs from the shipped one. */
+  linesWithGap: number;
+}
+
 export interface InputReconciliationSource {
   readonly available: boolean;
   /** Summaries of the given farms (already scoped by the caller). */
   farmSummaries(farmIds: readonly string[]): Promise<InputFarmSummary[]>;
+  /** Inputs delivered to the given farms over a period (days, inclusive). */
+  periodLines?(
+    farmIds: readonly string[],
+    period: { from: string; to: string },
+  ): Promise<InputPeriodLine[]>;
 }
 
 export class NoInputReconciliationSource implements InputReconciliationSource {
@@ -50,6 +82,23 @@ export class NoInputReconciliationSource implements InputReconciliationSource {
   farmSummaries(): Promise<InputFarmSummary[]> {
     return Promise.resolve([]);
   }
+}
+
+/** Totals of the period lines (value and subsidy summed where known). */
+export function inputPeriodTotals(lines: readonly InputPeriodLine[]): {
+  valueFcfa: number | null;
+  subsidyFcfa: number | null;
+  linesWithGap: number;
+} {
+  const known = (pick: (l: InputPeriodLine) => number | null) => {
+    const values = lines.map(pick).filter((v): v is number => v != null);
+    return values.length > 0 ? values.reduce((a, v) => a + v, 0) : null;
+  };
+  return {
+    valueFcfa: known((l) => l.valueFcfa),
+    subsidyFcfa: known((l) => l.subsidyFcfa),
+    linesWithGap: lines.reduce((a, l) => a + l.linesWithGap, 0),
+  };
 }
 
 /**

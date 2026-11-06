@@ -57,7 +57,8 @@ import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
-import { completeProphylaxis } from '@/api/mutations';
+// POUFA lot A sante: a care completion goes through the offline queue (CDC n° 22).
+import { completeProphylaxisQueued } from '@/offline';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { BatchHealth, BatchPnl, BatchStatus, BatchType, BatchWithMetrics, Expense, OrderCanal, OrderFull, OrderStatus, OverviewPnl, ProphylaxisEvent, ProtocolStep, ReadyReason, SaleSummary, SanitaryProtocol, SanitaryProtocolWithSteps, Species, TreatmentRecord } from '@/api/types';
 import { speciesLabel } from '@/api/format';
@@ -72,6 +73,11 @@ import { useCreateCenter } from '@/components/create/CreateCenter';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { ApiError } from '@/api/client';
 import { toast } from '@/components/ui/Feedback';
+import { ageOnDay, bandCycle, lotSearchText } from '@/utils/band';
+// POUFA lot A2 divers: official values first on the Lots tab.
+import { fetchBandHistory, type BandSummaryIndicator } from '@/api/poufa';
+import { cachedRead } from '@/offline/ref-cache';
+import { fermiaFcrText, fermiaGmqText, fermiaMortalityText, lotHeadlines, officialByBand, overviewCell } from '@/poufa/lot-headline';
 
 // ── Filters ──
 type FilterType = 'all' | 'active' | 'selling' | 'chair' | 'layer';
@@ -95,9 +101,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'health', label: 'Santé' },
 ];
 
-// ── Breed cycle lengths (days) ──
-const CHAIR_CYCLE_DAYS = 84; // ~12 weeks
-const LAYER_CYCLE_DAYS = 504; // ~72 weeks
 const FINANCE_WINDOW_DAYS = 30; // fenêtre financière par défaut
 
 // ── Production stage (stade) thresholds ──
@@ -270,7 +273,6 @@ const splitCareLabel = (label: string): { action: string; detail: string } => {
 
 // Les dates sanitaires sont stockées en UTC (YYYY-MM-DD) côté serveur.
 const fromUtc = (epochMs: number) => new Date(epochMs).toISOString().slice(0, 10);
-const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 
 function careChips(prophylaxis: ProphylaxisEvent[] | undefined): CareChipData[] {
   const chips: CareChipData[] = [];
@@ -373,7 +375,7 @@ type CareInsight = { tone: 'red' | 'amber' | 'neutral'; main: string; sub: strin
 const MEDICAL_CARE_TYPES = new Set(['VACCIN', 'MEDICAMENT', 'ANTIBIOTIQUE']);
 
 function nextCareInsight(
-  batch: { integrationDate: string; metrics: { ageDays: number } },
+  batch: { integrationDate: string; initialAgeDays?: number | null; metrics: { ageDays: number } },
   prophylaxis: ProphylaxisEvent[] | undefined,
   treatments: TreatmentRecord[] | undefined,
   program: SanitaryProtocolWithSteps | undefined,
@@ -382,7 +384,8 @@ function nextCareInsight(
   const medical = events.filter((p) => MEDICAL_CARE_TYPES.has(p.careType));
   const integration = batch.integrationDate ? batch.integrationDate.slice(0, 10) : undefined;
   const today = fromUtc(Date.now());
-  const jOf = (iso: string) => (integration ? daysBetween(integration, iso) + 1 : null);
+  // Age of the birds on that day (J+x aware), the same J as the served ageDays.
+  const jOf = (iso: string) => (integration ? ageOnDay(integration, batch.initialAgeDays, iso) : null);
   const sorted = (arr: ProphylaxisEvent[]) => [...arr].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
 
   const late = sorted(medical.filter((p) => p.status === 'EN_RETARD'));
@@ -488,11 +491,24 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
 export default function LotsScreen() {
   const router = useRouter();
   const { farmId } = useAuth();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, readsFermia, isInstitution } = useFarmProfile();
+  // POUFA lot A droits: orders (VENTES) open to an institution granted it.
+  const fermiaData = readsFermia('VENTES');
   const canRapports = hasPermission('compta:rapports');
+  // Sales and expenses sit in the programme ÉCONOMIQUE domain: an institution
+  // reads them only with it (compta:rapports); orders are Fermia-only.
+  const readsEconomics = !isInstitution || canRapports;
   const { openCreateBuilding } = useCreateCenter();
   const batches = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
   const buildings = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
+  // Official indicators of every band (programme formulas), the headline of each card.
+  const bandHistory = useQuery({
+    queryKey: ['band-history', farmId, 'ALL'],
+    queryFn: () => cachedRead(`band-history.${farmId}.ALL`, () => fetchBandHistory(farmId)),
+    enabled: Boolean(farmId),
+    retry: false,
+  });
+  const officialMap = useMemo(() => officialByBand(bandHistory.data), [bandHistory.data]);
 
   // ── State ──
   const [filter, setFilter] = useState<FilterType>('all');
@@ -565,16 +581,18 @@ export default function LotsScreen() {
   const salesQ = useQuery({
     queryKey: ['sales', farmId, finMode, finFrom, finTo],
     queryFn: () => fetchSales(farmId, finFrom, finTo),
+    enabled: readsEconomics,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
   const expensesQ = useQuery({
     queryKey: ['expenses', farmId, finMode, finFrom, finTo],
     queryFn: () => fetchExpenses(farmId, finFrom, finTo),
+    enabled: readsEconomics,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
-  const ordersQ = useQuery({ queryKey: ['orders', farmId], queryFn: () => fetchOrders(farmId), staleTime: 30_000 });
+  const ordersQ = useQuery({ queryKey: ['orders', farmId], queryFn: () => fetchOrders(farmId), enabled: fermiaData, staleTime: 30_000 });
 
   // ── Comparaison à la fenêtre précédente (même longueur) ──
   const prevWin = useMemo(() => shiftWindow(finFrom ?? undefined, finTo), [finFrom, finTo]);
@@ -591,10 +609,13 @@ export default function LotsScreen() {
   useLiveMinute(() => {
     if (period.isFiltered) return;
     void batches.refetch();
-    void ordersQ.refetch();
-    void pnl.refetch();
-    void salesQ.refetch();
-    void expensesQ.refetch();
+    // refetch() ignores `enabled`: only what this account may read.
+    if (fermiaData) void ordersQ.refetch();
+    if (canRapports) void pnl.refetch();
+    if (readsEconomics) {
+      void salesQ.refetch();
+      void expensesQ.refetch();
+    }
   });
 
   // ── Filter & Sort ──
@@ -643,7 +664,7 @@ export default function LotsScreen() {
     let list = filteredList;
     const q = search.trim().toLowerCase();
     if (q) {
-      list = list.filter((b) => (b.batchName ?? '').toLowerCase().includes(q) || (b.breedName ?? '').toLowerCase().includes(q));
+      list = list.filter((b) => lotSearchText(b).includes(q));
     }
 
     list = [...list].sort((a, b) => {
@@ -946,6 +967,7 @@ export default function LotsScreen() {
         revenueLabel={finLabel}
         overviewDate={overviewDate}
         overviewLive={overviewLive}
+        official={overviewLive ? officialMap : null}
         onShowSelling={() => { setShowOverview(false); setFilter('selling'); }}
       />
 
@@ -1004,7 +1026,7 @@ export default function LotsScreen() {
       ) : (
         <View style={{ gap: 10 }}>
           {shown.map((b) => (
-            <LotCardWithHealth key={b.id} batch={b} farmId={farmId}
+            <LotCardWithHealth key={b.id} batch={b} farmId={farmId} official={officialMap.get(b.id)}
               buildingName={b.buildingId ? buildings.data?.find((bd) => bd.id === b.buildingId)?.name ?? null : null}
               onPress={() => router.push(`/lot/${b.id}`)}
               detailOpen={detailLotId === b.id} onOpenDetail={() => setDetailLotId(b.id)} onCloseDetail={() => setDetailLotId(null)}
@@ -1102,13 +1124,16 @@ function EmptyStep({ icon: Icon, label, desc, done }: { icon: typeof Clock; labe
 // LOT CARD WITH HEALTH
 // ═══════════════════════════════════════════════════════════════════════
 
-function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, onOpenDetail, onCloseDetail, onOpenEggs, onPlanCare }: {
-  batch: BatchWithMetrics; farmId: string; buildingName?: string | null; onPress: () => void; detailOpen: boolean; onOpenDetail: () => void; onCloseDetail: () => void; onOpenEggs: () => void; onPlanCare: () => void;
+function LotCardWithHealth({ batch, farmId, official, buildingName, onPress, detailOpen, onOpenDetail, onCloseDetail, onOpenEggs, onPlanCare }: {
+  batch: BatchWithMetrics; farmId: string; official?: BandSummaryIndicator[]; buildingName?: string | null; onPress: () => void; detailOpen: boolean; onOpenDetail: () => void; onCloseDetail: () => void; onOpenEggs: () => void; onPlanCare: () => void;
 }) {
   const queryClient = useQueryClient();
   const canRapports = useFarmProfile().hasPermission('compta:rapports');
   const completeCare = useCallback((eventId: string) => {
-    void completeProphylaxis(farmId, batch.id, eventId)
+    // The quick « fait » counts the live birds; the sanitary screen lets the farmer correct it.
+    void completeProphylaxisQueued(farmId, batch.id, eventId, {
+      ...(batch.quantityAlive > 0 ? { animalCount: batch.quantityAlive } : {}),
+    })
       .then(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         return invalidateFarmQueries(queryClient, { farmId, batchId: batch.id });
@@ -1116,7 +1141,7 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
       .catch((e: unknown) => {
         toast.error('Soin non enregistré', e instanceof ApiError ? e.message : 'Vérifiez la connexion puis réessayez.');
       });
-  }, [farmId, batch.id, queryClient]);
+  }, [farmId, batch.id, batch.quantityAlive, queryClient]);
   const healthQ = useQuery({
     queryKey: ['batch-health', farmId, batch.id],
     queryFn: () => fetchBatchHealth(farmId, batch.id),
@@ -1170,8 +1195,8 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
   const slaughterSummary = useMemo(() => lotSlaughterSummary(slaughterQ.data ?? [], batch), [slaughterQ.data, batch]);
   return (
     <>
-      <LotCard batch={batch} buildingName={buildingName} health={healthQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onPress={onPress} onCompleteCare={completeCare} onOpenDetail={onOpenDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
-      <LotDetailSheet visible={detailOpen} batch={batch} health={healthQ.data} pnl={pnlQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onClose={onCloseDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
+      <LotCard batch={batch} official={official} buildingName={buildingName} health={healthQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onPress={onPress} onCompleteCare={completeCare} onOpenDetail={onOpenDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
+      <LotDetailSheet visible={detailOpen} batch={batch} official={official} health={healthQ.data} pnl={pnlQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onClose={onCloseDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
     </>
   );
 }
@@ -1180,16 +1205,23 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
 // LOT CARD
 // ═══════════════════════════════════════════════════════════════════════
 
-function LotCard({ batch, buildingName, health, prophylaxis, treatments, program, onPress, onCompleteCare, onOpenDetail, onOpenEggs, onPlanCare, slaughterSummary }: {
-  batch: BatchWithMetrics; buildingName?: string | null; health?: BatchHealth; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onPress: () => void; onCompleteCare?: (eventId: string) => void; onOpenDetail: () => void; onOpenEggs: () => void; onPlanCare?: () => void; slaughterSummary?: LotSlaughterSummary;
+function LotCard({ batch, official, buildingName, health, prophylaxis, treatments, program, onPress, onCompleteCare, onOpenDetail, onOpenEggs, onPlanCare, slaughterSummary }: {
+  batch: BatchWithMetrics; official?: BandSummaryIndicator[]; buildingName?: string | null; health?: BatchHealth; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onPress: () => void; onCompleteCare?: (eventId: string) => void; onOpenDetail: () => void; onOpenEggs: () => void; onPlanCare?: () => void; slaughterSummary?: LotSlaughterSummary;
 }) {
   const m = batch.metrics;
   const isLayer = batch.type === 'PONDEUSE';
+  const head = lotHeadlines(official, m, true);
+  const mortTone = normalizeMortalityStatus(m.mortalityStatus, head.mortality.numeric ?? m.mortalityPercent);
   const spec = batch.species ?? 'POULET';
   const customName = spec === 'AUTRE' && batch.customSpecies ? batch.customSpecies : null;
   const specLabel = customName ?? speciesLabel(spec);
-  const cycleDays = isLayer ? LAYER_CYCLE_DAYS : CHAIR_CYCLE_DAYS;
-  const ageProgress = Math.min(100, (m.ageDays / cycleDays) * 100);
+  // Cycle of the band: its reference duration (programme parameter at opening).
+  const cycle = bandCycle({
+    ageDays: m.ageDays,
+    referenceDurationDays: batch.referenceDurationDays,
+    type: batch.type,
+  });
+  const ageProgress = cycle.progressPercent;
 
   // Pillule de statut : la décision la plus utile à connaître d'un coup d'œil.
   const pill = batchStatusPill(batch);
@@ -1247,6 +1279,11 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
           <AppText size="body" weight="bold" color="text">
             {batch.batchName ?? 'Lot'}
           </AppText>
+          {batch.code ? (
+            <AppText size="small" weight="semibold" color="brand" numberOfLines={1}>
+              {batch.code}
+            </AppText>
+          ) : null}
           <AppText color="muted" style={{ fontSize: 11, lineHeight: 14 }} allowFontScaling={false}>
             {[batch.breedCode, batch.breedName, isLayer ? 'Pondeuse' : 'Chair'].filter(Boolean).join(' · ')}
           </AppText>
@@ -1322,14 +1359,16 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${ageProgress}%`, backgroundColor: statusColor }]} />
         </View>
-        <AppText size="small" color="faint">{Math.max(0, cycleDays - m.ageDays)}j restants · {ageProgress.toFixed(0)}%</AppText>
+        <AppText size="small" color="faint">
+          {cycle.remainingDays}j restants sur {cycle.cycleDays}j{cycle.fromReference ? ' (durée de référence)' : ''} · {ageProgress.toFixed(0)}%
+        </AppText>
       </View>
 
       {/* ── MAIN METRICS (fortes) ── */}
       <View style={styles.metricRow}>
         <MetricBlock label="Vivants" value={fmt(m.liveCount)} icon={Bird} tone="brand" compact />
-        <MetricBlock label="Mortalité" value={`${m.mortalityPercent.toLocaleString('fr-FR')} %`} icon={HeartPulse}
-          tone={normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'normal' ? 'green' : normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'elevated' ? 'amber' : 'red'} compact />
+        <MetricBlock label="Mortalité" value={head.mortality.value} sub={head.mortality.sub} icon={HeartPulse}
+          tone={mortTone === 'normal' ? 'green' : mortTone === 'elevated' ? 'amber' : 'red'} compact />
         <PonteMetric
           label={isLayer ? 'Taux de ponte' : 'Œufs produits'}
           value={m.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : m.eggsCollectedTotal > 0 ? fmt(m.eggsCollectedTotal) : '—'}
@@ -1338,9 +1377,9 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
 
       {/* ── SECONDARY METRICS (petites) ── */}
       <View style={styles.miniMetricRow}>
-        <MiniMetric label="IC" value={m.fcr != null && m.fcr > 0 ? m.fcr.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—'} icon={Scale} />
+        <MiniMetric label="IC" value={head.fcr.value} sub={head.fcr.sub} icon={Scale} />
         <MiniMetric label="Alim/oiseau" value={health && health.feedPerBirdGrams > 0 ? `${Math.round(health.feedPerBirdGrams)} g/j` : '—'} icon={Wheat} />
-        <MiniMetric label="GMQ" value={m.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'} icon={TrendingUp} />
+        <MiniMetric label="GMQ" value={head.gmq.value} sub={head.gmq.sub} icon={TrendingUp} />
       </View>
 
       {/* ── BOTTOM: Détails (bottom sheet) + density + feed ── */}
@@ -1581,8 +1620,10 @@ function StatsPanel({ summary, hasAnyBatch, filterLabel, onOpen }: { summary: Ov
 // OVERVIEW SHEET (vue d'ensemble : zootechnie, œufs, aliment, sanitaire)
 // ═══════════════════════════════════════════════════════════════════════
 
-function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcfa, revenueLabel, overviewDate, overviewLive, onClose, onShowSelling }: {
+function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcfa, revenueLabel, overviewDate, overviewLive, official, onClose, onShowSelling }: {
   visible: boolean;
+  /** Official indicators per band (live overview only; null when rebuilt at a past date). */
+  official: ReadonlyMap<string, readonly BandSummaryIndicator[]> | null;
   summary: OverviewSummary | null;
   lots: BatchWithMetrics[];
   farmId: string;
@@ -1697,6 +1738,11 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
 
   if (!summary) return null;
 
+  // Official means first (programme formulas), Fermia's means as « conduite ».
+  const lotIds = lots.map((b) => b.id);
+  const ovMortality = overviewCell(lotIds, official, 'taux_mortalite', { text: fermiaMortalityText(summary.avgMortality), value: summary.avgMortality });
+  const ovFcr = overviewCell(lotIds, official, 'ic', { text: fermiaFcrText(summary.avgFcr), value: summary.avgFcr });
+  const ovGmq = overviewCell(lotIds, official, 'gmq_g_j', { text: fermiaGmqText(summary.avgGmq), value: summary.avgGmq });
   const liveBirds = summary.totalBirds > 0 ? summary.totalBirds : 1;
   const readyShare = summary.totalBirds > 0 ? summary.readyBirds / summary.totalBirds : 0;
   const groups = summary.speciesGroups.map((g) => ({
@@ -1743,22 +1789,25 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
       {/* ── KPI GRID (tous types) ── */}
       <View style={styles.panelCellGrid}>
         <PanelCell
-          value={summary.avgMortality != null ? `${summary.avgMortality.toLocaleString('fr-FR')} %` : '—'}
+          value={ovMortality.value}
           label="Mortalité moyenne"
+          sub={ovMortality.sub}
           icon={HeartPulse}
-          tone={summary.avgMortality != null ? (summary.avgMortality > 5 ? 'red' : summary.avgMortality > 1 ? 'amber' : 'green') : 'muted'}
+          tone={ovMortality.numeric != null ? (ovMortality.numeric > 5 ? 'red' : ovMortality.numeric > 1 ? 'amber' : 'green') : 'muted'}
         />
         <PanelCell
-          value={summary.avgFcr != null ? summary.avgFcr.toLocaleString('fr-FR') : '—'}
+          value={ovFcr.value}
           label="IC moyen"
+          sub={ovFcr.sub}
           icon={Scale}
-          tone={summary.avgFcr != null ? (summary.avgFcr > 2.5 ? 'red' : summary.avgFcr > 2.0 ? 'amber' : 'green') : 'muted'}
+          tone={ovFcr.numeric != null ? (ovFcr.numeric > 2.5 ? 'red' : ovFcr.numeric > 2.0 ? 'amber' : 'green') : 'muted'}
         />
         <PanelCell
-          value={summary.avgGmq != null ? `${summary.avgGmq.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'}
+          value={ovGmq.value}
           label="GMQ moyen"
+          sub={ovGmq.sub}
           icon={TrendingUp}
-          tone={summary.avgGmq != null ? 'brand' : 'muted'}
+          tone={ovGmq.numeric != null ? 'brand' : 'muted'}
         />
         <PanelCell
           value={summary.avgLayRate != null ? `${summary.avgLayRate.toLocaleString('fr-FR')}%` : '—'}
@@ -1920,7 +1969,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
                     </AppText>
                     <AppText size="caption" color="faint">
                       {b.type === 'CHAIR' ? 'Chair' : 'Pondeuse'} · J{b.metrics.ageDays}
-                      {b.metrics.fcr != null ? ` · IC ${b.metrics.fcr.toLocaleString('fr-FR')}` : ''}
+                      {b.metrics.fcr != null ? ` · IC Fermia (conduite) ${b.metrics.fcr.toLocaleString('fr-FR')}` : ''}
                       {(b.metrics.eggsCollectedTotal ?? 0) > 0 ? ` · ${fmt(b.metrics.eggsCollectedTotal ?? 0)} œufs` : ''}
                     </AppText>
                   </View>
@@ -2037,7 +2086,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
   );
 }
 
-function MetricBlock({ label, value, icon: Icon, tone, compact }: { label: string; value: string; icon: typeof Clock; tone: string; compact?: boolean }) {
+function MetricBlock({ label, value, sub, icon: Icon, tone, compact }: { label: string; value: string; sub?: string; icon: typeof Clock; tone: string; compact?: boolean }) {
   const fg = tone === 'red' ? palette.red[500] : tone === 'amber' ? palette.amber[500] : tone === 'green' ? palette.green[600] : tone === 'accent' ? palette.accent[500] : semantic.primary;
   const bg = tone === 'red' ? semantic.dangerSoft : tone === 'amber' ? semantic.warnSoft : tone === 'green' ? semantic.successSoft : tone === 'accent' ? semantic.accentSoft : semantic.primarySoft;
   return (
@@ -2045,6 +2094,7 @@ function MetricBlock({ label, value, icon: Icon, tone, compact }: { label: strin
       <Icon size={compact ? 16 : 14} color={fg} />
       <AppText size={compact ? 'caption' : 'body'} weight="bold" color={fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{value}</AppText>
       <AppText size={compact ? 'caption' : 'small'} color="muted" numberOfLines={1}>{label}</AppText>
+      {sub ? <AppText size="label" color="faint" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{sub}</AppText> : null}
     </View>
   );
 }
@@ -2077,23 +2127,25 @@ function BadgeChip({ icon: Icon, value, color }: { icon: typeof Clock; value: st
   );
 }
 
-function MiniMetric({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Clock }) {
+function MiniMetric({ label, value, sub, icon: Icon }: { label: string; value: string; sub?: string; icon: typeof Clock }) {
   return (
     <View style={styles.miniMetric}>
       <Icon size={10} color={color.ink[300]} />
       <AppText size="caption" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.miniMetricLabel}>{label}</AppText>
       <AppText size="small" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.miniMetricValue}>{value}</AppText>
+      {sub ? <AppText size="label" color="faint" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.miniMetricLabel}>{sub}</AppText> : null}
     </View>
   );
 }
 
-function SecondaryMetric({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Clock }) {
+function SecondaryMetric({ label, value, sub, icon: Icon }: { label: string; value: string; sub?: string; icon: typeof Clock }) {
   return (
     <View style={styles.secondaryMetric}>
       <Icon size={12} color={color.ink[400]} />
       <View style={styles.secondaryMetricText}>
         <AppText size="small" weight="semibold" color="text" numberOfLines={1} ellipsizeMode="tail" style={{ flexShrink: 1 }}>{value}</AppText>
         <AppText size="small" color="faint" numberOfLines={1} ellipsizeMode="tail" style={{ flexShrink: 1 }}>{label}</AppText>
+        {sub ? <AppText size="caption" color="faint" numberOfLines={2}>{sub}</AppText> : null}
       </View>
     </View>
   );
@@ -2426,12 +2478,13 @@ function DetailSectionTitle({ label, color, icon: Icon }: { label: string; color
   );
 }
 
-function HeroMetric({ label, value, tone, icon: Icon }: { label: string; value: string; tone: string; icon: typeof Clock }) {
+function HeroMetric({ label, value, sub, tone, icon: Icon }: { label: string; value: string; sub?: string; tone: string; icon: typeof Clock }) {
   return (
     <View style={styles.heroMetric}>
       <Icon size={13} color={tone} />
       <AppText size="bodyM" weight="bold" color={tone} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</AppText>
       <AppText size="caption" color="muted" numberOfLines={1}>{label}</AppText>
+      {sub ? <AppText size="label" color="faint" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{sub}</AppText> : null}
     </View>
   );
 }
@@ -2479,11 +2532,13 @@ function PlanCareButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, program, onClose, onOpenEggs, onPlanCare, slaughterSummary }: {
-  visible: boolean; batch: BatchWithMetrics; health?: BatchHealth; pnl?: BatchPnl; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onClose: () => void; onOpenEggs: () => void; onPlanCare?: () => void; slaughterSummary?: LotSlaughterSummary;
+function LotDetailSheet({ visible, batch, official, health, pnl, prophylaxis, treatments, program, onClose, onOpenEggs, onPlanCare, slaughterSummary }: {
+  visible: boolean; batch: BatchWithMetrics; official?: BandSummaryIndicator[]; health?: BatchHealth; pnl?: BatchPnl; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onClose: () => void; onOpenEggs: () => void; onPlanCare?: () => void; slaughterSummary?: LotSlaughterSummary;
 }) {
   const router = useRouter();
   const { openDaily, openSale } = useQuickCapture();
+  // Selling opens the POS (Fermia-only sales desk): never for an institution.
+  const canSell = useFarmProfile().hasPermission('vente:creer');
   const m = batch.metrics;
   const stage = batchStage(batch);
   const openFull = () => {
@@ -2496,7 +2551,7 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
     <Sheet
       visible={visible}
       title={batch.batchName ?? 'Lot'}
-      subtitle={`${[batch.breedCode, batch.breedName, kindLabel(batch)].filter(Boolean).join(' · ')} · ${stage.label} · J${m.ageDays}`}
+      subtitle={`${[batch.code, batch.breedCode, batch.breedName, kindLabel(batch)].filter(Boolean).join(' · ')} · ${stage.label} · J${m.ageDays}`}
       accentColor={m.status === 'ROUGE' ? palette.red[500] : m.status === 'JAUNE' ? palette.amber[500] : palette.brand[500]}
       icon={speciesImage ? (
         <View style={styles.sheetIconTile}>
@@ -2522,17 +2577,19 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
               <ClipboardList size={15} color={semantic.primary} />
               <AppText size="small" weight="bold" color={semantic.primaryText}>Saisir aujourd&apos;hui</AppText>
             </Pressable>
-            <Pressable
-              onPress={() => {
-                onClose();
-                openSale(batch.id);
-              }}
-              style={({ pressed }) => [styles.sheetActionBtn, pressed && { opacity: 0.8 }]}
-              accessibilityRole="button"
-            >
-              <ShoppingCart size={15} color={palette.accent[600]} />
-              <AppText size="small" weight="bold" color={semantic.accentText}>Vendre</AppText>
-            </Pressable>
+            {canSell ? (
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  openSale(batch.id);
+                }}
+                style={({ pressed }) => [styles.sheetActionBtn, pressed && { opacity: 0.8 }]}
+                accessibilityRole="button"
+              >
+                <ShoppingCart size={15} color={palette.accent[600]} />
+                <AppText size="small" weight="bold" color={semantic.accentText}>Vendre</AppText>
+              </Pressable>
+            ) : null}
           </View>
           <Pressable
             onPress={openFull}
@@ -2552,13 +2609,13 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
           <SlaughterInfoCard summary={slaughterSummary} />
         </View>
       ) : null}
-      <LotExpandedDetail batch={batch} health={health} pnl={pnl} prophylaxis={prophylaxis} treatments={treatments} program={program} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} />
+      <LotExpandedDetail batch={batch} official={official} health={health} pnl={pnl} prophylaxis={prophylaxis} treatments={treatments} program={program} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} />
     </Sheet>
   );
 }
 
-function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, program, onOpenEggs, onPlanCare }: {
-  batch: BatchWithMetrics; health?: BatchHealth; pnl?: BatchPnl; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onOpenEggs: () => void; onPlanCare?: () => void;
+function LotExpandedDetail({ batch, official, health, pnl, prophylaxis, treatments, program, onOpenEggs, onPlanCare }: {
+  batch: BatchWithMetrics; official?: BandSummaryIndicator[]; health?: BatchHealth; pnl?: BatchPnl; prophylaxis?: ProphylaxisEvent[]; treatments?: TreatmentRecord[]; program?: SanitaryProtocolWithSteps; onOpenEggs: () => void; onPlanCare?: () => void;
 }) {
   const m = batch.metrics;
   const isLayer = batch.type === 'PONDEUSE';
@@ -2579,12 +2636,9 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
   const PillIcon = pill ? pill.icon : Activity;
   const pillLabel = pill ? pill.label : 'En élevage';
 
-  const mortTone =
-    normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'normal'
-      ? palette.green[600]
-      : normalizeMortalityStatus(m.mortalityStatus, m.mortalityPercent) === 'elevated'
-        ? palette.amber[500]
-        : palette.red[500];
+  const head = lotHeadlines(official, m);
+  const mortStatus = normalizeMortalityStatus(m.mortalityStatus, head.mortality.numeric ?? m.mortalityPercent);
+  const mortTone = mortStatus === 'normal' ? palette.green[600] : mortStatus === 'elevated' ? palette.amber[500] : palette.red[500];
   const layTone = m.layRatePercent != null ? palette.accent[600] : color.ink[400];
 
   const readyTone = m.readyReason === 'READY' ? palette.green[600] : m.readyReason === 'SANITARY' ? palette.red[500] : m.readyReason === 'FCR' ? palette.amber[500] : color.ink[500];
@@ -2614,7 +2668,7 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
         <View style={styles.heroMetrics}>
           <HeroMetric label="Vivants" value={fmt(m.liveCount)} icon={Bird} tone={semantic.primary} />
           <View style={styles.heroDivider} />
-          <HeroMetric label="Mortalité" value={`${m.mortalityPercent.toLocaleString('fr-FR')} %`} icon={HeartPulse} tone={mortTone} />
+          <HeroMetric label="Mortalité" value={head.mortality.value} sub={head.mortality.official ? `Fermia ${fermiaMortalityText(m.mortalityPercent)} · conduite` : 'Fermia · conduite'} icon={HeartPulse} tone={mortTone} />
           <View style={styles.heroDivider} />
           <HeroMetric
             label={isLayer ? 'Taux de ponte' : 'Œufs'}
@@ -2631,9 +2685,9 @@ function LotExpandedDetail({ batch, health, pnl, prophylaxis, treatments, progra
       <DetailSectionTitle label="Indicateurs" icon={Gauge} color={semantic.primary} />
       <View style={styles.secondaryGrid}>
         <SecondaryMetric label="IPE" value={m.ipe != null ? m.ipe.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : '—'} icon={Activity} />
-        <SecondaryMetric label="Viabilité" value={`${m.viabilityPercent.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`} icon={HeartPulse} />
-        <SecondaryMetric label="IC" value={m.fcr != null && m.fcr > 0 ? m.fcr.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—'} icon={Scale} />
-        <SecondaryMetric label="GMQ" value={m.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'} icon={TrendingUp} />
+        <SecondaryMetric label="Viabilité" value={head.viability.value} sub={head.viability.sub} icon={HeartPulse} />
+        <SecondaryMetric label="IC" value={head.fcr.value} sub={head.fcr.sub} icon={Scale} />
+        <SecondaryMetric label="GMQ" value={head.gmq.value} sub={head.gmq.sub} icon={TrendingUp} />
         <SecondaryMetric label="Aliment" value={m.totalFeedKg > 0 ? `${m.totalFeedKg.toLocaleString('fr-FR')} kg` : '—'} icon={Wheat} />
         <SecondaryMetric label="Alim/oiseau" value={health && health.feedPerBirdGrams > 0 ? `${Math.round(health.feedPerBirdGrams)} g/j` : '—'} icon={Droplets} />
         <SecondaryMetric label="Densité" value={m.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : '—'} icon={Layers} />

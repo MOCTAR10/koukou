@@ -6,10 +6,12 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { WeatherService } from './weather.service.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Météo (heat-stress THI)')
 @Domain('TECHNIQUE')
+@InstitutionReadOnly('Météo')
 @Controller('farms/:farmId/weather')
 export class WeatherController {
   constructor(
@@ -18,6 +20,7 @@ export class WeatherController {
   ) {}
 
   @Get()
+  @AuditThirdPartyRead('Météo d’une ferme (position de la ferme)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:

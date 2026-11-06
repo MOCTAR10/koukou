@@ -96,9 +96,10 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
   },
   {
     code: 'FERME_PESEE_RETARD',
-    label: 'Ferme : rappel de pesée en retard',
+    // The ELEVEUR members weigh the birds: the whole team is reminded.
+    label: "Ferme (toute l'équipe) : rappel de pesée en retard",
     event: NotificationEvent.WEIGHING_LATE,
-    audience: NotificationAudience.FARM_MANAGERS,
+    audience: NotificationAudience.FARM_TEAM,
     channels: [IN_APP, PUSH],
   },
   {
@@ -123,5 +124,21 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
     audience: NotificationAudience.PROFILE,
     profileCode: PROFILE_CODES.AGENT_TECHNIQUE,
     channels: [IN_APP],
+  },
+  // POUFA lot A2 vet: CDC n° 26, the farm hears the vets' decision.
+  {
+    code: 'FERME_DECLARATION_EXAMINEE',
+    label: 'Ferme : déclaration sanitaire examinée par les services vétérinaires',
+    event: NotificationEvent.DECLARATION_REVIEWED,
+    audience: NotificationAudience.FARM_MANAGERS,
+    channels: [IN_APP, PUSH],
+  },
+  // POUFA lot A pilot: reports are sent, not only stored (CDC §5.4, §7.7).
+  {
+    code: 'RAPPORT_DISPONIBLE',
+    label: 'Destinataires du modèle : rapport du programme disponible',
+    event: NotificationEvent.REPORT_READY,
+    audience: NotificationAudience.REPORT_RECIPIENTS,
+    channels: [IN_APP, PUSH],
   },
 ];

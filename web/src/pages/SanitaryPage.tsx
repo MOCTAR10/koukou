@@ -7,6 +7,7 @@ import {
   Bird,
   Calendar,
   CalendarX,
+  Camera,
   Check,
   Droplets,
   Egg,
@@ -20,6 +21,7 @@ import {
   RotateCcw,
   Scale,
   ScrollText,
+  ShieldCheck,
   ShieldPlus,
   Stethoscope,
   Syringe,
@@ -32,15 +34,36 @@ import type {
   BatchHealth,
   CareType,
   HealthEvent,
-  Lot,
   ProphylaxisEvent,
   SanitaryProtocol,
   TreatmentRecord,
 } from '../api/types-flock';
+import type { SanitaryLotView } from '../api/types-surveillance';
+import { DeclarationPhotos } from '../components/surveillance/DeclarationPhotos';
+import { FarmOfficialAlerts } from '../components/surveillance/FarmOfficialAlerts';
+import { isDeclarationRefusal, signLabels } from '../components/surveillance/declaration';
+import { useSanitaryList } from '../components/surveillance/queries';
+import { isOpenLot, lotRefOption, refFromLot, refFromSanitaryLot, type SanitaryLotRef } from '../components/surveillance/sanitaryLot';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
 import { BarChart } from '../components/Charts';
 import { ConfirmModal, EditScheduleModal, HealthEventModal, PlanCareModal } from '../components/flock/SanitaryModals';
+import { CompleteCareModal } from '../components/flock/CompleteCareModal';
+import {
+  EMPTY_PRODUCT_LIST_NOTE,
+  REFERENCE_STEP_HINT,
+  REFERENCE_STEP_LABEL,
+  UNKNOWN_PRODUCT_LIST_NOTE,
+  canRemoveCare,
+  postponedLabel,
+  treatmentBody,
+  treatmentPeriodLabel,
+  withdrawalEndPreview,
+} from '../components/flock/sanitaryRecords';
+import { useAuth } from '../auth/AuthContext';
+import { useIdempotencyKey } from '../lib/idempotency';
+import { sendOrQueue, showQueuedNotice } from '../offline';
 import {
   CARE_STATUS_LABEL,
   CARE_TYPES,
@@ -48,6 +71,7 @@ import {
   HEALTH_KIND_LABEL,
   IconField,
   LEVEL_LABEL,
+  kindLabel,
   LIVE_PERIOD,
   Metric,
   Note,
@@ -61,44 +85,86 @@ import {
   levelIcon,
   levelTone,
   localYmd,
-  lotOption,
   useAsyncAction,
   useInvalidateFarm,
   useLots,
   utcYmd,
 } from '../components/flock/shared';
-import { Button, ErrorNote, Field, inputCls } from '../components/form';
+import { Button, ErrorNote, Field, Modal, inputCls } from '../components/form';
 import { DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { lotImage } from '../lib/animalImages';
 import { dateFr, num } from '../lib/format';
 
 type TabKey = 'sante' | 'check' | 'maladies' | 'calendrier' | 'traitements';
+const TAB_KEYS: readonly TabKey[] = ['sante', 'check', 'maladies', 'calendrier', 'traitements'];
 
 const STATUS_RANK: Record<string, number> = { EN_RETARD: 0, PLANIFIE: 1, FAIT: 2, ANNULE: 3 };
+
+const QUEUED_TREATMENT_MESSAGE = 'Traitement enregistré hors ligne : il sera envoyé au retour de la connexion.';
 
 export function SanitaryPage() {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  // The farm's lots are a TECHNIQUE route: a profile without it (the veterinary
+  // services) picks its band from the SANITAIRE list instead.
+  const canListLots = useCanRead()('TECHNIQUE');
   const [params, setParams] = useSearchParams();
   const lots = useLots();
-  const active = useMemo(() => (lots.data ?? []).filter((b) => b.status === 'ACTIF' || b.status === 'EN_VENTE'), [lots.data]);
+  const sanitaryLots = useQuery({
+    queryKey: ['sanitary-lots', farmId, 'open'],
+    queryFn: () => api.get<SanitaryLotView[]>(`/farms/${farmId}/sanitary/lots?open=true`),
+    enabled: !!farmId && !canListLots,
+  });
+  const lotSource = canListLots ? lots : sanitaryLots;
+  const active = useMemo<SanitaryLotRef[]>(
+    () =>
+      canListLots
+        ? (lots.data ?? []).filter((b) => isOpenLot(b.status)).map(refFromLot)
+        : (sanitaryLots.data ?? []).map((b) => refFromSanitaryLot(b)),
+    [canListLots, lots.data, sanitaryLots.data],
+  );
   const [picked, setPicked] = useState(params.get('lot') ?? '');
-  const [tab, setTab] = useState<TabKey>('sante');
+  const [tab, setTab] = useState<TabKey>(TAB_KEYS.includes(params.get('onglet') as TabKey) ? (params.get('onglet') as TabKey) : 'sante');
   const [period, setPeriod] = useState<Period>(LIVE_PERIOD);
   const [planning, setPlanning] = useState(false);
   const [reporting, setReporting] = useState(false);
   const lot = active.find((b) => b.id === picked) ?? active[0] ?? null;
 
+  // A notification opens a band's events (`?lot=…&onglet=maladies`), even when the page is already open.
+  const lotParam = params.get('lot');
+  const tabParam = params.get('onglet');
+  useEffect(() => {
+    if (lotParam) setPicked(lotParam);
+  }, [lotParam]);
+  useEffect(() => {
+    if (tabParam && TAB_KEYS.includes(tabParam as TabKey)) setTab(tabParam as TabKey);
+  }, [tabParam]);
+  // POUFA lot A indic: « Déclarer aux services vétérinaires » from a MALADIE advice opens the declaration (`?declarer=1`).
+  const declareParam = params.get('declarer');
+  useEffect(() => {
+    if (declareParam !== '1') return;
+    setReporting(true);
+    const next = new URLSearchParams(params);
+    next.delete('declarer');
+    setParams(next, { replace: true });
+  }, [declareParam, params, setParams]);
+  const alertParam = params.get('alerte');
+  const closeAlert = () => {
+    const next = new URLSearchParams(params);
+    next.delete('alerte');
+    setParams(next, { replace: true });
+  };
+
   // The lot page deep-links here to open the planning form directly.
   const wantsPlan = params.get('plan') === '1';
   useEffect(() => {
-    if (wantsPlan && lots.isSuccess) {
+    if (wantsPlan && lotSource.isSuccess) {
       setPlanning(true);
       const lotParam = params.get('lot');
       setParams(lotParam ? { lot: lotParam } : {}, { replace: true });
     }
-  }, [wantsPlan, lots.isSuccess, params, setParams]);
+  }, [wantsPlan, lotSource.isSuccess, params, setParams]);
 
   const health = useQuery({
     queryKey: ['health', farmId, lot?.id, period.to],
@@ -130,11 +196,13 @@ export function SanitaryPage() {
           ) : undefined
         }
       />
-      <ErrorNote error={lots.error} />
-      {lots.isLoading ? (
+      {/* Official alerts of the farm (POUFA), apart from Fermia's advisory alerts. */}
+      <FarmOfficialAlerts openAlertId={alertParam} onCloseAlert={closeAlert} />
+      <ErrorNote error={lotSource.error} />
+      {lotSource.isLoading ? (
         <Loading label="Chargement des lots…" />
       ) : !lot ? (
-        <EmptyState message="Aucun lot actif : créez un lot pour suivre sa santé." icon={<Activity />} />
+        <EmptyState message={canListLots ? 'Aucun lot actif : créez un lot pour suivre sa santé.' : 'Aucune bande ouverte dans cette ferme.'} icon={<Activity />} />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3">
@@ -143,7 +211,7 @@ export function SanitaryPage() {
               <select className={`${inputCls} !w-[30rem] min-w-0 max-w-full`} aria-label="Lot" value={lot.id} onChange={(e) => setPicked(e.target.value)}>
                 {active.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {lotOption(b)}
+                    {lotRefOption(b, kindLabel(b))}
                   </option>
                 ))}
               </select>
@@ -181,7 +249,7 @@ function HealthPanel({
   error,
   events,
 }: {
-  lot: Lot;
+  lot: SanitaryLotRef;
   health: BatchHealth | undefined;
   loading: boolean;
   error: unknown;
@@ -279,13 +347,15 @@ function CheckPanel({ health, loading }: { health: BatchHealth | undefined; load
   );
 }
 
-function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: () => void }) {
+function EventsPanel({ lot, period, onAdd }: { lot: SanitaryLotRef; period: Period; onAdd: () => void }) {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canManage = hasPermission('sanitaire:gerer');
   const invalidate = useInvalidateFarm();
   const action = useAsyncAction();
   const [toDelete, setToDelete] = useState<HealthEvent | null>(null);
+  const [photosOf, setPhotosOf] = useState<HealthEvent | null>(null);
+  const signs = useSanitaryList('SIGNE_CLINIQUE');
   const events = useQuery({
     queryKey: ['health-events', farmId, lot.id],
     queryFn: () => api.get<HealthEvent[]>(`/farms/${farmId}/batches/${lot.id}/health-events`),
@@ -307,7 +377,13 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
         ) : undefined
       }
     >
-      <ErrorNote error={events.error ?? action.error} />
+      {isDeclarationRefusal(events.error) ? (
+        <div className="p-4">
+          <EmptyState message={events.error instanceof Error ? events.error.message : ''} icon={<Stethoscope />} />
+        </div>
+      ) : (
+        <ErrorNote error={events.error ?? action.error} />
+      )}
       {events.isLoading ? (
         <Loading />
       ) : rows.length === 0 ? (
@@ -334,6 +410,14 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
                   <Td label="Type">{HEALTH_KIND_LABEL[e.kind]}</Td>
                   <Td label="Événement" className="max-w-md">
                     <span className="font-medium">{e.title}</span>
+                    {e.suspicion ? (
+                      <span className="ml-1.5">
+                        <Pill tone="red">Suspicion</Pill>
+                      </span>
+                    ) : null}
+                    {e.clinicalSigns?.length ? (
+                      <span className="block text-xs text-slate-500">Signes cliniques : {signLabels(e.clinicalSigns, signs.data ?? []).join(', ')}</span>
+                    ) : null}
                     {e.symptoms ? <span className="block text-xs text-slate-500">Symptômes : {e.symptoms}</span> : null}
                     {e.description ? <span className="block text-xs text-slate-500">{e.description}</span> : null}
                     {e.treatmentGiven ? <span className="block text-xs text-slate-500">Traitement : {e.treatmentGiven}</span> : null}
@@ -350,6 +434,9 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
                     <Pill tone={e.status === 'RESOLU' ? 'emerald' : 'amber'}>{e.status === 'RESOLU' ? 'Résolu' : 'En cours'}</Pill>
                   </Td>
                   <Td className="whitespace-nowrap text-right">
+                    <Button tone="secondary" className="mr-1" onClick={() => setPhotosOf(e)}>
+                      <Camera className="h-4 w-4" /> Photos{e.photos?.length ? ` (${e.photos.length})` : ''}
+                    </Button>
                     {e.status !== 'RESOLU' && canManage ? (
                       <Button
                         tone="secondary"
@@ -376,6 +463,18 @@ function EventsPanel({ lot, period, onAdd }: { lot: Lot; period: Period; onAdd: 
             </tbody>
           </DataTable>
       )}
+      {photosOf && farmId ? (
+        <Modal side title={`Photos · ${photosOf.title}`} onClose={() => setPhotosOf(null)}>
+          <DeclarationPhotos
+            farmId={farmId}
+            batchId={lot.id}
+            eventId={photosOf.id}
+            photos={(events.data ?? []).find((x) => x.id === photosOf.id)?.photos ?? photosOf.photos ?? []}
+            canAdd={hasPermission('sanitaire:gerer', 'sanitaire:signaler')}
+            canDelete={canManage}
+          />
+        </Modal>
+      ) : null}
       {toDelete ? (
         <ConfirmModal
           title="Supprimer cet événement ?"
@@ -410,7 +509,7 @@ function CalendarPanel({
   period,
   onPlan,
 }: {
-  lot: Lot;
+  lot: SanitaryLotRef;
   events: ProphylaxisEvent[] | undefined;
   loading: boolean;
   error: unknown;
@@ -421,9 +520,12 @@ function CalendarPanel({
   const { hasPermission } = useFarmProfile();
   const canManage = hasPermission('sanitaire:gerer');
   const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  // POUFA lot A2 sante: a reference step is withdrawn by the vets (matrix), never by the farm.
+  const isInstitution = useAuth().user?.role === 'INSTITUTION';
   const invalidate = useInvalidateFarm();
   const action = useAsyncAction();
   const [editing, setEditing] = useState<ProphylaxisEvent | null>(null);
+  const [completing, setCompleting] = useState<ProphylaxisEvent | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'cancel' | 'delete'; event: ProphylaxisEvent } | null>(null);
   const [protocolId, setProtocolId] = useState('');
 
@@ -511,13 +613,23 @@ function CalendarPanel({
                   <tr key={e.id} className="border-t border-slate-100 align-top">
                     <Td>
                       {dateFr(e.scheduledDate)}
-                      {e.completedAt ? <span className="block text-xs text-slate-500">fait le {dateFr(e.completedAt)}</span> : null}
+                      {postponedLabel(e, dateFr) ? (
+                        <span className="block text-xs text-amber-700">{postponedLabel(e, dateFr)}</span>
+                      ) : null}
+                      {e.completedAt ? (
+                        <span className="block text-xs text-slate-500">
+                          fait le {dateFr(e.completedAt)}
+                          {e.animalCount != null ? ` · ${num(e.animalCount)} animaux` : ''}
+                        </span>
+                      ) : null}
                     </Td>
                     <Td label="Soin" className="font-medium">{e.name}</Td>
                     <Td label="Type">{CARE_TYPE_LABEL[e.careType]}</Td>
                     <Td label="Voie et dosage">{[e.route, e.dosage].filter(Boolean).join(' · ') || '—'}</Td>
                     <Td label="Origine">
-                      <Pill>{e.protocolId ? 'Programme' : 'Manuel'}</Pill>
+                      <Pill tone={e.isReference ? 'brand' : undefined}>
+                        {e.isReference ? REFERENCE_STEP_LABEL : e.protocolId ? 'Programme' : 'Manuel'}
+                      </Pill>
                       {e.decrementStock ? (
                         <span className="ml-1">
                           <Pill tone="brand">Stock</Pill>
@@ -533,12 +645,7 @@ function CalendarPanel({
                       {open ? (
                         <div className="flex justify-end gap-1">
                           {canReport ? (
-                            <Button
-                              busy={action.busy === `c-${e.id}`}
-                              onClick={() =>
-                                run(`c-${e.id}`, () => api.post(`${base}/prophylaxis/${e.id}/complete`, { completedAt: utcYmd() }))
-                              }
-                            >
+                            <Button onClick={() => setCompleting(e)}>
                               <Check className="h-4 w-4" /> Fait
                             </Button>
                           ) : null}
@@ -558,12 +665,20 @@ function CalendarPanel({
                           <Button tone="secondary" onClick={() => setEditing(e)}>
                             <Pencil className="h-4 w-4" /> Modifier
                           </Button>
-                          <Button tone="secondary" onClick={() => setConfirm({ kind: 'cancel', event: e })}>
-                            <CalendarX className="h-4 w-4" /> Annuler
-                          </Button>
-                          <Button tone="secondary" onClick={() => setConfirm({ kind: 'delete', event: e })}>
-                            <Trash2 className="h-4 w-4" /> Supprimer
-                          </Button>
+                          {canRemoveCare(e, isInstitution) ? (
+                            <>
+                              <Button tone="secondary" onClick={() => setConfirm({ kind: 'cancel', event: e })}>
+                                <CalendarX className="h-4 w-4" /> Annuler
+                              </Button>
+                              <Button tone="secondary" onClick={() => setConfirm({ kind: 'delete', event: e })}>
+                                <Trash2 className="h-4 w-4" /> Supprimer
+                              </Button>
+                            </>
+                          ) : (
+                            <span title={REFERENCE_STEP_HINT} className="inline-flex items-center">
+                              <ShieldCheck className="h-4 w-4 text-brand-600" aria-label={REFERENCE_STEP_HINT} />
+                            </span>
+                          )}
                             </>
                           ) : null}
                         </div>
@@ -576,6 +691,7 @@ function CalendarPanel({
           </DataTable>
       )}
       {editing ? <EditScheduleModal lot={lot} event={editing} onClose={() => setEditing(null)} /> : null}
+      {completing ? <CompleteCareModal lot={lot} event={completing} onClose={() => setCompleting(null)} /> : null}
       {confirm ? (
         <ConfirmModal
           title={confirm.kind === 'cancel' ? 'Annuler ce soin ?' : 'Supprimer ce soin ?'}
@@ -606,54 +722,86 @@ function CalendarPanel({
   );
 }
 
-function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
+function TreatmentsPanel({ lot, period }: { lot: SanitaryLotRef; period: Period }) {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canRecord = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
   const invalidate = useInvalidateFarm();
+  const idempotency = useIdempotencyKey('treatment');
   const [careFilter, setCareFilter] = useState<'all' | CareType>('all');
   const [careType, setCareType] = useState<CareType>('ANTIBIOTIQUE');
+  const [productCode, setProductCode] = useState('');
   const [productName, setProductName] = useState('');
   const [dosage, setDosage] = useState('');
   const [route, setRoute] = useState('');
   const [administeredAt, setAdministeredAt] = useState(localYmd());
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [animalCount, setAnimalCount] = useState(lot.liveCount > 0 ? String(lot.liveCount) : '');
   const [withdrawal, setWithdrawal] = useState('');
   const [notes, setNotes] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  // CDC 23: the products of the veterinary services' list; free text only while it is empty.
+  const products = useSanitaryList('PRODUIT_TRAITEMENT', canRecord);
+  const productList = products.data ?? (products.isError ? null : undefined);
 
   const treatments = useQuery({
     queryKey: ['treatments', farmId, lot.id],
     queryFn: () => api.get<TreatmentRecord[]>(`/farms/${farmId}/batches/${lot.id}/treatments`),
     enabled: !!farmId,
   });
+  const form = {
+    careType,
+    productCode,
+    productName,
+    dosage,
+    route,
+    administeredAt,
+    endDate,
+    reason,
+    animalCount,
+    withdrawalDays: withdrawal,
+    notes,
+  };
   const add = useMutation({
-    mutationFn: () =>
-      api.post(`/farms/${farmId}/batches/${lot.id}/treatments`, {
-        careType,
-        productName: productName.trim(),
-        dosage: dosage.trim() || undefined,
-        route: route.trim() || undefined,
-        administeredAt,
-        withdrawalDays: parseInt(withdrawal, 10) || 0,
-        notes: notes.trim() || undefined,
-      }),
-    onSuccess: async () => {
-      await invalidate();
+    mutationFn: async () => {
+      const built = treatmentBody(form, productList ?? null);
+      if (!built.ok) throw new Error(built.error);
+      const body = { ...built.body, idempotencyKey: idempotency.keyFor({ ...built.body, lot: lot.id }) };
+      return sendOrQueue<TreatmentRecord>({
+        kind: 'treatment',
+        farmId: farmId!,
+        path: `/farms/${farmId}/batches/${lot.id}/treatments`,
+        body,
+        label: `Traitement · ${lot.batchName ?? lot.code ?? 'Lot'}`,
+      });
+    },
+    onSuccess: async (res) => {
+      idempotency.settle();
+      if (res.status === 'queued') showQueuedNotice(QUEUED_TREATMENT_MESSAGE);
+      else await invalidate();
+      setProductCode('');
       setProductName('');
       setDosage('');
       setRoute('');
+      setEndDate('');
+      setReason('');
       setWithdrawal('');
       setNotes('');
     },
   });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (productName.trim()) add.mutate();
+    const built = treatmentBody(form, productList ?? null);
+    setFormError(built.ok ? null : built.error);
+    if (built.ok) add.mutate();
   };
 
   const rows = (treatments.data ?? []).filter(
     (t) => inPeriod(period, t.administeredAt) && (careFilter === 'all' || t.careType === careFilter),
   );
   const today = localYmd();
+  const holdUntil = withdrawalEndPreview(administeredAt, endDate, withdrawal);
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -692,10 +840,11 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
             <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
-                    <Th>Date</Th>
-                    <Th>Produit</Th>
+                    <Th>Dates</Th>
+                    <Th>Produit et motif</Th>
                     <Th>Type</Th>
-                    <Th>Voie et dosage</Th>
+                    <Th className="hidden lg:table-cell">Animaux</Th>
+                    <Th className="hidden lg:table-cell">Voie et dosage</Th>
                     <Th>Fin d'attente</Th>
                   </tr>
                 </thead>
@@ -704,13 +853,19 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
                     const holding = t.withdrawalEndDate != null && t.withdrawalEndDate.slice(0, 10) >= today;
                     return (
                       <tr key={t.id} className="border-t border-slate-100 align-top">
-                        <Td>{dateFr(t.administeredAt)}</Td>
-                        <Td label="Produit" className="font-medium">
+                        <Td>{treatmentPeriodLabel(t.administeredAt, t.endDate ?? null, dateFr)}</Td>
+                        <Td label="Produit et motif" className="font-medium">
                           {t.productName}
+                          {t.reason ? <span className="block text-xs font-normal text-slate-600">Motif : {t.reason}</span> : null}
                           {t.notes ? <span className="block text-xs font-normal text-slate-500">{t.notes}</span> : null}
                         </Td>
                         <Td label="Type">{CARE_TYPE_LABEL[t.careType]}</Td>
-                        <Td label="Voie et dosage">{[t.route, t.dosage].filter(Boolean).join(' · ') || '—'}</Td>
+                        <Td label="Animaux" className="md:max-lg:hidden">
+                          {t.animalCount != null ? num(t.animalCount) : '—'}
+                        </Td>
+                        <Td label="Voie et dosage" className="md:max-lg:hidden">
+                          {[t.route, t.dosage].filter(Boolean).join(' · ') || '—'}
+                        </Td>
                         <Td label="Fin d'attente">
                           {t.withdrawalEndDate && t.withdrawalDays > 0 ? (
                             <Pill tone={holding ? 'amber' : 'slate'}>{dateFr(t.withdrawalEndDate)}</Pill>
@@ -738,28 +893,66 @@ function TreatmentsPanel({ lot, period }: { lot: Lot; period: Period }) {
               ))}
             </select>
           </Field>
-          <IconField label="Produit *" icon={<PillIcon />}>
-            <input className={inputCls} value={productName} onChange={(e) => setProductName(e.target.value)} required />
-          </IconField>
+          {productList && productList.length > 0 ? (
+            <IconField label="Produit *" icon={<PillIcon />}>
+              <select className={inputCls} value={productCode} onChange={(e) => setProductCode(e.target.value)} required>
+                <option value="">Choisir dans la liste des vétérinaires</option>
+                {productList.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </IconField>
+          ) : (
+            <>
+              <IconField label="Produit *" icon={<PillIcon />}>
+                <input
+                  className={inputCls}
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  disabled={productList === undefined && products.isLoading}
+                  required
+                />
+              </IconField>
+              {productList === undefined && products.isLoading ? null : (
+                <Note tone="amber" icon={<AlertTriangle />}>
+                  {productList === null ? UNKNOWN_PRODUCT_LIST_NOTE : EMPTY_PRODUCT_LIST_NOTE}
+                </Note>
+              )}
+            </>
+          )}
+          <Field label="Motif *">
+            <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. : diarrhée, prévention" required />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
+            <IconField label="Début *" icon={<Calendar />}>
+              <input className={inputCls} type="date" max={today} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} required />
+            </IconField>
+            <IconField label="Fin" icon={<Calendar />}>
+              <input className={inputCls} type="date" min={administeredAt} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </IconField>
+            <IconField label="Animaux traités *" icon={<Bird />}>
+              <input className={inputCls} inputMode="numeric" value={animalCount} onChange={(e) => setAnimalCount(e.target.value.replace(/\D/g, ''))} required />
+            </IconField>
+            <Field label="Délai d'attente (j)">
+              <input className={inputCls} inputMode="numeric" value={withdrawal} onChange={(e) => setWithdrawal(e.target.value.replace(/\D/g, ''))} />
+            </Field>
             <Field label="Dosage">
               <input className={inputCls} value={dosage} onChange={(e) => setDosage(e.target.value)} />
             </Field>
             <Field label="Voie">
               <input className={inputCls} value={route} onChange={(e) => setRoute(e.target.value)} />
             </Field>
-            <IconField label="Date *" icon={<Calendar />}>
-              <input className={inputCls} type="date" max={today} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} required />
-            </IconField>
-            <Field label="Délai d'attente (j)">
-              <input className={inputCls} inputMode="numeric" value={withdrawal} onChange={(e) => setWithdrawal(e.target.value.replace(/\D/g, ''))} />
-            </Field>
           </div>
+          {holdUntil ? (
+            <p className="text-xs text-amber-700">Vente suspendue jusqu'au {dateFr(holdUntil)} (délai compté depuis le dernier jour du traitement).</p>
+          ) : null}
           <Field label="Notes">
             <textarea className={inputCls} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
-          <ErrorNote error={add.error} />
-          <Button type="submit" busy={add.isPending} disabled={!productName.trim()}>
+          <ErrorNote error={formError ?? add.error} />
+          <Button type="submit" busy={add.isPending}>
             <Check className="h-4 w-4" /> Enregistrer
           </Button>
         </form>

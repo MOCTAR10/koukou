@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { clearSession, loadSession, saveSession } from './token';
+import { clearSession, loadSession, saveSession, withoutLegacyMode } from './token';
 import type { PublicUser } from './types';
 
 const user: PublicUser = { id: 'u-1', fullName: 'M. Test', phone: '+241 00 00 00 00', role: 'PROPRIETAIRE' };
@@ -46,5 +46,10 @@ describe('token (session store)', () => {
     saveSession({ token: 'old', user, farms: [] });
     saveSession({ token: 'new', user, farms: [] });
     expect(loadSession()?.token).toBe('new');
+  });
+
+  it('withoutLegacyMode retire le mode agriculture des anciennes sessions', () => {
+    expect(withoutLegacyMode({ token: 'jwt', user, farms: [], mode: 'agriculture' })).toEqual({ token: 'jwt', user, farms: [] });
+    expect(withoutLegacyMode({ token: 'jwt', user, farms: [] })).toEqual({ token: 'jwt', user, farms: [] });
   });
 });

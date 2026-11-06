@@ -9,6 +9,13 @@ export interface PublicUser {
   active: boolean;
 }
 
+/** How a programme farm's GPS point was obtained. */
+export type GpsSource = 'APPAREIL' | 'MANUEL' | 'IMPORT';
+
+/**
+ * A farm as `GET /farms` returns it: always a programme farm (POUFA-only
+ * instance), created by the registry with its sheet.
+ */
 export interface Farm {
   id: string;
   name: string;
@@ -20,9 +27,47 @@ export interface Farm {
   longitude: number | null;
   latitude: number | null;
   isVerified: boolean;
+  /** Follows the programme status: false while SUSPENDUE. */
   active: boolean;
-  ownerId: string;
+  /** Null until the exploitant's account is activated: fall back to `exploitantName`/`exploitantPhone`. */
+  ownerId: string | null;
+  /** Not loaded by `GET /farms`; some admin lists join it. */
   owner?: PublicUser | null;
+  // ----- Registry sheet -----
+  programId?: string;
+  /** `G1-0012`: never changes once set. */
+  code?: string | null;
+  provinceId?: string | null;
+  /** Added by `GET /farms` (null without a province); absent from other farm answers. */
+  provinceCode?: string | null;
+  provinceName?: string | null;
+  localiteId?: string | null;
+  amiRef?: string | null;
+  /** Code of a COHORTE list item. */
+  cohort?: string | null;
+  /** Bird places: base of the occupation rate. */
+  capacityPlaces?: number | null;
+  exploitantName?: string | null;
+  exploitantPhone?: string | null;
+  /** Current STATUT_FERME code (EN_PREPARATION, OPERATIONNELLE, SUSPENDUE…). */
+  statusCode?: string | null;
+  statusSince?: string | null;
+  gpsCapturedAt?: string | null;
+  gpsSource?: GpsSource | null;
+  gpsAccuracyM?: number | null;
+  /** GPS outside the farm's province: a warning, never a block. */
+  gpsProvinceWarning?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Name to show for the farm's exploitant: his account, else the registry sheet. */
+export function exploitantNameOf(farm: Pick<Farm, 'owner' | 'exploitantName'> | null | undefined): string | null {
+  return farm?.owner?.fullName ?? farm?.exploitantName ?? null;
+}
+
+export function exploitantPhoneOf(farm: Pick<Farm, 'owner' | 'exploitantPhone'> | null | undefined): string | null {
+  return farm?.owner?.phone ?? farm?.exploitantPhone ?? null;
 }
 
 export type BatchType = 'CHAIR' | 'PONDEUSE';
@@ -35,7 +80,10 @@ export interface ProductionBatch {
   buildingId: string | null;
   breedId: string | null;
   batchName: string | null;
+  /** Opening (arrival) day of the band; age = `initialAgeDays` + days since it. */
   integrationDate: string;
+  /** Age of the birds at opening (J+x, POUFA); null / 0 = day-old chicks. */
+  initialAgeDays?: number | null;
   quantityAtStart: number;
   quantityAlive: number;
   chickUnitPriceFcfa: number | null;
@@ -84,7 +132,8 @@ export interface DashboardData {
   mortalityPercent: number | null;
   viabilityPercent: number | null;
   feedAutonomyDays: number | null;
-  collectedTodayFcfa: number;
+  /** POUFA lot A droits (F6): null for an institution reading neither ECONOMIQUE nor VENTES. */
+  collectedTodayFcfa: number | null;
   teamCount: number;
   alerts: { total: number; rouge: number; jaune: number; vert: number };
   health: DashboardHealth;
@@ -184,6 +233,8 @@ export interface Customer {
   /** Type commercial (défaut PARTICULIER) — purement indicatif. */
   type: string;
   segment: string;
+  /** Programme operator this customer is (POUFA traceability), when linked. */
+  operatorId?: string | null;
   createdAt: string;
   balance?: CustomerBalance;
 }
@@ -346,6 +397,10 @@ export interface ReferenceConstant {
   /** What the threshold means (and its unit), as seeded. */
   description: string | null;
   isEditable: boolean;
+  /** POUFA lot A droits (F8): the profile that owns the threshold (older servers omit it). */
+  ownerProfile?: 'DGE' | 'VETERINAIRE';
+  /** POUFA lot A droits: sanitary thresholds (veterinary services) or conduct ones (DGE). */
+  group?: 'SANITAIRE' | 'CONDUITE';
 }
 
 export interface PlatformMetrics {

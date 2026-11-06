@@ -15,6 +15,7 @@ import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { color } from '@/constants/theme';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 
 type Tab = 'listings' | 'requests';
 
@@ -22,9 +23,12 @@ type Tab = 'listings' | 'requests';
 export default function MarcheScreen() {
   const router = useRouter();
   const { farmId, farms } = useAuth();
-  const { hasPermission } = useFarmProfile();
-  const canPublish = hasPermission('market:publier');
-  const canAnswer = hasPermission('vente:commande');
+  const { hasPermission, fermiaReadOnly: readOnly, readsFermia } = useFarmProfile();
+  // POUFA lot A droits: an institution granted MARCHE reads both panels, without any action.
+  const readsMarket = readOnly && readsFermia('MARCHE');
+  const canPublish = hasPermission('market:publier') || readsMarket;
+  const canAnswer = hasPermission('vente:commande') || readsMarket;
+  const readsSalesDesk = !readOnly || readsFermia('VENTES');
   const [picked, setPicked] = useState<Tab | null>(null);
   const tab: Tab = picked ?? (canPublish ? 'listings' : 'requests');
   const farm = farms.find((f) => f.id === farmId);
@@ -40,7 +44,8 @@ export default function MarcheScreen() {
   return (
     <Screen bottomPad={120} header={<ScreenHeader title="Marché" subtitle="Publiez votre stock, répondez aux acheteurs" back />}>
       <View style={{ gap: 12 }}>
-        {farm && !farm.isVerified ? (
+        <ReadOnlyNotice what="Marché de la ferme" />
+        {farm && !farm.isVerified && !readOnly ? (
           <Notice tone="warning" icon={AlertTriangle}>
             Votre ferme n’est pas encore vérifiée. Vous pouvez préparer vos annonces, mais seules les fermes vérifiées peuvent publier. Contactez Fermia.
           </Notice>
@@ -55,17 +60,25 @@ export default function MarcheScreen() {
             ]}
           />
         ) : null}
-        {farmId && tab === 'listings' && canPublish ? <FarmListingsPanel farmId={farmId} /> : null}
+        {farmId && tab === 'listings' && canPublish ? <FarmListingsPanel farmId={farmId} readOnly={readOnly} /> : null}
         {farmId && tab === 'requests' && canAnswer ? (
-          <FarmRequestsPanel farmId={farmId} orders={orders} isLoading={ordersQuery.isLoading} error={ordersQuery.error} />
+          <FarmRequestsPanel farmId={farmId} orders={orders} isLoading={ordersQuery.isLoading} error={ordersQuery.error} readOnly={readOnly} />
         ) : null}
 
         <Card padding={false}>
           <ListRow icon={<Store size={18} color={color.brand[600]} />} title="Voir le marché" subtitle="Ce que voient les acheteurs" onPress={() => router.push('/annonces' as Href)} />
-          <ListRow icon={<ShoppingBag size={18} color={color.brand[600]} />} title="Mes achats" subtitle="Ce que vous avez commandé à d’autres fermes" onPress={() => router.push('/mes-achats' as Href)} />
-          <ListRow icon={<UserRound size={18} color={color.brand[600]} />} title="Mon profil d’acheteur" onPress={() => router.push('/profil-acheteur' as Href)} />
-          <ListRow icon={<ClipboardList size={18} color={color.brand[600]} />} title="Commandes" subtitle="Acomptes et livraisons" onPress={() => router.push('/commandes')} />
-          <ListRow icon={<MapPin size={18} color={color.green[600]} />} title="Points de vente" subtitle="Boutiques et adresses de retrait" onPress={() => router.push('/points-vente')} />
+          {readOnly ? null : (
+            <>
+              <ListRow icon={<ShoppingBag size={18} color={color.brand[600]} />} title="Mes achats" subtitle="Ce que vous avez commandé à d’autres fermes" onPress={() => router.push('/mes-achats' as Href)} />
+              <ListRow icon={<UserRound size={18} color={color.brand[600]} />} title="Mon profil d’acheteur" onPress={() => router.push('/profil-acheteur' as Href)} />
+            </>
+          )}
+          {readsSalesDesk ? (
+            <>
+              <ListRow icon={<ClipboardList size={18} color={color.brand[600]} />} title="Commandes" subtitle="Acomptes et livraisons" onPress={() => router.push('/commandes')} />
+              <ListRow icon={<MapPin size={18} color={color.green[600]} />} title="Points de vente" subtitle="Boutiques et adresses de retrait" onPress={() => router.push('/points-vente')} />
+            </>
+          ) : null}
         </Card>
       </View>
     </Screen>

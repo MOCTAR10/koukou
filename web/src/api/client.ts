@@ -1,5 +1,9 @@
 import { markOffline, markOnline } from '../offline/connectivity';
 import { readCached, writeCached } from '../offline/readCache';
+import { ApiError, apiErrorFrom } from './errors';
+import { markSessionExpired } from './session-expiry';
+
+export { ApiError, errorBody } from './errors';
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
@@ -10,22 +14,17 @@ const WRITE_TIMEOUT_MS = 45_000;
 const TOKEN_KEY = 'koukou.token';
 const USER_KEY = 'koukou.user';
 
-export type Role = 'PLATFORM_ADMIN' | 'PROPRIETAIRE' | 'ELEVEUR' | 'ACHETEUR';
+/**
+ * Account roles (backend `UserRole`). ACHETEUR: Market customer only, never a
+ * farm screen. INSTITUTION: programme institution, farm screens of the farms
+ * in its scope (the server enforces it). OPERATEUR is refused at sign-in.
+ */
+export type Role = 'PLATFORM_ADMIN' | 'PROPRIETAIRE' | 'ELEVEUR' | 'ACHETEUR' | 'INSTITUTION';
 
 export interface AuthUser {
   id: string;
   fullName: string;
   role: Role;
-}
-
-export class ApiError extends Error {
-  status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
 }
 
 /** The server can't be reached: no answer at all, or its proxy reports it down. */
@@ -63,18 +62,6 @@ export function clearSession(): void {
   localStorage.removeItem(USER_KEY);
 }
 
-async function parseError(res: Response): Promise<string> {
-  try {
-    const data = (await res.json()) as unknown;
-    const msg = (data as { message?: string | string[] }).message;
-    if (Array.isArray(msg)) return msg.join(', ');
-    if (typeof msg === 'string') return msg;
-    return `Erreur serveur (${res.status})`;
-  } catch {
-    return `Erreur serveur (${res.status})`;
-  }
-}
-
 function buildUrl(path: string): string {
   if (path.startsWith('http')) return path;
   return `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
@@ -83,6 +70,8 @@ function buildUrl(path: string): string {
 function handleUnauthorized(res: Response): void {
   if (res.status === 401 && getToken()) {
     clearSession();
+    // The sign-in page says the session expired (8 h for an institution).
+    markSessionExpired();
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.location.replace('/login');
     }
@@ -92,7 +81,12 @@ function handleUnauthorized(res: Response): void {
 interface RequestOptions {
   /** Skip the saved answers: for decisions that need the server's current state. */
   fresh?: boolean;
+  /** Overrides the default read/write timeout (uploads take longer). */
+  timeoutMs?: number;
 }
+
+/** Multipart uploads: a stalled transfer must end in an error, not in an endless spinner. */
+const UPLOAD_TIMEOUT_MS = 60_000;
 
 async function fallBackOffline<T>(method: string, path: string, options?: RequestOptions): Promise<T> {
   markOffline();
@@ -109,15 +103,17 @@ async function request<T>(method: string, path: string, body?: unknown, options?
   const headers: Record<string, string> = { Accept: 'application/json' };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // FormData sets its own multipart Content-Type (with the boundary).
+  const multipart = body instanceof FormData;
+  if (body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
 
   let res: Response;
   try {
     res = await fetch(buildUrl(path), {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(method === 'GET' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS),
+      body: multipart ? body : body !== undefined ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(options?.timeoutMs ?? (method === 'GET' ? READ_TIMEOUT_MS : WRITE_TIMEOUT_MS)),
     });
   } catch {
     return fallBackOffline<T>(method, path, options);
@@ -129,9 +125,7 @@ async function request<T>(method: string, path: string, body?: unknown, options?
 
   handleUnauthorized(res);
 
-  if (!res.ok) {
-    throw new ApiError(res.status, await parseError(res));
-  }
+  if (!res.ok) throw await apiErrorFrom(res);
 
   if (res.status === 204) return undefined as T;
   // Nest sends `null` (e.g. GET caisse/current with no open session) as an
@@ -153,8 +147,37 @@ export const api = {
   patch: <T>(path: string, body?: unknown): Promise<T> => request<T>('PATCH', path, body),
   put: <T>(path: string, body?: unknown): Promise<T> => request<T>('PUT', path, body),
   del: <T>(path: string): Promise<T> => request<T>('DELETE', path),
-  /** Télécharge un PDF/binaire et déclenche le téléchargement navigateur. */
-  async download(path: string, filename: string): Promise<void> {
+  /**
+   * Multipart POST (files, CSV import…). Like the other writes it needs a
+   * connection: offline it throws OfflineError.
+   */
+  upload: <T>(path: string, form: FormData): Promise<T> =>
+    request<T>('POST', path, form, { timeoutMs: UPLOAD_TIMEOUT_MS }),
+  /**
+   * An authenticated file as a Blob (a photo shown in the page): same 401
+   * handling as the other calls, never cached offline.
+   */
+  async blob(path: string): Promise<Blob> {
+    const headers: Record<string, string> = { Accept: '*/*' };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    let res: Response;
+    try {
+      res = await fetch(buildUrl(path), { headers, signal: AbortSignal.timeout(WRITE_TIMEOUT_MS) });
+    } catch {
+      markOffline();
+      throw new OfflineError('Hors ligne : ce fichier pourra être affiché une fois reconnecté.');
+    }
+    handleUnauthorized(res);
+    if (!res.ok) throw await apiErrorFrom(res);
+    return res.blob();
+  },
+  /**
+   * Télécharge un PDF/binaire et déclenche le téléchargement navigateur.
+   * Resolves with the response headers (CORS-exposed ones: X-Audit-Truncated,
+   * X-Report-Fingerprint, X-Report-Sha256, Content-Disposition, X-Request-Id).
+   */
+  async download(path: string, filename: string): Promise<Headers> {
     const headers: Record<string, string> = { Accept: 'application/pdf' };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -166,7 +189,7 @@ export const api = {
       throw new OfflineError('Hors ligne : ce document pourra être téléchargé une fois reconnecté.');
     }
     handleUnauthorized(res);
-    if (!res.ok) throw new ApiError(res.status, await parseError(res));
+    if (!res.ok) throw await apiErrorFrom(res);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -174,5 +197,6 @@ export const api = {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    return res.headers;
   },
 };

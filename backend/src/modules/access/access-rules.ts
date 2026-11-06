@@ -5,13 +5,15 @@ import {
   ACTION_LABELS,
   DOMAIN_LABELS,
   FERMIA_DOMAINS,
+  grantableActions,
+  isGrantableDomain,
+  isInstitutionFermiaDomain,
   MEMBER_DOMAINS,
   isAccessAction,
-  isProgrammeDomain,
   type AccessAction,
   type AccessDomain,
   type AccessMatrix,
-  type ProgrammeDomain,
+  type GrantableDomain,
 } from './access-domains.js';
 
 /**
@@ -56,7 +58,7 @@ export function isMembershipEffective(
 /** Whether the matrix grants `action` on `domain`. */
 export function grants(
   matrix: AccessMatrix,
-  domain: ProgrammeDomain,
+  domain: GrantableDomain,
   action: AccessAction,
 ): boolean {
   const actions = matrix[domain];
@@ -66,7 +68,8 @@ export function grants(
 /**
  * Decision for one route: default deny without a domain or a membership; the
  * AUDIT scope reaches the journal only; SESSION and REFERENCE are open to
- * any member; otherwise the matrix decides. Fermia-only domains are never in a matrix.
+ * any member; otherwise the matrix decides. Fermia-only domains are in a
+ * matrix only for the bonus ones, in consultation (`validateMatrix`).
  */
 export function decideRoute(
   access: InstitutionAccess | null,
@@ -83,13 +86,79 @@ export function decideRoute(
         "Accès refusé : votre profil donne accès au journal d'audit seulement.",
     };
   }
-  if (isProgrammeDomain(domain) && grants(access.matrix, domain, action)) {
+  if (isGrantableDomain(domain) && grants(access.matrix, domain, action)) {
     return { allowed: true };
   }
   return {
     allowed: false,
     reason: `Accès refusé : le profil « ${access.profileLabel} » ne permet pas l'action « ${ACTION_LABELS[action]} » sur le domaine « ${DOMAIN_LABELS[domain]} ».`,
   };
+}
+
+/**
+ * {@link decideRoute} with alternative grants (`@AlsoGrantedBy`): allowed when
+ * the route's own domain and action, or one alternative, are granted; the
+ * refusal names the route's own domain.
+ */
+export function decideRouteAny(
+  access: InstitutionAccess | null,
+  domain: AccessDomain | undefined,
+  action: AccessAction,
+  alternatives: ReadonlyArray<readonly [AccessDomain, AccessAction]> = [],
+): AccessDecision {
+  const primary = decideRoute(access, domain, action);
+  if (primary.allowed || !domain || !access) return primary;
+  for (const [d, a] of alternatives) {
+    if (decideRoute(access, d, a).allowed) return { allowed: true };
+  }
+  return primary;
+}
+
+// POUFA lot A2 droits (begin): Fermia bonus features in read-only.
+/** French name of each Fermia bonus domain, for the read-only refusal. */
+const FERMIA_DOMAIN_FEATURES: Readonly<Record<string, string>> = {
+  VENTES: 'Caisse et ventes',
+  MARCHE: 'Market',
+  COMPTABILITE: 'Comptabilité',
+  EQUIPE: 'Équipe et RH',
+};
+
+export const readOnlyFeatureMessage = (feature: string): string =>
+  `Accès refusé : « ${feature} » est un module de gestion propre à la ferme (Fermia), ouvert aux comptes institutionnels en consultation seule, quels que soient les droits accordés.`;
+
+/**
+ * Read-only rule of the Fermia bonus features for an institutional account
+ * (user decision 2026-11-06: the government benefits from them, in
+ * consultation): a route of a Fermia bonus domain, or marked
+ * `@InstitutionReadOnly(feature)` (a bonus stored under a programme domain:
+ * expenses, FEFO stock, slaughter…), refuses every action but CONSULTER,
+ * whatever the matrix grants. Returns the French refusal, or null when the
+ * rule does not apply.
+ */
+export function readOnlyRefusal(
+  domain: AccessDomain | undefined,
+  action: AccessAction,
+  feature: string | undefined,
+): string | null {
+  if (action === 'CONSULTER') return null;
+  const name =
+    feature ??
+    (domain && isInstitutionFermiaDomain(domain)
+      ? FERMIA_DOMAIN_FEATURES[domain]
+      : undefined);
+  return name ? readOnlyFeatureMessage(name) : null;
+}
+// POUFA lot A2 droits (end)
+
+/** Whether an institutional access consults `domain` (its scope rules apart). */
+export function consults(
+  access: Pick<InstitutionAccess, 'matrix' | 'scopeKind'>,
+  domain: GrantableDomain,
+): boolean {
+  if (access.scopeKind === AccessScopeKind.AUDIT && domain !== 'AUDIT') {
+    return false;
+  }
+  return grants(access.matrix, domain, 'CONSULTER');
 }
 
 /** Scope kinds that reach individual farms (the others see no farm row). */
@@ -191,13 +260,16 @@ export function validateMatrix(
   }
   const matrix: AccessMatrix = {};
   for (const [domain, actions] of Object.entries(raw)) {
-    if ((FERMIA_DOMAINS as readonly string[]).includes(domain)) {
+    if (
+      (FERMIA_DOMAINS as readonly string[]).includes(domain) &&
+      !isInstitutionFermiaDomain(domain)
+    ) {
       return {
         ok: false,
         error: `Le domaine « ${domain} » est propre à Fermia et ne peut pas être accordé à un profil institutionnel.`,
       };
     }
-    if (!isProgrammeDomain(domain)) {
+    if (!isGrantableDomain(domain)) {
       return { ok: false, error: `Domaine inconnu : « ${domain} ».` };
     }
     if (!Array.isArray(actions)) {
@@ -214,6 +286,14 @@ export function validateMatrix(
       };
     }
     const set = new Set(actions as AccessAction[]);
+    const allowed = grantableActions(domain);
+    const refused = [...set].find((a) => !allowed.includes(a));
+    if (refused !== undefined) {
+      return {
+        ok: false,
+        error: `Le domaine « ${DOMAIN_LABELS[domain]} » ne s'ouvre aux profils institutionnels qu'en consultation : l'action « ${ACTION_LABELS[refused]} » ne peut pas être accordée.`,
+      };
+    }
     const ordered = ACCESS_ACTIONS.filter((a) => set.has(a));
     if (ordered.length > 0) matrix[domain] = ordered;
   }
@@ -284,10 +364,10 @@ export function scopeKindRefusal(
 export function matrixExcess(
   granter: AccessMatrix,
   target: AccessMatrix,
-): Array<[ProgrammeDomain, AccessAction]> {
-  const out: Array<[ProgrammeDomain, AccessAction]> = [];
+): Array<[GrantableDomain, AccessAction]> {
+  const out: Array<[GrantableDomain, AccessAction]> = [];
   for (const [domain, actions] of Object.entries(target)) {
-    if (!isProgrammeDomain(domain) || !Array.isArray(actions)) continue;
+    if (!isGrantableDomain(domain) || !Array.isArray(actions)) continue;
     for (const action of ACCESS_ACTIONS) {
       if (actions.includes(action) && !grants(granter, domain, action)) {
         out.push([domain, action]);
@@ -395,16 +475,120 @@ export function scopeExcess(
   return { provinceIds, farmIds };
 }
 
+// POUFA lot A2 vet: parameter ownership is a matrix right, never a profile
+// code (CDC §5.2 n° 25 « seuils réglés par les seuls services vétérinaires »;
+// user decision: rights are admin-configurable). À valider DGE / vétérinaires.
 /**
- * `ProgramParameter.ownerProfile`: the platform admin changes any parameter;
- * an institutional account only those owned by its profile; nobody else.
+ * Right owning the parameters of an owner key (`ProgramParameter.ownerProfile`,
+ * `reference-owners.ts`). The keys stay the seeded profile codes (DGE,
+ * VETERINAIRE, ADMIN), so the catalogs and the stored rows keep working, but
+ * who may change a value is resolved through the caller's matrix: any
+ * profile the administration grants that right (with PARAMETRES:MODIFIER)
+ * owns them. `closedToPlatform`: the platform admin reads, never changes.
+ */
+export interface ParameterOwnerRight {
+  domain: GrantableDomain;
+  action: AccessAction;
+  closedToPlatform: boolean;
+}
+
+export const PARAMETER_OWNER_RIGHTS: Readonly<
+  Record<string, ParameterOwnerRight>
+> = {
+  // Alert thresholds, the day mortality formula, sanitary conduct thresholds.
+  VETERINAIRE: {
+    domain: 'SANITAIRE',
+    action: 'MODIFIER',
+    closedToPlatform: true,
+  },
+  // Follow-up parameters (« la DGE fixe les paramètres de suivi »).
+  DGE: { domain: 'PARAMETRES', action: 'VALIDER', closedToPlatform: false },
+  // Technical settings of the programme administration (clock skew, SMS cap).
+  ADMIN: {
+    domain: 'ADMINISTRATION',
+    action: 'ADMINISTRER',
+    closedToPlatform: false,
+  },
+};
+
+/** Owner keys whose parameters the platform admin may read but not change. */
+export const OWNER_PROFILES_CLOSED_TO_PLATFORM: readonly string[] =
+  Object.entries(PARAMETER_OWNER_RIGHTS)
+    .filter(([, right]) => right.closedToPlatform)
+    .map(([key]) => key);
+
+/** The right owning `ownerProfile`'s parameters, null for an unknown key. */
+export function parameterOwnerRight(
+  ownerProfile: string,
+): ParameterOwnerRight | null {
+  return PARAMETER_OWNER_RIGHTS[ownerProfile] ?? null;
+}
+
+/** « Sanitaire : Modifier »: the owner right as the screens name it. */
+export function ownerRightLabel(ownerProfile: string): string | null {
+  const right = parameterOwnerRight(ownerProfile);
+  return right
+    ? `${DOMAIN_LABELS[right.domain]} : ${ACTION_LABELS[right.action]}`
+    : null;
+}
+
+/**
+ * Who records a new version of a parameter owned by `ownerProfile`: the
+ * platform admin, for any owner not closed to it; an institutional account
+ * whose matrix grants PARAMETRES:MODIFIER and the owner right; nobody else.
  */
 export function mayChangeParameter(
   role: string,
-  profileCode: string | null,
+  matrix: AccessMatrix | null,
   ownerProfile: string,
 ): boolean {
-  if (role === UserRole.PLATFORM_ADMIN) return true;
-  if (role !== UserRole.INSTITUTION) return false;
-  return profileCode !== null && profileCode === ownerProfile;
+  const right = parameterOwnerRight(ownerProfile);
+  if (role === UserRole.PLATFORM_ADMIN) {
+    return right === null || !right.closedToPlatform;
+  }
+  if (role !== UserRole.INSTITUTION || !matrix || !right) return false;
+  return (
+    grants(matrix, 'PARAMETRES', 'MODIFIER') &&
+    grants(matrix, right.domain, right.action)
+  );
+}
+
+/**
+ * French refusal of a parameter change (`what`: « le paramètre « X » »), or
+ * null when the caller may change it.
+ */
+export function parameterChangeRefusal(
+  role: string,
+  matrix: AccessMatrix | null,
+  ownerProfile: string,
+  what: string,
+): string | null {
+  if (mayChangeParameter(role, matrix, ownerProfile)) return null;
+  const right = ownerRightLabel(ownerProfile);
+  const owner = right
+    ? `relève du profil « ${ownerProfile} » (droits ${DOMAIN_LABELS.PARAMETRES} : ${ACTION_LABELS.MODIFIER} et ${right})`
+    : `relève du profil « ${ownerProfile} »`;
+  const platform =
+    role === UserRole.PLATFORM_ADMIN
+      ? ' ; l’administrateur de la plateforme le consulte seulement'
+      : '';
+  return `Accès refusé : ${what} ${owner}${platform}.`;
+}
+// End POUFA lot A2 vet.
+
+/**
+ * Who reads deactivated list items and localités (`?all=true`): the profiles
+ * that manage them, from their matrix. Any ADMINISTRATION right (programme
+ * lists, territories), PARAMETRES:MODIFIER (the profiles that maintain the
+ * programme settings: DGE, veterinary services, programme administrator by
+ * default) and, for the sanitary lists the vets maintain, SANITAIRE:MODIFIER.
+ * Reading inactive reference items changes nothing: a broad rule is safe.
+ */
+export function mayReadInactiveItems(
+  matrix: AccessMatrix,
+  opts: { sanitaryList?: boolean } = {},
+): boolean {
+  if ((matrix.ADMINISTRATION?.length ?? 0) > 0) return true;
+  if (grants(matrix, 'PARAMETRES', 'MODIFIER')) return true;
+  return opts.sanitaryList === true && grants(matrix, 'SANITAIRE', 'MODIFIER');
 }

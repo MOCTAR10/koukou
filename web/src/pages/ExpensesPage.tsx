@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import type { Expense, SyncExpensesResult } from '../api/types-finance';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { EXPENSE_CATEGORIES, ExpenseFormModal } from '../components/finance/ExpenseFormModal';
 import { ConfirmModal, SuccessNote } from '../components/finance/shared';
 import { Button, ErrorNote } from '../components/form';
@@ -28,6 +30,8 @@ function Tag({ children, tone }: { children: string; tone: 'slate' | 'emerald' |
 export function ExpensesPage() {
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
+  // POUFA lot A droits: the page opens with « compta:rapports » too (an institution granted ECONOMIQUE); writes need « compta:depense ».
+  const canWrite = useFarmProfile().hasPermission('compta:depense');
   const [form, setForm] = useState<{ editing: Expense | null } | null>(null);
   const [deleting, setDeleting] = useState<Expense | null>(null);
   const [syncNote, setSyncNote] = useState<string | null>(null);
@@ -87,11 +91,14 @@ export function ExpensesPage() {
         subtitle="Suivi des charges et sorties de caisse"
         icon={<ReceiptText />}
         actions={
-          <Button onClick={() => setForm({ editing: null })}>
-            <Plus className="h-4 w-4" /> Nouvelle dépense
-          </Button>
+          canWrite ? (
+            <Button onClick={() => setForm({ editing: null })}>
+              <Plus className="h-4 w-4" /> Nouvelle dépense
+            </Button>
+          ) : undefined
         }
       />
+      <ReadOnlyNotice what="dépenses" />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <StatCard
@@ -108,10 +115,12 @@ export function ExpensesPage() {
               Les dépenses liées aux poussins, aliments et intrants sont créées automatiquement lors de la
               création des lots et réceptions. Elles apparaissent ici avec le badge « Auto ».
             </p>
-            <Button tone="secondary" busy={sync.isPending} onClick={() => sync.mutate()}>
-              {sync.isPending ? null : <RefreshCw className="h-4 w-4" />}
-              Synchroniser les dépenses
-            </Button>
+            {canWrite ? (
+              <Button tone="secondary" busy={sync.isPending} onClick={() => sync.mutate()}>
+                {sync.isPending ? null : <RefreshCw className="h-4 w-4" />}
+                Synchroniser les dépenses
+              </Button>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -171,7 +180,7 @@ export function ExpensesPage() {
                         - {fcfa(e.amountFcfa)}
                       </Td>
                       <Td label="Actions" className="whitespace-nowrap text-right">
-                        {auto ? (
+                        {auto || !canWrite ? (
                           <span className="text-xs text-slate-400">—</span>
                         ) : (
                           <div className="flex justify-end gap-1">

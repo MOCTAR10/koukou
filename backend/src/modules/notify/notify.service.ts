@@ -24,6 +24,8 @@ import {
   koukouBus,
   type AlertRaisedEvent,
   type DeclarationReceivedEvent,
+  type DeclarationReviewedEvent,
+  type ReportReadyEvent,
   type SanitaryAlertEvent,
   type SyncConflictEvent,
   type WeighingLateEvent,
@@ -175,6 +177,16 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
       KOUKOU_EVENTS.SYNC_CONFLICT,
       (e: SyncConflictEvent) => this.track(this.onSyncConflict(e)),
     ],
+    // POUFA lot A pilot: « rapport disponible ».
+    [
+      KOUKOU_EVENTS.REPORT_READY,
+      (e: ReportReadyEvent) => this.track(this.onReportReady(e)),
+    ],
+    // POUFA lot A2 vet: the vets' decision on a declaration (CDC n° 26).
+    [
+      KOUKOU_EVENTS.DECLARATION_REVIEWED,
+      (e: DeclarationReviewedEvent) => this.track(this.onDeclarationReviewed(e)),
+    ],
   ];
 
   constructor(
@@ -316,6 +328,39 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  // POUFA lot A2 vet (begin)
+  private async onDeclarationReviewed(
+    e: DeclarationReviewedEvent,
+  ): Promise<void> {
+    const farm = await this.farmOf(e.farmId);
+    if (!farm) return;
+    const band = await this.bandCode(e.batchId);
+    const outcome: Record<string, string> = {
+      VALIDEE: 'validée',
+      INFIRMEE: 'infirmée',
+      ALERTE: e.alertCode
+        ? `convertie en alerte sanitaire ${e.alertCode}`
+        : 'convertie en alerte sanitaire',
+    };
+    await this.notify({
+      event: NotificationEvent.DECLARATION_REVIEWED,
+      farmId: farm.id,
+      subjectId: e.healthEventId,
+      dedupKey: `${NotificationEvent.DECLARATION_REVIEWED}:${e.healthEventId}`,
+      severity: e.status === 'ALERTE' ? AlertLevel.ROUGE : AlertLevel.JAUNE,
+      title: 'Déclaration examinée par les services vétérinaires',
+      body:
+        `« ${e.title} » du ${frDate(e.occurredAt)}` +
+        (band ? ` (bande ${band})` : '') +
+        ` : ${outcome[e.status] ?? e.status}.`,
+      route: e.alertId
+        ? `/sanitary-alerts/${e.alertId}`
+        : `/farms/${farm.id}/batches/${e.batchId}/health-events`,
+      smsCode: farm.code,
+    });
+  }
+  // POUFA lot A2 vet (end)
+
   private async onWeighingLate(e: WeighingLateEvent): Promise<void> {
     await this.notify({
       event: NotificationEvent.WEIGHING_LATE,
@@ -352,6 +397,55 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * POUFA lot A: a report run was produced. Its recipients come from the
+   * template's audience (`report_runs.recipients`); the REPORT_READY rules
+   * say who of them hears it and through which channels:
+   * REPORT_RECIPIENTS = all of them, PROFILE = those of that profile,
+   * FARM_MANAGERS / FARM_TEAM = the farm's people for an end-of-band run
+   * (they read their farm's end-of-band reports).
+   */
+  private async onReportReady(e: ReportReadyEvent): Promise<void> {
+    if (!e.programId) return;
+    const band = e.level === 'BANDE' && e.batchId != null;
+    const route = band ? `/batches/${e.batchId}` : `/reports/${e.runId}`;
+    await this.notifyUsers(
+      e.programId,
+      {
+        event: NotificationEvent.REPORT_READY,
+        farmId: e.farmId,
+        subjectId: e.runId,
+        dedupKey: `${NotificationEvent.REPORT_READY}:${e.runId}`,
+        severity: AlertLevel.VERT,
+        title: 'Rapport disponible',
+        body: `${e.title} (du ${frDate(e.periodStart)} au ${frDate(e.periodEnd)}).`,
+        route,
+        smsCode: null,
+      },
+      async (rule) => {
+        const recipients = e.recipients ?? [];
+        switch (rule.audience) {
+          case NotificationAudience.REPORT_RECIPIENTS:
+            return recipients.map((r) => r.userId);
+          case NotificationAudience.PROFILE:
+            return recipients
+              .filter(
+                (r) => r.kind === 'MEMBER' && r.profileCode === rule.profileCode,
+              )
+              .map((r) => r.userId);
+          case NotificationAudience.FARM_MANAGERS:
+          case NotificationAudience.FARM_TEAM: {
+            if (!band || !e.farmId) return [];
+            const farm = await this.farmOf(e.farmId);
+            return farm ? this.recipients(rule, farm, false) : [];
+          }
+          default:
+            return [];
+        }
+      },
+    );
+  }
+
   // ---------- Dispatch ----------
 
   /**
@@ -361,17 +455,36 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
   async notify(input: NotifyInput, now: Date = new Date()): Promise<number> {
     const farm = await this.farmOf(input.farmId);
     if (!farm) return 0;
-    const rules = (await this.rules.activeFor(farm.programId, input.event)).filter(
+    const confidential = isConfidential(input.event);
+    return this.notifyUsers(
+      farm.programId,
+      input,
+      (rule) => this.recipients(rule, farm, confidential),
+      now,
+    );
+  }
+
+  /**
+   * The programme's active rules for the event (severity filter), each one
+   * giving its users through `recipientsOf`; then one row per user and
+   * channel, and the pushes. `input.farmId` may be null (a national report).
+   */
+  private async notifyUsers(
+    programId: string,
+    input: Omit<NotifyInput, 'farmId'> & { farmId: string | null },
+    recipientsOf: (rule: NotificationRule) => Promise<string[]>,
+    now: Date = new Date(),
+  ): Promise<number> {
+    const rules = (await this.rules.activeFor(programId, input.event)).filter(
       (r) => severityPasses(input.severity, r.severityMin),
     );
     if (rules.length === 0) return 0;
-    const confidential = isConfidential(input.event);
     const plan = new Map<
       string,
       { channels: Set<NotificationChannel>; escalate: number | null; ruleId: string }
     >();
     for (const rule of rules) {
-      for (const userId of await this.recipients(rule, farm, confidential)) {
+      for (const userId of await recipientsOf(rule)) {
         const entry = plan.get(userId) ?? {
           channels: new Set<NotificationChannel>(),
           escalate: null,
@@ -411,7 +524,7 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
       channels.forEach((channel, i) =>
         rows.push({
           userId,
-          farmId: farm.id,
+          farmId: input.farmId,
           ruleId: entry.ruleId,
           event: input.event,
           subjectId: input.subjectId,
@@ -484,15 +597,6 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
       }
       case NotificationAudience.PROFILE: {
         if (!rule.profileCode) return [];
-        if (
-          confidential &&
-          !mayHandleSanitaryDeclarations(
-            { role: UserRole.INSTITUTION },
-            { profileCode: rule.profileCode },
-          )
-        ) {
-          return [];
-        }
         const members = await this.dataSource
           .getRepository(ProgramMembership)
           .find({
@@ -503,6 +607,16 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
           });
         return members
           .filter((m) => isMembershipEffective(m) && m.profile)
+          // Unpublished sanitary data: the profiles holding the veterinary
+          // authority in their matrix only (POUFA lot A2 vet).
+          .filter(
+            (m) =>
+              !confidential ||
+              mayHandleSanitaryDeclarations(
+                { role: UserRole.INSTITUTION },
+                { matrix: m.profile!.matrix },
+              ),
+          )
           .filter((m) =>
             includesFarm(
               {

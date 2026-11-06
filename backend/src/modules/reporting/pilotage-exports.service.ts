@@ -4,7 +4,12 @@ import { DataSource } from 'typeorm';
 import { utcDay } from '../batches/poufa/bande-rules.js';
 import type { ExportTable } from './export-table.js';
 import { metricsOf } from './pilotage-metrics.js';
-import { pct, round } from './pilotage-rules.js';
+import {
+  bandMortalityPct,
+  eligibleBandSql,
+  periodCompletenessPct,
+} from './pilotage-programme.js';
+import { round } from './pilotage-rules.js';
 import {
   PilotageDashboardService,
   type PilotageQuery,
@@ -70,10 +75,10 @@ export class PilotageExportsService {
       pricePerHead: m?.sold.avgPricePerHeadFcfa,
       pricePerKg: m?.sold.avgPricePerKgFcfa,
       completeness: m?.completeness.pct,
-      alertsRaised: m?.alerts.raised,
-      alertsRed: m?.alerts.raisedRed,
-      alertsActive: m?.alerts.activeNow,
       published: m?.alerts.published,
+      conductRaised: m?.alerts.conduct.raised,
+      conductRed: m?.alerts.conduct.raisedRed,
+      conductActive: m?.alerts.conduct.activeNow,
     });
     const rows = [
       ...d.provinces.map((p) =>
@@ -112,10 +117,10 @@ export class PilotageExportsService {
         ['pricePerHead', 'Prix moyen par tête (FCFA)'],
         ['pricePerKg', 'Prix moyen au kg vif (FCFA)'],
         ['completeness', 'Complétude (%)'],
-        ['alertsRaised', 'Alertes levées'],
-        ['alertsRed', 'dont rouges'],
-        ['alertsActive', 'Alertes actives'],
         ['published', 'Alertes sanitaires publiées'],
+        ['conductRaised', 'Alertes de conduite levées (conseil, non sanitaires)'],
+        ['conductRed', 'dont rouges'],
+        ['conductActive', 'Alertes de conduite actives'],
       ],
       rows,
     };
@@ -127,7 +132,7 @@ export class PilotageExportsService {
     const ctx = await this.dashboards.context(view, query);
     const provinces = new Map(ctx.provinces.map((p) => [p.id, p]));
     const rows = ctx.rows.map(({ farm, facts }) => {
-      const m = metricsOf(facts);
+      const m = metricsOf(facts, ctx.indicators);
       return {
         code: farm.code,
         name: farm.name,
@@ -150,9 +155,9 @@ export class PilotageExportsService {
         revenue: m.sold.revenueFcfa,
         pricePerHead: m.sold.avgPricePerHeadFcfa,
         completeness: m.completeness.pct,
-        alertsActive: m.alerts.activeNow,
-        alertsRed: m.alerts.activeRedNow,
         published: m.alerts.published,
+        conductActive: m.alerts.conduct.activeNow,
+        conductRed: m.alerts.conduct.activeRedNow,
       };
     });
     return {
@@ -180,9 +185,9 @@ export class PilotageExportsService {
         ['revenue', 'Chiffre d’affaires volailles (FCFA)'],
         ['pricePerHead', 'Prix moyen par tête (FCFA)'],
         ['completeness', 'Complétude (%)'],
-        ['alertsActive', 'Alertes actives'],
-        ['alertsRed', 'dont rouges'],
         ['published', 'Alertes sanitaires publiées'],
+        ['conductActive', 'Alertes de conduite actives (conseil, non sanitaires)'],
+        ['conductRed', 'dont rouges'],
       ],
       rows,
     };
@@ -193,11 +198,13 @@ export class PilotageExportsService {
     this.scope.assertFarmRows(view);
     // Same period and filter checks as the dashboards.
     const ctx = await this.dashboards.parse(view, query);
+    const rules = await this.dashboards.rules(view, ctx.period);
     const farms = this.scope.scopedFarms(view, ctx.filters);
     const p = new SqlParams(farms.params);
     const from = p.add(`${ctx.period.from}T00:00:00.000Z`);
     const to = p.add(ctx.period.to);
     const today = p.add(utcDay());
+    const eligible = p.add(rules.eligibleBandKeys);
     const rows: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql})
        SELECT b.code, b.batch_name, b.status, b.integration_date, b.initial_age_days,
@@ -223,6 +230,7 @@ export class PilotageExportsService {
          ) c ON TRUE
         WHERE b.integration_date <= ${to}::date
           AND (b.closed_at IS NULL OR b.closed_at >= ${from}::timestamptz)
+          AND ${eligibleBandSql('b', eligible)}
         ORDER BY sf.code NULLS LAST, b.code NULLS LAST
         LIMIT ${MAX_BAND_ROWS}`,
       p.values,
@@ -268,7 +276,8 @@ export class PilotageExportsService {
         placed: n(r.quantity_at_start),
         present: n(r.present),
         deaths: n(r.deaths_cumulative),
-        mortality: pct(
+        mortality: bandMortalityPct(
+          rules.formulas,
           Number(r.deaths_cumulative ?? 0),
           Number(r.quantity_at_start ?? 0),
         ),
@@ -279,7 +288,12 @@ export class PilotageExportsService {
             : round(Number(r.feed_cumulative_kg), 1),
         weight:
           r.last_weight_g == null ? null : round(Number(r.last_weight_g), 0),
-        completeness: pct(Number(r.entered ?? 0), Number(r.elapsed ?? 0)),
+        // POUFA lot A2 dge: FORMULE_COMPLETUDE_PCT, like the aggregates.
+        completeness: periodCompletenessPct(
+          rules.formulas,
+          Number(r.entered ?? 0),
+          Number(r.elapsed ?? 0),
+        ),
       })),
     };
   }

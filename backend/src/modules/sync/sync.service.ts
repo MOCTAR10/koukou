@@ -219,7 +219,7 @@ export class SyncService {
         batchId: ctx.batchId,
         conflictIds: conflicts.map((c) => c.id),
       };
-      // TODO(notify lot): in-app notification to the agent and the farmer.
+      // Notified in-app by the FERME_/AGENT_CONFLIT_SAISIE rules (notify).
       runAfterCommit(em, () =>
         koukouBus.emit(KOUKOU_EVENTS.SYNC_CONFLICT, event),
       );

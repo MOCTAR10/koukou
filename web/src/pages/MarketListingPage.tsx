@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, CalendarClock, MapPin, Store } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarClock, MapPin, QrCode, Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import type { BuyerMarketOrder, MarketFulfilment, MarketListing } from '../api/types-market';
 import { useAuth } from '../auth/AuthContext';
+import { canUseBuyerArea } from '../app/roles';
 import { Button, ErrorNote, Field, inputCls, todayIso } from '../components/form';
 import { depositFor, orderTotal, unitName } from '../components/market/rules';
 import { invalidateBuyerQueries, listingPhoto, listingTitle } from '../components/market/shared';
@@ -188,6 +189,17 @@ export function MarketListingPage() {
               {fcfa(listing.unitPriceFcfa)} <span className="text-sm font-normal text-slate-500">/ {unitName(listing.product)}</span>
             </p>
             {listing.description ? <p className="mt-3 whitespace-pre-line text-sm text-slate-700">{listing.description}</p> : null}
+            {listing.traceLot ? (
+              // POUFA lot A indic: the band's public traceability page.
+              <a
+                href={listing.traceLot.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-2.5 py-1 text-sm font-medium text-brand-700 ring-1 ring-brand-200 hover:bg-brand-100"
+              >
+                <QrCode className="h-4 w-4" /> Lot tracé {listing.traceLot.code}
+              </a>
+            ) : null}
           </Card>
           {listing.kind === 'PRE' && listing.readyDate ? (
             <Card className="p-5">
@@ -209,8 +221,10 @@ export function MarketListingPage() {
         <div className="lg:col-span-2">
           <Card className="p-5">
             <h2 className="mb-4 font-semibold text-slate-900">{listing.kind === 'PRE' ? 'Précommander' : 'Commander'}</h2>
-            {user ? (
+            {user && canUseBuyerArea(user.role) ? (
               <OrderForm listing={listing} />
+            ) : user ? (
+              <p className="text-sm text-slate-600">Un compte institutionnel ne passe pas de commande sur le Marché.</p>
             ) : (
               <div className="space-y-3 text-sm text-slate-600">
                 <p>Créez un compte gratuit ou connectez-vous pour envoyer votre demande à la ferme.</p>
@@ -219,7 +233,7 @@ export function MarketListingPage() {
                   state={{ from: pathname }}
                   className="block rounded-lg bg-brand-600 py-2.5 text-center font-semibold text-white hover:bg-brand-700"
                 >
-                  Créer un compte
+                  Créer un compte client
                 </Link>
                 <Link
                   to="/login"

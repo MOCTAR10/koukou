@@ -2,14 +2,21 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
+  BadgeCheck,
   AlertTriangle,
   BadgePercent,
+  BookMarked,
+  BellRing,
   Briefcase,
+  DatabaseBackup,
+  FileSearch,
+  SlidersHorizontal,
   ClipboardList,
   Coins,
   Factory,
   FileBarChart,
   Handshake,
+  KeyRound,
   LayoutDashboard,
   LifeBuoy,
   ListTodo,
@@ -20,10 +27,11 @@ import {
   NotebookPen,
   ReceiptText,
   ScrollText,
+  Gauge,
   Settings,
   Shield,
   ShoppingCart,
-  Sprout,
+  ShieldAlert,
   Store,
   Tractor,
   Users,
@@ -33,13 +41,27 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
-import { useFarmProfile } from '../app/useFarmProfile';
+import { farmSpaceState, worksWithoutFarm } from '../app/roles';
+import { useMenuAccess } from '../app/useMenuAccess';
 import { Logo } from './Logo';
+import { PageNotOpen } from './access/PageNotOpen';
+import { NoFarmScreen } from './NoFarmScreen';
+import { Loading } from './ui';
 import { OfflineBar } from './OfflineBar';
+import { FarmPicker } from './programme/FarmPicker';
 import { QuickCreate } from './QuickCreate';
+// POUFA L5: programme surveillance entries and the notification bell.
+import { NotificationBell } from './surveillance/NotificationBell';
+import { useNotificationRights, useSurveillanceRights } from './surveillance/useSurveillanceRights';
 import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
 import { motion, useReducedMotion } from 'motion/react';
+// POUFA W6: inputs and traceability entries.
+import { QrCode, Truck } from 'lucide-react';
+import { FARM_DELIVERIES_PATH, isProgrammeWidePath, programmeEntries, programmeWideLabel } from './trace/traceAccess';
+// POUFA lot A droits: the programme economic synthesis entry.
+import { useInstitutionAccess } from '../app/useInstitutionAccess';
+import { ECONOMIE_PATH, economieRights } from './economie/economie';
 
 /** `perms`: at least one is required to show the entry; absent means visible to all. */
 const NAV: Array<{
@@ -50,7 +72,8 @@ const NAV: Array<{
     title: 'Pilotage',
     items: [
       { to: '/app/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-      { to: '/app/alerts', label: 'Alertes', icon: AlertTriangle },
+      // POUFA lot A indic: Fermia's advice is not the programme's sanitary alerting (F12).
+      { to: '/app/alerts', label: 'Conseils d’élevage', icon: AlertTriangle },
       { to: '/app/tasks', label: 'Tâches', icon: ListTodo },
     ],
   },
@@ -61,23 +84,18 @@ const NAV: Array<{
       { to: '/app/activities', label: 'Activités', icon: NotebookPen },
       { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText, perms: ['sanitaire:lecture'] },
       { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse, perms: ['stock:gerer'] },
+      { to: FARM_DELIVERIES_PATH, label: 'Livraisons d’intrants', icon: Truck, perms: ['intrants:lire', 'stock:gerer'] }, // POUFA W6; lot A droits: « intrants:lire »
       { to: '/app/slaughter', label: 'Abattage', icon: Factory, perms: ['production:abattage'] },
     ],
   },
-  {
-    title: 'Cultures',
-    items: [
-      { to: '/app/parcels', label: 'Parcelles', icon: Sprout },
-      { to: '/app/harvests', label: 'Récoltes', icon: Tractor },
-    ],
-  },
+  // No « Cultures » group: crops are hidden on the POUFA instance (poultry programme).
   {
     title: 'Ventes',
     items: [
       { to: '/app/finance/ventes', label: 'Ventes', icon: ShoppingCart, perms: ['vente:creer'] },
       { to: '/app/finance/caisse', label: 'Caisse', icon: Coins, perms: ['caisse:lire'] },
       { to: '/app/orders', label: 'Commandes', icon: ClipboardList, perms: ['vente:commande', 'vente:creer'] },
-      { to: '/app/market', label: 'Marché', icon: Store, perms: ['market:publier', 'vente:commande'] },
+      { to: '/app/market', label: 'Marché', icon: Store, perms: ['market:publier', 'vente:commande', 'market:lire'] },
       { to: '/app/finance/clients', label: 'Clients', icon: Handshake, perms: ['compta:client'] },
       { to: '/app/points-of-sale', label: 'Points de vente', icon: MapPin, perms: ['pdv:gerer'] },
       { to: '/app/finance/promotions', label: 'Promotions', icon: BadgePercent, perms: ['vente:promotion'] },
@@ -87,8 +105,9 @@ const NAV: Array<{
     title: 'Finance',
     items: [
       { to: '/app/reports', label: 'Rentabilité', icon: FileBarChart, perms: ['compta:rapports'] },
-      { to: '/app/accounting', label: 'Comptabilité', icon: Landmark, perms: ['compta:rapports'] },
-      { to: '/app/expenses', label: 'Dépenses', icon: ReceiptText, perms: ['compta:depense'] },
+      // POUFA lot A droits: same codes as the routes (App.tsx).
+      { to: '/app/accounting', label: 'Comptabilité', icon: Landmark, perms: ['compta:rapports', 'compta:lire'] },
+      { to: '/app/expenses', label: 'Dépenses', icon: ReceiptText, perms: ['compta:depense', 'compta:rapports'] },
     ],
   },
   {
@@ -117,28 +136,74 @@ function navLinkCls({ isActive }: { isActive: boolean }) {
 
 export function Shell() {
   const { user, logout } = useAuth();
-  const { farms, farmId, farm, setFarm } = useFarm();
+  const { farms, farmId, farm, setFarm, farmsLoading, farmsFailed, refetchFarms } = useFarm();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
   const { pathname } = useLocation();
+  // Programme-wide pages, not about the active farm: no farm picker nor quick actions.
   const onPlatform = pathname.startsWith('/app/platform');
+  const onRegistry = pathname.startsWith('/app/registre');
+  const onAccess = pathname.startsWith('/app/acces') || pathname.startsWith('/app/mon-acces');
+  const onPilotage = pathname.startsWith('/app/pilotage');
+  // POUFA L5 (begin)
+  const onSurveillance = pathname.startsWith('/app/surveillance');
+  const onNotifications = pathname.startsWith('/app/notifications');
+  const surveillance = useSurveillanceRights();
+  const notificationRights = useNotificationRights();
+  // POUFA L5 (end)
+  // --- Programme administration (parameters, audit journal, data recovery) ---
+  const adminHeader = pathname.startsWith('/app/parametres')
+    ? 'Paramètres et listes du programme'
+    : pathname.startsWith('/app/audit')
+      ? 'Journal d’audit du programme'
+      : pathname.startsWith('/app/reprise')
+        ? 'Reprise des données du programme'
+        : pathname.startsWith(ECONOMIE_PATH) // POUFA lot A droits
+          ? 'Synthèse économique du programme'
+          : null;
+  // --- end programme administration ---
+  const onProgrammeWide = isProgrammeWidePath(pathname); // POUFA W6
+  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null || onProgrammeWide;
   const reduced = useReducedMotion();
-  const { hasPermission, isGroundEleveur } = useFarmProfile();
-  const farmOptions = farms.map((f) => (
-    <option key={f.id} value={f.id}>
-      {f.name}
-      {!f.active ? ' (suspendue)' : ''}
-    </option>
-  ));
+  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
+    useMenuAccess();
+  const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
+  const economie = economieRights(user?.role, useInstitutionAccess().access?.profile); // POUFA lot A droits
+  const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
+  const farmProvince = farm?.provinceName ?? undefined;
+  // Programme-wide entries: the registry, the platform console, the institutional access administration, an institution's own access.
+  const adminItems = [
+    ...(registry.view ? [{ to: '/app/registre', label: 'Registre des fermes', icon: BookMarked }] : []),
+    // POUFA L6: programme steering (PILOTAGE:CONSULTER or the platform admin).
+    ...(pilotage.view ? [{ to: '/app/pilotage', label: 'Pilotage du programme', icon: Gauge }] : []),
+    // POUFA lot A droits: programme economic synthesis (ECONOMIQUE:CONSULTER on farms, or the platform admin).
+    ...(economie.view ? [{ to: ECONOMIE_PATH, label: 'Synthèse économique', icon: Landmark }] : []),
+    ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
+    ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
+    // --- Programme administration, by domain: PARAMETRES (or ADMINISTRATION for the lists), AUDIT, REGISTRE (national) ---
+    ...(admin.parameters.view || admin.lists.view ? [{ to: '/app/parametres', label: 'Paramètres', icon: SlidersHorizontal }] : []),
+    ...(admin.audit.view ? [{ to: '/app/audit', label: 'Journal d’audit', icon: FileSearch }] : []),
+    ...(admin.recovery.view ? [{ to: '/app/reprise', label: 'Reprise des données', icon: DatabaseBackup }] : []),
+    // --- end programme administration ---
+    // POUFA W6: programme inputs and traceability.
+    ...programmeEntries(user?.role, (to) => showEntry(to)).map((e) => ({ to: e.to, label: e.label, icon: e.kind === 'intrants' ? Truck : QrCode })),
+    ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
+    // POUFA L5: programme sanitary surveillance, notification rules.
+    ...(surveillance.view ? [{ to: '/app/surveillance', label: 'Surveillance sanitaire', icon: ShieldAlert }] : []),
+    ...(notificationRights.readRules ? [{ to: '/app/notifications/regles', label: 'Règles de notification', icon: BellRing }] : []),
+  ];
   const nav = NAV.map((group) => ({
     ...group,
     items: [
       ...(group.title === 'Pilotage' && isGroundEleveur
         ? [{ to: '/app/home', label: 'Mon terrain', icon: Tractor }]
         : []),
-      ...group.items.filter((item) => !item.perms || hasPermission(...item.perms)),
+      // Without a farm, only the pages that work without one.
+      ...group.items.filter(
+        (item) => (space === 'ready' || worksWithoutFarm(item.to)) && showEntry(item.to, item.perms),
+      ),
     ],
   })).filter((group) => group.items.length > 0);
 
@@ -154,7 +219,7 @@ export function Shell() {
           <Logo className="h-9 w-auto shrink-0" />
           <div className={classNames('whitespace-nowrap', RAIL_BLOCK)}>
             <p className="text-sm font-bold text-white">Fermia</p>
-            <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : 'Espace ferme'}</p>
+            <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : user?.role === 'INSTITUTION' ? 'Espace programme' : 'Espace ferme'}</p>
           </div>
           <button
             className="ml-auto rounded p-1 text-brand-200 hover:text-white md:hidden"
@@ -165,18 +230,19 @@ export function Shell() {
           </button>
         </div>
 
-        {!onPlatform ? (
+        {!onProgramme && farms.length > 0 ? (
           <div className="px-3 md:max-xl:hidden">
-            <label className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">
-              {isAdmin ? 'Ferme à consulter' : 'Ferme active'}
-            </label>
-            <select
-              className="select-on-dark w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-sm text-white outline-none focus:border-brand-400 [&>option]:text-slate-900"
-              value={farmId ?? ''}
-              onChange={(e) => setFarm(e.target.value)}
-            >
-              {farmOptions}
-            </select>
+            <p className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">{pickerLabel}</p>
+            <FarmPicker
+              tone="dark"
+              farms={farms}
+              farmId={farmId}
+              onPick={(id) => {
+                setFarm(id);
+                setMobileOpen(false);
+              }}
+              label={pickerLabel}
+            />
           </div>
         ) : null}
 
@@ -202,21 +268,24 @@ export function Shell() {
               </div>
             </div>
           ))}
-          {isAdmin ? (
+          {adminItems.length > 0 ? (
             <div>
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
-                Plateforme
+                {isAdmin ? 'Plateforme' : 'Programme'}
               </p>
               <div className="space-y-0.5">
-                <NavLink
-                  to="/app/platform"
-                  onClick={() => setMobileOpen(false)}
-                  aria-label="Cockpit plateforme"
-                  className={navLinkCls}
-                >
-                  <Shield className="h-4 w-4 shrink-0" />
-                  <span className={RAIL_TEXT}>Cockpit plateforme</span>
-                </NavLink>
+                {adminItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setMobileOpen(false)}
+                    aria-label={item.label}
+                    className={navLinkCls}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className={RAIL_TEXT}>{item.label}</span>
+                  </NavLink>
+                ))}
               </div>
             </div>
           ) : null}
@@ -264,33 +333,55 @@ export function Shell() {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex min-w-0 items-center text-sm font-medium text-slate-700">
-            {!onPlatform && farm ? (
+            {!onProgramme && farm ? (
               <>
                 {/* The rail has no room for the farm picker: it moves up here. */}
-                <select
-                  aria-label={isAdmin ? 'Ferme à consulter' : 'Ferme active'}
-                  className="hidden max-w-56 rounded-lg border border-slate-200 bg-white py-1.5 pl-2.5 text-sm font-medium text-slate-700 outline-none focus:border-brand-500 md:max-xl:block"
-                  value={farmId ?? ''}
-                  onChange={(e) => setFarm(e.target.value)}
-                >
-                  {farmOptions}
-                </select>
+                <FarmPicker
+                  tone="light"
+                  className="hidden w-64 md:max-xl:block"
+                  farms={farms}
+                  farmId={farmId}
+                  onPick={setFarm}
+                  label={pickerLabel}
+                />
                 <span className="truncate md:max-xl:hidden">
                   {isAdmin ? <span className="text-slate-400">Ferme : </span> : null}
                   {farm.name}
                 </span>
+                {farm.code ? (
+                  <span className="ml-2 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600 md:max-xl:hidden">
+                    {farm.code}
+                  </span>
+                ) : null}
                 <span className="ml-2 hidden text-xs font-normal text-slate-400 sm:inline">
+                  {farmProvince ? `${farmProvince} · ` : ''}
                   {farm.administrativeCity} · {farm.active ? 'ferme active' : 'ferme suspendue'}
                 </span>
               </>
-            ) : (
+            ) : onPlatform ? (
               'Console administrateur plateforme'
+            ) : onRegistry ? (
+              'Registre des fermes du programme'
+            ) : onProgrammeWide ? (
+              programmeWideLabel(pathname)
+            ) : onAccess ? (
+              'Accès institutionnels du programme'
+            ) : onPilotage ? (
+              pilotage.view ? 'Pilotage du programme' : 'Rapports de fin de bande'
+            ) : onSurveillance ? (
+              'Surveillance sanitaire du programme'
+            ) : onNotifications ? (
+              'Notifications'
+            ) : (
+              adminHeader
             )}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
-            {!onPlatform && farm?.capacityPerBuilding ? <span>Capacité {farm.capacityPerBuilding} ois./bât.</span> : null}
+            {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
           </div>
-          <div className="ml-auto lg:ml-0">{!onPlatform && farmId ? <QuickCreate /> : null}</div>
+          <div className="ml-auto lg:ml-0">{!onProgramme && farmId ? <QuickCreate /> : null}</div>
+          {/* POUFA L5: unread notifications (hidden without the inbox right). */}
+          <NotificationBell />
           {isAdmin ? (
             <button
               onClick={() => navigate('/app/platform')}
@@ -315,7 +406,17 @@ export function Shell() {
             animate={{ opacity: 1, y: 0 }}
             transition={pageTm}
           >
-            <Outlet />
+            {space === 'ready' || worksWithoutFarm(pathname) ? (
+              canOpen(pathname) ? (
+                <Outlet />
+              ) : accessLoading ? (
+                <Loading />
+              ) : (
+                <PageNotOpen />
+              )
+            ) : (
+              <NoFarmScreen state={space} onRetry={refetchFarms} />
+            )}
           </motion.div>
         </main>
       </div>

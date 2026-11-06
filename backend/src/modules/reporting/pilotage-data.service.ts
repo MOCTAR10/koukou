@@ -2,7 +2,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { addDays, utcDay } from '../batches/poufa/bande-rules.js';
+import { ParametersService } from '../programme/parameters.service.js';
 import { emptyFacts, type Facts } from './pilotage-metrics.js';
+import {
+  eligibleBandSql,
+  pilotageRulesAt,
+  type PilotageRules,
+} from './pilotage-programme.js';
 import type { Period } from './pilotage-rules.js';
 import {
   PilotageScopeService,
@@ -71,13 +77,14 @@ const n = (v: unknown): number => (v == null ? 0 : Number(v));
 /**
  * CTE `ws` (needs `sf`): measured live weight of the sorties whose animals did
  * leave (any REFORME/AUTRE, a VENTE whose sale is not cancelled, an ABATTOIR
- * whose slaughter order is processed), per band and per day of removal (the
- * slaughter's planned date, as in `FlockReconciliationService.removalsByDate`).
- * `from`/`to` are SQL placeholders.
+ * whose slaughter order is not cancelled: its birds leave at the sortie), per
+ * band and per day of removal (the sortie's date, as in
+ * `FlockReconciliationService.removalsByDate`). `from`/`to` are SQL
+ * placeholders.
  */
 export function weighedSortiesCte(from: string, to: string): string {
   return `ws AS (
-         SELECT so.batch_id, COALESCE(o.planned_date, so.sortie_date) AS day,
+         SELECT so.batch_id, so.sortie_date AS day,
                 SUM(so.count) AS heads, SUM(so.weight_kg) AS kg
            FROM sorties so
            JOIN sf ON sf.id = so.farm_id
@@ -86,8 +93,8 @@ export function weighedSortiesCte(from: string, to: string): string {
           WHERE so.weight_kg > 0
             AND (so.reason_family NOT IN ('VENTE', 'ABATTOIR')
                  OR (so.reason_family = 'VENTE' AND sa.status <> 'CANCELLED')
-                 OR (so.reason_family = 'ABATTOIR' AND o.status = 'PROCESSED'))
-            AND COALESCE(o.planned_date, so.sortie_date) BETWEEN ${from}::date AND ${to}::date
+                 OR (so.reason_family = 'ABATTOIR' AND o.status <> 'CANCELLED'))
+            AND so.sortie_date BETWEEN ${from}::date AND ${to}::date
           GROUP BY 1, 2
        )`;
 }
@@ -110,11 +117,21 @@ export class PilotageDataService {
     private readonly scope: PilotageScopeService,
     @Inject(PUBLISHED_ALERT_SOURCE)
     private readonly publishedAlerts: PublishedAlertSource,
+    private readonly parameters: ParametersService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   get publishedAlertsAvailable(): boolean {
     return this.publishedAlerts.available;
+  }
+
+  /**
+   * Programme perimeter, conduct alert kinds and formulas in force at the
+   * end of `day` (the period's last day).
+   */
+  async rules(programId: string, day: string): Promise<PilotageRules> {
+    const resolver = await this.parameters.resolver(programId);
+    return pilotageRulesAt(resolver, day);
   }
 
   /**
@@ -126,7 +143,9 @@ export class PilotageDataService {
     filters: FarmFilters,
     period: Period,
     today: string = utcDay(),
+    rules?: PilotageRules,
   ): Promise<FarmFacts[]> {
+    const r0 = rules ?? (await this.rules(view.programId, period.to));
     const farms = this.scope.scopedFarms(view, filters);
     const p = new SqlParams(farms.params);
     const from = p.add(period.from);
@@ -136,6 +155,8 @@ export class PilotageDataService {
     const fromTs = p.add(`${period.from}T00:00:00.000Z`);
     const toTs = p.add(`${addDays(period.to, 1)}T00:00:00.000Z`);
     const items = p.add(POULTRY_ITEMS);
+    const eligible = p.add(r0.eligibleBandKeys);
+    const kinds = p.add(r0.conductAlertKinds);
     const rows: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql}),
        ${weighedSortiesCte(from, to)},
@@ -143,6 +164,8 @@ export class PilotageDataService {
          SELECT s.batch_id, s.farm_id, s.day, s.present_start, s.deaths,
                 s.removals, ${DAY_EXIT_KG} AS exit_kg, s.entry_done, s.present
            FROM bande_daily_stats s JOIN sf ON sf.id = s.farm_id
+           JOIN production_batches eb ON eb.id = s.batch_id
+                AND ${eligibleBandSql('eb', eligible)}
            LEFT JOIN ws ON ws.batch_id = s.batch_id AND ws.day = s.day
           WHERE s.day >= ${from}::date AND s.day <= ${to}::date
        ),
@@ -178,6 +201,7 @@ export class PilotageDataService {
            FROM production_batches b JOIN sf ON sf.id = b.farm_id
           WHERE b.integration_date >= ${from}::date
             AND b.integration_date <= ${to}::date
+            AND ${eligibleBandSql('b', eligible)}
           GROUP BY b.farm_id
        ),
        sl AS (
@@ -199,8 +223,14 @@ export class PilotageDataService {
            JOIN sf ON sf.id = s.farm_id
            JOIN sale_items i ON i.sale_id = s.id
            LEFT JOIN orders o ON o.sale_id = s.id
+           LEFT JOIN slaughter_orders iso ON iso.id = i.source_slaughter_order_id
+           LEFT JOIN production_batches ib
+                  ON ib.id = COALESCE(i.batch_id, iso.batch_id, s.batch_id)
           WHERE s.status <> 'CANCELLED'
             AND i.product_type::text = ANY(${items}::text[])
+            -- Birds of a band out of the programme (ducks, layers…) are not
+            -- programme sales; a sale with no band stays counted.
+            AND (ib.id IS NULL OR ${eligibleBandSql('ib', eligible)})
             AND (o.id IS NULL OR o.status = 'LIVRE')
             AND COALESCE((o.livred_at AT TIME ZONE 'UTC')::date, s.sale_date)
                 BETWEEN ${from}::date AND ${to}::date
@@ -216,7 +246,11 @@ export class PilotageDataService {
                 COUNT(*) FILTER (WHERE a.status = 'ACTIVE') AS active,
                 COUNT(*) FILTER (WHERE a.status = 'ACTIVE' AND a.level = 'ROUGE') AS active_red
            FROM alerts a JOIN sf ON sf.id = a.farm_id
+           LEFT JOIN production_batches ab ON ab.id = a.batch_id
           WHERE a.level <> 'VERT'
+            -- Conduct alerts only (F1): never a sanitary or economic kind.
+            AND a.kind::text = ANY(${kinds}::text[])
+            AND (ab.id IS NULL OR ${eligibleBandSql('ab', eligible)})
           GROUP BY a.farm_id
        )
        SELECT sf.id, sf.province_id, sf.code, sf.name, sf.cohort, sf.status_code,
@@ -351,12 +385,15 @@ export class PilotageDataService {
     filters: FarmFilters,
     period: Period,
     today: string = utcDay(),
+    rules?: PilotageRules,
   ): Promise<WeekFacts[]> {
+    const r0 = rules ?? (await this.rules(view.programId, period.to));
     const farms = this.scope.scopedFarms(view, filters);
     const p = new SqlParams(farms.params);
     const from = p.add(period.from);
     const to = p.add(period.to);
     const todayP = p.add(today);
+    const eligible = p.add(r0.eligibleBandKeys);
     const rows: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql}),
        ${weighedSortiesCte(from, to)},
@@ -368,6 +405,8 @@ export class PilotageDataService {
                 COUNT(*) FILTER (WHERE s.entry_done) AS entered,
                 COUNT(*) FILTER (WHERE s.entry_done OR s.day < ${todayP}::date) AS elapsed
            FROM bande_daily_stats s JOIN sf ON sf.id = s.farm_id
+           JOIN production_batches eb ON eb.id = s.batch_id
+                AND ${eligibleBandSql('eb', eligible)}
            LEFT JOIN ws ON ws.batch_id = s.batch_id AND ws.day = s.day
           WHERE s.day >= ${from}::date AND s.day <= ${to}::date
           GROUP BY 1, s.batch_id, s.farm_id

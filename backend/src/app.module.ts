@@ -42,6 +42,8 @@ import { SurveillanceModule } from './modules/surveillance/surveillance.module.j
 import { NotifyModule } from './modules/notify/notify.module.js';
 import { ReportingModule } from './modules/reporting/reporting.module.js';
 import { DatabaseModule } from './database/database.module.js';
+// POUFA lot A droits: programme-wide economic synthesis.
+import { EconomieModule } from './modules/programme-economie/economie.module.js';
 import {
   dbConnection,
   schemaOptions,
@@ -124,6 +126,8 @@ import {
     SurveillanceModule,
     NotifyModule,
     ReportingModule,
+    // POUFA lot A droits
+    EconomieModule,
     DatabaseModule,
   ],
   controllers: [AppController],

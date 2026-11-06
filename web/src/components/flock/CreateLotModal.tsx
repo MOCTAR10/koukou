@@ -27,6 +27,16 @@ import { EGG_IMAGES, SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
 import { PhotoThumb } from '../ui';
+import {
+  bandOpening,
+  feedAdviceFor,
+  MAX_ARRIVAL_AGE_DAYS,
+  MAX_ARRIVAL_WEIGHT_G,
+  parseArrivalAgeDays,
+  parseArrivalWeightG,
+  splitStepsByAge,
+  stepDate,
+} from './band';
 import { BREED_INFO } from './breedInfo';
 import { BuildingFormModal } from './Buildings';
 import {
@@ -47,22 +57,6 @@ import {
 
 /** Recommended top density (birds per m2), like the mobile lot sheet. */
 const DENSITY_MAX: Record<BatchType, number> = { CHAIR: 15, PONDEUSE: 8 };
-
-const FEED_ADVICE: Record<BatchType, Array<{ label: string; from: number; to: number }>> = {
-  CHAIR: [
-    { label: 'Poussin (0 à 10 j)', from: 0, to: 10 },
-    { label: 'Démarrage (11 à 24 j)', from: 11, to: 24 },
-    { label: 'Croissance (25 à 35 j)', from: 25, to: 35 },
-    { label: 'Finition (36 j et plus)', from: 36, to: 99999 },
-  ],
-  PONDEUSE: [
-    { label: 'Poussin (0 à 10 j)', from: 0, to: 10 },
-    { label: 'Démarrage (11 à 24 j)', from: 11, to: 24 },
-    { label: 'Croissance (25 à 112 j)', from: 25, to: 112 },
-    { label: 'Pré-ponte (113 à 126 j)', from: 113, to: 126 },
-    { label: 'Ponte 1 (127 j et plus)', from: 127, to: 99999 },
-  ],
-};
 
 // Pheasant is no longer offered for new lots; existing ones keep displaying it through SPECIES_LABEL.
 const CREATABLE_SPECIES = Object.entries(SPECIES_LABEL).filter(([k]) => k !== 'FAISAN');
@@ -85,7 +79,28 @@ function digits(raw: string): string {
   return raw.replace(/\D/g, '');
 }
 
-export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+/**
+ * POUFA L4: a band opened after a confirmed chick delivery (`openBandHint`),
+ * pre-filled; the chicks' cost is already an expense, so no chick price.
+ */
+export interface LotPrefill {
+  quantityAtStart: number;
+  integrationDate: string;
+  couvoirSupplier?: string;
+  chickLotNumber?: string;
+  /** Shown above the form. */
+  note?: string;
+}
+
+export function CreateLotModal({
+  onClose,
+  onCreated,
+  prefill,
+}: {
+  onClose: () => void;
+  onCreated: (id: string) => void;
+  prefill?: LotPrefill;
+}) {
   const { farmId } = useFarm();
   const invalidate = useInvalidateFarm();
   const buildings = useBuildings();
@@ -101,21 +116,27 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
   const [customSpecies, setCustomSpecies] = useState('');
   const [customBreed, setCustomBreed] = useState('');
   const [batchName, setBatchName] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [integrationDate, setIntegrationDate] = useState(localYmd());
+  const [quantity, setQuantity] = useState(prefill ? String(prefill.quantityAtStart) : '');
+  /** The arrival (opening) day of the band: never back-dated to the hatch or the placement. */
+  const [integrationDate, setIntegrationDate] = useState(prefill?.integrationDate.slice(0, 10) ?? localYmd());
+  /** « Âge à l'arrivée (jours) », sent as `initialAgeDays` (empty = 0, day-old chicks). */
+  const [arrivalAge, setArrivalAge] = useState('');
+  /** « Poids moyen à l'arrivée (g) », sent as `initialAvgWeightG` (optional). */
+  const [arrivalWeight, setArrivalWeight] = useState('');
   const [buildingId, setBuildingId] = useState('');
-  const [supplier, setSupplier] = useState('');
-  const [chickLot, setChickLot] = useState('');
+  const [supplier, setSupplier] = useState(prefill?.couvoirSupplier ?? '');
+  const [chickLot, setChickLot] = useState(prefill?.chickLotNumber ?? '');
   const [hatchDate, setHatchDate] = useState('');
   const [chickPrice, setChickPrice] = useState('');
   const [doneSteps, setDoneSteps] = useState<string[]>([]);
   const [addingBuilding, setAddingBuilding] = useState(false);
 
   const isAutre = species === 'AUTRE';
-  const ageDays = Math.max(
-    0,
-    Math.floor((Date.parse(`${localYmd()}T00:00:00Z`) - Date.parse(`${integrationDate}T00:00:00Z`)) / 86_400_000),
-  );
+  // POUFA band opening (J+x): age, feed phase and care due count from the birds' J0.
+  const arrivalAgeDays = parseArrivalAgeDays(arrivalAge);
+  const arrivalWeightG = parseArrivalWeightG(arrivalWeight);
+  const opening = bandOpening({ arrivalDay: integrationDate, arrivalAgeDays: arrivalAgeDays ?? 0, today: localYmd() });
+  const ageDays = opening.ageToday;
   const qty = parseInt(quantity, 10) || 0;
 
   const filteredBreeds = (breeds.data ?? []).filter((b) => b.type === type && b.species === species);
@@ -139,9 +160,10 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
       ),
     enabled: !!protocol && running,
   });
-  const steps = (program.data?.steps ?? []).filter((s) => s.active).sort((a, b) => a.dayFrom - b.dayFrom);
-  const dueSteps = steps.filter((s) => s.dayFrom <= ageDays);
-  const upcomingSteps = steps.filter((s) => s.dayFrom > ageDays);
+  const { due: dueSteps, upcoming: upcomingSteps } = splitStepsByAge(
+    (program.data?.steps ?? []).filter((s) => s.active),
+    ageDays,
+  );
 
   const space = useMemo(() => {
     const map = new Map<string, { occupied: number; available: number | null }>();
@@ -176,14 +198,16 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
     mutationFn: async () => {
       const body: Record<string, unknown> = {
         batchName: batchName.trim(),
-        integrationDate,
+        integrationDate: opening.integrationDate,
+        initialAgeDays: opening.initialAgeDays,
         quantityAtStart: qty,
         type,
         species,
         buildingId,
       };
-      // The server keeps a running lot's start count equal to its live count.
+      // A running lot opens with the birds present that day: the server requires both counts equal.
       if (running) body.quantityAlive = qty;
+      if (arrivalWeightG != null) body.initialAvgWeightG = arrivalWeightG;
       if (isAutre) {
         body.customSpecies = customSpecies.trim();
         body.customBreed = customBreed.trim();
@@ -193,7 +217,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
       if (supplier.trim()) body.couvoirSupplier = supplier.trim();
       if (chickLot.trim()) body.chickLotNumber = chickLot.trim();
       if (hatchDate) body.hatchDate = hatchDate;
-      if (chickPrice.trim()) body.chickUnitPriceFcfa = parseInt(chickPrice, 10);
+      if (chickPrice.trim() && !prefill) body.chickUnitPriceFcfa = parseInt(chickPrice, 10);
       const lot = await api.post<Lot>(`/farms/${farmId}/batches`, body);
       const selected = running && canRecordCare ? dueSteps.filter((s) => doneSteps.includes(s.id)) : [];
       await Promise.all(
@@ -201,9 +225,15 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
           api.post(`/farms/${farmId}/batches/${lot.id}/treatments`, {
             careType: step.careType,
             productName: step.name,
+            // POUFA lot A sante: a step of the vets' calendar, accepted outside the PRODUIT_TRAITEMENT list.
+            protocolStepId: step.id,
+            reason: 'Soin du calendrier sanitaire',
+            // POUFA lot A2 sante: animals required; the care was given to the birds placed.
+            animalCount: qty,
             dosage: step.dosage ?? undefined,
             route: step.route ?? undefined,
-            administeredAt: addLocalDays(integrationDate, step.dayFrom),
+            // Step of day N = J0 + N (may precede the opening: care given before arrival).
+            administeredAt: stepDate(opening, step.dayFrom),
             withdrawalDays: step.withdrawalDays || undefined,
             notes: `Renseigné lors de l'ajout du lot en cours (âge ${ageDays} j)`,
           }),
@@ -222,18 +252,23 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
     qty > 0 &&
     (isAutre ? customSpecies.trim().length > 0 && customBreed.trim().length > 0 : !!breed) &&
     !!buildingId &&
-    !buildingFull;
+    !buildingFull &&
+    arrivalAgeDays != null &&
+    arrivalWeightG !== null &&
+    // A lot already on the farm: its age at opening must be typed (no silent J0).
+    (!running || arrivalAge.trim().length > 0);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (canSubmit) create.mutate();
   };
 
-  const feedAdvice = FEED_ADVICE[type].find((p) => ageDays >= p.from && ageDays <= p.to) ?? FEED_ADVICE[type][0];
+  const feedAdvice = feedAdviceFor(type, ageDays);
 
   return (
     <Modal title={running ? 'Ajouter un lot en cours' : 'Créer un lot'} onClose={onClose} large>
       <form onSubmit={submit} className="space-y-5">
+        {prefill?.note ? <Note tone="brand">{prefill.note}</Note> : null}
         <FormColumns>
         <div className="min-w-0 space-y-5">
         <Toggle
@@ -246,8 +281,9 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
         />
         {running ? (
           <Note tone="brand">
-            Pour un lot déjà en cours, l'effectif vivant actuel devient l'effectif de départ du suivi. La mortalité
-            passée n'est pas reprise.
+            La bande s’ouvre à la date choisie (en général aujourd’hui), à l’âge des sujets ce jour-là (J+x). Les sujets
+            présents ce jour-là sont son effectif de départ : la mortalité passée n’est pas reprise et aucune saisie ne
+            peut précéder cette date.
           </Note>
         ) : null}
 
@@ -351,28 +387,77 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
               required
             />
           </Field>
-          <IconField label={running ? 'Effectif vivant actuel *' : 'Quantité de poussins *'} icon={<Bird />}>
+          <IconField
+            label={running ? 'Effectif vivant à l’ouverture *' : 'Quantité de sujets *'}
+            icon={<Bird />}
+            hint={running ? 'Les pertes d’avant l’ouverture ne sont pas comptées.' : undefined}
+          >
             <input
               className={inputCls}
               inputMode="numeric"
               value={quantity}
               onChange={(e) => setQuantity(digits(e.target.value))}
-              placeholder="Ex : 3000"
+              placeholder={running ? 'Ex : 2850' : 'Ex : 3000'}
               required
             />
           </IconField>
           <IconField
-            label={running ? 'Date de mise en place du lot *' : "Date d'arrivée des poussins *"}
+            label={running ? 'Date d’ouverture de la bande *' : 'Date d’arrivée des sujets *'}
             icon={<Calendar />}
-            hint={running ? `Âge du lot : ${ageDays} j` : undefined}
+            hint={
+              running
+                ? `En général aujourd’hui : les saisies commencent à cette date.${ageDays > 0 ? ` J${ageDays} aujourd’hui.` : ''}`
+                : `La bande s’ouvre ce jour-là.${ageDays > 0 ? ` J${ageDays} aujourd’hui.` : ''}`
+            }
           >
             <input
               className={inputCls}
               type="date"
               value={integrationDate}
-              onChange={(e) => setIntegrationDate(e.target.value)}
+              onChange={(e) => setIntegrationDate(e.target.value || localYmd())}
               required
             />
+          </IconField>
+          <IconField
+            label={running ? 'Âge des sujets à l’ouverture (jours) *' : 'Âge à l’arrivée (jours)'}
+            icon={<Clock />}
+            hint={
+              arrivalAgeDays == null
+                ? undefined
+                : running
+                  ? `La bande s’ouvre à J${opening.initialAgeDays}.`
+                  : `0 = poussins d’un jour. Des sujets démarrés arrivent à J+x${opening.initialAgeDays > 0 ? ` (ici J${opening.initialAgeDays})` : ''}.`
+            }
+          >
+            <input
+              className={inputCls}
+              inputMode="numeric"
+              value={arrivalAge}
+              onChange={(e) => setArrivalAge(digits(e.target.value))}
+              placeholder={running ? 'Ex : 21' : '0'}
+              required={running}
+              aria-invalid={arrivalAgeDays == null}
+            />
+            {arrivalAgeDays == null ? (
+              <span className="mt-1 block text-xs text-red-600">Âge entre 0 et {MAX_ARRIVAL_AGE_DAYS} jours.</span>
+            ) : null}
+          </IconField>
+          <IconField
+            label={running ? 'Poids moyen à l’ouverture (g)' : 'Poids moyen à l’arrivée (g)'}
+            icon={<Scale />}
+            hint="Facultatif : un échantillon pesé à la mise en place sert de point de départ au GMQ."
+          >
+            <input
+              className={inputCls}
+              inputMode="decimal"
+              value={arrivalWeight}
+              onChange={(e) => setArrivalWeight(e.target.value.replace(/[^\d.,]/g, ''))}
+              placeholder={running ? 'Ex : 650' : 'Ex : 42'}
+              aria-invalid={arrivalWeightG === null}
+            />
+            {arrivalWeightG === null ? (
+              <span className="mt-1 block text-xs text-red-600">Poids entre 1 et {MAX_ARRIVAL_WEIGHT_G.toLocaleString('fr-FR')} g.</span>
+            ) : null}
           </IconField>
           <IconField label="Bâtiment *" icon={<Warehouse />}>
             {buildings.data?.length ? (
@@ -439,15 +524,19 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             <IconField label="Date d'éclosion" icon={<Calendar />}>
               <input className={inputCls} type="date" value={hatchDate} onChange={(e) => setHatchDate(e.target.value)} />
             </IconField>
-            <Field label="Prix d'achat unitaire (FCFA)" hint="Crée automatiquement la dépense d'achat des poussins.">
-              <input
-                className={inputCls}
-                inputMode="numeric"
-                value={chickPrice}
-                onChange={(e) => setChickPrice(digits(e.target.value))}
-                placeholder="Ex : 750"
-              />
-            </Field>
+            {prefill ? (
+              <p className="text-xs text-slate-500">Poussins reçus d’une livraison du programme : leur coût est déjà passé en dépense, pas de prix à saisir.</p>
+            ) : (
+              <Field label="Prix d'achat unitaire (FCFA)" hint="Crée automatiquement la dépense d'achat des poussins.">
+                <input
+                  className={inputCls}
+                  inputMode="numeric"
+                  value={chickPrice}
+                  onChange={(e) => setChickPrice(digits(e.target.value))}
+                  placeholder="Ex : 750"
+                />
+              </Field>
+            )}
           </div>
         </fieldset>
 
@@ -462,7 +551,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             {dueSteps.length > 0 && canRecordCare ? (
               <div>
                 <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                  <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Soins prophylactiques déjà réalisés (cochez-les pour les enregistrer)
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Soins prophylactiques déjà réalisés (cochez-les : ils sont datés du J0 des sujets + le jour du protocole)
                 </p>
                 <div className="space-y-1">
                   {dueSteps.map((s) => (
@@ -492,7 +581,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             {upcomingSteps.length > 0 ? (
               <div>
                 <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                  <Syringe className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Prochains soins à planifier
+                  <Syringe className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Prochains soins (planifiés d'office : calendrier de référence)
                 </p>
                 <ul className="space-y-0.5 text-sm text-slate-600">
                   {upcomingSteps.slice(0, 3).map((s) => (
@@ -507,7 +596,8 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
         ) : null}
 
         {standards.data?.length ? (
-          <LotForecast type={type} standards={standards.data} qty={qty} start={integrationDate} />
+          // The breed curves count from the birds' J0, not from the opening.
+          <LotForecast type={type} standards={standards.data} qty={qty} start={opening.ageZeroDay} />
         ) : null}
 
         </div>

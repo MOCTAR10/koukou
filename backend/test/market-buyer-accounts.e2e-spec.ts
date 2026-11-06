@@ -114,6 +114,8 @@ describe('Comptes acheteurs du Market (e2e)', () => {
       buyerToken = buyer.body.accessToken;
       const owner = await createProgrammeFarm(server, adminToken, {
         exploitantName: 'Proprio',
+        // Market listings are only shown for OPERATIONNELLE farms (POUFA).
+        extra: { statusCode: 'OPERATIONNELLE' },
       });
       ownerToken = owner.ownerToken;
       farmId = owner.farmId;

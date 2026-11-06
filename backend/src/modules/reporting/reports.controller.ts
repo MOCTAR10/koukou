@@ -18,6 +18,8 @@ import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import {
+  CreateReportTemplateDto,
+  DuplicateReportTemplateDto,
   GenerateReportDto,
   ReportRunsQueryDto,
   UpdateReportTemplateDto,
@@ -31,6 +33,11 @@ import { ReportsService } from './reports.service.js';
  * scope (an aggregate-only account never gets a run naming farms; a farm
  * owner or member gets his bands' end-of-band reports). Every download is
  * journaled as an export.
+ *
+ * POUFA lot A: the runs are read under the SESSION domain, and the matrix is
+ * checked in `ReportsService.restrictRuns` — PILOTAGE:CONSULTER reads every
+ * run in scope, TECHNIQUE:CONSULTER the end-of-band runs of its farms (the
+ * technical agents receive them). Templates can be created and duplicated.
  */
 @ApiTags('Rapports du programme')
 @ApiBearerAuth()
@@ -62,6 +69,33 @@ export class ReportsController {
     return this.reports.updateTemplate(code, dto);
   }
 
+  // POUFA lot A pilot: create and duplicate templates.
+  @Post('templates')
+  @Action('ADMINISTRER')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @ApiOperation({
+    summary:
+      'Créer un modèle : code, libellé, niveau, périodicité, sections, destinataires',
+  })
+  createTemplate(@Body() dto: CreateReportTemplateDto) {
+    return this.reports.createTemplate(dto);
+  }
+
+  @Post('templates/:code/duplicate')
+  @Action('ADMINISTRER')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @ApiOperation({
+    summary:
+      'Dupliquer un modèle sous un nouveau code (la copie est inactive jusqu’à sa relecture)',
+  })
+  duplicateTemplate(
+    @Param('code') code: string,
+    @Body() dto: DuplicateReportTemplateDto,
+  ) {
+    return this.reports.duplicateTemplate(code, dto);
+  }
+  // End POUFA lot A pilot.
+
   @Post('templates/:code/runs')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
@@ -77,6 +111,7 @@ export class ReportsController {
   }
 
   @Get('runs')
+  @Domain('SESSION')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.PLATFORM_ADMIN)
   @ApiOperation({ summary: 'Rapports produits, dans le périmètre du lecteur' })
   runs(@CurrentUser() user: AuthUser, @Query() query: ReportRunsQueryDto) {
@@ -84,6 +119,7 @@ export class ReportsController {
   }
 
   @Get('runs/:id')
+  @Domain('SESSION')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary: 'Un rapport (sans le PDF) : période, empreinte, destinataires',
@@ -93,6 +129,7 @@ export class ReportsController {
   }
 
   @Get('runs/:id/pdf')
+  @Domain('SESSION')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.PLATFORM_ADMIN)
   @AuditExport('Téléchargement d’un rapport PDF du programme')
   @ApiOperation({

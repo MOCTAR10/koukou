@@ -2,6 +2,11 @@ import { ApiError } from '@/api/client';
 import {
   cancelOrder,
   cancelStockTransfer,
+  // POUFA lot A sante
+  completeProphylaxis,
+  createTreatment,
+  type CompleteProphylaxisInput,
+  type CreateTreatmentInput,
   createStockTransfer,
   createDailyEntry,
   createInput,
@@ -27,6 +32,27 @@ import {
 } from '@/api/mutations';
 
 import { loadSession } from '@/api/token';
+import {
+  confirmDelivery,
+  createDeclaration,
+  createSortie,
+  setFarmGps,
+  uploadDeclarationPhoto,
+  type ConfirmDeliveryPayload,
+  type ConfirmResult,
+  type DeclarationPayload,
+  type DeclarationPhoto,
+  type FarmGpsPayload,
+  type FarmGpsResult,
+  type SortiePayload,
+  type SortieView,
+} from '@/api/poufa';
+
+// POUFA lot A bande: offline conflict metadata of the daily entry.
+import { withCapture, withSendTime } from '@/poufa/entry-sync';
+
+import { deviceId } from './device-id';
+import { discardPhoto, photoExists } from './photo-files';
 
 import {
   bumpAttempts,
@@ -162,7 +188,16 @@ function isCreation(op: OfflineOp): boolean {
     op.kind === 'order-payment' ||
     op.kind === 'customer-payment' ||
     op.kind === 'pdv-create' ||
-    op.kind === 'stock-transfer-create'
+    op.kind === 'stock-transfer-create' ||
+    op.kind === 'health-event' ||
+    op.kind === 'delivery-confirm' ||
+    op.kind === 'sortie' ||
+    op.kind === 'farm-gps' ||
+    // POUFA lot A sante: a sanitary record refused on replay is kept for the
+    // user (a completion refused because the care was cancelled meanwhile
+    // carries the animal count and route actually given).
+    op.kind === 'treatment' ||
+    op.kind === 'prophylaxis-complete'
   );
 }
 
@@ -174,11 +209,31 @@ class CashBlockedError extends Error {}
 
 export type SendResult = { status: 'sent'; reference?: string } | { status: 'queued' };
 
+/** Like `SendResult`, with the server's answer when it was sent live. */
+export type SendResultOf<T> = { status: 'sent'; data: T } | { status: 'queued' };
+
+/** `sendOrQueue` keeping the live answer (same FIFO and queueing rules). */
+async function sendOrQueueWith<T>(op: NewOp, live: () => Promise<T>): Promise<SendResultOf<T>> {
+  let data: T | undefined;
+  const result = await sendOrQueue(op, async () => {
+    data = await live();
+  });
+  return result.status === 'sent' ? { status: 'sent', data: data as T } : { status: 'queued' };
+}
+
+// POUFA lot A bande: offline conflict rule (CDC §7.2). The capture time and
+// the device are fixed when the user saves; the phone clock goes with each
+// attempt, live and replay (backend sync.service.ts).
+function sendDailyEntry(farmId: string, batchId: string, payload: DailyEntryPayload): Promise<unknown> {
+  return createDailyEntry(farmId, batchId, withSendTime(payload, new Date().toISOString()));
+}
+
 export async function createDailyEntryQueued(
   farmId: string,
   batchId: string,
-  payload: DailyEntryPayload,
+  entry: DailyEntryPayload,
 ): Promise<SendResult> {
+  const payload = withCapture(entry, new Date().toISOString(), deviceId());
   return sendOrQueue(
     {
       id: nextId('daily-entry'),
@@ -188,7 +243,7 @@ export async function createDailyEntryQueued(
       payload,
     },
     async () => {
-      await createDailyEntry(farmId, batchId, payload);
+      await sendDailyEntry(farmId, batchId, payload);
     },
   );
 }
@@ -365,15 +420,19 @@ export async function recordCustomerPaymentQueued(
 
 /** Livraison de commande : mise en file si hors ligne (rejouée à la connexion). */
 export async function deliverOrderQueued(farmId: string, orderId: string): Promise<SendResult> {
+  // POUFA lot A2 divers: the delivery time is fixed now; a replay sends it
+  // so the cession and the delivery keep this day (backend delivery-day.ts).
+  const capturedAt = new Date().toISOString();
+  const device = deviceId();
   return sendOrQueue(
     {
       id: nextId('order-deliver'),
       kind: 'order-deliver',
       farmId,
-      payload: { orderId },
+      payload: { orderId, capturedAt, deviceId: device },
     },
     async () => {
-      await deliverOrder(farmId, orderId);
+      await deliverOrder(farmId, orderId, { capturedAt, deviceId: device, deviceSentAt: new Date().toISOString() });
     },
   );
 }
@@ -481,6 +540,191 @@ export async function cancelStockTransferQueued(
   );
 }
 
+// ── POUFA field work (mobile M2) ─────────────────────────────
+// Every op below is a creation the server deduplicates: `idempotencyKey =
+// op.id` on the live attempt and on replay (health events and sorties via
+// their unique (farmId, idempotencyKey), a delivery confirmation answers
+// `replay: true`, the GPS point by its unique (farmId, idempotencyKey)).
+
+export interface HealthEventOpPayload {
+  batchId: string;
+  payload: DeclarationPayload;
+  /** Local files, sent after the event exists (same bytes = same photo on the server). */
+  photos: DeclarationPhoto[];
+}
+
+export interface DeclarationSent {
+  eventId: string;
+  photosSent: number;
+  /** French reasons of the photos the server refused (the declaration itself is saved). */
+  photosRefused: string[];
+}
+
+/**
+ * Uploads the photos of a saved event. A refused photo (4xx: size, format,
+ * 5 per event) is skipped with its reason; a network failure throws, so the
+ * whole op is replayed: the event comes back by its key and photos already
+ * stored are recognised by their hash. Files are discarded only at the end.
+ */
+async function sendDeclarationPhotos(
+  farmId: string,
+  batchId: string,
+  eventId: string,
+  photos: readonly DeclarationPhoto[],
+): Promise<{ sent: number; refused: string[] }> {
+  let sent = 0;
+  const refused: string[] = [];
+  for (const photo of photos) {
+    if (!photoExists(photo)) {
+      refused.push('Photo introuvable sur le téléphone.');
+      continue;
+    }
+    try {
+      await uploadDeclarationPhoto(farmId, batchId, eventId, photo);
+      sent += 1;
+    } catch (e) {
+      if (shouldDrop(e)) {
+        refused.push((e as ApiError).message);
+        continue;
+      }
+      throw e;
+    }
+  }
+  photos.forEach(discardPhoto);
+  return { sent, refused };
+}
+
+async function sendDeclaration(farmId: string, p: HealthEventOpPayload): Promise<DeclarationSent> {
+  const event = await createDeclaration(farmId, p.batchId, p.payload);
+  const photos = await sendDeclarationPhotos(farmId, p.batchId, event.id, p.photos ?? []);
+  return { eventId: event.id, photosSent: photos.sent, photosRefused: photos.refused };
+}
+
+/** Sanitary declaration (CDC 21), queued offline with its photos. */
+export function createDeclarationQueued(
+  farmId: string,
+  batchId: string,
+  declaration: DeclarationPayload,
+  photos: DeclarationPhoto[] = [],
+): Promise<SendResultOf<DeclarationSent>> {
+  const opId = nextId('health-event');
+  const payload: HealthEventOpPayload = {
+    batchId,
+    payload: { ...declaration, idempotencyKey: declaration.idempotencyKey ?? opId },
+    photos,
+  };
+  return sendOrQueueWith({ id: opId, kind: 'health-event', farmId, batchId, payload }, () => sendDeclaration(farmId, payload));
+}
+
+export interface DeliveryConfirmOpPayload {
+  deliveryId: string;
+  payload: ConfirmDeliveryPayload;
+}
+
+/** Input delivery confirmation (CDC 17-18): a replay answers `replay: true`. */
+export function confirmDeliveryQueued(
+  farmId: string,
+  deliveryId: string,
+  confirmation: ConfirmDeliveryPayload,
+): Promise<SendResultOf<ConfirmResult>> {
+  const opId = nextId('delivery-confirm');
+  const payload: DeliveryConfirmOpPayload = {
+    deliveryId,
+    payload: { ...confirmation, idempotencyKey: confirmation.idempotencyKey ?? opId },
+  };
+  return sendOrQueueWith({ id: opId, kind: 'delivery-confirm', farmId, payload }, () =>
+    confirmDelivery(farmId, deliveryId, payload.payload),
+  );
+}
+
+export interface SortieOpPayload {
+  batchId: string;
+  payload: SortiePayload;
+}
+
+/** Sends a sortie with the phone's clock at send time (server skew check). */
+function sendSortie(farmId: string, p: SortieOpPayload): Promise<SortieView> {
+  return createSortie(farmId, p.batchId, { ...p.payload, deviceSentAt: new Date().toISOString() });
+}
+
+/** Band exit (CDC 9), deduplicated by the server on its key. */
+export function createSortieQueued(
+  farmId: string,
+  batchId: string,
+  sortie: SortiePayload,
+): Promise<SendResultOf<SortieView>> {
+  const opId = nextId('sortie');
+  const payload: SortieOpPayload = {
+    batchId,
+    payload: {
+      ...sortie,
+      idempotencyKey: sortie.idempotencyKey ?? opId,
+      capturedAt: sortie.capturedAt ?? new Date().toISOString(),
+    },
+  };
+  return sendOrQueueWith({ id: opId, kind: 'sortie', farmId, batchId, payload }, () => sendSortie(farmId, payload));
+}
+
+/**
+ * GPS fix of the farm (CDC 2), keyed by `idempotencyKey = op.id`: a replay
+ * after a lost answer adds no second point, and the server ignores a fix
+ * older than the current point (200, `applied: false` with its message).
+ */
+export function setFarmGpsQueued(farmId: string, gps: FarmGpsPayload): Promise<SendResultOf<FarmGpsResult>> {
+  const opId = nextId('farm-gps');
+  const payload = { ...gps, idempotencyKey: gps.idempotencyKey ?? opId };
+  return sendOrQueueWith({ id: opId, kind: 'farm-gps', farmId, payload: { payload } }, () => setFarmGps(farmId, payload));
+}
+
+// ── POUFA lot A sante: sanitary registers (CDC n° 22-23) ──────────────
+// Both are keyed: the server stores a treatment once per (farm, key) and
+// answers a replayed completion with the care it already completed.
+
+export interface TreatmentOpPayload {
+  batchId: string;
+  payload: CreateTreatmentInput;
+}
+
+/** Treatment register entry (CDC n° 23), queued offline. */
+export function createTreatmentQueued(
+  farmId: string,
+  batchId: string,
+  treatment: CreateTreatmentInput,
+): Promise<SendResult> {
+  const opId = nextId('treatment');
+  const payload: TreatmentOpPayload = {
+    batchId,
+    payload: { ...treatment, idempotencyKey: treatment.idempotencyKey ?? opId },
+  };
+  return sendOrQueue({ id: opId, kind: 'treatment', farmId, batchId, payload }, async () => {
+    await createTreatment(farmId, batchId, payload.payload);
+  });
+}
+
+export interface CareCompletionOpPayload {
+  batchId: string;
+  eventId: string;
+  payload: CompleteProphylaxisInput;
+}
+
+/** Completion of a planned care (CDC n° 22: date, route, animals), queued offline. */
+export function completeProphylaxisQueued(
+  farmId: string,
+  batchId: string,
+  eventId: string,
+  completion: CompleteProphylaxisInput,
+): Promise<SendResult> {
+  const opId = nextId('prophylaxis-complete');
+  const payload: CareCompletionOpPayload = {
+    batchId,
+    eventId,
+    payload: { ...completion, idempotencyKey: completion.idempotencyKey ?? opId },
+  };
+  return sendOrQueue({ id: opId, kind: 'prophylaxis-complete', farmId, batchId, payload }, async () => {
+    await completeProphylaxis(farmId, batchId, eventId, payload.payload);
+  });
+}
+
 /** `failed` = server error (5xx): counted, unlike network or 401 retries. */
 type ProcessResult = 'ok' | 'retry' | 'failed' | 'dropped' | 'rejected' | 'skip';
 
@@ -493,7 +737,9 @@ function keyed<T extends { idempotencyKey?: string }>(op: OfflineOp): T {
 async function processOne(op: OfflineOp): Promise<ProcessResult> {
   try {
     if (op.kind === 'daily-entry') {
-      await createDailyEntry(op.farmId, op.batchId ?? '', op.payload as DailyEntryPayload);
+      // POUFA lot A bande: an op queued before the rule is dated when queued.
+      const entry = op.payload as DailyEntryPayload;
+      await sendDailyEntry(op.farmId, op.batchId ?? '', { ...entry, capturedAt: entry.capturedAt ?? op.createdAt });
     } else if (op.kind === 'feed-input') {
       await createInput(op.farmId, keyed<CreateInputLotInput>(op));
     } else if (op.kind === 'stock-loss') {
@@ -510,7 +756,13 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       await ensureCashOpenOrRetry(op);
       await recordCustomerPayment(op.farmId, p.customerId, p.amountFcfa, { idempotencyKey: p.idempotencyKey });
     } else if (op.kind === 'order-deliver') {
-      await deliverOrder(op.farmId, (op.payload as { orderId: string }).orderId);
+      const p = op.payload as { orderId: string; capturedAt?: string; deviceId?: string };
+      // Ops queued before lot A2 have no capture: the op creation time stands in.
+      await deliverOrder(op.farmId, p.orderId, {
+        capturedAt: p.capturedAt ?? op.createdAt,
+        deviceId: p.deviceId ?? deviceId(),
+        deviceSentAt: new Date().toISOString(),
+      });
     } else if (op.kind === 'order-cancel') {
       const p = op.payload as { orderId: string; reason: string };
       await cancelOrder(op.farmId, p.orderId, p.reason);
@@ -525,6 +777,28 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       await createStockTransfer(op.farmId, keyed<StockTransferInput>(op));
     } else if (op.kind === 'stock-transfer-cancel') {
       await cancelStockTransfer(op.farmId, (op.payload as { transferId: string }).transferId);
+    } else if (op.kind === 'health-event') {
+      const p = op.payload as HealthEventOpPayload;
+      await sendDeclaration(op.farmId, { ...p, payload: { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id } });
+    } else if (op.kind === 'delivery-confirm') {
+      const p = op.payload as DeliveryConfirmOpPayload;
+      await confirmDelivery(op.farmId, p.deliveryId, { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id });
+    } else if (op.kind === 'sortie') {
+      const p = op.payload as SortieOpPayload;
+      await sendSortie(op.farmId, { ...p, payload: { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id } });
+    } else if (op.kind === 'farm-gps') {
+      // Ops queued before the key existed fall back to op.id.
+      const gps = (op.payload as { payload: FarmGpsPayload }).payload;
+      await setFarmGps(op.farmId, { ...gps, idempotencyKey: gps.idempotencyKey ?? op.id });
+    } else if (op.kind === 'treatment') {
+      const p = op.payload as TreatmentOpPayload;
+      await createTreatment(op.farmId, p.batchId, { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id });
+    } else if (op.kind === 'prophylaxis-complete') {
+      const p = op.payload as CareCompletionOpPayload;
+      await completeProphylaxis(op.farmId, p.batchId, p.eventId, {
+        ...p.payload,
+        idempotencyKey: p.payload.idempotencyKey ?? op.id,
+      });
     } else {
       // Credit sale (no payment): no caisse needed, same as the live path.
       if (isCashOp(op)) await ensureCashOpenOrRetry(op);
@@ -534,6 +808,8 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
   } catch (e) {
     if (e instanceof CashBlockedError) return 'skip';
     if (shouldDrop(e)) {
+      // A refused declaration is re-entered by hand: its kept photo copies go.
+      if (op.kind === 'health-event') ((op.payload as HealthEventOpPayload).photos ?? []).forEach(discardPhoto);
       if (isCashOp(op) || isCreation(op)) {
         rejectOp(op, (e as ApiError).message);
         return 'rejected';

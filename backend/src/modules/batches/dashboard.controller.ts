@@ -1,3 +1,4 @@
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -14,6 +15,7 @@ export class FarmDashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('dashboard')
+  @AuditThirdPartyRead('Tableau de bord d’une ferme (encaissé du jour)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:

@@ -12,6 +12,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  MaxLength,
   Max,
   Min,
   ValidateNested,
@@ -195,4 +196,26 @@ export class FinalizeOrderDto {
   @ValidateNested({ each: true })
   @Type(() => FinalOrderItemDto)
   items?: FinalOrderItemDto[];
+
+  // POUFA lot A2 divers: a delivery recorded offline keeps its own day
+  // (cession, delivery date, ledger), not the day it reaches the server.
+  @ApiPropertyOptional({
+    description: 'Hors ligne : heure de la livraison sur l’appareil',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'Heure de livraison invalide.' })
+  capturedAt?: string;
+
+  @ApiPropertyOptional({
+    description: 'Hors ligne : heure de l’appareil à l’envoi',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'Heure d’envoi invalide.' })
+  deviceSentAt?: string;
+
+  @ApiPropertyOptional({ description: 'Hors ligne : identifiant de l’appareil' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  deviceId?: string;
 }

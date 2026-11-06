@@ -1,4 +1,4 @@
-import type { FeedEntryType, FeedPhase, Species } from './types';
+import type { Farm, FeedEntryType, FeedPhase, Species } from './types';
 
 export function initials(name: string): string {
   return name
@@ -60,3 +60,10 @@ export const FEED_ENTRY_TYPE_LABELS: Record<FeedEntryType, string> = {
   MEDICAMENT: 'Médicament',
   MATIERE_PREMIERE: 'Matière première',
 };
+
+/** Province of a farm as `GET /farms` serves it: its name, else its code; null without one. */
+export function farmProvinceLabel(
+  farm: Pick<Farm, 'provinceName' | 'provinceCode'> | undefined,
+): string | null {
+  return farm?.provinceName?.trim() || farm?.provinceCode?.trim() || null;
+}

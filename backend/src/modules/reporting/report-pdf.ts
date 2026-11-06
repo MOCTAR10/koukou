@@ -9,6 +9,7 @@ import type {
 } from '../../common/services/pdf.service.js';
 import { ReportSection } from '../../common/enums/report.enum.js';
 import type { BandeSnapshot } from '../bandes/entities/bande-snapshot.entity.js';
+import { withoutEconomicIndicators } from '../indicators/economic-indicators.js';
 import type { BandComparison } from './band-comparison.service.js';
 import { SECTION_LABELS } from './data/default-report-templates.js';
 import type {
@@ -16,8 +17,14 @@ import type {
   PilotageDashboard,
   ProvinceFigures,
 } from './pilotage-dashboard.service.js';
+import type {
+  InputGapFigures,
+  InputPeriodLine,
+} from './input-reconciliation.js';
+import { inputPeriodTotals } from './input-reconciliation.js';
 import type { PilotageMetrics } from './pilotage-metrics.js';
 import type { PilotageObjective } from './pilotage-objective.service.js';
+import { CONDUCT_ALERTS_LABEL } from './pilotage-programme.js';
 
 /** French number: space as thousands separator, comma decimals ('—' for null). */
 export function fmt(value: number | null | undefined, digits = 0): string {
@@ -45,8 +52,21 @@ export interface FarmToFollow {
   province: string;
   mortalityPct: number | null;
   completenessPct: number | null;
-  activeRedAlerts: number;
+  /** Sanitary alerts published on the farm in the period. */
+  publishedAlerts: number;
   reason: string;
+}
+
+/** « Intrants et ressources » of an area report (POUFA lot A). */
+export interface InputsSection {
+  /** False while no intrants module gives period lines. */
+  available: boolean;
+  /** SEUIL_ECART_INTRANTS_PCT in force. */
+  thresholdPct: number;
+  lines: (InputPeriodLine & { suppressed: boolean })[];
+  /** Stock gaps of the farms (dashboard recoupement), null when hidden. */
+  gaps: InputGapFigures | null;
+  gapsSuppressed: boolean;
 }
 
 export interface AreaReportInput {
@@ -58,6 +78,8 @@ export interface AreaReportInput {
   dashboard: PilotageDashboard;
   objective: PilotageObjective | null;
   farmsToFollow: FarmToFollow[];
+  /** Null when the template has no INTRANTS section. */
+  inputs?: InputsSection | null;
   generatedAt: Date;
 }
 
@@ -107,17 +129,105 @@ function alertRows(
   m: PilotageMetrics,
   published: PilotageDashboard['publishedAlerts'],
 ): string[][] {
+  const c = m.alerts.conduct;
   return [
-    ['Alertes de conseil levées (jaunes et rouges)', fmt(m.alerts.raised)],
-    ['dont rouges', fmt(m.alerts.raisedRed)],
-    ['Alertes encore actives', fmt(m.alerts.activeNow)],
     [
-      'Alertes sanitaires publiées',
+      'Alertes sanitaires publiées par les services vétérinaires',
       published.available
         ? fmt(published.count)
         : 'Module sanitaire non branché',
     ],
+    [
+      `${CONDUCT_ALERTS_LABEL} levées (jaunes et rouges)`,
+      fmt(c.raised),
+    ],
+    ['dont rouges', fmt(c.raisedRed)],
+    ['Alertes de conduite encore actives', fmt(c.activeNow)],
+    [
+      'À lire',
+      'Seules les alertes sanitaires publiées sont des alertes officielles. Les alertes de conduite sont des conseils de Fermia aux éleveurs, sans valeur sanitaire.',
+    ],
   ];
+}
+
+/** Rows of the « Intrants et ressources » section. */
+export function inputsRows(input: InputsSection): {
+  columns: string[];
+  rows: string[][];
+} {
+  const columns = [
+    'Intrant',
+    'Livraisons',
+    'Expédié',
+    'Reçu',
+    'En attente',
+    'Valeur (FCFA)',
+    'Subvention (FCFA)',
+    'Écarts',
+  ];
+  if (!input.available) {
+    return {
+      columns,
+      rows: [['Module des intrants non branché', '', '', '', '', '', '', '']],
+    };
+  }
+  const visible = input.lines.filter((l) => !l.suppressed);
+  const qty = (v: number, unit: string) => `${fmt(v, 1)} ${unit}`;
+  const rows: string[][] = input.lines.map((l) =>
+    l.suppressed
+      ? [l.inputLabel, 'masqué', 'masqué', 'masqué', 'masqué', 'masqué', 'masqué', 'masqué']
+      : [
+          l.inputLabel,
+          fmt(l.deliveries),
+          qty(l.shipped, l.unitLabel),
+          qty(l.received, l.unitLabel),
+          qty(l.pending, l.unitLabel),
+          fmt(l.valueFcfa),
+          fmt(l.subsidyFcfa),
+          fmt(l.linesWithGap),
+        ],
+  );
+  if (rows.length === 0) {
+    rows.push(['Aucune livraison sur la période', '', '', '', '', '', '', '']);
+  } else {
+    const t = inputPeriodTotals(visible);
+    rows.push([
+      'Total',
+      '',
+      '',
+      '',
+      '',
+      fmt(t.valueFcfa),
+      fmt(t.subsidyFcfa),
+      fmt(t.linesWithGap),
+    ]);
+  }
+  const g = input.gaps;
+  const stock = input.gapsSuppressed || !g
+    ? [['Écarts de stock', HIDDEN, '', '', '', '', '', '']]
+    : [
+        [
+          `Stock compté avec un écart > ${fmt(input.thresholdPct, 1)} %`,
+          `${fmt(g.stockLinesOverThreshold)} ligne(s) sur ${fmt(g.stockLinesCounted)} comptée(s)`,
+          `${fmt(g.farmsWithStockGap)} ferme(s)`,
+          '',
+          '',
+          '',
+          '',
+          '',
+        ],
+        [
+          'Livraisons confirmées avec écart (reçu ≠ expédié)',
+          fmt(g.deliveries.withGap),
+          '',
+          '',
+          `${fmt(g.deliveries.pending)} en attente`,
+          '',
+          '',
+          '',
+        ],
+      ];
+  return { columns, rows: [...rows, ...stock] };
 }
 
 function completenessRows(m: PilotageMetrics): string[][] {
@@ -218,6 +328,12 @@ export function areaReport(input: AreaReportInput): AccountingReportData {
           rows: figuresRows(d.totals, completenessRows),
         });
         break;
+      case ReportSection.INTRANTS: {
+        if (!input.inputs) break;
+        const t = inputsRows(input.inputs);
+        sections.push({ title, columns: t.columns, rows: t.rows });
+        break;
+      }
       case ReportSection.OBJECTIF: {
         const o = input.objective;
         if (!o) break;
@@ -255,7 +371,7 @@ export function areaReport(input: AreaReportInput): AccountingReportData {
             'Province',
             'Mortalité',
             'Complétude',
-            'Alertes rouges',
+            'Alertes sanitaires publiées',
             'Motif',
           ],
           rows:
@@ -265,7 +381,7 @@ export function areaReport(input: AreaReportInput): AccountingReportData {
                   f.province,
                   pctText(f.mortalityPct),
                   pctText(f.completenessPct),
-                  fmt(f.activeRedAlerts),
+                  fmt(f.publishedAlerts),
                   f.reason,
                 ])
               : [['Aucune ferme à signaler', '', '', '', '', '']],
@@ -327,10 +443,17 @@ export function bandReport(input: BandReportInput): AccountingReportData {
           ['Sortis vivants (têtes)', fmt(v.sortis_tetes ?? null)],
           ['Poids vif sorti', `${fmt(v.poids_sortis_kg ?? null, 1)} kg`],
           ['Aliment consommé', `${fmt(v.aliment_kg ?? null, 1)} kg`],
-          ...s.indicators.map((i) => [
+          // POUFA lot A2 droits (F6): the report also goes to the agent
+          // technique (TECHNIQUE only), so it carries no revenue, cost nor
+          // margin; they stay in the band's profitability (ECONOMIQUE).
+          ...withoutEconomicIndicators(s.indicators).map((i) => [
             i.label,
             `${fmt(i.value, 2)}${i.unit ? ` ${i.unit}` : ''}`,
           ]),
+          [
+            'Indicateurs économiques',
+            'dans la rentabilité de la bande (droit Économique)',
+          ],
           ['Complétude des saisies', pctText(s.completenessPct)],
           ['Version du bilan', String(s.version)],
         ],

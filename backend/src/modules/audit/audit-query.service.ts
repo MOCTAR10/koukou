@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
+  DataSource,
   Repository,
   type SelectQueryBuilder,
   type ObjectLiteral,
 } from 'typeorm';
+import { userNames } from '../../common/utils/user-names.js';
 import { AuditEvent } from './entities/audit-event.entity.js';
 import { AuditRowChange } from './entities/audit-row-change.entity.js';
 import type {
@@ -46,6 +48,27 @@ function applyPeriod<T extends ObjectLiteral>(
   if (end) qb.andWhere(`${column} < :end`, { end });
 }
 
+/**
+ * `status` filter of the journal: an exact code (`403`), a class (`4xx`),
+ * SUCCES (< 400) or ECHEC (≥ 400), as a half-open range. Null when invalid.
+ */
+export function statusRange(
+  status: string,
+): { min: number; max: number } | null {
+  const s = status.trim().toUpperCase();
+  if (/^\d{3}$/.test(s)) return { min: Number(s), max: Number(s) + 1 };
+  const cls = /^([1-5])XX$/.exec(s);
+  if (cls) {
+    return { min: Number(cls[1]) * 100, max: Number(cls[1]) * 100 + 100 };
+  }
+  if (s === 'SUCCES') return { min: 0, max: 400 };
+  if (s === 'ECHEC') return { min: 400, max: 1000 };
+  return null;
+}
+
+/** A journal row with its author's name (null: system or unknown account). */
+export type Named<T> = T & { actorName: string | null };
+
 function escapeLike(text: string): string {
   return text.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
@@ -65,7 +88,22 @@ export class AuditQueryService {
     private readonly events: Repository<AuditEvent>,
     @InjectRepository(AuditRowChange)
     private readonly rowChanges: Repository<AuditRowChange>,
+    private readonly dataSource: DataSource,
   ) {}
+
+  private async named<T extends { actorUserId: string | null }>(
+    items: T[],
+  ): Promise<Named<T>[]> {
+    const names = await userNames(
+      this.dataSource,
+      items.map((i) => i.actorUserId),
+    );
+    return items.map((i) =>
+      Object.assign(i, {
+        actorName: i.actorUserId ? (names.get(i.actorUserId) ?? null) : null,
+      }),
+    );
+  }
 
   private eventsQuery(query: AuditEventsQueryDto) {
     const qb = this.events.createQueryBuilder('e');
@@ -81,17 +119,30 @@ export class AuditQueryService {
         route: `%${escapeLike(query.route)}%`,
       });
     }
+    if (query.status) {
+      const range = statusRange(query.status);
+      if (!range) throw new BadRequestException('Statut invalide.');
+      qb.andWhere('e.statusCode >= :minStatus AND e.statusCode < :maxStatus', {
+        minStatus: range.min,
+        maxStatus: range.max,
+      });
+    }
+    if (query.requestId) {
+      qb.andWhere('e.requestId = :requestId', { requestId: query.requestId });
+    }
     return qb.orderBy('e.id', 'DESC');
   }
 
-  async listEvents(query: AuditEventsQueryDto): Promise<Page<AuditEvent>> {
+  async listEvents(
+    query: AuditEventsQueryDto,
+  ): Promise<Page<Named<AuditEvent>>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
     const [items, total] = await this.eventsQuery(query)
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
-    return { items, total, page, limit };
+    return { items: await this.named(items), total, page, limit };
   }
 
   /** Newest first, capped at `EXPORT_MAX_ROWS`; `truncated` says the cap was hit. */
@@ -100,14 +151,14 @@ export class AuditQueryService {
       .take(EXPORT_MAX_ROWS + 1)
       .getMany();
     return {
-      items: items.slice(0, EXPORT_MAX_ROWS),
+      items: await this.named(items.slice(0, EXPORT_MAX_ROWS)),
       truncated: items.length > EXPORT_MAX_ROWS,
     };
   }
 
   async listRowChanges(
     query: AuditRowChangesQueryDto,
-  ): Promise<Page<AuditRowChange>> {
+  ): Promise<Page<Named<AuditRowChange>>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 50;
     const qb = this.rowChanges.createQueryBuilder('r');
@@ -123,6 +174,6 @@ export class AuditQueryService {
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
-    return { items, total, page, limit };
+    return { items: await this.named(items), total, page, limit };
   }
 }

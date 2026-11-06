@@ -4,6 +4,8 @@ import { BadgePercent, Check, Plus, X } from 'lucide-react';
 import { api } from '../api/client';
 import type { PromotionFull } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
 import { Card, DataTable, EmptyState, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
@@ -12,6 +14,8 @@ export function PromotionsPage() {
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
   const [invalid, setInvalid] = useState<string | null>(null);
+  // POUFA lot A droits: an institution (VENTES:CONSULTER) reads the codes only.
+  const canEdit = useFarmProfile().hasPermission('vente:promotion');
 
   const promos = useQuery({
     queryKey: ['promotions', farmId],
@@ -35,8 +39,10 @@ export function PromotionsPage() {
     <div className="space-y-6">
       <PageHeader title="Promotions & codes promo" subtitle="Coupons de réduction appliqués au point de vente (réutilisables)." icon={<BadgePercent />} />
 
+      <ReadOnlyNotice what="codes promotion" />
       <ErrorNote error={promos.error ?? toggleP.error} />
 
+      {canEdit ? (
       <Card className="p-4">
         <div className="mb-3 flex items-center gap-2">
           <BadgePercent className="h-4 w-4 text-brand-600" />
@@ -104,6 +110,7 @@ export function PromotionsPage() {
           <ErrorNote error={invalid ?? createP.error} />
         </div>
       </Card>
+      ) : null}
 
       <Card className="overflow-hidden">
         <div className="border-b border-slate-100 px-4 py-3">
@@ -146,6 +153,7 @@ export function PromotionsPage() {
                       <StatusBadge status={p.active ? 'active' : 'inactive'} />
                     </Td>
                     <Td>
+                      {canEdit ? (
                       <Button
                         tone="secondary"
                         className="px-2 py-1 text-xs"
@@ -155,6 +163,7 @@ export function PromotionsPage() {
                         {p.active ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
                         {p.active ? 'Désactiver' : 'Activer'}
                       </Button>
+                      ) : null}
                     </Td>
                   </tr>
                 ))}

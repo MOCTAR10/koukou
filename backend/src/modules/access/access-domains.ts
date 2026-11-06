@@ -27,8 +27,9 @@ export const PROGRAMME_DOMAINS = [
 /**
  * Fermia-only domains: the farm's own business (cash, sales operations,
  * Market, accounting, team and HR, crops, account self-service) and the
- * platform administration. They are never grantable to an institutional
- * profile: matrix validation refuses them.
+ * platform administration. Only the bonus ones of
+ * {@link INSTITUTION_FERMIA_DOMAINS} are grantable to an institutional
+ * profile; matrix validation refuses the others.
  */
 export const FERMIA_DOMAINS = [
   'VENTES',
@@ -38,6 +39,21 @@ export const FERMIA_DOMAINS = [
   'CULTURES',
   'COMPTE',
   'PLATEFORME',
+] as const;
+
+/**
+ * Fermia bonus domains an institutional profile may be granted (user
+ * decision 2026-11-06: the government benefits from the caisse and sales,
+ * the Market, the SYSCOHADA accounting and the HR files too), **in
+ * consultation only**: the farm's business stays the farm's, so matrix
+ * validation refuses any other action on them. The admin grants each one
+ * separately; reads are journaled (`@AuditRead`), never masked.
+ */
+export const INSTITUTION_FERMIA_DOMAINS = [
+  'VENTES',
+  'MARCHE',
+  'COMPTABILITE',
+  'EQUIPE',
 ] as const;
 
 /**
@@ -64,6 +80,16 @@ export const MEMBER_DOMAINS: readonly string[] = [
 
 export type ProgrammeDomain = (typeof PROGRAMME_DOMAINS)[number];
 export type FermiaDomain = (typeof FERMIA_DOMAINS)[number];
+export type InstitutionFermiaDomain =
+  (typeof INSTITUTION_FERMIA_DOMAINS)[number];
+/** Domains a matrix may hold: the programme ones and the Fermia bonus ones. */
+export type GrantableDomain = ProgrammeDomain | InstitutionFermiaDomain;
+
+/** Every domain a matrix may hold, in catalogue order. */
+export const GRANTABLE_DOMAINS: readonly GrantableDomain[] = [
+  ...PROGRAMME_DOMAINS,
+  ...INSTITUTION_FERMIA_DOMAINS,
+];
 export type AccessDomain =
   | ProgrammeDomain
   | FermiaDomain
@@ -79,8 +105,11 @@ export const ACCESS_ACTIONS = [
 ] as const;
 export type AccessAction = (typeof ACCESS_ACTIONS)[number];
 
-/** Access matrix of a profile: programme domain → granted actions. */
-export type AccessMatrix = Partial<Record<ProgrammeDomain, AccessAction[]>>;
+/** Access matrix of a profile: grantable domain → granted actions. */
+export type AccessMatrix = Partial<Record<GrantableDomain, AccessAction[]>>;
+
+/** Actions an institutional profile may hold on an {@link INSTITUTION_FERMIA_DOMAINS} domain. */
+export const FERMIA_GRANTABLE_ACTIONS: readonly AccessAction[] = ['CONSULTER'];
 
 export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
   REGISTRE: 'Registre des fermes',
@@ -126,6 +155,29 @@ export function isProgrammeDomain(value: unknown): value is ProgrammeDomain {
     typeof value === 'string' &&
     (PROGRAMME_DOMAINS as readonly string[]).includes(value)
   );
+}
+
+export function isInstitutionFermiaDomain(
+  value: unknown,
+): value is InstitutionFermiaDomain {
+  return (
+    typeof value === 'string' &&
+    (INSTITUTION_FERMIA_DOMAINS as readonly string[]).includes(value)
+  );
+}
+
+/** A domain a matrix may hold (programme or Fermia bonus domain). */
+export function isGrantableDomain(value: unknown): value is GrantableDomain {
+  return isProgrammeDomain(value) || isInstitutionFermiaDomain(value);
+}
+
+/** Actions a matrix may hold on `domain` (consultation only on a Fermia domain). */
+export function grantableActions(
+  domain: GrantableDomain,
+): readonly AccessAction[] {
+  return isInstitutionFermiaDomain(domain)
+    ? FERMIA_GRANTABLE_ACTIONS
+    : ACCESS_ACTIONS;
 }
 
 export function isAccessAction(value: unknown): value is AccessAction {

@@ -4,9 +4,10 @@ import { RearingEventKind } from '../../common/enums/trace.enum.js';
 
 /**
  * Rearing chronology of a lot (CDC T2 « Historique d'élevage du lot »): the
- * band's own records, never re-entered — opening, cares, treatments,
- * mortality, weighings, health events, sorties and closure. Pure, so the
- * ordering and wording are unit-tested.
+ * band's own records, never re-entered — opening, input deliveries received,
+ * feed consumed per stock lot, cares, treatments, mortality, weighings,
+ * health events, sorties and closure. Pure, so the ordering and wording are
+ * unit-tested.
  */
 export interface RearingItem {
   date: string;
@@ -44,6 +45,33 @@ export interface RearingSources {
     weighed: boolean;
     lastWeightG: number | null;
     sampleSize: number | null;
+  }[];
+  /**
+   * Programme input deliveries received by the farm during the band (or
+   * linked to it), confirmed only.
+   */
+  deliveries?: {
+    id: string;
+    code: string;
+    receivedDate: string;
+    source: string;
+    supplierName: string | null;
+    lines: {
+      intrantCode: string;
+      intrantLabel: string | null;
+      unitCode: string;
+      receivedQuantity: number;
+      feedPhase: string | null;
+    }[];
+  }[];
+  /** Feed of the band's daily entries, per stock lot (null = no lot). */
+  feedLots?: {
+    inputLotId: string | null;
+    productName: string | null;
+    supplierLotNumber: string | null;
+    fromDay: string;
+    toDay: string;
+    kg: number;
   }[];
   /** Absent when the viewer may not read sanitary declarations. */
   healthEvents: {
@@ -84,6 +112,8 @@ const HEALTH_LABELS: Record<HealthEventKind, string> = {
 
 const ORDER: readonly RearingEventKind[] = [
   RearingEventKind.OUVERTURE,
+  RearingEventKind.INTRANT,
+  RearingEventKind.ALIMENT,
   RearingEventKind.SOIN,
   RearingEventKind.TRAITEMENT,
   RearingEventKind.EVENEMENT_SANITAIRE,
@@ -95,6 +125,11 @@ const ORDER: readonly RearingEventKind[] = [
 
 const dayOf = (d: Date | string) =>
   typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10);
+
+const kgLabel = (kg: number) =>
+  `${Math.round(kg * 10) / 10}`.replace('.', ',');
+
+const qtyLabel = (n: number) => `${Math.round(n * 100) / 100}`.replace('.', ',');
 
 export function rearingTimeline(src: RearingSources): RearingItem[] {
   const items: RearingItem[] = [];
@@ -112,6 +147,47 @@ export function rearingTimeline(src: RearingSources): RearingItem[] {
       hatchDate: band.hatchDate,
     },
   });
+  for (const d of src.deliveries ?? []) {
+    const parts = d.lines
+      .filter((l) => l.receivedQuantity > 0)
+      .map(
+        (l) =>
+          `${l.intrantLabel ?? l.intrantCode} ${qtyLabel(l.receivedQuantity)} ${l.unitCode}`,
+      );
+    items.push({
+      date: dayOf(d.receivedDate),
+      kind: RearingEventKind.INTRANT,
+      label: `Livraison ${d.code} reçue${parts.length ? ` : ${parts.join(', ')}` : ''}`,
+      quantity: null,
+      details: {
+        deliveryId: d.id,
+        code: d.code,
+        source: d.source,
+        supplierName: d.supplierName,
+        lines: d.lines,
+      },
+    });
+  }
+  for (const f of src.feedLots ?? []) {
+    if (!(f.kg > 0)) continue;
+    const lot = f.inputLotId
+      ? ` (${[f.productName, f.supplierLotNumber ? `lot ${f.supplierLotNumber}` : null].filter(Boolean).join(', ')})`
+      : ' (hors stock suivi)';
+    items.push({
+      date: dayOf(f.fromDay),
+      kind: RearingEventKind.ALIMENT,
+      label: `Aliment consommé : ${kgLabel(f.kg)} kg${lot}${f.toDay !== f.fromDay ? `, du ${f.fromDay} au ${f.toDay}` : ''}`,
+      quantity: f.kg,
+      details: {
+        inputLotId: f.inputLotId,
+        productName: f.productName,
+        supplierLotNumber: f.supplierLotNumber,
+        fromDay: f.fromDay,
+        toDay: f.toDay,
+        kg: f.kg,
+      },
+    });
+  }
   // A care with a withdrawal period also writes a treatment record: shown once.
   const careKeys = new Set(
     src.cares.map((c) => `${c.name}|${c.completedAt.getTime()}`),

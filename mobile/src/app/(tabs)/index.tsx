@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Bell, Wheat, Banknote, BarChart3, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Building, Stethoscope, Users } from 'lucide-react-native';
+import { InboxButton } from '@/components/notifications/InboxButton';
 import * as Haptics from 'expo-haptics';
 
 import { Screen } from '@/components/ui/Screen';
@@ -15,9 +16,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { EggStockCard } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
 import { FarmSelector } from '@/components/ui/FarmSelector';
-import { FarmModeSwitch } from '@/components/FarmModeSwitch';
 import { GRADE_LABEL, GRADE_ON_DARK, HomeHero, MORTALITY_ON_DARK } from '@/components/home/HomeHero';
-import { AgricultureHome } from '@/components/agriculture/AgricultureHome';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -33,6 +32,10 @@ import { CheptelModal } from '@/components/CheptelModal';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
 import type { BatchWithMetrics, FarmWeather } from '@/api/types';
 import { ipeStatus } from '@/constants/flock';
+// POUFA lot A indic: « Ma bande en cours » (official indicators) heads the home screen.
+import { CurrentBandCard } from '@/components/band/CurrentBandCard';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { readsProgrammeDomain } from '@/poufa/access';
 
 function weatherHint(w: FarmWeather): string {
   const t = w.temperatureC ?? 0;
@@ -62,7 +65,7 @@ function lastSevenDays(): string[] {
 export default function AccueilScreen() {
   const router = useRouter();
 
-  const { user, farms, farmId, setActiveFarmId, farmMode } = useAuth();
+  const { user, farms, farmId, setActiveFarmId } = useAuth();
   const { hasPermission } = useFarmProfile();
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [cheptelOpen, setCheptelOpen] = useState(false);
@@ -94,23 +97,19 @@ export default function AccueilScreen() {
   const dashboard = useQuery({
     queryKey: ['dashboard', farmId, queryDateStr, queryTimeStr],
     queryFn: () => fetchDashboard(farmId, queryDateStr, queryTimeStr),
-    enabled: farmMode === 'aviculture',
   });
   const advisory = useQuery({
     queryKey: ['advisory', farmId],
     queryFn: () => fetchAdvisory(farmId),
-    enabled: farmMode === 'aviculture',
   });
   const batchesQuery = useQuery({
     queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''],
     queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined),
     refetchInterval: !window.isFiltered ? 60_000 : undefined,
-    enabled: farmMode === 'aviculture',
   });
   const slaughterQuery = useQuery({
     queryKey: ['slaughter-orders', farmId],
     queryFn: () => fetchSlaughterOrders(farmId),
-    enabled: farmMode === 'aviculture',
   });
   // Supplément Statistiques : P&L + portefeuille clients, chargés à la demande
   // (une fois le panneau « Plus » ouvert) selon les permissions.
@@ -119,12 +118,12 @@ export default function AccueilScreen() {
   const pnlQuery = useQuery({
     queryKey: ['rentabilite', farmId, window.from ?? '', window.to ?? ''],
     queryFn: () => fetchRentabiliteOverview(farmId, window.from, window.to),
-    enabled: farmMode === 'aviculture' && canRapports && statsExpanded,
+    enabled: canRapports && statsExpanded,
   });
   const customersSummaryQuery = useQuery({
     queryKey: ['customers-summary', farmId],
     queryFn: () => fetchCustomersSummary(farmId),
-    enabled: farmMode === 'aviculture' && canClients && statsExpanded,
+    enabled: canClients && statsExpanded,
   });
   // Série réelle des œufs collectés sur 7 jours, sommée sur les lots pondeurs :
   // le backend n'expose pas de série journalière, on agrège les saisies.
@@ -158,6 +157,8 @@ export default function AccueilScreen() {
 
   const farm = farms.find((f) => f.id === farmId) ?? farms[0] ?? null;
   const d = dashboard.data;
+  const programmeAccess = useProgrammeAccess();
+  const showCurrentBand = readsProgrammeDomain(user.role, programmeAccess.matrix, 'TECHNIQUE');
   const canCaisse = hasPermission('caisse:lire');
 
 
@@ -257,11 +258,6 @@ export default function AccueilScreen() {
     void Promise.all([dashboard.refetch(), advisory.refetch(), batchesQuery.refetch(), pnlQuery.refetch(), customersSummaryQuery.refetch()]);
   };
 
-  // ── Domaine Agriculture : tableau de bord dédié (pas d'élevage). ──
-  if (farmMode === 'agriculture') {
-    return <AgricultureHome />;
-  }
-
   return (
     <Screen
       // Mesuré depuis le haut de la barre d'onglets : juste assez pour
@@ -287,6 +283,9 @@ export default function AccueilScreen() {
               {liveNow.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </AppText>
           </View>
+          {/* ── POUFA notification inbox (M2) ── */}
+          <InboxButton />
+          {/* ── end POUFA ── */}
           <Pressable
             onPress={() => router.push('/alerts')}
             accessibilityRole='button'
@@ -316,8 +315,9 @@ export default function AccueilScreen() {
         <BrandLoader />
       ) : (
         <>
-          {/* ── Bascule Élevage / Agriculture ── */}
-          <FarmModeSwitch />
+          {showCurrentBand ? (
+            <CurrentBandCard farmId={farmId} feedAutonomyDays={d.feedAutonomyDays ?? null} onOpen={(id) => router.push(`/lot/${id}`)} />
+          ) : null}
           <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
           {/* ── Hero : l'essentiel du jour ── */}
           <HomeHero
@@ -332,11 +332,12 @@ export default function AccueilScreen() {
               accessibilityLabel: `${fmt(d.liveStock)} oiseaux vivants, voir le cheptel`,
             }}
             stats={[
-              {
+              // POUFA lot A droits: no cash tile when the server withholds it (institution without ECONOMIQUE/VENTES).
+              ...(d.collectedTodayFcfa != null ? [{
                 label: isToday ? "Encaissé aujourd'hui" : `Encaissé ${formatDayShort(window.to ? new Date(window.to) : liveNow)}${queryTimeStr === '23:59' ? '' : ` à ${queryTimeStr}`}`,
-                value: fmtFcfa(d.collectedTodayFcfa ?? 0),
+                value: fmtFcfa(d.collectedTodayFcfa),
                 onPress: canCaisse ? () => router.push('/caisse') : undefined,
-              },
+              }] : []),
               {
                 label: 'Santé',
                 value: `${Math.max(0, Math.min(100, Math.round(d.health.score)))}%`,
@@ -345,7 +346,7 @@ export default function AccueilScreen() {
                 onPress: () => router.push('/sanitary'),
               },
               {
-                label: 'Mortalité',
+                label: 'Mortalité Fermia',
                 value: d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—',
                 tint: MORTALITY_ON_DARK[mortalityStatus],
               },
@@ -382,7 +383,7 @@ export default function AccueilScreen() {
             </View>
             <View style={styles.healthMortalityBar}>
               <View style={styles.healthMortalityHead}>
-                <AppText size='small' color='muted'>Mortalité cumulée</AppText>
+                <AppText size='small' color='muted'>Mortalité cumulée (Fermia)</AppText>
                 <AppText size='small' weight='semibold' color={mortalityStatus === 'normal' ? 'success' : mortalityStatus === 'elevated' ? 'warn' : 'danger'}>
                   {d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—'}
                 </AppText>
@@ -410,7 +411,7 @@ export default function AccueilScreen() {
           {/* ── Performance row: IC, GMQ, IPE — always one row ── */}
           <View style={styles.metricGridNoWrap}>
             <MetricTile
-              label='IC (FCR)'
+              label='IC Fermia'
               value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
               sub={avgFcr != null && avgFcr > 2.2 ? 'Élevé' : avgFcr != null && avgFcr < 1.8 ? 'Excellent' : 'Conforme'}
               tone={avgFcr != null && avgFcr > 2.2 ? 'red' : avgFcr != null && avgFcr < 1.8 ? 'green' : 'default'}
@@ -419,7 +420,7 @@ export default function AccueilScreen() {
               threeCol
             />
             <MetricTile
-              label='GMQ (g/j)'
+              label='GMQ Fermia (g/j)'
               value={avgGmq != null ? `${avgGmq.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}` : '—'}
               sub={avgGmq != null && avgGmq > 55 ? 'Croissance rapide' : avgGmq != null && avgGmq < 0 ? 'Perte de poids' : avgGmq != null ? 'Croissance normale' : undefined}
               tone={avgGmq != null && avgGmq > 55 ? 'green' : avgGmq != null && avgGmq < 0 ? 'amber' : 'default'}
@@ -428,7 +429,7 @@ export default function AccueilScreen() {
               threeCol
             />
             <MetricTile
-              label='IPE'
+              label='IPE Fermia'
               value={avgIpe != null && avgIpe > 0 ? fmt(Math.round(avgIpe)) : '—'}
               sub={ipeState?.label}
               tone={ipeState?.tone ?? 'default'}

@@ -1,6 +1,7 @@
 import { ClipboardList, LayoutDashboard, LogIn, LogOut, Store, UserRound } from 'lucide-react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { FarmProvider } from '../../app/FarmContext';
+import { canUseBuyerArea, isBuyer } from '../../app/roles';
 import { useAuth } from '../../auth/AuthContext';
 import { classNames } from '../../lib/format';
 import { Logo } from '../Logo';
@@ -30,19 +31,23 @@ export function MarketLayout() {
               </NavLink>
               {user ? (
                 <>
-                  <NavLink to="/marche/commandes" className={linkCls}>
-                    <ClipboardList className="h-4 w-4" /> Mes commandes
-                  </NavLink>
-                  <NavLink to="/marche/compte" className={linkCls}>
-                    <UserRound className="h-4 w-4" /> Mon compte
-                  </NavLink>
-                  {user.role === 'ACHETEUR' ? (
+                  {canUseBuyerArea(user.role) ? (
+                    <>
+                      <NavLink to="/marche/commandes" className={linkCls}>
+                        <ClipboardList className="h-4 w-4" /> Mes commandes
+                      </NavLink>
+                      <NavLink to="/marche/compte" className={linkCls}>
+                        <UserRound className="h-4 w-4" /> Mon compte
+                      </NavLink>
+                    </>
+                  ) : null}
+                  {isBuyer(user.role) ? (
                     <button onClick={logout} className={linkCls({ isActive: false })}>
                       <LogOut className="h-4 w-4" /> Déconnexion
                     </button>
                   ) : (
                     <Link to="/app" className={linkCls({ isActive: false })}>
-                      <LayoutDashboard className="h-4 w-4" /> Ma ferme
+                      <LayoutDashboard className="h-4 w-4" /> {user.role === 'INSTITUTION' ? 'Espace programme' : 'Ma ferme'}
                     </Link>
                   )}
                 </>
@@ -55,7 +60,7 @@ export function MarketLayout() {
                     to="/marche/inscription"
                     className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700"
                   >
-                    Créer un compte
+                    Créer un compte client
                   </Link>
                 </>
               )}

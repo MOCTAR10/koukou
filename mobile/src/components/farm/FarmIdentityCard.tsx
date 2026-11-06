@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { confirm } from '@/components/ui/Feedback';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import * as ImagePicker from 'expo-image-picker';
 
 import { AppText } from '@/components/ui/AppText';
-import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { FarmLogo } from '@/components/ui/FarmLogo';
-import { updateFarmSettings, uploadFarmLogo, deleteFarmLogo } from '@/api/mutations';
+import { uploadFarmLogo, deleteFarmLogo } from '@/api/mutations';
 import { useAuth } from '@/auth/AuthContext';
 import type { Farm } from '@/api/types';
-import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
-import { Camera, Check, Pencil, Trash2, X } from 'lucide-react-native';
+import { farmProvinceLabel } from '@/api/format';
+import { color, palette, radii, semantic } from '@/constants/theme';
+import { Camera, Check, Lock, Trash2, X } from 'lucide-react-native';
 
 const LOGO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -24,49 +24,18 @@ const LOGO_MIME: Record<string, string> = {
 
 interface FarmIdentityCardProps {
   farm: Farm;
-  /** Droit « reglages:ferme » (ou accès complet) : autorise nom + logo. */
+  /** Droit « reglages:ferme » (ou accès complet) : autorise le logo. */
   canEdit: boolean;
 }
 
-/** Nom de la ferme + logo (upload ou marque Fermia blanche par défaut). */
+/** Identité de la ferme du programme (nom, code, province : lecture seule) + logo
+ *  (upload ou marque Fermia blanche par défaut). */
 export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
   const { refreshFarms } = useAuth();
-  const [editing, setEditing] = useState(false);
-  const [draftName, setDraftName] = useState(farm.name);
+  const province = farmProvinceLabel(farm);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const startEdit = () => {
-    setDraftName(farm.name);
-    setError(null);
-    setEditing(true);
-  };
-
-  const cancelEdit = () => {
-    setDraftName(farm.name);
-    setError(null);
-    setEditing(false);
-  };
-
-  const saveName = async () => {
-    const name = draftName.trim();
-    if (name.length < 2) {
-      setError('Le nom doit comporter au moins 2 caractères.');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await updateFarmSettings(farm.id, { name });
-      await refreshFarms();
-      setEditing(false);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Enregistrement impossible.');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const pickLogo = async () => {
     setPicking(true);
@@ -127,66 +96,27 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
       <View style={styles.head}>
         <FarmLogo farm={farm} size={52} />
         <View style={{ flex: 1, gap: 2, minWidth: 0 }}>
-          {editing ? (
-            <TextInput
-              style={styles.input}
-              value={draftName}
-              onChangeText={setDraftName}
-              autoFocus
-              autoCapitalize="words"
-              returnKeyType="done"
-              onSubmitEditing={saveName}
-              placeholder="Nom de la ferme"
-              placeholderTextColor={palette.ink[300]}
-              accessibilityLabel="Nom de la ferme"
-            />
-          ) : (
-            <AppText size="body" weight="bold" color="text" numberOfLines={1}>
-              {farm.name}
-            </AppText>
-          )}
+          <AppText size="body" weight="bold" color="text" numberOfLines={2}>
+            {farm.name}
+          </AppText>
           <AppText size="caption" color="muted" numberOfLines={1}>
-            {farm.administrativeCity || 'Commune non renseignée'}
+            {[province, farm.administrativeCity || 'Commune non renseignée'].filter(Boolean).join(' · ')}
           </AppText>
         </View>
-
-        {canEdit && !editing ? (
-          <Pressable
-            onPress={startEdit}
-            hitSlop={8}
-            style={({ pressed }) => [styles.iconBtn, pressed && { opacity: 0.7 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Renommer la ferme ${farm.name}`}>
-            <Pencil size={14} color={color.brand[600]} />
-          </Pressable>
-        ) : null}
       </View>
-
-      {editing ? (
-        <View style={styles.actions}>
-          <Button
-            label="Enregistrer"
-            tone="primary"
-            size="sm"
-            image={require('@/assets/images/logo-white.png')}
-            loading={busy}
-            onPress={saveName}
-            style={styles.actionBtn}
-          />
-          <Button
-            label="Annuler"
-            tone="ghost"
-            size="sm"
-            onPress={cancelEdit}
-            style={styles.actionBtn}
-          />
-        </View>
-      ) : null}
 
       <View style={styles.factRow}>
         <View style={styles.factPills}>
+          {farm.code ? <Chip label={farm.code} tone="brand" /> : null}
           <Chip label={farm.active ? 'Active' : 'Suspendue'} tone={farm.active ? 'green' : 'red'} />
         </View>
+      </View>
+
+      <View style={styles.registryNote}>
+        <Lock size={12} color={color.ink[400]} />
+        <AppText size="small" color="muted" style={{ flex: 1 }}>
+          Le nom, le code et la province de la ferme sont tenus par le registre du programme POUFA. Pour les corriger, adressez-vous à l’administration du programme.
+        </AppText>
       </View>
 
       {canEdit ? (
@@ -199,7 +129,7 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
             accessibilityLabel={
               farm.logoUrl ? 'Changer le logo de la ferme' : 'Ajouter le logo de ma ferme'
             }>
-            {picking || (busy && !editing) ? (
+            {picking || busy ? (
               <ActivityIndicator size="small" color={color.brand[600]} />
             ) : (
               <Camera size={14} color={color.brand[600]} />
@@ -258,31 +188,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  input: {
-    fontFamily: fontFamily.regular,
-    height: 40,
-    borderRadius: radii.md,
-    backgroundColor: semantic.surface,
-    borderWidth: 1,
-    borderColor: color.border,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: palette.ink[900],
-  },
-  iconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radii.md,
-    backgroundColor: semantic.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actions: {
+  registryNote: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtn: {
-    flex: 1,
+    alignItems: 'flex-start',
+    gap: 6,
   },
   factRow: {
     flexDirection: 'row',

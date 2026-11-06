@@ -21,6 +21,8 @@ import { createCustomer } from '@/api/mutations';
 import { queueCustomerPayment } from '@/offline';
 import type { Customer, CustomerSegment, CustomerSummary, CustomerType, SaleFull } from '@/api/types';
 import { CUSTOMER_TYPES, customerTypeLabel } from '@/constants/customers';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 
 const SEGMENT_LABEL: Record<CustomerSegment, string> = {
@@ -452,6 +454,8 @@ function CollectSheet({
 export default function ClientsScreen() {
   const { farms, farmId } = useAuth();
   const queryClient = useQueryClient();
+  // POUFA lot A droits: an institution granted VENTES reads the customers, never writes.
+  const canWrite = !useFarmProfile().fermiaReadOnly;
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'TOUS' | CustomerType>('TOUS');
@@ -626,6 +630,7 @@ export default function ClientsScreen() {
         <Spinner label="Chargement des clients…" />
       ) : (
         <>
+          <ReadOnlyNotice what="Clients et crédit" />
           {summary ? <KpiHero summary={summary} /> : null}
 
           <View style={styles.toolbar}>
@@ -640,12 +645,14 @@ export default function ClientsScreen() {
                 autoCorrect={false}
               />
             </View>
+            {canWrite ? (
             <Pressable onPress={() => setCreateOpen(true)} style={styles.addBtn} accessibilityRole="button">
               <Plus size={18} color={semantic.surface} strokeWidth={2.6} />
               <AppText size="bodyM" weight="semibold" style={{ color: semantic.surface }}>
                 Ajouter
               </AppText>
             </Pressable>
+            ) : null}
           </View>
 
           {typeTabs.length > 0 ? (
@@ -768,7 +775,7 @@ export default function ClientsScreen() {
                           />
                         </View>
                         <View style={styles.actionRow}>
-                          {due > 0 ? (
+                          {due > 0 && canWrite ? (
                             <Pressable onPress={() => openCollect(c)} style={[styles.actionBtn, styles.actionPrimary]} accessibilityRole="button">
                               <Banknote size={15} color={color.surface} />
                               <AppText size="small" weight="bold" style={{ color: color.surface }}>
@@ -784,6 +791,7 @@ export default function ClientsScreen() {
                               </AppText>
                             </Pressable>
                           ) : null}
+                          {canWrite ? (
                           <Pressable
                             onPress={() => {
                               setEditTarget(c);
@@ -798,6 +806,7 @@ export default function ClientsScreen() {
                               Type
                             </AppText>
                           </Pressable>
+                          ) : null}
                         </View>
                         {statsQuery.isLoading ? (
                           <Spinner label="Calcul des stats…" />

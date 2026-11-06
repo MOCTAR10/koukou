@@ -95,6 +95,7 @@ export const HIDDEN_REASON: Record<MarketHiddenReason, string> = {
   SANITARY: 'Masquée : délai d’attente ou soin en retard sur le lot',
   DATE_PASSED: 'Masquée : date de disponibilité dépassée',
   OUT_OF_STOCK: 'Masquée : plus de stock disponible',
+  FARM_NOT_OPERATIONAL: 'Masquée : la ferme n’est pas encore opérationnelle dans le programme',
 };
 
 /** Re-renders every 30 s, so a countdown stays right on a page left open. */

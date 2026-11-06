@@ -10,6 +10,10 @@ import { CareType } from '../../../common/enums/care-type.enum.js';
 import { ProphylaxisStatus } from '../../../common/enums/prophylaxis-status.enum.js';
 import { ScheduleSource } from '../../../common/enums/schedule-source.enum.js';
 
+@Index('UQ_prophylaxis_events_farm_idempotency', ['farmId', 'idempotencyKey'], {
+  unique: true,
+  where: '"idempotency_key" IS NOT NULL',
+})
 @Entity('prophylaxis_events')
 export class ProphylaxisEvent {
   @PrimaryGeneratedColumn('uuid')
@@ -79,6 +83,46 @@ export class ProphylaxisEvent {
 
   @Column({ name: 'medication_lot_id', type: 'uuid', nullable: true })
   medicationLotId: string | null;
+
+  /** Birds vaccinated or treated, given at completion (CDC n° 22 « nombre d'animaux »). */
+  @Column({ name: 'animal_count', type: 'int', nullable: true })
+  animalCount: number | null;
+
+  /**
+   * Key of the completion sent from the offline queue (`op.id`): replaying the
+   * same completion returns the care instead of « déjà réalisé ».
+   */
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
+  idempotencyKey: string | null;
+
+  /**
+   * POUFA lot A2 sante: step of the vets' reference calendar (shared protocol
+   * `isDefault` when it was planned). The farm can postpone it, never cancel,
+   * delete or rewrite it (`care-reference-rules.ts`).
+   */
+  @Column({ name: 'is_reference', type: 'boolean', default: false })
+  isReference: boolean;
+
+  /**
+   * First planned date, kept at the first postponement (null: never moved).
+   * A reference step is late from this date, whatever its new date.
+   */
+  @Column({ name: 'original_date', type: 'date', nullable: true })
+  originalDate: string | null;
+
+  /** PRODUIT_TRAITEMENT code of a manual medication care (null otherwise). */
+  @Column({
+    name: 'product_code',
+    type: 'varchar',
+    length: 60,
+    nullable: true,
+  })
+  productCode: string | null;
 
   @Column({ name: 'cancelled_reason', type: 'varchar', nullable: true })
   cancelledReason: string | null;

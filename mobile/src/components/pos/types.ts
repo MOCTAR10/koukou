@@ -8,10 +8,8 @@ export interface PosLine {
   slaughterOrderId?: string;
   /** Réserve d'un transfert ferme → boutique (source ABATTU/OEUFS/PROVENDE en boutique). */
   transferId?: string;
-  /** Unité de vente retenue (PROVENDE : 'SAC' | 'KG', RECOLTE : 'KG' | 'PIECE' | 'SAC'). */
+  /** Unité de vente retenue (PROVENDE : 'SAC' | 'KG'). */
   unit?: 'SAC' | 'KG' | 'PIECE';
-  /** Parcelle source d'une vente RECOLTE au point de vente Ferme. */
-  parcelleId?: string;
   qty: number;
   unitPriceFcfa: number;
   label: string;

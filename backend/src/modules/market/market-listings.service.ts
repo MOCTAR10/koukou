@@ -36,6 +36,9 @@ import {
   suggestReadyDate,
 } from './listing-rules.js';
 import { acceptedQuantity } from './market-order-rules.js';
+import type { Farm } from '../farms/entities/farm.entity.js';
+import { TraceConfigService } from '../trace/trace-config.service.js';
+import { lotQrUrl } from '../trace/qr-signature.js';
 
 const DEFAULT_PAGE = 20;
 /** Listings looked at per catalogue read: each one costs stock and sanitary queries. */
@@ -50,6 +53,17 @@ interface ListingState {
   hiddenReason: MarketHiddenReason | null;
 }
 
+/** The band's traced lot, shown on a listing (CDC §6 « Consommons Gabonais »). */
+export interface ListingTraceLot {
+  code: string;
+  /** Public lot page of the web app, signed like the printed QR code. */
+  path: string;
+  url: string;
+}
+
+/** Programme status family of an operational farm (a code's family never changes). */
+const OPERATIONAL_FAMILY = 'OPERATIONNELLE';
+
 @Injectable()
 export class MarketListingsService {
   constructor(
@@ -63,7 +77,52 @@ export class MarketListingsService {
     private readonly farmsService: FarmsService,
     private readonly ordersService: OrdersService,
     private readonly constants: ReferenceConstantsService,
+    private readonly traceConfig: TraceConfigService,
   ) {}
+
+  /** `programId:statusCode` to family; safe to keep, since a family never changes. */
+  private readonly statusFamilies = new Map<string, string | null>();
+
+  private async farmOperational(
+    em: EntityManager,
+    farm: Pick<Farm, 'programId' | 'statusCode'>,
+  ): Promise<boolean> {
+    if (!farm.statusCode) return false;
+    const key = `${farm.programId}:${farm.statusCode}`;
+    if (!this.statusFamilies.has(key)) {
+      const rows: { family: string | null }[] = await em.query(
+        `SELECT family FROM ref_items
+          WHERE program_id = $1 AND list_type = 'STATUT_FERME' AND code = $2`,
+        [farm.programId, farm.statusCode],
+      );
+      this.statusFamilies.set(key, rows[0]?.family ?? null);
+    }
+    return this.statusFamilies.get(key) === OPERATIONAL_FAMILY;
+  }
+
+  /** Root traceability lot of each band, by batch id (lots never change code). */
+  private async traceLots(
+    batchIds: readonly string[],
+  ): Promise<Map<string, ListingTraceLot>> {
+    const ids = [...new Set(batchIds)];
+    if (ids.length === 0) return new Map();
+    const rows: { batchId: string; code: string; qrToken: string }[] =
+      await this.dataSource.query(
+        `SELECT batch_id AS "batchId", code, qr_token AS "qrToken"
+           FROM trace_lots WHERE kind = 'LOT' AND batch_id = ANY($1::uuid[])`,
+        [ids],
+      );
+    return new Map(
+      rows.map((r) => [
+        r.batchId,
+        {
+          code: r.code,
+          path: lotQrUrl('', r.code, r.qrToken),
+          url: this.traceConfig.qrUrl(r.code, r.qrToken),
+        },
+      ]),
+    );
+  }
 
   // ---------- Farm side ----------
 
@@ -309,7 +368,7 @@ export class MarketListingsService {
     // Visibility depends on stock and sanitary state, so it can't be a filter
     // in the query. Stops once it has one more than the page, to know of a next.
     const em = this.dataSource.manager;
-    const visible: ReturnType<MarketListingsService['toPublicView']>[] = [];
+    const visible: { listing: MarketListing; availableQuantity: number }[] = [];
     let skipped = 0;
     for (const listing of candidates) {
       const state = await this.stateOf(em, listing);
@@ -318,11 +377,19 @@ export class MarketListingsService {
         skipped++;
         continue;
       }
-      visible.push(this.toPublicView(listing, state.availableQuantity));
+      visible.push({ listing, availableQuantity: state.availableQuantity });
       if (visible.length > limit) break;
     }
+    const page = visible.slice(0, limit);
+    const lots = await this.traceLots(page.map((v) => v.listing.batchId));
     return {
-      items: visible.slice(0, limit),
+      items: page.map((v) =>
+        this.toPublicView(
+          v.listing,
+          v.availableQuantity,
+          lots.get(v.listing.batchId) ?? null,
+        ),
+      ),
       hasMore: visible.length > limit,
     };
   }
@@ -336,7 +403,12 @@ export class MarketListingsService {
     if (!listing) throw new NotFoundException('Annonce introuvable.');
     const state = await this.stateOf(this.dataSource.manager, listing);
     if (state.hiddenReason) throw new NotFoundException('Annonce introuvable.');
-    return this.toPublicView(listing, state.availableQuantity);
+    const lots = await this.traceLots([listing.batchId]);
+    return this.toPublicView(
+      listing,
+      state.availableQuantity,
+      lots.get(listing.batchId) ?? null,
+    );
   }
 
   // ---------- Internals ----------
@@ -458,10 +530,11 @@ export class MarketListingsService {
     em: EntityManager,
     listing: MarketListing,
   ): Promise<ListingState> {
-    const [free, holds, accepted] = await Promise.all([
+    const [free, holds, accepted, operational] = await Promise.all([
       this.freeStock(em, listing),
       sanitaryHolds(em, listing.farmId, listing.batchId),
       acceptedQuantity(em, listing.id),
+      this.farmOperational(em, listing.farm),
     ]);
     const availableQuantity = Math.max(
       0,
@@ -471,7 +544,11 @@ export class MarketListingsService {
       availableQuantity,
       hiddenReason: hiddenReason({
         listing,
-        farm: listing.farm,
+        farm: {
+          active: listing.farm.active,
+          isVerified: listing.farm.isVerified,
+          operational,
+        },
         batchStatus: listing.batch.status,
         holds,
         availableQuantity,
@@ -482,9 +559,11 @@ export class MarketListingsService {
 
   private async toFarmView(listing: MarketListing) {
     const state = await this.stateOf(this.dataSource.manager, listing);
+    const lots = await this.traceLots([listing.batchId]);
     const { farm: _farm, batch, slaughterOrder: _source, ...fields } = listing;
     return {
       ...fields,
+      traceLot: lots.get(listing.batchId) ?? null,
       batchName: batch.batchName,
       species: batch.species,
       customSpecies: batch.customSpecies,
@@ -495,7 +574,11 @@ export class MarketListingsService {
   }
 
   /** Whitelist: what anyone on the internet can read. */
-  private toPublicView(listing: MarketListing, availableQuantity: number) {
+  private toPublicView(
+    listing: MarketListing,
+    availableQuantity: number,
+    traceLot: ListingTraceLot | null,
+  ) {
     const { farm, batch } = listing;
     return {
       id: listing.id,
@@ -518,6 +601,8 @@ export class MarketListingsService {
       batchType: batch.type,
       // How fresh a carcass is: a buyer has to be able to judge it.
       slaughteredAt: listing.slaughterOrder?.processedAt ?? null,
+      // Traced lot and its public page (origin only, no personal data).
+      traceLot,
       farm: {
         id: farm.id,
         name: farm.name,

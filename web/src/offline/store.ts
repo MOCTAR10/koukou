@@ -13,7 +13,15 @@ export type OfflineKind =
   | 'pdv-update'
   | 'pdv-delete'
   | 'stock-transfer-create'
-  | 'stock-transfer-cancel';
+  | 'stock-transfer-cancel'
+  // Web only for now (POUFA L5): a sanitary declaration, with its clinical signs and suspicion.
+  | 'health-event'
+  // POUFA: the farmer's input-delivery confirmation and a band sortie (both keyed).
+  | 'delivery-confirm'
+  | 'band-sortie'
+  // POUFA lot A sante: a treatment (CDC n° 23) and a care completion (n° 22), both keyed.
+  | 'treatment'
+  | 'prophylaxis-complete';
 
 export interface OfflineOp {
   /** Unique across devices; also the idempotency key of the creations. */

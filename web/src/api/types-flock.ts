@@ -108,6 +108,10 @@ export interface DailyEntryRecord {
   eggsSmall: number;
   eggsDoubleYolk: number;
   eggsDirty: number;
+  /** Birds weighed with `avgWeightKg` (CDC « nombre pesé »). */
+  sampleSize?: number | null;
+  /** Last write: sent back as `baseUpdatedAt` by an edit (offline conflict rule). */
+  updatedAt?: string;
 }
 
 export interface PondageWeek {
@@ -197,20 +201,33 @@ export interface ProphylaxisEvent {
   scheduledDate: string;
   status: ProphylaxisStatus;
   completedAt: string | null;
+  /** Birds vaccinated or treated, given at completion (CDC n° 22). */
+  animalCount?: number | null;
   notes: string | null;
   medicationLotId: string | null;
   medicationQty: number | null;
   medicationUnit: string | null;
   decrementStock: boolean;
+  // POUFA lot A2 sante: step of the vets' reference calendar (no cancel nor
+  // delete by the farm), first planned date once postponed, product code.
+  isReference?: boolean;
+  originalDate?: string | null;
+  productCode?: string | null;
 }
 
 export interface TreatmentRecord {
   id: string;
   careType: CareType;
   productName: string;
+  /** PRODUIT_TRAITEMENT code; null for free text (list empty). */
+  productCode?: string | null;
   dosage: string | null;
   route: string | null;
   administeredAt: string;
+  /** Last day of the treatment (CDC n° 23); null = one day. */
+  endDate?: string | null;
+  reason?: string | null;
+  animalCount?: number | null;
   withdrawalDays: number;
   withdrawalEndDate: string | null;
   notes: string | null;
@@ -236,6 +253,10 @@ export interface HealthEvent {
   treatmentGiven?: string | null;
   vetConsulted?: boolean;
   vetName?: string | null;
+  /** POUFA L5 declaration: SIGNE_CLINIQUE codes, suspicion (opens an official alert), photos. */
+  clinicalSigns?: string[];
+  suspicion?: boolean;
+  photos?: import('./types-surveillance').HealthEventPhoto[];
 }
 
 export interface BatchHealth {

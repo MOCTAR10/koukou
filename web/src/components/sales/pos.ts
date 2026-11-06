@@ -7,7 +7,8 @@ import type {
 } from '../../api/types-sales';
 import { lotImage } from '../../lib/animalImages';
 
-export type PosProduct = 'PIECE' | 'KG' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'OEUF' | 'PROVENDE' | 'RECOLTE' | 'AUTRE';
+/** No harvest (« Récolte ») product: crops are hidden on the POUFA instance. */
+export type PosProduct = 'PIECE' | 'KG' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'OEUF' | 'PROVENDE' | 'AUTRE';
 
 export interface PosProductDef {
   key: PosProduct;
@@ -25,7 +26,6 @@ const CATALOG: Record<PointOfSaleKind, PosProductDef[]> = {
     { key: 'ABATTU_KG', label: 'Abattu (kg)', priceUnit: 'kg', unitPrice: 2550 },
     { key: 'OEUF', label: 'Œufs (alvéole)', priceUnit: 'alvéole', unitPrice: 2500 },
     { key: 'PROVENDE', label: 'Provende', priceUnit: 'sac', unitPrice: 4500 },
-    { key: 'RECOLTE', label: 'Récolte (parcelle)', priceUnit: 'unité', unitPrice: 0 },
     { key: 'AUTRE', label: 'Autre', priceUnit: 'unité', unitPrice: 1000 },
   ],
   BOUTIQUE: [
@@ -50,13 +50,12 @@ export interface PosLine {
   product: PosProduct;
   /** What is sold, for the basket and the receipt. */
   label: string;
-  /** Where it comes from (lot, order, reserve, parcel…), for the basket. */
+  /** Where it comes from (lot, order, reserve…), for the basket. */
   sourceLabel: string;
   batchId?: string;
   slaughterOrderId?: string;
   transferId?: string;
   inputLotId?: string;
-  parcelleId?: string;
   unit?: 'SAC' | 'KG' | 'PIECE';
   /** Pieces, alvéoles, sacks… For the per-kg products: the number of birds. */
   qty: number;
@@ -145,8 +144,6 @@ export function buildSaleItem(line: PosLine): Record<string, unknown> {
         quantity: line.qty,
         ...(line.inputLotId ? { inputLotId: line.inputLotId } : {}),
       };
-    case 'RECOLTE':
-      return { ...base, productType: 'RECOLTE', unit: line.unit, quantity: line.qty, parcelleId: line.parcelleId };
     default:
       return { ...base, productType: 'AUTRE', unit: 'UNITE', quantity: line.qty };
   }
@@ -196,7 +193,6 @@ export function invalidateCash(queryClient: QueryClient, farmId: string | null):
     'customer-history',
     'stock-transfers',
     'slaughter',
-    'recoltes-stock',
     'advisory',
     'rentabilite',
   ];

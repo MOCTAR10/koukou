@@ -6,6 +6,8 @@ import { api } from '../api/client';
 import type { BuildingOption, FarmMember, PermissionCatalog } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
 import { MemberFormModal } from '../components/org/MemberFormModal';
@@ -20,6 +22,9 @@ export function TeamPage() {
   const { farmId, farm } = useFarm();
   const { user } = useAuth();
   const { hasPermission, isOwner } = useFarmProfile();
+  // POUFA lot A droits: an institution granted EQUIPE reads the team, never manages it.
+  const canManage = hasPermission('equipe:gerer');
+  const canRead = useCanRead();
   const [form, setForm] = useState<{ member: FarmMember | null } | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -37,18 +42,20 @@ export function TeamPage() {
   const buildings = useQuery({
     queryKey: ['buildings', farmId],
     queryFn: () => api.get<BuildingOption[]>(`/farms/${farmId}/buildings`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('REGISTRE'),
   });
 
   const members = team.data ?? [];
-  const isOwnFarm = farm?.ownerId === user?.id;
-  const ownerName = farm?.owner?.fullName ?? (isOwnFarm ? user?.fullName : undefined);
+  // A programme farm may have no owner account yet: the registry sheet names the exploitant.
+  const isOwnFarm = farm?.ownerId != null && farm.ownerId === user?.id;
+  const ownerName = farm?.owner?.fullName ?? (isOwnFarm ? user?.fullName : undefined) ?? farm?.exploitantName ?? undefined;
   // The stored session carries the phone although AuthUser doesn't declare it.
-  const ownerPhone = farm?.owner?.phone ?? (isOwnFarm ? (user as { phone?: string } | null)?.phone : undefined);
+  const ownerPhone =
+    farm?.owner?.phone ?? (isOwnFarm ? (user as { phone?: string } | null)?.phone : undefined) ?? farm?.exploitantPhone ?? undefined;
 
   // Server rule (assertCanDelegate): not yourself, nor an administrator holding a right you lack.
   const canEdit = (m: FarmMember) =>
-    isOwner || (m.userId !== user?.id && (m.role !== 'ADMIN' || m.permissions.every((code) => hasPermission(code))));
+    isOwner || (canManage && m.userId !== user?.id && (m.role !== 'ADMIN' || m.permissions.every((code) => hasPermission(code))));
 
   const open = (member: FarmMember | null) => {
     setSuccess(null);
@@ -69,12 +76,15 @@ export function TeamPage() {
             <Link to="/app/hr" className={linkCls}>
               <Briefcase className="h-4 w-4" /> Dossiers RH
             </Link>
-            <Button disabled={!farmId} onClick={() => open(null)}>
-              <UserPlus className="h-4 w-4" /> Ajouter un membre
-            </Button>
+            {canManage ? (
+              <Button disabled={!farmId} onClick={() => open(null)}>
+                <UserPlus className="h-4 w-4" /> Ajouter un membre
+              </Button>
+            ) : null}
           </>
         }
       />
+      <ReadOnlyNotice what="équipe" />
 
       {success ? <SuccessNote>{success}</SuccessNote> : null}
       <ErrorNote error={team.error ?? catalog.error ?? buildings.error} />

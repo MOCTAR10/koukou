@@ -105,6 +105,8 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     expect(adminMe.body.buildingAssignment).toBe('B1');
     expect(adminMe.body.permissions.sort()).toEqual([
       'caisse:lire',
+      'intrants:lire', // POUFA lot A droits: default codes
+      'registre:gps',
       'saisie:creer',
       'sanitaire:lecture',
       'sanitaire:signaler',
@@ -118,6 +120,8 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     expect(eleveurMe.body.jobTitle).toBe('Éleveur');
     expect(eleveurMe.body.permissions.sort()).toEqual([
       'caisse:lire',
+      'intrants:lire', // POUFA lot A droits: default codes
+      'registre:gps',
       'saisie:creer',
       'sanitaire:lecture',
       'sanitaire:signaler',
@@ -294,6 +298,8 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     expect(me.body.role).toBe('ADMIN');
     expect(me.body.permissions.sort()).toEqual([
       'caisse:lire',
+      'intrants:lire', // POUFA lot A droits: default codes
+      'registre:gps',
       'saisie:creer',
       'sanitaire:lecture',
       'sanitaire:signaler',
@@ -314,6 +320,8 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
     expect(me.body.role).toBe('ELEVEUR');
     expect(me.body.permissions.sort()).toEqual([
       'caisse:lire',
+      'intrants:lire', // POUFA lot A droits: default codes
+      'registre:gps',
       'saisie:creer',
       'sanitaire:lecture',
       'sanitaire:signaler',

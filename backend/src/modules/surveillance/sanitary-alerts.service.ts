@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -44,6 +45,10 @@ import type {
 } from './dto/sanitary-alert.dto.js';
 import { SanitaryAlertTransition } from './entities/sanitary-alert-transition.entity.js';
 import { SanitaryAlert } from './entities/sanitary-alert.entity.js';
+import {
+  sanitaryDecisionRefusal,
+  type SanitaryDecision,
+} from './veterinary-authority.js';
 import {
   ACTIVE_FAMILIES,
   ALERT_FAMILY,
@@ -299,6 +304,9 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
     em: EntityManager,
     event: HealthEvent,
     farm: Farm,
+    // POUFA lot A2 vet: a declaration the vets convert into an alert (CDC
+    // n° 26): opened by them, with their comment.
+    conversion?: { byUserId: string; comment: string | null },
   ): Promise<SanitaryAlert> {
     const existing = await em
       .getRepository(SanitaryAlert)
@@ -327,11 +335,18 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
       presentStart: null,
       clinicalSigns: event.clinicalSigns ?? [],
       healthEventId: event.id,
-      summary: `Suspicion déclarée : ${event.title}`,
-      createdById: event.createdById,
-      comment: band[0]?.code
-        ? `Déclaration de suspicion sur la bande ${band[0].code}.`
-        : 'Déclaration de suspicion.',
+      summary: conversion
+        ? `Déclaration convertie en alerte : ${event.title}`
+        : `Suspicion déclarée : ${event.title}`,
+      createdById: conversion ? conversion.byUserId : event.createdById,
+      comment: conversion
+        ? conversion.comment ||
+          (band[0]?.code
+            ? `Déclaration de la bande ${band[0].code} convertie en alerte par les services vétérinaires.`
+            : 'Déclaration convertie en alerte par les services vétérinaires.')
+        : band[0]?.code
+          ? `Déclaration de suspicion sur la bande ${band[0].code}.`
+          : 'Déclaration de suspicion.',
     });
   }
 
@@ -437,6 +452,7 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
   ): Promise<SanitaryAlertView & { transitions: SanitaryAlertTransitionView[] }> {
     await this.declarations.assert(user);
     const viewer = await this.viewer(user);
+    this.assertDecision(user, viewer, 'qualify');
     await this.dataSource.transaction(async (em) => {
       const alert = await this.lockAlert(em, alertId);
       await this.assertVisible(viewer, alert, em);
@@ -492,6 +508,7 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
   ): Promise<SanitaryAlertView & { transitions: SanitaryAlertTransitionView[] }> {
     await this.declarations.assert(user);
     const viewer = await this.viewer(user);
+    this.assertDecision(user, viewer, 'publish');
     await this.dataSource.transaction(async (em) => {
       const alert = await this.lockAlert(em, alertId);
       await this.assertVisible(viewer, alert, em);
@@ -519,6 +536,24 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
       );
     });
     return this.detail(user, alertId);
+  }
+
+  /**
+   * CDC n° 25-26: only the veterinary authority (matrix grant + declarations
+   * rule) qualifies or publishes; the platform admin keeps read access.
+   * @throws ForbiddenException
+   */
+  private assertDecision(
+    user: AuthUser,
+    viewer: Viewer,
+    decision: SanitaryDecision,
+  ): void {
+    const refusal = sanitaryDecisionRefusal(
+      user,
+      viewer.kind === 'institution' ? viewer.access : null,
+      decision,
+    );
+    if (refusal) throw new ForbiddenException(refusal);
   }
 
   private async lockAlert(

@@ -11,6 +11,7 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { IsBoolean } from 'class-validator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
@@ -27,6 +28,7 @@ import {
   SetFarmGpsDto,
   SetFarmInfrastructuresDto,
   SetFarmStatusDto,
+  SetFarmVerificationDto,
   UpdateProgrammeFarmDto,
 } from '../dto/programme-farm.dto.js';
 import {
@@ -34,7 +36,13 @@ import {
   type UploadedCsvFile,
 } from './farm-import.service.js';
 import { ProgrammeFarmsService } from './programme-farms.service.js';
-import { Action, Domain } from '../../../common/decorators/domain.decorator.js';
+import {
+  Action,
+  AlsoGrantedBy,
+  Domain,
+} from '../../../common/decorators/domain.decorator.js';
+import { Permissions } from '../../../common/decorators/permissions.decorator.js';
+import { AuditThirdPartyRead } from '../../../common/decorators/audit.decorator.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 
@@ -47,6 +55,12 @@ const uuid = new ParseUUIDPipe({ version: '4' });
  * and writes checked, import national scope only). The owner of a programme
  * farm can read his own sheet.
  */
+/** POUFA lot A2 divers (F13). */
+class SetTeamMemberActiveDto {
+  @IsBoolean({ message: 'active doit être vrai ou faux.' })
+  active: boolean;
+}
+
 @ApiTags('Programme (POUFA) — registre des fermes')
 @Domain('REGISTRE')
 @Controller('programme/farms')
@@ -57,6 +71,7 @@ export class ProgrammeFarmsController {
   ) {}
 
   @Get()
+  @AuditThirdPartyRead('Registre des fermes (exploitants, téléphones)')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
@@ -116,6 +131,7 @@ export class ProgrammeFarmsController {
   }
 
   @Get(':farmId')
+  @AuditThirdPartyRead('Fiche du registre (exploitant, téléphone, GPS)')
   @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE)
   @ApiOperation({
     summary:
@@ -177,10 +193,15 @@ export class ProgrammeFarmsController {
   }
 
   @Put(':farmId/gps')
-  @Roles(UserRole.PLATFORM_ADMIN)
+  // POUFA lot A droits (A8): the owner and the members holding registre:gps
+  // record their own farm point on site (CDC n° 2); an institution with
+  // REGISTRE:MODIFIER, or TECHNIQUE:VALIDER (the agent technique, on a visit).
+  @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('registre:gps')
+  @AlsoGrantedBy(['TECHNIQUE', 'VALIDER'])
   @ApiOperation({
     summary:
-      'Relevé ou correction GPS (le point précédent reste dans l’historique ; contrôle de la province en avertissement)',
+      'Relevé ou correction GPS (le point précédent reste dans l’historique ; contrôle de la province en avertissement ; idempotencyKey pour le hors ligne ; un relevé plus ancien que le point actuel est ignoré)',
   })
   setGps(
     @CurrentUser() user: AuthUser,
@@ -190,7 +211,24 @@ export class ProgrammeFarmsController {
     return this.registry.setGps(user, farmId, dto);
   }
 
+  // POUFA lot A droits (F8): Market verification through the matrix.
+  @Put(':farmId/verification')
+  @Action('VALIDER')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @ApiOperation({
+    summary:
+      'Vérifier (ou non) la ferme pour le Market (REGISTRE:VALIDER) ; le statut OPERATIONNELLE la vérifie aussi',
+  })
+  setVerification(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId', uuid) farmId: string,
+    @Body() dto: SetFarmVerificationDto,
+  ) {
+    return this.registry.setVerification(user, farmId, dto);
+  }
+
   @Get(':farmId/gps-history')
+  @AuditThirdPartyRead('Historique GPS d’une ferme')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({ summary: 'Historique des relevés GPS' })
   gpsHistory(@Param('farmId', uuid) farmId: string) {
@@ -225,5 +263,29 @@ export class ProgrammeFarmsController {
     @Param('farmId', uuid) farmId: string,
   ) {
     return this.registry.regenerateOwnerLoginCode(user, farmId);
+  }
+
+  // POUFA lot A2 divers (F13): team accounts created by the exploitant.
+  @Get(':farmId/team')
+  @Domain('ADMINISTRATION')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @AuditThirdPartyRead('Comptes d’équipe d’une ferme (administration du programme)')
+  @ApiOperation({ summary: 'Comptes d’équipe créés par l’exploitant (compte, rôle, accès)' })
+  team(@Param('farmId', uuid) farmId: string) {
+    return this.registry.teamOf(farmId);
+  }
+
+  @Put(':farmId/team/:employmentId/active')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @ApiOperation({ summary: 'Suspendre ou rétablir l’accès d’un membre de l’équipe à la ferme' })
+  setTeamActive(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId', uuid) farmId: string,
+    @Param('employmentId', uuid) employmentId: string,
+    @Body() dto: SetTeamMemberActiveDto,
+  ) {
+    return this.registry.setTeamMemberActive(user, farmId, employmentId, dto.active);
   }
 }

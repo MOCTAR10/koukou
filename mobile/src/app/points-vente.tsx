@@ -21,6 +21,7 @@ import { createPointOfSaleQueued, deletePointOfSaleQueued, updatePointOfSaleQueu
 import { transferRemaining } from '@/components/pos/catalog';
 import type { PointOfSale, SaleSummary } from '@/api/types';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
@@ -404,16 +405,19 @@ export default function PointsVenteScreen() {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
   // Per-farm permission (owner: all), like the server's `pdv:gerer` gate.
-  const canManage = useFarmProfile().hasPermission('pdv:gerer');
+  // POUFA lot A droits: an institution granted VENTES reads the points of sale (sales figures with ÉCONOMIQUE), never manages them.
+  const profile = useFarmProfile();
+  const canManage = profile.fermiaWrites('pdv:gerer');
+  const readsSales = profile.readsFermia('ECONOMIQUE');
 
   const today = todayStr();
   const from7 = addDaysIso(today, -6);
   const from30 = addDaysIso(today, -29);
 
   const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId) });
-  const salesTodayQuery = useQuery({ queryKey: ['sales', farmId, today, today], queryFn: () => fetchSales(farmId, today, today) });
-  const salesWeekQuery = useQuery({ queryKey: ['sales', farmId, from7, today], queryFn: () => fetchSales(farmId, from7, today) });
-  const salesMonthQuery = useQuery({ queryKey: ['sales', farmId, from30, today], queryFn: () => fetchSales(farmId, from30, today) });
+  const salesTodayQuery = useQuery({ queryKey: ['sales', farmId, today, today], queryFn: () => fetchSales(farmId, today, today), enabled: readsSales });
+  const salesWeekQuery = useQuery({ queryKey: ['sales', farmId, from7, today], queryFn: () => fetchSales(farmId, from7, today), enabled: readsSales });
+  const salesMonthQuery = useQuery({ queryKey: ['sales', farmId, from30, today], queryFn: () => fetchSales(farmId, from30, today), enabled: readsSales });
   const transfersQuery = useQuery({ queryKey: ['stock-transfers', farmId], queryFn: () => fetchStockTransfers(farmId) });
 
   const [formOpen, setFormOpen] = useState(false);
@@ -627,6 +631,7 @@ export default function PointsVenteScreen() {
         />
       }
       bottomPad={96}>
+      <ReadOnlyNotice what="Points de vente" />
       {pdvQuery.isLoading ? (
         <Spinner label="Chargement des points de vente…" />
       ) : pdvs.length === 0 ? (

@@ -211,7 +211,7 @@ describe('Assistant — next-actions (e2e)', () => {
         `/farms/${farmId}/batches/${batchId}/prophylaxis/${eventId}/complete`,
       )
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ completedAt: daysFromNow(0) })
+      .send({ completedAt: daysFromNow(0), animalCount: 2400 })
       .expect(201);
     expect(completed.body.status).toBe('FAIT');
     expect(completed.body.completedAt).toBeTruthy();

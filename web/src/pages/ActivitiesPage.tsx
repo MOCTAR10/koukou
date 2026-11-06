@@ -23,6 +23,8 @@ import { api } from '../api/client';
 import type { AdvisoryResponse, CaisseSummary, FarmTask, FlockDashboard } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
+import { showsCollectedToday } from '../app/economicVisibility';
 import { buildActionQueue, buildJournal } from '../components/flock/activityFeed';
 import { Metric, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { ErrorNote } from '../components/form';
@@ -105,7 +107,10 @@ const deltaText = (v: number | null | undefined, unit: string, digits = 1) =>
 export function ActivitiesPage() {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
-  const canCaisse = hasPermission('caisse:lire');
+  // The cash register is Fermia-only (VENTES).
+  const canRead = useCanRead();
+  const canReadCash = canRead('VENTES');
+  const canCaisse = hasPermission('caisse:lire') && canReadCash;
   const [panel, setPanel] = useState<Panel>('taches');
   const [span, setSpan] = useState<7 | 30 | 90>(7);
 
@@ -176,7 +181,9 @@ export function ActivitiesPage() {
     <div className="space-y-5">
       <PageHeader title="Activités" subtitle={title} icon={<NotebookPen className="h-6 w-6" />} />
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <Metric label="Encaissé aujourd'hui" value={iconValue(<Wallet className="h-4 w-4 text-slate-400" />, fcfa(d.collectedTodayFcfa))} />
+        {showsCollectedToday(d.collectedTodayFcfa, canRead) ? (
+          <Metric label="Encaissé aujourd'hui" value={iconValue(<Wallet className="h-4 w-4 text-slate-400" />, fcfa(d.collectedTodayFcfa))} />
+        ) : null}
         <Metric label="Stock vivant" value={iconValue(<Bird className="h-4 w-4 text-slate-400" />, num(d.liveStock))} />
         <Metric
           label="Autonomie aliment"
@@ -195,7 +202,7 @@ export function ActivitiesPage() {
           { key: 'taches', label: 'Tâches' },
           { key: 'lots', label: 'Lots' },
           ...(canCaisse ? [{ key: 'caisse' as const, label: 'Caisse' }] : []),
-          { key: 'rapports', label: 'Rapports' },
+          { key: 'rapports', label: 'Bilan de la semaine' },
         ]}
       />
 
@@ -417,7 +424,7 @@ export function ActivitiesPage() {
             title="Cette semaine"
             subtitle="Comparé à la semaine précédente"
             icon={<NotebookPen className="h-4 w-4" />}
-            actions={hasPermission('compta:rapports') ? moreLink('/app/reports', 'Tous les rapports') : undefined}
+            actions={hasPermission('compta:rapports') ? moreLink('/app/reports', 'Voir la rentabilité') : undefined}
           >
             <div className="grid grid-cols-3 gap-2">
               <Metric label="Mortalité" value={num(d.deltas.mortalityThisWeek, 0)} sub={deltaText(d.deltas.mortalityDelta, ' morts', 0)} />

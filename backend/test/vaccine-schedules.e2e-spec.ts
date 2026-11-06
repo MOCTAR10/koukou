@@ -384,7 +384,7 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
         `/farms/${farmId}/batches/${batchFreshId}/prophylaxis/${event.id}/complete`,
       )
       .set('Authorization', `Bearer ${token}`)
-      .send({ notes: 'Réalisé sur le terrain' })
+      .send({ notes: 'Réalisé sur le terrain', animalCount: 300 })
       .expect(201);
 
     await request(server)

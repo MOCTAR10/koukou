@@ -75,6 +75,30 @@ export class SetFarmGpsDto extends FarmGpsDto {
   @IsString({ message: 'Le motif doit être un texte.' })
   @MaxLength(500, { message: 'Le motif ne doit pas dépasser 500 caractères.' })
   reason?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Clé de rejeu hors ligne (unique par ferme) : un rejeu n’ajoute pas un second point',
+  })
+  @IsOptional()
+  @IsString({ message: 'La clé de rejeu doit être un texte.' })
+  @MaxLength(120, {
+    message: 'La clé de rejeu ne doit pas dépasser 120 caractères.',
+  })
+  idempotencyKey?: string;
+}
+
+/** Market verification of a farm (REGISTRE:VALIDER, POUFA audit F8). */
+export class SetFarmVerificationDto {
+  @ApiProperty({ description: 'Ferme vérifiée pour le Market' })
+  @IsBoolean({ message: '« verified » doit être vrai ou faux.' })
+  verified: boolean;
+
+  @ApiPropertyOptional({ description: 'Motif' })
+  @IsOptional()
+  @IsString({ message: 'Le motif doit être un texte.' })
+  @MaxLength(500, { message: 'Le motif ne doit pas dépasser 500 caractères.' })
+  reason?: string;
 }
 
 export class FarmInfrastructureDto {

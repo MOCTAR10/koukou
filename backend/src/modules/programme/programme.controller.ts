@@ -30,6 +30,10 @@ import { ProgrammeService } from './programme.service.js';
 import { RefListsService } from './ref-lists.service.js';
 import { TerritoryService } from './territory.service.js';
 import { Action, Domain } from '../../common/decorators/domain.decorator.js';
+import { mayReadInactiveItems } from '../access/access-rules.js';
+import { ScopeResolver } from '../access/scope-resolver.service.js';
+import { SANITARY_LIST_TYPES } from '../surveillance/sanitary-lists.service.js';
+import { SANITARY_SETTINGS_MESSAGE } from '../surveillance/veterinary-authority.js';
 
 const listTypePipe = new ParseEnumPipe(ProgramListType, {
   exceptionFactory: () =>
@@ -48,6 +52,16 @@ const listTypePipe = new ParseEnumPipe(ProgramListType, {
  * active list items are reference data (REFERENCE): any member reads them. A parameter is changed by its owner
  * profile only (`ParametersService.set`).
  */
+// POUFA lot A2 vet: the sanitary lists are the vets' (CDC « signes
+// paramétrables par les services vétérinaires », « liste des produits
+// paramétrable »): written through /surveillance/lists with SANITAIRE rights
+// only, never by the programme administration nor the platform admin.
+function assertNotSanitaryList(listType: ProgramListType): void {
+  if (SANITARY_LIST_TYPES.includes(listType)) {
+    throw new ForbiddenException(SANITARY_SETTINGS_MESSAGE.lists);
+  }
+}
+
 @ApiTags('Programme (POUFA)')
 @Domain('PARAMETRES')
 @Controller('programme')
@@ -58,6 +72,7 @@ export class ProgrammeController {
     private readonly lists: RefListsService,
     private readonly parameters: ParametersService,
     private readonly geo: GeoService,
+    private readonly scope: ScopeResolver,
   ) {}
 
   // ----- Reads -----
@@ -89,11 +104,13 @@ export class ProgrammeController {
   )
   @ApiOperation({
     summary:
-      'Provinces et localités du programme (sans les contours ; ?all=true : localités désactivées incluses, administrateur)',
+      'Provinces et localités du programme (sans les contours ; ?all=true : localités désactivées incluses, profils gestionnaires)',
   })
   @ApiQuery({ name: 'all', required: false, type: Boolean })
-  provinces(@CurrentUser() user: AuthUser, @Query('all') all?: string) {
-    return this.territory.listProvinces(this.includeInactive(user, all));
+  async provinces(@CurrentUser() user: AuthUser, @Query('all') all?: string) {
+    return this.territory.listProvinces(
+      await this.includeInactive(user, all, false),
+    );
   }
 
   @Get('lists/:listType')
@@ -102,16 +119,44 @@ export class ProgrammeController {
   @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
-      "Éléments actifs d'une liste paramétrable (?all=true : éléments désactivés inclus, administrateur)",
+      "Éléments actifs d'une liste paramétrable (?all=true : éléments désactivés inclus, profils gestionnaires de la liste)",
   })
   @ApiParam({ name: 'listType', enum: ProgramListType })
   @ApiQuery({ name: 'all', required: false, type: Boolean })
-  list(
+  async list(
     @CurrentUser() user: AuthUser,
     @Param('listType', listTypePipe) listType: ProgramListType,
     @Query('all') all?: string,
   ) {
-    return this.lists.list(listType, this.includeInactive(user, all));
+    return this.lists.list(
+      listType,
+      await this.includeInactive(
+        user,
+        all,
+        SANITARY_LIST_TYPES.includes(listType),
+      ),
+    );
+  }
+
+  @Get('lists/:listType/history')
+  // Same readers as the deactivated items: the profiles managing the list.
+  @Domain('REFERENCE')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @ApiOperation({
+    summary:
+      "Historique d'une liste : ajouts, renommages, activations et désactivations, avec leur auteur (journal d'audit)",
+  })
+  @ApiParam({ name: 'listType', enum: ProgramListType })
+  async listHistory(
+    @CurrentUser() user: AuthUser,
+    @Param('listType', listTypePipe) listType: ProgramListType,
+  ) {
+    await this.includeInactive(
+      user,
+      'true',
+      SANITARY_LIST_TYPES.includes(listType),
+    );
+    return this.lists.history(listType);
   }
 
   @Get('parameters')
@@ -136,6 +181,7 @@ export class ProgrammeController {
     @Param('listType', listTypePipe) listType: ProgramListType,
     @Body() dto: CreateRefItemDto,
   ) {
+    assertNotSanitaryList(listType);
     return this.lists.create(listType, dto);
   }
 
@@ -153,6 +199,7 @@ export class ProgrammeController {
     @Param('code') code: string,
     @Body() dto: UpdateRefItemDto,
   ) {
+    assertNotSanitaryList(listType);
     return this.lists.update(listType, code, dto);
   }
 
@@ -234,13 +281,25 @@ export class ProgrammeController {
     return this.geo.checkPoint(dto.latitude, dto.longitude, dto.provinceCode);
   }
 
-  private includeInactive(user: AuthUser, all?: string): boolean {
+  /**
+   * `?all=true`: the platform admin, or an institution whose matrix manages
+   * these items (`mayReadInactiveItems`); others get 403.
+   */
+  private async includeInactive(
+    user: AuthUser,
+    all: string | undefined,
+    sanitaryList: boolean,
+  ): Promise<boolean> {
     if (all !== 'true') return false;
-    if (user.role !== UserRole.PLATFORM_ADMIN) {
-      throw new ForbiddenException(
-        "Les éléments désactivés sont réservés à l'administrateur.",
-      );
+    if (user.role === UserRole.PLATFORM_ADMIN) return true;
+    if (user.role === UserRole.INSTITUTION) {
+      const access = await this.scope.accessOf(user.id);
+      if (access && mayReadInactiveItems(access.matrix, { sanitaryList })) {
+        return true;
+      }
     }
-    return true;
+    throw new ForbiddenException(
+      'Les éléments désactivés et l’historique des listes sont réservés aux profils qui gèrent ces listes.',
+    );
   }
 }

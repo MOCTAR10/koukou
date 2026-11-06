@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CloudOff, RefreshCw, Trash2 } from 'lucide-react';
 import { registerSW } from 'virtual:pwa-register';
 import { useFarm } from '../app/FarmContext';
+import { useMenuAccess } from '../app/useMenuAccess';
 import { dismissRejected, flushQueue, heldCashSummary, useOfflineQueue, useOnline } from '../offline';
 import { onReconnect } from '../offline/connectivity';
 import { dismissQueuedNotice, getQueuedNotice, subscribeQueuedNotice } from '../offline/notice';
@@ -143,10 +144,14 @@ export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partir
     return () => clearInterval(timer);
   }, [hasPending]);
 
+  // An institution preloads only the domains its profile reads (no 403 storm); wait until that is known.
+  const { canRead, isLoading: accessLoading } = useMenuAccess();
+  const canReadRef = useRef(canRead);
+  canReadRef.current = canRead;
   useEffect(() => {
-    if (!farmId || !online) return;
-    void warmOfflineCache(farmId);
-  }, [farmId, online]);
+    if (!farmId || !online || accessLoading) return;
+    void warmOfflineCache(farmId, (domain) => canReadRef.current(domain));
+  }, [farmId, online, accessLoading]);
 
   const held = farmId ? heldCashSummary(farmId) : { count: 0, amountFcfa: 0 };
 

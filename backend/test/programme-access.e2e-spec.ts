@@ -12,7 +12,7 @@ import { AppModule } from './../src/app.module.js';
 import { AccessScopeKind } from './../src/common/enums/access-scope-kind.enum.js';
 import type {
   AccessAction,
-  ProgrammeDomain,
+  GrantableDomain,
 } from './../src/modules/access/access-domains.js';
 import { DEFAULT_PROFILES } from './../src/modules/access/data/default-profiles.js';
 import {
@@ -26,7 +26,7 @@ import {
   registerBuyer,
 } from './helpers/programme-farm.js';
 
-type Need = readonly [ProgrammeDomain, AccessAction];
+type Need = readonly [GrantableDomain, AccessAction];
 
 interface Probe {
   name: string;
@@ -226,9 +226,11 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         { scopeKind: 'PROVINCES' },
         adminToken,
       ).expect(400);
+      // POUFA lot A droits: the Fermia bonus domains open in consultation only.
       for (const matrix of [
-        { MARCHE: ['CONSULTER'] },
-        { COMPTABILITE: ['CONSULTER'] },
+        { MARCHE: ['CREER'] },
+        { COMPTABILITE: ['CONSULTER', 'MODIFIER'] },
+        { CULTURES: ['CONSULTER'] },
         { AUDIT: ['CONSULTER'] },
       ]) {
         await post(
@@ -389,8 +391,12 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         );
         expect(provinces.body[0].localites.length).toBeGreaterThan(0);
         await get('/programme/lists/STATUT_FERME', token).expect(200);
-        // Inactive items stay administrator-only.
-        await get('/programme/provinces?all=true', token).expect(403);
+        // Inactive items: the profiles managing the lists and settings only
+        // (POUFA lot A: ADMINISTRATION or PARAMETRES:MODIFIER by default).
+        const manages = ['DGE', 'VETERINAIRE', 'ADMIN'].includes(p.code);
+        await get('/programme/provinces?all=true', token).expect(
+          manages ? 200 : 403,
+        );
       }
       // Writes keep their domain: an institution without ADMINISTRATION.
       await post(
@@ -527,29 +533,30 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         needs: [['ADMINISTRATION', 'ADMINISTRER']],
         call: () => post('/programme/access/profiles', {}, ''),
       },
-      // Fermia-only domains: closed to every institutional profile.
+      // Fermia bonus domains (POUFA lot A droits): consultation through the
+      // matrix (the DGE by default); the other Fermia domains stay closed.
       {
         name: 'VENTES (caisse)',
         farm: true,
-        needs: [],
+        needs: [['VENTES', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/caisse/current`, ''),
       },
       {
         name: 'MARCHE',
         farm: true,
-        needs: [],
+        needs: [['MARCHE', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/market/listings`, ''),
       },
       {
         name: 'COMPTABILITE',
         farm: true,
-        needs: [],
+        needs: [['COMPTABILITE', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/accounting/journal`, ''),
       },
       {
         name: 'EQUIPE',
         farm: true,
-        needs: [],
+        needs: [['EQUIPE', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/eleveurs`, ''),
       },
       {
@@ -1005,7 +1012,7 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       return all.find((p) => p.key === key)!.value;
     }
 
-    it('a veterinary threshold is changed by the vets or the admin only', async () => {
+    it('a veterinary threshold is changed by the vets only', async () => {
       const VET_KEY = 'SEUIL_ALERTE_MORTALITE_JOUR_PCT';
       const DGE_KEY = 'PESEE_FREQUENCE_J';
       const vetValue = await current(VET_KEY);
@@ -1023,7 +1030,10 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       await set(DGE_KEY, dgeValue, accounts.VETERINAIRE.token).expect(403);
       await set(VET_KEY, vetValue, accounts.VETERINAIRE.token).expect(201);
       await set(DGE_KEY, dgeValue, accounts.DGE.token).expect(201);
-      await set(VET_KEY, vetValue, adminToken).expect(201);
+      // POUFA lot A sante: CDC n° 25, the platform admin no longer changes a
+      // VETERINAIRE-owned parameter (it keeps read access).
+      const adminRefused = await set(VET_KEY, vetValue, adminToken).expect(403);
+      expect(adminRefused.body.message).toContain('VETERINAIRE');
       // A profile without PARAMETRES:MODIFIER never reaches the service.
       await set(DGE_KEY, dgeValue, accounts.MAEDR.token).expect(403);
     });

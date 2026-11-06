@@ -6,6 +6,12 @@ import { ParametersService } from '../programme/parameters.service.js';
 import { ProgrammeService } from '../programme/programme.service.js';
 import { DAY_EXIT_KG, weighedSortiesCte } from './pilotage-data.service.js';
 import {
+  bandMortalityPct,
+  eligibleBandSql,
+  periodProduced,
+  pilotageRulesAt,
+} from './pilotage-programme.js';
+import {
   pct,
   projectProduction,
   round,
@@ -70,7 +76,7 @@ export const OBJECTIVE_CAVEAT =
   "Les fermes du POUFA ne sont qu'une partie de la production nationale : l'objectif de 100 000 t concerne l'ensemble des producteurs du pays. Ces chiffres montrent la contribution du programme et sa projection, pas l'atteinte de l'objectif par les seules fermes du programme.";
 
 const PROJECTION_METHOD: readonly string[] = [
-  'Contribution réalisée = poids vif des animaux sortis vivants des bandes du programme (poids mesuré à la sortie, à défaut têtes sorties × dernier poids moyen pesé), depuis le début du programme.',
+  'Contribution réalisée = volumes produits (formules FORMULE_VOLUME_PRODUIT_TETES et FORMULE_VOLUME_PRODUIT_KG en vigueur ; par défaut le poids vif des animaux sortis vivants des bandes du programme, mesuré à la sortie, à défaut têtes sorties × dernier poids moyen pesé), depuis le début du programme.',
   'Potentiel annuel (t) = places des fermes non suspendues × taux d’occupation × bandes par an × (1 − mortalité) × poids vif de sortie / 1000.',
   'Places : capacité du registre, à défaut le plus grand effectif mis en place par la ferme.',
   'Mortalité et poids de sortie : valeurs observées sur les 12 derniers mois quand assez de fermes en donnent (nombre minimal de fermes), sinon les paramètres du programme.',
@@ -106,23 +112,29 @@ export class PilotageObjectiveService {
     const k = value('PILOTAGE_GROUPE_MIN_FERMES');
     const objectiveTonnes = value('OBJECTIF_NATIONAL_T');
     const farms = this.scope.scopedFarms(view, filters);
+    // POUFA lot A (F2): only the programme's bands count towards the objective.
+    const rules = pilotageRulesAt(resolver, today);
 
     const p = new SqlParams(farms.params);
     const yearStart = p.add(`${today.slice(0, 4)}-01-01`);
     const since12 = p.add(addDays(today, -364));
     const origin = p.add('1900-01-01');
     const todayP = p.add(today);
+    const eligibleP = p.add(rules.eligibleBandKeys);
     const [volumes]: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql}),
        ${weighedSortiesCte(origin, todayP)},
        st AS (
          SELECT s.farm_id, s.day, s.removals, ${DAY_EXIT_KG} AS exit_kg
            FROM bande_daily_stats s JOIN sf ON sf.id = s.farm_id
+           JOIN production_batches eb ON eb.id = s.batch_id
+                AND ${eligibleBandSql('eb', eligibleP)}
            LEFT JOIN ws ON ws.batch_id = s.batch_id AND ws.day = s.day
        )
        SELECT COALESCE(SUM(removals), 0) AS heads,
               COALESCE(SUM(exit_kg), 0) / 1000.0 AS tonnes,
               COALESCE(SUM(exit_kg) FILTER (WHERE day >= ${yearStart}::date), 0) / 1000.0 AS ytd,
+              COALESCE(SUM(removals) FILTER (WHERE day >= ${yearStart}::date), 0) AS heads_ytd,
               COALESCE(SUM(exit_kg) FILTER (WHERE day >= ${since12}::date), 0) / 1000.0 AS last12,
               COALESCE(SUM(removals) FILTER (WHERE day >= ${since12}::date), 0) AS heads12,
               COUNT(DISTINCT farm_id) FILTER (WHERE removals > 0 AND day >= ${since12}::date) AS farms12,
@@ -133,6 +145,7 @@ export class PilotageObjectiveService {
 
     const q = new SqlParams(farms.params);
     const since = q.add(`${addDays(today, -364)}T00:00:00.000Z`);
+    const eligibleQ = q.add(rules.eligibleBandKeys);
     const [closed]: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql})
        SELECT COUNT(*) AS bands, COUNT(DISTINCT b.farm_id) AS farms,
@@ -144,10 +157,13 @@ export class PilotageObjectiveService {
            SELECT s.deaths_cumulative FROM bande_daily_stats s
             WHERE s.batch_id = b.id ORDER BY s.day DESC LIMIT 1
          ) l ON TRUE
-        WHERE b.status = 'CLOTURE' AND b.closed_at >= ${since}::timestamptz`,
+        WHERE b.status = 'CLOTURE' AND b.closed_at >= ${since}::timestamptz
+          AND ${eligibleBandSql('b', eligibleQ)}`,
       q.values,
     );
 
+    const c = new SqlParams(farms.params);
+    const eligibleC = c.add(rules.eligibleBandKeys);
     const [capacity]: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql})
        SELECT COUNT(*) AS farms,
@@ -155,12 +171,24 @@ export class PilotageObjectiveService {
               COALESCE(SUM(COALESCE(sf.capacity_places, mb.max_start, 0)), 0) AS places
          FROM sf
          LEFT JOIN (
-           SELECT farm_id, MAX(quantity_at_start) AS max_start
-             FROM production_batches GROUP BY farm_id
+           SELECT b.farm_id, MAX(b.quantity_at_start) AS max_start
+             FROM production_batches b
+            WHERE ${eligibleBandSql('b', eligibleC)}
+            GROUP BY b.farm_id
          ) mb ON mb.farm_id = sf.id
         WHERE sf.active = true`,
-      farms.params,
+      c.values,
     );
+
+    // POUFA lot A2 dge: the volumes produced go through the formulas in force
+    // (FORMULE_VOLUME_PRODUIT_TETES / _KG, CDC §7.3); an undefined one is 0.
+    const volumeOf = (heads: unknown, tonnesSum: unknown) => {
+      const v = periodProduced(rules.formulas, n(heads), n(tonnesSum) * 1000);
+      return { heads: v.heads ?? 0, tonnes: (v.kg ?? 0) / 1000 };
+    };
+    const produced = volumeOf(volumes.heads, volumes.tonnes);
+    const producedYtd = volumeOf(volumes.heads_ytd, volumes.ytd);
+    const produced12 = volumeOf(volumes.heads12, volumes.last12);
 
     // Aggregate-only view: hidden when the volumes or the capacity come from
     // fewer than k farms (a zero is not a figure about anyone).
@@ -199,8 +227,18 @@ export class PilotageObjectiveService {
 
     let mortalityPct: number;
     const closedFarms = n(closed.farms);
-    if (closedFarms >= k && n(closed.placed) > 0) {
-      mortalityPct = round((n(closed.deaths) / n(closed.placed)) * 100, 2);
+    // The band mortality formula in force, on the closed bands summed.
+    const observedMortality =
+      n(closed.placed) > 0
+        ? bandMortalityPct(
+            rules.formulas,
+            n(closed.deaths),
+            n(closed.placed),
+            2,
+          )
+        : null;
+    if (closedFarms >= k && observedMortality != null) {
+      mortalityPct = observedMortality;
       inputs.push({
         key: 'PROJECTION_MORTALITE_PCT',
         label: 'Mortalité par bande',
@@ -219,9 +257,9 @@ export class PilotageObjectiveService {
     }
 
     let exitWeightKg: number;
-    const heads12 = n(volumes.heads12);
+    const heads12 = produced12.heads;
     if (n(volumes.farms12) >= k && heads12 > 0) {
-      exitWeightKg = round((n(volumes.last12) * 1000) / heads12, 3);
+      exitWeightKg = round((produced12.tonnes * 1000) / heads12, 3);
       inputs.push({
         key: 'PROJECTION_POIDS_SORTIE_KG',
         label: 'Poids vif de sortie',
@@ -243,7 +281,7 @@ export class PilotageObjectiveService {
     const lastYear = program.endDate
       ? Math.max(PROJECTION_FIRST_YEAR, Number(program.endDate.slice(0, 4)))
       : PROJECTION_DEFAULT_LAST_YEAR;
-    const tonnes = n(volumes.tonnes);
+    const tonnes = produced.tonnes;
     const projection = projectProduction({
       places,
       occupationPct,
@@ -252,7 +290,7 @@ export class PilotageObjectiveService {
       exitWeightKg,
       growthPct,
       cumulativeTonnes: tonnes,
-      yearToDateTonnes: n(volumes.ytd),
+      yearToDateTonnes: producedYtd.tonnes,
       today,
       firstYear: PROJECTION_FIRST_YEAR,
       lastYear,
@@ -280,11 +318,11 @@ export class PilotageObjectiveService {
         ? null
         : {
             since: program.startDate,
-            heads: n(volumes.heads),
+            heads: produced.heads,
             tonnes: round(tonnes, 3),
-            yearToDateTonnes: round(n(volumes.ytd), 3),
-            last12MonthsTonnes: round(n(volumes.last12), 3),
-            last12MonthsSharePct: pct(n(volumes.last12), objectiveTonnes),
+            yearToDateTonnes: round(producedYtd.tonnes, 3),
+            last12MonthsTonnes: round(produced12.tonnes, 3),
+            last12MonthsSharePct: pct(produced12.tonnes, objectiveTonnes),
           },
       capacity: suppressed
         ? null

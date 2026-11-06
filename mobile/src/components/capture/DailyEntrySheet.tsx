@@ -46,6 +46,12 @@ import { color, palette, radii, spacing, fontFamily, semantic } from '@/constant
 import { breedImageForLot } from '@/constants/breedImages';
 import { EGGS_PER_ALVEOL, FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 import { estimateDailyFeedPerBirdKg, type FeedRecommendation } from '@/zootechnics/feed-recommendation';
+import { ageOnDay } from '@/utils/band';
+// POUFA lot A bande: weighed sample (CDC 8) and offline conflict base (§7.2).
+import { fetchBandSheet } from '@/api/poufa';
+import { cachedRead } from '@/offline/ref-cache';
+import { withEntryBase } from '@/poufa/entry-sync';
+import { defaultSampleSize, sampleSizeRefusal, sampleTip } from '@/poufa/weighing';
 
 interface DailyEntrySheetProps {
   initialBatchId?: string;
@@ -572,6 +578,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
         feedKg: rec.feedQuantity ?? 0,
         waterL: rec.waterL ?? 0,
         weightG: rec.avgWeightKg != null ? Math.round(rec.avgWeightKg * 1000) : 0,
+        sampleSize: rec.sampleSize ?? 0,
         eggs: rec.eggsCollected ?? 0,
         eggsCracked: rec.eggsCracked ?? 0,
         eggsSmall: rec.eggsSmall ?? 0,
@@ -612,6 +619,15 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       breedCode: lot.breedCode,
     };
   }, [lot]);
+
+  // Sample size of the programme (PESEE_ECHANTILLON_TETES), read from the band sheet.
+  const bandSheetQuery = useQuery({
+    queryKey: ['band-sheet', farmId, lot?.id],
+    queryFn: () => cachedRead(`band-sheet.${farmId}.${lot!.id}`, () => fetchBandSheet(farmId, lot!.id)),
+    enabled: !!lot,
+    staleTime: 10 * 60_000,
+  });
+  const expectedSample = bandSheetQuery.data?.weighing.expectedSampleSize ?? null;
 
   const standardsQuery = useQuery({
     queryKey: ['breed-standards', farmId, lot?.breedId ?? null],
@@ -760,7 +776,10 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     const [y, m, d] = entryDateStr.split('-').map(Number);
     return Math.round((Date.UTC(y, m - 1, d) - todayUTC) / 86_400_000);
   }, [entryDateStr]);
-  const entryAgeDays = lot ? utcDaysBetween(lot.integrationDate, entryDateStr) : null;
+  // Age of the birds on the chosen day (J+x aware), the same J as the served ageDays.
+  const entryAgeDays = lot ? ageOnDay(lot.integrationDate, lot.initialAgeDays, entryDateStr) : null;
+
+  const sampleRefusal = sampleSizeRefusal(values.weightG, values.sampleSize, ctx?.live);
 
   const remainingPreview =
     chosenLot && feedKgEquivalent > 0
@@ -830,10 +849,16 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       setError(`Écarts (${rejectTotal}) supérieurs au total d’œufs collectés (${values.eggs}).`);
       return;
     }
-    const payload = buildDailyEntryPayload(
+    if (sampleRefusal) {
+      setError(sampleRefusal);
+      return;
+    }
+    const built = buildDailyEntryPayload(
       { ...values, bagSizeKg, feedPhase, inputLotId: values.skipStockDeduction ? undefined : chosenFeedLotId },
       { isLayer: lot.type === 'PONDEUSE', feedMode: modeFeed, entryDate: entryDateStr, editing: existingEntry != null },
     );
+    // The entry as last known: the server only takes the fields really changed.
+    const payload = withEntryBase(built, existingEntry);
     setSaving(true);
     setError(null);
     try {
@@ -847,7 +872,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
   }, [
     lot, hasAnything, deathsExceedLive, rejectsExceed, rejectTotal,
     values, ctx?.live, feedPhase, chosenFeedLotId, bagSizeKg, modeFeed, entryDateStr,
-    farmId, queryClient, success, existingEntry,
+    farmId, queryClient, success, existingEntry, sampleRefusal,
   ]);
 
   // ── Action bar : hoistée en pied fixe du Sheet (toujours visible, ne défile pas) ──
@@ -884,7 +909,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
                 label={existingEntry ? 'Mettre à jour la saisie' : 'Enregistrer la saisie'}
                 tone="accent"
                 loading={saving}
-                disabled={!hasAnything || deathsExceedLive || rejectsExceed}
+                disabled={!hasAnything || deathsExceedLive || rejectsExceed || sampleRefusal != null}
                 onPress={() => void save()}
               />
             )}
@@ -892,7 +917,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
         </View>
       </View>
     ),
-    [error, step, saving, existingEntry, hasAnything, deathsExceedLive, rejectsExceed, ctx?.live, values.deaths, save],
+    [error, step, saving, existingEntry, hasAnything, deathsExceedLive, rejectsExceed, sampleRefusal, ctx?.live, values.deaths, save],
   );
   useEffect(() => {
     if (!onFooterChange) return;
@@ -1054,7 +1079,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
               </View>
             </View>
             <AppText size="caption" color="muted" numberOfLines={1}>
-              {[ctx.breedCode, ctx.breedName, ctx.isLayer ? 'Pondeuse' : 'Chair'].filter(Boolean).join(' · ')}
+              {[lot.code, ctx.breedCode, ctx.breedName, ctx.isLayer ? 'Pondeuse' : 'Chair'].filter(Boolean).join(' · ')}
             </AppText>
             <View style={styles.ctxStats}>
               <View style={styles.ctxStat}>
@@ -1517,15 +1542,40 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
             ) : null}
           />
           <TipBox icon={Lightbulb} tone="brand">
-            Pesez un <AppText size="small" weight="semibold" style={{ color: palette.brand[700] }}>échantillon d’au moins 30 sujets représentatifs</AppText>, le même
+            <AppText size="small" weight="semibold" style={{ color: palette.brand[700] }}>{sampleTip(expectedSample)}</AppText>, le même
             jour & à la même heure chaque semaine, de préférence avant la distribution de l’aliment.
           </TipBox>
           <NumberInput
             value={values.weightG > 0 ? String(values.weightG) : ''}
-            onChangeText={(t) => set('weightG')(t ? parseInt(t, 10) : 0)}
+            onChangeText={(t) => {
+              const g = t ? parseInt(t, 10) : 0;
+              setValues((v) => ({
+                ...v,
+                weightG: g,
+                // Prefilled with the programme's sample as soon as a weight is typed.
+                sampleSize: g > 0 && !(v.sampleSize && v.sampleSize > 0) ? defaultSampleSize(expectedSample, ctx?.live) : v.sampleSize,
+              }));
+              setError(null);
+            }}
             suffix="g / oiseau"
             placeholder="0"
           />
+          {values.weightG > 0 ? (
+            <View style={{ gap: 6 }}>
+              <AppText size="label" weight="semibold" color="muted">Sujets pesés (obligatoire)</AppText>
+              <NumberInput
+                value={values.sampleSize && values.sampleSize > 0 ? String(values.sampleSize) : ''}
+                onChangeText={(t) => set('sampleSize')(t ? parseInt(t, 10) : 0)}
+                suffix="sujets"
+                placeholder={expectedSample != null ? String(expectedSample) : '0'}
+              />
+              {sampleRefusal ? (
+                <Hint tone="danger">{sampleRefusal}</Hint>
+              ) : expectedSample != null && (values.sampleSize ?? 0) < expectedSample ? (
+                <Hint tone="amber">Moins de sujets que l’échantillon du programme ({expectedSample}) : la pesée sera signalée comme insuffisante.</Hint>
+              ) : null}
+            </View>
+          ) : null}
           {weightDevPct != null ? (
             <Hint tone={Math.abs(weightDevPct) <= 10 ? 'success' : Math.abs(weightDevPct) <= 20 ? 'amber' : 'danger'}>
               {weightDevPct >= 0 ? '+' : ''}{weightDevPct.toFixed(0)} % vs objectif souche{' '}
@@ -1610,7 +1660,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
               ) : null}
               {weightDevPct != null && Math.abs(weightDevPct) > 50 ? (
                 <Hint tone="danger">
-                  Écart de {weightDevPct.toFixed(0)} % vs objectif, hors plage plausible — re-pesez un échantillon de 30 sujets (saisie en g, sans virgule).
+                  Écart de {weightDevPct.toFixed(0)} % vs objectif, hors plage plausible — re-pesez un échantillon de {expectedSample ?? 'plusieurs'} sujets (saisie en g, sans virgule).
                 </Hint>
               ) : null}
             </Card>

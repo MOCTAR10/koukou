@@ -49,11 +49,44 @@ Les conflits d'une ferme se consultent par `GET /farms/:farmId/sync-conflicts` (
 
 ## 5. Signalement
 
-Après validation de l'écriture, le serveur émet l'événement `SYNC_CONFLICT` (ferme, bande, conflits). La notification de l'agent et de l'éleveur (dans l'application) sera branchée par le lot « notify » ; `sync_conflicts.notifiedAt` recevra alors la date d'envoi.
+### 5.1 Ce que les applications envoient
+
+La règle est appliquée par les deux applications de terrain, pour la saisie journalière (la fiche d'élevage), qu'elle parte tout de suite ou qu'elle attende le réseau dans la file :
+
+| Champ | Application mobile | Application web (hors ligne) |
+|---|---|---|
+| `capturedAt` | Heure à laquelle l'éleveur enregistre la saisie, fixée une fois pour toutes : un nouvel envoi de la même opération garde cette heure. | Idem. |
+| `baseUpdatedAt` et `baseValues` | Quand la saisie du jour existait déjà : son `updatedAt` et ses valeurs telles que l'application les connaissait au moment de la modification (aliment en kg). Absents pour une nouvelle saisie. | Idem. |
+| `deviceId` | Identifiant aléatoire propre à l'installation, gardé sur le téléphone. | Identifiant aléatoire propre au navigateur. |
+| `deviceSentAt` | Heure du téléphone à **chaque** tentative d'envoi (premier essai et chaque reprise de la file). | Idem. |
+
+Comme l'écriture porte `capturedAt`, la règle s'applique aussi à un envoi immédiat : une fiche restée ouverte pendant qu'un autre appareil modifiait le même jour est arbitrée de la même façon.
+
+### 5.2 Notification
+
+Après validation de l'écriture, le serveur émet l'événement `SYNC_CONFLICT` (ferme, bande, conflits). Les règles de notification, réglables par l'administration (`/programme/notification-rules`), l'envoient dans l'application :
+
+- `FERME_CONFLIT_SAISIE` : le propriétaire et les administrateurs de la ferme ;
+- `AGENT_CONFLIT_SAISIE` : les agents techniques qui suivent la ferme.
+
+La notification ouvre la fiche de la bande. La trace de l'envoi est la notification elle-même (table `notifications`) ; `sync_conflicts.notifiedAt` n'est pas utilisé.
+
+### 5.3 Affichage dans la fiche de bande
+
+La fiche de bande (web : onglet de synthèse de la bande ; mobile : panneau de la bande) liste les conflits enregistrés pour cette bande (`GET /farms/:farmId/sync-conflicts?batchId=`), du plus récent au plus ancien. Chaque ligne dit, en clair :
+
+- le jour et le champ concernés (par exemple « Saisie du 05/11 — morts ») ;
+- **la valeur retenue** et la valeur écartée, qui reste conservée ;
+- **pourquoi** : la saisie la plus récente a gagné (heure de capture de chaque côté), ou la valeur du serveur est restée à égalité ;
+- « heure corrigée » quand l'horloge de l'appareil était déréglée (§2).
+
+Les agents et les profils institutionnels qui lisent la bande (domaine TECHNIQUE) voient la même liste.
 
 ## 6. Sorties d'animaux
 
 Une sortie est une création : elle porte une clé d'idempotence (`idempotencyKey` = identifiant de l'opération). Un nouvel envoi de la même opération renvoie la sortie déjà enregistrée, sans doublon. Son heure de capture est corrigée selon la même règle d'horloge (§2).
+
+**Livraison d'une commande** (commande de la ferme ou du Market, `POST /farms/:farmId/orders/:orderId/livrer`) : le web et le mobile envoient l'heure de la livraison sur l'appareil (`capturedAt`, fixée au premier essai, et `deviceSentAt` à chaque envoi). Corrigée selon la même règle d'horloge (§2), elle donne **le jour de la livraison** : date de livraison de la commande, écriture comptable du chiffre d'affaires et, pour un client lié à un opérateur, **date de la cession** (sortie VENTE, sous-lot et QR). Une livraison faite hors ligne le lundi et synchronisée le mercredi est donc cédée le lundi. Sans `capturedAt` (écriture en ligne), c'est le jour du serveur. Les jours sont comptés en UTC (`src/modules/orders/delivery-day.ts`). La livraison est une transition : un second envoi est refusé (« déjà livrée ») et l'opération est abandonnée sans effet.
 
 ## 7. Exemple
 

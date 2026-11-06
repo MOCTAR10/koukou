@@ -9,7 +9,10 @@ import { AuthLayout, authLinkCls } from './AuthLayout';
 
 const inputTallCls = `${inputCls} !py-2.5`;
 
-/** Account of someone who buys: no farm is created. */
+/**
+ * Market customer account, the only self sign-up of the instance: farm
+ * accounts come from the programme registry (owner activation).
+ */
 export function BuyerRegisterPage() {
   const { registerBuyer } = useAuth();
   const from = (useLocation().state as { from?: string } | null)?.from;
@@ -55,7 +58,7 @@ export function BuyerRegisterPage() {
     <AuthLayout
       audience="buyer"
       eyebrow="Marché Fermia"
-      title="Créer un compte acheteur"
+      title="Créer un compte client du Marché"
       subtitle="Pour commander et précommander auprès des fermes."
       backTo="/marche"
       backLabel="Retour au marché"
@@ -69,10 +72,8 @@ export function BuyerRegisterPage() {
             </Link>
           </p>
           <p>
-            Vous êtes éleveur ?{' '}
-            <Link to="/register" className={authLinkCls}>
-              Créer un compte ferme
-            </Link>
+            Vous exploitez une ferme du programme ? Ce compte sert seulement à acheter : votre accès à la ferme vous est remis
+            à l’activation de votre compte exploitant.
           </p>
         </>
       }

@@ -13,6 +13,8 @@ import { useIdempotencyKey } from '../../lib/idempotency';
 import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
 import { invalidateCash } from './pos';
 import { salePaid } from './SaleDetail';
+import { CustomerOperatorField } from '../trace/CustomerOperatorField';
+import { useFarmProfile } from '../../app/useFarmProfile';
 
 export function CreateCustomerModal({ farmId, onClose }: { farmId: string | null; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -239,6 +241,8 @@ export function CustomerDetail({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  // POUFA lot A droits: an institution reads the sheet, never edits it.
+  const canEdit = useFarmProfile().hasPermission('compta:client');
   const stats = useQuery({
     queryKey: ['customer-stats', farmId, customer.id],
     queryFn: () => api.get<CustomerStats>(`/farms/${farmId}/customers/${customer.id}/stats`),
@@ -275,7 +279,7 @@ export function CustomerDetail({
                 <Phone className="h-4 w-4" /> Appeler
               </a>
             ) : null}
-            {due > 0 ? (
+            {due > 0 && canEdit ? (
               <Button onClick={onCollect}>
                 <Banknote className="h-4 w-4" /> Encaisser
               </Button>
@@ -284,7 +288,7 @@ export function CustomerDetail({
         </div>
 
         <Field label="Type de client (indicatif)" className="max-w-xs">
-          <select className={inputCls} value={customer.type} disabled={setType.isPending} onChange={(e) => setType.mutate(e.target.value)}>
+          <select className={inputCls} value={customer.type} disabled={setType.isPending || !canEdit} onChange={(e) => setType.mutate(e.target.value)}>
             {CUSTOMER_TYPES.map((t) => (
               <option key={t} value={t}>
                 {CUSTOMER_TYPE_LABEL[t]}
@@ -293,6 +297,8 @@ export function CustomerDetail({
           </select>
         </Field>
         <ErrorNote error={setType.error} />
+        {/* POUFA W6: link the customer to a programme operator (traceability). */}
+        <CustomerOperatorField farmId={farmId} customer={customer} />
 
         <div className="grid grid-cols-3 gap-3">
           <Figure label="Total facturé" value={fcfa(invoiced)} icon={<ReceiptText />} />

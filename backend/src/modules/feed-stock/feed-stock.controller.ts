@@ -7,15 +7,18 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FeedStockService } from './feed-stock.service.js';
 import { CreateLossDto } from './dto/create-loss.dto.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Stock & Inventaire provende (Module 3)')
 @Domain('INTRANTS')
+@InstitutionReadOnly('Stock d’aliment (FEFO)')
 @Controller('farms/:farmId/feed-stock')
 export class FeedStockController {
   constructor(private readonly feedStockService: FeedStockService) {}
 
   @Get()
+  @AuditThirdPartyRead('Stock d’aliment (FEFO) d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
@@ -40,6 +43,7 @@ export class FeedStockController {
   }
 
   @Get('losses')
+  @AuditThirdPartyRead('Pertes de stock d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Lister les pertes de provende' })
   @ApiParam({ name: 'farmId' })
@@ -48,6 +52,7 @@ export class FeedStockController {
   }
 
   @Get('movements')
+  @AuditThirdPartyRead('Mouvements de stock d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Journal des mouvements (consommations liées + pertes)',

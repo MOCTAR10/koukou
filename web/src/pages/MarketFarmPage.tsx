@@ -14,6 +14,7 @@ import { addDaysIso, invalidateOrderQueries } from '../components/orders/helpers
 import { ConfirmDialog, Pill, Segmented } from '../components/orders/shared';
 import { Card, DataTable, EmptyState, IconButton, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { dateFr, dateTimeFr, fcfa } from '../lib/format';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 
 const STATUS_PILL: Record<FarmMarketListing['status'], { label: string; tone: string }> = {
   DRAFT: { label: 'Brouillon', tone: 'bg-slate-100 text-slate-600 ring-slate-200' },
@@ -63,7 +64,7 @@ function MoveDateModal({ farmId, listing, onClose }: { farmId: string; listing: 
   );
 }
 
-function ListingsPanel({ farmId }: { farmId: string }) {
+function ListingsPanel({ farmId, readOnly = false }: { farmId: string; readOnly?: boolean }) {
   const client = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<FarmMarketListing | null>(null);
@@ -86,11 +87,13 @@ function ListingsPanel({ farmId }: { farmId: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="h-4 w-4" /> Nouvelle annonce
-        </Button>
-      </div>
+      {readOnly ? null : (
+        <div className="flex justify-end">
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" /> Nouvelle annonce
+          </Button>
+        </div>
+      )}
       {query.isLoading ? <Loading /> : null}
       <ErrorNote error={query.error ?? (closing ? null : action.error)} />
       {!query.isLoading && !query.error && listings.length === 0 ? (
@@ -147,7 +150,7 @@ function ListingsPanel({ farmId }: { farmId: string }) {
                     <Td label="Prêts le" className="whitespace-nowrap md:max-lg:hidden">{l.readyDate ? dateFr(l.readyDate) : '—'}</Td>
                     <Td label="Acompte" className="whitespace-nowrap text-right tabular-nums md:max-xl:hidden">{l.depositPct ? `${l.depositPct} %` : '—'}</Td>
                     <Td>
-                      {open ? (
+                      {open && !readOnly ? (
                         <div className="flex items-center gap-1 md:justify-end">
                           {l.status === 'PUBLISHED' ? (
                             <IconButton label="Suspendre" onClick={() => action.mutate({ id: l.id, verb: 'pause' })}>
@@ -228,9 +231,11 @@ function RequestDetail({
   onAccept,
   onReject,
   onExtend,
+  readOnly = false,
 }: {
   order: FarmMarketOrder;
   now: number;
+  readOnly?: boolean;
   onClose: () => void;
   onAccept: () => void;
   onReject: () => void;
@@ -290,7 +295,7 @@ function RequestDetail({
         {o.state === 'REQUESTED' && requestLeft ? <p className="text-xs text-slate-500">Sans réponse d’ici {requestLeft}, la demande expire.</p> : null}
 
         <div className="flex flex-wrap gap-1.5">
-          {o.state === 'REQUESTED' ? (
+          {o.state === 'REQUESTED' && !readOnly ? (
             <>
               <Button onClick={onAccept}>
                 <Check className="h-4 w-4" /> Accepter
@@ -300,7 +305,7 @@ function RequestDetail({
               </Button>
             </>
           ) : null}
-          {o.status === 'AWAITING_DEPOSIT' && !o.depositExtendedAt ? (
+          {o.status === 'AWAITING_DEPOSIT' && !o.depositExtendedAt && !readOnly ? (
             <Button tone="secondary" onClick={onExtend}>
               <CalendarClock className="h-4 w-4" /> Prolonger de 24 h
             </Button>
@@ -326,7 +331,19 @@ function matchesFilter(state: MarketOrderState, filter: RequestFilter): boolean 
   return state === filter;
 }
 
-function RequestsPanel({ farmId, orders, isLoading, error }: { farmId: string; orders: FarmMarketOrder[]; isLoading: boolean; error: unknown }) {
+function RequestsPanel({
+  farmId,
+  orders,
+  isLoading,
+  error,
+  readOnly = false,
+}: {
+  farmId: string;
+  orders: FarmMarketOrder[];
+  isLoading: boolean;
+  error: unknown;
+  readOnly?: boolean;
+}) {
   const client = useQueryClient();
   const now = useNow();
   const [filter, setFilter] = useState<RequestFilter>('REQUESTED');
@@ -453,6 +470,7 @@ function RequestsPanel({ farmId, orders, isLoading, error }: { farmId: string; o
         <RequestDetail
           order={opened}
           now={now}
+          readOnly={readOnly}
           onClose={() => setOpenId(null)}
           onAccept={() => setAccepting(opened)}
           onReject={() => setRejecting(opened)}
@@ -522,13 +540,17 @@ export function MarketFarmPage() {
   const { hasPermission } = useFarmProfile();
   const canPublish = hasPermission('market:publier');
   const canAnswer = hasPermission('vente:commande');
+  // POUFA lot A droits: an institution granted MARCHE reads both tabs (« market:lire »), acts on none.
+  const readOnly = !canPublish && !canAnswer && hasPermission('market:lire');
+  const seesListings = canPublish || readOnly;
+  const seesRequests = canAnswer || readOnly;
   const [picked, setPicked] = useState<Tab | null>(null);
-  const tab: Tab = picked ?? (canPublish ? 'listings' : 'requests');
+  const tab: Tab = picked ?? (seesListings ? 'listings' : 'requests');
 
   const ordersQuery = useQuery({
     queryKey: ['market-farm-orders', farmId],
     queryFn: () => api.get<FarmMarketOrder[]>(`/farms/${farmId}/market/orders`),
-    enabled: !!farmId && canAnswer,
+    enabled: !!farmId && seesRequests,
   });
   const orders = ordersQuery.data ?? [];
   const toAnswer = orders.filter((o) => o.state === 'REQUESTED').length;
@@ -545,13 +567,14 @@ export function MarketFarmPage() {
           </Link>
         }
       />
-      {farm && !farm.isVerified ? (
+      <ReadOnlyNotice what="annonces et demandes du Market" />
+      {farm && !farm.isVerified && !readOnly ? (
         <p className="mb-4 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           Votre ferme n’est pas encore vérifiée. Vous pouvez préparer vos annonces, mais seules les fermes vérifiées peuvent publier. Contactez Fermia.
         </p>
       ) : null}
-      {canPublish && canAnswer ? (
+      {seesListings && seesRequests ? (
         <div className="mb-4">
           <Segmented<Tab>
             ariaLabel="Section du marché"
@@ -564,10 +587,10 @@ export function MarketFarmPage() {
           />
         </div>
       ) : null}
-      {!farmId ? null : tab === 'listings' && canPublish ? (
-        <ListingsPanel farmId={farmId} />
-      ) : canAnswer ? (
-        <RequestsPanel farmId={farmId} orders={orders} isLoading={ordersQuery.isLoading} error={ordersQuery.error} />
+      {!farmId ? null : tab === 'listings' && seesListings ? (
+        <ListingsPanel farmId={farmId} readOnly={readOnly} />
+      ) : seesRequests ? (
+        <RequestsPanel farmId={farmId} orders={orders} isLoading={ordersQuery.isLoading} error={ordersQuery.error} readOnly={readOnly} />
       ) : null}
     </div>
   );

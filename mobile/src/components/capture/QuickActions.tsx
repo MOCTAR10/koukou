@@ -15,7 +15,7 @@ const ACTIONS = [
   { key: 'caisse' as const, label: 'Caisse', sub: 'Ouvrir / clôturer', icon: Coins, bg: color.green[50], fg: color.green[600] },
   { key: 'soin' as const, label: 'Soin', sub: 'Prophylaxie', icon: Syringe, bg: color.brand[50], fg: color.brand[700] },
   { key: 'provende' as const, label: 'Provende', sub: 'Entrée HACCP', icon: Wheat, bg: color.amber[50], fg: color.amber[600] },
-  { key: 'rapports' as const, label: 'Rapports', sub: 'P&L & exports', icon: FileBarChart2, bg: color.surfaceAlt, fg: color.ink[600] },
+  { key: 'rapports' as const, label: 'Rentabilité', sub: 'P&L & exports', icon: FileBarChart2, bg: color.surfaceAlt, fg: color.ink[600] },
 ];
 
 export function QuickActions({ onPick }: QuickActionsProps) {

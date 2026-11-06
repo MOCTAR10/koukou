@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { api } from '../api/client';
 import type { PointOfSale, PosSale, StockTransfer, StockTransferProductType } from '../api/types-orders';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { Button, ErrorNote, todayIso } from '../components/form';
 import { addDaysIso, invalidateTransferQueries } from '../components/orders/helpers';
 import { PointOfSaleFormModal } from '../components/orders/PointOfSaleFormModal';
@@ -76,7 +78,9 @@ function PosTable({
   period,
   onEdit,
   onDelete,
+  readOnly = false,
 }: {
+  readOnly?: boolean;
   rows: PointOfSale[];
   stats: Map<string, PosStats>;
   stock: Map<string, { carried: number; remaining: number }>;
@@ -145,6 +149,7 @@ function PosTable({
                     )}
                   </Td>
                   <Td label="Actions">
+                    {readOnly ? null : (
                     <span className="flex justify-end gap-1">
                       <button
                         type="button"
@@ -167,6 +172,7 @@ function PosTable({
                         </button>
                       )}
                     </span>
+                    )}
                   </Td>
                 </tr>
               );
@@ -182,6 +188,8 @@ type StatusFilter = 'ALL' | 'ACTIVE' | 'PAUSED';
 export function PointsOfSalePage() {
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
+  // POUFA lot A droits: an institution (VENTES:CONSULTER) reads the points of sale and transfers only.
+  const canManage = useFarmProfile().hasPermission('pdv:gerer');
   const today = todayIso();
   const from7 = addDaysIso(today, -6);
   const from30 = addDaysIso(today, -29);
@@ -320,16 +328,19 @@ export function PointsOfSalePage() {
         subtitle="La ferme mère et ses points de vente rattachés, partout au Gabon."
         icon={<MapPin />}
         actions={
-          <>
-            <Button tone="secondary" onClick={() => setTransferOpen(true)}>
-              <ArrowRightLeft className="h-4 w-4" /> Transférer du stock
-            </Button>
-            <Button onClick={openNew}>
-              <Plus className="h-4 w-4" /> Nouveau point de vente
-            </Button>
-          </>
+          canManage ? (
+            <>
+              <Button tone="secondary" onClick={() => setTransferOpen(true)}>
+                <ArrowRightLeft className="h-4 w-4" /> Transférer du stock
+              </Button>
+              <Button onClick={openNew}>
+                <Plus className="h-4 w-4" /> Nouveau point de vente
+              </Button>
+            </>
+          ) : undefined
         }
       />
+      <ReadOnlyNotice what="points de vente et transferts" />
 
       <ErrorNote error={pdvQuery.error ?? salesQuery.error ?? transfersQuery.error} />
 
@@ -359,7 +370,7 @@ export function PointsOfSalePage() {
               <Home className="h-4 w-4 text-brand-600" /> Ferme mère
             </h2>
             {farms.length > 0 ? (
-              <PosTable rows={farms} stats={stats} stock={stock} period={period} onEdit={openEdit} onDelete={setToDelete} />
+              <PosTable rows={farms} stats={stats} stock={stock} period={period} onEdit={openEdit} onDelete={setToDelete} readOnly={!canManage} />
             ) : (
               <EmptyState icon={<Home />} message="Aucune ferme. Le point « ferme » vend directement sur l’exploitation." />
             )}
@@ -392,7 +403,7 @@ export function PointsOfSalePage() {
               </div>
             </div>
             {filtered.length > 0 ? (
-              <PosTable rows={filtered} stats={stats} stock={stock} period={period} onEdit={openEdit} onDelete={setToDelete} />
+              <PosTable rows={filtered} stats={stats} stock={stock} period={period} onEdit={openEdit} onDelete={setToDelete} readOnly={!canManage} />
             ) : (
               <EmptyState
                 icon={<Store />}
@@ -449,9 +460,11 @@ export function PointsOfSalePage() {
                             </Td>
                             <Td label="Actions">
                               <span className="flex justify-end">
+                                {canManage ? (
                                 <Button tone="secondary" onClick={() => setToCancel(t)} aria-label={`Annuler le transfert ${source.name}`}>
                                   <RotateCcw className="h-4 w-4" /> Annuler
                                 </Button>
+                                ) : null}
                               </span>
                             </Td>
                           </tr>

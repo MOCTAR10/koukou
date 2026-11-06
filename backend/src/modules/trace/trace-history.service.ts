@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
 import { isUuid } from '../../common/context/request-context.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { InputDeliveryStatus } from '../../common/enums/input-delivery.enum.js';
 import { ProgramListType } from '../../common/enums/program-list-type.enum.js';
 import { ProphylaxisStatus } from '../../common/enums/prophylaxis-status.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -30,6 +31,7 @@ import {
   type ScanIndicators,
 } from './qr-scans.service.js';
 import { rearingTimeline, type RearingItem } from './rearing-timeline.js';
+import { deliveryBand, type BandWindow } from './delivery-attribution.js';
 import { TraceConfigService } from './trace-config.service.js';
 import { TraceLotsService, effectiveLotStatus } from './trace-lots.service.js';
 
@@ -321,6 +323,145 @@ export class TraceHistoryService {
     });
   }
 
+  /**
+   * T2 « intrants »: programme deliveries confirmed by the farm while the band
+   * ran (from its opening to its closure or today), or linked to the band.
+   * A delivery linked to another band is that band's.
+   */
+  private async rearingDeliveries(band: ProductionBatch, programId: string | null) {
+    const end = band.closedAt
+      ? band.closedAt.toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    const candidates: {
+      id: string;
+      code: string;
+      bandId: string | null;
+      receivedDate: string;
+      source: string;
+      supplierName: string | null;
+    }[] = await this.dataSource.query(
+      `SELECT d.id, d.code, d.source, d.supplier_name AS "supplierName", d.band_id AS "bandId",
+              TO_CHAR(COALESCE(d.received_date, d.confirmed_at::date), 'YYYY-MM-DD') AS "receivedDate"
+         FROM input_deliveries d
+        WHERE d.farm_id = $1 AND d.status = $2
+          AND (d.band_id = $3
+               OR (d.band_id IS NULL
+                   AND COALESCE(d.received_date, d.confirmed_at::date)
+                       BETWEEN $4::date AND $5::date))
+        ORDER BY 5, d.code`,
+      [
+        band.farmId,
+        InputDeliveryStatus.CONFIRMEE,
+        band.id,
+        band.integrationDate.slice(0, 10),
+        end,
+      ],
+    );
+    const rows = await this.ownDeliveries(band, candidates);
+    if (rows.length === 0) return [];
+    const lines: {
+      deliveryId: string;
+      intrantCode: string;
+      unitCode: string;
+      receivedQuantity: number;
+      feedPhase: string | null;
+    }[] = await this.dataSource.query(
+      `SELECT l.delivery_id AS "deliveryId", l.intrant_code AS "intrantCode",
+              l.unit_code AS "unitCode", l.feed_phase AS "feedPhase",
+              COALESCE(l.received_quantity, l.quantity)::float AS "receivedQuantity"
+         FROM input_delivery_lines l
+        WHERE l.delivery_id = ANY($1)
+        ORDER BY l.position`,
+      [rows.map((r) => r.id)],
+    );
+    const labels = programId
+      ? new Map(
+          (
+            await this.dataSource.getRepository(RefItem).find({
+              where: { programId, listType: ProgramListType.INTRANT },
+            })
+          ).map((i) => [i.code, i.label]),
+        )
+      : new Map<string, string>();
+    return rows.map(({ bandId: _bandId, ...d }) => ({
+      ...d,
+      lines: lines
+        .filter((l) => l.deliveryId === d.id)
+        .map((l) => ({
+          intrantCode: l.intrantCode,
+          intrantLabel: labels.get(l.intrantCode) ?? null,
+          unitCode: l.unitCode,
+          receivedQuantity: Number(l.receivedQuantity),
+          feedPhase: l.feedPhase,
+        })),
+    }));
+  }
+
+  /**
+   * POUFA lot A2 divers: a delivery without band shows in one band only
+   * (`delivery-attribution.ts`): the only band open on its reception day,
+   * else the one open band that ate from its lots, else none.
+   */
+  private async ownDeliveries<T extends { id: string; bandId: string | null; receivedDate: string }>(
+    band: ProductionBatch,
+    candidates: T[],
+  ): Promise<T[]> {
+    const unlinked = candidates.filter((d) => !d.bandId);
+    if (unlinked.length === 0) return candidates;
+    const bands: BandWindow[] = await this.dataSource.query(
+      `SELECT id, TO_CHAR(integration_date, 'YYYY-MM-DD') AS "integrationDate",
+              TO_CHAR(COALESCE(closed_at, CASE WHEN status = 'CLOTURE' THEN "updatedAt" END), 'YYYY-MM-DD') AS "closedDay"
+         FROM production_batches WHERE farm_id = $1`,
+      [band.farmId],
+    );
+    const consumers: { deliveryId: string; batchId: string }[] =
+      await this.dataSource.query(
+        `SELECT DISTINCT l.delivery_id AS "deliveryId", e.batch_id AS "batchId"
+           FROM input_delivery_lines l
+           JOIN daily_entries e ON e.input_lot_id = l.input_lot_id
+          WHERE l.delivery_id = ANY($1) AND e.feed_quantity > 0`,
+        [unlinked.map((d) => d.id)],
+      );
+    return candidates.filter(
+      (d) =>
+        deliveryBand(
+          {
+            bandId: d.bandId,
+            receivedDate: d.receivedDate,
+            consumerBandIds: consumers
+              .filter((c) => c.deliveryId === d.id)
+              .map((c) => c.batchId),
+          },
+          bands,
+        ) === band.id,
+    );
+  }
+
+  /** T2 « aliment consommé »: the band's daily-entry feed per stock lot. */
+  private async rearingFeedLots(batchId: string) {
+    const rows: {
+      inputLotId: string | null;
+      productName: string | null;
+      supplierLotNumber: string | null;
+      fromDay: string;
+      toDay: string;
+      kg: number;
+    }[] = await this.dataSource.query(
+      `SELECT e.input_lot_id AS "inputLotId", l."productName" AS "productName",
+              l.supplier_lot_number AS "supplierLotNumber",
+              TO_CHAR(MIN(e.entry_date), 'YYYY-MM-DD') AS "fromDay",
+              TO_CHAR(MAX(e.entry_date), 'YYYY-MM-DD') AS "toDay",
+              SUM(e.feed_quantity)::float AS kg
+         FROM daily_entries e
+         LEFT JOIN input_lots l ON l.id = e.input_lot_id
+        WHERE e.batch_id = $1 AND e.feed_quantity > 0
+        GROUP BY e.input_lot_id, l."productName", l.supplier_lot_number
+        ORDER BY MIN(e.entry_date)`,
+      [batchId],
+    );
+    return rows.map((r) => ({ ...r, kg: Number(r.kg) }));
+  }
+
   private async rearing(
     user: AuthUser,
     band: ProductionBatch,
@@ -380,8 +521,14 @@ export class TraceHistoryService {
     const reasonLabel = new Map(reasons.map((r) => [r.code, r.label]));
     const operatorName = new Map(operators.map((o) => [o.id, o.name]));
     const lotOfSortie = new Map(subLots.map((l) => [l.sortieId, l.code]));
+    const [deliveries, feedLots] = await Promise.all([
+      this.rearingDeliveries(band, farm?.programId ?? null),
+      this.rearingFeedLots(band.id),
+    ]);
     return rearingTimeline({
       band,
+      deliveries,
+      feedLots,
       cares: cares
         .filter((c) => c.completedAt != null)
         .map((c) => ({

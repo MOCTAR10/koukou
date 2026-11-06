@@ -84,14 +84,25 @@ import type {
   TreatmentRecord,
 } from '@/api/types';
 import { SPECIES_LABELS } from '@/api/format';
+import { bandCycle } from '@/utils/band';
+// ── POUFA band sheet (M2) ──
+import { BandPanel } from '@/components/band/BandPanel';
+// POUFA lot A indic: official indicators head the lot screen, the band sheet is the default view.
+import { fetchBandIndicators } from '@/api/poufa';
+import { cachedRead } from '@/offline/ref-cache';
+import { COST_PER_KG_SOLD_LABEL, conduiteLine, findIndicator, marginLabel, officialText } from '@/poufa/official-headline';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { readsProgrammeDomain } from '@/poufa/access';
+// ── end POUFA ──
 
 // ── Tabs ──
-type MainTab = 'overview' | 'curves' | 'history' | 'health';
+type MainTab = 'overview' | 'curves' | 'history' | 'health' | 'programme';
 const MAIN_TABS: { key: MainTab; label: string; icon: typeof Clock }[] = [
   { key: 'overview', label: 'Vue', icon: Layers },
   { key: 'curves', label: 'Courbes', icon: Activity },
   { key: 'history', label: 'Historique', icon: Clock },
   { key: 'health', label: 'Sanitaire', icon: HeartPulse },
+  { key: 'programme', label: 'Bande', icon: Target },
 ];
 
 // ── History filter ──
@@ -206,7 +217,7 @@ export default function LotDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const batchId = String(id ?? '');
   const { openDaily, openSale } = useQuickCapture();
-  const { farmId } = useAuth();
+  const { farmId, user } = useAuth();
 
   // ── Fenêtre partagée PeriodBar (déclarée avant les requêtes : elles en dépendent) ──
   const [period, setPeriod] = useState<PeriodWindow>(() => periodWindow('all'));
@@ -223,14 +234,31 @@ export default function LotDetailScreen() {
   const slaughterQ = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), staleTime: 60_000 });
 
   // ── New queries for lot metrics ──
-  const canRapports = useFarmProfile().hasPermission('compta:rapports');
+  const farmProfile = useFarmProfile();
+  const canRapports = farmProfile.hasPermission('compta:rapports');
+  // Selling opens the POS (Fermia-only sales desk): never for an institution.
+  const canSell = farmProfile.hasPermission('vente:creer');
+  // POUFA band sheet: TECHNIQUE domain; exits are farm-side (`saisie:creer`).
+  const programmeAccess = useProgrammeAccess();
+  const showBandSheet = readsProgrammeDomain(user.role, programmeAccess.matrix, 'TECHNIQUE');
+  const canExit = farmProfile.hasPermission('saisie:creer') && !farmProfile.isInstitution;
   const rentabQ = useQuery({ queryKey: ['rentabilite-batch', farmId, batchId], queryFn: () => fetchRentabiliteBatch(farmId, batchId), enabled: !!batchId && canRapports });
   const feedStockQ = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
   const dashboardQ = useQuery({ queryKey: ['dashboard', farmId, asOf ?? '', period.time ?? ''], queryFn: () => fetchDashboard(farmId, asOf, period.time), staleTime: 30_000 });
   const buildingsQ = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
 
   // ── State ──
-  const [mainTab, setMainTab] = useState<MainTab>('overview');
+  // Until the farmer picks a tab: the official band sheet when the profile reads it.
+  const [chosenTab, setMainTab] = useState<MainTab | null>(null);
+  const mainTab: MainTab = chosenTab ?? (showBandSheet ? 'programme' : 'overview');
+  const officialQ = useQuery({
+    queryKey: ['band-indicators', farmId, batchId],
+    queryFn: () => cachedRead(`band-indicators.${farmId}.${batchId}`, () => fetchBandIndicators(farmId, batchId)),
+    enabled: !!batchId && showBandSheet,
+    retry: false,
+  });
+  const official = (key: string) => findIndicator(officialQ.data?.indicators, key);
+  const hasOfficial = !!officialQ.data;
   const [curveTab, setCurveTab] = useState<'weight' | 'fcr' | 'water' | 'mortality' | 'eggs'>('weight');
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const [healthFilter, setHealthFilter] = useState<'all' | 'event' | 'care'>('all');
@@ -302,15 +330,26 @@ export default function LotDetailScreen() {
     enabled: !!breedIdForStandards,
   });
 
-  // ── Cycle progress (week X / Y from breed standards) ──
+  // ── Cycle progress: the band's reference duration (POUFA), else week X / Y from breed standards ──
   const cycleInfo = useMemo(() => {
-    const std: BreedStandard[] = standardsQ.data ?? [];
     const age = m?.ageDays ?? 0;
+    if (b?.referenceDurationDays) {
+      const cycle = bandCycle({
+        ageDays: age,
+        referenceDurationDays: b.referenceDurationDays,
+        type: b.type,
+      });
+      return {
+        label: `Jour ${cycle.ageDays}/${cycle.cycleDays} · durée de référence`,
+        pct: cycle.progressPercent,
+      };
+    }
+    const std: BreedStandard[] = standardsQ.data ?? [];
     const totalWeeks = std.length > 0 ? Math.max(...std.map((s) => s.week)) : isLayer ? 72 : 12;
     const currentWeek = Math.min(Math.max(Math.ceil(age / 7), 1), totalWeeks);
     const pct = Math.min(100, (age / (totalWeeks * 7)) * 100);
-    return { currentWeek, totalWeeks, pct };
-  }, [standardsQ.data, m?.ageDays, isLayer]);
+    return { label: `Semaine ${currentWeek}/${totalWeeks}`, pct };
+  }, [standardsQ.data, m?.ageDays, isLayer, b?.referenceDurationDays, b?.type]);
 
   const lotFeedLots: FeedLotStock[] = useMemo(() => {
     return (feedStockQ.data?.lots ?? []).filter((l) => l.batchId === batchId);
@@ -579,6 +618,7 @@ export default function LotDetailScreen() {
           {/* ── HEADER + FILTRE PÉRIODE (fixes, comme Accueil) ── */}
           <ScreenHeader
             title={b.batchName ?? 'Lot'}
+            subtitle={b.code ? `Bande ${b.code}` : undefined}
             back
             right={<Chip label={b.status === 'EN_VENTE' ? 'En vente' : 'Actif'} tone={b.status === 'EN_VENTE' ? 'green' : 'brand'} />}
           />
@@ -630,13 +670,17 @@ export default function LotDetailScreen() {
               <HeroStat value={fmt(m?.liveCount ?? 0)} label="vivants" small />
               <View style={styles.heroStatSep} />
               <HeroStat
-                value={`${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
-                label="mortalité"
-                tone={normalizeMortalityStatus(m?.mortalityStatus, m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
+                value={hasOfficial ? officialText(official('taux_mortalite')) : `${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
+                label={hasOfficial ? 'mortalité officielle' : 'mortalité Fermia'}
+                tone={normalizeMortalityStatus(m?.mortalityStatus, official('taux_mortalite')?.value ?? m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
                 small
               />
               <View style={styles.heroStatSep} />
-              <HeroStat value={(m?.fcr ?? 0).toLocaleString('fr-FR')} label="IC" small />
+              <HeroStat
+                value={hasOfficial ? officialText(official('ic')) : (m?.fcr ?? 0).toLocaleString('fr-FR')}
+                label={hasOfficial ? 'IC officiel' : 'IC Fermia'}
+                small
+              />
               <View style={styles.heroStatSep} />
               {isLayer ? (
                 <HeroStat value={m?.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : '—'} label="Taux de ponte" tone={m?.layRatePercent != null && m.layRatePercent >= 100 ? 'danger' : 'text'} small />
@@ -655,11 +699,14 @@ export default function LotDetailScreen() {
           )}
           <View style={styles.heroActions}>
             <Button label="Saisir" size="xs" labelSize="caption" tone="brand" icon={PenLine} block={false} onPress={() => openDaily(batchId)} />
-            <Button label="Encaisser" size="xs" labelSize="caption" tone="accent" icon={ShoppingCart} block={false} onPress={() => openSale(batchId)} />
+            {canSell ? (
+              <Button label="Encaisser" size="xs" labelSize="caption" tone="accent" icon={ShoppingCart} block={false} onPress={() => openSale(batchId)} />
+            ) : null}
           </View>
         </View>
         <AppText size="caption" color="muted">
-          Début : {b.integrationDate} · {fmt(b.quantityAtStart)} sujets
+          Ouverture : {b.integrationDate}
+          {b.initialAgeDays ? ` à J${b.initialAgeDays}` : ''} · {fmt(b.quantityAtStart)} sujets
         </AppText>
         <View style={styles.heroPassportRow}>
           <Button label="Passeport sanitaire (PDF)" size="sm" tone="brand" icon={FileText} block onPress={() => void downloadPasseport()} disabled={pdfBusy} loading={pdfBusy} />
@@ -669,7 +716,7 @@ export default function LotDetailScreen() {
       {/* ── CYCLE PROGRESS ── */}
       <View style={styles.cycleCard}>
         <View style={styles.cycleHeader}>
-          <AppText size="small" weight="semibold" color="brand">Semaine {cycleInfo.currentWeek}/{cycleInfo.totalWeeks}</AppText>
+          <AppText size="small" weight="semibold" color="brand">{cycleInfo.label}</AppText>
           <AppText size="small" color="muted">{cycleInfo.pct.toFixed(0)} % du cycle</AppText>
         </View>
         <View style={styles.progressTrack}>
@@ -679,7 +726,7 @@ export default function LotDetailScreen() {
 
       {/* ── MAIN TABS ── */}
       <View style={styles.tabRow}>
-        {MAIN_TABS.map((t) => {
+        {MAIN_TABS.filter((t) => t.key !== 'programme' || showBandSheet).map((t) => {
           const active = mainTab === t.key;
           const Icon = t.icon;
           return (
@@ -698,9 +745,25 @@ export default function LotDetailScreen() {
         <View style={styles.overviewStack}>
           {/* Metric tiles */}
           <View style={styles.metricGrid}>
-            <MetricTile label="GMQ" value={m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'} icon={TrendingUp} tone="brand" threeCol />
+            <MetricTile
+              label={hasOfficial ? 'GMQ officiel' : 'GMQ (Fermia)'}
+              value={hasOfficial ? officialText(official('gmq_g_j')) : m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'}
+              sub={hasOfficial ? conduiteLine(m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—') : undefined}
+              icon={TrendingUp}
+              tone="brand"
+              threeCol
+              labelLines={2}
+            />
             <MetricTile label={m?.ipeTarget != null ? `IPE (cible ${Math.round(m.ipeTarget)})` : 'IPE'} value={m?.ipe != null ? String(Math.round(m.ipe)) : '—'} icon={Activity} tone="accent" threeCol labelLines={2} />
-            <MetricTile label="Viabilité" value={`${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`} icon={HeartPulse} tone={(m?.viabilityPercent ?? 100) >= 95 ? 'green' : 'amber'} threeCol />
+            <MetricTile
+              label={hasOfficial ? 'Viabilité officielle' : 'Viabilité (Fermia)'}
+              value={hasOfficial ? officialText(official('viabilite')) : `${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`}
+              sub={hasOfficial ? conduiteLine(`${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`) : undefined}
+              icon={HeartPulse}
+              tone={(official('viabilite')?.value ?? m?.viabilityPercent ?? 100) >= 95 ? 'green' : 'amber'}
+              threeCol
+              labelLines={2}
+            />
             <MetricTile label="Poids moyen" value={avgWeightKg != null ? `${avgWeightKg.toFixed(1)} kg` : '—'} icon={Weight} tone="brand" threeCol labelLines={2} />
             <MetricTile label="Aliment/bird" value={healthQ.data?.feedPerBirdGrams != null && healthQ.data.feedPerBirdGrams > 0 ? `${Math.round(healthQ.data.feedPerBirdGrams)} g/j` : '—'} icon={Wheat} tone="default" threeCol labelLines={2} />
             <MetricTile label="Densité" value={m?.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : '—'} icon={Layers} tone="default" threeCol />
@@ -911,7 +974,7 @@ export default function LotDetailScreen() {
                   <AppText size="body" weight="bold" color="text">{fmtFcfa(pnl.revenueFcfa)}</AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Coût/kg</AppText>
+                  <AppText size="small" color="muted">{COST_PER_KG_SOLD_LABEL} (Fermia)</AppText>
                   <AppText size="body" weight="bold" color="text">{pnl.costPerKgFcfa != null ? fmtFcfa(pnl.costPerKgFcfa) : '—'}</AppText>
                 </View>
                 <View style={styles.healthStat}>
@@ -923,11 +986,25 @@ export default function LotDetailScreen() {
                   <AppText size="body" weight="bold" color="text">{pnl.kgSold > 0 ? `${pnl.kgSold.toLocaleString('fr-FR')} kg` : '—'}</AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Marge</AppText>
+                  <AppText size="small" color="muted">Taux de marge (Fermia)</AppText>
                   <AppText size="body" weight="bold" color={pnl.marginPct != null && pnl.marginPct < 0 ? 'danger' : 'text'}>
                     {pnl.marginPct != null ? `${pnl.marginPct.toFixed(1)} %` : '—'}
                   </AppText>
                 </View>
+                {official('marge_fcfa') ? (
+                  <View style={styles.healthStat}>
+                    <AppText size="small" color="muted">{marginLabel(officialQ.data?.indicators, 'marge_fcfa')} (officiel)</AppText>
+                    <AppText size="body" weight="bold" color={(official('marge_fcfa')?.value ?? 0) < 0 ? 'danger' : 'text'}>
+                      {officialText(official('marge_fcfa'))}
+                    </AppText>
+                  </View>
+                ) : null}
+                {official('cout_production_kg') ? (
+                  <View style={styles.healthStat}>
+                    <AppText size="small" color="muted">{official('cout_production_kg')!.label} (officiel)</AppText>
+                    <AppText size="body" weight="bold" color="text">{officialText(official('cout_production_kg'))}</AppText>
+                  </View>
+                ) : null}
               </View>
             </Card>
           )}
@@ -1077,19 +1154,19 @@ export default function LotDetailScreen() {
               </View>
               <View style={styles.healthGrid}>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Mortalité</AppText>
+                  <AppText size="small" color="muted">Mortalité (Fermia)</AppText>
                   <AppText size="body" weight="bold" color={normalizeMortalityStatus(healthQ.data.mortalityStatus, healthQ.data.mortalityPercent) === 'normal' ? 'text' : 'danger'}>
                     {healthQ.data.mortalityPercent.toLocaleString('fr-FR')} %
                   </AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Viabilité</AppText>
+                  <AppText size="small" color="muted">Viabilité (Fermia)</AppText>
                   <AppText size="body" weight="bold" color="text">
                     {healthQ.data.viabilityPercent.toLocaleString('fr-FR')} %
                   </AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">IC</AppText>
+                  <AppText size="small" color="muted">IC (Fermia)</AppText>
                   <AppText size="body" weight="bold" color="text">
                     {healthQ.data.fcr?.toLocaleString('fr-FR') ?? '—'}
                   </AppText>
@@ -1145,6 +1222,11 @@ export default function LotDetailScreen() {
           )}
         </>
       )}
+
+      {/* ── POUFA band sheet ── */}
+      {mainTab === 'programme' && showBandSheet && b ? (
+        <BandPanel farmId={farmId} batch={b} canExit={canExit} has={(code) => farmProfile.hasPermission(code as Parameters<typeof farmProfile.hasPermission>[0])} />
+      ) : null}
 
       {/* ── ALERTS ── */}
       {lotAlerts.length > 0 && mainTab === 'overview' && (

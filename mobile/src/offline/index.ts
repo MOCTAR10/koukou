@@ -22,8 +22,17 @@ import {
   recordOrderPaymentQueued,
   recordStockLossQueued,
   updatePointOfSaleQueued,
+  confirmDeliveryQueued,
+  createDeclarationQueued,
+  createSortieQueued,
+  setFarmGpsQueued,
+  // POUFA lot A sante
+  completeProphylaxisQueued,
+  createTreatmentQueued,
+  type DeclarationSent,
   type FlushSummary,
   type SendResult,
+  type SendResultOf,
 } from './engine';
 import {
   clearQueue,
@@ -38,7 +47,13 @@ import {
 } from './store';
 
 export { clearQueue, clearRejected, dismissRejected, flushQueue, heldCashSummary, loadOps, loadRejected };
-export type { FlushSummary, OfflineOp, RejectedOp, SendResult };
+export type { DeclarationSent, FlushSummary, OfflineOp, RejectedOp, SendResult, SendResultOf };
+
+// POUFA field work (mobile M2).
+export { confirmDeliveryQueued, createDeclarationQueued, createSortieQueued, setFarmGpsQueued };
+
+// POUFA lot A sante: treatments and care completions (CDC n° 22-23).
+export { completeProphylaxisQueued, createTreatmentQueued };
 
 export {
   cancelOrderQueued,

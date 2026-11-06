@@ -16,6 +16,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import {
   closeAccountExercice,
   createRegularisation,
@@ -89,14 +90,33 @@ function SoldesRow({ account }: { account: AccountSoldes }) {
 }
 
 export default function ComptabiliteScreen() {
+  const { readsFermia } = useFarmProfile();
+  // POUFA lot A droits: SYSCOHADA accounting (COMPTABILITE) opens to an
+  // institution granted it in its matrix, read-only; otherwise the screen asks nothing.
+  return readsFermia('COMPTABILITE') ? <ComptabiliteContent /> : <ComptabiliteUnavailable />;
+}
+
+function ComptabiliteUnavailable() {
+  return (
+    <Screen header={<ScreenHeader title="Comptabilité SYSCOHADA" back />}>
+      <Card>
+        <AppText size="body" color="muted">
+          La comptabilité de la ferme n’est pas ouverte à votre profil institutionnel. Les indicateurs économiques du programme restent dans Rentabilité.
+        </AppText>
+      </Card>
+    </Screen>
+  );
+}
+
+function ComptabiliteContent() {
   const { farms, farmId } = useAuth();
-  const { hasPermission } = useFarmProfile();
+  const { fermiaWrites } = useFarmProfile();
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<Tab>('journal');
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const canEcritures = hasPermission('compta:ecritures');
+  const canEcritures = fermiaWrites('compta:ecritures');
 
   const journalQuery = useQuery({
     queryKey: ['accounting-journal', farmId],
@@ -197,6 +217,7 @@ export default function ComptabiliteScreen() {
           back
         />
       }>
+      <ReadOnlyNotice what="Comptabilité de la ferme" />
       <Segmented
         options={TABS}
         value={tab}
@@ -666,7 +687,7 @@ function RegularisationSheet({
         <TextInput
           value={label}
           onChangeText={setLabel}
-          placeholder="Ex. Ajustement provende culture"
+          placeholder="Ex. Ajustement de stock provende"
           placeholderTextColor={color.ink[300]}
           style={styles.input}
         />

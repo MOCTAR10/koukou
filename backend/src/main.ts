@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { AppModule } from './app.module.js';
+import { applyBodyLimits } from './common/http/body-limits.js';
 import {
   swaggerEnabled,
   trustProxyHops,
@@ -14,6 +15,8 @@ import { uploadsRoot } from './modules/farms/farms.service.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Province outlines need more than the default 100 KB JSON body.
+  applyBodyLimits(app);
 
   // Farm logos (POST /farms/:farmId/logo) are public under /uploads/logos.
   // Only that folder: the rest of UPLOADS_DIR (sanitary declaration photos)
@@ -42,8 +45,15 @@ async function bootstrap() {
     origin: corsOrigins === '*' ? '*' : corsOrigins.split(',').map((o: string) => o.trim()),
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
-    // The audit journal's request id, echoed on every response.
-    exposedHeaders: ['X-Request-Id'],
+    // The audit journal's request id, echoed on every response; the file
+    // routes' fingerprints and truncation flag, read by the web downloads.
+    exposedHeaders: [
+      'X-Request-Id',
+      'Content-Disposition',
+      'X-Audit-Truncated',
+      'X-Report-Fingerprint',
+      'X-Report-Sha256',
+    ],
   });
 
   const swaggerPath = configService.get('SWAGGER_PATH', 'api-docs');

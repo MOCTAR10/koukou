@@ -28,6 +28,7 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { createOrderQueued } from '@/offline/engine';
 import { DEFAULT_AVG_WEIGHT_KG, type SaleProductType, type SaleUnit } from '@/api/mutations';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { SPECIES_ICONS } from '@/api/format';
 import { breedImageForLot } from '@/constants/breedImages';
 import { customerTypeLabel } from '@/constants/customers';
@@ -967,7 +968,8 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
 
 export default function CommandesScreen() {
   const { farmId } = useAuth();
-  const canManage = useFarmProfile().hasPermission('vente:creer');
+  // POUFA lot A droits: an institution granted VENTES reads the orders, never creates one.
+  const canManage = useFarmProfile().fermiaWrites('vente:creer');
   const [filter, setFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -1020,6 +1022,7 @@ export default function CommandesScreen() {
         <Spinner label="Chargement des commandes…" />
       ) : (
         <View style={{ gap: spacing.lg }}>
+          <ReadOnlyNotice what="Commandes" />
           <OrderHero orders={list} />
 
           <View style={styles.searchRow}>

@@ -19,7 +19,7 @@ export function ProductThumb({
   photo?: string | null;
   size?: 'sm' | 'md';
 }) {
-  if (product === 'PROVENDE' || product === 'RECOLTE') return <IconTile icon={<Wheat />} tone="amber" size={size} />;
+  if (product === 'PROVENDE') return <IconTile icon={<Wheat />} tone="amber" size={size} />;
   if (product === 'AUTRE') return <IconTile icon={<Package />} tone="slate" size={size} />;
   return <PhotoThumb src={photo ?? (product === 'OEUF' ? EGG_IMAGES.alveole : SPECIES_IMAGES.POULET)} size={size} />;
 }

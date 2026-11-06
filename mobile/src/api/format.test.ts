@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { givenName, initials } from './format';
+import { farmProvinceLabel, givenName, initials } from './format';
 
 describe('format', () => {
   it('initials : deux premières initiales en majuscules', () => {
@@ -15,5 +15,22 @@ describe('format', () => {
     expect(givenName('Mme Binta Ako')).toBe('Binta');
     expect(givenName('Joseph Ndong')).toBe('Joseph');
     expect(givenName('Binta')).toBe('Binta');
+  });
+});
+
+describe('farmProvinceLabel', () => {
+  it('affiche la province servie par GET /farms', () => {
+    expect(farmProvinceLabel({ provinceCode: 'G2', provinceName: 'Haut-Ogooué' })).toBe('Haut-Ogooué');
+  });
+
+  it('repli sur le code quand le nom manque', () => {
+    expect(farmProvinceLabel({ provinceCode: 'G1', provinceName: null })).toBe('G1');
+    expect(farmProvinceLabel({ provinceCode: 'G1', provinceName: '  ' })).toBe('G1');
+  });
+
+  it('null sans province ou sans ferme (session enregistrée avant ces champs)', () => {
+    expect(farmProvinceLabel({ provinceCode: null, provinceName: null })).toBeNull();
+    expect(farmProvinceLabel({})).toBeNull();
+    expect(farmProvinceLabel(undefined)).toBeNull();
   });
 });

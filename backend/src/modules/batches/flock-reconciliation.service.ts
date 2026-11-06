@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { Brackets, EntityManager, Repository } from 'typeorm';
 import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { SlaughterStatus } from '../../common/enums/slaughter-status.enum.js';
@@ -13,6 +13,12 @@ import { ProductionBatch } from './entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
 import { RETRAIT_FAMILIES, Sortie } from '../bandes/entities/sortie.entity.js';
+
+/**
+ * Day a slaughter order's birds leave the band: the sortie's date for an
+ * order created by a POUFA sortie, else the planned date.
+ */
+const SLAUGHTER_DAY = 'COALESCE(sortie.sortie_date, order.planned_date)';
 
 /**
  * Reconcilie les sorties réelles d'un lot : ventes POULET (PIECE/KG, nettes des
@@ -53,9 +59,9 @@ export class FlockReconciliationService {
         .groupBy('sale.sale_date')
         .getRawMany<{ day: string; total: string }>(),
       this.slaughterQuery(batchId, em)
-        .select("TO_CHAR(order.planned_date, 'YYYY-MM-DD')", 'day')
+        .select(`TO_CHAR(${SLAUGHTER_DAY}, 'YYYY-MM-DD')`, 'day')
         .addSelect('COALESCE(SUM(order.bird_count), 0)', 'total')
-        .groupBy('order.planned_date')
+        .groupBy(SLAUGHTER_DAY)
         .getRawMany<{ day: string; total: string }>(),
       this.sanitaryQuery(batchId, em)
         .select("TO_CHAR(event.occurred_at, 'YYYY-MM-DD')", 'day')
@@ -138,14 +144,32 @@ export class FlockReconciliationService {
       );
   }
 
+  /**
+   * Slaughter orders whose birds left the band: processed, or still DRAFT /
+   * SENT when they come from a POUFA ABATTOIR sortie (CDC « effectif présent =
+   * mis en place − morts − sorties »: the sortie itself takes the birds out;
+   * the order follows, and cancelling it gives them back).
+   */
   private slaughterQuery(batchId: string, em?: EntityManager) {
     const repo = em ? em.getRepository(SlaughterOrder) : this.slaughterRepo;
     return repo
       .createQueryBuilder('order')
+      .leftJoin(Sortie, 'sortie', 'sortie.slaughter_order_id = order.id')
       .where('order.batch_id = :batchId', { batchId })
-      .andWhere('order.status = :processed', {
-        processed: SlaughterStatus.PROCESSED,
-      });
+      .andWhere(
+        new Brackets((qb) =>
+          qb
+            .where('order.status = :processed', {
+              processed: SlaughterStatus.PROCESSED,
+            })
+            .orWhere(
+              '(sortie.id IS NOT NULL AND order.status IN (:...sortieStatuses))',
+              {
+                sortieStatuses: [SlaughterStatus.DRAFT, SlaughterStatus.SENT],
+              },
+            ),
+        ),
+      );
   }
 
   private sanitaryQuery(batchId: string, em?: EntityManager) {
@@ -211,7 +235,7 @@ export class FlockReconciliationService {
   ): Promise<number> {
     let qb = this.slaughterQuery(batchId, em);
     if (asOf) {
-      qb = qb.andWhere('order.planned_date <= :asOf', { asOf });
+      qb = qb.andWhere(`${SLAUGHTER_DAY} <= :asOf`, { asOf });
     }
     const row = await qb
       .select('COALESCE(SUM(order.bird_count), 0)', 'total')

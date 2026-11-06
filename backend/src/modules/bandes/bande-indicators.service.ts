@@ -22,6 +22,7 @@ import {
   formulasInForce,
   type OfficialIndicator,
 } from '../indicators/official-indicators.js';
+import { isPeriodIndicator } from '../indicators/formula/formula-catalog.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { bandeVariables, type BandeVariables } from './bande-variables.js';
@@ -110,7 +111,9 @@ export class BandeIndicatorsService {
       deathEventsByDate: new Map(deathEvents.map((d) => [d.date, d.quantity])),
       weighedSorties: await this.weighedSorties(sorties),
       revenueFcfa: pnl.revenueFcfa,
-      chargesFcfa: pnl.expensesFcfa,
+      // Every cost of the band, input costs without an expense included
+      // (legacy lots), so the official margin and Fermia's agree.
+      chargesFcfa: pnl.revenueFcfa - pnl.netFcfa,
     });
     const at = factInstant(day);
     return {
@@ -120,17 +123,19 @@ export class BandeIndicatorsService {
       ageDays: ageOn(start, batch.initialAgeDays, day),
       parametersAt: at.toISOString(),
       variables,
+      // POUFA lot A pilot: the steering's per-period formulas are not a band's.
       indicators: evaluateOfficialIndicators(
         formulasInForce(resolver, at),
         variables,
-      ),
+      ).filter((i) => !isPeriodIndicator(i.key)),
       completenessPct: completenessPct(rows, start, day, utcDay()),
     };
   }
 
   /**
    * Sorties with a measured weight whose animals did leave: removals always,
-   * a sale not cancelled, a slaughter order processed.
+   * a sale not cancelled, a slaughter order not cancelled (its birds leave at
+   * the sortie).
    */
   private async weighedSorties(sorties: Sortie[]) {
     const weighed = sorties.filter((s) => s.weightKg != null && s.weightKg > 0);
@@ -151,7 +156,7 @@ export class BandeIndicatorsService {
     );
     const processed = new Set(
       orders
-        .filter((o) => o.status === SlaughterStatus.PROCESSED)
+        .filter((o) => o.status !== SlaughterStatus.CANCELLED)
         .map((o) => o.id),
     );
     return weighed

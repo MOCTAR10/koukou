@@ -2,9 +2,15 @@ import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { PERMISSIONS } from '../../common/permissions/permission-catalog.js';
 import { OWNER_PROFILE } from '../programme/parameter-catalog.js';
-import { FERMIA_DOMAINS, actionForMethod } from './access-domains.js';
 import {
+  FERMIA_DOMAINS,
+  actionForMethod,
+  isInstitutionFermiaDomain,
+} from './access-domains.js';
+import {
+  consults,
   decideRoute,
+  decideRouteAny,
   farmScopeSql,
   includesFarm,
   includesProvince,
@@ -14,6 +20,10 @@ import {
   isNationalAdministrator,
   matrixExcessRefusal,
   mayChangeParameter,
+  OWNER_PROFILES_CLOSED_TO_PLATFORM,
+  parameterChangeRefusal,
+  parameterOwnerRight,
+  readOnlyRefusal,
   scopeExcess,
   scopeKindRefusal,
   validateMatrix,
@@ -24,7 +34,10 @@ import {
   PERMISSION_DOMAINS,
   institutionPermissions,
 } from './permission-domains.js';
-import { mayHandleSanitaryDeclarations } from './sanitary-declaration.policy.js';
+import {
+  isVeterinaryAuthority,
+  mayHandleSanitaryDeclarations,
+} from './sanitary-declaration.policy.js';
 
 const PROGRAM = '11111111-1111-4111-8111-111111111111';
 const OTHER_PROGRAM = '22222222-2222-4222-8222-222222222222';
@@ -79,10 +92,14 @@ describe('default profiles', () => {
     }
   });
 
-  it('never grant a Fermia-only domain', () => {
+  it('never grant a never-grantable Fermia domain, the bonus ones only to the DGE in consultation', () => {
     for (const p of DEFAULT_PROFILES) {
       for (const d of FERMIA_DOMAINS) {
-        expect(Object.keys(p.matrix)).not.toContain(d);
+        if (!isInstitutionFermiaDomain(d) || p.code !== 'DGE') {
+          expect(Object.keys(p.matrix), `${p.code} ${d}`).not.toContain(d);
+        } else {
+          expect(p.matrix[d]).toEqual(['CONSULTER']);
+        }
       }
     }
   });
@@ -119,12 +136,34 @@ describe('decideRoute', () => {
     expect(denied.allowed === false && denied.reason).toContain('POUFA / DGE');
   });
 
-  it('never opens a Fermia-only domain, even if a matrix held it', () => {
+  it('opens a Fermia bonus domain granted in consultation, never the others', () => {
+    const dge = access('DGE');
+    expect(decideRoute(dge, 'VENTES', 'CONSULTER').allowed).toBe(true);
+    expect(decideRoute(dge, 'VENTES', 'CREER').allowed).toBe(false);
     const forged = access('DGE', {
-      matrix: { VENTES: ['CONSULTER'] } as never,
+      matrix: { PLATEFORME: ['CONSULTER'], CULTURES: ['MODIFIER'] } as never,
     });
-    expect(decideRoute(forged, 'VENTES', 'CONSULTER').allowed).toBe(false);
     expect(decideRoute(forged, 'PLATEFORME', 'CONSULTER').allowed).toBe(false);
+    expect(decideRoute(forged, 'CULTURES', 'MODIFIER').allowed).toBe(false);
+    expect(decideRoute(access('AGENT_TECHNIQUE'), 'VENTES', 'CONSULTER').allowed).toBe(false);
+  });
+
+  it('accepts an alternative grant (@AlsoGrantedBy)', () => {
+    const agent = access('AGENT_TECHNIQUE');
+    expect(decideRoute(agent, 'REGISTRE', 'MODIFIER').allowed).toBe(false);
+    expect(
+      decideRouteAny(agent, 'REGISTRE', 'MODIFIER', [['TECHNIQUE', 'VALIDER']]).allowed,
+    ).toBe(true);
+    const vet = decideRouteAny(access('VETERINAIRE'), 'REGISTRE', 'MODIFIER', [['TECHNIQUE', 'VALIDER']]);
+    expect(vet.allowed === false && vet.reason).toContain('Registre');
+    expect(decideRouteAny(null, 'REGISTRE', 'MODIFIER', [['TECHNIQUE', 'VALIDER']]).allowed).toBe(false);
+  });
+
+  it('consults: the matrix, never outside the journal for an audit scope', () => {
+    expect(consults(access('DGE'), 'ECONOMIQUE')).toBe(true);
+    expect(consults(access('AGENT_TECHNIQUE'), 'ECONOMIQUE')).toBe(false);
+    expect(consults(access('ANINF'), 'AUDIT')).toBe(true);
+    expect(consults(access('ANINF', { matrix: { REGISTRE: ['CONSULTER'] } }), 'REGISTRE')).toBe(false);
   });
 
   it('keeps the audit scope on the journal only', () => {
@@ -254,10 +293,24 @@ describe('validateMatrix', () => {
     ).toEqual({ ok: true, matrix: { REGISTRE: ['CONSULTER', 'MODIFIER'] } });
   });
 
-  it('refuses Fermia-only and unknown domains, unknown actions', () => {
+  it('accepts the Fermia bonus domains in consultation only', () => {
+    expect(
+      validateMatrix(
+        { VENTES: ['CONSULTER'], MARCHE: ['CONSULTER'], COMPTABILITE: ['CONSULTER'], EQUIPE: ['CONSULTER'] },
+        AccessScopeKind.ALL,
+      ).ok,
+    ).toBe(true);
+    const write = validateMatrix({ VENTES: ['CONSULTER', 'CREER'] }, AccessScopeKind.ALL);
+    expect(write.ok === false && write.error).toContain('consultation');
+  });
+
+  it('refuses never-grantable Fermia and unknown domains, unknown actions', () => {
     for (const bad of [
-      { MARCHE: ['CONSULTER'] },
-      { COMPTABILITE: ['CONSULTER'] },
+      { MARCHE: ['CREER'] },
+      { COMPTABILITE: ['MODIFIER'] },
+      { CULTURES: ['CONSULTER'] },
+      { COMPTE: ['CONSULTER'] },
+      { PLATEFORME: ['CONSULTER'] },
       { INCONNU: ['CONSULTER'] },
       { REGISTRE: ['SUPPRIMER'] },
       { REGISTRE: 'CONSULTER' },
@@ -294,9 +347,19 @@ describe('permission codes of an institutional profile', () => {
     }
   });
 
-  it('derives the codes from the matrix, never Fermia-only ones', () => {
-    expect([...institutionPermissions(access('DGE').matrix)]).toEqual([
+  it('derives the codes from the matrix: read codes only on the Fermia domains', () => {
+    expect([...institutionPermissions(access('DGE').matrix)].sort()).toEqual([
+      'caisse:lire',
+      'compta:lire',
       'compta:rapports',
+      'intrants:lire',
+      'market:lire',
+      'registre:gps',
+      'rh:lire',
+    ]);
+    expect([...institutionPermissions(access('AGENT_TECHNIQUE').matrix)].sort()).toEqual([
+      'intrants:lire',
+      'registre:gps',
     ]);
     expect(
       [...institutionPermissions(access('VETERINAIRE').matrix)].sort(),
@@ -305,24 +368,109 @@ describe('permission codes of an institutional profile', () => {
   });
 });
 
-describe('parameter owner profile', () => {
-  it('lets the owner profile and the platform admin change a parameter', () => {
-    expect(
-      mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'VETERINAIRE'),
-    ).toBe(true);
-    expect(
-      mayChangeParameter(UserRole.INSTITUTION, 'VETERINAIRE', 'VETERINAIRE'),
-    ).toBe(true);
-    expect(mayChangeParameter(UserRole.INSTITUTION, 'DGE', 'VETERINAIRE')).toBe(
-      false,
+// POUFA lot A2 droits: the Fermia bonus features stay read-only.
+describe('Fermia bonus features in read-only', () => {
+  it('never maps the bonus write codes, whatever the matrix', () => {
+    const codes = institutionPermissions({
+      ECONOMIQUE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
+      INTRANTS: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
+      TRACABILITE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
+      TECHNIQUE: ['CONSULTER', 'CREER', 'MODIFIER'],
+    });
+    for (const code of [
+      'compta:depense',
+      'stock:gerer',
+      'production:abattage',
+    ] as const) {
+      expect(codes.has(code), code).toBe(false);
+    }
+    expect(codes.has('compta:rapports')).toBe(true);
+    expect(codes.has('saisie:creer')).toBe(true);
+  });
+
+  it('refuses every action but CONSULTER on a marked or a Fermia bonus route', () => {
+    expect(readOnlyRefusal('ECONOMIQUE', 'CONSULTER', 'Dépenses')).toBeNull();
+    expect(readOnlyRefusal('ECONOMIQUE', 'CREER', undefined)).toBeNull();
+    for (const action of ['CREER', 'MODIFIER', 'VALIDER', 'ADMINISTRER'] as const) {
+      expect(readOnlyRefusal('INTRANTS', action, 'Stock d’aliment')).toMatch(
+        /« Stock d’aliment ».*consultation seule/,
+      );
+    }
+    expect(readOnlyRefusal('COMPTABILITE', 'MODIFIER', undefined)).toMatch(
+      /« Comptabilité »/,
     );
+    expect(readOnlyRefusal(undefined, 'CREER', undefined)).toBeNull();
+  });
+});
+
+describe('parameter owner right (POUFA lot A2 vet)', () => {
+  const matrixOf = (code: string) => access(code).matrix;
+
+  it('lets the holders of the owner right and the platform admin change a parameter', () => {
+    expect(mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'DGE')).toBe(true);
+    expect(mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'ADMIN')).toBe(
+      true,
+    );
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('VETERINAIRE'), 'VETERINAIRE'),
+    ).toBe(true);
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('DGE'), 'VETERINAIRE'),
+    ).toBe(false);
+    expect(mayChangeParameter(UserRole.INSTITUTION, matrixOf('DGE'), 'DGE')).toBe(true);
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('VETERINAIRE'), 'DGE'),
+    ).toBe(false);
+    expect(mayChangeParameter(UserRole.INSTITUTION, matrixOf('ADMIN'), 'ADMIN')).toBe(true);
+    expect(mayChangeParameter(UserRole.INSTITUTION, matrixOf('ADMIN'), 'DGE')).toBe(false);
     expect(mayChangeParameter(UserRole.INSTITUTION, null, 'DGE')).toBe(false);
     expect(mayChangeParameter(UserRole.PROPRIETAIRE, null, 'DGE')).toBe(false);
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('DGE'), 'INCONNU'),
+    ).toBe(false);
+  });
+
+  it('reads the matrix, never the profile code', () => {
+    // A custom profile with the vets' rights owns their parameters...
+    const custom = { ...matrixOf('VETERINAIRE') };
+    expect(mayChangeParameter(UserRole.INSTITUTION, custom, 'VETERINAIRE')).toBe(true);
+    // ...the VETERINAIRE profile stripped of SANITAIRE:MODIFIER does not.
+    const stripped = { ...matrixOf('VETERINAIRE'), SANITAIRE: ['CONSULTER' as const] };
+    expect(mayChangeParameter(UserRole.INSTITUTION, stripped, 'VETERINAIRE')).toBe(false);
+    // The owner right alone is not enough: PARAMETRES:MODIFIER too.
+    const noParam = { SANITAIRE: matrixOf('VETERINAIRE').SANITAIRE };
+    expect(mayChangeParameter(UserRole.INSTITUTION, noParam, 'VETERINAIRE')).toBe(false);
+  });
+
+  it('keeps the veterinary thresholds closed to the platform admin', () => {
+    expect(OWNER_PROFILES_CLOSED_TO_PLATFORM).toEqual(['VETERINAIRE']);
+    expect(
+      mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'VETERINAIRE'),
+    ).toBe(false);
+    expect(
+      parameterChangeRefusal(UserRole.PLATFORM_ADMIN, null, 'VETERINAIRE', 'le seuil « x »'),
+    ).toBe(
+      'Accès refusé : le seuil « x » relève du profil « VETERINAIRE » (droits Paramètres du programme : Modifier et Sanitaire : Modifier) ; l’administrateur de la plateforme le consulte seulement.',
+    );
+    expect(
+      parameterChangeRefusal(UserRole.INSTITUTION, matrixOf('VETERINAIRE'), 'VETERINAIRE', 'x'),
+    ).toBeNull();
+  });
+
+  it('has an owner right for every owner key, held by its seeded profile only', () => {
+    for (const owner of Object.values(OWNER_PROFILE)) {
+      const right = parameterOwnerRight(owner)!;
+      expect(right, owner).not.toBeNull();
+      const holders = DEFAULT_PROFILES.filter((p) =>
+        mayChangeParameter(UserRole.INSTITUTION, p.matrix, owner),
+      ).map((p) => p.code);
+      expect(holders, owner).toEqual([owner]);
+    }
   });
 });
 
 describe('sanitary declarations', () => {
-  it('stay between the farm and the veterinary services', () => {
+  it('stay between the farm and the veterinary authority (SANITAIRE:VALIDER)', () => {
     expect(
       mayHandleSanitaryDeclarations({ role: UserRole.PROPRIETAIRE }, null),
     ).toBe(true);
@@ -332,15 +480,33 @@ describe('sanitary declarations', () => {
     expect(
       mayHandleSanitaryDeclarations(
         { role: UserRole.INSTITUTION },
-        { profileCode: 'VETERINAIRE' },
+        access('VETERINAIRE'),
       ),
     ).toBe(true);
     expect(
       mayHandleSanitaryDeclarations(
         { role: UserRole.INSTITUTION },
-        { profileCode: 'DGE' },
+        access('DGE'),
       ),
     ).toBe(false);
+    // The matrix decides: the DGE granted SANITAIRE:CONSULTER still sees no
+    // declaration; a custom profile granted VALIDER does.
+    expect(
+      mayHandleSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        { matrix: { SANITAIRE: ['CONSULTER'] } },
+      ),
+    ).toBe(false);
+    expect(
+      mayHandleSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        { matrix: { SANITAIRE: ['CONSULTER', 'VALIDER'] } },
+      ),
+    ).toBe(true);
+    expect(isVeterinaryAuthority(null)).toBe(false);
+    expect(
+      DEFAULT_PROFILES.filter((p) => isVeterinaryAuthority(p.matrix)).map((p) => p.code),
+    ).toEqual(['VETERINAIRE']);
     expect(
       mayHandleSanitaryDeclarations({ role: UserRole.INSTITUTION }, null),
     ).toBe(false);

@@ -6,6 +6,7 @@ import type { BatchWithMetrics } from '../api/types';
 import type { AssignableMember, FarmMember, FarmTask, TaskStatus } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote, todayIso } from '../components/form';
 import { ConfirmModal, invalidateFarm, TaskStatusBadge } from '../components/org/shared';
@@ -44,6 +45,8 @@ export function TasksPage() {
   const { user } = useAuth();
   const { hasPermission } = useFarmProfile();
   const canManage = hasPermission('equipe:taches');
+  // The team lists are Fermia-only (EQUIPE): an institution reads the tasks without them.
+  const canReadTeam = useCanRead()('EQUIPE');
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>('OPEN');
   const [form, setForm] = useState<{ task: FarmTask | null } | null>(null);
@@ -58,13 +61,13 @@ export function TasksPage() {
   const assignable = useQuery({
     queryKey: ['assignable-team', farmId],
     queryFn: () => api.get<AssignableMember[]>(`/farms/${farmId}/team`),
-    enabled: !!farmId && canManage,
+    enabled: !!farmId && canManage && canReadTeam,
   });
   // The full list too: a suspended assignee is no longer in the assignable team.
   const members = useQuery({
     queryKey: ['eleveurs', farmId],
     queryFn: () => api.get<FarmMember[]>(`/farms/${farmId}/eleveurs`),
-    enabled: !!farmId && hasPermission('equipe:gerer', 'rh:lire'),
+    enabled: !!farmId && hasPermission('equipe:gerer', 'rh:lire') && canReadTeam,
   });
   const batches = useQuery({
     queryKey: ['batches', farmId],

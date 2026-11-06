@@ -10,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { SlaughterDestination } from '../../../common/enums/slaughter-destination.enum.js';
 import { SlaughterType } from '../../../common/enums/slaughter-type.enum.js';
@@ -65,6 +66,15 @@ export class CreateSlaughterOrderDto {
   @IsOptional()
   @IsString({ message: 'Les remarques doivent être une chaîne.' })
   abattoirNotes?: string;
+
+  // POUFA lot A2 divers (F4): the abattoir of the operator registry.
+  @ApiPropertyOptional({
+    description:
+      'Abattoir (registre des opérateurs) : le traitement de l’ordre cède le lot à cet opérateur',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'Identifiant d’abattoir invalide.' })
+  operatorId?: string;
 }
 
 export class UpdateSlaughterOrderDto {
@@ -110,6 +120,13 @@ export class UpdateSlaughterOrderDto {
   @IsOptional()
   @IsString({ message: 'Les remarques doivent être une chaîne.' })
   abattoirNotes?: string;
+
+  // POUFA lot A2 divers (F4): null removes the abattoir (before processing).
+  @ApiPropertyOptional({ description: 'Abattoir (registre des opérateurs), null pour le retirer', nullable: true })
+  @IsOptional()
+  @ValidateIf((_o, v) => v !== null)
+  @IsUUID('4', { message: 'Identifiant d’abattoir invalide.' })
+  operatorId?: string | null;
 }
 
 export class SendSlaughterOrderDto {

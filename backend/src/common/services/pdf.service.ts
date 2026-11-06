@@ -19,6 +19,46 @@ export interface ReceiptData {
   paidAmountFcfa: number;
   remainingFcfa: number;
   method: string;
+  /** POUFA lot A2 divers (F10): traced lots of the sale, signed public QR. */
+  traceLots?: ReceiptTraceLot[];
+}
+
+/** A traced lot printed on a receipt: code and signed public address `/l/<code>?s=…`. */
+export interface ReceiptTraceLot {
+  code: string;
+  url: string;
+  /** Sub-lot ceded by this sale (customer linked to an operator). */
+  ceded: boolean;
+}
+
+/**
+ * F10: « Traçabilité » block of a receipt or an order form: each traced lot
+ * with its code, its public page link and the same signed QR as its label.
+ */
+export function traceLotBlocks(lots: readonly ReceiptTraceLot[] | undefined): object[] {
+  if (!lots || lots.length === 0) return [];
+  return [
+    { text: 'Traçabilité', style: 'subheader', margin: [0, 12, 0, 4] },
+    ...lots.map((lot) => ({
+      columns: [
+        { qr: lot.url, fit: 80, width: 90 },
+        {
+          width: '*',
+          stack: [
+            { text: `${lot.ceded ? 'Sous-lot cédé' : 'Lot tracé'} : ${lot.code}`, bold: true },
+            { text: lot.url, fontSize: 8, color: '#555555', link: lot.url },
+            {
+              text: 'Scannez ce code pour voir l’origine du lot (ferme, province, dates).',
+              fontSize: 8,
+              color: '#888888',
+            },
+          ],
+        },
+      ],
+      columnGap: 8,
+      margin: [0, 2, 0, 6],
+    })),
+  ];
 }
 
 export interface PnlReportData {
@@ -62,6 +102,8 @@ export interface BonCommandeData {
   method: string;
   /** Passeport de traçabilité du lot (figé au bon de commande). */
   passport?: OrderPassportSnapshot | null;
+  /** POUFA lot A2 divers (F10): traced lots of the order, signed public QR. */
+  traceLots?: ReceiptTraceLot[];
 }
 
 export interface AccountingPdfSection {
@@ -214,6 +256,7 @@ export class PdfService {
             }
           : {},
         { text: `Paiement : ${data.method}`, style: 'meta' },
+        ...traceLotBlocks(data.traceLots),
         {
           qr: `KOUKOU|VTE|${data.referenceNumber}|${data.totalAmountFcfa}`,
           fit: 110,
@@ -768,6 +811,7 @@ export class PdfService {
             }
           : {},
         ...passportBlocks,
+        ...traceLotBlocks(data.traceLots),
         {
           qr: `KOUKOU|CMD|${data.referenceNumber}|${data.totalAmountFcfa}`,
           fit: 110,

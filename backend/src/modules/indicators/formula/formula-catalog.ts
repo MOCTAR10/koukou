@@ -15,6 +15,8 @@ export interface IndicatorFormulaDefinition {
   readonly label: string;
   readonly unit: string;
   readonly expression: string;
+  /** Appended to the seed reason of its `FORMULE_*` parameter. */
+  readonly defaultNote?: string;
 }
 
 /** Raw values of a band (lot) that formulas may reference. */
@@ -63,6 +65,43 @@ export const POUFA_BASE_VARIABLES: readonly FormulaVariable[] = [
     label: 'Capacité du bâtiment',
     unit: 'places',
   },
+  // POUFA lot A pilot: inputs of the steering's per-period aggregates (pilotage,
+  // map, reports). Not known for a band alone: null in its own indicators.
+  {
+    name: 'morts_periode',
+    label: 'Morts de la période (agrégats du pilotage)',
+    unit: 'têtes',
+  },
+  {
+    name: 'effectif_expose',
+    label:
+      'Effectif exposé : présents au premier jour de la période, ou mis en place pendant la période',
+    unit: 'têtes',
+  },
+  // POUFA lot A2 dge: inputs of the completeness and produced volumes of a
+  // period (pilotage, map, reports, objective, programme synthesis).
+  {
+    name: 'jours_saisis',
+    label: 'Jours saisis de la période (agrégats)',
+    unit: 'jours',
+  },
+  {
+    name: 'jours_ecoules',
+    label: 'Jours écoulés de la période (agrégats)',
+    unit: 'jours',
+  },
+  {
+    name: 'sortis_periode_tetes',
+    label: 'Sujets sortis vivants pendant la période (agrégats)',
+    unit: 'têtes',
+  },
+  {
+    name: 'poids_sortis_periode_kg',
+    label:
+      'Poids vif des sujets sortis pendant la période : pesé à la sortie, sinon têtes × dernier poids moyen (agrégats)',
+    unit: 'kg',
+  },
+  // End POUFA lot A2 dge.
 ];
 
 export const POUFA_BASE_VARIABLE_NAMES: readonly string[] =
@@ -142,4 +181,51 @@ export const POUFA_DEFAULT_FORMULAS: readonly IndicatorFormulaDefinition[] = [
     unit: '%',
     expression: 'morts_jour / presents_veille * 100',
   },
+  // POUFA lot A pilot: the steering's mortality of a period (dashboards, map,
+  // reports), summed over the bands before dividing.
+  {
+    key: 'mortalite_periode_pct',
+    label: 'Mortalité de la période (pilotage)',
+    unit: '%',
+    expression: 'morts_periode / effectif_expose * 100',
+    defaultNote:
+      'formule par période du pilotage, le cahier des charges ne la fixe pas : proposition de Fermia, à valider par la DGE',
+  },
+  // POUFA lot A2 dge: completeness and produced volumes of a period (CDC
+  // « Qualité et complétude des données », « Volumes produits », §7.3).
+  {
+    key: 'completude_pct',
+    label: 'Complétude des saisies',
+    unit: '%',
+    expression: 'jours_saisis / jours_ecoules * 100',
+  },
+  {
+    key: 'volume_produit_tetes',
+    label: 'Volumes produits (têtes)',
+    unit: 'têtes',
+    expression: 'sortis_periode_tetes',
+  },
+  {
+    key: 'volume_produit_kg',
+    label: 'Volumes produits (poids vif)',
+    unit: 'kg',
+    expression: 'poids_sortis_periode_kg',
+  },
+  // End POUFA lot A2 dge.
 ];
+
+/**
+ * Indicators of the steering's aggregates over a period (POUFA lot A pilot):
+ * computed from summed facts, never shown in a band's own indicators.
+ */
+export const PERIOD_INDICATOR_KEYS: readonly string[] = [
+  'mortalite_periode_pct',
+  // POUFA lot A2 dge.
+  'completude_pct',
+  'volume_produit_tetes',
+  'volume_produit_kg',
+];
+
+export function isPeriodIndicator(key: string): boolean {
+  return PERIOD_INDICATOR_KEYS.includes(key);
+}

@@ -43,6 +43,15 @@ export class CreateManualScheduleDto {
   @IsISO8601({ strict: true }, { message: 'Date invalide (format YYYY-MM-DD).' })
   scheduledDate: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Code du produit dans la liste PRODUIT_TRAITEMENT (médicament : obligatoire dès que la liste a un élément actif ; l’intitulé devient le libellé de la liste)',
+  })
+  @IsOptional()
+  @IsString({ message: 'Le code du produit doit être une chaîne.' })
+  @MaxLength(60, { message: 'Le code du produit est trop long.' })
+  productCode?: string;
+
   @ApiPropertyOptional({ description: 'Voie d’administration' })
   @IsOptional()
   @IsString({ message: 'Voie d’administration invalide.' })

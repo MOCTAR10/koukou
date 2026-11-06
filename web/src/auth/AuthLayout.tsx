@@ -7,7 +7,7 @@ import { EASE, durations } from '../lib/motion';
 const AUDIENCES = {
   farm: {
     headline: 'Toute votre ferme, au même endroit.',
-    intro: 'Suivez vos élevages, vos cultures et vos ventes, depuis le bureau comme sur le terrain.',
+    intro: 'Suivez vos bandes, vos stocks et vos ventes, depuis le bureau comme sur le terrain.',
     points: [
       'Lots, saisies du jour et alertes sanitaires',
       'Stock, ventes, caisse et comptabilité',

@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -19,6 +21,7 @@ import {
 } from '../../common/enums/report.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { PdfService } from '../../common/services/pdf.service.js';
+import { isUniqueViolation } from '../../common/utils/idempotency.js';
 import {
   KOUKOU_EVENTS,
   koukouBus,
@@ -29,6 +32,11 @@ import {
   isMembershipEffective,
   type InstitutionAccess,
 } from '../access/access-rules.js';
+import {
+  INPUT_RECONCILIATION_SOURCE,
+  type InputPeriodLine,
+  type InputReconciliationSource,
+} from './input-reconciliation.js';
 import { ProgramMembership } from '../access/entities/program-membership.entity.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { BandeSnapshot } from '../bandes/entities/bande-snapshot.entity.js';
@@ -44,6 +52,7 @@ import {
   SECTION_LABELS,
   checkTemplate,
   hasFarmRows,
+  matrixReadsRun,
 } from './data/default-report-templates.js';
 import {
   ReportRun,
@@ -56,13 +65,14 @@ import {
 import {
   PilotageDashboardService,
   type DashboardContext,
+  type PilotageDashboard,
 } from './pilotage-dashboard.service.js';
 import { PilotageObjectiveService } from './pilotage-objective.service.js';
 import {
   completenessLevel,
+  groupVisible,
   lastCompletePeriod,
   mortalityLevel,
-  pct,
   periodContaining,
   isDay,
   type Period,
@@ -73,6 +83,7 @@ import {
   bandReport,
   frDate,
   type FarmToFollow,
+  type InputsSection,
 } from './report-pdf.js';
 
 /** At most this many farms are listed in « Fermes à suivre ». */
@@ -104,6 +115,19 @@ export interface RunsQuery {
   level?: string;
   from?: string;
   to?: string;
+  /** End-of-band runs of one band (web « Bilan POUFA » tab). */
+  batchId?: string;
+}
+
+/** A new template (POUFA lot A): every field of the PATCH, plus code and level. */
+export interface CreateTemplateInput {
+  code: string;
+  label: string;
+  level: ReportLevel;
+  periodicity: ReportPeriodicity;
+  sections: ReportSection[];
+  audience?: Partial<ReportAudience>;
+  active?: boolean;
 }
 
 export interface TemplateView {
@@ -161,6 +185,8 @@ export class ReportsService {
     @InjectRepository(Farm) private readonly farmRepo: Repository<Farm>,
     @InjectRepository(ProgramMembership)
     private readonly memberships: Repository<ProgramMembership>,
+    @Inject(INPUT_RECONCILIATION_SOURCE)
+    private readonly inputSource: InputReconciliationSource,
     private readonly pilotageScope: PilotageScopeService,
     private readonly scope: ScopeResolver,
     private readonly dashboards: PilotageDashboardService,
@@ -247,6 +273,69 @@ export class ReportsService {
     });
     return this.templateView(await this.templateByCode(code));
   }
+
+  // POUFA lot A pilot: create and duplicate templates (CDC §5.4, §7.3
+  // « modèles et périodicité paramétrables »).
+
+  /**
+   * A new template, checked like a PATCH. Its code never changes.
+   * @throws ConflictException when the code exists
+   */
+  async createTemplate(input: CreateTemplateInput): Promise<TemplateView> {
+    const program = await this.programme.current();
+    await this.ensureTemplates(program.id);
+    const audience: ReportAudience = {
+      scopeKinds: [...new Set(input.audience?.scopeKinds ?? [])],
+      profileCodes: [...new Set(input.audience?.profileCodes ?? [])],
+      farmOwners: Boolean(input.audience?.farmOwners),
+    };
+    const sections = [...new Set(input.sections)];
+    const check = checkTemplate({
+      level: input.level,
+      periodicity: input.periodicity,
+      sections,
+      audience,
+    });
+    if (!check.ok) throw new BadRequestException(check.error);
+    try {
+      await this.templates.insert({
+        programId: program.id,
+        code: input.code,
+        label: input.label.trim(),
+        periodicity: input.periodicity,
+        level: input.level,
+        sections,
+        audience,
+        active: input.active ?? true,
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        throw new ConflictException(
+          `Un modèle de rapport de code « ${input.code} » existe déjà.`,
+        );
+      }
+      throw e;
+    }
+    return this.templateView(await this.templateByCode(input.code));
+  }
+
+  /** Copy of a template under a new code, inactive until it is reviewed. */
+  async duplicateTemplate(
+    code: string,
+    input: { code: string; label?: string },
+  ): Promise<TemplateView> {
+    const source = await this.templateByCode(code);
+    return this.createTemplate({
+      code: input.code,
+      label: input.label?.trim() || `Copie de ${source.label}`.slice(0, 160),
+      level: source.level,
+      periodicity: source.periodicity,
+      sections: source.sections,
+      audience: source.audience,
+      active: false,
+    });
+  }
+  // End POUFA lot A pilot.
 
   private async templateByCode(code: string): Promise<ReportTemplate> {
     const program = await this.programme.current();
@@ -435,6 +524,9 @@ export class ReportsService {
       farmRows && template.sections.includes(ReportSection.FERMES_A_SUIVRE)
         ? await this.farmsToFollow(ctx)
         : [];
+    const inputs = template.sections.includes(ReportSection.INTRANTS)
+      ? await this.inputsSection(ctx, dashboard)
+      : null;
     const where = target.province ? ` — ${target.province.name}` : '';
     const title = `${template.label}${where} — ${frDate(period.from)} au ${frDate(period.to)}`;
     const generatedAt = new Date();
@@ -449,6 +541,7 @@ export class ReportsService {
         dashboard,
         objective,
         farmsToFollow,
+        inputs,
         generatedAt,
       }),
     );
@@ -632,6 +725,12 @@ export class ReportsService {
         batchId: saved.batchId,
         recipientUserIds: saved.recipients.map((r) => r.userId),
         downloadPath: this.downloadPath(saved.id),
+        programId: saved.programId,
+        recipients: saved.recipients.map((r) => ({
+          userId: r.userId,
+          kind: r.kind,
+          profileCode: r.profileCode,
+        })),
       };
       koukouBus.emit(KOUKOU_EVENTS.REPORT_READY, event);
     }
@@ -669,8 +768,38 @@ export class ReportsService {
   }
 
   /**
-   * Farms to follow up: red mortality, red completeness or a red alert
-   * still active, worst first (map thresholds).
+   * POUFA lot A: « Intrants et ressources » of the period, from
+   * `INPUT_RECONCILIATION_SOURCE` (deliveries shipped in the period) and the
+   * dashboard's stock gaps over `SEUIL_ECART_INTRANTS_PCT`. For an
+   * aggregate-only report, an input delivered to fewer than k farms is hidden.
+   */
+  private async inputsSection(
+    ctx: DashboardContext,
+    dashboard: PilotageDashboard,
+  ): Promise<InputsSection> {
+    const available =
+      this.inputSource.available && Boolean(this.inputSource.periodLines);
+    const farmIds = ctx.rows.map((r) => r.farm.id);
+    const lines: InputPeriodLine[] =
+      available && farmIds.length > 0
+        ? await this.inputSource.periodLines!(farmIds, ctx.period)
+        : [];
+    const k = ctx.minGroupSize;
+    return {
+      available,
+      thresholdPct: dashboard.inputs.thresholdPct,
+      lines: lines.map((l) => ({
+        ...l,
+        suppressed: ctx.view.aggregateOnly && !groupVisible(l.farms, k),
+      })),
+      gaps: dashboard.inputs.figures,
+      gapsSuppressed: dashboard.inputs.suppressed,
+    };
+  }
+
+  /**
+   * Farms to follow up: red mortality, red completeness or a published
+   * sanitary alert, worst first (map thresholds).
    */
   private async farmsToFollow(ctx: DashboardContext): Promise<FarmToFollow[]> {
     const resolver = await this.parameters.resolver(ctx.view.programId);
@@ -686,15 +815,19 @@ export class ReportsService {
     const provinces = new Map(ctx.provinces.map((p) => [p.id, p.name]));
     const out: (FarmToFollow & { score: number })[] = [];
     for (const { farm, facts } of ctx.rows) {
-      if (facts.bands === 0) continue;
-      const mortalityPct = pct(facts.deaths, facts.exposed);
-      const completenessPct = pct(facts.daysEntered, facts.daysElapsed);
+      if (facts.bands === 0 && facts.publishedAlerts === 0) continue;
+      const mortalityPct = ctx.indicators.mortality(facts.deaths, facts.exposed);
+      const completenessPct = ctx.indicators.completeness(
+        facts.daysEntered,
+        facts.daysElapsed,
+      );
       const reasons: string[] = [];
       if (mortalityLevel(mortalityPct, mT) === 'ROUGE')
         reasons.push('mortalité');
       if (completenessLevel(completenessPct, cT) === 'ROUGE')
         reasons.push('saisies');
-      if (facts.alertsActiveRed > 0) reasons.push('alerte rouge');
+      // F1: only a published sanitary alert, never a conduct alert.
+      if (facts.publishedAlerts > 0) reasons.push('alerte sanitaire publiée');
       if (reasons.length === 0) continue;
       out.push({
         code: farm.code,
@@ -702,7 +835,7 @@ export class ReportsService {
         province: farm.provinceId ? (provinces.get(farm.provinceId) ?? '') : '',
         mortalityPct,
         completenessPct,
-        activeRedAlerts: facts.alertsActiveRed,
+        publishedAlerts: facts.publishedAlerts,
         reason: reasons.join(', '),
         score: reasons.length * 1000 + (mortalityPct ?? 0),
       });
@@ -744,7 +877,8 @@ export class ReportsService {
       if (!kinds.includes(p.scopeKind)) continue;
       const codes = template.audience.profileCodes ?? [];
       if (codes.length > 0 && !codes.includes(p.code)) continue;
-      if (!grants(p.matrix ?? {}, 'PILOTAGE', 'CONSULTER')) continue;
+      // PILOTAGE:CONSULTER, or TECHNIQUE:CONSULTER for an end-of-band run.
+      if (!matrixReadsRun(p.matrix ?? {}, template.level)) continue;
       const access = {
         scopeKind: p.scopeKind,
         provinceIds: m.provinceIds ?? [],
@@ -815,6 +949,20 @@ export class ReportsService {
     if (user.role === UserRole.PLATFORM_ADMIN) return;
     if (user.role === UserRole.INSTITUTION) {
       const access = await this.scope.requireAccess(user);
+      // POUFA lot A: the runs routes are open to every membership (SESSION);
+      // the matrix decides here — PILOTAGE:CONSULTER reads every run in
+      // scope, TECHNIQUE:CONSULTER only the end-of-band ones.
+      const pilotage = grants(access.matrix, 'PILOTAGE', 'CONSULTER');
+      if (!pilotage && !matrixReadsRun(access.matrix, ReportLevel.BANDE)) {
+        throw new ForbiddenException(
+          'Accès refusé : votre profil ne donne pas accès aux rapports du programme.',
+        );
+      }
+      if (!pilotage) {
+        qb.andWhere('r.level = :bandOnlyLevel', {
+          bandOnlyLevel: ReportLevel.BANDE,
+        });
+      }
       qb.andWhere('r.program_id = :runsProgramId', {
         runsProgramId: access.programId,
       });
@@ -872,6 +1020,11 @@ export class ReportsService {
       qb.andWhere('r.template_code = :template', { template: query.template });
     }
     if (query.level) qb.andWhere('r.level = :level', { level: query.level });
+    if (query.batchId) {
+      if (!isUuid(query.batchId))
+        throw new BadRequestException('Bande : identifiant invalide.');
+      qb.andWhere('r.batch_id = :batchId', { batchId: query.batchId });
+    }
     if (query.from) {
       if (!isDay(query.from))
         throw new BadRequestException('Date de début invalide.');

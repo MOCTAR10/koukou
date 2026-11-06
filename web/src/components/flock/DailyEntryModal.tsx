@@ -23,8 +23,13 @@ import {
 import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type { DailyEntryRecord, Lot } from '../../api/types-flock';
+import type { BandSheet } from '../../api/types-pilotage';
 import { useFarm } from '../../app/FarmContext';
+import { useCanRead } from '../../app/useMenuAccess';
+import { lotAgeOn } from './band';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
+import { dailyEntryBase } from '../../offline/syncMeta';
+import { initialSampleSize, sampleBelowExpected, sampleSizeError } from './weighing';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
@@ -50,8 +55,8 @@ const BAG_SIZES = [10, 25, 40, 50];
 const WATER_LO = 1.8;
 const WATER_HI = 2.6;
 
-function suggestedPhase(b: Lot): string {
-  const age = b.metrics.ageDays;
+/** Feed phase advised at `age` (the birds' age on the entry's day). */
+function suggestedPhase(b: Lot, age: number): string {
   if (age <= 10) return 'POUSSIN';
   if (age <= 24) return 'DEMARRAGE';
   if (b.type === 'PONDEUSE') {
@@ -141,8 +146,9 @@ export function DailyEntryModal({
             </IconField>
           </div>
           <p className="text-xs text-slate-500">
-            {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'} · J{lot.metrics.ageDays} ·
-            semaine {ageWeek(lot.metrics.ageDays)} · {num(lot.metrics.liveCount)} vivants sur {num(lot.quantityAtStart)}
+            {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'} · J{lotAgeOn(lot, date, today)}
+            {date !== today ? ' ce jour-là' : ''} · semaine {ageWeek(lotAgeOn(lot, date, today))} · {num(lot.metrics.liveCount)} vivants sur{' '}
+            {num(lot.quantityAtStart)}
             {' '}· mortalité {num(lot.metrics.mortalityPercent)} %
           </p>
           <ErrorNote error={entries.error} />
@@ -188,10 +194,12 @@ function EntryForm({
   const { farmId, farm } = useFarm();
   const invalidate = useInvalidateFarm();
   const isLayer = lot.type === 'PONDEUSE';
+  // A back-dated entry: the birds' age on that day (J+x rule), not today's.
+  const ageDays = lotAgeOn(lot, date, localYmd());
   const existing = entries.find((e) => e.entryDate.slice(0, 10) === date) ?? null;
   const allowedPhases = phasesFor(lot);
   const defaultPhase =
-    existing?.feedPhase && allowedPhases.includes(existing.feedPhase) ? existing.feedPhase : suggestedPhase(lot);
+    existing?.feedPhase && allowedPhases.includes(existing.feedPhase) ? existing.feedPhase : suggestedPhase(lot, ageDays);
 
   const defaultBag = existing?.bagSizeKg ?? farm?.defaultSacKg ?? 50;
   const [deaths, setDeaths] = useState(str(existing?.deaths));
@@ -208,16 +216,28 @@ function EntryForm({
   );
   const [water, setWater] = useState(str(existing?.waterL));
   const [weightG, setWeightG] = useState(existing?.avgWeightKg ? String(Math.round(existing.avgWeightKg * 1000)) : '');
+  // Programme sample size (PESEE_ECHANTILLON_TETES), from the band sheet.
+  const sheet = useQuery({
+    queryKey: ['bande-sheet', farmId, lot.id],
+    queryFn: () => api.get<BandSheet>(`/farms/${farmId}/bandes/${lot.id}`),
+    enabled: !!farmId,
+  });
+  const expectedSample = sheet.data?.weighing.expectedSampleSize ?? null;
+  const [sampleSize, setSampleSize] = useState(initialSampleSize(existing, null));
+  const [sampleTouched, setSampleTouched] = useState(false);
+  const sampleValue = sampleTouched || sampleSize ? sampleSize : initialSampleSize(existing, expectedSample);
   const [eggs, setEggs] = useState(existing?.eggsCollected ?? 0);
   const [cracked, setCracked] = useState(str(existing?.eggsCracked));
   const [small, setSmall] = useState(str(existing?.eggsSmall));
   const [doubleYolk, setDoubleYolk] = useState(str(existing?.eggsDoubleYolk));
   const [dirty, setDirty] = useState(str(existing?.eggsDirty));
 
+  // INTRANTS: the feed lots to pick from, when the account reads them.
+  const canReadStock = useCanRead()('INTRANTS');
   const stock = useQuery({
     queryKey: ['feed-stock', farmId],
     queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
-    enabled: !!farmId,
+    enabled: !!farmId && canReadStock,
   });
   const standards = useBreedStandards(lot.breedId);
 
@@ -233,6 +253,7 @@ function EntryForm({
   const feedKgEq = feedMode === 'kg' ? n(feedKg) : n(feedSacs) * bagKg;
 
   const live = lot.metrics.liveCount;
+  const sampleError = sampleSizeError(weightGN, sampleValue, live);
   const deathsExceed = deathsN > 0 && deathsN >= live;
   const rejects = crackedN + smallN + doubleN + dirtyN;
   const rejectsExceed = rejects > eggs;
@@ -256,14 +277,14 @@ function EntryForm({
   const lastWeighing = recent.find((e) => e.avgWeightKg != null) ?? null;
   const prevWeightG = lastWeighing?.avgWeightKg != null ? lastWeighing.avgWeightKg * 1000 : null;
 
-  const week = ageWeek(lot.metrics.ageDays);
+  const week = ageWeek(ageDays);
   const std = standards.data;
   const standardRow = std?.find((s) => s.week === week) ?? (std ? [...std].reverse().find((s) => s.week <= week) : undefined);
   const targetWeight = standardRow?.targetAvgWeightKg ?? null;
   const targetLay = standardRow?.targetLayRatePercent ?? null;
 
   const rec = estimateDailyFeed({
-    ageDays: lot.metrics.ageDays,
+    ageDays,
     isLayer,
     liveCount: live,
     weighedWeightKg: weightGN > 0 ? weightGN / 1000 : prevWeightG != null ? prevWeightG / 1000 : null,
@@ -310,7 +331,10 @@ function EntryForm({
         else if (stockLotId) p.inputLotId = stockLotId;
       }
       if (send(waterN)) p.waterL = waterN;
-      if (weightGN > 0) p.avgWeightKg = weightGN / 1000;
+      if (weightGN > 0) {
+        p.avgWeightKg = weightGN / 1000;
+        p.sampleSize = Number(sampleValue.trim());
+      }
       if (sendEgg(eggs)) {
         p.eggsCollected = eggs;
         p.eggsSellable = sellable;
@@ -323,7 +347,8 @@ function EntryForm({
         kind: 'daily-entry',
         farmId: farmId!,
         path: `/farms/${farmId}/batches/${lot.id}/daily-entries`,
-        body: p,
+        // Offline conflict rule: the entry this form was opened on.
+        body: { ...p, ...dailyEntryBase(existing) },
         label: `Saisie du ${date.slice(8, 10)}/${date.slice(5, 7)} · ${lot.batchName ?? 'Lot'}`,
       });
     },
@@ -336,7 +361,7 @@ function EntryForm({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (hasAnything && !deathsExceed && !rejectsExceed) save.mutate();
+    if (hasAnything && !deathsExceed && !rejectsExceed && !sampleError) save.mutate();
   };
 
   const trays = Math.floor(eggs / EGGS_PER_ALVEOL);
@@ -363,6 +388,35 @@ function EntryForm({
           <input className={inputCls} inputMode="numeric" value={weightG} onChange={(e) => setWeightG(e.target.value.replace(/\D/g, ''))} placeholder="Facultatif" />
         </IconField>
       </div>
+
+      {weightGN > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <IconField
+            label="Sujets pesés"
+            icon={<Scale className="text-emerald-600" />}
+            hint={expectedSample ? `Échantillon demandé par le programme : ${expectedSample} sujets` : 'Obligatoire avec un poids moyen'}
+          >
+            <input
+              className={inputCls}
+              inputMode="numeric"
+              aria-invalid={sampleError ? true : undefined}
+              value={sampleValue}
+              onChange={(e) => {
+                setSampleTouched(true);
+                setSampleSize(e.target.value.replace(/\D/g, ''));
+              }}
+              placeholder={expectedSample ? String(expectedSample) : 'Nombre'}
+            />
+          </IconField>
+          <div className="sm:col-span-2 self-end">
+            {sampleError ? (
+              <Note tone="red">{sampleError}</Note>
+            ) : sampleBelowExpected(sampleValue, expectedSample) ? (
+              <Note tone="amber">Moins de sujets que les {expectedSample} demandés par le programme : la pesée sera signalée.</Note>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {deathsExceed ? (
         <Note tone="red">
@@ -403,7 +457,7 @@ function EntryForm({
               </Field>
             </>
           )}
-          <Field label="Phase d'alimentation" hint={`Conseillée à J${lot.metrics.ageDays} : ${FEED_PHASE_LABEL[suggestedPhase(lot)]}`}>
+          <Field label="Phase d'alimentation" hint={`Conseillée à J${ageDays} : ${FEED_PHASE_LABEL[suggestedPhase(lot, ageDays)]}`}>
             <select
               className={inputCls}
               value={phase}
@@ -564,7 +618,7 @@ function EntryForm({
         <Button tone="secondary" onClick={onClose}>
           Annuler
         </Button>
-        <Button type="submit" busy={save.isPending} disabled={!hasAnything || deathsExceed || rejectsExceed}>
+        <Button type="submit" busy={save.isPending} disabled={!hasAnything || deathsExceed || rejectsExceed || !!sampleError}>
           <Check className="h-4 w-4" /> {existing ? 'Mettre à jour la saisie' : 'Enregistrer la saisie'}
         </Button>
       </div>

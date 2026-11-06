@@ -4,6 +4,8 @@ import { Bird, Building, CalendarX, Calendar, Check, Factory, FileText, Package,
 import { api } from '../api/client';
 import type { Lot, SlaughterOrderFull, SlaughterStatus } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { ConfirmModal } from '../components/flock/SanitaryModals';
 import {
   IconField,
@@ -41,6 +43,8 @@ export function SlaughterPage() {
   const { farmId } = useFarm();
   const invalidate = useInvalidateFarm();
   const lots = useLots();
+  // POUFA lot A droits: an institution (TRACABILITE:CONSULTER) reads the orders and downloads the slips, never acts.
+  const canWrite = useFarmProfile().hasPermission('production:abattage');
   const [creating, setCreating] = useState(false);
   const [horizon, setHorizon] = useState<Horizon>('month');
   const [from, setFrom] = useState(addLocalDays(localYmd(), -30));
@@ -127,7 +131,7 @@ export function SlaughterPage() {
                   <Td label="Code" className="md:max-2xl:hidden">{o.abattoirLotCode ?? o.internalBatchCode ?? '—'}</Td>
                   <Td className="whitespace-nowrap text-right">
                     <div className="flex justify-end gap-1">
-                      {o.status === 'DRAFT' ? (
+                      {o.status === 'DRAFT' && canWrite ? (
                         <Button
                           busy={action.busy === `s-${o.id}`}
                           onClick={() =>
@@ -140,7 +144,7 @@ export function SlaughterPage() {
                           <Send className="h-4 w-4" /> Envoyer
                         </Button>
                       ) : null}
-                      {o.status === 'SENT' ? (
+                      {o.status === 'SENT' && canWrite ? (
                         <Button onClick={() => setCarcass(o)}>
                           <Check className="h-4 w-4" /> Réceptionner
                         </Button>
@@ -158,7 +162,7 @@ export function SlaughterPage() {
                           <FileText className="h-4 w-4" /> Bordereau
                         </Button>
                       ) : null}
-                      {o.status === 'DRAFT' || o.status === 'SENT' ? (
+                      {(o.status === 'DRAFT' || o.status === 'SENT') && canWrite ? (
                         <Button tone="secondary" onClick={() => setCancelling(o)}>
                           <CalendarX className="h-4 w-4" /> Annuler
                         </Button>
@@ -180,11 +184,14 @@ export function SlaughterPage() {
         icon={<Factory />}
         subtitle="Ordres, envoi à l'abattoir et rendement carcasse"
         actions={
-          <Button onClick={() => setCreating(true)}>
-            <Plus className="h-4 w-4" /> Nouvel ordre
-          </Button>
+          canWrite ? (
+            <Button onClick={() => setCreating(true)}>
+              <Plus className="h-4 w-4" /> Nouvel ordre
+            </Button>
+          ) : undefined
         }
       />
+      <ReadOnlyNotice what="ordres d’abattage" />
       <ErrorNote error={orders.error ?? action.error} />
       <div className="flex flex-wrap items-center gap-3">
         <Tabs<Horizon>

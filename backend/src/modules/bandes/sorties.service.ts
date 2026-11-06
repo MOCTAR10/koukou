@@ -25,8 +25,16 @@ import { SalesService } from '../finance/sales.service.js';
 import { RefItem } from '../programme/entities/ref-item.entity.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { SlaughterService } from '../slaughter/slaughter.service.js';
+import {
+  batchReservation,
+  sentSlaughterBirds,
+} from '../orders/order-reservations.js';
 import { SyncService } from '../sync/sync.service.js';
 import { BandesService } from './bandes.service.js';
+import {
+  SORTIE_RECIPIENT_MESSAGE,
+  hasSortieRecipient,
+} from './sortie-rules.js';
 import { CreateSortieDto } from './dto/sortie.dto.js';
 import {
   RETRAIT_FAMILIES,
@@ -124,6 +132,9 @@ export class SortiesService {
     }
     const family = reason.family;
     await this.assertFamilyPermission(user, farmId, family);
+    if (!hasSortieRecipient(dto)) {
+      throw new BadRequestException(SORTIE_RECIPIENT_MESSAGE);
+    }
     const day = dto.sortieDate.slice(0, 10);
     if (isAfterTomorrowUtc(day)) {
       throw new BadRequestException(
@@ -167,6 +178,18 @@ export class SortiesService {
           throw new BadRequestException(
             `Sortie impossible : ${dto.count} sujet(s) pour ${locked.quantityAlive} présent(s).`,
           );
+        }
+        if (family === SORTIE_FAMILY.ABATTOIR) {
+          // The birds leave at the sortie: they must not be promised to a
+          // customer order nor already at the abattoir (band row locked).
+          const reserved = await batchReservation(em, farmId, batch.id);
+          const atAbattoir = await sentSlaughterBirds(em, farmId, batch.id);
+          const free = locked.quantityAlive - reserved.birds - atAbattoir;
+          if (dto.count > free) {
+            throw new BadRequestException(
+              `Sortie impossible : ${dto.count} sujet(s) pour ${Math.max(0, free)} libre(s) (${reserved.birds} réservé(s) par des commandes, ${atAbattoir} déjà envoyé(s) à l’abattoir).`,
+            );
+          }
         }
         await this.cessionHook?.beforeSortie?.(
           em,
@@ -224,7 +247,8 @@ export class SortiesService {
                     },
               ],
             },
-            { em },
+            // The sortie is the cession itself (hook below), not the sale.
+            { em, skipCession: true },
           );
           sortie.saleId = sale.id;
         } else if (family === SORTIE_FAMILY.ABATTOIR) {
@@ -238,6 +262,8 @@ export class SortiesService {
               plannedDate: day,
               birdCount: dto.count,
               totalWeightKg: dto.weightKg,
+              // POUFA lot A2 divers: the order shows the operator ceded at the sortie.
+              operatorId: dto.operatorId,
               abattoirNotes: sortie.recipientName
                 ? `Sortie POUFA vers ${sortie.recipientName}`
                 : 'Sortie POUFA',
@@ -247,8 +273,13 @@ export class SortiesService {
           sortie.slaughterOrderId = order.id;
         }
         const row = await em.getRepository(Sortie).save(sortie);
-        if (RETRAIT_FAMILIES.includes(family)) {
-          // The sortie itself is the removal.
+        if (
+          RETRAIT_FAMILIES.includes(family) ||
+          family === SORTIE_FAMILY.ABATTOIR
+        ) {
+          // The sortie itself is the removal (an ABATTOIR sortie's birds leave
+          // now, its slaughter order follows: CDC « effectif = mis en place −
+          // morts − sorties »).
           await this.reconciliation.recomputeLiveCount(em, batch.id);
         }
         await this.cessionHook?.onSortie(em, row, reason);
@@ -283,7 +314,10 @@ export class SortiesService {
       where: { batchId: batch.id },
       order: { sortieDate: 'ASC', createdAt: 'ASC' },
     });
-    return this.views(rows);
+    const views = await this.views(rows);
+    // POUFA lot A droits: prices for economic readers only (audit F6).
+    if (await this.farms.readsEconomics(user)) return views;
+    return views.map((v) => ({ ...v, unitPriceFcfa: null }));
   }
 
   private async assertFamilyPermission(

@@ -24,13 +24,12 @@ import type {
 } from '@/api/types';
 import { breedImageForLot } from '@/constants/breedImages';
 import { color, radii, spacing, fmt } from '@/constants/theme';
-
+import { ageOnDay } from '@/utils/band';
 import { formatEggAlveoles } from './helpers';
 import { transferRemaining } from './catalog';
 
 const EGG_FALLBACK_MAX_ALVEOLES = 100000;
 const DEFAULT_SACK_KG = 50;
-const DAY_MS = 86_400_000;
 
 /** Onglets du transfert : « Vivant » est un inventaire en lecture seule
  *  (les volailles vivantes ne se transfèrent pas en boutique). */
@@ -69,11 +68,10 @@ function typeLabel(type: 'CHAIR' | 'PONDEUSE'): string {
   return type === 'CHAIR' ? 'Chair' : 'Pondeuse';
 }
 
-function ageDaysSince(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return null;
-  return Math.max(0, Math.floor((Date.now() - t) / DAY_MS));
+/** Age of the lot today (J+x aware, same rule as the served `metrics.ageDays`). */
+function lotAgeToday(batch: { integrationDate?: string | null; initialAgeDays?: number | null }): number | null {
+  if (!batch.integrationDate || Number.isNaN(Date.parse(batch.integrationDate))) return null;
+  return Math.max(0, ageOnDay(batch.integrationDate, batch.initialAgeDays, new Date().toISOString().slice(0, 10)));
 }
 
 interface SourceStat {
@@ -443,7 +441,7 @@ export function TransferSheet({
         <View>
           <View style={styles.srcList}>
             {eligiblePools.map((p) => {
-              const age = ageDaysSince(p.batch.integrationDate);
+              const age = lotAgeToday(p.batch);
               const breedName = p.batch.breedName ?? p.batch.breed?.name ?? null;
               const breedCode = p.batch.breedCode ?? p.batch.breed?.refCode ?? null;
               return (

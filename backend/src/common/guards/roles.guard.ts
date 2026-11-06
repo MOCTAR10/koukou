@@ -32,14 +32,20 @@ export class RolesGuard implements CanActivate {
     if (!user) {
       throw new ForbiddenException('Accès refusé.');
     }
-    // L'administrateur plateforme hérite des droits d'un Propriétaire de ferme.
     const role = user.role as UserRole;
+    if (requiredRoles.includes(role)) return true;
+    // POUFA lot A2 divers (F8): the platform admin inherits the owner's
+    // routes for reading only. Its writes are the routes that name it
+    // explicitly (registry, accounts, journaled corrections…).
     if (
-      requiredRoles.includes(role) ||
-      (role === UserRole.PLATFORM_ADMIN &&
-        requiredRoles.includes(UserRole.PROPRIETAIRE))
+      role === UserRole.PLATFORM_ADMIN &&
+      requiredRoles.includes(UserRole.PROPRIETAIRE)
     ) {
-      return true;
+      const method = String(request.method ?? 'GET').toUpperCase();
+      if (method === 'GET' || method === 'HEAD') return true;
+      throw new ForbiddenException(
+        'Administrateur plateforme : consultation seule des données des fermes. Les écritures reviennent à la ferme ou au profil habilité de la matrice.',
+      );
     }
     // An institutional account passes like a farm member or the platform
     // admin: ProgramAccessGuard, which ran before, already checked its domain,

@@ -288,6 +288,7 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         sortieDate: day(-1),
         count: 10,
         reasonCode: 'AUTOCONSOMMATION',
+        recipientName: 'Famille de l’éleveur',
         idempotencyKey: `off-sortie-${stamp}`,
       }).expect(201);
       expect(res.body).toMatchObject({
@@ -299,6 +300,7 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         sortieDate: day(-1),
         count: 10,
         reasonCode: 'AUTOCONSOMMATION',
+        recipientName: 'Famille de l’éleveur',
         idempotencyKey: `off-sortie-${stamp}`,
       }).expect(201);
       expect(replay.body.id).toBe(res.body.id);
@@ -343,8 +345,9 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         reasonFamily: 'ABATTOIR',
         slaughterStatus: 'DRAFT',
       });
-      // The birds leave when the order is processed, not before.
-      expect(await alive(band.id)).toBe(870);
+      // CDC « effectif = mis en place − morts − sorties »: the birds leave at
+      // the sortie, the slaughter order follows.
+      expect(await alive(band.id)).toBe(820);
     });
 
     it('refuse plus de sujets que présents et un motif inconnu', async () => {
@@ -352,6 +355,7 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         sortieDate: day(0),
         count: 5000,
         reasonCode: 'DON',
+        recipientName: 'Orphelinat',
       }).expect(400);
       expect(over.body.message).toContain('Sortie impossible');
       await sortie(band.id, {
@@ -363,12 +367,12 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
 
     it('la réconciliation compte chaque sortie une seule fois', async () => {
       await entry(band.id, { entryDate: day(0), deaths: 0 }).expect(201);
-      expect(await alive(band.id)).toBe(870);
+      expect(await alive(band.id)).toBe(820);
       const rows = (
         await get(`/farms/${farmId}/bandes/${band.id}/daily-stats`).expect(200)
       ).body;
       const last = rows[rows.length - 1];
-      expect(last).toMatchObject({ day: day(0), removals: 100, present: 870 });
+      expect(last).toMatchObject({ day: day(0), removals: 150, present: 820 });
       expect(rows.find((r: any) => r.day === day(-1)).removals).toBe(10);
     });
 
@@ -382,8 +386,8 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
       expect(res.body.variables).toMatchObject({
         mis_en_place: 1000,
         morts_cumules: 20,
-        sortis_tetes: 110,
-        presents: 870,
+        sortis_tetes: 160,
+        presents: 820,
         aliment_kg: 100,
         ca_fcfa: 250000,
       });

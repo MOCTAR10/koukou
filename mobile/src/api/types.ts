@@ -67,9 +67,19 @@ export interface Farm {
   logoUrl: string | null;
   latitude: number | null;
   longitude: number | null;
+  /** Programme farm code (`G1-0012`), set by the registry; null on old rows. */
+  code?: string | null;
+  provinceId?: string | null;
+  /** Province of the registry sheet, served by `GET /farms` (null without a province). */
+  provinceCode?: string | null;
+  provinceName?: string | null;
+  /** Registry status (STATUT_FERME list code), e.g. ACTIVE / SUSPENDUE. */
+  statusCode?: string | null;
 }
 
-export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN' | 'ACHETEUR';
+/** Mirror of the backend `UserRole`: INSTITUTION = programme institutions
+ *  (DGE, vétérinaires, agents…), OPERATEUR = reserved, refused at login. */
+export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN' | 'ACHETEUR' | 'INSTITUTION' | 'OPERATEUR';
 
 /** Rôle de membre du staff ferme (Administrateur Fermia / Éleveur Fermia). */
 export type FarmStaffRole = 'ADMIN' | 'ELEVEUR';
@@ -101,7 +111,12 @@ export type PermissionCode =
   | 'reglages:ferme'
   | 'rh:lire'
   | 'rh:gerer'
-  | 'agri:gerer';
+  | 'agri:gerer'
+  // POUFA lot A droits: read codes of the Fermia bonus domains, the farm GPS point, the deliveries.
+  | 'market:lire'
+  | 'compta:lire'
+  | 'registre:gps'
+  | 'intrants:lire';
 
 /** Nature du contrat de travail (dossier RH). */
 export type ContractType =
@@ -180,7 +195,8 @@ export interface AssignableTeamMember {
 /** Profil « moi » sur une ferme (GET /farms/:id/me) : personnalité + poste + droits effectifs. */
 export interface FarmMemberProfile {
   farmId: string;
-  role: 'PROPRIETAIRE' | FarmStaffRole;
+  /** INSTITUTION: programme account within its scope (jobTitle = access profile label). */
+  role: 'PROPRIETAIRE' | FarmStaffRole | 'INSTITUTION';
   jobTitle: string | null;
   buildingAssignment: string | null;
   active: boolean;
@@ -288,69 +304,6 @@ export interface Building {
   };
 }
 
-export type CropCategory = 'TUBERCULE' | 'MARAICHAGE' | 'FRUIT' | 'CEREALE' | 'AUTRE';
-
-/** Culture du référentiel global (Agriculture), regroupée par catégorie. */
-export interface Culture {
-  id: string;
-  name: string;
-  category: CropCategory;
-  defaultCycleDays: number | null;
-  waterNeedsLPlantDay: number | null;
-  notes: string | null;
-}
-
-export type ParcelleStatus = 'PREPARATION' | 'ACTIVE' | 'JACHERE' | 'CLOTURE';
-
-/** Contour de parcelle au format GeoJSON (Polygon / MultiPolygon). */
-export interface GeoJsonGeometry {
-  type: 'Polygon' | 'MultiPolygon';
-  coordinates: number[][][][] | number[][][];
-}
-
-/** Parcelle agricole d'une ferme. */
-export interface Parcelle {
-  id: string;
-  farmId: string;
-  name: string;
-  culture: Culture;
-  cultureId: string;
-  areaHa: number;
-  areaM2: number | null;
-  boundaryGeoJson: GeoJsonGeometry | null;
-  plantedAt: string | null;
-  status: ParcelleStatus;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type RecolteUnit = 'KG' | 'PIECE' | 'SAC';
-
-/** Entrée du journal des récoltes (alimente le stock vendable au POS Ferme). */
-export interface Recolte {
-  id: string;
-  farmId: string;
-  parcelleId: string;
-  harvestDate: string;
-  quantity: number;
-  unit: RecolteUnit;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** Stock disponible par (parcelle, unité) : récolté − vendu (POS Ferme). */
-export interface ParcelleStock {
-  parcelleId: string;
-  parcelleName: string;
-  cultureName: string | null;
-  unit: RecolteUnit;
-  harvested: number;
-  sold: number;
-  available: number;
-}
-
 export interface ProductionBatch {
   id: string;
   farmId: string;
@@ -377,6 +330,14 @@ export interface ProductionBatch {
   breedId?: string | null;
   /** Auto-signal de disponibilité à la vente (persisté côté serveur). */
   readyForSaleAt?: string | null;
+  /** POUFA band code `G1-0012-B07` (farm code + rank), set at opening, never changed. */
+  code?: string | null;
+  /** Age of the birds (days) when the band was opened (J+x); 0 at placement. */
+  initialAgeDays?: number | null;
+  /** `BANDE_DUREE_REFERENCE_J` in force at opening (cycle length of the band). */
+  referenceDurationDays?: number | null;
+  /** Closing date of the band (CLOTURE). */
+  closedAt?: string | null;
 }
 
 /** Saisie journalière existante (upsert par date côté serveur). */
@@ -397,6 +358,8 @@ export interface DailyEntryRecord {
   skipStockDeduction: boolean;
   waterL: number;
   avgWeightKg: number | null;
+  /** Sujets pesés with the weight (CDC 8). */
+  sampleSize?: number | null;
   eggsCollected: number;
   eggsSellable: number;
   eggsCracked: number;
@@ -522,7 +485,8 @@ export interface DashboardData {
    * `normalizeMortalityStatus(mortalityStatus, mortalityPercent)`. */
   mortalityStatus?: MortalityStatus;
   feedAutonomyDays: number | null;
-  collectedTodayFcfa: number;
+  /** Null for an institution without ECONOMIQUE or VENTES consultation (POUFA F6). */
+  collectedTodayFcfa: number | null;
   teamCount: number;
   alerts: { total: number; rouge: number; jaune: number; vert: number };
   health: DashboardHealth;
@@ -583,6 +547,23 @@ export interface Alert {
   resolvedAt?: string | null;
   /** Id de l'alerte backend (POST acknowledge) — null si action advisoriale sans alerte. */
   alertId?: string | null;
+  /** POUFA lot A2 sante: the planned care behind a SOIN action (« Fait » form). */
+  care?: CareActionInfo;
+}
+
+/** Backend `CareActionInfo` (advisory SOIN action). */
+export interface CareActionInfo {
+  eventId: string;
+  careType: string;
+  name: string;
+  route: string | null;
+  withdrawalDays: number;
+  protocolStepId: string | null;
+  productCode: string | null;
+  isReference: boolean;
+  scheduledDate: string;
+  originalDate: string | null;
+  liveCount: number;
 }
 
 export interface NextAction {
@@ -845,12 +826,18 @@ export interface ProphylaxisEvent {
   completedAt: string | null;
   performedById: string | null;
   performedNotes: string | null;
+  /** Birds vaccinated or treated, given at completion (CDC n° 22). */
+  animalCount?: number | null;
   notes: string | null;
   medicationLotId: string | null;
   medicationQty: number | null;
   medicationUnit: string | null;
   decrementStock: boolean;
   stockConsumedAt: string | null;
+  // POUFA lot A2 sante: reference calendar step, first date once postponed, product code.
+  isReference?: boolean;
+  originalDate?: string | null;
+  productCode?: string | null;
   cancelledReason: string | null;
   createdAt: string;
   updatedAt: string;
@@ -862,9 +849,15 @@ export interface TreatmentRecord {
   batchId: string;
   careType: CareType;
   productName: string;
+  /** PRODUIT_TRAITEMENT code; null for free text (list empty). */
+  productCode?: string | null;
   dosage: string | null;
   route: string | null;
   administeredAt: string;
+  /** Last day of the treatment (CDC n° 23); null = one day. */
+  endDate?: string | null;
+  reason?: string | null;
+  animalCount?: number | null;
   withdrawalDays: number;
   withdrawalEndDate: string | null;
   performedById: string | null;
@@ -1018,6 +1011,9 @@ export interface Customer {
   code: string | null;
   /** Type commercial (défaut PARTICULIER) — purement descriptif. */
   type: CustomerType;
+  /** POUFA lot A bande: operator of the programme register this customer is linked to
+   *  (a poultry sale to it creates the traced cession). */
+  operatorId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

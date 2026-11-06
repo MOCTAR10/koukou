@@ -18,6 +18,7 @@ import type {
   ReadyReason,
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { useCanRead } from '../../app/useMenuAccess';
 import { classNames } from '../../lib/format';
 import { Card, IconTile, type IconTone } from '../ui';
 import { inlineInputCls } from '../form';
@@ -540,10 +541,12 @@ export function useInvalidateFarm(): () => Promise<void> {
 export function useLots(asOf?: string | null) {
   const { farmId } = useFarm();
   const breeds = useBreeds();
+  // TECHNIQUE: a profile without it (the veterinary services) gets no lot list.
+  const canRead = useCanRead();
   return useQuery({
     queryKey: asOf ? ['batches', farmId, asOf] : ['batches', farmId],
     queryFn: () => api.get<Lot[]>(`/farms/${farmId}/batches${asOf ? `?asOf=${asOf}` : ''}`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('TECHNIQUE'),
     // The batch payload carries breedId only.
     select: (rows) =>
       rows.map((r) => {
@@ -555,24 +558,27 @@ export function useLots(asOf?: string | null) {
 
 export function useBuildings() {
   const { farmId } = useFarm();
+  const canRead = useCanRead();
   return useQuery({
     queryKey: ['buildings', farmId],
     queryFn: () => api.get<Building[]>(`/farms/${farmId}/buildings`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('REGISTRE'),
   });
 }
 
 export function useBreeds() {
   const { farmId } = useFarm();
+  const canRead = useCanRead();
   return useQuery({
     queryKey: ['breeds', farmId],
     queryFn: () => api.get<Breed[]>(`/breeds?farmId=${encodeURIComponent(farmId ?? '')}`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('TECHNIQUE'),
   });
 }
 
 export function useBreedStandards(breedId: string | null | undefined) {
   const { farmId } = useFarm();
+  const canRead = useCanRead();
   return useQuery({
     queryKey: ['breed-standards', farmId, breedId],
     queryFn: async () => {
@@ -581,7 +587,7 @@ export function useBreedStandards(breedId: string | null | undefined) {
       );
       return res.standards;
     },
-    enabled: !!farmId && !!breedId,
+    enabled: !!farmId && !!breedId && canRead('TECHNIQUE'),
   });
 }
 

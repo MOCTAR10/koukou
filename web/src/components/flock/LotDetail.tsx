@@ -19,9 +19,11 @@ import {
   HeartPulse,
   Layers,
   Lock,
+  LogOut,
   PackageCheck,
   PenLine,
   Pencil,
+  QrCode,
   Receipt,
   Scale,
   ShieldCheck,
@@ -59,12 +61,26 @@ import type {
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
+import { useCanRead } from '../../app/useMenuAccess';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
 import { Button, ErrorNote, Modal } from '../form';
 import { DataTable, EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
+import { BandSummaryTab } from '../bandes/BandSummaryTab';
+import { ProgrammeBadge } from '../bandes/ProgrammeBadge';
+// POUFA lot A indic: the official band indicators head the Performance card.
+import { OfficialMetric } from '../bandes/OfficialHeadline';
+import { COST_PER_KG_SOLD_LABEL, CONDUITE_LABEL, FERMIA_FORMULAS, findIndicator, marginLabel } from '../bandes/headline';
+import type { BandeIndicators } from '../../api/types-pilotage';
 import { DailyEntryModal } from './DailyEntryModal';
+// POUFA lot A2 sante: « Fait » through the completion form and the offline queue (CDC n° 22).
+import { CompleteCareModal } from './CompleteCareModal';
+import { refFromLot } from '../surveillance/sanitaryLot';
+import { REFERENCE_STEP_LABEL, postponedLabel } from './sanitaryRecords';
+// POUFA W6: band sorties and traceability tabs.
+import { SortiesTab } from '../bandes/SortiesTab';
+import { LotTraceTab } from '../trace/LotTraceTab';
 import { ageWeek } from './feedRecommendation';
 import {
   CARE_STATUS_LABEL,
@@ -96,7 +112,7 @@ import {
   utcYmd,
 } from './shared';
 
-type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire';
+type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire' | 'bilan' | 'sorties' | 'tracabilite';
 
 export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const { farmId } = useFarm();
@@ -107,13 +123,17 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const [closing, setClosing] = useState(false);
   const [confirmSelling, setConfirmSelling] = useState(false);
   const pdf = useAsyncAction();
+  // An institution opens the lots with TECHNIQUE: its sanitary side needs SANITAIRE too.
+  const sanitary = useCanRead()('SANITAIRE');
+  // POUFA W6: the traceability lots need TRACABILITE for an institution.
+  const traceability = useCanRead()('TRACABILITE');
 
   const buildings = useBuildings();
   const building = buildings.data?.find((b) => b.id === lot.buildingId) ?? null;
   const prophylaxis = useQuery({
     queryKey: ['prophylaxis', farmId, lot.id],
     queryFn: () => api.get<ProphylaxisEvent[]>(`/farms/${farmId}/batches/${lot.id}/prophylaxis`),
-    enabled: !!farmId,
+    enabled: !!farmId && sanitary,
   });
   const standards = useBreedStandards(lot.breedId);
 
@@ -154,11 +174,14 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
               <h2 className="text-xl font-bold text-slate-900">{lotName(lot)}</h2>
               <p className="text-sm text-slate-500">
                 {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'}
-                {building ? ` · ${building.name}` : ''} · démarré le {dateFr(lot.integrationDate)} avec{' '}
+                {building ? ` · ${building.name}` : ''} · démarré le {dateFr(lot.integrationDate)}
+                {lot.initialAgeDays ? ` à J${lot.initialAgeDays}` : ''} avec{' '}
                 {num(lot.quantityAtStart)} oiseaux
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <Pill tone={stage.tone}>{stage.label}</Pill>
+                {/* POUFA lot A pilot: band type outside BANDE_TYPES_ELIGIBLES. */}
+                <ProgrammeBadge farmId={farmId} band={lot} />
                 {pill ? <Pill tone={pill.tone}>{pill.label}</Pill> : null}
                 {care && isActive ? (
                   <Pill tone={care.tone}>
@@ -247,7 +270,11 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
           { key: 'courbes', label: 'Courbes', icon: <Activity /> },
           { key: 'saisies', label: 'Saisies', icon: <PenLine /> },
           { key: 'historique', label: 'Historique', icon: <Clock /> },
-          { key: 'sanitaire', label: 'Sanitaire', icon: <HeartPulse /> },
+          ...(sanitary ? [{ key: 'sanitaire' as const, label: 'Sanitaire', icon: <HeartPulse /> }] : []),
+          // POUFA L3: official indicators, comparison, frozen bilans (components/bandes).
+          { key: 'bilan', label: 'Bilan POUFA', icon: <Target /> },
+          { key: 'sorties', label: 'Sorties', icon: <LogOut /> },
+          ...(traceability ? [{ key: 'tracabilite' as const, label: 'Traçabilité', icon: <QrCode /> }] : []),
         ]}
       />
 
@@ -255,7 +282,10 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
       {tab === 'courbes' ? <CurvesTab lot={lot} /> : null}
       {tab === 'saisies' ? <EntriesTab lot={lot} onEdit={(date) => setEntry({ date })} /> : null}
       {tab === 'historique' ? <HistoryTab lot={lot} /> : null}
-      {tab === 'sanitaire' ? <HealthTab lot={lot} events={prophylaxis.data ?? []} /> : null}
+      {tab === 'sanitaire' && sanitary ? <HealthTab lot={lot} events={prophylaxis.data ?? []} /> : null}
+      {tab === 'bilan' ? <BandSummaryTab lot={lot} /> : null}
+      {tab === 'sorties' ? <SortiesTab lot={lot} /> : null}
+      {tab === 'tracabilite' && traceability ? <LotTraceTab batchId={lot.id} /> : null}
 
       {entry ? <DailyEntryModal initialBatchId={lot.id} initialDate={entry.date} onClose={() => setEntry(null)} /> : null}
       {closing ? <CloseLotModal lot={lot} onClose={() => setClosing(false)} /> : null}
@@ -324,26 +354,29 @@ function useEntries(lotId: string) {
 
 function useHealth(lotId: string) {
   const { farmId } = useFarm();
+  const canRead = useCanRead();
   return useQuery({
     queryKey: ['health', farmId, lotId],
     queryFn: () => api.get<BatchHealth>(`/farms/${farmId}/batches/${lotId}/health`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('SANITAIRE'),
   });
 }
 
 function useSlaughterOrders() {
   const { farmId } = useFarm();
+  const canRead = useCanRead();
   return useQuery({
     queryKey: ['slaughter-orders', farmId],
     queryFn: () => api.get<SlaughterOrderFull[]>(`/farms/${farmId}/slaughter-orders`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('TRACABILITE'),
   });
 }
 
 function OverviewTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
-  const canReports = hasPermission('compta:rapports');
+  const canRead = useCanRead();
+  const canReports = hasPermission('compta:rapports') && canRead('ECONOMIQUE');
   const invalidate = useInvalidateFarm();
   const m = lot.metrics;
   const isLayer = lot.type === 'PONDEUSE';
@@ -373,8 +406,17 @@ function OverviewTab({ lot }: { lot: Lot }) {
   const stock = useQuery({
     queryKey: ['feed-stock', farmId],
     queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('INTRANTS'),
   });
+  // Same query as the « Bilan POUFA » tab (shared cache): programme formulas in force.
+  const official = useQuery({
+    queryKey: ['bande-indicators', farmId, lot.id, ''],
+    queryFn: () => api.get<BandeIndicators>(`/farms/${farmId}/bandes/${lot.id}/indicators`),
+    enabled: !!farmId && canRead('TECHNIQUE'),
+    retry: false,
+  });
+  const officialOf = (key: string) => findIndicator(official.data?.indicators, key);
+  const officialMortality = officialOf('taux_mortalite')?.value ?? m.mortalityPercent;
 
   const ack = useAsyncAction();
   const alerts = (advisory.data?.actions ?? []).filter(
@@ -425,21 +467,41 @@ function OverviewTab({ lot }: { lot: Lot }) {
         <SectionCard title="Performance" icon={<Gauge />}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric label="Vivants" icon={<Bird />} value={num(m.liveCount)} sub={`sur ${num(lot.quantityAtStart)}`} />
-            <Metric
+            <OfficialMetric
               label="Mortalité"
               icon={<HeartPulse />}
-              value={`${num(m.mortalityPercent)} %`}
-              sub={`${num(m.totalDeaths)} morts`}
-              tone={m.mortalityPercent >= 5 ? 'bad' : m.mortalityPercent >= 3 ? 'warn' : 'good'}
+              indicator={officialOf('taux_mortalite')}
+              fermiaText={`${num(m.mortalityPercent)} %`}
+              fermiaFormula={FERMIA_FORMULAS.mortality}
+              extra={<span>{num(m.totalDeaths)} morts</span>}
+              tone={officialMortality >= 5 ? 'bad' : officialMortality >= 3 ? 'warn' : 'good'}
             />
-            <Metric label="Viabilité" icon={<HeartPulse />} value={`${num(m.viabilityPercent)} %`} />
-            <Metric label="Indice de consommation" icon={<Scale />} value={m.fcr != null ? num(m.fcr, 2) : '—'} />
-            <Metric label="GMQ" icon={<TrendingUp />} value={m.gmqGramsPerDay != null ? `${num(m.gmqGramsPerDay, 0)} g/j` : '—'} />
+            <OfficialMetric
+              label="Viabilité"
+              icon={<HeartPulse />}
+              indicator={officialOf('viabilite')}
+              fermiaText={`${num(m.viabilityPercent)} %`}
+              fermiaFormula={FERMIA_FORMULAS.viability}
+            />
+            <OfficialMetric
+              label="Indice de consommation"
+              icon={<Scale />}
+              indicator={officialOf('ic')}
+              fermiaText={m.fcr != null ? num(m.fcr, 2) : '—'}
+              fermiaFormula={FERMIA_FORMULAS.fcr}
+            />
+            <OfficialMetric
+              label="GMQ"
+              icon={<TrendingUp />}
+              indicator={officialOf('gmq_g_j')}
+              fermiaText={m.gmqGramsPerDay != null ? `${num(m.gmqGramsPerDay, 0)} g/j` : '—'}
+              fermiaFormula={FERMIA_FORMULAS.gmq}
+            />
             <Metric
-              label="IPE"
+              label="IPE (Fermia)"
               icon={<Activity />}
-              value={m.ipe != null ? num(m.ipe, 0) : '—'}
-              sub={m.ipeTarget != null ? `cible ${num(m.ipeTarget, 0)}` : undefined}
+              value={<span title={FERMIA_FORMULAS.ipe}>{m.ipe != null ? num(m.ipe, 0) : '—'}</span>}
+              sub={`${m.ipeTarget != null ? `cible ${num(m.ipeTarget, 0)} · ` : ''}${CONDUITE_LABEL}`}
             />
             <Metric
               label="Poids moyen"
@@ -535,9 +597,36 @@ function OverviewTab({ lot }: { lot: Lot }) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Metric label="Revenus" icon={<Wallet />} value={fcfa(pnl.data.revenueFcfa)} />
               <Metric label="Dépenses" icon={<Receipt />} value={fcfa(pnl.data.expensesFcfa)} />
-              <Metric label="Résultat net" icon={pnl.data.netFcfa >= 0 ? <TrendingUp /> : <TrendingDown />} value={fcfa(pnl.data.netFcfa)} tone={pnl.data.netFcfa >= 0 ? 'good' : 'bad'} />
-              <Metric label="Marge" icon={<Gauge />} value={pnl.data.marginPct != null ? `${num(pnl.data.marginPct)} %` : '—'} />
-              <Metric label="Coût au kg" icon={<Coins />} value={pnl.data.costPerKgFcfa != null ? fcfa(pnl.data.costPerKgFcfa) : '—'} />
+              <OfficialMetric
+                label={marginLabel(official.data?.indicators, 'marge_fcfa')}
+                icon={pnl.data.netFcfa >= 0 ? <TrendingUp /> : <TrendingDown />}
+                indicator={officialOf('marge_fcfa')}
+                fermiaText={`résultat ${fcfa(pnl.data.netFcfa)}`}
+                fermiaFormula="Fermia : revenus − dépenses du lot."
+                tone={(officialOf('marge_fcfa')?.value ?? pnl.data.netFcfa) >= 0 ? 'good' : 'bad'}
+              />
+              <OfficialMetric
+                label={marginLabel(official.data?.indicators, 'taux_marge')}
+                icon={<Gauge />}
+                indicator={officialOf('taux_marge')}
+                fermiaText={pnl.data.marginPct != null ? `${num(pnl.data.marginPct)} %` : '—'}
+                fermiaFormula={FERMIA_FORMULAS.marginPct}
+              />
+              {officialOf('cout_production_kg') ? (
+                <OfficialMetric
+                  label={officialOf('cout_production_kg')!.label}
+                  icon={<Coins />}
+                  indicator={officialOf('cout_production_kg')}
+                  fermiaText={null}
+                  fermiaFormula=""
+                />
+              ) : null}
+              <Metric
+                label={COST_PER_KG_SOLD_LABEL}
+                icon={<Coins />}
+                value={<span title={FERMIA_FORMULAS.costPerKgSold}>{pnl.data.costPerKgFcfa != null ? fcfa(pnl.data.costPerKgFcfa) : '—'}</span>}
+                sub={CONDUITE_LABEL}
+              />
               <Metric label="Kg vendus" icon={<Scale />} value={num(pnl.data.kgSold)} />
               <Metric label="Oiseaux vendus" icon={<Bird />} value={num(pnl.data.birdsSold)} />
               <Metric label="Œufs vendus" image={EGG_IMAGES.oeuf} value={num(pnl.data.eggsSold, 0)} />
@@ -866,15 +955,16 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
 
 function useLotCare(lotId: string) {
   const { farmId } = useFarm();
+  const sanitary = useCanRead()('SANITAIRE');
   const treatments = useQuery({
     queryKey: ['treatments', farmId, lotId],
     queryFn: () => api.get<TreatmentRecord[]>(`/farms/${farmId}/batches/${lotId}/treatments`),
-    enabled: !!farmId,
+    enabled: !!farmId && sanitary,
   });
   const events = useQuery({
     queryKey: ['health-events', farmId, lotId],
     queryFn: () => api.get<HealthEvent[]>(`/farms/${farmId}/batches/${lotId}/health-events`),
-    enabled: !!farmId,
+    enabled: !!farmId && sanitary,
   });
   return { treatments, events };
 }
@@ -894,10 +984,11 @@ function HistoryTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
   const { treatments, events } = useLotCare(lot.id);
   const slaughter = useSlaughterOrders();
+  const canRead = useCanRead();
   const prophylaxis = useQuery({
     queryKey: ['prophylaxis', farmId, lot.id],
     queryFn: () => api.get<ProphylaxisEvent[]>(`/farms/${farmId}/batches/${lot.id}/prophylaxis`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('SANITAIRE'),
   });
   const [filter, setFilter] = useState<HistoryFilter>('all');
 
@@ -1022,10 +1113,9 @@ function careAlerts(lot: Lot, steps: ProtocolStep[], events: ProphylaxisEvent[],
 
 function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
   const { farmId } = useFarm();
-  const invalidate = useInvalidateFarm();
   const { hasPermission } = useFarmProfile();
   const canComplete = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
-  const care = useAsyncAction();
+  const [completing, setCompleting] = useState<ProphylaxisEvent | null>(null);
   const health = useHealth(lot.id);
   const { treatments, events: healthEvents } = useLotCare(lot.id);
   const protocols = useQuery({
@@ -1063,8 +1153,18 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                 value={`${num(health.data.healthScore, 0)} / 100`}
                 tone={health.data.healthScore >= 80 ? 'good' : health.data.healthScore >= 60 ? 'warn' : 'bad'}
               />
-              <Metric label="Viabilité" icon={<HeartPulse />} value={`${num(health.data.viabilityPercent)} %`} />
-              <Metric label="Mortalité" icon={<HeartPulse />} value={`${num(health.data.mortalityPercent)} %`} />
+              <Metric
+                label="Viabilité (Fermia)"
+                icon={<HeartPulse />}
+                value={<span title={FERMIA_FORMULAS.viability}>{num(health.data.viabilityPercent)} %</span>}
+                sub={CONDUITE_LABEL}
+              />
+              <Metric
+                label="Mortalité (Fermia)"
+                icon={<HeartPulse />}
+                value={<span title={FERMIA_FORMULAS.mortality}>{num(health.data.mortalityPercent)} %</span>}
+                sub={CONDUITE_LABEL}
+              />
               <Metric label="Eau / oiseau" icon={<Droplets />} value={health.data.waterLPerBird != null ? `${num(health.data.waterLPerBird, 2)} L` : '—'} />
             </div>
           ) : null}
@@ -1128,7 +1228,6 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
               <EmptyState message="Aucun soin planifié pour ce lot." icon={<Syringe />} />
             ) : (
               <>
-              <ErrorNote error={care.error} />
               <ul className="divide-y divide-slate-100">
                 {sorted.map((e) => (
                   <li key={e.id} className="flex items-start justify-between gap-3 py-2">
@@ -1137,6 +1236,8 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                       <p className="text-xs text-slate-500">
                         {CARE_TYPE_LABEL[e.careType]} · {dateFr(e.scheduledDate)}
                         {e.status === 'PLANIFIE' && e.scheduledDate.slice(0, 10) === today ? " · aujourd'hui" : ''}
+                        {e.isReference ? ` · ${REFERENCE_STEP_LABEL}` : ''}
+                        {postponedLabel(e, dateFr) ? ` · ${postponedLabel(e, dateFr)}` : ''}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -1144,19 +1245,7 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                         {CARE_STATUS_LABEL[e.status]}
                       </Pill>
                       {canComplete && (e.status === 'PLANIFIE' || e.status === 'EN_RETARD') ? (
-                        <Button
-                          tone="secondary"
-                          busy={care.busy === e.id}
-                          aria-label={`Marquer ${e.name} comme fait`}
-                          onClick={() =>
-                            void care.run(e.id, async () => {
-                              await api.post(`/farms/${farmId}/batches/${lot.id}/prophylaxis/${e.id}/complete`, {
-                                completedAt: utcYmd(),
-                              });
-                              await invalidate();
-                            })
-                          }
-                        >
+                        <Button tone="secondary" aria-label={`Marquer ${e.name} comme fait`} onClick={() => setCompleting(e)}>
                           <Check className="h-4 w-4" /> Fait
                         </Button>
                       ) : null}
@@ -1188,6 +1277,13 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
           )}
         </SectionCard>
       </div>
+      {completing ? (
+        <CompleteCareModal
+          lot={refFromLot(lot)}
+          event={completing}
+          onClose={() => setCompleting(null)}
+        />
+      ) : null}
     </div>
   );
 }

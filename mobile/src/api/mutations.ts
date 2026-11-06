@@ -58,6 +58,19 @@ export interface DailyEntryPayload {
   eggsDoubleYolk?: number;
   eggsDirty?: number;
   source?: 'MANUELLE';
+  /** Sujets pesés (CDC 8), sent with a weight. */
+  sampleSize?: number;
+  // Offline conflict rule (CDC §7.2, backend sync.service.ts): see poufa/entry-sync.ts.
+  /** Time of entry on the phone (fixed when saved, kept on replay). */
+  capturedAt?: string;
+  /** updatedAt of the entry this phone edited (absent for a new entry). */
+  baseUpdatedAt?: string;
+  /** Values of that entry as known (feed in kg). */
+  baseValues?: Partial<Record<string, number | null>>;
+  /** Phone clock at this send attempt. */
+  deviceSentAt?: string;
+  /** Stable id of this install. */
+  deviceId?: string;
 }
 
 export interface DailyEntryValues {
@@ -68,6 +81,8 @@ export interface DailyEntryValues {
   bagSizeKg?: number;
   waterL: number;
   weightG: number;
+  /** Sujets pesés with the weight (0 = not typed). */
+  sampleSize?: number;
   eggs: number;
   eggsCracked: number;
   eggsSmall: number;
@@ -121,7 +136,10 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
     }
   }
   if (send(values.waterL)) p.waterL = values.waterL;
-  if (values.weightG > 0) p.avgWeightKg = values.weightG / 1000;
+  if (values.weightG > 0) {
+    p.avgWeightKg = values.weightG / 1000;
+    if (values.sampleSize != null && values.sampleSize > 0) p.sampleSize = values.sampleSize;
+  }
   if (sendEgg(values.eggs)) p.eggsCollected = values.eggs;
   if (sendEgg(values.eggs))
     p.eggsSellable = Math.max(
@@ -139,7 +157,7 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
   return p;
 }
 
-export type PosProduct = 'PIECE' | 'KG' | 'OEUF' | 'AUTRE' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'PROVENDE' | 'RECOLTE';
+export type PosProduct = 'PIECE' | 'KG' | 'OEUF' | 'AUTRE' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'PROVENDE';
 
 export type BuildSaleItemResult =
   | { item: SaleItemPayload }
@@ -154,10 +172,6 @@ export interface BuildSaleItemOptions {
   sourceSlaughterOrderId?: string;
   /** Réserve d'un transfert ferme → boutique (ABATTU, OEUFS ou PROVENDE). */
   stockTransferId?: string;
-  /** Parcelle source pour RECOLTE (stock vendable au POS Ferme). */
-  parcelleId?: string;
-  /** Libellé personnalisé (ex : récolte de la parcelle). */
-  label?: string;
   /** Unité de vente proposée (PROVENDE réservée : SAC ou KG). */
   unit?: SaleUnit;
 }
@@ -256,22 +270,6 @@ export function buildSaleItem(
         },
       };
     }
-    case 'RECOLTE': {
-      if (!opts?.parcelleId) return { error: 'Sélectionnez la parcelle de la récolte.' };
-      if (!opts.unit || opts.unit === 'ALVEOLES' || opts.unit === 'UNITE') {
-        return { error: 'Choisissez une unité de récolte (KG, PIECE ou SAC).' };
-      }
-      return {
-        item: {
-          productType: 'RECOLTE',
-          unit: opts.unit,
-          label: opts.label ?? 'Récolte de la parcelle',
-          quantity,
-          unitPriceFcfa,
-          parcelleId: opts.parcelleId,
-        },
-      };
-    }
     default:
       return { item: { productType: 'AUTRE', unit: 'UNITE', label: 'Autre', quantity, unitPriceFcfa } };
   }
@@ -348,7 +346,7 @@ export interface SaleItemPayload {
   sourceSlaughterOrderId?: string;
   /** Réserve d'un transfert ferme → boutique (vente ABATTU, OEUFS ou PROVENDE). */
   stockTransferId?: string;
-  /** Parcelle source pour RECOLTE. */
+  /** Parcelle source of a RECOLTE line (crops, hidden in the POUFA instance; kept for queued sales). */
   parcelleId?: string;
 }
 
@@ -386,23 +384,6 @@ export function createSale(
   });
 }
 
-/** Journalise une récolte de parcelle (alimente le stock vendable au POS Ferme). */
-export function createRecolte(
-  farmId: string,
-  payload: {
-    parcelleId: string;
-    harvestDate?: string;
-    quantity: number;
-    unit: 'KG' | 'PIECE' | 'SAC';
-    notes?: string;
-  },
-): Promise<unknown> {
-  return apiFetch(`/farms/${farmId}/recoltes`, {
-    method: 'POST',
-    body: payload,
-  });
-}
-
 /** Acquitte une alerte (PROPRIETAIRE + ELEVEUR) : ACTIVE → ACQUITTEE. */
 export function acknowledgeAlert(farmId: string, alertId: string): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/alerts/${alertId}/acknowledge`, { method: 'POST' });
@@ -432,11 +413,22 @@ export function generateProphylaxis(farmId: string, batchId: string, protocolId?
   });
 }
 
+export interface CompleteProphylaxisInput {
+  completedAt?: string;
+  notes?: string;
+  /** Birds vaccinated or treated (CDC n° 22). */
+  animalCount?: number;
+  /** Route actually used, when it differs from the planned one. */
+  route?: string;
+  /** Offline replay key: the same completion is applied once. */
+  idempotencyKey?: string;
+}
+
 export function completeProphylaxis(
   farmId: string,
   batchId: string,
   eventId: string,
-  extra?: { completedAt?: string; notes?: string },
+  extra?: CompleteProphylaxisInput,
 ): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/batches/${batchId}/prophylaxis/${eventId}/complete`, {
     method: 'POST',
@@ -460,12 +452,23 @@ export function rescheduleProphylaxis(farmId: string, batchId: string, eventId: 
 
 export interface CreateTreatmentInput {
   careType: CareType;
-  productName: string;
+  /** Free text, accepted only while the PRODUIT_TRAITEMENT list is empty. */
+  productName?: string;
+  /** PRODUIT_TRAITEMENT code, required once the list has an active item. */
+  productCode?: string;
+  /** A programme step given before the band was opened: the product is the step's. */
+  protocolStepId?: string;
   dosage?: string;
   route?: string;
   administeredAt?: string;
+  /** Last day of the treatment (`YYYY-MM-DD`): the withdrawal period counts from it. */
+  endDate?: string;
+  reason?: string;
+  animalCount?: number;
   withdrawalDays?: number;
   notes?: string;
+  /** Offline replay key: the server stores the treatment once. */
+  idempotencyKey?: string;
 }
 
 export function createTreatment(farmId: string, batchId: string, input: CreateTreatmentInput): Promise<unknown> {
@@ -759,13 +762,13 @@ export function updateFarmMember(
   });
 }
 
+/** The farm name is not here: it changes only at the programme registry (PATCH answers 400). */
 export interface UpdateFarmSettingsInput {
-  name?: string;
   administrativeCity?: string;
   defaultSacKg?: number;
 }
 
-/** Paramètres de la ferme : nom, ville, poids du sac (PATCH /farms/:farmId). */
+/** Paramètres de la ferme : ville, poids du sac (PATCH /farms/:farmId). */
 export function updateFarmSettings(
   farmId: string,
   input: UpdateFarmSettingsInput,
@@ -886,6 +889,7 @@ export function createFeedProduct(farmId: string, input: CreateFeedProductInput)
 
 export interface CreateBatchInput {
   batchName: string;
+  /** POUFA band opening: the arrival day (not the hatch day). */
   integrationDate: string;
   quantityAtStart: number;
   type: 'CHAIR' | 'PONDEUSE';
@@ -901,8 +905,12 @@ export interface CreateBatchInput {
   chickLotNumber?: string;
   hatchDate?: string;
   chickUnitPriceFcfa?: number;
-  /** Effectif vivant actuel (lot en cours) — sinon quantityAtStart */
-  quantityAlive?: number;
+  /** Age of the birds on arrival (J+x), 0..365; 0 / absent = day-old chicks. A « lot
+   *  en cours » opens at its current age with its live birds as `quantityAtStart`
+   *  (the backend refuses a `quantityAlive` different from it). */
+  initialAgeDays?: number;
+  /** POUFA lot A bande: average weight on arrival (g / bird), 1..20000; absent = not weighed. */
+  initialAvgWeightG?: number;
 }
 
 export function createBatch(farmId: string, input: CreateBatchInput): Promise<{ id: string }> {
@@ -1046,10 +1054,15 @@ export function recordOrderPayment(
 }
 
 /** Livre la commande : décrémente le cheptel, fige le snapshot, génère le bon de commande PDF. */
-export function deliverOrder(farmId: string, orderId: string): Promise<unknown> {
+export function deliverOrder(
+  farmId: string,
+  orderId: string,
+  // POUFA lot A2 divers: an offline delivery keeps the day it was recorded on the phone.
+  meta?: { capturedAt: string; deviceId: string; deviceSentAt: string },
+): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/orders/${orderId}/livrer`, {
     method: 'POST',
-    body: {},
+    body: meta ?? {},
   });
 }
 

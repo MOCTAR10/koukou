@@ -6,6 +6,7 @@ import { Operator } from './entities/operator.entity.js';
 import { QrScan } from './entities/qr-scan.entity.js';
 import { TraceLot } from './entities/trace-lot.entity.js';
 import { TraceConfigService } from './trace-config.service.js';
+import { SaleCessionService } from './sale-cession.service.js';
 import { TraceLotsService } from './trace-lots.service.js';
 
 /**
@@ -19,7 +20,7 @@ import { TraceLotsService } from './trace-lots.service.js';
     TypeOrmModule.forFeature([TraceLot, LotEvent, Operator, QrScan]),
     ProgrammeModule,
   ],
-  providers: [TraceConfigService, TraceLotsService],
-  exports: [TraceConfigService, TraceLotsService],
+  providers: [TraceConfigService, TraceLotsService, SaleCessionService],
+  exports: [TraceConfigService, TraceLotsService, SaleCessionService],
 })
 export class TraceCoreModule {}

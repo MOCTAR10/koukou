@@ -11,6 +11,8 @@ import {
   type OfflineKind,
   type OfflineOp,
 } from './store';
+// POUFA lot A bande: offline conflict metadata of daily entries (CDC §7.2).
+import { deviceId, withCaptureMeta, withSendTime } from './syncMeta';
 
 /** Server errors in a row after which an op stops blocking the queue. */
 export const MAX_SERVER_ATTEMPTS = 10;
@@ -25,6 +27,18 @@ const KEYED_KINDS: ReadonlySet<OfflineKind> = new Set<OfflineKind>([
   'customer-payment',
   'pdv-create',
   'stock-transfer-create',
+  // Sanitary declaration (POUFA L5): the form may bring its own key
+  // (`useIdempotencyKey`), which then wins over the op id.
+  'health-event',
+  // POUFA (web only for now): a replayed confirmation answers `replay: true`,
+  // a replayed sortie returns the existing one (unique farm + key).
+  'delivery-confirm',
+  'band-sortie',
+  // POUFA lot A sante: a replayed treatment returns the stored one, a replayed
+  // completion the care it completed (unique farm + key). A refusal is kept for
+  // the user: a sanitary record is never lost silently.
+  'treatment',
+  'prophylaxis-complete',
 ]);
 
 /** A refusal of these is kept for the user to re-enter, never silently deleted. */
@@ -65,7 +79,9 @@ function shouldDrop(e: unknown): boolean {
   return e instanceof ApiError && !(e instanceof OfflineError) && e.status >= 400 && e.status < 500 && e.status !== 401;
 }
 
-function send<T>(op: Pick<OfflineOp, 'method' | 'path' | 'body'>): Promise<T> {
+function send<T>(op: Pick<OfflineOp, 'method' | 'path' | 'body'> & { kind?: OfflineKind }): Promise<T> {
+  // POUFA lot A bande: the device clock at each sending (server clock-skew check).
+  if ((op.kind === 'daily-entry' || op.kind === 'order-deliver') && op.method === 'POST') return api.post<T>(op.path, withSendTime(op.body));
   if (op.method === 'POST') return api.post<T>(op.path, op.body);
   if (op.method === 'PATCH') return api.patch<T>(op.path, op.body);
   return api.del<T>(op.path);
@@ -111,16 +127,23 @@ async function mustQueueBehind(farmId: string): Promise<boolean> {
 /** Sends now, or keeps the write for later when the server can't be reached. */
 export async function sendOrQueue<T = unknown>(req: OfflineRequest): Promise<SendResult<T>> {
   const id = nextId(req.kind);
+  const createdAt = new Date().toISOString();
   const op: OfflineOp = {
     id,
     kind: req.kind,
     farmId: req.farmId,
     method: req.method ?? 'POST',
     path: req.path,
-    body: KEYED_KINDS.has(req.kind) ? { idempotencyKey: id, ...req.body } : req.body,
+    body: KEYED_KINDS.has(req.kind)
+      ? { idempotencyKey: id, ...req.body }
+      : // POUFA lot A bande: capture time and device, fixed at the first attempt.
+        // POUFA lot A2 divers: an order delivery keeps its own day too.
+        req.kind === 'daily-entry' || req.kind === 'order-deliver'
+        ? withCaptureMeta(req.body, createdAt, deviceId())
+        : req.body,
     label: req.label,
     cashFcfa: req.cashFcfa,
-    createdAt: new Date().toISOString(),
+    createdAt,
     userId: getStoredUser()?.id,
   };
   if (await mustQueueBehind(op.farmId)) {

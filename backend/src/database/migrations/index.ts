@@ -14,6 +14,25 @@ import { Traceability1793958553940 } from './1793958553940-Traceability.js';
 import { PilotageReports1793958852697 } from './1793958852697-PilotageReports.js';
 import { SanitarySurveillanceNotify1793958965095 } from './1793958965095-SanitarySurveillanceNotify.js';
 import { DataRecovery1793959230932 } from './1793959230932-DataRecovery.js';
+// POUFA lot A pilot: report notifications and default recipients.
+import { PilotReportsSent1794000100000 } from './1794000100000-PilotReportsSent.js';
+// POUFA lot A bande: weighing reminder to the whole farm team.
+import { WeighingReminderTeam1794000400000 } from './1794000400000-WeighingReminderTeam.js';
+// POUFA lot A droits (begin)
+import { InstitutionFermiaGrants1794000500000 } from './1794000500000-InstitutionFermiaGrants.js';
+import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalaries.js';
+// POUFA lot A droits (end)
+// POUFA lot A2 divers
+import { SlaughterOrderOperator1794100500000 } from './1794100500000-SlaughterOrderOperator.js';
+import { BreedReferenceRight1794100500100 } from './1794100500100-BreedReferenceRight.js';
+// POUFA lot A sante: CDC n° 22-23 (treatments, vaccinations, offline keys).
+import { SanitaryConformity1794000300000 } from './1794000300000-SanitaryConformity.js';
+// POUFA lot A2 sante: reference calendar steps, postponement trace, care product code.
+import { CareReferenceCalendar1794100100000 } from './1794100100000-CareReferenceCalendar.js';
+// POUFA lot A2 vet (begin): veterinary authority by the matrix, declaration review.
+import { VeterinaryAuthorityMatrix1794100200000 } from './1794100200000-VeterinaryAuthorityMatrix.js';
+import { DeclarationReview1794100200100 } from './1794100200100-DeclarationReview.js';
+// POUFA lot A2 vet (end)
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -38,4 +57,24 @@ export const MIGRATIONS = [
   PilotageReports1793958852697,
   SanitarySurveillanceNotify1793958965095,
   DataRecovery1793959230932,
+  // POUFA lot A pilot.
+  PilotReportsSent1794000100000,
+  // POUFA lot A sante
+  SanitaryConformity1794000300000,
+  // POUFA lot A bande
+  WeighingReminderTeam1794000400000,
+  // POUFA lot A droits (begin)
+  InstitutionFermiaGrants1794000500000,
+  AuditMaskSalaries1794000500100,
+  // POUFA lot A droits (end)
+  // POUFA lot A2 sante
+  CareReferenceCalendar1794100100000,
+  // POUFA lot A2 vet (begin)
+  VeterinaryAuthorityMatrix1794100200000,
+  DeclarationReview1794100200100,
+  // POUFA lot A2 vet (end)
+  // POUFA lot A2 divers (begin)
+  SlaughterOrderOperator1794100500000,
+  BreedReferenceRight1794100500100,
+  // POUFA lot A2 divers (end)
 ];

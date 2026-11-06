@@ -54,15 +54,18 @@ export function ActivityHero({ d, dateLabel }: { d: DashboardData; dateLabel: st
         ) : null}
       </View>
 
-      <View style={styles.heroAmountRow}>
-        <Wallet size={18} color="rgba(255,255,255,0.62)" />
-        <AppText size="display" weight="bold" style={{ color: '#FFFFFF' }} numberOfLines={1}>
-          {fmtFcfa(d.collectedTodayFcfa)}
-        </AppText>
-        <AppText size="small" style={{ color: 'rgba(255,255,255,0.55)' }} numberOfLines={1}>
-          encaissé
-        </AppText>
-      </View>
+      {/* POUFA lot A droits: hidden when the server withholds the cash figure. */}
+      {d.collectedTodayFcfa != null ? (
+        <View style={styles.heroAmountRow}>
+          <Wallet size={18} color="rgba(255,255,255,0.62)" />
+          <AppText size="display" weight="bold" style={{ color: '#FFFFFF' }} numberOfLines={1}>
+            {fmtFcfa(d.collectedTodayFcfa)}
+          </AppText>
+          <AppText size="small" style={{ color: 'rgba(255,255,255,0.55)' }} numberOfLines={1}>
+            encaissé
+          </AppText>
+        </View>
+      ) : null}
 
       <View style={styles.statsRow}>
         <HeroStat label="Stock vivant" value={fmt(d.liveStock)} />
