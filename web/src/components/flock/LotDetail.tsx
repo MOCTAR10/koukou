@@ -65,6 +65,7 @@ import { dateFr, fcfa, num } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
 import { Button, ErrorNote, Modal } from '../form';
 import { DataTable, EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
+import { BandSummaryTab } from '../bandes/BandSummaryTab';
 import { DailyEntryModal } from './DailyEntryModal';
 import { ageWeek } from './feedRecommendation';
 import {
@@ -97,7 +98,7 @@ import {
   utcYmd,
 } from './shared';
 
-type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire';
+type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire' | 'bilan';
 
 export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const { farmId } = useFarm();
@@ -252,6 +253,8 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
           { key: 'saisies', label: 'Saisies', icon: <PenLine /> },
           { key: 'historique', label: 'Historique', icon: <Clock /> },
           ...(sanitary ? [{ key: 'sanitaire' as const, label: 'Sanitaire', icon: <HeartPulse /> }] : []),
+          // POUFA L3: official indicators, comparison, frozen bilans (components/bandes).
+          { key: 'bilan', label: 'Bilan POUFA', icon: <Target /> },
         ]}
       />
 
@@ -260,6 +263,7 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
       {tab === 'saisies' ? <EntriesTab lot={lot} onEdit={(date) => setEntry({ date })} /> : null}
       {tab === 'historique' ? <HistoryTab lot={lot} /> : null}
       {tab === 'sanitaire' && sanitary ? <HealthTab lot={lot} events={prophylaxis.data ?? []} /> : null}
+      {tab === 'bilan' ? <BandSummaryTab lot={lot} /> : null}
 
       {entry ? <DailyEntryModal initialBatchId={lot.id} initialDate={entry.date} onClose={() => setEntry(null)} /> : null}
       {closing ? <CloseLotModal lot={lot} onClose={() => setClosing(false)} /> : null}
