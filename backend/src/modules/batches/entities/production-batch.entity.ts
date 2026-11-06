@@ -111,7 +111,7 @@ export class ProductionBatch {
 
   /**
    * POUFA band number `G1-0012-B07` (farm code + rank from IdCounter), set at
-   * opening for programme farms only. Never changed nor reused (DB trigger
+   * opening. Never changed nor reused (DB trigger
    * `production_batches_code_immutable`).
    */
   @Column({ type: 'varchar', length: 40, nullable: true })

@@ -2,7 +2,7 @@
 
 Livrable du cahier des charges (§9.4, « règle de gestion des conflits de synchronisation »), fonctionnalité « Collecte mobile hors connexion » : *dernière saisie horodatée retenue, conflit signalé*.
 
-Cette règle s'applique aux **fermes du programme** (`Farm.programId` renseigné). Les fermes Fermia hors programme gardent le fonctionnement actuel : la dernière écriture reçue s'applique.
+Cette règle s'applique à **toutes les fermes** : l'instance ne sert que le programme POUFA, chaque ferme en fait partie (`Farm.programId` toujours renseigné).
 
 Code : `src/modules/sync/conflict-rules.ts` (règle pure, testée), `src/modules/sync/sync.service.ts` (enregistrement), appelé par la saisie journalière (`daily-entries.service.ts`). Toute évolution de la règle doit modifier ce document et ces fichiers ensemble.
 

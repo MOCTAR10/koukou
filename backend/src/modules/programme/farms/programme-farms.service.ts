@@ -1115,9 +1115,7 @@ export class ProgrammeFarmsService {
       where: { id: farmId },
       relations: { province: true, localite: true, owner: true },
     });
-    if (!farm || !farm.programId) {
-      throw new NotFoundException('Ferme du programme introuvable.');
-    }
+    if (!farm) throw new NotFoundException('Ferme du programme introuvable.');
     const [statuses, cohorts, infraLabels, infra, occupation] =
       await Promise.all([
         this.statusMap(),

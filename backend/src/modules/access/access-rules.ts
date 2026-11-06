@@ -102,17 +102,16 @@ export function scopeReachesFarms(kind: AccessScopeKind): boolean {
 }
 
 /**
- * Whether a farm is in the scope. Only programme farms of the member's
- * programme are ever in scope: a farm outside any programme (plain Fermia
- * customer) is never visible to an institution. FINANCED needs the BCEG
+ * Whether a farm is in the scope. Only farms of the member's programme are
+ * ever in scope (one programme per instance today). FINANCED needs the BCEG
  * consent model (not built yet), so it reaches no farm for now; AGGREGATE,
  * AUDIT and OPERATOR never reach a farm sheet.
  */
 export function includesFarm(
   access: InstitutionAccess,
-  farm: { id: string; programId: string | null; provinceId: string | null },
+  farm: { id: string; programId: string; provinceId: string | null },
 ): boolean {
-  if (!farm.programId || farm.programId !== access.programId) return false;
+  if (farm.programId !== access.programId) return false;
   switch (access.scopeKind) {
     case AccessScopeKind.ALL:
       return true;

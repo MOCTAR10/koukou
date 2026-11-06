@@ -381,7 +381,7 @@ export class SlaughterService {
         order.carcassesAvailable = order.birdCount;
       }
       await em.getRepository(SlaughterOrder).save(order);
-      // POUFA band projection (no-op outside a programme).
+      // POUFA band projection, same transaction.
       await this.bandeStats.refresh(em, batch.id);
       return order;
     });

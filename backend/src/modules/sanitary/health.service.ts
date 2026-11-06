@@ -290,7 +290,7 @@ export class HealthService {
   private async recomputeLiveCount(batchId: string): Promise<void> {
     await this.dataSource.transaction(async (em) => {
       await this.flockReconciliation.recomputeLiveCount(em, batchId);
-      // POUFA band projection (no-op outside a programme).
+      // POUFA band projection, same transaction.
       await this.bandeStats.refresh(em, batchId);
     });
   }

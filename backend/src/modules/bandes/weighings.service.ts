@@ -101,7 +101,7 @@ export class WeighingsService implements OnModuleInit, OnModuleDestroy {
                 TO_CHAR(b.integration_date, 'YYYY-MM-DD') AS "integrationDate",
                 f.program_id AS "programId"
            FROM production_batches b JOIN farms f ON f.id = b.farm_id
-          WHERE f.program_id IS NOT NULL AND b.status <> $1`,
+          WHERE b.status <> $1`,
         [BatchStatus.CLOTURE],
       );
     const resolvers = new Map<string, ParameterResolver>();
