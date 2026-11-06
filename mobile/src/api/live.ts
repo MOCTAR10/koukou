@@ -68,6 +68,7 @@ import type {
   FarmTask,
   DailyEntryRecord,
   Species,
+  CareActionInfo,
 } from './types';
 
 interface BackendAdvisoryAction {
@@ -85,6 +86,7 @@ interface BackendAdvisoryAction {
   /** Kind réel pour les actions issues d'une alerte stockée. */
   kind?: string | null;
   status?: AlertStatus;
+  care?: CareActionInfo;
 }
 
 interface BackendStoredAlert {
@@ -399,6 +401,7 @@ export function mapAdvisory(raw: BackendAdvisory): AdvisoryData {
       createdAt: raw.generatedAt,
       dueDate: a.dueDate,
       alertId: a.alertId ?? null,
+      care: a.care,
     };
   });
 

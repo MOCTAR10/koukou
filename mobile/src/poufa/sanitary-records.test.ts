@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { completionBody, treatmentBody, treatmentPeriodLabel, withdrawalEndPreview, type TreatmentForm } from './sanitary-records';
+import {
+  canRemoveCare,
+  careNeedsTreatmentDetails,
+  careOpensTreatment,
+  careTreatmentBody,
+  completionBody,
+  postponedLabel,
+  treatmentBody,
+  treatmentPeriodLabel,
+  withdrawalEndPreview,
+  type TreatmentForm,
+} from './sanitary-records';
 
 const form = (over: Partial<TreatmentForm> = {}): TreatmentForm => ({
   careType: 'ANTIBIOTIQUE',
@@ -79,5 +90,68 @@ describe('treatmentPeriodLabel', () => {
     const fmt = (d: string) => d.slice(0, 10);
     expect(treatmentPeriodLabel('2026-11-01T08:00:00Z', null, fmt)).toBe('2026-11-01');
     expect(treatmentPeriodLabel('2026-11-01T08:00:00Z', '2026-11-03', fmt)).toBe('du 2026-11-01 au 2026-11-03');
+  });
+});
+
+describe('careTreatmentBody (POUFA lot A2: « Fait » of a care)', () => {
+  const LIST = [{ code: 'DOXY', label: 'Doxycycline' }];
+  const manual = { name: 'Doxycycline', withdrawalDays: 4, protocolStepId: null, productCode: null };
+  const empty = { productCode: '', endDate: '', reason: '' };
+
+  it('sends nothing for a care without withdrawal period', () => {
+    expect(careOpensTreatment({ withdrawalDays: 0 })).toBe(false);
+    expect(careTreatmentBody({ ...manual, withdrawalDays: 0 }, empty, '2026-11-06', LIST)).toEqual({ ok: true, body: {} });
+  });
+
+  it('a manual care needs the product from the list, the reason and the end day', () => {
+    expect(careNeedsTreatmentDetails(manual)).toBe(true);
+    expect(careTreatmentBody(manual, { ...empty, reason: 'Coryza', endDate: '2026-11-08' }, '2026-11-06', LIST)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('liste'),
+    });
+    expect(careTreatmentBody(manual, { ...empty, productCode: 'DOXY', endDate: '2026-11-08' }, '2026-11-06', LIST)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('motif'),
+    });
+    expect(careTreatmentBody(manual, { ...empty, productCode: 'DOXY', reason: 'Coryza' }, '2026-11-06', LIST)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('date de fin'),
+    });
+    expect(
+      careTreatmentBody(manual, { productCode: 'DOXY', reason: ' Coryza ', endDate: '2026-11-08' }, '2026-11-06', LIST),
+    ).toEqual({ ok: true, body: { productCode: 'DOXY', reason: 'Coryza', endDate: '2026-11-08' } });
+  });
+
+  it('keeps the product picked at planning, and sends none while the list is empty or unknown', () => {
+    const planned = { ...manual, productCode: 'DOXY' };
+    const form = { productCode: '', reason: 'Coryza', endDate: '2026-11-06' };
+    expect(careTreatmentBody(planned, form, '2026-11-06', LIST)).toMatchObject({ ok: true, body: { productCode: 'DOXY' } });
+    expect(careTreatmentBody(manual, form, '2026-11-06', [])).toEqual({ ok: true, body: { reason: 'Coryza', endDate: '2026-11-06' } });
+    expect(careTreatmentBody(manual, form, '2026-11-06', null)).toMatchObject({ ok: true });
+  });
+
+  it('refuses an end before the completion; a programme step needs nothing more', () => {
+    expect(careTreatmentBody(manual, { productCode: 'DOXY', reason: 'Coryza', endDate: '2026-11-01' }, '2026-11-06', LIST)).toMatchObject({
+      ok: false,
+    });
+    const step = { ...manual, protocolStepId: 'step-1' };
+    expect(careNeedsTreatmentDetails(step)).toBe(false);
+    expect(careTreatmentBody(step, empty, '2026-11-06', LIST)).toEqual({ ok: true, body: {} });
+  });
+});
+
+describe('reference calendar steps', () => {
+  const fmt = (d: string) => d.split('-').reverse().join('/');
+
+  it('labels a postponement with its reference date', () => {
+    expect(postponedLabel({ isReference: true, originalDate: '2026-11-10' }, fmt)).toBe('Reporté · date de référence 10/11/2026');
+    expect(postponedLabel({ isReference: false, originalDate: '2026-11-10' }, fmt)).toBe('Reporté · prévu le 10/11/2026');
+    expect(postponedLabel({ isReference: true, originalDate: null }, fmt)).toBeNull();
+  });
+
+  it('only an institution may withdraw a reference step', () => {
+    expect(canRemoveCare({ isReference: true }, false)).toBe(false);
+    expect(canRemoveCare({ isReference: true }, true)).toBe(true);
+    expect(canRemoveCare({ isReference: false }, false)).toBe(true);
   });
 });

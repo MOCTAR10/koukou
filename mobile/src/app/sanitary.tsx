@@ -396,8 +396,13 @@ function EventCard({
             <>
               <Button label="Reporter +1 j" tone="brand" size="md" block={false} icon={RotateCcw} onPress={onReschedule} disabled={busy} />
               <Button label="Éditer" tone="ghost" size="md" block={false} icon={Pencil} onPress={onEdit} disabled={busy} />
-              <Button label="Annuler" tone="ghost" size="md" block={false} icon={CalendarX} onPress={onCancel} disabled={busy} />
-              <Button label="Supprimer" tone="danger" size="md" block={false} icon={Trash2} onPress={onDelete} disabled={busy} />
+              {/* POUFA lot A2 sante: a reference step is postponed, never cancelled nor deleted by the farm. */}
+              {e.isReference ? null : (
+                <>
+                  <Button label="Annuler" tone="ghost" size="md" block={false} icon={CalendarX} onPress={onCancel} disabled={busy} />
+                  <Button label="Supprimer" tone="danger" size="md" block={false} icon={Trash2} onPress={onDelete} disabled={busy} />
+                </>
+              )}
             </>
           ) : null}
         </View>

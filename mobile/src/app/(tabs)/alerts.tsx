@@ -1,23 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { CalendarDays, Check, CircleCheck, SearchX } from 'lucide-react-native';
+import { CircleCheck, SearchX } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { Chip } from '@/components/ui/Chip';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Sheet } from '@/components/ui/Sheet';
-import { Button } from '@/components/ui/Button';
 import { AlertCard } from '@/components/AlertCard';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { fetchAdvisory, fetchAlertHistory } from '@/api';
-import { acknowledgeAlert, todayStr } from '@/api/mutations';
-// POUFA lot A sante: a care completion goes through the offline queue (CDC n° 22).
-import { completeProphylaxisQueued } from '@/offline';
+import { acknowledgeAlert } from '@/api/mutations';
+// POUFA lot A2 sante: « Fait » through the shared completion sheet and the offline queue (CDC n° 22-23).
+import { CompleteCareSheet, type CompletableCare } from '@/components/sanitary/SanitaryRecordSheets';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import {
   filterAlerts,
@@ -32,16 +30,21 @@ import type { Alert } from '@/api/types';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { color, gradeColor, palette, radii, fontFamily, semantic } from '@/constants/theme';
 
-function todayIso(): string {
-  return todayStr();
-}
-
-/** Date strictement valide AAAA-MM-JJ (et pas une date impossible comme 2026-02-31). */
-function isValidDate(iso: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return y >= 2000 && dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+/** The care behind a SOIN action (the server sends `care`; the fallback keeps the id). */
+function careOfAlert(alert: Alert): CompletableCare {
+  const info = alert.care;
+  return {
+    id: info?.eventId ?? alert.id.replace(/^care:/, ''),
+    batchId: alert.batchId ?? '',
+    name: info?.name ?? alert.message,
+    careType: info?.careType ?? 'VACCIN',
+    route: info?.route ?? null,
+    withdrawalDays: info?.withdrawalDays ?? 0,
+    protocolStepId: info?.protocolStepId ?? null,
+    productCode: info?.productCode ?? null,
+    isReference: info?.isReference,
+    originalDate: info?.originalDate ?? null,
+  };
 }
 
 export default function AlertsScreen() {
@@ -60,10 +63,6 @@ export default function AlertsScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [careTarget, setCareTarget] = useState<Alert | null>(null);
-  const [careDate, setCareDate] = useState<string>(todayIso);
-  const [careNotes, setCareNotes] = useState<string>('');
-  const [careBusy, setCareBusy] = useState(false);
-  const [careError, setCareError] = useState<string | null>(null);
 
   const advisory = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId) });
   const history = useQuery({
@@ -71,13 +70,6 @@ export default function AlertsScreen() {
     queryFn: () => fetchAlertHistory(farmId),
     enabled: status === 'RESOLUE',
   });
-
-  useEffect(() => {
-    if (!careTarget) return;
-    setCareDate(todayIso());
-    setCareNotes('');
-    setCareError(null);
-  }, [careTarget]);
 
   const base = useMemo(() => {
     const raw = status === 'RESOLUE' ? (history.data ?? []) : (advisory.data?.alerts ?? []);
@@ -124,32 +116,6 @@ export default function AlertsScreen() {
         setActionError("Impossible d'acquitter pour le moment. Vérifiez la connexion puis réessayez.");
       })
       .finally(() => setBusyId(null));
-  };
-
-  const confirmCare = () => {
-    const target = careTarget;
-    if (!target || !target.batchId || !isValidDate(careDate) || careBusy) return;
-    setCareBusy(true);
-    setCareError(null);
-    setOverrides((o) => ({ ...o, [target.id]: 'ACQUITTEE' }));
-    completeProphylaxisQueued(farmId, target.batchId, target.id.replace(/^care:/, ''), {
-      completedAt: `${careDate}T12:00:00.000Z`,
-      notes: careNotes.trim() ? careNotes.trim() : undefined,
-    })
-      .then(() => {
-        setCareTarget(null);
-        void advisory.refetch();
-        invalidateFarmQueries(queryClient, { farmId, batchId: target.batchId! });
-      })
-      .catch(() => {
-        setOverrides((o) => {
-          const next = { ...o };
-          delete next[target.id];
-          return next;
-        });
-        setCareError('Soin non enregistré. Vérifiez la connexion puis réessayez.');
-      })
-      .finally(() => setCareBusy(false));
   };
 
   const handlePrimary = (alert: Alert) => {
@@ -323,65 +289,18 @@ export default function AlertsScreen() {
         </View>
       )}
 
-      <Sheet
-        visible={!!careTarget}
-        onClose={() => {
-          if (!careBusy) setCareTarget(null);
-        }}
-        title="Enregistrer le soin"
-        subtitle={careTarget?.batchName ?? careTarget?.message}
-        footer={
-          <Button
-            label="Enregistrer le soin"
-            tone="success"
-            icon={Check}
-            loading={careBusy}
-            disabled={!isValidDate(careDate)}
-            onPress={confirmCare}
-          />
-        }>
-        <View style={styles.form}>
-          <AppText size="bodyM" weight="semibold" color="ink">
-            Date réelle du soin
-          </AppText>
-          <View style={styles.field}>
-            <CalendarDays size={16} color={color.ink[400]} />
-            <TextInput
-              value={careDate}
-              onChangeText={setCareDate}
-              style={styles.input}
-              placeholder="AAAA-MM-JJ"
-              placeholderTextColor={color.ink[300]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={10}
-            />
-          </View>
-          {careDate && !isValidDate(careDate) ? (
-            <AppText size="small" color="danger">
-              Date invalide — format AAAA-MM-JJ.
-            </AppText>
-          ) : null}
-
-          <AppText size="bodyM" weight="semibold" color="ink">
-            Notes (facultatif)
-          </AppText>
-          <TextInput
-            value={careNotes}
-            onChangeText={setCareNotes}
-            style={styles.notes}
-            placeholder="Vaccin réalisé, réaction constatée…"
-            placeholderTextColor={color.ink[300]}
-            multiline
-            textAlignVertical="top"
-          />
-          {careError ? (
-            <AppText size="small" color="danger">
-              {careError}
-            </AppText>
-          ) : null}
-        </View>
-      </Sheet>
+      {careTarget?.batchId ? (
+        <CompleteCareSheet
+          visible
+          farmId={farmId}
+          event={careOfAlert(careTarget)}
+          defaultCount={careTarget.care?.liveCount}
+          onClose={() => {
+            setCareTarget(null);
+            void advisory.refetch();
+          }}
+        />
+      ) : null}
     </Screen>
   );
 }

@@ -21,8 +21,13 @@ import { completeProphylaxisQueued, createTreatmentQueued } from '@/offline';
 import { cachedRead } from '@/offline/ref-cache';
 import {
   EMPTY_PRODUCT_LIST_NOTE,
+  REFERENCE_STEP_LABEL,
   UNKNOWN_PRODUCT_LIST_NOTE,
+  careNeedsTreatmentDetails,
+  careOpensTreatment,
+  careTreatmentBody,
   completionBody,
+  postponedLabel,
   treatmentBody,
   withdrawalEndPreview,
 } from '@/poufa/sanitary-records';
@@ -302,7 +307,20 @@ export function TreatmentSheet({ visible, farmId, lot, onClose }: { visible: boo
   );
 }
 
-/** Completion of a planned care (CDC n° 22: date, vaccine, route, number of animals). */
+/** The planned care a completion closes (band calendar or advice list). */
+export type CompletableCare = Pick<ProphylaxisEvent, 'id' | 'batchId' | 'name' | 'route' | 'withdrawalDays' | 'protocolStepId'> & {
+  careType: CareType | string;
+  productCode?: string | null;
+  isReference?: boolean;
+  originalDate?: string | null;
+};
+
+/**
+ * Completion of a planned care (CDC n° 22: date, vaccine, route, number of
+ * animals). POUFA lot A2 sante: every « Fait » of the phone goes through it;
+ * a manual care with a withdrawal period asks the treatment register's data
+ * (product from the vets' list, end day, reason, CDC n° 23).
+ */
 export function CompleteCareSheet({
   visible,
   farmId,
@@ -312,7 +330,7 @@ export function CompleteCareSheet({
 }: {
   visible: boolean;
   farmId: string;
-  event: ProphylaxisEvent;
+  event: CompletableCare;
   /** Live birds of the band: the usual answer, the farmer corrects it. */
   defaultCount: number | null | undefined;
   onClose: () => void;
@@ -322,15 +340,38 @@ export function CompleteCareSheet({
   const [animalCount, setAnimalCount] = useState(defaultCount && defaultCount > 0 ? String(defaultCount) : '');
   const [route, setRoute] = useState(event.route ?? '');
   const [notes, setNotes] = useState('');
+  const [productCode, setProductCode] = useState(event.productCode ?? '');
+  const [endDate, setEndDate] = useState(todayStr());
+  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const care = {
+    name: event.name,
+    withdrawalDays: event.withdrawalDays,
+    protocolStepId: event.protocolStepId,
+    productCode: event.productCode ?? null,
+    isReference: event.isReference,
+    originalDate: event.originalDate ?? null,
+  };
+  const opens = careOpensTreatment(care);
+  const details = careNeedsTreatmentDetails(care);
+  const products = useTreatmentProducts(visible && details);
+  const list = products.data ?? (products.isError ? null : undefined);
+  const listed = list && list.length > 0 ? list : null;
+  const postponed = postponedLabel(care, frDate);
 
   const save = async () => {
-    const built = completionBody({ completedAt, animalCount, route, notes }, event.route);
-    if (!built.ok) {
-      setErr(built.error);
+    const base = completionBody({ completedAt, animalCount, route, notes }, event.route);
+    if (!base.ok) {
+      setErr(base.error);
       return;
     }
+    const extra = careTreatmentBody(care, { productCode, endDate, reason }, completedAt, list ?? null);
+    if (!extra.ok) {
+      setErr(extra.error);
+      return;
+    }
+    const built = { body: { ...base.body, ...extra.body } };
     setErr(null);
     setBusy(true);
     try {
@@ -353,7 +394,7 @@ export function CompleteCareSheet({
     <Sheet
       visible={visible}
       title="Soin réalisé"
-      subtitle={`${event.name} · ${CARE_TYPE_LABELS[event.careType] ?? event.careType}`}
+      subtitle={`${event.name} · ${CARE_TYPE_LABELS[event.careType as CareType] ?? event.careType}`}
       icon={<Check size={18} color={palette.green[600]} />}
       onClose={onClose}>
       <Label text="DATE DE RÉALISATION *" />
@@ -362,6 +403,48 @@ export function CompleteCareSheet({
       <NumberInput value={animalCount} onChangeText={setAnimalCount} suffix="sujets" placeholder="0" editable={!busy} />
       <Label text="VOIE D'ADMINISTRATION" />
       <RouteChips value={route} onChange={setRoute} disabled={busy} />
+      {event.isReference ? (
+        <AppText size="caption" color="muted" style={styles.note}>
+          {REFERENCE_STEP_LABEL}
+          {postponed ? ` · ${postponed}` : ''}
+        </AppText>
+      ) : null}
+      {opens ? (
+        <>
+          <AppText size="caption" color="muted" style={styles.note}>
+            Délai d’attente de {event.withdrawalDays} j : le soin est inscrit au registre des traitements.
+          </AppText>
+          {details ? (
+            listed ? (
+              <>
+                <Label text="PRODUIT (LISTE DES VÉTÉRINAIRES) *" />
+                <View style={styles.rowWrap}>
+                  {listed.map((p) => (
+                    <Pressable key={p.code} onPress={() => setProductCode(p.code)} disabled={busy} accessibilityRole="button">
+                      <Chip label={p.label} tone={productCode === p.code ? 'green' : 'neutral'} selected={productCode === p.code} style={styles.chip} />
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : list === undefined && products.isLoading ? null : (
+              <AppText size="caption" color="muted" style={styles.note}>
+                {list === null ? UNKNOWN_PRODUCT_LIST_NOTE : EMPTY_PRODUCT_LIST_NOTE} Produit enregistré : « {event.name} ».
+              </AppText>
+            )
+          ) : null}
+          <Label text={details ? 'FIN DU TRAITEMENT *' : 'FIN DU TRAITEMENT'} />
+          <DateField value={endDate} onChange={setEndDate} />
+          <Label text={details ? 'MOTIF *' : 'MOTIF'} />
+          <TextInput
+            value={reason}
+            onChangeText={setReason}
+            placeholder={details ? 'Ex. : coryza, diarrhée' : 'Calendrier sanitaire (prévention)'}
+            placeholderTextColor={color.ink[300]}
+            style={styles.input}
+            editable={!busy}
+          />
+        </>
+      ) : null}
       <Label text="REMARQUES (LOT DU VACCIN, RÉACTION…)" />
       <TextInput
         value={notes}
