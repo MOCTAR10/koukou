@@ -485,6 +485,9 @@ export class MarketListingsService {
     return {
       ...fields,
       batchName: batch.batchName,
+      species: batch.species,
+      customSpecies: batch.customSpecies,
+      breedName: batch.breed?.name ?? batch.customBreed,
       availableQuantity: state.availableQuantity,
       hiddenReason: state.hiddenReason,
     };
