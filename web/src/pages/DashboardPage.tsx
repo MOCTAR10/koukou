@@ -6,10 +6,8 @@ import {
   Activity,
   AlertTriangle,
   Banknote,
-  Bird,
   Calendar,
   CalendarClock,
-  Egg,
   LayoutDashboard,
   Medal,
   RotateCcw,
@@ -30,13 +28,18 @@ import type {
   PosBatch,
 } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
-import { Card, EmptyState, Loading, PageHeader, StatCard, StatusBadge, Th, Td } from '../components/ui';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { Card, EmptyState, Loading, PageHeader, PhotoThumb, StatCard, StatusBadge, Th, Td } from '../components/ui';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
 import { ErrorNote } from '../components/form';
 import { ActionQueue, EggStockPanel, OwnerStats, PerformanceTiles, Ranking, WeatherCard } from '../components/sales/DashboardPanels';
+import { CheptelModal, mainSpeciesImage } from '../components/flock/CheptelModal';
+import { AgricultureHome, FarmModeSwitch, useFarmMode } from '../components/agri/AgricultureHome';
 import { HEALTH_LABEL } from '../components/sales/labels';
+import { batchPhoto } from '../components/sales/pos';
 import { AlertLevelBadge } from '../components/sales/shared';
+import { EGG_IMAGES } from '../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct, statusLabel } from '../lib/format';
 import { stagger, staggerItem } from '../lib/motion';
 
@@ -61,7 +64,20 @@ function lastDays(n: number): string[] {
 }
 
 export function DashboardPage() {
+  const [mode, setMode] = useFarmMode();
+  return (
+    <div className="space-y-4">
+      <FarmModeSwitch value={mode} onChange={setMode} />
+      {mode === 'agriculture' ? <AgricultureHome /> : <LivestockDashboard />}
+    </div>
+  );
+}
+
+function LivestockDashboard() {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canReports = hasPermission('compta:rapports');
+  const canClients = hasPermission('compta:client');
   const [selectedDate, setSelectedDate] = useState(localToday);
   const isToday = selectedDate === localToday();
   const dash = useQuery({
@@ -71,6 +87,7 @@ export function DashboardPage() {
     refetchInterval: 60_000,
   });
   const [curveBatchId, setCurveBatchId] = useState<string>('');
+  const [cheptelOpen, setCheptelOpen] = useState(false);
 
   const advisory = useQuery({
     queryKey: ['advisory', farmId],
@@ -91,12 +108,12 @@ export function DashboardPage() {
   const pnl = useQuery({
     queryKey: ['rentabilite', farmId, pnlFrom, selectedDate],
     queryFn: () => api.get<OverviewPnl>(`/farms/${farmId}/rentabilite/overview?from=${pnlFrom}&to=${selectedDate}`),
-    enabled: !!farmId,
+    enabled: !!farmId && canReports,
   });
   const clients = useQuery({
     queryKey: ['customers-summary', farmId],
     queryFn: () => api.get<CustomerSummary>(`/farms/${farmId}/customers/summary`),
-    enabled: !!farmId,
+    enabled: !!farmId && canClients,
   });
   const batchList = useMemo(() => batches.data ?? [], [batches.data]);
   // The backend has no daily egg series: sum the entries of the laying lots, as mobile does.
@@ -152,6 +169,9 @@ export function DashboardPage() {
   }
 
   const d = dash.data;
+  const liveLots = batchList.filter((b) => b.status !== 'CLOTURE');
+  // Dashboard rows carry no breed or species: the photo comes from the lot itself.
+  const lotPhoto = (batchId: string) => batchPhoto(batchList.find((b) => b.id === batchId));
 
   return (
     <div className="space-y-6">
@@ -198,8 +218,10 @@ export function DashboardPage() {
           <StatCard
             label="Cheptel vivant"
             value={<AnimatedNumber value={d.liveStock} format={num} />}
-            hint={`${d.batches.actif} lot(s) actif(s)`}
-            icon={<Bird className="h-5 w-5" />}
+            hint={`${d.batches.actif} lot(s) actif(s) · Voir le détail`}
+            image={mainSpeciesImage(liveLots)}
+            onClick={() => setCheptelOpen(true)}
+            actionLabel={`${num(d.liveStock)} oiseaux vivants, voir le cheptel`}
             tone="accent"
           />
         </motion.div>
@@ -240,7 +262,7 @@ export function DashboardPage() {
             label="Œufs de stock"
             value={`${num(d.eggStock.availableAlveoles)} alv.`}
             hint={`~${num(d.eggStock.availableEggs)} œufs`}
-            icon={<Egg className="h-5 w-5" />}
+            image={EGG_IMAGES.alveole}
             tone="accent"
           />
         </motion.div>
@@ -335,9 +357,9 @@ export function DashboardPage() {
 
       {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
 
-      <Ranking dash={d} typeLabel={statusLabel} />
+      <Ranking dash={d} batches={batchList} typeLabel={statusLabel} />
 
-      <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} />
+      <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} showFinance={canReports} showClients={canClients} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="overflow-hidden">
@@ -362,7 +384,10 @@ export function DashboardPage() {
                 {d.leaderboard.map((b) => (
                   <tr key={b.batchId} className="border-t border-slate-100">
                     <Td className="font-medium">
-                      {b.batchName ?? 'Lot'}
+                      <div className="flex items-center gap-2">
+                        <PhotoThumb src={lotPhoto(b.batchId)} size="sm" />
+                        <span className="min-w-0">{b.batchName ?? 'Lot'}</span>
+                      </div>
                     </Td>
                     <Td><StatusBadge status={b.type} /></Td>
                     <Td>{b.ageDays} j</Td>
@@ -403,9 +428,14 @@ export function DashboardPage() {
                 {d.healthOverview.slice(0, 8).map((b) => (
                   <tr key={b.batchId} className="border-t border-slate-100">
                     <Td className="font-medium">
-                      <div>{b.batchName ?? 'Lot'}</div>
-                      <div className="text-xs text-slate-400">
-                        {statusLabel(b.type)} · {b.ageDays} j · {num(b.liveCount)} vivants
+                      <div className="flex items-center gap-2">
+                        <PhotoThumb src={lotPhoto(b.batchId)} size="sm" />
+                        <div className="min-w-0">
+                          <div>{b.batchName ?? 'Lot'}</div>
+                          <div className="text-xs text-slate-400">
+                            {statusLabel(b.type)} · {b.ageDays} j · {num(b.liveCount)} vivants
+                          </div>
+                        </div>
                       </div>
                     </Td>
                     <Td><StatusBadge status={b.status} /></Td>
@@ -451,6 +481,14 @@ export function DashboardPage() {
             </Link>
           </div>
         </Card>
+      ) : null}
+
+      {cheptelOpen ? (
+        <CheptelModal
+          batches={batches.data ? liveLots : undefined}
+          error={batches.error}
+          onClose={() => setCheptelOpen(false)}
+        />
       ) : null}
     </div>
   );

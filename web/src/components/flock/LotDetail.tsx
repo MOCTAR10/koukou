@@ -58,6 +58,7 @@ import type {
   TreatmentRecord,
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
@@ -99,6 +100,7 @@ type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire';
 
 export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
   const invalidate = useInvalidateFarm();
   const [tab, setTab] = useState<TabKey>('vue');
   const [entry, setEntry] = useState<{ date?: string } | null>(null);
@@ -174,17 +176,19 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            {isActive ? (
+            {isActive && hasPermission('saisie:creer') ? (
               <Button onClick={() => setEntry({})}>
                 <PenLine className="h-4 w-4" /> Saisir
               </Button>
             ) : null}
-            <Link
-              to="/app/finance/ventes"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <ShoppingCart className="h-4 w-4" /> Encaisser
-            </Link>
+            {hasPermission('vente:creer') ? (
+              <Link
+                to="/app/finance/ventes"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <ShoppingCart className="h-4 w-4" /> Encaisser
+              </Link>
+            ) : null}
             <Button
               tone="secondary"
               busy={pdf.busy === 'passeport'}
@@ -196,7 +200,7 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
             >
               <FileText className="h-4 w-4" /> Passeport PDF
             </Button>
-            {isActive ? (
+            {isActive && hasPermission('sanitaire:lecture') && hasPermission('sanitaire:gerer', 'sanitaire:signaler') ? (
               <Link
                 to={`/app/sanitary?lot=${lot.id}&plan=1`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -204,12 +208,12 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
                 <Syringe className="h-4 w-4" /> Planifier un soin
               </Link>
             ) : null}
-            {lot.status === 'ACTIF' ? (
+            {lot.status === 'ACTIF' && hasPermission('production:gerer') ? (
               <Button tone="secondary" onClick={() => setConfirmSelling(true)}>
                 <BadgeCheck className="h-4 w-4" /> Passer en vente
               </Button>
             ) : null}
-            {isActive ? (
+            {isActive && hasPermission('production:gerer') ? (
               <Button tone="danger" onClick={() => setClosing(true)}>
                 <Lock className="h-4 w-4" /> Clôturer
               </Button>
@@ -338,6 +342,8 @@ function useSlaughterOrders() {
 
 function OverviewTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canReports = hasPermission('compta:rapports');
   const invalidate = useInvalidateFarm();
   const m = lot.metrics;
   const isLayer = lot.type === 'PONDEUSE';
@@ -347,7 +353,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
   const pnl = useQuery({
     queryKey: ['rentabilite-batch', farmId, lot.id],
     queryFn: () => api.get<BatchPnl>(`/farms/${farmId}/rentabilite/batches/${lot.id}`),
-    enabled: !!farmId,
+    enabled: !!farmId && canReports,
   });
   const pondage = useQuery({
     queryKey: ['pondage', farmId, lot.id],
@@ -522,6 +528,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
           </SectionCard>
         ) : null}
 
+        {canReports ? (
         <SectionCard title="Rentabilité du lot" icon={<Wallet />} iconTone="accent">
           <ErrorNote error={pnl.error} />
           {pnl.data ? (
@@ -539,6 +546,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
             <Loading />
           ) : null}
         </SectionCard>
+        ) : null}
       </div>
 
       <div className="space-y-4">
@@ -621,7 +629,10 @@ function OverviewTab({ lot }: { lot: Lot }) {
             <ul className="space-y-1 text-sm text-slate-700">
               {lotFeed.map((l) => (
                 <li key={l.id} className="flex justify-between gap-2">
-                  <span className="truncate">{l.productName}</span>
+                  <span className="truncate">
+                    {l.productName}
+                    {l.feedPhase ? <span className="text-slate-500"> · {phaseLabel(l.feedPhase)}</span> : null}
+                  </span>
                   <span className="tabular-nums text-slate-500">{num(l.availableKg)} kg</span>
                 </li>
               ))}
@@ -631,9 +642,11 @@ function OverviewTab({ lot }: { lot: Lot }) {
               {num(m.totalFeedKg)} kg consommés. Le stock de provende est commun à la ferme.
             </p>
           )}
-          <Link to="/app/stock" className="mt-2 inline-block text-xs font-medium text-brand-700 hover:underline">
-            Voir le stock
-          </Link>
+          {hasPermission('stock:gerer') ? (
+            <Link to="/app/stock" className="mt-2 inline-block text-xs font-medium text-brand-700 hover:underline">
+              Voir le stock
+            </Link>
+          ) : null}
         </SectionCard>
 
         {lot.couvoirSupplier || lot.chickLotNumber || lot.hatchDate || lot.chickUnitPriceFcfa != null ? (
@@ -790,11 +803,13 @@ function ChartCard({
 }
 
 function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void }) {
+  const { hasPermission } = useFarmProfile();
+  const canEdit = hasPermission('saisie:creer');
   const entries = useEntries(lot.id);
   const rows = [...(entries.data ?? [])].sort((a, b) => b.entryDate.localeCompare(a.entryDate));
   if (entries.isLoading) return <Loading label="Chargement des saisies…" />;
   return (
-    <SectionCard title="Saisies journalières" icon={<PenLine />} subtitle="Cliquez sur Modifier pour corriger une journée" flush>
+    <SectionCard title="Saisies journalières" icon={<PenLine />} subtitle={canEdit ? 'Cliquez sur Modifier pour corriger une journée' : undefined} flush>
       <ErrorNote error={entries.error} />
       {rows.length === 0 ? (
         <div className="p-4">
@@ -831,7 +846,7 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
                   <Td>{r.eggsCollected > 0 ? num(r.eggsCollected, 0) : '—'}</Td>
                   <Td>{r.eggsCollected > 0 ? num(r.eggsSellable, 0) : '—'}</Td>
                   <Td className="text-right">
-                    {lot.status !== 'CLOTURE' ? (
+                    {lot.status !== 'CLOTURE' && canEdit ? (
                       <button
                         type="button"
                         onClick={() => onEdit(r.entryDate.slice(0, 10))}
@@ -1009,6 +1024,10 @@ function careAlerts(lot: Lot, steps: ProtocolStep[], events: ProphylaxisEvent[],
 
 function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
   const { farmId } = useFarm();
+  const invalidate = useInvalidateFarm();
+  const { hasPermission } = useFarmProfile();
+  const canComplete = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  const care = useAsyncAction();
   const health = useHealth(lot.id);
   const { treatments, events: healthEvents } = useLotCare(lot.id);
   const protocols = useQuery({
@@ -1076,12 +1095,14 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
               ))}
             </ul>
           )}
-          <Link
-            to={`/app/sanitary?lot=${lot.id}`}
-            className="mt-3 inline-block text-xs font-medium text-brand-700 hover:underline"
-          >
-            Ouvrir le suivi sanitaire
-          </Link>
+          {hasPermission('sanitaire:lecture') ? (
+            <Link
+              to={`/app/sanitary?lot=${lot.id}`}
+              className="mt-3 inline-block text-xs font-medium text-brand-700 hover:underline"
+            >
+              Ouvrir le suivi sanitaire
+            </Link>
+          ) : null}
         </SectionCard>
         {trends && trends.mortality.some((v) => v > 0) ? (
           <SectionCard title="Mortalité sur 7 jours" icon={<Skull />} iconTone="red">
@@ -1108,6 +1129,8 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
             sorted.length === 0 ? (
               <EmptyState message="Aucun soin planifié pour ce lot." icon={<Syringe />} />
             ) : (
+              <>
+              <ErrorNote error={care.error} />
               <ul className="divide-y divide-slate-100">
                 {sorted.map((e) => (
                   <li key={e.id} className="flex items-start justify-between gap-3 py-2">
@@ -1118,12 +1141,32 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                         {e.status === 'PLANIFIE' && e.scheduledDate.slice(0, 10) === today ? " · aujourd'hui" : ''}
                       </p>
                     </div>
-                    <Pill tone={e.status === 'FAIT' ? 'emerald' : e.status === 'EN_RETARD' ? 'red' : e.status === 'ANNULE' ? 'slate' : 'brand'}>
-                      {CARE_STATUS_LABEL[e.status]}
-                    </Pill>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Pill tone={e.status === 'FAIT' ? 'emerald' : e.status === 'EN_RETARD' ? 'red' : e.status === 'ANNULE' ? 'slate' : 'brand'}>
+                        {CARE_STATUS_LABEL[e.status]}
+                      </Pill>
+                      {canComplete && (e.status === 'PLANIFIE' || e.status === 'EN_RETARD') ? (
+                        <Button
+                          tone="secondary"
+                          busy={care.busy === e.id}
+                          aria-label={`Marquer ${e.name} comme fait`}
+                          onClick={() =>
+                            void care.run(e.id, async () => {
+                              await api.post(`/farms/${farmId}/batches/${lot.id}/prophylaxis/${e.id}/complete`, {
+                                completedAt: utcYmd(),
+                              });
+                              await invalidate();
+                            })
+                          }
+                        >
+                          <Check className="h-4 w-4" /> Fait
+                        </Button>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>
+              </>
             )
           ) : (healthEvents.data ?? []).length === 0 ? (
             <EmptyState message="Aucun événement de santé." icon={<Stethoscope />} />

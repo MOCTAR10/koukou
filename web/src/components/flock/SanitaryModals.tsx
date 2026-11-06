@@ -14,6 +14,7 @@ import type {
   SanitaryProtocolWithSteps,
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import { lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
@@ -409,6 +410,7 @@ export function PlanCareModal({
   onClose: () => void;
 }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
   const invalidate = useInvalidateFarm();
   const [lotIds, setLotIds] = useState<string[]>(initialLotId ? [initialLotId] : []);
   const [mode, setMode] = useState<'manuel' | 'programme'>('manuel');
@@ -506,7 +508,9 @@ export function PlanCareModal({
           onChange={setMode}
           options={[
             { key: 'manuel', label: 'Soin ponctuel', icon: <Syringe /> },
-            { key: 'programme', label: 'Programme de vaccination', icon: <ShieldCheck /> },
+            ...(hasPermission('sanitaire:gerer')
+              ? [{ key: 'programme' as const, label: 'Programme de vaccination', icon: <ShieldCheck /> }]
+              : []),
           ]}
         />
         <div>

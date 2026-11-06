@@ -1,11 +1,14 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FarmProvider } from './app/FarmContext';
-import { RequiresAuth, RequiresPlatformAdmin } from './auth/guards';
+import { useFarmProfile } from './app/useFarmProfile';
+import { RequiresAuth, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { RegisterPage } from './auth/RegisterPage';
 import { Shell } from './components/Shell';
+import { Loading } from './components/ui';
 import { DashboardPage } from './pages/DashboardPage';
+import { GroundHomePage } from './pages/GroundHomePage';
 import { BatchesPage } from './pages/BatchesPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SalesPage } from './pages/SalesPage';
@@ -32,12 +35,11 @@ import { HelpPage } from './pages/HelpPage';
 
 function HomeRedirect() {
   const { user } = useAuth();
-  return (
-    <Navigate
-      to={user?.role === 'PLATFORM_ADMIN' ? '/app/platform' : '/app/dashboard'}
-      replace
-    />
-  );
+  const { isGroundEleveur, isLoading } = useFarmProfile();
+  if (user?.role === 'PLATFORM_ADMIN') return <Navigate to="/app/platform" replace />;
+  // The landing page depends on the profile: wait for it.
+  if (isLoading) return <Loading />;
+  return <Navigate to={isGroundEleveur ? '/app/home' : '/app/dashboard'} replace />;
 }
 
 export function App() {
@@ -57,25 +59,26 @@ export function App() {
         >
           <Route index element={<HomeRedirect />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="home" element={<GroundHomePage />} />
           <Route path="batches" element={<BatchesPage />} />
           <Route path="alerts" element={<AlertsPage />} />
-          <Route path="finance" element={<SalesPage />} />
-          <Route path="finance/ventes" element={<SalesPage />} />
-          <Route path="finance/caisse" element={<CaissePage />} />
-          <Route path="finance/clients" element={<CustomersPage />} />
-          <Route path="finance/promotions" element={<PromotionsPage />} />
-          <Route path="stock" element={<StockPage />} />
-          <Route path="sanitary" element={<SanitaryPage />} />
-          <Route path="slaughter" element={<SlaughterPage />} />
-          <Route path="team" element={<TeamPage />} />
+          <Route path="finance" element={<RequiresPermission any={['vente:creer']}><SalesPage /></RequiresPermission>} />
+          <Route path="finance/ventes" element={<RequiresPermission any={['vente:creer']}><SalesPage /></RequiresPermission>} />
+          <Route path="finance/caisse" element={<RequiresPermission any={['caisse:lire']}><CaissePage /></RequiresPermission>} />
+          <Route path="finance/clients" element={<RequiresPermission any={['compta:client']}><CustomersPage /></RequiresPermission>} />
+          <Route path="finance/promotions" element={<RequiresPermission any={['vente:promotion']}><PromotionsPage /></RequiresPermission>} />
+          <Route path="stock" element={<RequiresPermission any={['stock:gerer']}><StockPage /></RequiresPermission>} />
+          <Route path="sanitary" element={<RequiresPermission any={['sanitaire:lecture']}><SanitaryPage /></RequiresPermission>} />
+          <Route path="slaughter" element={<RequiresPermission any={['production:abattage']}><SlaughterPage /></RequiresPermission>} />
+          <Route path="team" element={<RequiresPermission any={['equipe:gerer']}><TeamPage /></RequiresPermission>} />
           <Route path="settings" element={<SettingsPage />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="points-of-sale" element={<PointsOfSalePage />} />
-          <Route path="expenses" element={<ExpensesPage />} />
-          <Route path="accounting" element={<AccountingPage />} />
-          <Route path="reports" element={<ReportsPage />} />
+          <Route path="orders" element={<RequiresPermission any={['vente:commande', 'vente:creer']}><OrdersPage /></RequiresPermission>} />
+          <Route path="points-of-sale" element={<RequiresPermission any={['pdv:gerer']}><PointsOfSalePage /></RequiresPermission>} />
+          <Route path="expenses" element={<RequiresPermission any={['compta:depense']}><ExpensesPage /></RequiresPermission>} />
+          <Route path="accounting" element={<RequiresPermission any={['compta:rapports']}><AccountingPage /></RequiresPermission>} />
+          <Route path="reports" element={<RequiresPermission any={['compta:rapports']}><ReportsPage /></RequiresPermission>} />
           <Route path="tasks" element={<TasksPage />} />
-          <Route path="hr" element={<HrPage />} />
+          <Route path="hr" element={<RequiresPermission any={['rh:lire', 'equipe:gerer']}><HrPage /></RequiresPermission>} />
           <Route path="activities" element={<ActivitiesPage />} />
           <Route path="parcels" element={<ParcelsPage />} />
           <Route path="harvests" element={<HarvestsPage />} />

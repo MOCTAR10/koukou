@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, ApiError, clearSession, setSession } from '../api/client';
+import { api, ApiError, clearSession, getStoredUser, setSession } from '../api/client';
 import type { AuthUser } from '../api/client';
 import { normalizeGabonPhone } from '../lib/phone';
+import { clearReadCache } from '../offline/readCache';
+import { clearOfflineOps, loadOps } from '../offline/store';
 
 interface LoginResult {
   accessToken: string;
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const startSession = (res: LoginResult) => {
       // Never show the previous account's cached data.
       queryClient.clear();
+      if (getStoredUser()?.id !== res.user.id) void clearReadCache();
       setSession(res.accessToken, res.user);
       setUser(res.user);
       navigate('/app');
@@ -65,19 +68,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!(err instanceof ApiError) || err.status !== 401 || !phone.startsWith('+')) throw err;
           res = await api.post<LoginResult>('/auth/login', { phone, code });
         }
-        if (res.user.role === 'ELEVEUR') {
-          clearSession();
-          throw new ApiError(
-            403,
-            "Le site web est réservé aux propriétaires de ferme. Les éleveurs utilisent l'application mobile Fermia.",
-          );
-        }
         startSession(res);
       },
       register: async (input: RegisterInput) => {
         startSession(await api.post<LoginResult>('/auth/register', input));
       },
       logout: () => {
+        const pending = loadOps().length;
+        if (
+          pending > 0 &&
+          !window.confirm(
+            `${pending} opération(s) (ventes, saisies…) n’ont pas encore été envoyées au serveur. Elles seront perdues si vous vous déconnectez maintenant.
+
+Se déconnecter quand même ?`,
+          )
+        ) {
+          return;
+        }
+        clearOfflineOps();
+        void clearReadCache();
         clearSession();
         // The 401 path reloads the page; a manual logout must drop the cache
         // and the selected farm itself.

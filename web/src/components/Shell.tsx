@@ -28,15 +28,23 @@ import {
   Users,
   Warehouse,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { Logo } from './Logo';
+import { OfflineBar } from './OfflineBar';
+import { QuickCreate } from './QuickCreate';
 import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
 import { motion, useReducedMotion } from 'motion/react';
 
-const NAV = [
+/** `perms`: at least one is required to show the entry; absent means visible to all. */
+const NAV: Array<{
+  title: string;
+  items: Array<{ to: string; label: string; icon: LucideIcon; perms?: string[] }>;
+}> = [
   {
     title: 'Pilotage',
     items: [
@@ -50,9 +58,9 @@ const NAV = [
     items: [
       { to: '/app/batches', label: 'Lots & suivi', icon: Activity },
       { to: '/app/activities', label: 'Activités', icon: NotebookPen },
-      { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText },
-      { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse },
-      { to: '/app/slaughter', label: 'Abattage', icon: Factory },
+      { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText, perms: ['sanitaire:lecture'] },
+      { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse, perms: ['stock:gerer'] },
+      { to: '/app/slaughter', label: 'Abattage', icon: Factory, perms: ['production:abattage'] },
     ],
   },
   {
@@ -65,27 +73,27 @@ const NAV = [
   {
     title: 'Ventes',
     items: [
-      { to: '/app/finance/ventes', label: 'Ventes', icon: ShoppingCart },
-      { to: '/app/finance/caisse', label: 'Caisse', icon: Coins },
-      { to: '/app/orders', label: 'Commandes', icon: ClipboardList },
-      { to: '/app/finance/clients', label: 'Clients', icon: Handshake },
-      { to: '/app/points-of-sale', label: 'Points de vente', icon: MapPin },
-      { to: '/app/finance/promotions', label: 'Promotions', icon: BadgePercent },
+      { to: '/app/finance/ventes', label: 'Ventes', icon: ShoppingCart, perms: ['vente:creer'] },
+      { to: '/app/finance/caisse', label: 'Caisse', icon: Coins, perms: ['caisse:lire'] },
+      { to: '/app/orders', label: 'Commandes', icon: ClipboardList, perms: ['vente:commande', 'vente:creer'] },
+      { to: '/app/finance/clients', label: 'Clients', icon: Handshake, perms: ['compta:client'] },
+      { to: '/app/points-of-sale', label: 'Points de vente', icon: MapPin, perms: ['pdv:gerer'] },
+      { to: '/app/finance/promotions', label: 'Promotions', icon: BadgePercent, perms: ['vente:promotion'] },
     ],
   },
   {
     title: 'Finance',
     items: [
-      { to: '/app/reports', label: 'Rentabilité', icon: FileBarChart },
-      { to: '/app/accounting', label: 'Comptabilité', icon: Landmark },
-      { to: '/app/expenses', label: 'Dépenses', icon: ReceiptText },
+      { to: '/app/reports', label: 'Rentabilité', icon: FileBarChart, perms: ['compta:rapports'] },
+      { to: '/app/accounting', label: 'Comptabilité', icon: Landmark, perms: ['compta:rapports'] },
+      { to: '/app/expenses', label: 'Dépenses', icon: ReceiptText, perms: ['compta:depense'] },
     ],
   },
   {
     title: 'Gestion',
     items: [
-      { to: '/app/team', label: 'Équipe', icon: Users },
-      { to: '/app/hr', label: 'Dossiers RH', icon: Briefcase },
+      { to: '/app/team', label: 'Équipe', icon: Users, perms: ['equipe:gerer'] },
+      { to: '/app/hr', label: 'Dossiers RH', icon: Briefcase, perms: ['rh:lire', 'equipe:gerer'] },
       { to: '/app/settings', label: 'Réglages', icon: Settings },
       { to: '/app/help', label: 'Aide', icon: LifeBuoy },
     ],
@@ -102,6 +110,16 @@ export function Shell() {
   const { pathname } = useLocation();
   const onPlatform = pathname.startsWith('/app/platform');
   const reduced = useReducedMotion();
+  const { hasPermission, isGroundEleveur } = useFarmProfile();
+  const nav = NAV.map((group) => ({
+    ...group,
+    items: [
+      ...(group.title === 'Pilotage' && isGroundEleveur
+        ? [{ to: '/app/home', label: 'Mon terrain', icon: Tractor }]
+        : []),
+      ...group.items.filter((item) => !item.perms || hasPermission(...item.perms)),
+    ],
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -147,7 +165,7 @@ export function Shell() {
         ) : null}
 
         <nav className="mt-5 flex-1 overflow-y-auto px-3">
-          {NAV.map((group) => (
+          {nav.map((group) => (
             <div key={group.title} className="mb-4">
               <p className="mb-1 px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300">
                 {group.title}
@@ -256,6 +274,7 @@ export function Shell() {
           <div className="ml-auto flex items-center gap-2 text-xs text-slate-400">
             {!onPlatform && farm?.capacityPerBuilding ? <span>Capacité {farm.capacityPerBuilding} ois./bât.</span> : null}
           </div>
+          {!onPlatform && farmId ? <QuickCreate /> : null}
           {isAdmin ? (
             <button
               onClick={() => navigate('/app/platform')}
@@ -270,6 +289,8 @@ export function Shell() {
             </button>
           ) : null}
         </header>
+
+        <OfflineBar />
 
         <main className="mx-auto max-w-7xl p-4 sm:p-6">
           <motion.div

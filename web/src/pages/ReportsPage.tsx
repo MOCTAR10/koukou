@@ -18,6 +18,7 @@ import type { BatchPnl, ChannelPointOfSale, ChannelSale, OverviewPnl } from '../
 import { useFarm } from '../app/FarmContext';
 import { Donut } from '../components/Charts';
 import { BatchPnlPanel } from '../components/finance/BatchPnlPanel';
+import { PeriodActivity } from '../components/finance/PeriodActivity';
 import { PeriodFilter } from '../components/finance/PeriodFilter';
 import {
   collectionRate,
@@ -227,6 +228,7 @@ export function ReportsPage() {
               <ShareBars rows={expenseRows} empty="Aucune dépense enregistrée sur la période." />
             </Card>
           </div>
+          {farmId ? <PeriodActivity farmId={farmId} from={period.from} to={period.to} overview={ov} /> : null}
         </>
       ) : null}
 

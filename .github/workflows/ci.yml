@@ -2,7 +2,7 @@
 #
 # What this runs, and nothing more:
 #   backend : TypeScript compile + oxlint + unit tests (vitest)
-#   web     : tsc --noEmit + vite build + oxlint
+#   web     : tsc --noEmit + vite build + oxlint + unit tests (vitest)
 #   mobile  : tsc --noEmit + eslint + unit tests (vitest) + Android bundle
 #
 # The backend e2e suite is NOT here on purpose: it needs PostgreSQL and runs
@@ -95,6 +95,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
 
   mobile:
     name: Mobile (typecheck + lint + test + bundle)

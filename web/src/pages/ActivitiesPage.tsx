@@ -22,6 +22,7 @@ import {
 import { api } from '../api/client';
 import type { AdvisoryResponse, CaisseSummary, FarmTask, FlockDashboard } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { buildActionQueue, buildJournal } from '../components/flock/activityFeed';
 import { Metric, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { ErrorNote } from '../components/form';
@@ -103,6 +104,8 @@ const deltaText = (v: number | null | undefined, unit: string, digits = 1) =>
 
 export function ActivitiesPage() {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canCaisse = hasPermission('caisse:lire');
   const [panel, setPanel] = useState<Panel>('taches');
   const [span, setSpan] = useState<7 | 30 | 90>(7);
 
@@ -125,7 +128,7 @@ export function ActivitiesPage() {
   const caisse = useQuery({
     queryKey: ['caisse-current', farmId],
     queryFn: () => api.get<CaisseSummary>(`/farms/${farmId}/caisse/current`),
-    enabled: !!farmId,
+    enabled: !!farmId && canCaisse,
     retry: false,
   });
 
@@ -191,7 +194,7 @@ export function ActivitiesPage() {
         options={[
           { key: 'taches', label: 'Tâches' },
           { key: 'lots', label: 'Lots' },
-          { key: 'caisse', label: 'Caisse' },
+          ...(canCaisse ? [{ key: 'caisse' as const, label: 'Caisse' }] : []),
           { key: 'rapports', label: 'Rapports' },
         ]}
       />
@@ -358,7 +361,7 @@ export function ActivitiesPage() {
         </>
       ) : null}
 
-      {panel === 'caisse' ? (
+      {panel === 'caisse' && canCaisse ? (
         <SectionCard
           title="Caisse du jour"
           icon={<Wallet className="h-4 w-4" />}
@@ -416,7 +419,7 @@ export function ActivitiesPage() {
             title="Cette semaine"
             subtitle="Comparé à la semaine précédente"
             icon={<NotebookPen className="h-4 w-4" />}
-            actions={moreLink('/app/reports', 'Tous les rapports')}
+            actions={hasPermission('compta:rapports') ? moreLink('/app/reports', 'Tous les rapports') : undefined}
           >
             <div className="grid grid-cols-3 gap-2">
               <Metric label="Mortalité" value={num(d.deltas.mortalityThisWeek, 0)} sub={deltaText(d.deltas.mortalityDelta, ' morts', 0)} />

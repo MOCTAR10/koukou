@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw } from 'lucide-react';
 import { api } from '../../api/client';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import type { SaleFull } from '../../api/types-sales';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
 import { StatusBadge } from '../ui';
@@ -36,6 +37,7 @@ export function SaleDetail({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
+  const { hasPermission } = useFarmProfile();
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState('');
   const paid = salePaid(sale);
@@ -118,7 +120,7 @@ export function SaleDetail({
           </div>
         ) : (
           <div className="flex flex-wrap items-start justify-end gap-2">
-            {cancellable ? (
+            {cancellable && hasPermission('vente:annuler') ? (
               <Button tone="secondary" onClick={() => setConfirming(true)}>
                 <RotateCcw className="h-4 w-4" /> Annuler la vente
               </Button>

@@ -122,6 +122,8 @@ export async function uploadFarmLogo(farmId: string, file: File): Promise<FarmWi
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
+    // A stalled upload must end in an error, not in an endless spinner.
+    signal: AbortSignal.timeout(60_000),
   });
   if (res.status === 401) {
     clearSession();

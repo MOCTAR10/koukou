@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { createElement, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
+import { useFarmProfile } from '../../app/useFarmProfile';
 import type {
   BuildingOption,
   ContractType,
@@ -80,13 +81,21 @@ export function MemberFormModal({
   onSaved: (message: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const profiles = catalog?.profiles ?? [];
+  const { hasPermission } = useFarmProfile();
+  const canEditHr = hasPermission('rh:gerer');
+  // The server refuses to grant a right the caller doesn't hold: don't offer it.
+  const canGrant = (codes: string[]) => codes.every((code) => hasPermission(code));
+  const allProfiles = catalog?.profiles ?? [];
+  const profiles = allProfiles.filter((p) => canGrant(p.permissions));
+  // A new member defaults to Éleveur, whose fixed rights the caller must hold too.
+  const eleveurGrantable = allProfiles.filter((p) => p.role === 'ELEVEUR').every((p) => canGrant(p.permissions));
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [role, setRole] = useState<StaffRole>(member?.role ?? 'ELEVEUR');
+  const [role, setRole] = useState<StaffRole>(member?.role ?? (eleveurGrantable ? 'ELEVEUR' : 'ADMIN'));
   const [profileKey, setProfileKey] = useState<string | null>(member ? matchProfileKey(member, profiles) : null);
+  const [initialProfileKey] = useState(profileKey);
   const [permissions, setPermissions] = useState<Set<string>>(new Set(member?.role === 'ADMIN' ? member.permissions : []));
   const [jobTitle, setJobTitle] = useState(member?.jobTitle ?? '');
   const [building, setBuilding] = useState(member?.buildingAssignment ?? '');
@@ -108,7 +117,7 @@ export function MemberFormModal({
     setProfileKey(p.key);
     setRole(p.role);
     if (!custom) setJobTitle(p.jobTitle);
-    setPermissions(new Set(custom ? ADMIN_BASE_PERMISSIONS : p.permissions));
+    setPermissions(new Set(custom ? ADMIN_BASE_PERMISSIONS.filter((code) => hasPermission(code)) : p.permissions));
   };
 
   const togglePermission = (permission: string) => {
@@ -127,9 +136,14 @@ export function MemberFormModal({
     mutationFn: async () => {
       const salaryFcfa = parseSalary(salary);
       if (member) {
-        const body: Record<string, unknown> = { role };
-        if (profileToSend) body.profileKey = profileToSend;
-        if (role === 'ADMIN') body.permissions = [...permissions];
+        // Only what changed: sending role, profile or permissions makes the server
+        // check that the caller holds all the member's rights, even when unchanged.
+        const body: Record<string, unknown> = {};
+        if (role !== member.role) body.role = role;
+        if (profileToSend && profileToSend !== initialProfileKey) body.profileKey = profileToSend;
+        const samePermissions =
+          member.role === 'ADMIN' && permissions.size === member.permissions.length && member.permissions.every((code) => permissions.has(code));
+        if (role === 'ADMIN' && !samePermissions) body.permissions = [...permissions];
         const putIfChanged = (key: string, next: string, prev: string | null) => {
           if (next.trim() !== (prev ?? '')) body[key] = next.trim() || null;
         };
@@ -298,7 +312,7 @@ export function MemberFormModal({
                     {group.label}
                   </p>
                   <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
-                    {group.items.map((item) => (
+                    {group.items.filter((item) => hasPermission(item.code)).map((item) => (
                       <label key={item.code} className="flex items-start gap-2 rounded px-1 py-1 hover:bg-slate-50">
                         <input
                           type="checkbox"
@@ -323,6 +337,7 @@ export function MemberFormModal({
           </p>
         )}
 
+        {canEditHr ? (
         <div className="rounded-lg border border-slate-200">
           <button type="button" onClick={() => setHrOpen((v) => !v)} aria-expanded={hrOpen} className="flex w-full items-center gap-3 px-3 py-2.5 text-left">
             <Briefcase className="h-4 w-4 shrink-0 text-brand-600" />
@@ -363,6 +378,7 @@ export function MemberFormModal({
             </div>
           ) : null}
         </div>
+        ) : null}
 
         <ErrorNote error={formError ?? save.error} />
 

@@ -12,6 +12,7 @@ import type {
   StockProvende,
 } from '../api/types-finance';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import {
   BalanceTab,
   BilanTab,
@@ -67,6 +68,8 @@ function closeDetails(res: CloseExerciceResult): string {
 
 export function AccountingPage() {
   const { farmId, farm } = useFarm();
+  const { hasPermission } = useFarmProfile();
+  const canPost = hasPermission('compta:ecritures');
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>('journal');
   const [regulOpen, setRegulOpen] = useState(false);
@@ -147,19 +150,23 @@ export function AccountingPage() {
         icon={<Landmark />}
         actions={
           <>
-            <Button tone="secondary" busy={init.isPending} onClick={() => init.mutate()}>
-              {init.isPending ? null : <Scale className="h-4 w-4" />}
-              Synchroniser l’historique
-            </Button>
+            {canPost ? (
+              <Button tone="secondary" busy={init.isPending} onClick={() => init.mutate()}>
+                {init.isPending ? null : <Scale className="h-4 w-4" />}
+                Synchroniser l’historique
+              </Button>
+            ) : null}
             {report ? (
               <Button tone="secondary" busy={exportPdf.isPending} onClick={() => exportPdf.mutate()}>
                 {exportPdf.isPending ? null : <Download className="h-4 w-4" />}
                 Exporter PDF
               </Button>
             ) : null}
-            <Button onClick={() => setRegulOpen(true)}>
-              <Plus className="h-4 w-4" /> Régularisation
-            </Button>
+            {canPost ? (
+              <Button onClick={() => setRegulOpen(true)}>
+                <Plus className="h-4 w-4" /> Régularisation
+              </Button>
+            ) : null}
           </>
         }
       />
@@ -202,6 +209,7 @@ export function AccountingPage() {
       {tab === 'exercices' && exercices.data ? (
         <ExercicesTab
           data={exercices.data}
+          canClose={canPost}
           closingId={close.isPending ? (close.variables ?? null) : null}
           onClose={(ex) => {
             close.reset();

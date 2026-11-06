@@ -356,26 +356,15 @@ export function Metric({
 }) {
   return (
     <div className="min-w-0 rounded-lg bg-slate-50 px-3 py-2">
-      <p className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-slate-500">
-        {image ? <img src={image} alt="" loading="lazy" className="h-4 w-4 shrink-0 rounded object-cover" /> : null}
-        {icon ? (
-          <span
-            aria-hidden="true"
-            className={classNames(
-              'shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5',
-              tone === 'good'
-                ? 'text-emerald-600'
-                : tone === 'warn'
-                  ? 'text-amber-600'
-                  : tone === 'bad'
-                    ? 'text-red-600'
-                    : 'text-brand-600',
-            )}
-          >
-            {icon}
-          </span>
+      {/* flex-wrap: in a narrow cell the label drops under the tile instead of overflowing. */}
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] uppercase tracking-wide text-slate-500">
+        {image ? (
+          <img src={image} alt="" loading="lazy" className="h-7 w-7 shrink-0 rounded-md bg-white object-contain ring-1 ring-slate-200" />
         ) : null}
-        {label}
+        {icon ? (
+          <IconTile icon={icon} size="sm" tone={tone === 'good' ? 'green' : tone === 'warn' ? 'amber' : tone === 'bad' ? 'red' : 'brand'} />
+        ) : null}
+        <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
       </p>
       <p
         className={classNames(
@@ -449,7 +438,7 @@ export function IconField({
   return (
     <label className={classNames('block', className)}>
       <span className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-600">
-        {image ? <img src={image} alt="" loading="lazy" className="h-6 w-6 shrink-0 rounded-md object-cover ring-1 ring-slate-200" /> : null}
+        {image ? <img src={image} alt="" loading="lazy" className="h-6 w-6 shrink-0 rounded-md bg-white object-contain ring-1 ring-slate-200" /> : null}
         {icon ? (
           <span aria-hidden="true" className="shrink-0 text-slate-400 [&>svg]:h-3.5 [&>svg]:w-3.5">
             {icon}

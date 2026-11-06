@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { BuildingOption, FarmMember, PermissionCatalog } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
 import { MemberFormModal } from '../components/org/MemberFormModal';
@@ -18,6 +19,7 @@ const linkCls =
 export function TeamPage() {
   const { farmId, farm } = useFarm();
   const { user } = useAuth();
+  const { hasPermission, isOwner } = useFarmProfile();
   const [form, setForm] = useState<{ member: FarmMember | null } | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -43,6 +45,10 @@ export function TeamPage() {
   const ownerName = farm?.owner?.fullName ?? (isOwnFarm ? user?.fullName : undefined);
   // The stored session carries the phone although AuthUser doesn't declare it.
   const ownerPhone = farm?.owner?.phone ?? (isOwnFarm ? (user as { phone?: string } | null)?.phone : undefined);
+
+  // Server rule (assertCanDelegate): not yourself, nor an administrator holding a right you lack.
+  const canEdit = (m: FarmMember) =>
+    isOwner || (m.userId !== user?.id && (m.role !== 'ADMIN' || m.permissions.every((code) => hasPermission(code))));
 
   const open = (member: FarmMember | null) => {
     setSuccess(null);
@@ -137,9 +143,11 @@ export function TeamPage() {
                     </Td>
                     <Td>{m.active ? <Pill tone="emerald">Actif</Pill> : <Pill tone="red">Suspendu</Pill>}</Td>
                     <Td className="text-right">
-                      <Button tone="secondary" className="!px-2.5 !py-1 !text-xs" onClick={() => open(m)}>
-                        <Pencil className="h-3.5 w-3.5" /> Modifier
-                      </Button>
+                      {canEdit(m) ? (
+                        <Button tone="secondary" className="!px-2.5 !py-1 !text-xs" onClick={() => open(m)}>
+                          <Pencil className="h-3.5 w-3.5" /> Modifier
+                        </Button>
+                      ) : null}
                     </Td>
                   </tr>
                 ))}

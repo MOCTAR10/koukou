@@ -1,9 +1,9 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ArrowDownRight, Clock, Coins, Layers, Package, PackagePlus, PackageX, Plus, Scale, TrendingDown, TrendingUp, Warehouse, Wheat } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, Box, Clock, Coins, Layers, Package, PackageOpen, PackagePlus, PackageX, Pill as PillIcon, Plus, Scale, TrendingDown, TrendingUp, Truck, Warehouse, Wheat, type LucideIcon } from 'lucide-react';
 import { api } from '../api/client';
 import type { FeedProduct, FeedStockSummary } from '../api/types';
-import type { FeedMovement } from '../api/types-flock';
+import type { FeedEntryType, FeedMovement } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
 import { FeedEntryModal, LossModal } from '../components/flock/StockModals';
 import {
@@ -28,7 +28,7 @@ import {
   useInvalidateFarm,
 } from '../components/flock/shared';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
-import { EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { Card, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr, fcfa, num } from '../lib/format';
 
 type TabKey = 'stock' | 'lots' | 'mouvements' | 'catalogue';
@@ -36,6 +36,63 @@ type TabKey = 'stock' | 'lots' | 'mouvements' | 'catalogue';
 const entryLabel = (t: string) => (ENTRY_TYPE_LABEL as Record<string, string>)[t] ?? 'Autre';
 const reasonLabel = (r: string | null | undefined) =>
   r ? ((LOSS_REASON_LABEL as Record<string, string>)[r] ?? 'Autre') : '—';
+
+const ENTRY_TYPE_ORDER: FeedEntryType[] = ['BULKER', 'BAG', 'MEDICAMENT', 'MATIERE_PREMIERE'];
+
+// Same icon per entry type as mobile's provende screen.
+const ENTRY_TYPE_ICON: Record<FeedEntryType, LucideIcon> = {
+  BULKER: Truck,
+  BAG: PackageOpen,
+  MEDICAMENT: PillIcon,
+  MATIERE_PREMIERE: Box,
+};
+
+type StockLot = FeedStockSummary['lots'][number];
+type PhaseStock = FeedStockSummary['byType'][number];
+
+function entryIcon(entryType: string): LucideIcon {
+  return ENTRY_TYPE_ICON[entryType as FeedEntryType] ?? Package;
+}
+
+/** Icon of a phase row: a phase can mix entry types, so it takes the one holding the most stock. */
+function phaseIcon(row: PhaseStock, lots: StockLot[]): LucideIcon {
+  const inPhase = lots
+    .filter((l) => l.entryType !== 'MEDICAMENT')
+    // The server files a lot without a phase under its food type's phase.
+    .filter((l) => l.feedPhase === row.feedPhase || (!l.feedPhase && !!l.foodType && l.foodType === row.foodType));
+  const main = inPhase.slice().sort((a, b) => b.availableKg - a.availableKg || b.receivedKg - a.receivedKg)[0];
+  return main ? entryIcon(main.entryType) : Wheat;
+}
+
+/** Per-entry-type total, like mobile: kg for feed, a lot count for medication (not sold by weight). */
+function TypeStatCard({ entryType, lots }: { entryType: FeedEntryType; lots: StockLot[] }) {
+  const Icon = ENTRY_TYPE_ICON[entryType];
+  const ofType = lots.filter((l) => l.entryType === entryType && l.availableKg > 0);
+  const kg = ofType.reduce((s, l) => s + l.availableKg, 0);
+  const hasData = ofType.length > 0;
+  const total = !hasData
+    ? '—'
+    : entryType === 'MEDICAMENT'
+      ? `${num(ofType.length)} lot${ofType.length > 1 ? 's' : ''}`
+      : `${num(kg, 0)} kg`;
+  return (
+    <Card className="flex flex-col items-center gap-1 p-3 text-center">
+      <IconTile icon={<Icon />} tone={hasData ? 'accent' : 'slate'} />
+      <p className="mt-1 text-xs font-semibold text-slate-500">{ENTRY_TYPE_LABEL[entryType]}</p>
+      <p className={hasData ? 'text-base font-bold tabular-nums text-slate-900' : 'text-base font-bold text-slate-400'}>{total}</p>
+    </Card>
+  );
+}
+
+/** Name preceded by its entry-type icon, for table cells. */
+function IconLabel({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <IconTile icon={<Icon />} size="sm" tone="accent" />
+      {children}
+    </span>
+  );
+}
 
 function stockTone(autonomy: number | null, available: number): { tone: 'red' | 'amber' | 'emerald' | 'slate'; label: string } {
   if (available <= 0) return { tone: 'red', label: 'Épuisé' };
@@ -155,6 +212,11 @@ export function StockPage() {
       {tab === 'stock' && stock.data ? (
         <>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            {ENTRY_TYPE_ORDER.map((et) => (
+              <TypeStatCard key={et} entryType={et} lots={stock.data?.lots ?? []} />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <Metric label="Disponible" icon={<Wheat />} value={`${num(summary.available, 0)} kg`} />
             <Metric label="Valeur estimée" icon={<Coins />} value={summary.value > 0 ? fcfa(Math.round(summary.value)) : '—'} sub="au prix moyen constaté" />
             <Metric label="Phases en stock" icon={<Layers />} value={summary.phases} />
@@ -225,7 +287,11 @@ export function StockPage() {
                       const price = priceOf.get(t.feedPhase ?? '');
                       return (
                         <tr key={`${t.feedPhase ?? 'x'}-${i}`} className="border-t border-slate-100">
-                          <Td className="font-medium">{t.feedPhase ? phaseLabel(t.feedPhase) : (t.foodType ?? 'Sans phase')}</Td>
+                          <Td className="font-medium">
+                            <IconLabel icon={phaseIcon(t, stock.data?.lots ?? [])}>
+                              {t.feedPhase ? phaseLabel(t.feedPhase) : (t.foodType ?? 'Sans phase')}
+                            </IconLabel>
+                          </Td>
                           <Td>{num(t.receivedKg)} kg</Td>
                           <Td>{num(t.usedKg)} kg</Td>
                           <Td>{num(t.lostKg)} kg</Td>
@@ -274,7 +340,9 @@ export function StockPage() {
                   {stock.data.lots.map((l) => (
                     <tr key={l.id} className="border-t border-slate-100">
                       <Td className="font-medium">{l.productName}</Td>
-                      <Td>{entryLabel(l.entryType)}</Td>
+                      <Td>
+                        <IconLabel icon={entryIcon(l.entryType)}>{entryLabel(l.entryType)}</IconLabel>
+                      </Td>
                       <Td>{phaseLabel(l.feedPhase, l.customFeedPhaseName)}</Td>
                       <Td>{l.supplier}</Td>
                       <Td>{l.supplierLotNumber}</Td>
