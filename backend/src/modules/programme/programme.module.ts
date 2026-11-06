@@ -1,5 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Farm } from '../farms/entities/farm.entity.js';
+import { FarmsModule } from '../farms/farms.module.js';
+import { FarmGpsHistory } from './entities/farm-gps-history.entity.js';
+import { FarmInfrastructure } from './entities/farm-infrastructure.entity.js';
+import { FarmStatusHistory } from './entities/farm-status-history.entity.js';
+import { FarmImportService } from './farms/farm-import.service.js';
+import { ProgrammeFarmsController } from './farms/programme-farms.controller.js';
+import { ProgrammeFarmsService } from './farms/programme-farms.service.js';
 import { IdCounter } from './entities/id-counter.entity.js';
 import { Localite } from './entities/localite.entity.js';
 import { ProgramParameter } from './entities/program-parameter.entity.js';
@@ -17,7 +25,8 @@ import { TerritoryService } from './territory.service.js';
 
 /**
  * Programme layer above the farms (POUFA first, generic): registry,
- * territories, configurable lists, versioned parameters, id counters. Inert
+ * territories, configurable lists, versioned parameters, id counters, farm
+ * registry (programme farms, import, status history). Inert
  * when `PROGRAM_CODE` is unset.
  */
 @Module({
@@ -29,9 +38,14 @@ import { TerritoryService } from './territory.service.js';
       RefItem,
       ProgramParameter,
       IdCounter,
+      Farm,
+      FarmStatusHistory,
+      FarmInfrastructure,
+      FarmGpsHistory,
     ]),
+    FarmsModule,
   ],
-  controllers: [ProgrammeController],
+  controllers: [ProgrammeController, ProgrammeFarmsController],
   providers: [
     ProgrammeService,
     ParametersService,
@@ -40,6 +54,8 @@ import { TerritoryService } from './territory.service.js';
     IdCounterService,
     GeoService,
     ProgrammeSeedService,
+    ProgrammeFarmsService,
+    FarmImportService,
   ],
   exports: [
     ProgrammeService,
@@ -48,6 +64,7 @@ import { TerritoryService } from './territory.service.js';
     TerritoryService,
     IdCounterService,
     GeoService,
+    ProgrammeFarmsService,
   ],
 })
 export class ProgrammeModule {}

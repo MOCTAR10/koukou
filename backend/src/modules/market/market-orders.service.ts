@@ -585,7 +585,7 @@ export class MarketOrdersService {
 
   private async assertNotOwnFarm(user: AuthUser, farm: Farm) {
     const own =
-      farm.ownerId === user.id ||
+      (farm.ownerId !== null && farm.ownerId === user.id) ||
       (await this.employeeRepo.exists({
         where: { farmId: farm.id, userId: user.id },
       }));
@@ -737,7 +737,11 @@ export class MarketOrdersService {
         city: farm.administrativeCity,
         logoUrl: farm.logoUrl,
         // Push isn't available yet, so this is how a buyer reaches the farm.
-        phone: accepted ? farm.owner.phone : null,
+        // A programme farm may have no owner account yet: the sheet's
+        // exploitant phone is then the contact.
+        phone: accepted
+          ? (farm.owner?.phone ?? farm.exploitantPhone ?? null)
+          : null,
       },
       timeline: this.timelineOf(mo),
     };

@@ -144,7 +144,11 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
     const admins = await this.employeeRepo.find({
       where: { farmId: farm.id, role: FarmStaffRole.ADMIN, active: true },
     });
-    return [farm.ownerId, ...admins.map((a) => a.userId)];
+    // A programme farm may have no owner account yet.
+    return [
+      ...(farm.ownerId ? [farm.ownerId] : []),
+      ...admins.map((a) => a.userId),
+    ];
   }
 
   private async handleAlert(e: AlertRaisedEvent): Promise<void> {
@@ -167,7 +171,7 @@ export class PushService implements OnModuleInit, OnModuleDestroy {
       }),
     ]);
     const active = new Set(links.map((l) => l.userId));
-    if (farm && ids.includes(farm.ownerId)) active.add(farm.ownerId);
+    if (farm?.ownerId && ids.includes(farm.ownerId)) active.add(farm.ownerId);
     return active;
   }
 
