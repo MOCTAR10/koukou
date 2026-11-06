@@ -14,4 +14,4 @@ L'exploitant peut à tout moment désactiver un membre (fiche du membre, `PATCH 
 
 Le domaine EQUIPE de la matrice (lecture de l'équipe et des RH de la ferme, DGE par défaut) est distinct : il donne la consultation de l'écran Équipe/RH, pas la suspension.
 
-Interface web : pas encore d'écran dédié dans le registre (à faire) ; les routes ci-dessus sont utilisables par l'API.
+Interface web : section « Comptes d’équipe » de la fiche ferme du registre (liste, suspension et rétablissement), visible avec ADMINISTRATION : Consulter ; le bouton exige ADMINISTRATION : Administrer.

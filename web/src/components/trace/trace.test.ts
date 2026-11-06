@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { LotView, OperatorView } from '../../api/types-trace';
-import { createPayload, draftOf, filterOperators, patchPayload, validateOperator } from './operatorRules';
+import { abattoirs, createPayload, draftOf, filterOperators, patchPayload, validateOperator } from './operatorRules';
 import { fetchPublicLot, producerLine, publicLotStateFrom, publicLotUrl } from './publicLot';
 import { isProgrammeWidePath, programmeEntries, programmeWideLabel, traceRights, traceTabOf, traceTabs } from './traceAccess';
 import { codeFromInput, lotsTree, rearingDetail, rearingQuantityLabel, scanWarnings } from './traceLabels';
@@ -187,8 +187,20 @@ describe('rearing inputs and feed', () => {
   it('details a feed lot and shows its kg', () => {
     const details = { inputLotId: 'i1', productName: 'Démarrage', supplierLotNumber: 'F-12', fromDay: 1, toDay: 10, kg: 250 };
     expect(rearingDetail({ kind: 'ALIMENT', details })).toBe('Lot fournisseur F-12 · jours 1 à 10');
+    expect(
+      rearingDetail({ kind: 'SOIN', details: { reason: 'Coryza', startDate: '2026-10-20', endDate: '2026-10-24', animalCount: 980 } }),
+    ).toBe('Motif : Coryza · du 2026-10-20 au 2026-10-24 · 980 animaux');
+    expect(rearingDetail({ kind: 'TRAITEMENT', details: { startDate: '2026-10-15', endDate: '2026-10-15' } })).toBe('le 2026-10-15');
     expect(rearingQuantityLabel({ kind: 'ALIMENT', quantity: 250 })).toBe('250 kg');
     expect(rearingQuantityLabel({ kind: 'PESEE', quantity: null })).toBeNull();
     expect(rearingDetail({ kind: 'PESEE', details: {} })).toBeNull();
+  });
+});
+
+describe('abattoirs (F4)', () => {
+  it('keeps active ABATTOIR operators only', () => {
+    const op = (id: string, typeFamily: string | null, active = true) => ({ id, typeFamily, active }) as never;
+    const list = abattoirs([op('a', 'ABATTOIR'), op('b', 'COUVOIR'), op('c', 'ABATTOIR', false), op('d', null)]);
+    expect(list.map((o) => o.id)).toEqual(['a']);
   });
 });

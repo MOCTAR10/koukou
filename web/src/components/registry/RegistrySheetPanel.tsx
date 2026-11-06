@@ -12,6 +12,7 @@ import { useRegistrySheet } from './queries';
 import type { RegistryRights } from './registryAccess';
 import { InfrastructuresSection, StatusSection } from './SheetSections';
 import { RegistryStatusPill } from './shared';
+import { TeamSection } from './TeamSection';
 import { VerificationSection } from './VerificationSection';
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
@@ -107,6 +108,12 @@ export function RegistrySheetPanel({ farmId, rights, onClose }: { farmId: string
             </dl>
             <OwnerAccountSection sheet={s} rights={rights} onEditSheet={() => setEditing(true)} />
           </Block>
+
+          {rights.team ? (
+            <Block title="Comptes d’équipe">
+              <TeamSection farmId={s.id} canSuspend={rights.suspendTeam} />
+            </Block>
+          ) : null}
 
           <Block title="Statut">
             <StatusSection sheet={s} canEdit={rights.edit} />

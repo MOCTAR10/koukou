@@ -311,3 +311,18 @@ export interface SetFarmStatusBody {
   /** Mandatory for a suspension. */
   reason?: string;
 }
+
+/** `GET /programme/farms/:farmId/team` (F13): one team account created by the exploitant. */
+export interface TeamMemberRow {
+  employmentId: string;
+  userId: string;
+  fullName: string;
+  phone: string | null;
+  /** FarmStaffRole: ADMIN (administrateur de ferme) or ELEVEUR (membre). */
+  role: 'ADMIN' | 'ELEVEUR';
+  permissions: string[] | null;
+  /** Access to this farm (suspension is per farm). */
+  linkActive: boolean;
+  accountActive: boolean;
+  createdAt: string;
+}

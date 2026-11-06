@@ -1,3 +1,4 @@
+import { weighingSampleRefusal } from './weighing-rules.js';
 import {
   BadRequestException,
   Injectable,
@@ -357,6 +358,10 @@ export class DailyEntriesService {
         );
       }
     }
+    // CDC n° 8: a newly recorded average weight always says how many birds
+    // were weighed.
+    const sampleRefusal = weighingSampleRefusal(dto, existing);
+    if (sampleRefusal) throw new BadRequestException(sampleRefusal);
     return sync;
   }
 

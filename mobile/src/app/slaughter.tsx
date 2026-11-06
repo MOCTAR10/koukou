@@ -17,6 +17,9 @@ import { PipelineHero } from '@/components/slaughter/PipelineHero';
 import { useAuth } from '@/auth/AuthContext';
 import { fetchBatches, fetchSlaughterOrders } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
+import { fetchOperators, fetchProgramList } from '@/api/poufa';
+import { cachedRead } from '@/offline/ref-cache';
+import { abattoirOperators, slaughterOperatorId } from '@/poufa/abattoir';
 import { downloadPdf } from '@/api/pdf';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 // POUFA lot A2 dge: an institution reads the slaughter orders with TRACABILITE:CONSULTER, read-only.
@@ -34,7 +37,7 @@ import {
 } from '@/api/mutations';
 import { lotAvailability, projectOrder, slaughterRefs, type Horizon } from '@/utils/slaughterInsights';
 import type { ProductionBatch, SlaughterDestination, SlaughterOrder, SlaughterType } from '@/api/types';
-import { color, palette, fontFamily, semantic } from '@/constants/theme';
+import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 
 type SubView = 'new' | 'orders';
 
@@ -106,6 +109,7 @@ export default function SlaughterScreen() {
   const [liveWeight, setLiveWeight] = useState('');
   const [abattoirCode, setAbattoirCode] = useState('');
   const [notes, setNotes] = useState('');
+  const [operatorId, setOperatorId] = useState<string | null>(null);
   const [processWeights, setProcessWeights] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +118,22 @@ export default function SlaughterScreen() {
     setDest(d);
     if (d === 'INTERNE') setType('ABATTU');
   };
+
+  // F4: abattoir of the programme register. The route may be missing or refused for
+  // this account: the picker then stays hidden and the order is created without it.
+  const operatorsQ = useQuery({
+    queryKey: ['trace-operators'],
+    queryFn: () => cachedRead('trace-operators', fetchOperators),
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+  const operatorTypesQ = useQuery({
+    queryKey: ['program-list', 'TYPE_OPERATEUR'],
+    queryFn: () => cachedRead('program-list.TYPE_OPERATEUR', () => fetchProgramList('TYPE_OPERATEUR')),
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+  const abattoirs = useMemo(() => abattoirOperators(operatorsQ.data, operatorTypesQ.data), [operatorsQ.data, operatorTypesQ.data]);
 
   const refs = useMemo(() => slaughterRefs(orders), [orders]);
   const avail = lot ? lotAvailability(orders, lot) : null;
@@ -169,7 +189,9 @@ export default function SlaughterScreen() {
         ...(liveWeight.trim() ? { totalWeightKg: parseFloat(liveWeight) } : {}),
         ...(abattoirCode.trim() ? { abattoirLotCode: abattoirCode.trim() } : {}),
         ...(notes.trim() ? { abattoirNotes: notes.trim() } : {}),
+        ...(slaughterOperatorId(dest, operatorId, abattoirs) ? { operatorId: slaughterOperatorId(dest, operatorId, abattoirs) } : {}),
       });
+      setOperatorId(null);
       setBirds(0);
       setLiveWeight('');
       setAbattoirCode('');
@@ -494,6 +516,38 @@ export default function SlaughterScreen() {
                 />
                 {dest === 'EXTERNE' ? (
                   <>
+                    {abattoirs.length > 0 ? (
+                      <View style={{ gap: 6 }}>
+                        <AppText size="label" color="muted">
+                          ABATTOIR (OPTIONNEL)
+                        </AppText>
+                        <AppText size="caption" color="faint">
+                          Choisi dans le registre des opérateurs : le lot lui est cédé (sous-lot et QR) au traitement de l’ordre.
+                        </AppText>
+                        <View style={styles.abattoirWrap}>
+                          {abattoirs.map((o) => {
+                            const on = o.id === operatorId;
+                            return (
+                              <Pressable
+                                key={o.id}
+                                onPress={() => setOperatorId(on ? null : o.id)}
+                                disabled={busy !== null}
+                                style={[styles.abattoirChip, on && styles.abattoirChipOn]}
+                                accessibilityRole="checkbox"
+                                accessibilityState={{ checked: on }}
+                                accessibilityLabel={o.name}>
+                                <AppText size="small" weight="semibold" color={on ? 'brand' : 'text'}>
+                                  {o.name}
+                                </AppText>
+                                <AppText size="caption" color="muted">
+                                  {o.code}
+                                </AppText>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ) : null}
                     <TextInput
                       value={abattoirCode}
                       onChangeText={setAbattoirCode}
@@ -597,6 +651,16 @@ export default function SlaughterScreen() {
 }
 
 const styles = StyleSheet.create({
+  abattoirWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  abattoirChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: semantic.border,
+    backgroundColor: semantic.surface,
+  },
+  abattoirChipOn: { borderColor: color.brand[400], backgroundColor: semantic.primarySoft },
   tabWrap: {
     marginBottom: 12,
   },

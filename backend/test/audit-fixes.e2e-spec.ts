@@ -257,12 +257,12 @@ describe('Audit — corrections pravide & gaps (e2e)', () => {
       await request(server)
         .post(`/farms/${mainFarmId}/batches/${gmqBatch}/daily-entries`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ entryDate: daysAgo(20), avgWeightKg: 0.8 })
+        .send({ entryDate: daysAgo(20), avgWeightKg: 0.8, sampleSize: 1 })
         .expect(201);
       await request(server)
         .post(`/farms/${mainFarmId}/batches/${gmqBatch}/daily-entries`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ entryDate: daysAgo(10), avgWeightKg: 1.0 })
+        .send({ entryDate: daysAgo(10), avgWeightKg: 1.0, sampleSize: 1 })
         .expect(201);
 
       const alerts = await request(server)

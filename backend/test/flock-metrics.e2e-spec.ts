@@ -97,6 +97,7 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
       feedQuantity: 400,
       waterL: 120,
       avgWeightKg: 0.845,
+      sampleSize: 1,
     });
 
     const alerts = await request(server)
@@ -257,6 +258,7 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
             w5.targetFcr * 1000 * (w5.targetAvgWeightKg - 0.045),
           ),
           avgWeightKg: weightKg,
+          sampleSize: 1,
         })
         .expect(201);
       const batch = await request(server)

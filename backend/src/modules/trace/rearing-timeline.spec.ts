@@ -34,6 +34,9 @@ const base: RearingSources = {
       productName: 'Amoxicilline',
       administeredAt: new Date('2026-10-20T07:00:00Z'),
       withdrawalEndDate: '2026-10-25',
+      reason: 'Infection respiratoire',
+      endDate: '2026-10-24',
+      animalCount: 980,
     },
     {
       careType: CareType.MEDICAMENT,
@@ -170,5 +173,23 @@ describe('rearingTimeline', () => {
   it('leaves out health events the viewer may not read', () => {
     const items = rearingTimeline({ ...base, healthEvents: null });
     expect(items.some((i) => i.kind === K.EVENEMENT_SANITAIRE)).toBe(false);
+  });
+
+  it('gives reason, period and animal count of cares and treatments (n° 23)', () => {
+    const items = rearingTimeline({
+      ...base,
+      cares: base.cares.map((c) => ({ ...c, animalCount: 1000 })),
+    });
+    const abx = items.find((i) => i.label === 'Antibiotique : Amoxicilline');
+    expect(abx?.details).toMatchObject({
+      reason: 'Infection respiratoire',
+      startDate: '2026-10-20',
+      endDate: '2026-10-24',
+      animalCount: 980,
+    });
+    const vaccine = items.find((i) => i.kind === K.SOIN && i.date === '2026-10-10');
+    expect(vaccine?.details).toMatchObject({ reason: null, startDate: '2026-10-10', endDate: '2026-10-10', animalCount: 1000 });
+    const medic = items.find((i) => i.kind === K.TRAITEMENT);
+    expect(medic?.details).toMatchObject({ startDate: '2026-10-15', animalCount: null });
   });
 });

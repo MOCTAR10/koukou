@@ -25,6 +25,8 @@ import {
 } from '../components/flock/shared';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../components/form';
 import { DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { abattoirs } from '../components/trace/operatorRules';
+import { useOperators } from '../components/trace/queries';
 import { lotImage } from '../lib/animalImages';
 import { dateFr, num } from '../lib/format';
 
@@ -330,6 +332,9 @@ function NewOrderModal({
   const [weight, setWeight] = useState('');
   const [code, setCode] = useState('');
   const [notes, setNotes] = useState('');
+  const [operatorId, setOperatorId] = useState('');
+  const operators = useOperators(false, true);
+  const abattoirList = abattoirs(operators.data ?? []);
   const pdf = useAsyncAction();
 
   const lot = eligible.find((l) => l.id === batchId) ?? null;
@@ -369,6 +374,7 @@ function NewOrderModal({
         plannedDate,
         birdCount: birds,
         totalWeightKg: parseNum(weight),
+        operatorId: destination === 'EXTERNE' && operatorId ? operatorId : undefined,
         abattoirLotCode: destination === 'EXTERNE' && code.trim() ? code.trim() : undefined,
         abattoirNotes: destination === 'EXTERNE' && notes.trim() ? notes.trim() : undefined,
       }),
@@ -468,6 +474,16 @@ function NewOrderModal({
           </IconField>
           {destination === 'EXTERNE' ? (
             <>
+              <Field label="Abattoir" hint="Le lot est cédé à cet abattoir (sous-lot et QR) au traitement de l'ordre.">
+                <select className={inputCls} value={operatorId} onChange={(e) => setOperatorId(e.target.value)}>
+                  <option value="">Non précisé</option>
+                  {abattoirList.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name} ({o.code})
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Code abattoir">
                 <input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} />
               </Field>

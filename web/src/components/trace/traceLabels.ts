@@ -78,6 +78,16 @@ export function rearingDetail(r: Pick<RearingItem, 'kind' | 'details'>): string 
     }
     return out.length > 0 ? out.join(' · ') : null;
   }
+  if (r.kind === 'SOIN' || r.kind === 'TRAITEMENT') {
+    const out: string[] = [];
+    const reason = str(d.reason);
+    if (reason) out.push(`Motif : ${reason}`);
+    const start = str(d.startDate);
+    const end = str(d.endDate);
+    if (start) out.push(end && end !== start ? `du ${start} au ${end}` : `le ${start}`);
+    if (typeof d.animalCount === 'number') out.push(`${fr(d.animalCount)} animaux`);
+    return out.length > 0 ? out.join(' · ') : null;
+  }
   return null;
 }
 
