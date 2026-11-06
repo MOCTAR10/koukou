@@ -7,6 +7,7 @@ import { clearQueue, clearRejected, loadOps } from '@/offline';
 import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
 import type { CustomerType, Farm, PublicUser } from '@/api/types';
+import { INVALID_LOGIN_ANSWER, readLoginAnswer, type OtpChallenge } from './session-rules';
 
 export interface RegisterBuyerInput {
   phone: string;
@@ -16,6 +17,8 @@ export interface RegisterBuyerInput {
   organizationName?: string;
   city?: string;
 }
+
+export type SignInResult = 'signed-in' | 'otp' | 'failed';
 
 const EMPTY_USER: PublicUser = { id: '', fullName: '', phone: '', role: 'PROPRIETAIRE' };
 
@@ -35,7 +38,12 @@ interface AuthContextValue {
   error: string | null;
   setActiveFarmId: (farmId: string) => void;
   setFarmMode: (farmMode: FarmMode) => void;
-  signIn: (phone: string, code: string) => Promise<boolean>;
+  /** `otp`: an institutional account must now type the code received by SMS (`verifyOtp`). */
+  signIn: (phone: string, code: string) => Promise<SignInResult>;
+  /** Pending SMS step of an institutional login, null otherwise. */
+  otpChallenge: OtpChallenge | null;
+  verifyOtp: (code: string) => Promise<boolean>;
+  cancelOtp: () => void;
   /** Market customer sign-up: the only self-service account (farms come from the programme registry). */
   registerBuyer: (input: RegisterBuyerInput) => Promise<boolean>;
   signOut: () => Promise<void>;
@@ -50,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<StoredSession | null>(() => loadSession());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [otpChallenge, setOtpChallenge] = useState<OtpChallenge | null>(null);
 
   useEffect(() => {
     if (!session?.token) return;
@@ -65,48 +74,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, [session?.token]);
 
+  /** Stores the token, loads the farms, then publishes the session. */
+  const openSession = useCallback(
+    async (accessToken: string, user: PublicUser): Promise<void> => {
+      const next: StoredSession = { token: accessToken, user, farms: [] };
+      saveSession(next);
+      const farms = await apiFetch<Farm[]>('/farms');
+      const full: StoredSession = { ...next, farms };
+      saveSession(full);
+      // Drop the previous account's cache (salaries, cash…): invalidating
+      // would keep showing it until each query refetches.
+      queryClient.clear();
+      setSession(full);
+    },
+    [queryClient],
+  );
+
   const signIn = useCallback(
-    async (phone: string, code: string): Promise<boolean> => {
+    async (phone: string, code: string): Promise<SignInResult> => {
       setBusy(true);
       setError(null);
       try {
-        const res = await apiFetch<{ accessToken: string; user: PublicUser }>('/auth/login', {
-          method: 'POST',
-          body: { phone, code },
-        });
-        const next: StoredSession = { token: res.accessToken, user: res.user, farms: [] };
-        saveSession(next);
-        const farms = await apiFetch<Farm[]>('/farms');
-        const full: StoredSession = { ...next, farms };
-        saveSession(full);
-        // Drop the previous account's cache (salaries, cash…): invalidating
-        // would keep showing it until each query refetches.
-        queryClient.clear();
-        setSession(full);
-        return true;
+        const answer = readLoginAnswer(
+          await apiFetch<unknown>('/auth/login', { method: 'POST', body: { phone, code } }),
+        );
+        if (answer.kind === 'otp') {
+          setOtpChallenge(answer.challenge);
+          return 'otp';
+        }
+        if (answer.kind !== 'session') throw new Error(INVALID_LOGIN_ANSWER);
+        setOtpChallenge(null);
+        await openSession(answer.accessToken, answer.user);
+        return 'signed-in';
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Erreur inconnue lors de la connexion.');
+        return 'failed';
+      } finally {
+        setBusy(false);
+      }
+    },
+    [openSession],
+  );
+
+  const verifyOtp = useCallback(
+    async (code: string): Promise<boolean> => {
+      if (!otpChallenge) return false;
+      setBusy(true);
+      setError(null);
+      try {
+        const answer = readLoginAnswer(
+          await apiFetch<unknown>('/auth/login/otp', {
+            method: 'POST',
+            body: { challengeId: otpChallenge.challengeId, code },
+          }),
+        );
+        if (answer.kind !== 'session') throw new Error(INVALID_LOGIN_ANSWER);
+        await openSession(answer.accessToken, answer.user);
+        setOtpChallenge(null);
+        return true;
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Erreur inconnue lors de la vérification du code.');
         return false;
       } finally {
         setBusy(false);
       }
     },
-    [queryClient],
+    [openSession, otpChallenge],
   );
+
+  const cancelOtp = useCallback(() => {
+    setOtpChallenge(null);
+    setError(null);
+  }, []);
 
   const authenticate = useCallback(
     async (path: string, body: object, fallbackError: string): Promise<boolean> => {
       setBusy(true);
       setError(null);
       try {
-        const res = await apiFetch<{ accessToken: string; user: PublicUser }>(path, { method: 'POST', body });
-        const next: StoredSession = { token: res.accessToken, user: res.user, farms: [] };
-        saveSession(next);
-        const farms = await apiFetch<Farm[]>('/farms');
-        const full: StoredSession = { ...next, farms };
-        saveSession(full);
-        queryClient.clear();
-        setSession(full);
+        const answer = readLoginAnswer(await apiFetch<unknown>(path, { method: 'POST', body }));
+        if (answer.kind !== 'session') throw new Error(INVALID_LOGIN_ANSWER);
+        await openSession(answer.accessToken, answer.user);
         return true;
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : fallbackError);
@@ -115,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setBusy(false);
       }
     },
-    [queryClient],
+    [openSession],
   );
 
   const registerBuyer = useCallback(
@@ -142,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearQueue();
     clearRejected();
     setSession(null);
+    setOtpChallenge(null);
     setError(null);
     queryClient.clear();
   }, [queryClient]);
@@ -196,13 +245,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       busy,
       error,
       signIn,
+      otpChallenge,
+      verifyOtp,
+      cancelOtp,
       registerBuyer,
       signOut,
       setActiveFarmId,
       setFarmMode,
       refreshFarms,
     };
-  }, [session, busy, error, signIn, registerBuyer, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
+  }, [session, busy, error, signIn, otpChallenge, verifyOtp, cancelOtp, registerBuyer, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
