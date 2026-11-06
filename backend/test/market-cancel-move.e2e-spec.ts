@@ -138,6 +138,8 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
     const farm = await createProgrammeFarm(server, adminToken, {
       name: `Ferme Annulation ${uniquePhone('')}`,
       exploitantName: 'Proprio Annulation',
+      // Market listings are only shown for OPERATIONNELLE farms (POUFA).
+      extra: { statusCode: 'OPERATIONNELLE' },
     });
     ownerToken = farm.ownerToken;
     farmId = farm.farmId;

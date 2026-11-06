@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { CONDUITE_LABEL, indicatorText } from '../indicators/indicator-headline.js';
+import {
+  OFFICIAL_BAND_INDICATORS,
+  type OfficialBandIndicatorsPort,
+} from '../indicators/official-band-indicators.port.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Brackets } from 'typeorm';
@@ -138,7 +144,10 @@ export class RentabiliteService {
     private readonly alertsService: AlertsService,
     private readonly constants: ReferenceConstantsService,
     private readonly pdfService: PdfService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  private readonly logger = new Logger(RentabiliteService.name);
 
   async getOverview(
     user: AuthUser,
@@ -523,7 +532,7 @@ export class RentabiliteService {
         {
           kind: AlertKind.RENTABILITE,
           level: AlertLevel.JAUNE,
-          message: `Marge nette du lot ${pnl.batchName ?? ''} faible : ${pnl.marginPct.toFixed(1)} % (seuil recommandé ${threshold} %).`,
+          message: `Taux de marge du lot ${pnl.batchName ?? ''} faible : ${pnl.marginPct.toFixed(1)} % (seuil recommandé ${threshold} %).`,
           recommendation:
             'Comparer le prix de vente au kilo au coût de revient et ajuster avant la fin du lot.',
           context: { netFcfa: pnl.netFcfa, marginPct: pnl.marginPct },
@@ -642,6 +651,35 @@ export class RentabiliteService {
     });
   }
 
+  /** Official cost and margin rows of a band (formulas in force), or none. */
+  private async officialMoney(
+    farm: Parameters<OfficialBandIndicatorsPort['compute']>[0],
+    batchId: string,
+  ): Promise<{ label: string; value: string }[]> {
+    try {
+      const batch = await this.batchRepo.findOneOrFail({
+        where: { id: batchId },
+      });
+      const port = this.moduleRef.get<OfficialBandIndicatorsPort>(
+        OFFICIAL_BAND_INDICATORS,
+        { strict: false },
+      );
+      const { indicators } = await port.compute(farm, batch);
+      return ['cout_production_kg', 'marge_fcfa', 'taux_marge']
+        .map((key) => indicators.find((i) => i.key === key))
+        .filter((i) => i != null)
+        .map((i) => ({
+          label: `${i.label} (officiel)`,
+          value: indicatorText(i.value, i.unit),
+        }));
+    } catch (err) {
+      this.logger.warn(
+        `Indicateurs officiels du lot ${batchId} indisponibles : ${String(err)}`,
+      );
+      return [];
+    }
+  }
+
   async exportBatchPnlPdf(
     user: AuthUser,
     farmId: string,
@@ -649,6 +687,7 @@ export class RentabiliteService {
   ): Promise<Buffer> {
     const farm = await this.farmsService.assertAccessible(user, farmId);
     const pnl = await this.getBatchPnl(user, farmId, batchId);
+    const official = await this.officialMoney(farm, batchId);
     const rows = [
       ...pnl.breakdown.byProduct.map((p) => ({
         label: `${p.label} (${p.quantity})`,
@@ -673,6 +712,7 @@ export class RentabiliteService {
         value: String(e.amountFcfa),
       })),
     ];
+    // Official figures (programme formulas) first; Fermia's per kg sold second.
     const totals = [
       { label: 'Revenus', value: String(pnl.revenueFcfa) },
       {
@@ -684,8 +724,14 @@ export class RentabiliteService {
       },
       { label: 'Dépenses', value: String(pnl.expensesFcfa) },
       { label: 'Résultat net', value: String(pnl.netFcfa) },
+      ...official,
       ...(pnl.costPerKgFcfa != null
-        ? [{ label: 'Coût de revient au kilo', value: `${pnl.costPerKgFcfa}` }]
+        ? [
+            {
+              label: `Coût par kg vendu — ${CONDUITE_LABEL}`,
+              value: `${pnl.costPerKgFcfa}`,
+            },
+          ]
         : []),
     ];
     return this.pdfService.createPnlReportPdf({

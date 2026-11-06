@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
@@ -34,6 +36,12 @@ import {
 } from './dto/slaughter.dto.js';
 import { SlaughterOrder } from './entities/slaughter-order.entity.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
+import { passportIndicatorRows } from '../indicators/indicator-headline.js';
+import {
+  OFFICIAL_BAND_INDICATORS,
+  type OfficialBandIndicatorsPort,
+} from '../indicators/official-band-indicators.port.js';
+import type { OfficialIndicator } from '../indicators/official-indicators.js';
 
 // Préfixe codé en dur (même convention que VTE pour les ventes — pas de compteur séparé).
 const SLAUGHTER_PREFIX = 'ABT';
@@ -89,7 +97,10 @@ export class SlaughterService {
     private readonly pdfService: PdfService,
     private readonly dataSource: DataSource,
     private readonly bandeStats: BandeStatsService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  private readonly logger = new Logger(SlaughterService.name);
 
   /**
    * With `opts.em` the order is created inside the caller's transaction (a
@@ -484,28 +495,15 @@ export class SlaughterService {
         ? 'Des soins planifiés sont en retard au calendrier : les régulariser avant l’abattage.'
         : 'Aucun délai d’attente en cours et soins à jour, d’après les saisies de l’élevage.';
 
+    // Official indicators (programme formulas) first, Fermia's second.
     const metricRows: PasseportData['metrics'] = [
       { label: 'Âge', value: `${metrics.ageDays} j` },
-      {
-        label: 'Mortalité',
-        value: `${metrics.mortalityPercent.toFixed(1)} %`,
-      },
-      { label: 'Viabilité', value: `${metrics.viabilityPercent.toFixed(1)} %` },
-      {
-        label: 'IC (Indice de consommation)',
-        value: metrics.fcr != null ? metrics.fcr.toFixed(2) : 'N/A',
-      },
-      {
-        label: 'GMQ',
-        value:
-          metrics.gmqGramsPerDay != null
-            ? `${metrics.gmqGramsPerDay.toFixed(1)} g/j`
-            : 'N/A',
-      },
-      {
-        label: 'IPE',
-        value: metrics.ipe != null ? metrics.ipe.toFixed(1) : 'N/A',
-      },
+      ...passportIndicatorRows(await this.officialIndicators(farm, batch), {
+        mortalityPercent: metrics.mortalityPercent,
+        fcr: metrics.fcr,
+        gmqGramsPerDay: metrics.gmqGramsPerDay,
+        ipe: metrics.ipe,
+      }),
     ];
 
     const data: PasseportData = {
@@ -527,6 +525,25 @@ export class SlaughterService {
       generatedAtLabel: dateLabel(new Date()),
     };
     return this.pdfService.createPasseportPdf(data);
+  }
+
+  /** The band's official indicators, or null when the set can't be computed. */
+  private async officialIndicators(
+    farm: Parameters<OfficialBandIndicatorsPort['compute']>[0],
+    batch: ProductionBatch,
+  ): Promise<OfficialIndicator[] | null> {
+    try {
+      const port = this.moduleRef.get<OfficialBandIndicatorsPort>(
+        OFFICIAL_BAND_INDICATORS,
+        { strict: false },
+      );
+      return (await port.compute(farm, batch)).indicators;
+    } catch (err) {
+      this.logger.warn(
+        `Indicateurs officiels du lot ${batch.id} indisponibles : ${String(err)}`,
+      );
+      return null;
+    }
   }
 
   private async assertLotEligibleForSend(

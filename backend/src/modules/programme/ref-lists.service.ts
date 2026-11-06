@@ -9,7 +9,13 @@ import { Repository } from 'typeorm';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
 import { ProgramListType } from '../../common/enums/program-list-type.enum.js';
 import { RefItem } from './entities/ref-item.entity.js';
+import { userNames } from '../../common/utils/user-names.js';
 import { familyError } from './ref-list-families.js';
+import {
+  listHistoryEntry,
+  type ListHistoryEntry,
+  type RowChangeRecord,
+} from './ref-list-history.js';
 import { ProgrammeService } from './programme.service.js';
 import type { CreateRefItemDto, UpdateRefItemDto } from './dto/ref-item.dto.js';
 
@@ -38,6 +44,30 @@ export class RefListsService {
       },
       order: { sort: 'ASC', label: 'ASC' },
     });
+  }
+
+  /**
+   * The list's history from the row journal, newest first (500 at most):
+   * creations and changes of its items with their author's name.
+   */
+  async history(listType: ProgramListType): Promise<ListHistoryEntry[]> {
+    const program = await this.programme.current();
+    const rows: RowChangeRecord[] = await this.items.manager.query(
+      `SELECT r.id, r.at, r.op, r.before, r.after,
+              r.actor_user_id AS "actorUserId", r.request_id AS "requestId"
+         FROM audit_row_changes r
+        WHERE r.table_name = 'ref_items'
+          AND COALESCE(r.after ->> 'program_id', r.before ->> 'program_id') = $1
+          AND COALESCE(r.after ->> 'list_type', r.before ->> 'list_type') = $2
+        ORDER BY r.id DESC
+        LIMIT 500`,
+      [program.id, listType],
+    );
+    const names = await userNames(
+      this.items.manager,
+      rows.map((r) => r.actorUserId),
+    );
+    return rows.map((r) => listHistoryEntry(r, names));
   }
 
   /** One item by code (active or not). @throws NotFoundException */

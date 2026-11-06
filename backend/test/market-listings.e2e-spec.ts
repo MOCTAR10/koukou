@@ -102,7 +102,11 @@ describe('Market : annonces et catalogue public (e2e)', () => {
     const farm = await createProgrammeFarm(server, adminToken, {
       name: `Ferme Market ${uniquePhone('')}`,
       exploitantName: 'Proprio Market',
-      extra: { gps: { latitude: 0.41, longitude: 9.45 } },
+      // Market listings are only shown for OPERATIONNELLE farms (POUFA).
+      extra: {
+        gps: { latitude: 0.41, longitude: 9.45 },
+        statusCode: 'OPERATIONNELLE',
+      },
     });
     token = farm.ownerToken;
     farmId = farm.farmId;
