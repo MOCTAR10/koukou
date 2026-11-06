@@ -70,7 +70,28 @@ function digits(raw: string): string {
   return raw.replace(/\D/g, '');
 }
 
-export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+/**
+ * POUFA L4: a band opened after a confirmed chick delivery (`openBandHint`),
+ * pre-filled; the chicks' cost is already an expense, so no chick price.
+ */
+export interface LotPrefill {
+  quantityAtStart: number;
+  integrationDate: string;
+  couvoirSupplier?: string;
+  chickLotNumber?: string;
+  /** Shown above the form. */
+  note?: string;
+}
+
+export function CreateLotModal({
+  onClose,
+  onCreated,
+  prefill,
+}: {
+  onClose: () => void;
+  onCreated: (id: string) => void;
+  prefill?: LotPrefill;
+}) {
   const { farmId } = useFarm();
   const invalidate = useInvalidateFarm();
   const buildings = useBuildings();
@@ -86,14 +107,14 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
   const [customSpecies, setCustomSpecies] = useState('');
   const [customBreed, setCustomBreed] = useState('');
   const [batchName, setBatchName] = useState('');
-  const [quantity, setQuantity] = useState('');
+  const [quantity, setQuantity] = useState(prefill ? String(prefill.quantityAtStart) : '');
   /** The arrival (opening) day of the band: never back-dated to the hatch or the placement. */
-  const [integrationDate, setIntegrationDate] = useState(localYmd());
+  const [integrationDate, setIntegrationDate] = useState(prefill?.integrationDate.slice(0, 10) ?? localYmd());
   /** « Âge à l'arrivée (jours) », sent as `initialAgeDays` (empty = 0, day-old chicks). */
   const [arrivalAge, setArrivalAge] = useState('');
   const [buildingId, setBuildingId] = useState('');
-  const [supplier, setSupplier] = useState('');
-  const [chickLot, setChickLot] = useState('');
+  const [supplier, setSupplier] = useState(prefill?.couvoirSupplier ?? '');
+  const [chickLot, setChickLot] = useState(prefill?.chickLotNumber ?? '');
   const [hatchDate, setHatchDate] = useState('');
   const [chickPrice, setChickPrice] = useState('');
   const [doneSteps, setDoneSteps] = useState<string[]>([]);
@@ -183,7 +204,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
       if (supplier.trim()) body.couvoirSupplier = supplier.trim();
       if (chickLot.trim()) body.chickLotNumber = chickLot.trim();
       if (hatchDate) body.hatchDate = hatchDate;
-      if (chickPrice.trim()) body.chickUnitPriceFcfa = parseInt(chickPrice, 10);
+      if (chickPrice.trim() && !prefill) body.chickUnitPriceFcfa = parseInt(chickPrice, 10);
       const lot = await api.post<Lot>(`/farms/${farmId}/batches`, body);
       const selected = running && canRecordCare ? dueSteps.filter((s) => doneSteps.includes(s.id)) : [];
       await Promise.all(
@@ -228,6 +249,7 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
   return (
     <Modal title={running ? 'Ajouter un lot en cours' : 'Créer un lot'} onClose={onClose} large>
       <form onSubmit={submit} className="space-y-5">
+        {prefill?.note ? <Note tone="brand">{prefill.note}</Note> : null}
         <FormColumns>
         <div className="min-w-0 space-y-5">
         <Toggle
@@ -466,15 +488,19 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
             <IconField label="Date d'éclosion" icon={<Calendar />}>
               <input className={inputCls} type="date" value={hatchDate} onChange={(e) => setHatchDate(e.target.value)} />
             </IconField>
-            <Field label="Prix d'achat unitaire (FCFA)" hint="Crée automatiquement la dépense d'achat des poussins.">
-              <input
-                className={inputCls}
-                inputMode="numeric"
-                value={chickPrice}
-                onChange={(e) => setChickPrice(digits(e.target.value))}
-                placeholder="Ex : 750"
-              />
-            </Field>
+            {prefill ? (
+              <p className="text-xs text-slate-500">Poussins reçus d’une livraison du programme : leur coût est déjà passé en dépense, pas de prix à saisir.</p>
+            ) : (
+              <Field label="Prix d'achat unitaire (FCFA)" hint="Crée automatiquement la dépense d'achat des poussins.">
+                <input
+                  className={inputCls}
+                  inputMode="numeric"
+                  value={chickPrice}
+                  onChange={(e) => setChickPrice(digits(e.target.value))}
+                  placeholder="Ex : 750"
+                />
+              </Field>
+            )}
           </div>
         </fieldset>
 

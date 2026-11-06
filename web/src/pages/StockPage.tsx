@@ -30,8 +30,12 @@ import {
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
 import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr, fcfa, num } from '../lib/format';
+// POUFA W6: declarative stock tab and the pending deliveries reminder.
+import { DeclarativeStockPanel } from '../components/supply/DeclarativeStockPanel';
+import { PendingDeliveriesNote } from '../components/supply/PendingDeliveriesNote';
 
-type TabKey = 'stock' | 'lots' | 'mouvements' | 'catalogue';
+// POUFA W6: 'declaratif' (programme deliveries received minus declared use).
+type TabKey = 'stock' | 'lots' | 'mouvements' | 'catalogue' | 'declaratif';
 
 const entryLabel = (t: string) => (ENTRY_TYPE_LABEL as Record<string, string>)[t] ?? 'Autre';
 const reasonLabel = (r: string | null | undefined) =>
@@ -196,6 +200,7 @@ export function StockPage() {
         }
       />
       <ErrorNote error={stock.error} />
+      <PendingDeliveriesNote />
       <Tabs<TabKey>
         value={tab}
         onChange={setTab}
@@ -204,6 +209,7 @@ export function StockPage() {
           { key: 'lots', label: 'Lots reçus', icon: <Package /> },
           { key: 'mouvements', label: 'Mouvements', icon: <ArrowDownRight /> },
           { key: 'catalogue', label: 'Catalogue', icon: <PackagePlus /> },
+          { key: 'declaratif', label: 'Stock déclaratif', icon: <Truck /> },
         ]}
       />
 
@@ -407,6 +413,7 @@ export function StockPage() {
       ) : null}
 
       {tab === 'catalogue' ? <CatalogPanel /> : null}
+      {tab === 'declaratif' ? <DeclarativeStockPanel /> : null}
 
       {receiving ? <FeedEntryModal stock={stock.data} onClose={() => setReceiving(false)} /> : null}
       {losing ? <LossModal stock={stock.data} onClose={() => setLosing(false)} /> : null}
