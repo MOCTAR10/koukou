@@ -5,6 +5,10 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import { Breed } from './../src/modules/breeds/entities/breed.entity.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -69,31 +73,15 @@ describe('Audit complet — immuabilité, stocks, alertes, métriques (e2e)', ()
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24161${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Audit Complet',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Audit Complet ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 3000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const platformToken = (
+      await createPlatformAdmin(server, app.get(DataSource))
+    ).token;
+    const owner = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Audit Complet ${Date.now()}`,
+      exploitantName: 'Proprio Audit Complet',
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
 
     await request(server)
       .post(`/farms/${farmId}/caisse/open`)

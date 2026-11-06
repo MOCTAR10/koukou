@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -48,11 +53,10 @@ describe('Transferts de stock ferme → boutique (e2e)', () => {
     return post(`/farms/${farmId}/stock-transfers`, body, auth);
   }
 
-  beforeAll(
-    async () => {
-      const moduleFixture: TestingModule = await Test.createTestingModule({
-        imports: [AppModule],
-      }).compile();
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(
@@ -61,38 +65,21 @@ describe('Transferts de stock ferme → boutique (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24170${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Transferts', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+    const platformToken = (
+      await createPlatformAdmin(server, app.get(DataSource))
+    ).token;
+    const owner = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Transferts ${Date.now()}`,
+      exploitantName: 'Proprio Transferts',
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
 
-    const otherPhone = `+24171${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: otherPhone, fullName: 'Autre Proprio', code: 'secret123' })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Transferts ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
+    otherToken = (
+      await createProgrammeFarm(server, platformToken, {
+        exploitantName: 'Autre Proprio',
       })
-      .expect(201);
-    farmId = farm.body.id;
+    ).ownerToken;
 
     // Point de vente par défaut (FERME) + boutique externe.
     const posList = await get(`/farms/${farmId}/points-of-sale`);
@@ -131,9 +118,10 @@ describe('Transferts de stock ferme → boutique (e2e)', () => {
       })
       .expect(201);
     abattoirId = order.body.id;
-    await post(`/farms/${farmId}/slaughter-orders/${abattoirId}/send`, {}).expect(
-      201,
-    );
+    await post(
+      `/farms/${farmId}/slaughter-orders/${abattoirId}/send`,
+      {},
+    ).expect(201);
     const processed = await post(
       `/farms/${farmId}/slaughter-orders/${abattoirId}/process`,
       {},
@@ -152,19 +140,16 @@ describe('Transferts de stock ferme → boutique (e2e)', () => {
       })
       .expect(201);
     pondBatchId = pondeuses.body.id;
-    await post(
-      `/farms/${farmId}/batches/${pondBatchId}/daily-entries`,
-      {
-        entryDate: today(),
-        deaths: 0,
-        eggsCollected: 300,
-        eggsSellable: 300,
-        eggsCracked: 0,
-        eggsSmall: 0,
-        eggsDoubleYolk: 0,
-        eggsDirty: 0,
-      },
-    ).expect(201);
+    await post(`/farms/${farmId}/batches/${pondBatchId}/daily-entries`, {
+      entryDate: today(),
+      deaths: 0,
+      eggsCollected: 300,
+      eggsSellable: 300,
+      eggsCracked: 0,
+      eggsSmall: 0,
+      eggsDoubleYolk: 0,
+      eggsDirty: 0,
+    }).expect(201);
 
     // Lot d'aliment : 10 sacs (défaut 50 kg/sac → 500 kg disponibles).
     const feed = await request(server)
@@ -186,9 +171,7 @@ describe('Transferts de stock ferme → boutique (e2e)', () => {
     await post(`/farms/${farmId}/caisse/open`, {
       openingBalanceFcfa: 100000,
     }).expect(201);
-  },
-  120000,
-);
+  }, 120000);
 
   it('refuse un transfert vers le point ferme (seul un point externe reçoit)', async () => {
     const res = await createTransfer({
@@ -235,9 +218,7 @@ describe('Transferts de stock ferme → boutique (e2e)', () => {
     expect(res.body.pointOfSaleId).toBe(boutiqueId);
     expect(res.body.abattoirId ?? res.body.slaughterOrderId).toBe(abattoirId);
 
-    const order = await get(
-      `/farms/${farmId}/slaughter-orders/${abattoirId}`,
-    );
+    const order = await get(`/farms/${farmId}/slaughter-orders/${abattoirId}`);
     expect(order.body.carcassesAvailable).toBe(80);
     abattoirTransferId = res.body.id;
   });
@@ -340,7 +321,9 @@ describe('Transferts de stock ferme → boutique (e2e)', () => {
       payments: [{ method: 'CASH', amountFcfa: 7200 }],
     });
     expect(farmSale.status).toBe(400);
-    expect(farmSale.body.message as string).toContain('Stock d’œufs insuffisant');
+    expect(farmSale.body.message as string).toContain(
+      'Stock d’œufs insuffisant',
+    );
 
     const okSale = await post(`/farms/${farmId}/sales`, {
       items: [

@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -34,6 +39,7 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
   let otherToken: string;
   let farmId: string;
   let batchId: string;
+  let platformToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -47,46 +53,20 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24164${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Dashboard',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+    platformToken = (await createPlatformAdmin(server, app.get(DataSource)))
+      .token;
+    const owner = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Dashboard ${Date.now()}`,
+      exploitantName: 'Proprio Dashboard',
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
 
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Dashboard ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 3000,
+    otherToken = (
+      await createProgrammeFarm(server, platformToken, {
+        exploitantName: 'Autre Proprio Dashboard',
       })
-      .expect(201);
-    farmId = farm.body.id;
-
-    const otherPhone = `+24165${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio Dashboard',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
+    ).ownerToken;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -236,7 +216,8 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
       .expect(400);
   });
 
-  it('vigueur quotidienne : score 100 sain, alerte saisie manquée levée puis résolue, palmarès et écarts', async () => {    const healthy = await request(server)
+  it('vigueur quotidienne : score 100 sain, alerte saisie manquée levée puis résolue, palmarès et écarts', async () => {
+    const healthy = await request(server)
       .get(`/farms/${farmId}/dashboard`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
@@ -350,27 +331,12 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
 
   it('santé : le score reflète les seules alertes sanitaires (une péremption provende ne dégrade pas la carte Santé)', async () => {
     // Ferme isolée, sans lot en cours ni saisies → aucun risque sanitaire actif.
-    const phone = `+24166${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Sante E2E', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    const t = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${t}`)
-      .send({
-        name: `Ferme Sante ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 3000,
-      })
-      .expect(201);
-    const fId = farm.body.id;
+    const sante = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Sante ${Date.now()}`,
+      exploitantName: 'Proprio Sante E2E',
+    });
+    const t = sante.ownerToken;
+    const fId = sante.farmId;
 
     // Provende déjà périmée → alerte PEREMPTION ROUGE (risque de gestion, non sanitaire).
     await request(server)
@@ -401,7 +367,8 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
       .expect(200);
     expect(
       peremption.body.find(
-        (a: { kind: string }) => a.kind === 'PEREMPTION' && a.status === 'ACTIVE',
+        (a: { kind: string }) =>
+          a.kind === 'PEREMPTION' && a.status === 'ACTIVE',
       ),
     ).toBeTruthy();
 
