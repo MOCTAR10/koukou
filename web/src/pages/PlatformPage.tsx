@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  BookMarked,
   Building2,
   Coffee,
   KeyRound,
@@ -10,9 +12,9 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { exploitantNameOf } from '../api/types';
-import type { Farm, PlatformFarmRow, PlatformMetrics, PublicUser, ReferenceConstant } from '../api/types';
+import type { PlatformFarmRow, PlatformMetrics, PublicUser, ReferenceConstant } from '../api/types';
 import { useFarm } from '../app/FarmContext';
-import { FarmStatusModal, statusLabelOf, useFarmStatusItems } from '../components/programme/FarmStatusModal';
+import { statusLabelOf, useFarmStatusItems } from '../components/programme/FarmStatusModal';
 import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../components/programme/farmStatus';
 import { Card, DataTable, EmptyState, LevelBadge, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
 import { classNames, fcfa, num } from '../lib/format';
@@ -29,7 +31,6 @@ const tabs = [
 export function PlatformPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('overview');
-  const [statusFarm, setStatusFarm] = useState<Farm | null>(null);
   // `GET /farms` gives the admin every farm with its registry sheet (code, status, exploitant).
   const { farms: sheets } = useFarm();
   const sheetById = new Map(sheets.map((f) => [f.id, f]));
@@ -147,10 +148,18 @@ export function PlatformPage() {
 
       {tab === 'farms' ? (
         <div className="space-y-4">
-          <p className="text-sm text-slate-500">
-            Les fermes s’enregistrent au registre du programme ; leur suspension passe par le statut du programme (motif
-            obligatoire, ventes bloquées).
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-500">
+              Les fermes s’enregistrent au registre du programme ; leur fiche, leur statut (suspension avec motif, ventes bloquées) et
+              le compte de l’exploitant se gèrent depuis le registre.
+            </p>
+            <Link
+              to="/app/registre"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              <BookMarked className="h-4 w-4" /> Registre des fermes
+            </Link>
+          </div>
           <Card className="overflow-hidden">
             <DataTable>
                 <thead className="bg-slate-50">
@@ -171,10 +180,10 @@ export function PlatformPage() {
                     return (
                     <tr key={r.farm.id} className="border-t border-slate-100">
                       <Td>
-                        <p className="font-medium">
+                        <Link to={`/app/registre?ferme=${r.farm.id}`} className="font-medium hover:underline">
                           {sheet?.code ? <span className="mr-1.5 font-mono text-xs text-slate-500">{sheet.code}</span> : null}
                           {r.farm.name}
-                        </p>
+                        </Link>
                         <p className="text-xs text-slate-400">{r.farm.administrativeCity ?? ''}</p>
                       </Td>
                       <Td label="Exploitant">
@@ -205,16 +214,16 @@ export function PlatformPage() {
                       </Td>
                       <Td label="Statut">
                         {sheet ? (
-                          <button
-                            onClick={() => setStatusFarm(sheet)}
-                            title="Changer le statut"
+                          <Link
+                            to={`/app/registre?ferme=${r.farm.id}`}
+                            title="Ouvrir la fiche au registre (statut, compte, GPS)"
                             className={classNames(
-                              'rounded-full px-2 py-0.5 text-xs font-medium',
+                              'rounded-full px-2 py-0.5 text-xs font-medium hover:underline',
                               statusTone(r.farm.active, statusItems.data?.find((i) => i.code === sheet.statusCode)?.family),
                             )}
                           >
                             {statusLabelOf(statusItems.data, sheet.statusCode)}
-                          </button>
+                          </Link>
                         ) : (
                           <span className="text-xs text-slate-400">{r.farm.active ? 'Active' : 'Suspendue'}</span>
                         )}
@@ -234,8 +243,6 @@ export function PlatformPage() {
           </Card>
         </div>
       ) : null}
-
-      {statusFarm ? <FarmStatusModal farm={statusFarm} onClose={() => setStatusFarm(null)} /> : null}
 
       {tab === 'users' ? (
         <Card className="overflow-hidden">
