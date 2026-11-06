@@ -5,21 +5,31 @@
  *
  * `e2e-setup.ts` sets `PROGRAM_CODE=POUFA` before any app boots.
  */
+import { randomInt } from 'node:crypto';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 
-let phoneSeq = 0;
+const issuedPhones = new Set<string>();
 
 /**
- * A phone number no other spec (or earlier run) uses: time-based, plus a
- * per-process counter so two calls in the same millisecond still differ.
+ * A phone number unlikely to be taken: 7 random digits, never twice in the
+ * same spec file. Spec files and earlier runs on the same DB can still draw
+ * a taken one (the former time-based tail collided across files on CI), so
+ * the helpers that create an account with a generated phone retry on 409.
  */
 export function uniquePhone(prefix = '+2416'): string {
-  phoneSeq = (phoneSeq + 1) % 1000;
-  const tail = `${Date.now() % 10_000}${String(phoneSeq).padStart(3, '0')}`;
-  return `${prefix}${tail.padStart(7, '0')}`;
+  for (;;) {
+    const phone = `${prefix}${String(randomInt(0, 10_000_000)).padStart(7, '0')}`;
+    if (!issuedPhones.has(phone)) {
+      issuedPhones.add(phone);
+      return phone;
+    }
+  }
 }
+
+/** Attempts for an account created with a generated phone (409 = taken). */
+const PHONE_ATTEMPTS = 5;
 
 export const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -47,17 +57,32 @@ export async function registerBuyer(
     profile?: Record<string, unknown>;
   } = {},
 ): Promise<{ token: string; phone: string; code: string; userId: string }> {
-  const phone = opts.phone ?? uniquePhone();
   const code = opts.code ?? 'secret123';
-  const res = await request(server)
-    .post('/auth/register-buyer')
-    .send({
-      phone,
-      fullName: opts.fullName ?? 'Acheteur E2E',
-      code,
-      ...opts.profile,
-    })
-    .expect(201);
+  let phone = opts.phone ?? uniquePhone();
+  const register = () =>
+    request(server)
+      .post('/auth/register-buyer')
+      .send({
+        phone,
+        fullName: opts.fullName ?? 'Acheteur E2E',
+        code,
+        ...opts.profile,
+      });
+  let res = await register();
+  // A generated phone may already be taken by another spec: draw another.
+  for (
+    let i = 1;
+    !opts.phone && res.status === 409 && i < PHONE_ATTEMPTS;
+    i++
+  ) {
+    phone = uniquePhone();
+    res = await register();
+  }
+  if (res.status !== 201) {
+    throw new Error(
+      `register-buyer: expected 201, got ${res.status} ${JSON.stringify(res.body)}`,
+    );
+  }
   return {
     token: res.body.accessToken as string,
     phone,
@@ -116,7 +141,7 @@ export async function createProgrammeFarm(
   adminToken: string,
   opts: ProgrammeFarmOptions = {},
 ): Promise<ProgrammeFarm> {
-  const ownerPhone = opts.exploitantPhone ?? uniquePhone();
+  let ownerPhone = opts.exploitantPhone ?? uniquePhone();
   const created = await request(server)
     .post('/programme/farms')
     .set(auth(adminToken))
@@ -132,11 +157,32 @@ export async function createProgrammeFarm(
     })
     .expect(201);
   const farmId = created.body.id as string;
-  const activated = await request(server)
-    .post(`/programme/farms/${farmId}/activate-owner`)
-    .set(auth(adminToken))
-    .send({})
-    .expect(201);
+  const activate = () =>
+    request(server)
+      .post(`/programme/farms/${farmId}/activate-owner`)
+      .set(auth(adminToken))
+      .send({});
+  let activated = await activate();
+  // A generated phone may already be another spec's account (409): put a new
+  // one on the sheet and activate again.
+  for (
+    let i = 1;
+    !opts.exploitantPhone && activated.status === 409 && i < PHONE_ATTEMPTS;
+    i++
+  ) {
+    ownerPhone = uniquePhone();
+    await request(server)
+      .patch(`/programme/farms/${farmId}`)
+      .set(auth(adminToken))
+      .send({ exploitantPhone: ownerPhone, confirmDuplicate: true })
+      .expect(200);
+    activated = await activate();
+  }
+  if (activated.status !== 201) {
+    throw new Error(
+      `activate-owner: expected 201, got ${activated.status} ${JSON.stringify(activated.body)}`,
+    );
+  }
   const ownerCode = activated.body.loginCode as string;
   return {
     farmId,
