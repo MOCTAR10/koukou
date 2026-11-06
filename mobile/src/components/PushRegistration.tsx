@@ -13,7 +13,8 @@ import { getReminderSettings, subscribeReminderSettings } from '@/notifications/
 export function PushRegistration() {
   const { signedIn, user } = useAuth();
   const settings = useSyncExternalStore(subscribeReminderSettings, getReminderSettings);
-  const userId = signedIn ? (user?.id ?? null) : null;
+  // Server push needs a farm: a buyer would be asked for permission for nothing.
+  const userId = signedIn && user?.role !== 'ACHETEUR' ? (user?.id ?? null) : null;
   // Account the token is attached to during this app session.
   const registeredFor = useRef<string | null>(null);
 

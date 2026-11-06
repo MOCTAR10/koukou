@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ArrowRight, LogOut, ShieldCheck } from 'lucide-react-native';
 
@@ -10,7 +10,8 @@ import { PhoneInput } from '@/components/ui/PhoneInput';
 import { AuthHero } from '@/components/auth/AuthHero';
 import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
-import { roleLabel } from '@/api/roles';
+import { homeRouteFor, roleLabel, safeReturnPath } from '@/api/roles';
+import { loadSession } from '@/api/token';
 import { palette, radii, semantic, shadow } from '@/constants/theme';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 
@@ -18,6 +19,7 @@ export default function LoginScreen() {
   const { signedIn, user, farms, busy, error, signIn, signOut } = useAuth();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const keyboardInset = useKeyboardInset();
 
   const canSubmit = phone.trim().length > 0 && code.length >= 6 && !busy;
@@ -25,7 +27,11 @@ export default function LoginScreen() {
   const submit = async () => {
     if (!canSubmit) return;
     const ok = await signIn(phone.trim(), code);
-    if (ok) router.replace('/');
+    if (!ok) return;
+    const back = safeReturnPath(from);
+    // dismissTo pops back to the screen they came from, instead of stacking a second copy of it.
+    if (back) router.dismissTo(back as Href);
+    else router.replace(homeRouteFor(loadSession()?.user.role) as Href);
   };
 
   return (
@@ -114,6 +120,14 @@ export default function LoginScreen() {
                   Pas encore de compte ?{' '}
                   <AppText size="bodyM" weight="semibold" color="brand">
                     Créer mon compte →
+                  </AppText>
+                </AppText>
+              </Pressable>
+              <Pressable onPress={() => router.push('/annonces' as Href)} style={styles.registerLink} accessibilityRole="link">
+                <AppText size="bodyM" align="center" color="muted">
+                  Vous voulez acheter ?{' '}
+                  <AppText size="bodyM" weight="semibold" color="brand">
+                    Voir le marché →
                   </AppText>
                 </AppText>
               </Pressable>

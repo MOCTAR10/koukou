@@ -30,7 +30,9 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
-  const { signedIn } = useAuth();
+  const { signedIn, user } = useAuth();
+  // By role, not by farms.length: staff without a farm keep the farm screens.
+  const isBuyer = user.role === 'ACHETEUR';
 
   return (
     <Stack
@@ -38,7 +40,7 @@ function RootNavigator() {
         headerShown: false,
         contentStyle: { backgroundColor: semantic.bg },
       }}>
-      <Stack.Protected guard={signedIn}>
+      <Stack.Protected guard={signedIn && !isBuyer}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="lot/[id]" />
         <Stack.Screen name="commande/[id]" />
@@ -58,8 +60,19 @@ function RootNavigator() {
         <Stack.Screen name="slaughter" />
         <Stack.Screen name="tasks" />
       </Stack.Protected>
+      <Stack.Protected guard={signedIn && isBuyer}>
+        <Stack.Screen name="(acheteur)" />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn}>
+        <Stack.Screen name="achat/[id]" />
+        <Stack.Screen name="mes-achats" />
+        <Stack.Screen name="profil-acheteur" />
+      </Stack.Protected>
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
+      <Stack.Screen name="inscription-acheteur" />
+      <Stack.Screen name="annonces/index" />
+      <Stack.Screen name="annonces/[id]" />
     </Stack>
   );
 }

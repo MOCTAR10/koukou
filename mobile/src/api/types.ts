@@ -1222,6 +1222,8 @@ export interface OrderFull {
   farmId: string;
   referenceNumber: string;
   canal: OrderCanal;
+  /** MARKET: created by accepting a buyer's request on the Market. */
+  source?: string;
   saleId: string;
   status: OrderStatus;
   customerId: string | null;

@@ -184,7 +184,7 @@ export default function MenuScreen() {
         { key: 'commandes', label: 'Commandes', icon: ClipboardList, href: '/commandes', perms: ['vente:commande'] },
         { key: 'clients', label: 'Clients', icon: Handshake, href: '/clients', perms: ['compta:client'] },
         { key: 'pointsvente', label: 'Points de vente', icon: MapPin, href: '/points-vente', perms: ['pdv:gerer'] },
-        { key: 'marche', label: 'Marché', icon: Store, href: '/marche', perms: ['vente:creer'] },
+        { key: 'marche', label: 'Marché', icon: Store, href: '/marche', perms: ['market:publier', 'vente:commande'] },
       ],
     },
     {

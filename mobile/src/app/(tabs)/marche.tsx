@@ -1,92 +1,73 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ArrowRight, ClipboardList, MapPin, Store, ShoppingBasket } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter, type Href } from 'expo-router';
+import { AlertTriangle, ClipboardList, MapPin, ShoppingBag, Store, UserRound } from 'lucide-react-native';
 
-import { Screen, ScreenHeader } from '@/components/ui/Screen';
-import { AppText } from '@/components/ui/AppText';
+import { fetchFarmMarketOrders } from '@/api/market';
+import { useAuth } from '@/auth/AuthContext';
+import { FarmListingsPanel } from '@/components/market/FarmListingsPanel';
+import { FarmRequestsPanel } from '@/components/market/FarmRequestsPanel';
+import { Notice } from '@/components/market/shared';
 import { Card } from '@/components/ui/Card';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { color, palette, radii, semantic } from '@/constants/theme';
+import { ListRow } from '@/components/ui/ListRow';
+import { Screen, ScreenHeader } from '@/components/ui/Screen';
+import { Segmented } from '@/components/ui/Segmented';
+import { color } from '@/constants/theme';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 
+type Tab = 'listings' | 'requests';
+
+/** The farm's side of the Market: what it publishes and what buyers ask for. */
 export default function MarcheScreen() {
   const router = useRouter();
+  const { farmId, farms } = useAuth();
+  const { hasPermission } = useFarmProfile();
+  const canPublish = hasPermission('market:publier');
+  const canAnswer = hasPermission('vente:commande');
+  const [picked, setPicked] = useState<Tab | null>(null);
+  const tab: Tab = picked ?? (canPublish ? 'listings' : 'requests');
+  const farm = farms.find((f) => f.id === farmId);
+
+  const ordersQuery = useQuery({
+    queryKey: ['market-farm-orders', farmId],
+    queryFn: () => fetchFarmMarketOrders(farmId),
+    enabled: Boolean(farmId) && canAnswer,
+  });
+  const orders = ordersQuery.data ?? [];
+  const toAnswer = orders.filter((o) => o.state === 'REQUESTED').length;
 
   return (
-    <Screen bottomPad={120} header={<ScreenHeader title="Marché" subtitle="Fermia Market — votre vitrine" />}>
+    <Screen bottomPad={120} header={<ScreenHeader title="Marché" subtitle="Publiez votre stock, répondez aux acheteurs" back />}>
       <View style={{ gap: 12 }}>
-        <EmptyState
-          icon={ShoppingBasket}
-          title="Le Marché arrive bientôt"
-          description="Vous pourrez publier ici poulets, œufs et provende, et vos clients passeront commande en ligne. Le back-office des bons de commande est déjà prêt — la vitrine client arrive dans une prochaine version."
-        />
+        {farm && !farm.isVerified ? (
+          <Notice tone="warning" icon={AlertTriangle}>
+            Votre ferme n’est pas encore vérifiée. Vous pouvez préparer vos annonces, mais seules les fermes vérifiées peuvent publier. Contactez Fermia.
+          </Notice>
+        ) : null}
+        {canPublish && canAnswer ? (
+          <Segmented<Tab>
+            value={tab}
+            onChange={setPicked}
+            options={[
+              { key: 'listings', label: 'Mes annonces' },
+              { key: 'requests', label: toAnswer > 0 ? `Demandes (${toAnswer})` : 'Demandes' },
+            ]}
+          />
+        ) : null}
+        {farmId && tab === 'listings' && canPublish ? <FarmListingsPanel farmId={farmId} /> : null}
+        {farmId && tab === 'requests' && canAnswer ? (
+          <FarmRequestsPanel farmId={farmId} orders={orders} isLoading={ordersQuery.isLoading} error={ordersQuery.error} />
+        ) : null}
 
-        <View style={styles.links}>
-          <Pressable
-            onPress={() => router.push('/commandes')}
-            style={({ pressed }) => [styles.link, pressed && { opacity: 0.8 }]}
-            accessibilityRole="button">
-            <View style={[styles.linkIcon, { backgroundColor: color.brand[50] }]}>
-              <ClipboardList size={20} color={color.brand[600]} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <AppText size="body" weight="semibold" color="text">Précommandes</AppText>
-              <AppText size="small" color="muted">Gérer bons & précommandes existants</AppText>
-            </View>
-            <ArrowRight size={16} color={color.ink[300]} />
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/points-vente')}
-            style={({ pressed }) => [styles.link, pressed && { opacity: 0.8 }]}
-            accessibilityRole="button">
-            <View style={[styles.linkIcon, { backgroundColor: color.green[50] }]}>
-              <MapPin size={20} color={color.green[600]} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <AppText size="body" weight="semibold" color="text">Points de vente</AppText>
-              <AppText size="small" color="muted">Boutiques & adresses de retrait</AppText>
-            </View>
-            <ArrowRight size={16} color={color.ink[300]} />
-          </Pressable>
-        </View>
-
-        <Card tone="default" style={styles.note}>
-          <Store size={16} color={palette.accent[500]} />
-          <AppText size="small" color="muted" style={{ flex: 1 }}>
-            À venir : catalogues publics, photos, prix affichés et commandes en ligne sans contact.
-          </AppText>
+        <Card padding={false}>
+          <ListRow icon={<Store size={18} color={color.brand[600]} />} title="Voir le marché" subtitle="Ce que voient les acheteurs" onPress={() => router.push('/annonces' as Href)} />
+          <ListRow icon={<ShoppingBag size={18} color={color.brand[600]} />} title="Mes achats" subtitle="Ce que vous avez commandé à d’autres fermes" onPress={() => router.push('/mes-achats' as Href)} />
+          <ListRow icon={<UserRound size={18} color={color.brand[600]} />} title="Mon profil d’acheteur" onPress={() => router.push('/profil-acheteur' as Href)} />
+          <ListRow icon={<ClipboardList size={18} color={color.brand[600]} />} title="Commandes" subtitle="Acomptes et livraisons" onPress={() => router.push('/commandes')} />
+          <ListRow icon={<MapPin size={18} color={color.green[600]} />} title="Points de vente" subtitle="Boutiques et adresses de retrait" onPress={() => router.push('/points-vente')} />
         </Card>
       </View>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  links: {
-    gap: 8,
-  },
-  link: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: semantic.surface,
-    borderWidth: 1,
-    borderColor: semantic.border,
-    borderRadius: radii.lg,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  linkIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  note: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-});

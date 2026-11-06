@@ -1092,7 +1092,7 @@ function OrderCard({ order }: { order: OrderFull }) {
         <Chip label={orderStatusLabel(order.status)} tone={orderStatusTone(order.status)} />
       </View>
       <AppText size="small" color="muted">
-        {orderCanalLabel(order.canal)} · {order.batch?.batchName ?? 'Œufs'} · {order.items.length} article{order.items.length > 1 ? 's' : ''}
+        {order.source === 'MARKET' ? 'Marché · ' : ''}{orderCanalLabel(order.canal)} · {order.batch?.batchName ?? 'Œufs'} · {order.items.length} article{order.items.length > 1 ? 's' : ''}
         {birds > 0 ? ` · ${fmt(birds)} volailles` : ''}
       </AppText>
       <View style={[styles.detailRow, { marginTop: 8 }]}>
