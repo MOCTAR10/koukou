@@ -27,6 +27,7 @@ import {
   SetFarmGpsDto,
   SetFarmInfrastructuresDto,
   SetFarmStatusDto,
+  SetFarmVerificationDto,
   UpdateProgrammeFarmDto,
 } from '../dto/programme-farm.dto.js';
 import {
@@ -34,7 +35,13 @@ import {
   type UploadedCsvFile,
 } from './farm-import.service.js';
 import { ProgrammeFarmsService } from './programme-farms.service.js';
-import { Action, Domain } from '../../../common/decorators/domain.decorator.js';
+import {
+  Action,
+  AlsoGrantedBy,
+  Domain,
+} from '../../../common/decorators/domain.decorator.js';
+import { Permissions } from '../../../common/decorators/permissions.decorator.js';
+import { AuditThirdPartyRead } from '../../../common/decorators/audit.decorator.js';
 
 const uuid = new ParseUUIDPipe({ version: '4' });
 
@@ -116,6 +123,7 @@ export class ProgrammeFarmsController {
   }
 
   @Get(':farmId')
+  @AuditThirdPartyRead('Fiche du registre (exploitant, téléphone, GPS)')
   @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE)
   @ApiOperation({
     summary:
@@ -177,10 +185,15 @@ export class ProgrammeFarmsController {
   }
 
   @Put(':farmId/gps')
-  @Roles(UserRole.PLATFORM_ADMIN)
+  // POUFA lot A droits (A8): the owner and the members holding registre:gps
+  // record their own farm point on site (CDC n° 2); an institution with
+  // REGISTRE:MODIFIER, or TECHNIQUE:VALIDER (the agent technique, on a visit).
+  @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @Permissions('registre:gps')
+  @AlsoGrantedBy(['TECHNIQUE', 'VALIDER'])
   @ApiOperation({
     summary:
-      'Relevé ou correction GPS (le point précédent reste dans l’historique ; contrôle de la province en avertissement)',
+      'Relevé ou correction GPS (le point précédent reste dans l’historique ; contrôle de la province en avertissement ; idempotencyKey pour le hors ligne ; un relevé plus ancien que le point actuel est ignoré)',
   })
   setGps(
     @CurrentUser() user: AuthUser,
@@ -190,7 +203,24 @@ export class ProgrammeFarmsController {
     return this.registry.setGps(user, farmId, dto);
   }
 
+  // POUFA lot A droits (F8): Market verification through the matrix.
+  @Put(':farmId/verification')
+  @Action('VALIDER')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @ApiOperation({
+    summary:
+      'Vérifier (ou non) la ferme pour le Market (REGISTRE:VALIDER) ; le statut OPERATIONNELLE la vérifie aussi',
+  })
+  setVerification(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId', uuid) farmId: string,
+    @Body() dto: SetFarmVerificationDto,
+  ) {
+    return this.registry.setVerification(user, farmId, dto);
+  }
+
   @Get(':farmId/gps-history')
+  @AuditThirdPartyRead('Historique GPS d’une ferme')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({ summary: 'Historique des relevés GPS' })
   gpsHistory(@Param('farmId', uuid) farmId: string) {

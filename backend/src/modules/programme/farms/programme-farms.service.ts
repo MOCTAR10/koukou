@@ -1,3 +1,5 @@
+import { gpsIdempotencyKey, staleGpsMessage } from './gps-rules.js';
+import { verifiedAfterStatus } from './verification-rules.js';
 import {
   BadRequestException,
   ConflictException,
@@ -40,6 +42,7 @@ import type {
   ListProgrammeFarmsQueryDto,
   SetFarmGpsDto,
   SetFarmStatusDto,
+  SetFarmVerificationDto,
   UpdateProgrammeFarmDto,
 } from '../dto/programme-farm.dto.js';
 import { FarmGpsHistory } from '../entities/farm-gps-history.entity.js';
@@ -551,10 +554,13 @@ export class ProgrammeFarmsService {
     farm.statusCode = item.code;
     farm.statusSince = from;
     farm.active = item.family !== SUSPENDED_FAMILY;
+    // POUFA lot A droits (F8): an operational farm is verified for the Market.
+    farm.isVerified = verifiedAfterStatus(item.family, farm.isVerified);
     await em.getRepository(Farm).update(farm.id, {
       statusCode: farm.statusCode,
       statusSince: farm.statusSince,
       active: farm.active,
+      isVerified: farm.isVerified,
     });
     return row;
   }
@@ -570,6 +576,7 @@ export class ProgrammeFarmsService {
     fix: GpsFix,
     actorId: string | null,
     reason: string | null,
+    idempotencyKey: string | null = null,
   ): Promise<string | null> {
     const check = await this.geo.checkPoint(
       fix.latitude,
@@ -588,6 +595,7 @@ export class ProgrammeFarmsService {
         provinceWarning: check.warning,
         createdById: actorId,
         reason,
+        idempotencyKey,
       }),
     );
     Object.assign(farm, {
@@ -885,12 +893,43 @@ export class ProgrammeFarmsService {
     }
   }
 
-  /** GPS capture or manual correction: the previous point stays in the history. */
+  /**
+   * GPS capture or manual correction: the previous point stays in the
+   * history. Field fixes (owner, éleveur, agent technique) may come late from
+   * an offline queue: a replay of the same `idempotencyKey` adds no second
+   * point, and a fix taken before the current point is ignored (200,
+   * `applied: false` with a French `message`).
+   */
   async setGps(user: AuthUser, farmId: string, dto: SetFarmGpsDto) {
     const program = await this.programme.current();
     const fix = this.gpsFix(dto, GpsSource.MANUEL);
+    const idempotencyKey = gpsIdempotencyKey(dto.idempotencyKey);
     const result = await this.dataSource.transaction(async (em) => {
       const farm = await this.lockedProgrammeFarm(em, program.id, farmId);
+      if (idempotencyKey) {
+        const replay = await em
+          .getRepository(FarmGpsHistory)
+          .findOne({ where: { farmId, idempotencyKey } });
+        if (replay) {
+          return {
+            applied: false,
+            replay: true,
+            previous: null,
+            warning: replay.provinceWarning,
+            message: null,
+          };
+        }
+      }
+      const stale = staleGpsMessage(fix.capturedAt, farm.gpsCapturedAt);
+      if (stale) {
+        return {
+          applied: false,
+          replay: false,
+          previous: null,
+          warning: null,
+          message: stale,
+        };
+      }
       const previous =
         farm.latitude != null && farm.longitude != null
           ? {
@@ -910,14 +949,38 @@ export class ProgrammeFarmsService {
         fix,
         user.id,
         dto.reason?.trim() || null,
+        idempotencyKey,
       );
-      return { previous, warning };
+      return { applied: true, replay: false, previous, warning, message: null };
     });
     return {
       gps: (await this.sheetOf(farmId)).gps,
       previous: result.previous,
       provinceWarning: result.warning,
+      applied: result.applied,
+      replay: result.replay,
+      message: result.message,
     };
+  }
+
+  /**
+   * Market verification by the programme (REGISTRE:VALIDER or the platform
+   * admin; POUFA audit F8): the publication condition of the Market. The
+   * status OPERATIONNELLE also verifies the farm (`verifiedAfterStatus`).
+   */
+  async setVerification(
+    user: AuthUser,
+    farmId: string,
+    dto: SetFarmVerificationDto,
+  ) {
+    const program = await this.programme.current();
+    await this.dataSource.transaction(async (em) => {
+      const farm = await this.lockedProgrammeFarm(em, program.id, farmId);
+      await em
+        .getRepository(Farm)
+        .update(farm.id, { isVerified: dto.verified });
+    });
+    return this.sheetFor(user, farmId);
   }
 
   async gpsHistory(farmId: string) {
