@@ -536,6 +536,7 @@ export class TraceHistoryService {
           name: c.name,
           completedAt: c.completedAt!,
           withdrawalDays: c.withdrawalDays,
+          animalCount: c.animalCount,
         })),
       treatments,
       days,

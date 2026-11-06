@@ -94,3 +94,8 @@ export function filterOperators(rows: readonly OperatorView[], q: string, type: 
     .filter((o) => (!type || o.typeCode === type) && (!needle || norm(o.name).includes(needle) || norm(o.code).includes(needle)))
     .sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'fr'));
 }
+
+/** Active operators of the ABATTOIR family: the ones a slaughter order can be ceded to (F4). */
+export function abattoirs(operators: readonly OperatorView[]): OperatorView[] {
+  return operators.filter((o) => o.active && o.typeFamily === 'ABATTOIR');
+}

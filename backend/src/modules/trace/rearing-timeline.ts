@@ -32,12 +32,18 @@ export interface RearingSources {
     name: string;
     completedAt: Date;
     withdrawalDays: number;
+    /** Animals treated (CDC n° 23). */
+    animalCount?: number | null;
   }[];
   treatments: {
     careType: CareType;
     productName: string;
     administeredAt: Date;
     withdrawalEndDate: string | null;
+    /** Care reason, end of the course and animals treated (CDC n° 23). */
+    reason?: string | null;
+    endDate?: string | null;
+    animalCount?: number | null;
   }[];
   days: {
     day: string;
@@ -123,6 +129,24 @@ const ORDER: readonly RearingEventKind[] = [
   RearingEventKind.CLOTURE,
 ];
 
+/**
+ * Reason, period (start and end date) and animal count of a care or a
+ * treatment, for the lot history (CDC n° 23). The treatment record carries the
+ * reason and the end of the course; a care alone only has its own count.
+ */
+export function careRecord(
+  startDate: string,
+  t: { reason?: string | null; endDate?: string | null; animalCount?: number | null } | undefined,
+  careCount: number | null | undefined,
+): Record<string, unknown> {
+  return {
+    reason: t?.reason ?? null,
+    startDate,
+    endDate: t?.endDate ?? startDate,
+    animalCount: t?.animalCount ?? careCount ?? null,
+  };
+}
+
 const dayOf = (d: Date | string) =>
   typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10);
 
@@ -192,13 +216,21 @@ export function rearingTimeline(src: RearingSources): RearingItem[] {
   const careKeys = new Set(
     src.cares.map((c) => `${c.name}|${c.completedAt.getTime()}`),
   );
+  const treatmentOf = new Map(
+    src.treatments.map((t) => [`${t.productName}|${t.administeredAt.getTime()}`, t]),
+  );
   for (const c of src.cares) {
+    const t = treatmentOf.get(`${c.name}|${c.completedAt.getTime()}`);
     items.push({
       date: dayOf(c.completedAt),
       kind: RearingEventKind.SOIN,
       label: `${CARE_LABELS[c.careType] ?? 'Soin'} : ${c.name}`,
       quantity: null,
-      details: { careType: c.careType, withdrawalDays: c.withdrawalDays },
+      details: {
+        careType: c.careType,
+        withdrawalDays: c.withdrawalDays,
+        ...careRecord(dayOf(c.completedAt), t, c.animalCount),
+      },
     });
   }
   for (const t of src.treatments) {
@@ -208,7 +240,11 @@ export function rearingTimeline(src: RearingSources): RearingItem[] {
       kind: RearingEventKind.TRAITEMENT,
       label: `Traitement : ${t.productName}`,
       quantity: null,
-      details: { careType: t.careType, withdrawalEndDate: t.withdrawalEndDate },
+      details: {
+        careType: t.careType,
+        withdrawalEndDate: t.withdrawalEndDate,
+        ...careRecord(dayOf(t.administeredAt), t, null),
+      },
     });
   }
   for (const d of src.days) {
