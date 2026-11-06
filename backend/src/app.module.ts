@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Client } from 'pg';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AuditModule } from './modules/audit/audit.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BreedsModule } from './modules/breeds/breeds.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -30,6 +31,7 @@ import { AdvisoryModule } from './modules/advisory/advisory.module.js';
 import { AgricultureModule } from './modules/agriculture/agriculture.module.js';
 import { SpatialModule } from './modules/spatial/spatial.module.js';
 import { PushModule } from './modules/push/push.module.js';
+import { ProgrammeModule } from './modules/programme/programme.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import {
   dbConnection,
@@ -76,6 +78,9 @@ import {
         };
       },
     }),
+    // Before AuthModule: its global guard must run ahead of the auth guards
+    // (global guards run in module registration order), see AuditPlanGuard.
+    AuditModule,
     AuthModule,
     UsersModule,
     FarmsModule,
@@ -100,6 +105,7 @@ import {
     SpatialModule,
     AgricultureModule,
     PushModule,
+    ProgrammeModule,
     DatabaseModule,
   ],
   controllers: [AppController],

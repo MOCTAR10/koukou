@@ -7,9 +7,11 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AuditExport } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -118,6 +120,7 @@ export class OrdersController {
   }
 
   @Get(':orderId/bon-de-commande')
+  @AuditExport('Bon de commande PDF')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Bon de commande PDF avec code QR de vérification',
@@ -127,7 +130,7 @@ export class OrdersController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('orderId') orderId: string,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdf = await this.ordersService.generateBonDeCommande(
       user,
@@ -138,10 +141,11 @@ export class OrdersController {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="bon-commande-${orderId}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 
   @Get(':orderId/receipt')
+  @AuditExport('Reçu de commande PDF')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Reçu PDF de la vente associée (après livraison)',
@@ -151,14 +155,14 @@ export class OrdersController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('orderId') orderId: string,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdf = await this.ordersService.generateReceipt(user, farmId, orderId);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="recu-${orderId}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 
   @Delete(':orderId')

@@ -1,6 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { AuditExport } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -108,6 +118,7 @@ export class SlaughterController {
   }
 
   @Get(':orderId/bordereau')
+  @AuditExport('Bordereau d’abattage PDF')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
@@ -118,7 +129,7 @@ export class SlaughterController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('orderId') orderId: string,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdf = await this.slaughterService.generateBordereau(
       user,
@@ -129,7 +140,7 @@ export class SlaughterController {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="bordereau-${orderId}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 
   @Post(':orderId/cancel')
@@ -153,6 +164,7 @@ export class BatchPasseportController {
   constructor(private readonly slaughterService: SlaughterService) {}
 
   @Get(':batchId/passeport')
+  @AuditExport('Passeport sanitaire PDF')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
@@ -163,7 +175,7 @@ export class BatchPasseportController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('batchId') batchId: string,
-    @Res() res: Response,
+    @Res({ passthrough: true }) res: Response,
   ) {
     const pdf = await this.slaughterService.generatePasseport(
       user,
@@ -174,6 +186,6 @@ export class BatchPasseportController {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="passeport-sanitaire-${batchId}.pdf"`,
     });
-    res.send(pdf);
+    return new StreamableFile(pdf);
   }
 }
