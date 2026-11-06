@@ -23,8 +23,8 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - Prettier: `npm run format` exists in **backend and web only** — mobile has no `format` script (and no `.prettierrc` anywhere except `backend/`). Format is separate from lint.
 - `web`: `npm run types` regenerates `src/api/schema.d.ts` from a **running** backend. Output is **not imported** — `src/api/types.ts` is hand-maintained and authoritative. Never edit `schema.d.ts` to fix a type error.
 - `mobile`: use `npm run lint`, **not** `npx expo lint` (Node 22 issue).
-- Green baseline (verified): backend unit 26 files/308 tests, mobile 24 files/391 tests. Backend e2e: re-verify on a fresh DB once the POUFA-only spec migration is merged (last full run before it: 45 files/548 tests).
-- **Full backend e2e is expensive**: 45 specs, forced sequential (`fileParallelism:false`, `maxWorkers:1`), each boots the whole AppModule (pending migrations run, then the seed) against the same DB. ~4 min locally, ~2 min on CI. Filter by name while iterating.
+- Green baseline (verified 2026-11-06, POUFA L4-L8 integrated): backend unit 40 files/447 tests, full backend e2e on a fresh DB 52 files/696 tests (run in chunks of 8 files on a low-memory machine), mobile 24 files/391 tests.
+- **Full backend e2e is expensive**: 52 specs, forced sequential (`fileParallelism:false`, `maxWorkers:1`), each boots the whole AppModule (pending migrations run, then the seed) against the same DB. ~4 min locally, ~2 min on CI. Filter by name while iterating.
 - **`vite-tsconfig-paths` is deliberately not installed.** It was a no-op (backend tsconfigs declare no `compilerOptions.paths`, no source file uses alias imports) while pulling in the deprecated `tsconfck`, whose optional peer `typescript@^5.0.0` conflicts with TypeScript 6 — newer npm resolves that peer to 5.x and aborts `npm ci` with `Missing: typescript@5.9.3 from lock file`, which **only reproduces on CI**, never on npm 10.x. Do not re-add it. (`mobile` defines its own `@`→`src` alias inside `vitest.config.mts`.)
 
 ## Windows / encoding (this repo is edited on Windows)
