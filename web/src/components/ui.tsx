@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { classNames } from '../lib/format';
 import { statusLabel } from '../lib/format';
-import { bgClassForLevel } from '../lib/format';
 
 export function Card({
   children,
@@ -116,14 +116,20 @@ export function PageHeader({
   );
 }
 
-export function StatCard({
+/**
+ * The one KPI tile of the console: label, big figure, hint, optional trend
+ * and icon. Clickable when `onClick` or `to` is given.
+ */
+export function StatTile({
   label,
   value,
   hint,
   icon,
   image,
   onClick,
+  to,
   actionLabel,
+  trend,
   tone = 'default',
 }: {
   label: string;
@@ -133,15 +139,19 @@ export function StatCard({
   /** Photo in place of the icon. */
   image?: string | null;
   onClick?: () => void;
-  /** Accessible name of the card when it is clickable. */
+  /** Internal link: the tile opens that route. */
+  to?: string;
+  /** Accessible name of the tile when it is clickable. */
   actionLabel?: string;
+  /** Small trend line under the figure. */
+  trend?: ReactNode;
   tone?: 'default' | 'good' | 'bad' | 'warn' | 'accent';
 }) {
   const tones: Record<string, string> = {
     default: 'text-slate-900',
-    good: 'text-emerald-600',
-    bad: 'text-red-600',
-    warn: 'text-amber-600',
+    good: 'text-emerald-700',
+    bad: 'text-red-700',
+    warn: 'text-amber-700',
     accent: 'text-accent-700',
   };
   const iconTones: Record<string, IconTone> = {
@@ -151,20 +161,29 @@ export function StatCard({
     warn: 'amber',
     accent: 'accent',
   };
+  const clickable = Boolean(onClick || to);
   const card = (
-    <Card className={classNames('h-full p-4', onClick && 'transition hover:border-slate-300 hover:shadow-md')}>
+    <Card className={classNames('h-full p-4', clickable && 'transition hover:border-slate-300 hover:shadow-md')}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-500">{label}</p>
           <p className={classNames('mt-1 truncate text-2xl font-bold tracking-tight tabular-nums', tones[tone])}>
             {value}
           </p>
+          {trend ? <div className="mt-1 text-xs font-medium text-slate-600">{trend}</div> : null}
           {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
         </div>
         {image ? <PhotoThumb src={image} size="md" /> : icon ? <IconTile icon={icon} tone={iconTones[tone]} size="sm" /> : null}
       </div>
     </Card>
   );
+  if (to) {
+    return (
+      <Link to={to} aria-label={actionLabel} className="block h-full w-full rounded-2xl text-left">
+        {card}
+      </Link>
+    );
+  }
   if (!onClick) return card;
   return (
     <button type="button" onClick={onClick} aria-label={actionLabel} className="block h-full w-full rounded-2xl text-left">
@@ -173,36 +192,71 @@ export function StatCard({
   );
 }
 
+/** Former name of `StatTile`, kept for the pages that already use it. */
+export const StatCard = StatTile;
+
+/** Alert level (ROUGE / JAUNE / VERT) on the status palette. */
 export function LevelBadge({ level }: { level: string }) {
-  return (
-    <span
-      className={classNames(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1',
-        bgClassForLevel(level),
-      )}
-    >
-      {level}
-    </span>
-  );
+  return <StatusBadge status={level} label={level} />;
 }
 
-export function StatusBadge({ status }: { status: string }) {
-  const tone =
-    status === 'ACTIF' || status === 'ACTIVE' || status === 'OPEN'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-      : status === 'CLOTURE' || status === 'CANCELLED' || status === 'CLOSED' || status === 'RESOLUE'
-        ? 'bg-slate-100 text-slate-500 ring-slate-200'
-        : status === 'EN_VENTE' || status === 'SENT'
-          ? 'bg-sky-50 text-sky-700 ring-sky-200'
-          : 'bg-slate-100 text-slate-600 ring-slate-200';
+/**
+ * Status palette (`--color-status-*` in index.css): one meaning, one colour,
+ * everywhere (farm status, account, report, alert).
+ *  ok      = active, valid, delivered     (green)
+ *  warning = in preparation, to watch     (amber)
+ *  danger  = suspended, failed, red alert (red)
+ *  info    = in progress, sent            (blue)
+ *  neutral = closed, inactive, unknown    (grey)
+ */
+export type StatusTone = 'ok' | 'warning' | 'danger' | 'info' | 'neutral';
+
+const STATUS_TONE_CLASS: Record<StatusTone, string> = {
+  ok: 'bg-status-ok-bg text-status-ok-fg ring-status-ok-ring',
+  warning: 'bg-status-warning-bg text-status-warning-fg ring-status-warning-ring',
+  danger: 'bg-status-danger-bg text-status-danger-fg ring-status-danger-ring',
+  info: 'bg-status-info-bg text-status-info-fg ring-status-info-ring',
+  neutral: 'bg-status-neutral-bg text-status-neutral-fg ring-status-neutral-ring',
+};
+
+const STATUS_TONE: Record<string, StatusTone> = {
+  ACTIF: 'ok',
+  ACTIVE: 'ok',
+  active: 'ok',
+  OPEN: 'ok',
+  CONFIRMED: 'ok',
+  PROCESSED: 'ok',
+  FAIT: 'ok',
+  VERT: 'ok',
+  PENDING: 'warning',
+  DRAFT: 'warning',
+  PLANIFIE: 'warning',
+  JAUNE: 'warning',
+  EN_RETARD: 'danger',
+  ROUGE: 'danger',
+  SUSPENDED: 'danger',
+  REFUNDED: 'danger',
+  EN_VENTE: 'info',
+  SENT: 'info',
+  CLOTURE: 'neutral',
+  CLOSED: 'neutral',
+  CANCELLED: 'neutral',
+  ANNULE: 'neutral',
+  RESOLUE: 'neutral',
+  inactive: 'neutral',
+};
+
+/** Single status pill. Codes map to a tone by themselves; pass `tone` (and `label`) for anything else. */
+export function StatusBadge({ status, tone, label }: { status?: string | null; tone?: StatusTone; label?: ReactNode }) {
+  const resolved: StatusTone = tone ?? (status ? STATUS_TONE[status] : undefined) ?? 'neutral';
   return (
     <span
       className={classNames(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1',
-        tone,
+        'inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
+        STATUS_TONE_CLASS[resolved],
       )}
     >
-      {statusLabel(status)}
+      {label ?? statusLabel(status)}
     </span>
   );
 }
@@ -216,11 +270,72 @@ export function Loading({ label = 'Chargement…' }: { label?: string }) {
   );
 }
 
-export function EmptyState({ message, icon }: { message: string; icon?: ReactNode }) {
+export function EmptyState({
+  message,
+  icon,
+  title,
+  action,
+}: {
+  message: string;
+  icon?: ReactNode;
+  title?: string;
+  /** Call to action: a button, or `{ label, to }` for a link. */
+  action?: ReactNode | { label: string; to: string };
+}) {
+  const link = action && typeof action === 'object' && 'to' in action && 'label' in action ? action : null;
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-500">
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center text-sm text-slate-600">
       {icon ? <IconTile icon={icon} tone="slate" size="lg" /> : null}
-      {message}
+      {title ? <p className="text-base font-semibold text-slate-800">{title}</p> : null}
+      <p className="max-w-md">{message}</p>
+      {link ? (
+        <Link
+          to={link.to}
+          className="mt-1 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          {link.label}
+        </Link>
+      ) : action ? (
+        <div className="mt-1">{action as ReactNode}</div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Grey pulsing block: the shape of what is loading. */
+export function Skeleton({ className }: { className?: string }) {
+  return <div aria-hidden="true" className={classNames('animate-pulse rounded-md bg-slate-200/70', className)} />;
+}
+
+/** Table-shaped placeholder, for a list that loads. */
+export function SkeletonRows({ rows = 6, label = 'Chargement…' }: { rows?: number; label?: string }) {
+  return (
+    <div role="status" aria-live="polite" className="space-y-3 p-4">
+      <span className="sr-only">{label}</span>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex items-center gap-4">
+          <Skeleton className="h-4 w-1/4" />
+          <Skeleton className="h-4 w-1/6" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="hidden h-4 w-1/6 sm:block" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Row of KPI-tile placeholders. */
+export function SkeletonTiles({ count = 6, label = 'Chargement…' }: { count?: number; label?: string }) {
+  return (
+    <div role="status" aria-live="polite" className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
+      <span className="sr-only">{label}</span>
+      {Array.from({ length: count }, (_, i) => (
+        <Card key={i} className="space-y-2 p-4">
+          <Skeleton className="h-3 w-1/2" />
+          <Skeleton className="h-7 w-2/3" />
+          <Skeleton className="h-3 w-1/3" />
+        </Card>
+      ))}
     </div>
   );
 }

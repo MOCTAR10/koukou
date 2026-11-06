@@ -1,6 +1,7 @@
 import { AlertTriangle, EyeOff, ShieldAlert } from 'lucide-react';
 import type { DuplicateCandidate, HiddenDuplicate, RegistryStatus } from '../../api/types-programme';
-import { Pill, type Tone } from '../flock/shared';
+import type { Tone } from '../flock/shared';
+import { StatusBadge } from '../ui';
 import { Button } from '../form';
 import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../programme/farmStatus';
 import { candidateProvince, candidateTitle, reasonsLabel, scoreLabel, type DuplicateConflict } from './duplicates';
@@ -12,7 +13,8 @@ export function statusTone(status: Pick<RegistryStatus, 'family'> | null | undef
 }
 
 export function RegistryStatusPill({ status, active = true }: { status: RegistryStatus | null; active?: boolean }) {
-  return <Pill tone={statusTone(status, active)}>{status?.label ?? 'Sans statut'}</Pill>;
+  const tone = statusTone(status, active);
+  return <StatusBadge tone={tone === 'red' ? 'danger' : tone === 'amber' ? 'warning' : 'ok'} label={status?.label ?? 'Sans statut'} />;
 }
 
 /** Probable duplicates of a 409, with the confirmation when the caller may give it. */
