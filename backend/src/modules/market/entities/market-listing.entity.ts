@@ -15,6 +15,7 @@ import {
 } from '../../../common/enums/market.enum.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { Farm } from '../../farms/entities/farm.entity.js';
+import { SlaughterOrder } from '../../slaughter/entities/slaughter-order.entity.js';
 
 @Index('IDX_market_listings_farm_status', ['farmId', 'status'])
 @Index('IDX_market_listings_status_published', ['status', 'publishedAt'])
@@ -43,6 +44,14 @@ export class MarketListing {
   @Column({ name: 'batch_id', type: 'uuid' })
   @Index()
   batchId: string;
+
+  /** CARCASS only: the processed slaughter order its pieces come from. */
+  @ManyToOne(() => SlaughterOrder, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'slaughter_order_id' })
+  slaughterOrder: SlaughterOrder | null;
+
+  @Column({ name: 'slaughter_order_id', type: 'uuid', nullable: true })
+  slaughterOrderId: string | null;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;

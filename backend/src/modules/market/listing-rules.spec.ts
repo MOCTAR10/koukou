@@ -4,6 +4,7 @@ import {
   MarketHiddenReason,
   MarketListingKind,
   MarketListingStatus,
+  MarketProduct,
 } from '../../common/enums/market.enum.js';
 import {
   blockedBySanitaryHold,
@@ -15,8 +16,25 @@ const NO_HOLDS = { withdrawalEndDate: null, prophylaxisOverdue: false };
 const TODAY = '2026-11-03';
 
 describe('blockedBySanitaryHold', () => {
-  const pre = { kind: MarketListingKind.PRE, readyDate: '2026-11-20' };
-  const now = { kind: MarketListingKind.NOW, readyDate: null };
+  const pre = {
+    kind: MarketListingKind.PRE,
+    product: MarketProduct.BIRDS,
+    readyDate: '2026-11-20',
+  };
+  const now = {
+    kind: MarketListingKind.NOW,
+    product: MarketProduct.BIRDS,
+    readyDate: null,
+  };
+
+  it('never blocks carcasses, already slaughtered', () => {
+    expect(
+      blockedBySanitaryHold(
+        { ...now, product: MarketProduct.CARCASS },
+        { withdrawalEndDate: '2026-11-05', prophylaxisOverdue: true },
+      ),
+    ).toBe(false);
+  });
 
   it('blocks a sale today during any hold', () => {
     expect(blockedBySanitaryHold(now, NO_HOLDS)).toBe(false);
@@ -48,6 +66,7 @@ describe('hiddenReason', () => {
   const visible = {
     listing: {
       kind: MarketListingKind.PRE,
+      product: MarketProduct.BIRDS,
       status: MarketListingStatus.PUBLISHED,
       readyDate: '2026-11-20',
     },
@@ -60,6 +79,21 @@ describe('hiddenReason', () => {
 
   it('shows a published listing with stock', () => {
     expect(hiddenReason(visible)).toBeNull();
+  });
+
+  it('keeps carcasses on sale after their lot ended', () => {
+    expect(
+      hiddenReason({
+        ...visible,
+        listing: {
+          ...visible.listing,
+          kind: MarketListingKind.NOW,
+          product: MarketProduct.CARCASS,
+          readyDate: null,
+        },
+        batchStatus: BatchStatus.FINI,
+      }),
+    ).toBeNull();
   });
 
   it('keeps a pre-order on its ready date, not after', () => {

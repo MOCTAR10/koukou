@@ -10,7 +10,10 @@ export function birdsOf(item: {
   productType: string;
   quantity: number;
   pieceCount?: number | null;
+  sourceSlaughterOrderId?: string | null;
 }): number {
+  // Already slaughtered: it comes out of the carcass pool, not the live flock.
+  if (item.sourceSlaughterOrderId) return 0;
   if (
     item.productType === SaleItemProductType.POULET_PIECE ||
     item.productType === SaleItemProductType.ABATTU_PIECE
