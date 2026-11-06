@@ -225,6 +225,8 @@ export function buildGpsBody(draft: {
   capturedAt: string;
   reason: string;
   today: string;
+  /** `APPAREIL` when the fields hold the browser's fix as read (`geolocation.ts` `gpsSourceOf`). */
+  source?: 'APPAREIL' | 'MANUEL';
 }): Checked<SetGpsBody> {
   const gps = checkGpsFix(draft.latitude, draft.longitude, draft.accuracyM);
   if ('error' in gps) return gps;
@@ -236,7 +238,7 @@ export function buildGpsBody(draft: {
   return {
     body: {
       ...gps.fix,
-      source: 'MANUEL',
+      source: draft.source ?? 'MANUEL',
       ...(capturedAt && capturedAt !== draft.today ? { capturedAt } : {}),
       ...(reason ? { reason } : {}),
     },
