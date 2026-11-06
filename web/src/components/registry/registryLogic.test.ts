@@ -135,6 +135,8 @@ describe('registryRights', () => {
       regenerateCode: true,
       gps: true,
       verify: true,
+      team: true,
+      suspendTeam: true,
     });
     expect(registryRights('PROPRIETAIRE').view).toBe(false);
     expect(registryRights('INSTITUTION').view).toBe(false); // access not loaded
@@ -151,6 +153,8 @@ describe('registryRights', () => {
       regenerateCode: true,
       gps: true,
       verify: false,
+      team: false,
+      suspendTeam: true,
     });
     const national: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
     expect(registryRights('INSTITUTION', national)).toMatchObject({ create: true, import: true, edit: false, activateOwner: false, regenerateCode: false });
@@ -161,6 +165,8 @@ describe('registryRights', () => {
     expect(registryRights('INSTITUTION', agentTechnique)).toMatchObject({ view: true, edit: false, gps: true, verify: false });
     const dge: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'] } };
     expect(registryRights('INSTITUTION', dge)).toMatchObject({ edit: true, gps: true, verify: true });
+    const adminProgramme: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER'], ADMINISTRATION: ['CONSULTER'] } };
+    expect(registryRights('INSTITUTION', adminProgramme)).toMatchObject({ team: true, suspendTeam: false });
     // An AUDIT-scope profile reads the journal only.
     expect(registryRights('INSTITUTION', { scopeKind: 'AUDIT', matrix: { REGISTRE: ['CONSULTER'] } }).view).toBe(false);
   });

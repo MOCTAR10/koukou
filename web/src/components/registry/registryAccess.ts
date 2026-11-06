@@ -24,10 +24,14 @@ export interface RegistryRights {
   gps: boolean;
   /** POUFA lot A droits: the Market verification (`PUT …/verification`, REGISTRE:VALIDER). */
   verify: boolean;
+  /** F13: team accounts of a farm (`GET …/team`, ADMINISTRATION:CONSULTER). */
+  team: boolean;
+  /** F13: suspend or restore a team member's farm access (`PUT …/team/:id/active`, ADMINISTRATION:ADMINISTRER). */
+  suspendTeam: boolean;
 }
 
-const NONE: RegistryRights = { view: false, create: false, edit: false, activateOwner: false, import: false, regenerateCode: false, gps: false, verify: false };
-const ALL: RegistryRights = { view: true, create: true, edit: true, activateOwner: true, import: true, regenerateCode: true, gps: true, verify: true };
+const NONE: RegistryRights = { view: false, create: false, edit: false, activateOwner: false, import: false, regenerateCode: false, gps: false, verify: false, team: false, suspendTeam: false };
+const ALL: RegistryRights = { view: true, create: true, edit: true, activateOwner: true, import: true, regenerateCode: true, gps: true, verify: true, team: true, suspendTeam: true };
 
 /**
  * Registry rights per account, mirroring the server (`ProgramAccessGuard`,
@@ -56,5 +60,7 @@ export function registryRights(
     regenerateCode: administer,
     gps: edit || grantsAccess(access, 'TECHNIQUE', 'VALIDER'),
     verify: grantsAccess(access, 'REGISTRE', 'VALIDER'),
+    team: grantsAccess(access, 'ADMINISTRATION', 'CONSULTER'),
+    suspendTeam: administer,
   };
 }
