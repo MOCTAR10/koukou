@@ -722,13 +722,13 @@ export function updateFarmMember(
   });
 }
 
+/** The farm name is not here: it changes only at the programme registry (PATCH answers 400). */
 export interface UpdateFarmSettingsInput {
-  name?: string;
   administrativeCity?: string;
   defaultSacKg?: number;
 }
 
-/** Paramètres de la ferme : nom, ville, poids du sac (PATCH /farms/:farmId). */
+/** Paramètres de la ferme : ville, poids du sac (PATCH /farms/:farmId). */
 export function updateFarmSettings(
   farmId: string,
   input: UpdateFarmSettingsInput,
