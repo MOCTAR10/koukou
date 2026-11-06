@@ -2,9 +2,15 @@ import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { PERMISSIONS } from '../../common/permissions/permission-catalog.js';
 import { OWNER_PROFILE } from '../programme/parameter-catalog.js';
-import { FERMIA_DOMAINS, actionForMethod } from './access-domains.js';
 import {
+  FERMIA_DOMAINS,
+  actionForMethod,
+  isInstitutionFermiaDomain,
+} from './access-domains.js';
+import {
+  consults,
   decideRoute,
+  decideRouteAny,
   farmScopeSql,
   includesFarm,
   includesProvince,
@@ -79,10 +85,14 @@ describe('default profiles', () => {
     }
   });
 
-  it('never grant a Fermia-only domain', () => {
+  it('never grant a never-grantable Fermia domain, the bonus ones only to the DGE in consultation', () => {
     for (const p of DEFAULT_PROFILES) {
       for (const d of FERMIA_DOMAINS) {
-        expect(Object.keys(p.matrix)).not.toContain(d);
+        if (!isInstitutionFermiaDomain(d) || p.code !== 'DGE') {
+          expect(Object.keys(p.matrix), `${p.code} ${d}`).not.toContain(d);
+        } else {
+          expect(p.matrix[d]).toEqual(['CONSULTER']);
+        }
       }
     }
   });
@@ -119,12 +129,34 @@ describe('decideRoute', () => {
     expect(denied.allowed === false && denied.reason).toContain('POUFA / DGE');
   });
 
-  it('never opens a Fermia-only domain, even if a matrix held it', () => {
+  it('opens a Fermia bonus domain granted in consultation, never the others', () => {
+    const dge = access('DGE');
+    expect(decideRoute(dge, 'VENTES', 'CONSULTER').allowed).toBe(true);
+    expect(decideRoute(dge, 'VENTES', 'CREER').allowed).toBe(false);
     const forged = access('DGE', {
-      matrix: { VENTES: ['CONSULTER'] } as never,
+      matrix: { PLATEFORME: ['CONSULTER'], CULTURES: ['MODIFIER'] } as never,
     });
-    expect(decideRoute(forged, 'VENTES', 'CONSULTER').allowed).toBe(false);
     expect(decideRoute(forged, 'PLATEFORME', 'CONSULTER').allowed).toBe(false);
+    expect(decideRoute(forged, 'CULTURES', 'MODIFIER').allowed).toBe(false);
+    expect(decideRoute(access('AGENT_TECHNIQUE'), 'VENTES', 'CONSULTER').allowed).toBe(false);
+  });
+
+  it('accepts an alternative grant (@AlsoGrantedBy)', () => {
+    const agent = access('AGENT_TECHNIQUE');
+    expect(decideRoute(agent, 'REGISTRE', 'MODIFIER').allowed).toBe(false);
+    expect(
+      decideRouteAny(agent, 'REGISTRE', 'MODIFIER', [['TECHNIQUE', 'VALIDER']]).allowed,
+    ).toBe(true);
+    const vet = decideRouteAny(access('VETERINAIRE'), 'REGISTRE', 'MODIFIER', [['TECHNIQUE', 'VALIDER']]);
+    expect(vet.allowed === false && vet.reason).toContain('Registre');
+    expect(decideRouteAny(null, 'REGISTRE', 'MODIFIER', [['TECHNIQUE', 'VALIDER']]).allowed).toBe(false);
+  });
+
+  it('consults: the matrix, never outside the journal for an audit scope', () => {
+    expect(consults(access('DGE'), 'ECONOMIQUE')).toBe(true);
+    expect(consults(access('AGENT_TECHNIQUE'), 'ECONOMIQUE')).toBe(false);
+    expect(consults(access('ANINF'), 'AUDIT')).toBe(true);
+    expect(consults(access('ANINF', { matrix: { REGISTRE: ['CONSULTER'] } }), 'REGISTRE')).toBe(false);
   });
 
   it('keeps the audit scope on the journal only', () => {
@@ -254,10 +286,24 @@ describe('validateMatrix', () => {
     ).toEqual({ ok: true, matrix: { REGISTRE: ['CONSULTER', 'MODIFIER'] } });
   });
 
-  it('refuses Fermia-only and unknown domains, unknown actions', () => {
+  it('accepts the Fermia bonus domains in consultation only', () => {
+    expect(
+      validateMatrix(
+        { VENTES: ['CONSULTER'], MARCHE: ['CONSULTER'], COMPTABILITE: ['CONSULTER'], EQUIPE: ['CONSULTER'] },
+        AccessScopeKind.ALL,
+      ).ok,
+    ).toBe(true);
+    const write = validateMatrix({ VENTES: ['CONSULTER', 'CREER'] }, AccessScopeKind.ALL);
+    expect(write.ok === false && write.error).toContain('consultation');
+  });
+
+  it('refuses never-grantable Fermia and unknown domains, unknown actions', () => {
     for (const bad of [
-      { MARCHE: ['CONSULTER'] },
-      { COMPTABILITE: ['CONSULTER'] },
+      { MARCHE: ['CREER'] },
+      { COMPTABILITE: ['MODIFIER'] },
+      { CULTURES: ['CONSULTER'] },
+      { COMPTE: ['CONSULTER'] },
+      { PLATEFORME: ['CONSULTER'] },
       { INCONNU: ['CONSULTER'] },
       { REGISTRE: ['SUPPRIMER'] },
       { REGISTRE: 'CONSULTER' },
@@ -294,9 +340,19 @@ describe('permission codes of an institutional profile', () => {
     }
   });
 
-  it('derives the codes from the matrix, never Fermia-only ones', () => {
-    expect([...institutionPermissions(access('DGE').matrix)]).toEqual([
+  it('derives the codes from the matrix: read codes only on the Fermia domains', () => {
+    expect([...institutionPermissions(access('DGE').matrix)].sort()).toEqual([
+      'caisse:lire',
+      'compta:lire',
       'compta:rapports',
+      'intrants:lire',
+      'market:lire',
+      'registre:gps',
+      'rh:lire',
+    ]);
+    expect([...institutionPermissions(access('AGENT_TECHNIQUE').matrix)].sort()).toEqual([
+      'intrants:lire',
+      'registre:gps',
     ]);
     expect(
       [...institutionPermissions(access('VETERINAIRE').matrix)].sort(),

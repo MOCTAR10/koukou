@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuditExport } from '../../common/decorators/audit.decorator.js';
+import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
@@ -24,6 +24,7 @@ export class RentabiliteController {
   constructor(private readonly rentabiliteService: RentabiliteService) {}
 
   @Get('overview')
+  @AuditThirdPartyRead('Rentabilité d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
   @ApiOperation({
@@ -73,6 +74,7 @@ export class RentabiliteController {
   }
 
   @Get('batches/:batchId')
+  @AuditThirdPartyRead('Compte de résultat d’un lot')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('compta:rapports')
   @ApiOperation({

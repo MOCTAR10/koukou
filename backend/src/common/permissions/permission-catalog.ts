@@ -94,6 +94,12 @@ export const PERMISSION_CATALOG = [
         label: 'Publier sur le Market',
         description: 'Créer, publier, suspendre et clôturer les annonces de la ferme.',
       },
+      // POUFA lot A droits: read code (institutions granted MARCHE:CONSULTER).
+      {
+        code: 'market:lire',
+        label: 'Voir le Market de la ferme',
+        description: 'Consulter les annonces et les commandes Market de la ferme, sans les modifier.',
+      },
     ],
   },
   {
@@ -119,6 +125,12 @@ export const PERMISSION_CATALOG = [
         code: 'compta:ecritures',
         label: 'Écritures comptables',
         description: 'Voir et initier les écritures régularisées (COM journal).',
+      },
+      // POUFA lot A droits: read code (institutions granted COMPTABILITE:CONSULTER).
+      {
+        code: 'compta:lire',
+        label: 'Voir la comptabilité',
+        description: 'Consulter le journal, le grand livre, la balance et les états SYSCOHADA, sans écrire.',
       },
     ],
   },
@@ -181,6 +193,24 @@ export const PERMISSION_CATALOG = [
       },
     ],
   },
+  // POUFA lot A droits (begin): programme field rights of the farm.
+  {
+    key: 'programme',
+    label: 'Programme POUFA',
+    items: [
+      {
+        code: 'registre:gps',
+        label: 'Relever le GPS de la ferme',
+        description: 'Enregistrer sur place le point GPS de la ferme (CDC n° 2) ; l’ancien point reste dans l’historique.',
+      },
+      {
+        code: 'intrants:lire',
+        label: 'Voir les livraisons de l’État',
+        description: 'Consulter les livraisons d’intrants du programme et le stock déclaratif de la ferme.',
+      },
+    ],
+  },
+  // POUFA lot A droits (end)
   {
     key: 'agriculture',
     label: 'Agriculture',
@@ -281,6 +311,9 @@ export const ELEVEUR_DEFAULT_PERMISSIONS: ReadonlySet<PermissionCode> = new Set(
   'caisse:lire',
   'sanitaire:lecture',
   'sanitaire:signaler',
+  // POUFA lot A droits: GPS point on site and the State deliveries.
+  'registre:gps',
+  'intrants:lire',
 ]);
 
 /** Droits de base accordés à un nouveau « Administrateur Fermia » (le Propriétaire affine). */
@@ -289,6 +322,9 @@ export const ADMIN_DEFAULT_PERMISSIONS: ReadonlySet<PermissionCode> = new Set([
   'caisse:lire',
   'sanitaire:lecture',
   'sanitaire:signaler',
+  // POUFA lot A droits: GPS point on site and the State deliveries.
+  'registre:gps',
+  'intrants:lire',
 ]);
 
 export function defaultPermissionsFor(role: FarmStaffRole): PermissionCode[] {

@@ -13,6 +13,7 @@ import {
   UpdateCashMovementDto,
 } from './dto/caisse.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Finance — Caisse journalière')
 @Domain('VENTES')
@@ -21,6 +22,7 @@ export class CaisseController {
   constructor(private readonly caisseService: CaisseService) {}
 
   @Get('current')
+  @AuditThirdPartyRead('Caisse du jour d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   // Cash flows (sale, deposit, customer payment) check the open session
   // before collecting, so their permissions read it too.
@@ -41,6 +43,7 @@ export class CaisseController {
   }
 
   @Get('sessions')
+  @AuditThirdPartyRead('Sessions de caisse d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('caisse:lire', 'caisse:fermer')
   @ApiOperation({ summary: 'Historique des sessions de caisse' })

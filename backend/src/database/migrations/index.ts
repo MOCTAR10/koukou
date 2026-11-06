@@ -14,6 +14,10 @@ import { Traceability1793958553940 } from './1793958553940-Traceability.js';
 import { PilotageReports1793958852697 } from './1793958852697-PilotageReports.js';
 import { SanitarySurveillanceNotify1793958965095 } from './1793958965095-SanitarySurveillanceNotify.js';
 import { DataRecovery1793959230932 } from './1793959230932-DataRecovery.js';
+// POUFA lot A droits (begin)
+import { InstitutionFermiaGrants1794000500000 } from './1794000500000-InstitutionFermiaGrants.js';
+import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalaries.js';
+// POUFA lot A droits (end)
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -38,4 +42,8 @@ export const MIGRATIONS = [
   PilotageReports1793958852697,
   SanitarySurveillanceNotify1793958965095,
   DataRecovery1793959230932,
+  // POUFA lot A droits (begin)
+  InstitutionFermiaGrants1794000500000,
+  AuditMaskSalaries1794000500100,
+  // POUFA lot A droits (end)
 ];

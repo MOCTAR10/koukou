@@ -30,6 +30,8 @@ export const PROFILE_CODES = {
 export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
   {
     // Visits farms, checks the declarations (CDC §3: « ses fermes »).
+    // TECHNIQUE:VALIDER records the farm GPS point on site (CDC n° 2 and the
+    // visits of §5.5, « à valider DGE »): PUT /programme/farms/:farmId/gps.
     code: PROFILE_CODES.AGENT_TECHNIQUE,
     label: 'Agent technique',
     scopeKind: AccessScopeKind.FARMS,
@@ -55,6 +57,13 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
       TRACABILITE: ['CONSULTER'],
       PILOTAGE: ['CONSULTER'],
       PARAMETRES: ['CONSULTER', 'MODIFIER'],
+      // POUFA lot A droits: the Fermia bonus domains, in consultation (user
+      // decision 2026-11-06; migration InstitutionFermiaGrants for existing
+      // programmes).
+      VENTES: ['CONSULTER'],
+      MARCHE: ['CONSULTER'],
+      COMPTABILITE: ['CONSULTER'],
+      EQUIPE: ['CONSULTER'],
     },
   },
   {

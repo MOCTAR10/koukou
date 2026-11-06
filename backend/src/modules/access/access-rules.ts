@@ -5,13 +5,15 @@ import {
   ACTION_LABELS,
   DOMAIN_LABELS,
   FERMIA_DOMAINS,
+  grantableActions,
+  isGrantableDomain,
+  isInstitutionFermiaDomain,
   MEMBER_DOMAINS,
   isAccessAction,
-  isProgrammeDomain,
   type AccessAction,
   type AccessDomain,
   type AccessMatrix,
-  type ProgrammeDomain,
+  type GrantableDomain,
 } from './access-domains.js';
 
 /**
@@ -56,7 +58,7 @@ export function isMembershipEffective(
 /** Whether the matrix grants `action` on `domain`. */
 export function grants(
   matrix: AccessMatrix,
-  domain: ProgrammeDomain,
+  domain: GrantableDomain,
   action: AccessAction,
 ): boolean {
   const actions = matrix[domain];
@@ -66,7 +68,8 @@ export function grants(
 /**
  * Decision for one route: default deny without a domain or a membership; the
  * AUDIT scope reaches the journal only; SESSION and REFERENCE are open to
- * any member; otherwise the matrix decides. Fermia-only domains are never in a matrix.
+ * any member; otherwise the matrix decides. Fermia-only domains are in a
+ * matrix only for the bonus ones, in consultation (`validateMatrix`).
  */
 export function decideRoute(
   access: InstitutionAccess | null,
@@ -83,13 +86,43 @@ export function decideRoute(
         "Accès refusé : votre profil donne accès au journal d'audit seulement.",
     };
   }
-  if (isProgrammeDomain(domain) && grants(access.matrix, domain, action)) {
+  if (isGrantableDomain(domain) && grants(access.matrix, domain, action)) {
     return { allowed: true };
   }
   return {
     allowed: false,
     reason: `Accès refusé : le profil « ${access.profileLabel} » ne permet pas l'action « ${ACTION_LABELS[action]} » sur le domaine « ${DOMAIN_LABELS[domain]} ».`,
   };
+}
+
+/**
+ * {@link decideRoute} with alternative grants (`@AlsoGrantedBy`): allowed when
+ * the route's own domain and action, or one alternative, are granted; the
+ * refusal names the route's own domain.
+ */
+export function decideRouteAny(
+  access: InstitutionAccess | null,
+  domain: AccessDomain | undefined,
+  action: AccessAction,
+  alternatives: ReadonlyArray<readonly [AccessDomain, AccessAction]> = [],
+): AccessDecision {
+  const primary = decideRoute(access, domain, action);
+  if (primary.allowed || !domain || !access) return primary;
+  for (const [d, a] of alternatives) {
+    if (decideRoute(access, d, a).allowed) return { allowed: true };
+  }
+  return primary;
+}
+
+/** Whether an institutional access consults `domain` (its scope rules apart). */
+export function consults(
+  access: Pick<InstitutionAccess, 'matrix' | 'scopeKind'>,
+  domain: GrantableDomain,
+): boolean {
+  if (access.scopeKind === AccessScopeKind.AUDIT && domain !== 'AUDIT') {
+    return false;
+  }
+  return grants(access.matrix, domain, 'CONSULTER');
 }
 
 /** Scope kinds that reach individual farms (the others see no farm row). */
@@ -191,13 +224,16 @@ export function validateMatrix(
   }
   const matrix: AccessMatrix = {};
   for (const [domain, actions] of Object.entries(raw)) {
-    if ((FERMIA_DOMAINS as readonly string[]).includes(domain)) {
+    if (
+      (FERMIA_DOMAINS as readonly string[]).includes(domain) &&
+      !isInstitutionFermiaDomain(domain)
+    ) {
       return {
         ok: false,
         error: `Le domaine « ${domain} » est propre à Fermia et ne peut pas être accordé à un profil institutionnel.`,
       };
     }
-    if (!isProgrammeDomain(domain)) {
+    if (!isGrantableDomain(domain)) {
       return { ok: false, error: `Domaine inconnu : « ${domain} ».` };
     }
     if (!Array.isArray(actions)) {
@@ -214,6 +250,14 @@ export function validateMatrix(
       };
     }
     const set = new Set(actions as AccessAction[]);
+    const allowed = grantableActions(domain);
+    const refused = [...set].find((a) => !allowed.includes(a));
+    if (refused !== undefined) {
+      return {
+        ok: false,
+        error: `Le domaine « ${DOMAIN_LABELS[domain]} » ne s'ouvre aux profils institutionnels qu'en consultation : l'action « ${ACTION_LABELS[refused]} » ne peut pas être accordée.`,
+      };
+    }
     const ordered = ACCESS_ACTIONS.filter((a) => set.has(a));
     if (ordered.length > 0) matrix[domain] = ordered;
   }
@@ -284,10 +328,10 @@ export function scopeKindRefusal(
 export function matrixExcess(
   granter: AccessMatrix,
   target: AccessMatrix,
-): Array<[ProgrammeDomain, AccessAction]> {
-  const out: Array<[ProgrammeDomain, AccessAction]> = [];
+): Array<[GrantableDomain, AccessAction]> {
+  const out: Array<[GrantableDomain, AccessAction]> = [];
   for (const [domain, actions] of Object.entries(target)) {
-    if (!isProgrammeDomain(domain) || !Array.isArray(actions)) continue;
+    if (!isGrantableDomain(domain) || !Array.isArray(actions)) continue;
     for (const action of ACCESS_ACTIONS) {
       if (actions.includes(action) && !grants(granter, domain, action)) {
         out.push([domain, action]);

@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
-import { AuditRead } from '../../common/decorators/audit.decorator.js';
+import { AuditRead, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -47,6 +47,7 @@ export class CustomersController {
   }
 
   @Get('summary')
+  @AuditThirdPartyRead('Synthèse des clients d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Résumé clients : compteurs par type et segment' })
   @ApiParam({ name: 'farmId' })
@@ -112,6 +113,7 @@ export class CustomersController {
   }
 
   @Get(':customerId/stats')
+  @AuditThirdPartyRead('Statistiques d’un client')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Statistiques d\'un client (visites, dépenses, favoris, segment)',
@@ -126,6 +128,7 @@ export class CustomersController {
   }
 
   @Get(':customerId/balance')
+  @AuditThirdPartyRead('Solde d’un client')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Solde à recouvrer d\'un client (crédit octroyé)',

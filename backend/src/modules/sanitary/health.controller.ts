@@ -21,7 +21,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuditExport } from '../../common/decorators/audit.decorator.js';
+import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import type { UploadedImageFile } from '../farms/farms.service.js';
 import { DECLARATION_PHOTO_MAX_BYTES } from './health.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -41,6 +41,7 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get('health')
+  @AuditThirdPartyRead('Santé d’un lot (déclarations sanitaires)')
   @ApiOperation({
     summary:
       'Agrégat santé du lot : métriques (FCR, alvéoles/trays, aliment g/oiseau, mortalité, ponte), score santé 0-100, conseils et tendances hebdomadaires',
@@ -56,6 +57,7 @@ export class HealthController {
   }
 
   @Get('health-events')
+  @AuditThirdPartyRead('Déclarations sanitaires d’un lot')
   @ApiOperation({ summary: 'Chronologie des événements sanitaires du lot' })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'batchId' })
@@ -134,6 +136,7 @@ export class HealthController {
   }
 
   @Get('health-events/:eventId/photos/:photoId')
+  @AuditThirdPartyRead('Photo d’une déclaration sanitaire')
   @AuditExport('Photo de déclaration sanitaire')
   @ApiOperation({
     summary:

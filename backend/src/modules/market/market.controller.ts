@@ -30,6 +30,7 @@ import {
 import { MarketListingsService } from './market-listings.service.js';
 import { MarketOrdersService } from './market-orders.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 /** Read by anyone, signed in or not. */
 @ApiTags('Market')
@@ -79,6 +80,8 @@ export class FarmMarketController {
   }
 
   @Get('listings')
+  @Permissions('market:publier', 'market:lire')
+  @AuditThirdPartyRead('Annonces Market d’une ferme')
   @ApiOperation({ summary: 'Annonces de la ferme, avec leur visibilité' })
   list(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
     return this.listings.listForFarm(user, farmId);
@@ -95,6 +98,8 @@ export class FarmMarketController {
   }
 
   @Get('ready-date-suggestion')
+  @Permissions('market:publier', 'market:lire')
+  @AuditThirdPartyRead('Date de disponibilité suggérée (Market)')
   @ApiOperation({ summary: 'Date de disponibilité suggérée pour un lot' })
   suggestion(
     @CurrentUser() user: AuthUser,
@@ -105,6 +110,8 @@ export class FarmMarketController {
   }
 
   @Get('listings/:listingId')
+  @Permissions('market:publier', 'market:lire')
+  @AuditThirdPartyRead('Détail d’une annonce Market de la ferme')
   @ApiOperation({ summary: 'Détail d’une annonce de la ferme' })
   get(
     @CurrentUser() user: AuthUser,
@@ -220,6 +227,8 @@ export class FarmMarketOrdersController {
   constructor(private readonly orders: MarketOrdersService) {}
 
   @Get()
+  @Permissions('vente:commande', 'market:lire')
+  @AuditThirdPartyRead('Commandes Market d’une ferme')
   @ApiOperation({ summary: 'Demandes et commandes Market de la ferme' })
   list(
     @CurrentUser() user: AuthUser,

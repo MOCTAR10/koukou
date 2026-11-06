@@ -9,6 +9,7 @@ import { StockTransferProductType } from '../../common/enums/stock-transfer-prod
 import { StockTransfersService } from './stock-transfers.service.js';
 import { CreateStockTransferDto } from './dto/stock-transfer.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Stock & transferts')
 @Domain('VENTES')
@@ -17,6 +18,7 @@ export class StockTransfersController {
   constructor(private readonly transfersService: StockTransfersService) {}
 
   @Get()
+  @AuditThirdPartyRead('Transferts de stock d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:

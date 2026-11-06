@@ -17,6 +17,10 @@ import type { User } from '../../users/entities/user.entity.js';
  * point is a copy on `Farm`.
  */
 @Index('IDX_farm_gps_history_farm_created', ['farmId', 'createdAt'])
+@Index('UQ_farm_gps_history_farm_idempotency', ['farmId', 'idempotencyKey'], {
+  unique: true,
+  where: '"idempotency_key" IS NOT NULL',
+})
 @Entity('farm_gps_history')
 export class FarmGpsHistory {
   @PrimaryGeneratedColumn('uuid')
@@ -56,6 +60,15 @@ export class FarmGpsHistory {
 
   @Column({ type: 'text', nullable: true })
   reason: string | null;
+
+  /** Offline replay key (unique per farm): a replay adds no second point. */
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+  })
+  idempotencyKey: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

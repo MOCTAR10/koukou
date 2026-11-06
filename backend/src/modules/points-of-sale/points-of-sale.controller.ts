@@ -19,6 +19,7 @@ import {
   UpdatePointOfSaleDto,
 } from './dto/point-of-sale.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Points de vente')
 @Domain('VENTES')
@@ -28,6 +29,7 @@ export class PointsOfSaleController {
   constructor(private readonly pointsOfSaleService: PointsOfSaleService) {}
 
   @Get()
+  @AuditThirdPartyRead('Points de vente d’une ferme')
   @ApiOperation({
     summary:
       'Liste des points de vente (crée le point de vente « ferme » par défaut au premier accès).',
@@ -56,6 +58,7 @@ export class PointsOfSaleController {
   }
 
   @Get(':pointOfSaleId')
+  @AuditThirdPartyRead('Détail d’un point de vente')
   @ApiOperation({ summary: 'Détail d’un point de vente.' })
   @ApiParam({ name: 'farmId' })
   getOne(

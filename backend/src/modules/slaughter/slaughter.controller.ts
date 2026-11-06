@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuditExport } from '../../common/decorators/audit.decorator.js';
+import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -49,6 +49,7 @@ export class SlaughterController {
   }
 
   @Get()
+  @AuditThirdPartyRead('Ordres d’abattage d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Lister les ordres d’abattage de la ferme' })
   @ApiParam({ name: 'farmId' })
@@ -57,6 +58,7 @@ export class SlaughterController {
   }
 
   @Get(':orderId')
+  @AuditThirdPartyRead('Détail d’un ordre d’abattage')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Détail d’un ordre d’abattage (avec lot lié)' })
   @ApiParam({ name: 'farmId' })
