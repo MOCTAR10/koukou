@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Check, Gauge, ShieldCheck, Store, Target, Warehouse } from 'lucide-react';
+import { Activity, ArrowLeft, Building2, Calculator, Check, Map, QrCode, ScrollText, ShieldCheck, Stethoscope, Store } from 'lucide-react';
 import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
@@ -70,7 +70,7 @@ export function AuthLayout({
   const copy = AUDIENCES[audience];
   const programme = audience === 'programme';
   return (
-    <div className={'min-h-screen bg-white lg:grid ' + (audience === 'programme' ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]')}>
+    <div className={'min-h-screen bg-white lg:grid ' + (audience === 'programme' ? 'lg:h-screen lg:overflow-hidden ' : '') + (audience === 'programme' ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]')}>
       {audience === 'programme' ? <ProgrammeAside /> : (
       <aside className="relative hidden overflow-hidden bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950 text-white lg:block">
         <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 h-[28rem] w-[28rem] rounded-full bg-brand-400/20 blur-3xl" />
@@ -106,7 +106,7 @@ export function AuthLayout({
       </aside>
       )}
 
-      <div className={'relative flex min-h-screen flex-col lg:min-h-0 ' + (programme ? 'bg-slate-50' : '')}>
+      <div className={'relative flex min-h-screen flex-col lg:min-h-0 lg:overflow-y-auto ' + (programme ? 'bg-slate-50' : '')}>
         {programme ? (
           <>
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px]" />
@@ -175,58 +175,73 @@ export function AuthLayout({
 /** Link of an auth page footer. */
 export const authLinkCls = 'font-semibold text-brand-600 hover:text-brand-700';
 
-const PROGRAMME_FIGURES = [
-  { icon: Warehouse, value: '150', label: 'fermes avicoles suivies' },
-  { icon: Target, value: '100 000 t', label: 'objectif national de production' },
-  { icon: Gauge, value: '2030', label: 'horizon de pilotage' },
+const PROGRAMME_MODULES = [
+  { icon: Building2, label: 'Registre national des fermes' },
+  { icon: Activity, label: 'Suivi des bandes et indicateurs' },
+  { icon: Stethoscope, label: 'Surveillance sanitaire' },
+  { icon: QrCode, label: 'Traçabilité des lots par QR' },
+  { icon: Map, label: 'Tableaux de bord et cartographie' },
+  { icon: Calculator, label: 'Comptabilité SYSCOHADA' },
+  { icon: Store, label: 'Marché et commercialisation' },
+  { icon: ScrollText, label: 'Journal d’audit et droits d’accès' },
 ] as const;
 
-/** Programme sign-in: full-height field photo, ministry seal, official programme title. */
+/** Programme sign-in: full-height field photo, ministry seal, official programme title and modules. */
 function ProgrammeAside() {
   return (
-    <aside className="relative hidden overflow-hidden bg-brand-950 text-white lg:block">
-      <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_35%]" />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/45 via-45% to-transparent" />
-      <div aria-hidden className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black/35 to-transparent" />
-      <div className="relative flex min-h-screen flex-col p-10 xl:p-12 [@media(max-height:760px)]:py-6">
-        <div className="w-fit rounded-2xl bg-white/95 p-2.5 shadow-2xl shadow-black/30 ring-1 ring-white">
-          <img
-            src="/maedr-logo-full.webp"
-            alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
-            className="h-28 w-28 object-contain xl:h-32 xl:w-32 [@media(max-height:760px)]:h-20 [@media(max-height:760px)]:w-20"
-          />
-        </div>
-
-        <div className="relative mt-auto overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.14] to-white/[0.04] p-6 shadow-[0_30px_80px_-30px_rgb(0_0_0/0.7)] ring-1 ring-white/20 backdrop-blur-2xl xl:p-8 [@media(max-height:760px)]:p-5">
-          <div aria-hidden className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
-          <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
-          <div className="flex items-center gap-3">
-            <span className="h-px w-8 bg-amber-300" />
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200">Programme POUFA</p>
+    <aside className="relative hidden h-screen overflow-hidden bg-brand-950 text-white lg:block">
+      <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_30%]" />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/40 via-45% to-brand-950/30" />
+      <div aria-hidden className="absolute inset-x-0 top-0 h-[22rem] bg-gradient-to-b from-black/55 to-transparent" />
+      <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
+        <div className="flex items-center gap-4">
+          <div className="rounded-2xl bg-white p-2 shadow-2xl shadow-black/30">
+            <img
+              src="/maedr-logo-full.webp"
+              alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
+              className="h-24 w-24 object-contain xl:h-28 xl:w-28 [@media(max-height:780px)]:h-16 [@media(max-height:780px)]:w-16"
+            />
           </div>
-          <h2 className="mt-3 whitespace-nowrap text-[clamp(1rem,1.45vw,1.9rem)] font-bold leading-tight tracking-tight">
-            Suivi technico-économique et traçabilité{' '}
-            <span className="bg-gradient-to-r from-amber-200 to-emerald-200 bg-clip-text text-transparent">de la filière avicole</span>
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/80 xl:text-[0.95rem] [@media(max-height:760px)]:mt-2">
-            Le système d’information national du programme : registre des fermes, production, surveillance sanitaire et
-            traçabilité des lots, de la ferme au consommateur.
-          </p>
-          <dl className="mt-6 grid grid-cols-3 gap-3 [@media(max-height:760px)]:mt-4">
-            {PROGRAMME_FIGURES.map(({ icon: Icon, value, label }) => (
-              <div key={label} className="flex flex-col gap-1 rounded-2xl bg-black/20 px-4 py-3.5 ring-1 ring-white/10 [@media(max-height:760px)]:py-3">
-                <span className="mb-1 flex h-7 w-7 items-center justify-center rounded-lg bg-amber-300/15 ring-1 ring-amber-200/25"><Icon className="h-3.5 w-3.5 text-amber-200" aria-hidden /></span>
-                <dt className="sr-only">{label}</dt>
-                <dd className="text-xl font-bold tabular-nums xl:text-2xl">{value}</dd>
-                <dd aria-hidden className="text-xs leading-snug text-white/65">{label}</dd>
-              </div>
-            ))}
-          </dl>
+          <div className="border-l border-white/30 pl-4 text-xs uppercase tracking-[0.2em] text-white/85">
+            <p className="font-semibold text-white">République gabonaise</p>
+            <p className="mt-1 text-[11px] tracking-[0.15em] text-white/70">Système d’information officiel</p>
+          </div>
         </div>
 
-        <p className="mt-5 flex items-center gap-2 text-xs text-white/55">
+        <div className="mt-10 [@media(max-height:780px)]:mt-6">
+            <div className="flex items-center gap-3">
+              <span className="h-px w-8 bg-amber-300" />
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200">Programme POUFA</p>
+            </div>
+            <h2 className="mt-3 whitespace-nowrap text-[clamp(1.1rem,1.85vw,2.4rem)] font-bold leading-tight tracking-tight drop-shadow-[0_2px_8px_rgb(0_0_0/0.45)]">
+              Suivi technico-économique et traçabilité{' '}
+              <span className="bg-gradient-to-r from-amber-200 to-emerald-200 bg-clip-text text-transparent">de la filière avicole</span>
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/85 drop-shadow xl:text-base">
+              Une plateforme unique pour l’État, les services techniques et les éleveurs, de la ferme au consommateur.
+            </p>
+        </div>
+
+        <div className="relative mt-auto overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.14] to-white/[0.04] p-7 shadow-[0_30px_80px_-30px_rgb(0_0_0/0.7)] ring-1 ring-white/20 backdrop-blur-2xl xl:p-8 [@media(max-height:780px)]:p-5">
+          <div aria-hidden className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+            Modules de la plateforme
+          </p>
+          <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 xl:grid-cols-4 xl:gap-x-4 [@media(max-height:780px)]:gap-y-1.5">
+            {PROGRAMME_MODULES.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex items-center gap-2.5 text-[13px] leading-snug text-white/90">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-300/10 ring-1 ring-amber-200/25">
+                  <Icon className="h-4 w-4 text-amber-200" aria-hidden />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="mt-5 flex items-center gap-2 text-xs text-white/55 [@media(max-height:780px)]:mt-3">
           <img src="/logo.png" alt="" className="h-4 w-auto opacity-80" />
-          République gabonaise · Plateforme propulsée par Fermia
+          Ministère de l’Agriculture, de l’Élevage et du Développement rural · Plateforme propulsée par Fermia
         </p>
       </div>
     </aside>
