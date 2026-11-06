@@ -159,3 +159,52 @@ describe('flushQueue', () => {
     expect(loadOps()).toHaveLength(0);
   });
 });
+
+describe('health-event (sanitary declaration, POUFA L5)', () => {
+  const path = `/farms/${FARM}/batches/b/health-events`;
+  const declaration = {
+    kind: 'health-event' as const,
+    farmId: FARM,
+    path,
+    body: { kind: 'MALADIE', occurredAt: '2026-11-06', title: 'Newcastle', clinicalSigns: ['DIARRHEE'], suspicion: true },
+    label: 'Déclaration sanitaire',
+  };
+
+  it('queues offline with its signs and suspicion, and replays them once back', async () => {
+    route('POST', /health-events/, 'network');
+    expect((await sendOrQueue(declaration)).status).toBe('queued');
+    const op = loadOps()[0]!;
+    expect(op.kind).toBe('health-event');
+    expect(op.body).toMatchObject({ clinicalSigns: ['DIARRHEE'], suspicion: true, idempotencyKey: op.id });
+    route('POST', /health-events/, { status: 201, body: { id: 'e1' } });
+    expect((await flushQueue()).synced).toBe(1);
+    expect(calls.at(-1)).toMatchObject({ path, body: { suspicion: true, idempotencyKey: op.id } });
+  });
+
+  it('keeps the form’s own idempotency key, live and on replay', async () => {
+    route('POST', /health-events/, { status: 503 });
+    await sendOrQueue({ ...declaration, body: { ...declaration.body, idempotencyKey: 'web-health-1' } });
+    expect((loadOps()[0]!.body as { idempotencyKey: string }).idempotencyKey).toBe('web-health-1');
+    routes.shift();
+    await flushQueue();
+    expect(calls.filter((c) => c.method === 'POST').map((c) => (c.body as { idempotencyKey: string }).idempotencyKey)).toEqual([
+      'web-health-1',
+      'web-health-1',
+    ]);
+  });
+
+  it('keeps a declaration refused on replay for the user to re-enter', async () => {
+    route('POST', /health-events/, 'network');
+    await sendOrQueue(declaration);
+    route('POST', /health-events/, { status: 400, body: { message: 'Signe clinique inconnu : DIARRHEE.' } });
+    const summary = await flushQueue();
+    expect(summary.rejected).toBe(1);
+    expect(loadRejected()[0]).toMatchObject({ kind: 'health-event', reason: 'Signe clinique inconnu : DIARRHEE.' });
+  });
+
+  it('surfaces a refusal to the form when online (not queued)', async () => {
+    route('POST', /health-events/, { status: 403, body: { message: 'Accès refusé : les déclarations sanitaires sont réservées à la ferme et aux services vétérinaires.' } });
+    await expect(sendOrQueue(declaration)).rejects.toThrow('services vétérinaires');
+    expect(loadOps()).toHaveLength(0);
+  });
+});

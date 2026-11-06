@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest';
+import type { AccessMatrix } from '../../api/types-access';
+import { notificationRights, surveillanceRights } from './surveillanceAccess';
+
+const profile = (code: string, matrix: AccessMatrix, scopeKind: 'ALL' | 'AUDIT' = 'ALL') => ({ code, matrix, scopeKind });
+const VET = profile('VETERINAIRE', { SANITAIRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'], REGISTRE: ['CONSULTER'] });
+
+describe('surveillanceRights', () => {
+  it('gives the platform admin everything', () => {
+    expect(surveillanceRights('PLATFORM_ADMIN', null)).toMatchObject({ view: true, qualify: true, publish: true, settings: true });
+  });
+
+  it('gives the seeded veterinary profile the circuit, the publication and the settings', () => {
+    expect(surveillanceRights('INSTITUTION', VET)).toEqual({
+      view: true,
+      seesUnpublished: true,
+      qualify: true,
+      publish: true,
+      editLists: true,
+      createCalendars: true,
+      editCalendars: true,
+      settings: true,
+    });
+  });
+
+  it('follows the matrix: a vet profile without VALIDER does not publish', () => {
+    const r = surveillanceRights('INSTITUTION', profile('VETERINAIRE', { SANITAIRE: ['CONSULTER', 'MODIFIER'] }));
+    expect(r.qualify).toBe(true);
+    expect(r.publish).toBe(false);
+  });
+
+  it('a non-veterinary profile with SANITAIRE reads published alerts only, without the circuit', () => {
+    const r = surveillanceRights('INSTITUTION', profile('DGE', { SANITAIRE: ['CONSULTER', 'MODIFIER', 'VALIDER'] }));
+    expect(r).toMatchObject({ view: true, seesUnpublished: false, qualify: false, publish: false, editLists: true });
+  });
+
+  it('nothing without SANITAIRE, for farm accounts, or for an audit scope', () => {
+    expect(surveillanceRights('INSTITUTION', profile('DGE', { REGISTRE: ['CONSULTER'] })).view).toBe(false);
+    expect(surveillanceRights('PROPRIETAIRE', null).view).toBe(false);
+    expect(surveillanceRights('INSTITUTION', profile('X', { SANITAIRE: ['CONSULTER'] }, 'AUDIT')).view).toBe(false);
+  });
+});
+
+describe('notificationRights', () => {
+  it('opens the inbox to every signed-in non-buyer', () => {
+    expect(notificationRights('PROPRIETAIRE', null).inbox).toBe(true);
+    expect(notificationRights('ELEVEUR', null).inbox).toBe(true);
+    expect(notificationRights('INSTITUTION', VET).inbox).toBe(true);
+    expect(notificationRights('ACHETEUR', null).inbox).toBe(false);
+    expect(notificationRights('INSTITUTION', VET, true).inbox).toBe(false);
+  });
+
+  it('rules: ADMINISTRATION Consulter reads, Administrer writes', () => {
+    expect(notificationRights('PLATFORM_ADMIN', null)).toMatchObject({ readRules: true, writeRules: true });
+    const admin = profile('ADMIN', { ADMINISTRATION: ['CONSULTER'] });
+    expect(notificationRights('INSTITUTION', admin)).toMatchObject({ readRules: true, writeRules: false });
+    expect(notificationRights('INSTITUTION', VET)).toMatchObject({ readRules: false, writeRules: false });
+    expect(notificationRights('PROPRIETAIRE', null).readRules).toBe(false);
+  });
+});
