@@ -559,8 +559,11 @@ export class ProgrammeFarmsService {
     return row;
   }
 
-  /** Stores a GPS fix (history row + current point) with its province check. */
-  private async applyGps(
+  /**
+   * Stores a GPS fix (history row + current point) with its province check,
+   * in the caller's transaction (also used by the data recovery).
+   */
+  async applyGps(
     em: EntityManager,
     farm: Farm,
     province: Province,

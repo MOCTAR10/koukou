@@ -12,6 +12,8 @@ import { ProgrammeModule } from '../programme/programme.module.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { SlaughterModule } from '../slaughter/slaughter.module.js';
 import { SyncModule } from '../sync/sync.module.js';
+import { TraceCoreModule } from '../trace/trace-core.module.js';
+import { TraceLotsService } from '../trace/trace-lots.service.js';
 import { BandeCorrectionsService } from './bande-corrections.service.js';
 import { BandeIndicatorsService } from './bande-indicators.service.js';
 import { BandeSnapshotsService } from './bande-snapshots.service.js';
@@ -19,7 +21,7 @@ import { BandesController } from './bandes.controller.js';
 import { BandesService } from './bandes.service.js';
 import { BandeSnapshot } from './entities/bande-snapshot.entity.js';
 import { Sortie } from './entities/sortie.entity.js';
-import { SortiesService } from './sorties.service.js';
+import { SORTIE_CESSION_HOOK, SortiesService } from './sorties.service.js';
 import { WeighingsService } from './weighings.service.js';
 
 /**
@@ -46,6 +48,7 @@ import { WeighingsService } from './weighings.service.js';
     SlaughterModule,
     ProgrammeModule,
     SyncModule,
+    TraceCoreModule,
   ],
   controllers: [BandesController],
   providers: [
@@ -55,6 +58,8 @@ import { WeighingsService } from './weighings.service.js';
     BandeCorrectionsService,
     SortiesService,
     WeighingsService,
+    // Traceability (L7): a sortie towards an operator is a cession.
+    { provide: SORTIE_CESSION_HOOK, useExisting: TraceLotsService },
   ],
   exports: [BandesService, BandeIndicatorsService, WeighingsService],
 })

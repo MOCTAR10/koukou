@@ -32,4 +32,6 @@ export enum AlertKind {
   STOCK_OEUF = 'STOCK_OEUF',
   HEAT = 'HEAT',
   MALADIE = 'MALADIE',
+  /** Declarative input stock (received − used) below zero (POUFA L4). */
+  STOCK_NEGATIF = 'STOCK_NEGATIF',
 }

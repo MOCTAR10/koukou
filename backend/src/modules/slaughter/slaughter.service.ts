@@ -481,8 +481,8 @@ export class SlaughterService {
     const conformityNote = delaiAttente
       ? 'Délai d’attente antibiotique en cours : la commercialisation est suspendue jusqu’à son expiration (sécurité alimentaire).'
       : prophyEnRetard
-        ? 'Des soins planifiés sont en retard au calendrier : les régulariser avant l’abattage pour confirmer la conformité.'
-        : 'Aucun délai d’attente en cours et prophylaxie à jour : le lot est présenté en conformité avec le programme sanitaire.';
+        ? 'Des soins planifiés sont en retard au calendrier : les régulariser avant l’abattage.'
+        : 'Aucun délai d’attente en cours et soins à jour, d’après les saisies de l’élevage.';
 
     const metricRows: PasseportData['metrics'] = [
       { label: 'Âge', value: `${metrics.ageDays} j` },
