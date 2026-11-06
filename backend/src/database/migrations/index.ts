@@ -9,6 +9,7 @@ import { InstitutionalAccess1793915009645 } from './1793915009645-InstitutionalA
 import { AuditInstitutionalAccessTables1793915100000 } from './1793915100000-AuditInstitutionalAccessTables.js';
 import { PoufaBandes1793916683635 } from './1793916683635-PoufaBandes.js';
 import { FarmsAlwaysProgramme1793922775025 } from './1793922775025-FarmsAlwaysProgramme.js';
+import { DataRecovery1793959230932 } from './1793959230932-DataRecovery.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -28,4 +29,5 @@ export const MIGRATIONS = [
   AuditInstitutionalAccessTables1793915100000,
   PoufaBandes1793916683635,
   FarmsAlwaysProgramme1793922775025,
+  DataRecovery1793959230932,
 ];
