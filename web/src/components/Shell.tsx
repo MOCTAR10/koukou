@@ -8,6 +8,9 @@ import {
   BookMarked,
   BellRing,
   Briefcase,
+  DatabaseBackup,
+  FileSearch,
+  SlidersHorizontal,
   ClipboardList,
   Coins,
   Factory,
@@ -141,9 +144,18 @@ export function Shell() {
   const surveillance = useSurveillanceRights();
   const notificationRights = useNotificationRights();
   // POUFA L5 (end)
-  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications;
+  // --- Programme administration (parameters, audit journal, data recovery) ---
+  const adminHeader = pathname.startsWith('/app/parametres')
+    ? 'Paramètres et listes du programme'
+    : pathname.startsWith('/app/audit')
+      ? 'Journal d’audit du programme'
+      : pathname.startsWith('/app/reprise')
+        ? 'Reprise des données du programme'
+        : null;
+  // --- end programme administration ---
+  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null;
   const reduced = useReducedMotion();
-  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage } =
+  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
     useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
@@ -155,6 +167,11 @@ export function Shell() {
     ...(pilotage.view ? [{ to: '/app/pilotage', label: 'Pilotage du programme', icon: Gauge }] : []),
     ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
     ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
+    // --- Programme administration, by domain: PARAMETRES (or ADMINISTRATION for the lists), AUDIT, REGISTRE (national) ---
+    ...(admin.parameters.view || admin.lists.view ? [{ to: '/app/parametres', label: 'Paramètres', icon: SlidersHorizontal }] : []),
+    ...(admin.audit.view ? [{ to: '/app/audit', label: 'Journal d’audit', icon: FileSearch }] : []),
+    ...(admin.recovery.view ? [{ to: '/app/reprise', label: 'Reprise des données', icon: DatabaseBackup }] : []),
+    // --- end programme administration ---
     ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
     // POUFA L5: programme sanitary surveillance, notification rules.
     ...(surveillance.view ? [{ to: '/app/surveillance', label: 'Surveillance sanitaire', icon: ShieldAlert }] : []),
@@ -336,7 +353,9 @@ export function Shell() {
               'Surveillance sanitaire du programme'
             ) : onNotifications ? (
               'Notifications'
-            ) : null}
+            ) : (
+              adminHeader
+            )}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
             {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}

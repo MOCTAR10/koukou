@@ -163,7 +163,6 @@ describe('institutionLanding', () => {
   });
 
   it('sends scopes without farms, and an empty scope, to the access page', () => {
-    expect(institutionLanding(ANINF, 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(p('FINANCED', { TECHNIQUE: ['CONSULTER'] }), 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(AGENT_TECHNIQUE, 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(null, 5)).toBe(MY_ACCESS_PATH);
@@ -175,6 +174,21 @@ describe('institutionLanding', () => {
     expect(institutionShowsEntry(PILOTAGE_PATH, MAEDR)).toBe(true);
     expect(institutionShowsEntry(PILOTAGE_PATH, AGENT_TECHNIQUE)).toBe(false);
     expect(institutionOpensPath('/app/pilotage/rapports', VETERINAIRE)).toBe(false);
+  });
+
+  it('sends the ANINF audit account to the journal', () => {
+    expect(institutionLanding(ANINF, 0)).toBe('/app/audit');
+    expect(institutionShowsEntry('/app/audit', ANINF)).toBe(true);
+    expect(institutionShowsEntry('/app/parametres', ANINF)).toBe(false);
+    expect(institutionShowsEntry('/app/reprise', ANINF)).toBe(false);
+  });
+
+  it('opens the programme administration by domain', () => {
+    expect(institutionShowsEntry('/app/parametres', MAEDR)).toBe(true);
+    expect(institutionShowsEntry('/app/parametres', p('ALL', { ADMINISTRATION: ['CONSULTER'] }))).toBe(true);
+    expect(institutionShowsEntry('/app/parametres/listes', DGE)).toBe(true);
+    expect(institutionShowsEntry('/app/reprise', DGE)).toBe(true);
+    expect(institutionShowsEntry('/app/audit', DGE)).toBe(false);
   });
 
   it('only lands on pages of the table (a missing route would loop on /app)', () => {
@@ -208,6 +222,6 @@ describe('helpers', () => {
   it('pagesOfDomain lists the pages a domain opens', () => {
     expect(pagesOfDomain('SANITAIRE')).toEqual(['/app/sanitary', '/app/surveillance']);
     expect(pagesOfDomain('ECONOMIQUE')).toEqual(['/app/reports', '/app/expenses']);
-    expect(pagesOfDomain('AUDIT')).toEqual([]);
+    expect(pagesOfDomain('AUDIT')).toEqual(['/app/audit']);
   });
 });

@@ -38,6 +38,11 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/surveillance': 'Surveillance sanitaire',
   '/app/notifications/regles': 'Règles de notification',
   // POUFA L5 (end)
+  // --- Programme administration (parameters, audit journal, data recovery) ---
+  '/app/parametres': 'Paramètres',
+  '/app/audit': 'Journal d’audit',
+  '/app/reprise': 'Reprise des données',
+  // --- end programme administration ---
 };
 
 /** Programme-wide pages: open without a farm in the scope (POUFA L5 adds surveillance and notification rules). */
@@ -140,7 +145,7 @@ export function MyAccessPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {granted.map((d) => {
               const actions = ACCESS_ACTIONS.filter((a) => grantsAccess(profile, d, a));
-              // Farm pages need a farm in scope; the access screens don't.
+              // Farm pages need a farm in scope; the access, registry and administration screens don't.
               const pages = pagesOfDomain(d).filter(
                 (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (worksWithoutFarm(p) || (reaches && farms.length > 0)),
               );

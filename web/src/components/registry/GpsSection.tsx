@@ -1,12 +1,21 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ExternalLink, History, LocateFixed } from 'lucide-react';
+import { AlertTriangle, Crosshair, ExternalLink, History, LocateFixed } from 'lucide-react';
 import { api } from '../../api/client';
 import type { RegistryGps, RegistrySheet, SetGpsResult } from '../../api/types-programme';
 import { dateFr, dateTimeFr } from '../../lib/format';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../form';
 import { Loading } from '../ui';
 import { invalidateRegistry, useGpsHistory } from './queries';
+import {
+  accuracyLabel,
+  fixFromPosition,
+  GEOLOCATION_OPTIONS,
+  geolocationErrorMessage,
+  geolocationUnavailableReason,
+  gpsSourceOf,
+  type DeviceFix,
+} from './geolocation';
 import { buildGpsBody } from './sheetForm';
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -107,6 +116,34 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
   const today = todayIso();
   const [draft, setDraft] = useState({ latitude: '', longitude: '', accuracyM: '', capturedAt: '', reason: '' });
   const [formError, setFormError] = useState<string | null>(null);
+  // The browser's fix as read: kept to tell a device point from a hand correction.
+  const [device, setDevice] = useState<DeviceFix | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const locate = () => {
+    const unavailable = geolocationUnavailableReason({
+      hasGeolocation: typeof navigator !== 'undefined' && 'geolocation' in navigator,
+      secureContext: typeof window === 'undefined' || window.isSecureContext,
+    });
+    if (unavailable) return setGeoError(unavailable);
+    setGeoError(null);
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const fix = fixFromPosition(position);
+        setDevice(fix);
+        setDraft((d) => ({ ...d, ...fix, capturedAt: '' }));
+        setFormError(null);
+        setLocating(false);
+      },
+      (err) => {
+        setGeoError(geolocationErrorMessage(err.code));
+        setLocating(false);
+      },
+      GEOLOCATION_OPTIONS,
+    );
+  };
+  const source = gpsSourceOf(draft, device);
   const save = useMutation({
     mutationFn: (body: object) => api.put<SetGpsResult>(`/programme/farms/${sheet.id}/gps`, body),
     onSuccess: (result) => {
@@ -122,7 +159,7 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
   };
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const built = buildGpsBody({ ...draft, today });
+    const built = buildGpsBody({ ...draft, today, source });
     if ('error' in built) return setFormError(built.error);
     save.mutate(built.body);
   };
@@ -145,6 +182,23 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
               l’historique.
             </p>
           ) : null}
+          <div className="space-y-2 rounded-lg bg-slate-50 p-3 ring-1 ring-slate-200">
+            <Button tone="secondary" onClick={locate} busy={locating}>
+              <Crosshair className="h-4 w-4" /> Utiliser ma position
+            </Button>
+            {locating ? <p className="text-xs text-slate-500">Recherche de la position… restez immobile, à découvert si possible.</p> : null}
+            {device && source === 'APPAREIL' ? (
+              <p className="text-xs text-emerald-800">
+                Position de l’appareil reprise ci-dessous. {accuracyLabel(device.accuracyM) ?? 'Précision non fournie par l’appareil.'} Vous pouvez
+                encore la corriger à la main.
+              </p>
+            ) : device ? (
+              <p className="text-xs text-slate-600">Coordonnées modifiées à la main : le relevé sera enregistré comme saisie manuelle.</p>
+            ) : (
+              <p className="text-xs text-slate-500">Sur place, depuis un téléphone ou une tablette : le navigateur demande l’autorisation de localiser.</p>
+            )}
+            {geoError ? <ErrorNote error={geoError} /> : null}
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Latitude">
               <input className={inputCls} inputMode="decimal" value={draft.latitude} onChange={set('latitude')} placeholder="0,3901" required />

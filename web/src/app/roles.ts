@@ -65,7 +65,7 @@ export function farmSpaceState(input: { farmsLoading: boolean; farmsFailed: bool
 /**
  * Pages that make sense without a farm (the rest show the no-farm screen): the
  * platform console, the help, the institutional access screens, the registry
- * (where the first farm gets created) and the programme steering.
+ * (where the first farm gets created), the programme steering and the programme administration.
  */
 export function worksWithoutFarm(pathname: string): boolean {
   return [
@@ -78,6 +78,10 @@ export function worksWithoutFarm(pathname: string): boolean {
     '/app/pilotage',
     '/app/surveillance',
     '/app/notifications',
+    // Programme administration: parameters and lists, audit journal, data recovery.
+    '/app/parametres',
+    '/app/audit',
+    '/app/reprise',
   ].some((root) => isUnder(pathname, root));
 }
 

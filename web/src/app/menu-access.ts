@@ -25,6 +25,9 @@ import type { AccessAction, AccessDomain, AccessMatrix, MyAccess, ScopeKind } fr
  * | /app/registre           | REGISTRE:CONSULTER       | programme/farms (REGISTRE)                                |
  * | /app/acces              | ADMINISTRATION:CONSULTER | programme/access/{catalog,profiles,memberships}           |
  * | /app/pilotage           | PILOTAGE:CONSULTER       | pilotage/dashboard, map, objective, exports, reports      |
+ * | /app/parametres         | PARAMETRES or ADMINISTRATION:CONSULTER | programme/parameters (PARAMETRES), lists (REFERENCE) |
+ * | /app/audit              | AUDIT:CONSULTER          | audit/events, row-changes, seals (AUDIT)                  |
+ * | /app/reprise            | REGISTRE:CONSULTER       | programme/imports (REGISTRE, national scope)              |
  * | /app/mon-acces, /app/help | always                 | programme/access/me (SESSION), none                       |
  * | /app/surveillance(/…)   | SANITAIRE:CONSULTER      | surveillance/alerts, lists, calendars (SANITAIRE)         |
  * | /app/notifications      | always                   | notifications (SESSION: the account's own inbox)          |
@@ -67,6 +70,17 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/notifications': { kind: 'always' },
   '/app/notifications/regles': consult('ADMINISTRATION'),
   // POUFA L5 (end)
+  // --- Programme administration (parameters, audit journal, data recovery) ---
+  '/app/parametres': {
+    kind: 'grant',
+    any: [
+      ['PARAMETRES', 'CONSULTER'],
+      ['ADMINISTRATION', 'CONSULTER'],
+    ],
+  },
+  '/app/audit': consult('AUDIT'),
+  '/app/reprise': consult('REGISTRE'),
+  // --- end programme administration ---
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   '/app/finance': fermia('VENTES'),
@@ -100,6 +114,8 @@ export const INSTITUTION_LANDING_ORDER = [
 export const MY_ACCESS_PATH = '/app/mon-acces';
 export const ACCESS_ADMIN_PATH = '/app/acces';
 export const PILOTAGE_PATH = '/app/pilotage';
+/** The audit journal: the landing of a profile granted AUDIT whose scope reaches no farm (ANINF). */
+export const AUDIT_PATH = '/app/audit';
 
 /** The table key of a path: the entry itself or the closest parent entry. */
 export function menuRuleFor(pathname: string): MenuRule | null {
@@ -177,6 +193,7 @@ export function institutionLanding(access: Pick<MyAccess['profile'], 'matrix' | 
     const page = INSTITUTION_LANDING_ORDER.find((p) => institutionShowsEntry(p, access));
     if (page) return page;
   }
+  if (institutionShowsEntry(AUDIT_PATH, access)) return AUDIT_PATH;
   // Programme steering works without a farm (aggregate scope included).
   if (institutionShowsEntry(PILOTAGE_PATH, access)) return PILOTAGE_PATH;
   if (institutionShowsEntry(ACCESS_ADMIN_PATH, access)) return ACCESS_ADMIN_PATH;

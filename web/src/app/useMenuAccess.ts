@@ -1,6 +1,7 @@
 import { useAuth } from '../auth/AuthContext';
 import { registryRights, type RegistryRights } from '../components/registry/registryAccess';
 import { pilotageRights, type PilotageRights } from '../components/pilotage/pilotageAccess';
+import { adminRights, type AdminRights } from '../components/admin/adminRights';
 import {
   alwaysOpen,
   canAdministerAccess,
@@ -38,6 +39,8 @@ export interface MenuAccess {
   registry: RegistryRights;
   /** Programme steering (`components/pilotage/pilotageAccess.ts`). */
   pilotage: PilotageRights;
+  /** Programme administration: parameters, lists, audit journal, data recovery (`components/admin/adminRights.ts`). */
+  admin: AdminRights;
 }
 
 /**
@@ -70,6 +73,7 @@ export function useMenuAccess(): MenuAccess {
       showMyAccess: false,
       registry: registryRights(user?.role),
       pilotage: pilotageRights(user?.role),
+      admin: adminRights(user?.role),
     };
   }
 
@@ -96,6 +100,7 @@ export function useMenuAccess(): MenuAccess {
     showMyAccess: true,
     registry: registryRights(user?.role, inst.revoked ? null : access?.profile),
     pilotage: pilotageRights(user?.role, inst.revoked ? null : access?.profile),
+    admin: adminRights(user?.role, inst.revoked ? null : access?.profile),
   };
 }
 
