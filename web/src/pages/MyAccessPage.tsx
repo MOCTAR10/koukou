@@ -11,6 +11,7 @@ import {
 import { useFarm } from '../app/FarmContext';
 import { grantsAccess, institutionShowsEntry, pagesOfDomain, scopeReachesFarms } from '../app/menu-access';
 import { useInstitutionAccess } from '../app/useInstitutionAccess';
+import { worksWithoutFarm } from '../app/roles';
 import { useAuth } from '../auth/AuthContext';
 import { dateFromValidUntil, scopeKindNote } from '../components/access/matrix';
 import { Button, ErrorNote } from '../components/form';
@@ -32,6 +33,11 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/expenses': 'Dépenses',
   '/app/registre': 'Registre des fermes',
   '/app/acces': 'Accès institutionnels',
+  // --- Programme administration (parameters, audit journal, data recovery) ---
+  '/app/parametres': 'Paramètres',
+  '/app/audit': 'Journal d’audit',
+  '/app/reprise': 'Reprise des données',
+  // --- end programme administration ---
 };
 
 /** Domains without a screen in the web app yet: what the account can expect. */
@@ -133,9 +139,9 @@ export function MyAccessPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {granted.map((d) => {
               const actions = ACCESS_ACTIONS.filter((a) => grantsAccess(profile, d, a));
-              // Farm pages need a farm in scope; the access screens don't.
+              // Farm pages need a farm in scope; the access, registry and administration screens don't.
               const pages = pagesOfDomain(d).filter(
-                (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (p === '/app/acces' || p === '/app/registre' || (reaches && farms.length > 0)),
+                (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (worksWithoutFarm(p) || (reaches && farms.length > 0)),
               );
               const note = NO_SCREEN_YET[d];
               return (

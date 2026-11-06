@@ -81,6 +81,9 @@ describe('worksWithoutFarm', () => {
     expect(worksWithoutFarm('/app/helpdesk')).toBe(false);
     expect(worksWithoutFarm('/app/acces/comptes')).toBe(true);
     expect(worksWithoutFarm('/app/mon-acces')).toBe(true);
+    expect(worksWithoutFarm('/app/parametres/listes')).toBe(true);
+    expect(worksWithoutFarm('/app/audit')).toBe(true);
+    expect(worksWithoutFarm('/app/reprise/abc')).toBe(true);
   });
 
   it('keeps the registry open, where the first farm is created', () => {

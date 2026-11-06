@@ -7,6 +7,9 @@ import {
   BadgePercent,
   BookMarked,
   Briefcase,
+  DatabaseBackup,
+  FileSearch,
+  SlidersHorizontal,
   ClipboardList,
   Coins,
   Factory,
@@ -128,9 +131,18 @@ export function Shell() {
   const onPlatform = pathname.startsWith('/app/platform');
   const onRegistry = pathname.startsWith('/app/registre');
   const onAccess = pathname.startsWith('/app/acces') || pathname.startsWith('/app/mon-acces');
-  const onProgramme = onPlatform || onRegistry || onAccess;
+  // --- Programme administration (parameters, audit journal, data recovery) ---
+  const adminHeader = pathname.startsWith('/app/parametres')
+    ? 'Paramètres et listes du programme'
+    : pathname.startsWith('/app/audit')
+      ? 'Journal d’audit du programme'
+      : pathname.startsWith('/app/reprise')
+        ? 'Reprise des données du programme'
+        : null;
+  // --- end programme administration ---
+  const onProgramme = onPlatform || onRegistry || onAccess || adminHeader !== null;
   const reduced = useReducedMotion();
-  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry } =
+  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, admin } =
     useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
@@ -140,6 +152,11 @@ export function Shell() {
     ...(registry.view ? [{ to: '/app/registre', label: 'Registre des fermes', icon: BookMarked }] : []),
     ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
     ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
+    // --- Programme administration, by domain: PARAMETRES (or ADMINISTRATION for the lists), AUDIT, REGISTRE (national) ---
+    ...(admin.parameters.view || admin.lists.view ? [{ to: '/app/parametres', label: 'Paramètres', icon: SlidersHorizontal }] : []),
+    ...(admin.audit.view ? [{ to: '/app/audit', label: 'Journal d’audit', icon: FileSearch }] : []),
+    ...(admin.recovery.view ? [{ to: '/app/reprise', label: 'Reprise des données', icon: DatabaseBackup }] : []),
+    // --- end programme administration ---
     ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
   ];
   const nav = NAV.map((group) => ({
@@ -312,7 +329,9 @@ export function Shell() {
               'Registre des fermes du programme'
             ) : onAccess ? (
               'Accès institutionnels du programme'
-            ) : null}
+            ) : (
+              adminHeader
+            )}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
             {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}

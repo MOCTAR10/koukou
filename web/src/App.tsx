@@ -40,6 +40,11 @@ import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
 import { AccessPage } from './pages/AccessPage';
 import { MyAccessPage } from './pages/MyAccessPage';
 import { InstitutionHomeRedirect } from './components/access/InstitutionHomeRedirect';
+// --- Programme administration (parameters, audit journal, data recovery) ---
+import { ParametersPage } from './pages/ParametersPage';
+import { AuditPage } from './pages/AuditPage';
+import { RecoveryPage } from './pages/RecoveryPage';
+// --- end programme administration ---
 
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
@@ -107,6 +112,11 @@ export function App() {
           <Route path="help" element={<HelpPage />} />
           {/* Programme farm registry: the page checks its own access (useMenuAccess). */}
           <Route path="registre" element={<RegistryPage />} />
+          {/* --- Programme administration: each page checks its own access (useMenuAccess().admin). --- */}
+          <Route path="parametres/*" element={<ParametersPage />} />
+          <Route path="audit/*" element={<AuditPage />} />
+          <Route path="reprise/*" element={<RecoveryPage />} />
+          {/* --- end programme administration --- */}
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>

@@ -1,5 +1,6 @@
 import { useAuth } from '../auth/AuthContext';
 import { registryRights, type RegistryRights } from '../components/registry/registryAccess';
+import { adminRights, type AdminRights } from '../components/admin/adminRights';
 import {
   alwaysOpen,
   canAdministerAccess,
@@ -35,6 +36,8 @@ export interface MenuAccess {
   showMyAccess: boolean;
   /** What the farm registry offers (`components/registry/registryAccess.ts`). */
   registry: RegistryRights;
+  /** Programme administration: parameters, lists, audit journal, data recovery (`components/admin/adminRights.ts`). */
+  admin: AdminRights;
 }
 
 /**
@@ -66,6 +69,7 @@ export function useMenuAccess(): MenuAccess {
       showAccessAdmin: isAdmin,
       showMyAccess: false,
       registry: registryRights(user?.role),
+      admin: adminRights(user?.role),
     };
   }
 
@@ -91,6 +95,7 @@ export function useMenuAccess(): MenuAccess {
     showAccessAdmin: canAdministerAccess(user?.role, access?.profile),
     showMyAccess: true,
     registry: registryRights(user?.role, inst.revoked ? null : access?.profile),
+    admin: adminRights(user?.role, inst.revoked ? null : access?.profile),
   };
 }
 
