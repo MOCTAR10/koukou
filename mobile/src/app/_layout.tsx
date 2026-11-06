@@ -62,7 +62,17 @@ function RootNavigator() {
         <Stack.Screen name="sanitary" />
         <Stack.Screen name="slaughter" />
         <Stack.Screen name="tasks" />
+        {/* ── POUFA field work (M2) ── */}
+        <Stack.Screen name="livraisons/index" />
+        <Stack.Screen name="livraisons/[id]" />
+        {/* ── end POUFA ── */}
       </Stack.Protected>
+      {/* ── POUFA notification inbox (M2) ── */}
+      <Stack.Protected guard={signedIn && area !== 'buyer'}>
+        <Stack.Screen name="notifications/index" />
+        <Stack.Screen name="notifications/[id]" />
+      </Stack.Protected>
+      {/* ── end POUFA ── */}
       <Stack.Protected guard={signedIn && area === 'buyer'}>
         <Stack.Screen name="(acheteur)" />
       </Stack.Protected>

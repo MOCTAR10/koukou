@@ -27,6 +27,23 @@ import {
 } from '@/api/mutations';
 
 import { loadSession } from '@/api/token';
+import {
+  confirmDelivery,
+  createDeclaration,
+  createSortie,
+  setFarmGps,
+  uploadDeclarationPhoto,
+  type ConfirmDeliveryPayload,
+  type ConfirmResult,
+  type DeclarationPayload,
+  type DeclarationPhoto,
+  type FarmGpsPayload,
+  type FarmGpsResult,
+  type SortiePayload,
+  type SortieView,
+} from '@/api/poufa';
+
+import { discardPhoto, photoExists } from './photo-files';
 
 import {
   bumpAttempts,
@@ -162,7 +179,11 @@ function isCreation(op: OfflineOp): boolean {
     op.kind === 'order-payment' ||
     op.kind === 'customer-payment' ||
     op.kind === 'pdv-create' ||
-    op.kind === 'stock-transfer-create'
+    op.kind === 'stock-transfer-create' ||
+    op.kind === 'health-event' ||
+    op.kind === 'delivery-confirm' ||
+    op.kind === 'sortie' ||
+    op.kind === 'farm-gps'
   );
 }
 
@@ -173,6 +194,18 @@ export const MAX_SERVER_ATTEMPTS = 10;
 class CashBlockedError extends Error {}
 
 export type SendResult = { status: 'sent'; reference?: string } | { status: 'queued' };
+
+/** Like `SendResult`, with the server's answer when it was sent live. */
+export type SendResultOf<T> = { status: 'sent'; data: T } | { status: 'queued' };
+
+/** `sendOrQueue` keeping the live answer (same FIFO and queueing rules). */
+async function sendOrQueueWith<T>(op: NewOp, live: () => Promise<T>): Promise<SendResultOf<T>> {
+  let data: T | undefined;
+  const result = await sendOrQueue(op, async () => {
+    data = await live();
+  });
+  return result.status === 'sent' ? { status: 'sent', data: data as T } : { status: 'queued' };
+}
 
 export async function createDailyEntryQueued(
   farmId: string,
@@ -481,6 +514,141 @@ export async function cancelStockTransferQueued(
   );
 }
 
+// ── POUFA field work (mobile M2) ─────────────────────────────
+// Every op below is a creation the server deduplicates: `idempotencyKey =
+// op.id` on the live attempt and on replay (health events and sorties via
+// their unique (farmId, idempotencyKey), a delivery confirmation answers
+// `replay: true`). The GPS point has no key: see `setFarmGpsQueued`.
+
+export interface HealthEventOpPayload {
+  batchId: string;
+  payload: DeclarationPayload;
+  /** Local files, sent after the event exists (same bytes = same photo on the server). */
+  photos: DeclarationPhoto[];
+}
+
+export interface DeclarationSent {
+  eventId: string;
+  photosSent: number;
+  /** French reasons of the photos the server refused (the declaration itself is saved). */
+  photosRefused: string[];
+}
+
+/**
+ * Uploads the photos of a saved event. A refused photo (4xx: size, format,
+ * 5 per event) is skipped with its reason; a network failure throws, so the
+ * whole op is replayed: the event comes back by its key and photos already
+ * stored are recognised by their hash. Files are discarded only at the end.
+ */
+async function sendDeclarationPhotos(
+  farmId: string,
+  batchId: string,
+  eventId: string,
+  photos: readonly DeclarationPhoto[],
+): Promise<{ sent: number; refused: string[] }> {
+  let sent = 0;
+  const refused: string[] = [];
+  for (const photo of photos) {
+    if (!photoExists(photo)) {
+      refused.push('Photo introuvable sur le téléphone.');
+      continue;
+    }
+    try {
+      await uploadDeclarationPhoto(farmId, batchId, eventId, photo);
+      sent += 1;
+    } catch (e) {
+      if (shouldDrop(e)) {
+        refused.push((e as ApiError).message);
+        continue;
+      }
+      throw e;
+    }
+  }
+  photos.forEach(discardPhoto);
+  return { sent, refused };
+}
+
+async function sendDeclaration(farmId: string, p: HealthEventOpPayload): Promise<DeclarationSent> {
+  const event = await createDeclaration(farmId, p.batchId, p.payload);
+  const photos = await sendDeclarationPhotos(farmId, p.batchId, event.id, p.photos ?? []);
+  return { eventId: event.id, photosSent: photos.sent, photosRefused: photos.refused };
+}
+
+/** Sanitary declaration (CDC 21), queued offline with its photos. */
+export function createDeclarationQueued(
+  farmId: string,
+  batchId: string,
+  declaration: DeclarationPayload,
+  photos: DeclarationPhoto[] = [],
+): Promise<SendResultOf<DeclarationSent>> {
+  const opId = nextId('health-event');
+  const payload: HealthEventOpPayload = {
+    batchId,
+    payload: { ...declaration, idempotencyKey: declaration.idempotencyKey ?? opId },
+    photos,
+  };
+  return sendOrQueueWith({ id: opId, kind: 'health-event', farmId, batchId, payload }, () => sendDeclaration(farmId, payload));
+}
+
+export interface DeliveryConfirmOpPayload {
+  deliveryId: string;
+  payload: ConfirmDeliveryPayload;
+}
+
+/** Input delivery confirmation (CDC 17-18): a replay answers `replay: true`. */
+export function confirmDeliveryQueued(
+  farmId: string,
+  deliveryId: string,
+  confirmation: ConfirmDeliveryPayload,
+): Promise<SendResultOf<ConfirmResult>> {
+  const opId = nextId('delivery-confirm');
+  const payload: DeliveryConfirmOpPayload = {
+    deliveryId,
+    payload: { ...confirmation, idempotencyKey: confirmation.idempotencyKey ?? opId },
+  };
+  return sendOrQueueWith({ id: opId, kind: 'delivery-confirm', farmId, payload }, () =>
+    confirmDelivery(farmId, deliveryId, payload.payload),
+  );
+}
+
+export interface SortieOpPayload {
+  batchId: string;
+  payload: SortiePayload;
+}
+
+/** Sends a sortie with the phone's clock at send time (server skew check). */
+function sendSortie(farmId: string, p: SortieOpPayload): Promise<SortieView> {
+  return createSortie(farmId, p.batchId, { ...p.payload, deviceSentAt: new Date().toISOString() });
+}
+
+/** Band exit (CDC 9), deduplicated by the server on its key. */
+export function createSortieQueued(
+  farmId: string,
+  batchId: string,
+  sortie: SortiePayload,
+): Promise<SendResultOf<SortieView>> {
+  const opId = nextId('sortie');
+  const payload: SortieOpPayload = {
+    batchId,
+    payload: {
+      ...sortie,
+      idempotencyKey: sortie.idempotencyKey ?? opId,
+      capturedAt: sortie.capturedAt ?? new Date().toISOString(),
+    },
+  };
+  return sendOrQueueWith({ id: opId, kind: 'sortie', farmId, batchId, payload }, () => sendSortie(farmId, payload));
+}
+
+/**
+ * GPS fix of the farm (CDC 2). The route takes no idempotency key: a replay
+ * after a lost answer writes the same point (same `capturedAt`) once more in
+ * the GPS history, never a different one.
+ */
+export function setFarmGpsQueued(farmId: string, gps: FarmGpsPayload): Promise<SendResultOf<FarmGpsResult>> {
+  const opId = nextId('farm-gps');
+  return sendOrQueueWith({ id: opId, kind: 'farm-gps', farmId, payload: { payload: gps } }, () => setFarmGps(farmId, gps));
+}
+
 /** `failed` = server error (5xx): counted, unlike network or 401 retries. */
 type ProcessResult = 'ok' | 'retry' | 'failed' | 'dropped' | 'rejected' | 'skip';
 
@@ -525,6 +693,17 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       await createStockTransfer(op.farmId, keyed<StockTransferInput>(op));
     } else if (op.kind === 'stock-transfer-cancel') {
       await cancelStockTransfer(op.farmId, (op.payload as { transferId: string }).transferId);
+    } else if (op.kind === 'health-event') {
+      const p = op.payload as HealthEventOpPayload;
+      await sendDeclaration(op.farmId, { ...p, payload: { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id } });
+    } else if (op.kind === 'delivery-confirm') {
+      const p = op.payload as DeliveryConfirmOpPayload;
+      await confirmDelivery(op.farmId, p.deliveryId, { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id });
+    } else if (op.kind === 'sortie') {
+      const p = op.payload as SortieOpPayload;
+      await sendSortie(op.farmId, { ...p, payload: { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id } });
+    } else if (op.kind === 'farm-gps') {
+      await setFarmGps(op.farmId, (op.payload as { payload: FarmGpsPayload }).payload);
     } else {
       // Credit sale (no payment): no caisse needed, same as the live path.
       if (isCashOp(op)) await ensureCashOpenOrRetry(op);
@@ -534,6 +713,8 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
   } catch (e) {
     if (e instanceof CashBlockedError) return 'skip';
     if (shouldDrop(e)) {
+      // A refused declaration is re-entered by hand: its kept photo copies go.
+      if (op.kind === 'health-event') ((op.payload as HealthEventOpPayload).photos ?? []).forEach(discardPhoto);
       if (isCashOp(op) || isCreation(op)) {
         rejectOp(op, (e as ApiError).message);
         return 'rejected';

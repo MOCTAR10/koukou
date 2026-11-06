@@ -185,12 +185,28 @@ function buildingSpace(b: Building, type: BatchType): BuildingSpace {
   return { occupied, capacityAvailable, densityAvailable, available };
 }
 
+/**
+ * Pre-filled opening after a confirmed chick delivery (POUFA L4
+ * `openBandHint`). `chickCostBooked`: the chicks are already an expense, so
+ * the chick price is neither asked nor sent.
+ */
+export interface LotPrefill {
+  quantityAtStart: number;
+  integrationDate: string;
+  couvoirSupplier: string;
+  chickLotNumber: string;
+  chickCostBooked: boolean;
+}
+
 interface CreateLotSheetProps {
   visible: boolean;
   onClose: () => void;
+  prefill?: LotPrefill | null;
+  /** Called with the opened band (e.g. to link a delivery to it). */
+  onCreated?: (batch: { id: string }) => void;
 }
 
-export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
+export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateLotSheetProps) {
   const { farmId } = useAuth();
   const qc = useQueryClient();
 
@@ -262,6 +278,19 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
   });
 
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
+
+  // Delivery prefill: applied each time the sheet opens with one.
+  const noChickPrice = prefill?.chickCostBooked === true;
+  useEffect(() => {
+    if (!visible || !prefill) return;
+    setQuantityAtStart(String(prefill.quantityAtStart));
+    setIntegrationDate(ymdToDate(prefill.integrationDate.slice(0, 10)));
+    setCouvoirSupplier(prefill.couvoirSupplier);
+    setChickLotNumber(prefill.chickLotNumber);
+    setChickUnitPrice('');
+    setIsRunning(false);
+    setArrivalAge('');
+  }, [visible, prefill]);
 
   // Band opening (POUFA rule): integrationDate = arrival day, initialAgeDays =
   // age of the birds on arrival. Age, feed phase and care due follow J+x.
@@ -543,10 +572,11 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       }
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidateFarmQueries(qc, { farmId });
       resetForm();
       onClose();
+      if (result?.id) onCreated?.({ id: result.id });
     },
   });
 
@@ -609,7 +639,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
     if (couvoirSupplier.trim()) payload.couvoirSupplier = couvoirSupplier.trim();
     if (chickLotNumber.trim()) payload.chickLotNumber = chickLotNumber.trim();
     if (hatchDate) payload.hatchDate = localYmd(hatchDate);
-    if (chickUnitPrice.trim()) payload.chickUnitPriceFcfa = parseInt(chickUnitPrice, 10);
+    if (chickUnitPrice.trim() && !noChickPrice) payload.chickUnitPriceFcfa = parseInt(chickUnitPrice, 10);
     createMutation.mutate(payload);
   };
 
@@ -1324,9 +1354,15 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
             onChange={onHatchDateChange} maximumDate={new Date()} locale='fr-FR' />
         )}
       </Field>
-      <Field label='Prix poussin (FCFA)'>
-        <TextInput value={chickUnitPrice} onChangeText={(t) => setChickUnitPrice(digitsOnly(t))} placeholder='Ex : 1500' keyboardType='numeric' />
-      </Field>
+      {noChickPrice ? (
+        <AppText size='small' color='muted'>
+          Prix du poussin : déjà compté en dépense à la confirmation de la livraison.
+        </AppText>
+      ) : (
+        <Field label='Prix poussin (FCFA)'>
+          <TextInput value={chickUnitPrice} onChangeText={(t) => setChickUnitPrice(digitsOnly(t))} placeholder='Ex : 1500' keyboardType='numeric' />
+        </Field>
+      )}
 
       {/* ── Running lot: Review summary ── */}
       {isRunning && (

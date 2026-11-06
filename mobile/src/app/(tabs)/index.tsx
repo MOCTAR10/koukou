@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Bell, Wheat, Banknote, BarChart3, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Building, Stethoscope, Users } from 'lucide-react-native';
+import { InboxButton } from '@/components/notifications/InboxButton';
 import * as Haptics from 'expo-haptics';
 
 import { Screen } from '@/components/ui/Screen';
@@ -276,6 +277,9 @@ export default function AccueilScreen() {
               {liveNow.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </AppText>
           </View>
+          {/* ── POUFA notification inbox (M2) ── */}
+          <InboxButton />
+          {/* ── end POUFA ── */}
           <Pressable
             onPress={() => router.push('/alerts')}
             accessibilityRole='button'

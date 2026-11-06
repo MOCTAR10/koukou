@@ -85,14 +85,20 @@ import type {
 } from '@/api/types';
 import { SPECIES_LABELS } from '@/api/format';
 import { bandCycle } from '@/utils/band';
+// ── POUFA band sheet (M2) ──
+import { BandPanel } from '@/components/band/BandPanel';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { readsProgrammeDomain } from '@/poufa/access';
+// ── end POUFA ──
 
 // ── Tabs ──
-type MainTab = 'overview' | 'curves' | 'history' | 'health';
+type MainTab = 'overview' | 'curves' | 'history' | 'health' | 'programme';
 const MAIN_TABS: { key: MainTab; label: string; icon: typeof Clock }[] = [
   { key: 'overview', label: 'Vue', icon: Layers },
   { key: 'curves', label: 'Courbes', icon: Activity },
   { key: 'history', label: 'Historique', icon: Clock },
   { key: 'health', label: 'Sanitaire', icon: HeartPulse },
+  { key: 'programme', label: 'Bande', icon: Target },
 ];
 
 // ── History filter ──
@@ -207,7 +213,7 @@ export default function LotDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const batchId = String(id ?? '');
   const { openDaily, openSale } = useQuickCapture();
-  const { farmId } = useAuth();
+  const { farmId, user } = useAuth();
 
   // ── Fenêtre partagée PeriodBar (déclarée avant les requêtes : elles en dépendent) ──
   const [period, setPeriod] = useState<PeriodWindow>(() => periodWindow('all'));
@@ -228,6 +234,10 @@ export default function LotDetailScreen() {
   const canRapports = farmProfile.hasPermission('compta:rapports');
   // Selling opens the POS (Fermia-only sales desk): never for an institution.
   const canSell = farmProfile.hasPermission('vente:creer');
+  // POUFA band sheet: TECHNIQUE domain; exits are farm-side (`saisie:creer`).
+  const programmeAccess = useProgrammeAccess();
+  const showBandSheet = readsProgrammeDomain(user.role, programmeAccess.matrix, 'TECHNIQUE');
+  const canExit = farmProfile.hasPermission('saisie:creer') && !farmProfile.isInstitution;
   const rentabQ = useQuery({ queryKey: ['rentabilite-batch', farmId, batchId], queryFn: () => fetchRentabiliteBatch(farmId, batchId), enabled: !!batchId && canRapports });
   const feedStockQ = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
   const dashboardQ = useQuery({ queryKey: ['dashboard', farmId, asOf ?? '', period.time ?? ''], queryFn: () => fetchDashboard(farmId, asOf, period.time), staleTime: 30_000 });
@@ -698,7 +708,7 @@ export default function LotDetailScreen() {
 
       {/* ── MAIN TABS ── */}
       <View style={styles.tabRow}>
-        {MAIN_TABS.map((t) => {
+        {MAIN_TABS.filter((t) => t.key !== 'programme' || showBandSheet).map((t) => {
           const active = mainTab === t.key;
           const Icon = t.icon;
           return (
@@ -1164,6 +1174,11 @@ export default function LotDetailScreen() {
           )}
         </>
       )}
+
+      {/* ── POUFA band sheet ── */}
+      {mainTab === 'programme' && showBandSheet && b ? (
+        <BandPanel farmId={farmId} batch={b} canExit={canExit} has={(code) => farmProfile.hasPermission(code as Parameters<typeof farmProfile.hasPermission>[0])} />
+      ) : null}
 
       {/* ── ALERTS ── */}
       {lotAlerts.length > 0 && mainTab === 'overview' && (
