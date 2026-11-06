@@ -8,6 +8,7 @@
     "scheme": "fermia",
     "userInterfaceStyle": "light",
     "android": {
+      "package": "ga.greenleaves.fermia",
       "adaptiveIcon": {
         "backgroundColor": "#0C2331",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
