@@ -1,5 +1,5 @@
 import { OmitType } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, MaxLength, Min } from 'class-validator';
 import { CustomerType } from '../../../common/enums/customer-type.enum.js';
 
 export class CreateCustomerDto {
@@ -37,6 +37,11 @@ export class UpdateCustomerDto extends OmitType(CreateCustomerDto, [
   @IsOptional()
   @IsString({ message: 'Le nom du client doit être une chaîne de caractères.' })
   fullName?: string;
+
+  /** Programme operator this customer is (traceability); null removes the link. */
+  @IsOptional()
+  @IsUUID('4', { message: 'Identifiant d’opérateur invalide.' })
+  operatorId?: string | null;
 }
 
 /** Encaissement depuis la fiche client : montant réparti sur les ventes impayées. */
