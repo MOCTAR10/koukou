@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertTriangle,
   BadgePercent,
+  BookMarked,
   Briefcase,
   ClipboardList,
   Coins,
@@ -37,6 +38,8 @@ import { useMenuAccess } from '../app/useMenuAccess';
 import { Logo } from './Logo';
 import { NoFarmScreen } from './NoFarmScreen';
 import { OfflineBar } from './OfflineBar';
+import { FarmPicker } from './programme/FarmPicker';
+import { useProvinces } from './registry/queries';
 import { QuickCreate } from './QuickCreate';
 import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
@@ -118,17 +121,17 @@ export function Shell() {
 
   const isAdmin = user?.role === 'PLATFORM_ADMIN';
   const { pathname } = useLocation();
+  // Programme-wide pages, not about the active farm: no farm picker nor quick actions.
   const onPlatform = pathname.startsWith('/app/platform');
+  const onRegistry = pathname.startsWith('/app/registre');
+  const onProgramme = onPlatform || onRegistry;
   const reduced = useReducedMotion();
-  const { hasPermission, isGroundEleveur } = useMenuAccess();
+  const { hasPermission, isGroundEleveur, canOpenRegistry } = useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
-  const farmOptions = farms.map((f) => (
-    <option key={f.id} value={f.id}>
-      {f.code ? `${f.code} · ` : ''}
-      {f.name}
-      {!f.active ? ' (suspendue)' : ''}
-    </option>
-  ));
+  const provinces = useProvinces(farms.length > 0);
+  const provinceNames = useMemo(() => new Map((provinces.data ?? []).map((p) => [p.id, p.name])), [provinces.data]);
+  const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
+  const farmProvince = farm?.provinceId ? provinceNames.get(farm.provinceId) : undefined;
   const nav = NAV.map((group) => ({
     ...group,
     items: [
@@ -165,18 +168,20 @@ export function Shell() {
           </button>
         </div>
 
-        {!onPlatform && farms.length > 0 ? (
+        {!onProgramme && farms.length > 0 ? (
           <div className="px-3 md:max-xl:hidden">
-            <label className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">
-              {isAdmin ? 'Ferme à consulter' : 'Ferme active'}
-            </label>
-            <select
-              className="select-on-dark w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-sm text-white outline-none focus:border-brand-400 [&>option]:text-slate-900"
-              value={farmId ?? ''}
-              onChange={(e) => setFarm(e.target.value)}
-            >
-              {farmOptions}
-            </select>
+            <p className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">{pickerLabel}</p>
+            <FarmPicker
+              tone="dark"
+              farms={farms}
+              farmId={farmId}
+              onPick={(id) => {
+                setFarm(id);
+                setMobileOpen(false);
+              }}
+              label={pickerLabel}
+              provinceNames={provinceNames}
+            />
           </div>
         ) : null}
 
@@ -202,12 +207,24 @@ export function Shell() {
               </div>
             </div>
           ))}
-          {isAdmin ? (
+          {isAdmin || canOpenRegistry ? (
             <div>
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
-                Plateforme
+                {isAdmin ? 'Plateforme' : 'Programme'}
               </p>
               <div className="space-y-0.5">
+                {canOpenRegistry ? (
+                  <NavLink
+                    to="/app/registre"
+                    onClick={() => setMobileOpen(false)}
+                    aria-label="Registre des fermes"
+                    className={navLinkCls}
+                  >
+                    <BookMarked className="h-4 w-4 shrink-0" />
+                    <span className={RAIL_TEXT}>Registre des fermes</span>
+                  </NavLink>
+                ) : null}
+                {isAdmin ? (
                 <NavLink
                   to="/app/platform"
                   onClick={() => setMobileOpen(false)}
@@ -217,6 +234,7 @@ export function Shell() {
                   <Shield className="h-4 w-4 shrink-0" />
                   <span className={RAIL_TEXT}>Cockpit plateforme</span>
                 </NavLink>
+                ) : null}
               </div>
             </div>
           ) : null}
@@ -264,17 +282,18 @@ export function Shell() {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex min-w-0 items-center text-sm font-medium text-slate-700">
-            {!onPlatform && farm ? (
+            {!onProgramme && farm ? (
               <>
                 {/* The rail has no room for the farm picker: it moves up here. */}
-                <select
-                  aria-label={isAdmin ? 'Ferme à consulter' : 'Ferme active'}
-                  className="hidden max-w-56 rounded-lg border border-slate-200 bg-white py-1.5 pl-2.5 text-sm font-medium text-slate-700 outline-none focus:border-brand-500 md:max-xl:block"
-                  value={farmId ?? ''}
-                  onChange={(e) => setFarm(e.target.value)}
-                >
-                  {farmOptions}
-                </select>
+                <FarmPicker
+                  tone="light"
+                  className="hidden w-64 md:max-xl:block"
+                  farms={farms}
+                  farmId={farmId}
+                  onPick={setFarm}
+                  label={pickerLabel}
+                  provinceNames={provinceNames}
+                />
                 <span className="truncate md:max-xl:hidden">
                   {isAdmin ? <span className="text-slate-400">Ferme : </span> : null}
                   {farm.name}
@@ -285,17 +304,20 @@ export function Shell() {
                   </span>
                 ) : null}
                 <span className="ml-2 hidden text-xs font-normal text-slate-400 sm:inline">
+                  {farmProvince ? `${farmProvince} · ` : ''}
                   {farm.administrativeCity} · {farm.active ? 'ferme active' : 'ferme suspendue'}
                 </span>
               </>
             ) : onPlatform ? (
               'Console administrateur plateforme'
+            ) : onRegistry ? (
+              'Registre des fermes du programme'
             ) : null}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
-            {!onPlatform && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
+            {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
           </div>
-          <div className="ml-auto lg:ml-0">{!onPlatform && farmId ? <QuickCreate /> : null}</div>
+          <div className="ml-auto lg:ml-0">{!onProgramme && farmId ? <QuickCreate /> : null}</div>
           {isAdmin ? (
             <button
               onClick={() => navigate('/app/platform')}
