@@ -32,6 +32,10 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/expenses': 'Dépenses',
   '/app/registre': 'Registre des fermes',
   '/app/acces': 'Accès institutionnels',
+  // POUFA W6
+  '/app/intrants': 'Intrants (livraisons du programme)',
+  '/app/livraisons': 'Livraisons d’intrants de la ferme',
+  '/app/tracabilite': 'Traçabilité et opérateurs',
 };
 
 /** Domains without a screen in the web app yet: what the account can expect. */

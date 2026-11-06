@@ -47,6 +47,9 @@ import { QuickCreate } from './QuickCreate';
 import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
 import { motion, useReducedMotion } from 'motion/react';
+// POUFA W6: inputs and traceability entries.
+import { QrCode, Truck } from 'lucide-react';
+import { FARM_DELIVERIES_PATH, isProgrammeWidePath, programmeEntries, programmeWideLabel } from './trace/traceAccess';
 
 /** `perms`: at least one is required to show the entry; absent means visible to all. */
 const NAV: Array<{
@@ -68,6 +71,7 @@ const NAV: Array<{
       { to: '/app/activities', label: 'Activités', icon: NotebookPen },
       { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText, perms: ['sanitaire:lecture'] },
       { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse, perms: ['stock:gerer'] },
+      { to: FARM_DELIVERIES_PATH, label: 'Livraisons d’intrants', icon: Truck }, // POUFA W6
       { to: '/app/slaughter', label: 'Abattage', icon: Factory, perms: ['production:abattage'] },
     ],
   },
@@ -128,7 +132,8 @@ export function Shell() {
   const onPlatform = pathname.startsWith('/app/platform');
   const onRegistry = pathname.startsWith('/app/registre');
   const onAccess = pathname.startsWith('/app/acces') || pathname.startsWith('/app/mon-acces');
-  const onProgramme = onPlatform || onRegistry || onAccess;
+  const onProgrammeWide = isProgrammeWidePath(pathname); // POUFA W6
+  const onProgramme = onPlatform || onRegistry || onAccess || onProgrammeWide;
   const reduced = useReducedMotion();
   const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry } =
     useMenuAccess();
@@ -140,6 +145,8 @@ export function Shell() {
     ...(registry.view ? [{ to: '/app/registre', label: 'Registre des fermes', icon: BookMarked }] : []),
     ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
     ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
+    // POUFA W6: programme inputs and traceability.
+    ...programmeEntries(user?.role, (to) => showEntry(to)).map((e) => ({ to: e.to, label: e.label, icon: e.kind === 'intrants' ? Truck : QrCode })),
     ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
   ];
   const nav = NAV.map((group) => ({
@@ -310,6 +317,8 @@ export function Shell() {
               'Console administrateur plateforme'
             ) : onRegistry ? (
               'Registre des fermes du programme'
+            ) : onProgrammeWide ? (
+              programmeWideLabel(pathname)
             ) : onAccess ? (
               'Accès institutionnels du programme'
             ) : null}

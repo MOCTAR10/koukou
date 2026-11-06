@@ -24,6 +24,9 @@ import type { AccessAction, AccessDomain, AccessMatrix, MyAccess, ScopeKind } fr
  * | /app/expenses           | ECONOMIQUE:CONSULTER     | farms/:id/expenses (ECONOMIQUE)                           |
  * | /app/registre           | REGISTRE:CONSULTER       | programme/farms (REGISTRE)                                |
  * | /app/acces              | ADMINISTRATION:CONSULTER | programme/access/{catalog,profiles,memberships}           |
+ * | /app/intrants           | INTRANTS:CONSULTER       | programme/input-deliveries (INTRANTS)                     |
+ * | /app/livraisons         | INTRANTS:CONSULTER       | farms/:id/input-deliveries, declarative-stock (INTRANTS)  |
+ * | /app/tracabilite…       | TRACABILITE or ADMINISTRATION:CONSULTER | trace/lots (TRACABILITE), trace/operators (REFERENCE) |
  * | /app/mon-acces, /app/help | always                 | programme/access/me (SESSION), none                       |
  * | /app/finance…, orders, market, points-of-sale | never | VENTES, MARCHE (Fermia-only)                         |
  * | /app/accounting         | never                    | COMPTABILITE (Fermia-only)                                |
@@ -57,6 +60,10 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/expenses': consult('ECONOMIQUE'),
   '/app/registre': consult('REGISTRE'),
   '/app/acces': consult('ADMINISTRATION'),
+  // POUFA W6: programme inputs, the farm deliveries, traceability (lots, code lookup, operators registry).
+  '/app/intrants': consult('INTRANTS'),
+  '/app/livraisons': consult('INTRANTS'),
+  '/app/tracabilite': { kind: 'grant', any: [['TRACABILITE', 'CONSULTER'], ['ADMINISTRATION', 'CONSULTER']] },
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   '/app/finance': fermia('VENTES'),

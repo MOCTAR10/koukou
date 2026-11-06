@@ -40,6 +40,11 @@ import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
 import { AccessPage } from './pages/AccessPage';
 import { MyAccessPage } from './pages/MyAccessPage';
 import { InstitutionHomeRedirect } from './components/access/InstitutionHomeRedirect';
+// POUFA W6: inputs, traceability and the public QR page.
+import { FarmDeliveriesPage } from './pages/FarmDeliveriesPage';
+import { IntrantsPage } from './pages/IntrantsPage';
+import { PublicLotPage } from './pages/PublicLotPage';
+import { TracabilitePage } from './pages/TracabilitePage';
 
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
@@ -107,6 +112,10 @@ export function App() {
           <Route path="help" element={<HelpPage />} />
           {/* Programme farm registry: the page checks its own access (useMenuAccess). */}
           <Route path="registre" element={<RegistryPage />} />
+          {/* POUFA W6: programme inputs (the page checks INTRANTS), the farm deliveries and traceability. */}
+          <Route path="intrants" element={<IntrantsPage />} />
+          <Route path="livraisons" element={<FarmDeliveriesPage />} />
+          <Route path="tracabilite/*" element={<TracabilitePage />} />
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>
@@ -120,6 +129,8 @@ export function App() {
         </Route>
         </Route>
       </Route>
+      {/* POUFA W6: public page of a lot QR code (no account, never cached offline). */}
+      <Route path="/l/:code" element={<PublicLotPage />} />
       <Route path="*" element={<Navigate to="/app" replace />} />
     </Routes>
   );
