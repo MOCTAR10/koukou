@@ -337,6 +337,22 @@ describe('controlBandRows', () => {
     expect(over.rows[0].errors[0]).toMatch(/Mortalité cumulée \(11\)/);
   });
 
+  it('flags a weight without its sample (the server refuses it at import)', () => {
+    const r = controlBandRows(
+      rows({
+        bandRef: 'B08',
+        farmCode: 'G1-0001',
+        integrationDate: '01/09/2026',
+        quantityAtStart: '10',
+        entryDate: '02/09/2026',
+        deaths: '0',
+        avgWeightG: '50',
+      }),
+      ctx(),
+    );
+    expect(r.rows[0].errors[0]).toMatch(/nombre de sujets pesés/);
+  });
+
   it('refuses entry data without a date and duplicated days', () => {
     const r = controlBandRows(
       rows(

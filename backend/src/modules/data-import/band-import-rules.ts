@@ -1,3 +1,4 @@
+import { WEIGHING_SAMPLE_REQUIRED_MESSAGE } from '../daily-entries/weighing-rules.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
 import { ImportRowOutcome } from '../../common/enums/import-job.enum.js';
 import {
@@ -660,6 +661,11 @@ function controlGroup(group: Group, ctx: BandControlContext): BandPlan | null {
           'Le nombre de sujets pesés accompagne un poids moyen.',
         );
       } else entry.sampleSize = sample;
+    }
+    // CDC n° 8: the server refuses a weight without its sample, so the
+    // preview flags it instead of failing at import.
+    if (entry.avgWeightKg !== undefined && sample === undefined) {
+      control.errors.push(WEIGHING_SAMPLE_REQUIRED_MESSAGE);
     }
     if (linked?.entryDates.has(day)) {
       alreadyPresent.push(input.line);
