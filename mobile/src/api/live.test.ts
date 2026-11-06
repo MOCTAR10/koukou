@@ -213,6 +213,24 @@ describe('LiveApi.fetchBatches / fetchBatch', () => {
     expect(batch.breedName).toBe('Souche maison');
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/breeds'))).toHaveLength(2);
   });
+
+  it('garde les champs de la bande POUFA (code, J+x, durée de référence, clôture)', async () => {
+    stubFetchSequence([
+      jsonResponse(200, [
+        {
+          id: 'lot-3', farmId: 'f-1', batchName: 'Bande 3', breedId: null, integrationDate: '2026-10-16',
+          quantityAtStart: 800, quantityAlive: 790, type: 'CHAIR', status: 'ACTIF',
+          code: 'G1-0003-B01', initialAgeDays: 21, referenceDurationDays: 45, closedAt: null,
+          metrics: { ageDays: 42 },
+        },
+      ]),
+      jsonResponse(200, []),
+    ]);
+    const [batch] = await new LiveApi().fetchBatches('f-1');
+    expect(batch).toMatchObject({ code: 'G1-0003-B01', initialAgeDays: 21, referenceDurationDays: 45, closedAt: null });
+    // The served age already includes J+x.
+    expect(batch.metrics.ageDays).toBe(42);
+  });
 });
 
 describe('LiveApi.fetchFeedStock / fetchCaisse', () => {
@@ -330,20 +348,6 @@ describe('LiveApi — sanitaire, abattage, clients, rentabilité', () => {
     const pnl = await new LiveApi().fetchRentabiliteBatch('f-1', 'b-2');
     expect(pnl.batchId).toBe('b-2');
     expect(readCall(fetchMock).url).toBe('http://10.0.0.5:3000/farms/f-1/rentabilite/batches/b-2');
-  });
-
-  it('fetchRecoltes liste le journal des récoltes', async () => {
-    const fetchMock = stubFetch(async () => jsonResponse(200, [{ id: 'r-1', parcelleId: 'parc-1', quantity: 40, unit: 'KG' }]));
-    const rows = await new LiveApi().fetchRecoltes('f-1');
-    expect(rows[0].quantity).toBe(40);
-    expect(readCall(fetchMock).url).toBe('http://10.0.0.5:3000/farms/f-1/recoltes');
-  });
-
-  it('fetchRecolteStock lit le stock disponible par parcelle', async () => {
-    const fetchMock = stubFetch(async () => jsonResponse(200, [{ parcelleId: 'parc-1', harvested: 100, sold: 30, available: 70 }]));
-    const stock = await new LiveApi().fetchRecolteStock('f-1');
-    expect(stock[0].available).toBe(70);
-    expect(readCall(fetchMock).url).toBe('http://10.0.0.5:3000/farms/f-1/recoltes/stock');
   });
 
   it('fetchSales liste les ventes (période en query optionnelle)', async () => {

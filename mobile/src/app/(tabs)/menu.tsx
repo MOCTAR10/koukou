@@ -4,6 +4,7 @@ import { useRouter, type Href } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import {
   Activity,
+  Bell,
   Bird,
   BookOpen,
   Briefcase,
@@ -18,11 +19,10 @@ import {
   MapPin,
   ReceiptText,
   Settings,
-  Sprout,
   Stethoscope,
   Store,
-  Tractor,
   Drumstick,
+  Truck,
   User,
   Users,
   Wheat,
@@ -39,6 +39,23 @@ import { dismissRejected, useOfflineQueue, type RejectedOp } from '@/offline';
 import { HeldCashNotice } from '@/components/HeldCashNotice';
 import { farmRoleLabel } from '@/api/roles';
 import type { PermissionCode } from '@/api/types';
+// ── POUFA field work (M2) ──
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { hasInbox, readsProgrammeDomain } from '@/poufa/access';
+
+/** Deliveries tile: farm accounts, or an institution whose matrix reads INTRANTS. */
+function usePoufaMenuItems(): { deliveries: MenuItem[]; inbox: MenuItem[] } {
+  const { user } = useAuth();
+  const access = useProgrammeAccess();
+  const deliveries: MenuItem[] = readsProgrammeDomain(user.role, access.matrix, 'INTRANTS')
+    ? [{ key: 'livraisons', label: 'Livraisons d’intrants', icon: Truck, href: '/livraisons' as Href }]
+    : [];
+  const inbox: MenuItem[] = hasInbox(user.role)
+    ? [{ key: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' as Href }]
+    : [];
+  return { deliveries, inbox };
+}
+// ── end POUFA ──
 
 interface MenuItem {
   key: string;
@@ -47,6 +64,8 @@ interface MenuItem {
   href: Href;
   /** Droits (au moins un) requis pour afficher la tuile ; absent = visible par tous. */
   perms?: PermissionCode[];
+  /** Fermia-only domain the backend refuses to any institution, whatever its permissions. */
+  fermiaOnly?: boolean;
 }
 
 interface MenuGroup {
@@ -95,9 +114,12 @@ function GroundHome() {
     },
   ];
 
+  const poufa = usePoufaMenuItems();
   const links: MenuItem[] = [
     { key: 'profil', label: 'Mon profil', icon: User, href: '/reglages' },
     { key: 'lots', label: 'Mes lots', icon: Bird, href: '/lots' },
+    ...poufa.deliveries,
+    ...poufa.inbox,
   ];
 
   return (
@@ -139,7 +161,8 @@ function GroundHome() {
 
 export default function MenuScreen() {
   const router = useRouter();
-  const { isGroundEleveur, hasPermission } = useFarmProfile();
+  const { isGroundEleveur, hasPermission, fermiaData } = useFarmProfile();
+  const poufa = usePoufaMenuItems();
 
   if (isGroundEleveur) {
     return <GroundHome />;
@@ -158,18 +181,7 @@ export default function MenuScreen() {
         { key: 'sanitaire', label: 'Sanitaire', icon: Stethoscope, href: '/sanitary', perms: ['sanitaire:lecture'] },
         { key: 'stock', label: 'Stock & provendes', icon: Wheat, href: '/provende', perms: ['stock:gerer'] },
         { key: 'abattage', label: 'Abattage', icon: Drumstick, href: '/slaughter', perms: ['production:abattage'] },
-      ],
-    },
-    {
-      key: 'agriculture',
-      title: 'Agriculture',
-      subtitle: 'Parcelles, récoltes & terres',
-      icon: Sprout,
-      iconColor: palette.green[700],
-      iconBg: semantic.successSoft,
-      items: [
-        { key: 'parcelles', label: 'Parcelles', icon: Sprout, href: '/parcelles' },
-        { key: 'recoltes', label: 'Récoltes', icon: Tractor, href: '/recoltes' },
+        ...poufa.deliveries,
       ],
     },
     {
@@ -196,7 +208,7 @@ export default function MenuScreen() {
       iconBg: semantic.warnSoft,
       items: [
         { key: 'rapports', label: 'Rentabilité', icon: FileBarChart2, href: '/rapports', perms: ['compta:rapports'] },
-        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'] },
+        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'], fermiaOnly: true },
         { key: 'depenses', label: 'Dépenses', icon: ReceiptText, href: '/depenses', perms: ['compta:depense'] },
       ],
     },
@@ -210,6 +222,7 @@ export default function MenuScreen() {
         { key: 'equipe', label: 'Équipe', icon: Users, href: '/equipe', perms: ['equipe:gerer'] },
         { key: 'rh', label: 'Dossiers RH', icon: Briefcase, href: '/rh', perms: ['rh:lire', 'equipe:gerer'] },
         { key: 'profil', label: 'Profil', icon: User, href: '/reglages' },
+        ...poufa.inbox,
       ],
     },
   ];
@@ -218,7 +231,9 @@ export default function MenuScreen() {
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.perms || item.perms.some((code) => hasPermission(code))),
+      items: group.items.filter(
+        (item) => (fermiaData || !item.fermiaOnly) && (!item.perms || item.perms.some((code) => hasPermission(code))),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -319,6 +334,11 @@ const REJECTED_KIND_LABEL: Partial<Record<RejectedOp['kind'], string>> = {
   'customer-payment': 'Encaissement client',
   'pdv-create': 'Point de vente',
   'stock-transfer-create': 'Transfert',
+  // POUFA field work (M2)
+  'health-event': 'Déclaration sanitaire',
+  'delivery-confirm': 'Confirmation de livraison',
+  sortie: 'Sortie de bande',
+  'farm-gps': 'Position GPS de la ferme',
 };
 
 /** Kind of a rejected op, plus the amount collected if any, for display. */

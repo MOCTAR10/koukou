@@ -27,6 +27,7 @@ import {
   type StatusFilter,
 } from '@/api/alerts.filters';
 import type { Alert } from '@/api/types';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { color, gradeColor, palette, radii, fontFamily, semantic } from '@/constants/theme';
 
 function todayIso(): string {
@@ -95,6 +96,8 @@ export default function AlertsScreen() {
   };
 
   const openLot = (batchId: string) => router.push(`/lot/${batchId}`);
+  // A sale opens the POS (Fermia-only sales desk): an institution sees the lot instead.
+  const canSell = useFarmProfile().hasPermission('vente:creer');
 
   const runAcknowledge = (alert: Alert) => {
     if (!alert.alertId || busyId) return;
@@ -160,7 +163,7 @@ export default function AlertsScreen() {
         openFeed();
         return;
       case 'VENTE':
-        if (alert.id.startsWith('ready:')) {
+        if (alert.id.startsWith('ready:') || !canSell) {
           if (alert.batchId) openLot(alert.batchId);
         } else if (alert.batchId) openSale(alert.batchId);
         else router.push('/pos');
@@ -296,7 +299,7 @@ export default function AlertsScreen() {
                 ACTIONS PRIORITAIRES
               </AppText>
               {priority.map((a) => (
-                <AlertCard key={a.id} alert={a} busy={busyId === a.id} onPrimary={handlePrimary} onOpenLot={openLot} />
+                <AlertCard key={a.id} alert={a} busy={busyId === a.id} onPrimary={handlePrimary} onOpenLot={openLot} canSell={canSell} />
               ))}
             </>
           )}
@@ -307,7 +310,7 @@ export default function AlertsScreen() {
                 INFORMATIONS
               </AppText>
               {infos.map((a) => (
-                <AlertCard key={a.id} alert={a} busy={busyId === a.id} onPrimary={handlePrimary} onOpenLot={openLot} showWhy={false} />
+                <AlertCard key={a.id} alert={a} busy={busyId === a.id} onPrimary={handlePrimary} onOpenLot={openLot} showWhy={false} canSell={canSell} />
               ))}
             </>
           )}

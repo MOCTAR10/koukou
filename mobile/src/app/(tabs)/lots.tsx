@@ -72,6 +72,7 @@ import { useCreateCenter } from '@/components/create/CreateCenter';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { ApiError } from '@/api/client';
 import { toast } from '@/components/ui/Feedback';
+import { ageOnDay, bandCycle, lotSearchText } from '@/utils/band';
 
 // ── Filters ──
 type FilterType = 'all' | 'active' | 'selling' | 'chair' | 'layer';
@@ -95,9 +96,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'health', label: 'Santé' },
 ];
 
-// ── Breed cycle lengths (days) ──
-const CHAIR_CYCLE_DAYS = 84; // ~12 weeks
-const LAYER_CYCLE_DAYS = 504; // ~72 weeks
 const FINANCE_WINDOW_DAYS = 30; // fenêtre financière par défaut
 
 // ── Production stage (stade) thresholds ──
@@ -270,7 +268,6 @@ const splitCareLabel = (label: string): { action: string; detail: string } => {
 
 // Les dates sanitaires sont stockées en UTC (YYYY-MM-DD) côté serveur.
 const fromUtc = (epochMs: number) => new Date(epochMs).toISOString().slice(0, 10);
-const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 
 function careChips(prophylaxis: ProphylaxisEvent[] | undefined): CareChipData[] {
   const chips: CareChipData[] = [];
@@ -373,7 +370,7 @@ type CareInsight = { tone: 'red' | 'amber' | 'neutral'; main: string; sub: strin
 const MEDICAL_CARE_TYPES = new Set(['VACCIN', 'MEDICAMENT', 'ANTIBIOTIQUE']);
 
 function nextCareInsight(
-  batch: { integrationDate: string; metrics: { ageDays: number } },
+  batch: { integrationDate: string; initialAgeDays?: number | null; metrics: { ageDays: number } },
   prophylaxis: ProphylaxisEvent[] | undefined,
   treatments: TreatmentRecord[] | undefined,
   program: SanitaryProtocolWithSteps | undefined,
@@ -382,7 +379,8 @@ function nextCareInsight(
   const medical = events.filter((p) => MEDICAL_CARE_TYPES.has(p.careType));
   const integration = batch.integrationDate ? batch.integrationDate.slice(0, 10) : undefined;
   const today = fromUtc(Date.now());
-  const jOf = (iso: string) => (integration ? daysBetween(integration, iso) + 1 : null);
+  // Age of the birds on that day (J+x aware), the same J as the served ageDays.
+  const jOf = (iso: string) => (integration ? ageOnDay(integration, batch.initialAgeDays, iso) : null);
   const sorted = (arr: ProphylaxisEvent[]) => [...arr].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
 
   const late = sorted(medical.filter((p) => p.status === 'EN_RETARD'));
@@ -488,8 +486,11 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
 export default function LotsScreen() {
   const router = useRouter();
   const { farmId } = useAuth();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, fermiaData, isInstitution } = useFarmProfile();
   const canRapports = hasPermission('compta:rapports');
+  // Sales and expenses sit in the programme ÉCONOMIQUE domain: an institution
+  // reads them only with it (compta:rapports); orders are Fermia-only.
+  const readsEconomics = !isInstitution || canRapports;
   const { openCreateBuilding } = useCreateCenter();
   const batches = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
   const buildings = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
@@ -565,16 +566,18 @@ export default function LotsScreen() {
   const salesQ = useQuery({
     queryKey: ['sales', farmId, finMode, finFrom, finTo],
     queryFn: () => fetchSales(farmId, finFrom, finTo),
+    enabled: readsEconomics,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
   const expensesQ = useQuery({
     queryKey: ['expenses', farmId, finMode, finFrom, finTo],
     queryFn: () => fetchExpenses(farmId, finFrom, finTo),
+    enabled: readsEconomics,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
-  const ordersQ = useQuery({ queryKey: ['orders', farmId], queryFn: () => fetchOrders(farmId), staleTime: 30_000 });
+  const ordersQ = useQuery({ queryKey: ['orders', farmId], queryFn: () => fetchOrders(farmId), enabled: fermiaData, staleTime: 30_000 });
 
   // ── Comparaison à la fenêtre précédente (même longueur) ──
   const prevWin = useMemo(() => shiftWindow(finFrom ?? undefined, finTo), [finFrom, finTo]);
@@ -591,10 +594,13 @@ export default function LotsScreen() {
   useLiveMinute(() => {
     if (period.isFiltered) return;
     void batches.refetch();
-    void ordersQ.refetch();
-    void pnl.refetch();
-    void salesQ.refetch();
-    void expensesQ.refetch();
+    // refetch() ignores `enabled`: only what this account may read.
+    if (fermiaData) void ordersQ.refetch();
+    if (canRapports) void pnl.refetch();
+    if (readsEconomics) {
+      void salesQ.refetch();
+      void expensesQ.refetch();
+    }
   });
 
   // ── Filter & Sort ──
@@ -643,7 +649,7 @@ export default function LotsScreen() {
     let list = filteredList;
     const q = search.trim().toLowerCase();
     if (q) {
-      list = list.filter((b) => (b.batchName ?? '').toLowerCase().includes(q) || (b.breedName ?? '').toLowerCase().includes(q));
+      list = list.filter((b) => lotSearchText(b).includes(q));
     }
 
     list = [...list].sort((a, b) => {
@@ -1188,8 +1194,13 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
   const spec = batch.species ?? 'POULET';
   const customName = spec === 'AUTRE' && batch.customSpecies ? batch.customSpecies : null;
   const specLabel = customName ?? speciesLabel(spec);
-  const cycleDays = isLayer ? LAYER_CYCLE_DAYS : CHAIR_CYCLE_DAYS;
-  const ageProgress = Math.min(100, (m.ageDays / cycleDays) * 100);
+  // Cycle of the band: its reference duration (programme parameter at opening).
+  const cycle = bandCycle({
+    ageDays: m.ageDays,
+    referenceDurationDays: batch.referenceDurationDays,
+    type: batch.type,
+  });
+  const ageProgress = cycle.progressPercent;
 
   // Pillule de statut : la décision la plus utile à connaître d'un coup d'œil.
   const pill = batchStatusPill(batch);
@@ -1247,6 +1258,11 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
           <AppText size="body" weight="bold" color="text">
             {batch.batchName ?? 'Lot'}
           </AppText>
+          {batch.code ? (
+            <AppText size="small" weight="semibold" color="brand" numberOfLines={1}>
+              {batch.code}
+            </AppText>
+          ) : null}
           <AppText color="muted" style={{ fontSize: 11, lineHeight: 14 }} allowFontScaling={false}>
             {[batch.breedCode, batch.breedName, isLayer ? 'Pondeuse' : 'Chair'].filter(Boolean).join(' · ')}
           </AppText>
@@ -1322,7 +1338,9 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${ageProgress}%`, backgroundColor: statusColor }]} />
         </View>
-        <AppText size="small" color="faint">{Math.max(0, cycleDays - m.ageDays)}j restants · {ageProgress.toFixed(0)}%</AppText>
+        <AppText size="small" color="faint">
+          {cycle.remainingDays}j restants sur {cycle.cycleDays}j{cycle.fromReference ? ' (durée de référence)' : ''} · {ageProgress.toFixed(0)}%
+        </AppText>
       </View>
 
       {/* ── MAIN METRICS (fortes) ── */}
@@ -2484,6 +2502,8 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
 }) {
   const router = useRouter();
   const { openDaily, openSale } = useQuickCapture();
+  // Selling opens the POS (Fermia-only sales desk): never for an institution.
+  const canSell = useFarmProfile().hasPermission('vente:creer');
   const m = batch.metrics;
   const stage = batchStage(batch);
   const openFull = () => {
@@ -2496,7 +2516,7 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
     <Sheet
       visible={visible}
       title={batch.batchName ?? 'Lot'}
-      subtitle={`${[batch.breedCode, batch.breedName, kindLabel(batch)].filter(Boolean).join(' · ')} · ${stage.label} · J${m.ageDays}`}
+      subtitle={`${[batch.code, batch.breedCode, batch.breedName, kindLabel(batch)].filter(Boolean).join(' · ')} · ${stage.label} · J${m.ageDays}`}
       accentColor={m.status === 'ROUGE' ? palette.red[500] : m.status === 'JAUNE' ? palette.amber[500] : palette.brand[500]}
       icon={speciesImage ? (
         <View style={styles.sheetIconTile}>
@@ -2522,17 +2542,19 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
               <ClipboardList size={15} color={semantic.primary} />
               <AppText size="small" weight="bold" color={semantic.primaryText}>Saisir aujourd&apos;hui</AppText>
             </Pressable>
-            <Pressable
-              onPress={() => {
-                onClose();
-                openSale(batch.id);
-              }}
-              style={({ pressed }) => [styles.sheetActionBtn, pressed && { opacity: 0.8 }]}
-              accessibilityRole="button"
-            >
-              <ShoppingCart size={15} color={palette.accent[600]} />
-              <AppText size="small" weight="bold" color={semantic.accentText}>Vendre</AppText>
-            </Pressable>
+            {canSell ? (
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  openSale(batch.id);
+                }}
+                style={({ pressed }) => [styles.sheetActionBtn, pressed && { opacity: 0.8 }]}
+                accessibilityRole="button"
+              >
+                <ShoppingCart size={15} color={palette.accent[600]} />
+                <AppText size="small" weight="bold" color={semantic.accentText}>Vendre</AppText>
+              </Pressable>
+            ) : null}
           </View>
           <Pressable
             onPress={openFull}

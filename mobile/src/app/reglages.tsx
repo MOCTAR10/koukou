@@ -11,11 +11,13 @@ import {
   Coins,
   Crosshair,
   Crown,
+  Hash,
   HandCoins,
   Info,
   Landmark,
   Lock,
   LogOut,
+  Map as MapIcon,
   MapPin,
   Phone,
   Scale,
@@ -37,9 +39,11 @@ import { FarmLogo } from '@/components/ui/FarmLogo';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { FarmIdentityCard } from '@/components/farm/FarmIdentityCard';
+import { FarmGpsCard } from '@/components/farm/FarmGpsCard';
 import { RemindersCard } from '@/components/RemindersCard';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { farmProvinceLabel } from '@/api/format';
 import { fetchReferenceConstants } from '@/api';
 import { farmRoleLabel, roleLabel } from '@/api/roles';
 import type { ReferenceConstant } from '@/api/types';
@@ -117,6 +121,7 @@ export default function ReglagesScreen() {
   const { farms, user, signOut, farmId } = useAuth();
   const farm = farms.find((f) => f.id === farmId) ?? farms[0];
   const profileHook = useFarmProfile();
+  const province = farmProvinceLabel(farm);
   const [constantsOpen, setConstantsOpen] = useState(false);
 
   const constants = useQuery({ queryKey: ['reference-constants'], queryFn: () => fetchReferenceConstants() });
@@ -187,6 +192,18 @@ export default function ReglagesScreen() {
             <>
               <View style={styles.divider} />
               <InfoRow icon={Building} label="Ferme" value={farm.name} />
+              {farm.code ? (
+                <>
+                  <View style={styles.divider} />
+                  <InfoRow icon={Hash} label="Code programme" value={farm.code} />
+                </>
+              ) : null}
+              {province ? (
+                <>
+                  <View style={styles.divider} />
+                  <InfoRow icon={MapIcon} label="Province" value={province} />
+                </>
+              ) : null}
               <View style={styles.divider} />
               <InfoRow icon={MapPin} label="Commune" value={farm.administrativeCity || 'Non renseignée'} />
             </>
@@ -267,10 +284,15 @@ export default function ReglagesScreen() {
         <Animated.View entering={staggeredEnter(3)}>
           <SectionHeader
             title="Ma ferme"
-            subtitle={canEditFarm ? 'Nom et logo modifiables' : 'Paramètres appliqués aux calculs'}
+            subtitle={canEditFarm ? 'Fiche du registre · logo modifiable' : 'Fiche du registre du programme'}
             icon={Crosshair}
           />
           <FarmIdentityCard farm={farm} canEdit={canEditFarm} />
+          {/* ── POUFA GPS capture (M2) ── */}
+          <View style={{ marginTop: 8 }}>
+            <FarmGpsCard farm={farm} />
+          </View>
+          {/* ── end POUFA ── */}
         </Animated.View>
       ) : null}
 

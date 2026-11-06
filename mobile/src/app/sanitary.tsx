@@ -67,7 +67,6 @@ import { breedImageForLot } from '@/constants/breedImages';
 import {
   cancelProphylaxis,
   completeProphylaxis,
-  createHealthEvent,
   createManualSchedule,
   deleteHealthEvent,
   deleteSchedule,
@@ -82,26 +81,47 @@ import type { CreateHealthEventInput, CreateManualScheduleInput } from '@/api/mu
 import type {
   AlertLevel,
   BatchHealth,
-  BatchWithMetrics,
   CareType,
   DiseaseSeverity,
   HealthEvent,
   HealthEventKind,
   InputLot,
+  ProductionBatch,
   ProphylaxisEvent,
   SanitaryProtocolWithSteps,
   TreatmentRecord,
 } from '@/api/types';
 import { color, palette, fontFamily, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
-type TabKey = 'sante' | 'check' | 'maladies' | 'traitements';
+import { ageZeroDay } from '@/utils/band';
+// POUFA M2: offline declaration (signs, suspicion, photos), vets' band list, official alerts.
+import { DeclarationExtras, useClinicalSigns } from '@/components/sanitary/DeclarationExtras';
+import { OfficialAlertsCard } from '@/components/sanitary/OfficialAlertsCard';
+import { fetchSanitaryLots, type DeclarationPhoto } from '@/api/poufa';
+import { createDeclarationQueued } from '@/offline';
+import { cachedRead } from '@/offline/ref-cache';
+import { persistPhoto } from '@/offline/photo-files';
+import { knownSigns, withDeclarationFields } from '@/poufa/declaration';
+import { openSanitaryLots } from '@/poufa/sanitary-lots';
+import { matrixGrants } from '@/poufa/access';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+
+type TabKey = 'sante' | 'check' | 'maladies' | 'traitements' | 'alertes';
 
 const TAB_OPTIONS: { key: TabKey; label: string; icon: (active: boolean) => React.ReactNode; description: string; tint?: 'green' | 'red' }[] = [
   { key: 'sante', label: 'Santé', icon: (active) => <HeartPulse size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Score, métriques, mortalité' },
   { key: 'check', label: 'Check', icon: (active) => <Activity size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Analyse & recommandations' },
   { key: 'maladies', label: 'Maladies', icon: (active) => <Stethoscope size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Événements & symptômes', tint: 'red' as const },
   { key: 'traitements', label: 'Traitements', icon: (active) => <Syringe size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Calendrier & soins' },
+  { key: 'alertes', label: 'Officielles', icon: (active) => <ShieldCheck size={22} color={active ? semantic.surface : color.ink[500]} strokeWidth={2.2} />, description: 'Alertes sanitaires officielles', tint: 'red' as const },
 ];
+
+const TAB_KEYS: readonly TabKey[] = ['sante', 'check', 'maladies', 'traitements', 'alertes'];
+
+/** Clock of the band picker, kept out of render (purity convention). */
+function todayIsoUtc(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const CARE_TYPE_LABEL: Record<CareType, string> = {
   VACCIN: 'Vaccin',
@@ -287,14 +307,15 @@ type CareStatus = {
   upToDate: boolean;
 };
 
-function careStatus(events: ProphylaxisEvent[] | undefined, integrationDate: string): CareStatus {
+/** `ageZeroDate` = J0 of the band (`ageZeroDay`): the J of a care is the age of the birds that day. */
+function careStatus(events: ProphylaxisEvent[] | undefined, ageZeroDate: string): CareStatus {
   const active = (events ?? []).filter((p) => p.status !== 'ANNULE');
   const today = fromUtc(Date.now());
   const late = active.filter((p) => p.status === 'EN_RETARD');
   const done = active.filter((p) => p.status === 'FAIT');
   const pending = active.filter((p) => p.status === 'PLANIFIE' && p.scheduledDate >= today);
   const next = [...late, ...pending].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))[0] ?? null;
-  const nextAtDay = next && integrationDate ? daysBetween(integrationDate.slice(0, 10), next.scheduledDate) + 1 : null;
+  const nextAtDay = next && ageZeroDate ? daysBetween(ageZeroDate.slice(0, 10), next.scheduledDate) : null;
   return { lateCount: late.length, doneCount: done.length, pendingCount: pending.length, next, nextAtDay, upToDate: late.length === 0 };
 }
 
@@ -637,24 +658,43 @@ export default function SanitaryScreen() {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
   // Delete actions are gated server-side by `sanitaire:gerer`, not the global role.
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, isInstitution } = useFarmProfile();
   const isProprietaire = hasPermission('sanitaire:gerer');
   const canCompleteCare = isProprietaire || hasPermission('sanitaire:signaler');
+  const canDeclare = hasPermission('sanitaire:signaler') || hasPermission('sanitaire:gerer');
+  const programmeAccess = useProgrammeAccess();
+  // Veterinary services hold SANITAIRE without TECHNIQUE: their band list is
+  // GET …/sanitary/lots, never GET …/batches (403 for them).
+  const sanitaryOnly = isInstitution && !matrixGrants(programmeAccess.matrix, 'TECHNIQUE', 'CONSULTER');
 
   const [window, setWindow] = useState<PeriodWindow>(() => periodWindow('all'));
   const firstWindowRef = useRef(true);
 
-  const batchesQuery = useQuery({ queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''], queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined) });
-  const lots = (batchesQuery.data ?? []).filter((b) => b.status === 'ACTIF' || b.status === 'EN_VENTE');
+  const batchesQuery = useQuery({
+    queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''],
+    queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined),
+    enabled: Boolean(farmId) && !sanitaryOnly && !programmeAccess.isLoading,
+  });
+  const sanitaryLotsQuery = useQuery({
+    queryKey: ['sanitary-lots', farmId],
+    queryFn: () => cachedRead(`sanitary-lots.${farmId}`, () => fetchSanitaryLots(farmId, true)),
+    enabled: Boolean(farmId),
+  });
+  // Offline start (or a vet): the cached sanitary list stands in for the bands.
+  const useSanitaryLots = sanitaryOnly || (batchesQuery.isError && !!sanitaryLotsQuery.data);
+  const lots: ProductionBatch[] = useSanitaryLots
+    ? openSanitaryLots(sanitaryLotsQuery.data ?? [], farmId, todayIsoUtc())
+    : (batchesQuery.data ?? []).filter((b) => b.status === 'ACTIF' || b.status === 'EN_VENTE');
+  const lotsLoading = useSanitaryLots ? sanitaryLotsQuery.isLoading : batchesQuery.isLoading;
 
   const [lotId, setLotId] = useState('');
   const lot = lots.find((b) => b.id === lotId) ?? lots[0];
   const batchId = lot?.id ?? '';
 
   // Accès « planifier un soin » profond depuis une carte lot (?lot=..&plan=1).
-  const { lot: lotParam, plan: planParam } = useLocalSearchParams<{ lot?: string; plan?: string }>();
+  const { lot: lotParam, plan: planParam, tab: tabParam } = useLocalSearchParams<{ lot?: string; plan?: string; tab?: string }>();
 
-  const [tab, setTab] = useState<TabKey>('sante');
+  const [tab, setTab] = useState<TabKey>(() => (TAB_KEYS as readonly string[]).includes(tabParam ?? '') ? (tabParam as TabKey) : 'sante');
 
   const handlePeriodChange = (w: PeriodWindow) => {
     setWindow(w);
@@ -694,7 +734,7 @@ export default function SanitaryScreen() {
 
   useLiveMinute(() => {
     if (window.isFiltered) return;
-    void batchesQuery.refetch();
+    if (!sanitaryOnly) void batchesQuery.refetch();
     if (batchId !== '') {
       void health.refetch();
       void events.refetch();
@@ -726,6 +766,10 @@ export default function SanitaryScreen() {
   const [mortalityCause, setMortalityCause] = useState('');
   const [cullReason, setCullReason] = useState('');
   const [eventFilter, setEventFilter] = useState<EventFilterKey>('ALL');
+  const [clinicalSigns, setClinicalSigns] = useState<string[]>([]);
+  const [suspicion, setSuspicion] = useState(false);
+  const [photos, setPhotos] = useState<DeclarationPhoto[]>([]);
+  const signList = useClinicalSigns();
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -753,10 +797,10 @@ export default function SanitaryScreen() {
   const deepPlanOpened = useRef(false);
   useEffect(() => {
     if (!lotParam) return;
-    if (batchesQuery.isSuccess && lots.some((b) => b.id === lotParam)) {
+    if (lots.some((b) => b.id === lotParam)) {
       setLotId(lotParam);
     }
-  }, [lotParam, batchesQuery.isSuccess, lots]);
+  }, [lotParam, lots]);
 
   useEffect(() => {
     if (planParam !== '1' || deepPlanOpened.current || batchId === '') return;
@@ -790,6 +834,8 @@ export default function SanitaryScreen() {
   const onRefresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['batches', farmId] }),
+      queryClient.invalidateQueries({ queryKey: ['sanitary-lots', farmId] }),
+      queryClient.invalidateQueries({ queryKey: ['sanitary-alerts', farmId] }),
       queryClient.invalidateQueries({ queryKey: ['health', farmId, batchId] }),
       queryClient.invalidateQueries({ queryKey: ['health-events', farmId, batchId] }),
       queryClient.invalidateQueries({ queryKey: ['sanitary', farmId, batchId] }),
@@ -886,17 +932,34 @@ export default function SanitaryScreen() {
 
     setBusy('event');
     try {
-      await createHealthEvent(farmId, lotNow.id, {
-        kind,
-        occurredAt: date,
-        quantity: Math.floor(qty),
-        severity: payloadSeverity,
-        title,
-        ...(description ? { description } : {}),
-        ...(symptomsJoined ? { symptoms: symptomsJoined } : {}),
-        ...(eventNotes.trim() ? { notes: eventNotes.trim() } : {}),
-        ...diseaseFields,
-      });
+      const declaration = withDeclarationFields(
+        {
+          kind,
+          occurredAt: date,
+          quantity: Math.floor(qty),
+          severity: payloadSeverity,
+          title,
+          ...(description ? { description } : {}),
+          ...(symptomsJoined ? { symptoms: symptomsJoined } : {}),
+          ...(eventNotes.trim() ? { notes: eventNotes.trim() } : {}),
+          ...diseaseFields,
+        },
+        // A sign deactivated since the list was cached would be a 400.
+        { clinicalSigns: signList.data ? knownSigns(clinicalSigns, signList.data) : clinicalSigns, suspicion },
+      );
+      // Offline the declaration and its photos wait in the queue (same key on replay).
+      const sent = await createDeclarationQueued(farmId, lotNow.id, declaration, photos.map(persistPhoto));
+      if (sent.status === 'queued') {
+        toast.info(
+          'Déclaration gardée sur le téléphone',
+          `Pas de connexion : elle partira automatiquement${photos.length > 0 ? ` avec ${photos.length} photo(s)` : ''} dès le retour du réseau.`,
+        );
+      } else if (sent.data.photosRefused.length > 0) {
+        toast.error('Déclaration enregistrée, photo(s) refusée(s)', sent.data.photosRefused.join('\n'));
+      }
+      setClinicalSigns([]);
+      setSuspicion(false);
+      setPhotos([]);
       setFormOpen(false);
       setOccurredAt('');
       setQuantity('');
@@ -912,7 +975,9 @@ export default function SanitaryScreen() {
       setCullReason('');
       setDiseaseSeverity('HIGH');
       await invalidate(lotNow.id);
-      if ((kind === 'MORTALITE' || kind === 'REFORME') && qty > 0) {
+      void queryClient.invalidateQueries({ queryKey: ['sanitary-alerts', farmId] });
+      void queryClient.invalidateQueries({ queryKey: ['sanitary-lots', farmId] });
+      if (sent.status === 'sent' && (kind === 'MORTALITE' || kind === 'REFORME') && qty > 0) {
         const birds = Math.floor(qty);
         const lotName = lotNow.batchName ?? 'ce lot';
         const remaining = Math.max(0, (lotNow.quantityAlive ?? 0) - birds);
@@ -967,7 +1032,7 @@ export default function SanitaryScreen() {
 
   return (
     <Screen
-      refreshing={batchesQuery.isFetching && !batchesQuery.isLoading}
+      refreshing={(batchesQuery.isFetching && !batchesQuery.isLoading) || (sanitaryLotsQuery.isFetching && !sanitaryLotsQuery.isLoading)}
       onRefresh={() => void onRefresh()}
       header={
         <>
@@ -991,7 +1056,7 @@ export default function SanitaryScreen() {
         </>
       }
     >
-      {batchesQuery.isLoading ? (
+      {lotsLoading ? (
         <Spinner label="Chargement du calendrier…" />
       ) : (
         <>
@@ -1096,7 +1161,7 @@ export default function SanitaryScreen() {
 
           return (<>
           {tab === 'sante' ? (
-            <SanteTab health={health.data as BatchHealth | undefined} loading={health.isLoading} lotName={lot?.batchName ?? ''} prophylaxis={calendar.data} integrationDate={lot?.integrationDate ?? ''} />
+            <SanteTab health={health.data as BatchHealth | undefined} loading={health.isLoading} lotName={lot?.batchName ?? ''} prophylaxis={calendar.data} ageZeroDate={lot ? ageZeroDay(lot.integrationDate, lot.initialAgeDays) : ''} />
           ) : null}
 
           {tab === 'check' ? (
@@ -1150,11 +1215,25 @@ export default function SanitaryScreen() {
               setEventNotes={setEventNotes}
               eventFilter={eventFilter}
               setEventFilter={setEventFilter}
+              canDeclare={canDeclare}
+              extras={
+                <DeclarationExtras
+                  signs={clinicalSigns}
+                  onSigns={setClinicalSigns}
+                  suspicion={suspicion}
+                  onSuspicion={setSuspicion}
+                  photos={photos}
+                  onPhotos={setPhotos}
+                  disabled={busy !== null}
+                />
+              }
               onSave={() => void saveEvent()}
               onResolve={(e) => void resolveHealth(e)}
               onDelete={(e) => void removeHealth(e)}
             />
           ) : null}
+
+          {tab === 'alertes' ? <OfficialAlertsCard farmId={farmId} /> : null}
 
           {tab === 'traitements' ? (
             <>
@@ -1314,8 +1393,9 @@ function WizardHeader({ title, step, total }: { title: string; step?: number; to
   );
 }
 
-function protocolDateFor(lot: BatchWithMetrics | undefined, dayFrom: number): string {
-  return lot ? addUtcDays(lot.integrationDate, dayFrom) : '';
+function protocolDateFor(lot: ProductionBatch | undefined, dayFrom: number): string {
+  // A protocol step of day N falls on J0 + N (J+x aware, like the backend calendar).
+  return lot ? addUtcDays(ageZeroDay(lot.integrationDate, lot.initialAgeDays), dayFrom) : '';
 }
 
 function ProgramPreview({
@@ -1323,7 +1403,7 @@ function ProgramPreview({
   lot,
 }: {
   program: SanitaryProtocolWithSteps | undefined;
-  lot: BatchWithMetrics | undefined;
+  lot: ProductionBatch | undefined;
 }) {
   if (!program) return null;
   const today = todayStr();
@@ -1372,8 +1452,8 @@ function CreateScheduleWizard({
 }: {
   visible: boolean;
   farmId: string;
-  lots: BatchWithMetrics[];
-  currentLot: BatchWithMetrics | undefined;
+  lots: ProductionBatch[];
+  currentLot: ProductionBatch | undefined;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -2075,8 +2155,8 @@ function EditScheduleSheet({
   );
 }
 
-function CareStatusCard({ events, integrationDate }: { events: ProphylaxisEvent[] | undefined; integrationDate: string }) {
-  const s = careStatus(events, integrationDate);
+function CareStatusCard({ events, ageZeroDate }: { events: ProphylaxisEvent[] | undefined; ageZeroDate: string }) {
+  const s = careStatus(events, ageZeroDate);
   const total = (events ?? []).filter((p) => p.status !== 'ANNULE').length;
   const fg = s.lateCount > 0 ? palette.red[500] : s.pendingCount > 0 ? palette.amber[600] : palette.green[600];
   const bg = s.lateCount > 0 ? semantic.dangerSoft : s.pendingCount > 0 ? semantic.warnSoft : semantic.successSoft;
@@ -2131,7 +2211,7 @@ function CareStatusCard({ events, integrationDate }: { events: ProphylaxisEvent[
   );
 }
 
-function SanteTab({ health, loading, lotName, prophylaxis, integrationDate }: { health: BatchHealth | undefined; loading: boolean; lotName: string; prophylaxis: ProphylaxisEvent[] | undefined; integrationDate: string }) {
+function SanteTab({ health, loading, lotName, prophylaxis, ageZeroDate }: { health: BatchHealth | undefined; loading: boolean; lotName: string; prophylaxis: ProphylaxisEvent[] | undefined; ageZeroDate: string }) {
   if (loading) return <Spinner label="Calcul des indicateurs santé…" />;
 
   const empty = !health;
@@ -2208,7 +2288,7 @@ function SanteTab({ health, loading, lotName, prophylaxis, integrationDate }: { 
       </Card>
 
       <SectionHeader title="Vaccins & médicaments" />
-      <CareStatusCard events={prophylaxis} integrationDate={integrationDate} />
+      <CareStatusCard events={prophylaxis} ageZeroDate={ageZeroDate} />
 
       <SectionHeader title="Mortalité · 7 jours" />
       <Card tone="default" style={styles.chartCard}>
@@ -2326,6 +2406,8 @@ function MaladiesTab({
   setEventNotes,
   eventFilter,
   setEventFilter,
+  canDeclare,
+  extras,
   onSave,
   onResolve,
   onDelete,
@@ -2375,6 +2457,10 @@ function MaladiesTab({
   setEventNotes: (s: string) => void;
   eventFilter: EventFilterKey;
   setEventFilter: (f: EventFilterKey) => void;
+  /** `sanitaire:signaler` or `sanitaire:gerer` (route @Permissions). */
+  canDeclare: boolean;
+  /** Declaration fields of the programme (signs, suspicion, photos). */
+  extras: React.ReactNode;
   onSave: () => void;
   onResolve: (e: HealthEvent) => void;
   onDelete: (e: HealthEvent) => void;
@@ -2409,6 +2495,7 @@ function MaladiesTab({
   return (
     <>
       <SectionHeader title="Événements sanitaires" subtitle={lotName} />
+      {canDeclare ? (
       <View style={styles.addBtn}>
         <Pressable
           onPress={toggleForm}
@@ -2427,8 +2514,9 @@ function MaladiesTab({
           </AppText>
         </Pressable>
       </View>
+      ) : null}
 
-      {formOpen ? (
+      {formOpen && canDeclare ? (
         <Card tone="default" style={styles.formCard}>
           <View style={styles.formTitleRow}>
             <View style={[styles.badge, { backgroundColor: semantic.dangerSoft }]}>
@@ -2548,6 +2636,8 @@ function MaladiesTab({
             </>
           ) : null}
 
+          {extras}
+
           <FormLabel text="NOTES (OPTIONNEL)" />
           <TextInput
             value={eventNotes}
@@ -2567,7 +2657,7 @@ function MaladiesTab({
             loading={busy === 'event'}
           />
           <AppText size="caption" color="faint" style={{ textAlign: 'center' }}>
-            Posté sur le serveur.
+            Sans réseau, la déclaration est gardée sur le téléphone et envoyée dès le retour de la connexion.
           </AppText>
         </Card>
       ) : null}

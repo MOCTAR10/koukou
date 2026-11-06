@@ -84,14 +84,21 @@ import type {
   TreatmentRecord,
 } from '@/api/types';
 import { SPECIES_LABELS } from '@/api/format';
+import { bandCycle } from '@/utils/band';
+// ── POUFA band sheet (M2) ──
+import { BandPanel } from '@/components/band/BandPanel';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { readsProgrammeDomain } from '@/poufa/access';
+// ── end POUFA ──
 
 // ── Tabs ──
-type MainTab = 'overview' | 'curves' | 'history' | 'health';
+type MainTab = 'overview' | 'curves' | 'history' | 'health' | 'programme';
 const MAIN_TABS: { key: MainTab; label: string; icon: typeof Clock }[] = [
   { key: 'overview', label: 'Vue', icon: Layers },
   { key: 'curves', label: 'Courbes', icon: Activity },
   { key: 'history', label: 'Historique', icon: Clock },
   { key: 'health', label: 'Sanitaire', icon: HeartPulse },
+  { key: 'programme', label: 'Bande', icon: Target },
 ];
 
 // ── History filter ──
@@ -206,7 +213,7 @@ export default function LotDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const batchId = String(id ?? '');
   const { openDaily, openSale } = useQuickCapture();
-  const { farmId } = useAuth();
+  const { farmId, user } = useAuth();
 
   // ── Fenêtre partagée PeriodBar (déclarée avant les requêtes : elles en dépendent) ──
   const [period, setPeriod] = useState<PeriodWindow>(() => periodWindow('all'));
@@ -223,7 +230,14 @@ export default function LotDetailScreen() {
   const slaughterQ = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), staleTime: 60_000 });
 
   // ── New queries for lot metrics ──
-  const canRapports = useFarmProfile().hasPermission('compta:rapports');
+  const farmProfile = useFarmProfile();
+  const canRapports = farmProfile.hasPermission('compta:rapports');
+  // Selling opens the POS (Fermia-only sales desk): never for an institution.
+  const canSell = farmProfile.hasPermission('vente:creer');
+  // POUFA band sheet: TECHNIQUE domain; exits are farm-side (`saisie:creer`).
+  const programmeAccess = useProgrammeAccess();
+  const showBandSheet = readsProgrammeDomain(user.role, programmeAccess.matrix, 'TECHNIQUE');
+  const canExit = farmProfile.hasPermission('saisie:creer') && !farmProfile.isInstitution;
   const rentabQ = useQuery({ queryKey: ['rentabilite-batch', farmId, batchId], queryFn: () => fetchRentabiliteBatch(farmId, batchId), enabled: !!batchId && canRapports });
   const feedStockQ = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
   const dashboardQ = useQuery({ queryKey: ['dashboard', farmId, asOf ?? '', period.time ?? ''], queryFn: () => fetchDashboard(farmId, asOf, period.time), staleTime: 30_000 });
@@ -302,15 +316,26 @@ export default function LotDetailScreen() {
     enabled: !!breedIdForStandards,
   });
 
-  // ── Cycle progress (week X / Y from breed standards) ──
+  // ── Cycle progress: the band's reference duration (POUFA), else week X / Y from breed standards ──
   const cycleInfo = useMemo(() => {
-    const std: BreedStandard[] = standardsQ.data ?? [];
     const age = m?.ageDays ?? 0;
+    if (b?.referenceDurationDays) {
+      const cycle = bandCycle({
+        ageDays: age,
+        referenceDurationDays: b.referenceDurationDays,
+        type: b.type,
+      });
+      return {
+        label: `Jour ${cycle.ageDays}/${cycle.cycleDays} · durée de référence`,
+        pct: cycle.progressPercent,
+      };
+    }
+    const std: BreedStandard[] = standardsQ.data ?? [];
     const totalWeeks = std.length > 0 ? Math.max(...std.map((s) => s.week)) : isLayer ? 72 : 12;
     const currentWeek = Math.min(Math.max(Math.ceil(age / 7), 1), totalWeeks);
     const pct = Math.min(100, (age / (totalWeeks * 7)) * 100);
-    return { currentWeek, totalWeeks, pct };
-  }, [standardsQ.data, m?.ageDays, isLayer]);
+    return { label: `Semaine ${currentWeek}/${totalWeeks}`, pct };
+  }, [standardsQ.data, m?.ageDays, isLayer, b?.referenceDurationDays, b?.type]);
 
   const lotFeedLots: FeedLotStock[] = useMemo(() => {
     return (feedStockQ.data?.lots ?? []).filter((l) => l.batchId === batchId);
@@ -579,6 +604,7 @@ export default function LotDetailScreen() {
           {/* ── HEADER + FILTRE PÉRIODE (fixes, comme Accueil) ── */}
           <ScreenHeader
             title={b.batchName ?? 'Lot'}
+            subtitle={b.code ? `Bande ${b.code}` : undefined}
             back
             right={<Chip label={b.status === 'EN_VENTE' ? 'En vente' : 'Actif'} tone={b.status === 'EN_VENTE' ? 'green' : 'brand'} />}
           />
@@ -655,11 +681,14 @@ export default function LotDetailScreen() {
           )}
           <View style={styles.heroActions}>
             <Button label="Saisir" size="xs" labelSize="caption" tone="brand" icon={PenLine} block={false} onPress={() => openDaily(batchId)} />
-            <Button label="Encaisser" size="xs" labelSize="caption" tone="accent" icon={ShoppingCart} block={false} onPress={() => openSale(batchId)} />
+            {canSell ? (
+              <Button label="Encaisser" size="xs" labelSize="caption" tone="accent" icon={ShoppingCart} block={false} onPress={() => openSale(batchId)} />
+            ) : null}
           </View>
         </View>
         <AppText size="caption" color="muted">
-          Début : {b.integrationDate} · {fmt(b.quantityAtStart)} sujets
+          Ouverture : {b.integrationDate}
+          {b.initialAgeDays ? ` à J${b.initialAgeDays}` : ''} · {fmt(b.quantityAtStart)} sujets
         </AppText>
         <View style={styles.heroPassportRow}>
           <Button label="Passeport sanitaire (PDF)" size="sm" tone="brand" icon={FileText} block onPress={() => void downloadPasseport()} disabled={pdfBusy} loading={pdfBusy} />
@@ -669,7 +698,7 @@ export default function LotDetailScreen() {
       {/* ── CYCLE PROGRESS ── */}
       <View style={styles.cycleCard}>
         <View style={styles.cycleHeader}>
-          <AppText size="small" weight="semibold" color="brand">Semaine {cycleInfo.currentWeek}/{cycleInfo.totalWeeks}</AppText>
+          <AppText size="small" weight="semibold" color="brand">{cycleInfo.label}</AppText>
           <AppText size="small" color="muted">{cycleInfo.pct.toFixed(0)} % du cycle</AppText>
         </View>
         <View style={styles.progressTrack}>
@@ -679,7 +708,7 @@ export default function LotDetailScreen() {
 
       {/* ── MAIN TABS ── */}
       <View style={styles.tabRow}>
-        {MAIN_TABS.map((t) => {
+        {MAIN_TABS.filter((t) => t.key !== 'programme' || showBandSheet).map((t) => {
           const active = mainTab === t.key;
           const Icon = t.icon;
           return (
@@ -1145,6 +1174,11 @@ export default function LotDetailScreen() {
           )}
         </>
       )}
+
+      {/* ── POUFA band sheet ── */}
+      {mainTab === 'programme' && showBandSheet && b ? (
+        <BandPanel farmId={farmId} batch={b} canExit={canExit} has={(code) => farmProfile.hasPermission(code as Parameters<typeof farmProfile.hasPermission>[0])} />
+      ) : null}
 
       {/* ── ALERTS ── */}
       {lotAlerts.length > 0 && mainTab === 'overview' && (

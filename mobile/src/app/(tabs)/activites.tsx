@@ -30,6 +30,7 @@ import { PerformanceList, WeeklyReport } from '@/components/activity/WeeklyRepor
 import { SpanFilter, type JournalSpan } from '@/components/activity/SpanFilter';
 import { buildActionQueue, buildJournal, timeLabel } from '@/components/activity/activityFeed';
 import { useAuth } from '@/auth/AuthContext';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchAdvisory, fetchCaisseCurrent, fetchDashboard, fetchTasks } from '@/api';
 import { color, fmt, fmtFcfa } from '@/constants/theme';
 import { enter } from '@/constants/motion';
@@ -52,10 +53,13 @@ export default function ActivitesScreen() {
   const router = useRouter();
   const { farmId } = useAuth();
   const [panel, setPanel] = useState<PanelKey>('TACHES');
+  // The caisse is a Fermia-only domain: an institution never reads it.
+  const { fermiaData } = useFarmProfile();
+  const panelOptions = fermiaData ? PANEL_OPTIONS : PANEL_OPTIONS.filter((o) => o.key !== 'CAISSE');
   const [span, setSpan] = useState<JournalSpan>(7);
 
   const dashboard = useQuery({ queryKey: ['dashboard', farmId], queryFn: () => fetchDashboard(farmId) });
-  const caisse = useQuery({ queryKey: ['caisse', farmId], queryFn: () => fetchCaisseCurrent(farmId) });
+  const caisse = useQuery({ queryKey: ['caisse', farmId], queryFn: () => fetchCaisseCurrent(farmId), enabled: fermiaData });
   const tasks = useQuery({ queryKey: ['tasks', farmId], queryFn: () => fetchTasks(farmId), retry: false });
   const advisory = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId), retry: false });
 
@@ -135,7 +139,7 @@ export default function ActivitesScreen() {
       refreshing={dashboard.isFetching || caisse.isFetching}
       onRefresh={() => {
         void dashboard.refetch();
-        void caisse.refetch();
+        if (fermiaData) void caisse.refetch();
         void tasks.refetch();
         void advisory.refetch();
       }}
@@ -144,7 +148,7 @@ export default function ActivitesScreen() {
           ce stack restore la respiration entre switch, hero et panneau. */}
       <View style={styles.stack}>
         {/* ── Panneaux : un seul écran visible à la fois ───────────────────── */}
-        <Segmented options={PANEL_OPTIONS} value={panel} onChange={setPanel} haptic />
+        <Segmented options={panelOptions} value={panel} onChange={setPanel} haptic />
 
         <ActivityHero d={d} dateLabel={dateLabel} />
 
@@ -214,7 +218,7 @@ export default function ActivitesScreen() {
       ) : null}
 
       {/* ── Panneau « Caisse » ────────────────────────────────────────────── */}
-      {panel === 'CAISSE' ? (
+      {panel === 'CAISSE' && fermiaData ? (
         <Animated.View key="panneau-caisse" entering={enter.fade()} style={styles.panel}>
           <SectionHeader title="Caisse du jour" icon={Wallet} />
           {c ? (

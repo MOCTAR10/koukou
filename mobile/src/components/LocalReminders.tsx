@@ -2,6 +2,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { mobileRouteOf } from '@/poufa/notifications';
 
 import { fetchAdvisory, fetchBatches, fetchTasks } from '@/api';
 import { useAuth } from '@/auth/AuthContext';
@@ -90,7 +91,8 @@ export function LocalReminders() {
         if (targetFarmId && targetFarmId !== ctx.farmId && ctx.farms.some((f) => f.id === targetFarmId)) {
           ctx.setActiveFarmId(targetFarmId);
         }
-        router.push(route as never);
+        // Server routes (push `data.route`) are written for every client: map them.
+        router.push(mobileRouteOf(route) as never);
       }),
     [],
   );

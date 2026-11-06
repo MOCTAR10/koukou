@@ -14,24 +14,47 @@ import { homeRouteFor, roleLabel, safeReturnPath } from '@/api/roles';
 import { loadSession } from '@/api/token';
 import { palette, radii, semantic, shadow } from '@/constants/theme';
 import { useKeyboardInset } from '@/hooks/useKeyboardInset';
+import { OTP_LENGTH } from '@/auth/session-rules';
 
 export default function LoginScreen() {
-  const { signedIn, user, farms, busy, error, signIn, signOut } = useAuth();
+  const { signedIn, user, farms, busy, error, signIn, signOut, otpChallenge, verifyOtp, cancelOtp } = useAuth();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const [smsCode, setSmsCode] = useState('');
   const { from } = useLocalSearchParams<{ from?: string }>();
   const keyboardInset = useKeyboardInset();
 
   const canSubmit = phone.trim().length > 0 && code.length >= 6 && !busy;
+  const canVerify = smsCode.length === OTP_LENGTH && !busy;
 
-  const submit = async () => {
-    if (!canSubmit) return;
-    const ok = await signIn(phone.trim(), code);
-    if (!ok) return;
+  const goHome = () => {
     const back = safeReturnPath(from);
     // dismissTo pops back to the screen they came from, instead of stacking a second copy of it.
     if (back) router.dismissTo(back as Href);
-    else router.replace(homeRouteFor(loadSession()?.user.role) as Href);
+    else {
+      const session = loadSession();
+      router.replace(homeRouteFor(session?.user.role, session?.farms.length ?? 0) as Href);
+    }
+  };
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSmsCode('');
+    const result = await signIn(phone.trim(), code);
+    if (result === 'signed-in') goHome();
+  };
+
+  const submitSmsCode = async () => {
+    if (!canVerify) return;
+    const ok = await verifyOtp(smsCode);
+    if (ok) goHome();
+    else setSmsCode('');
+  };
+
+  const changeNumber = () => {
+    cancelOtp();
+    setSmsCode('');
+    setCode('');
   };
 
   return (
@@ -44,14 +67,18 @@ export default function LoginScreen() {
         automaticallyAdjustKeyboardInsets={false}
         showsVerticalScrollIndicator={false}
       >
-          <AuthHero subtitle="Élevage et cultures, pilotés au quotidien." />
+          <AuthHero subtitle="Vos bandes de volailles, pilotées au quotidien." />
 
           <View style={styles.sheet}>
           <AppText size="h2" weight="bold" color="text">
-            {signedIn ? 'Bon retour' : 'Connexion'}
+            {signedIn ? 'Bon retour' : otpChallenge ? 'Code de vérification' : 'Connexion'}
           </AppText>
           <AppText size="caption" color="muted" style={styles.sheetSub}>
-            {signedIn ? 'Votre session est active sur cet appareil.' : 'Votre numéro de téléphone et votre code secret.'}
+            {signedIn
+              ? 'Votre session est active sur cet appareil.'
+              : otpChallenge
+                ? `Saisissez le code à ${OTP_LENGTH} chiffres envoyé par SMS${otpChallenge.sentTo ? ` au ${otpChallenge.sentTo}` : ''}. Il est valable quelques minutes.`
+                : 'Votre numéro de téléphone et votre code secret.'}
           </AppText>
 
           {signedIn ? (
@@ -73,9 +100,55 @@ export default function LoginScreen() {
                 </AppText>
               ) : null}
               <View style={{ gap: 8, marginTop: 4 }}>
-                <Button label="Continuer" tone="primary" icon={ArrowRight} onPress={() => router.replace('/')} />
+                <Button label="Continuer" tone="primary" icon={ArrowRight} onPress={() => router.replace(homeRouteFor(user.role, farms.length) as Href)} />
                 <Button label="Se déconnecter" tone="ghost" icon={LogOut} onPress={() => signOut()} />
               </View>
+            </View>
+          ) : otpChallenge ? (
+            <View style={{ gap: 14 }}>
+              <SecretCodePad
+                value={smsCode}
+                onChange={setSmsCode}
+                onSubmit={() => void submitSmsCode()}
+                disabled={busy}
+                minLength={OTP_LENGTH}
+                maxLength={OTP_LENGTH}
+                submitEnabled={smsCode.length === OTP_LENGTH}
+                label="Code reçu par SMS"
+                caption={`${OTP_LENGTH} chiffres`}
+                size="sm"
+              />
+
+              {error ? (
+                <AppText size="small" color="danger">
+                  {error}
+                </AppText>
+              ) : null}
+
+              <Button
+                label="Valider le code"
+                tone="primary"
+                size="lg"
+                labelSize="body"
+                icon={ShieldCheck}
+                loading={busy}
+                disabled={!canVerify}
+                onPress={submitSmsCode}
+              />
+              <Pressable
+                onPress={() => void submit()}
+                disabled={busy}
+                style={styles.registerLink}
+                accessibilityRole="button">
+                <AppText size="bodyM" align="center" weight="semibold" color="brand">
+                  Renvoyer un code
+                </AppText>
+              </Pressable>
+              <Pressable onPress={changeNumber} disabled={busy} style={styles.registerLink} accessibilityRole="button">
+                <AppText size="bodyM" align="center" color="muted">
+                  Changer de numéro
+                </AppText>
+              </Pressable>
             </View>
           ) : (
             <View style={{ gap: 14 }}>
@@ -115,11 +188,14 @@ export default function LoginScreen() {
                 />
               </View>
 
-              <Pressable onPress={() => router.push('/register')} style={styles.registerLink} accessibilityRole="link">
+              <AppText size="small" align="center" color="faint">
+                Exploitant du programme : votre code de connexion vous est remis par le programme.
+              </AppText>
+              <Pressable onPress={() => router.push('/inscription-acheteur' as Href)} style={styles.registerLink} accessibilityRole="link">
                 <AppText size="bodyM" align="center" color="muted">
-                  Pas encore de compte ?{' '}
+                  Vous achetez ?{' '}
                   <AppText size="bodyM" weight="semibold" color="brand">
-                    Créer mon compte →
+                    Créer un compte client du Marché →
                   </AppText>
                 </AppText>
               </Pressable>

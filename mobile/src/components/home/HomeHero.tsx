@@ -51,8 +51,6 @@ export interface HeroStat {
 }
 
 interface HomeHeroProps {
-  /** Domain cue: the glow turns green for agriculture. */
-  domain?: 'aviculture' | 'agriculture';
   farmName: string;
   verified: boolean;
   onFarmPress: () => void;
@@ -79,12 +77,12 @@ function tap(fn?: () => void) {
 /**
  * "Today at a glance": the one dark surface of a home screen. It carries the
  * headline number and up to three quiet stats, so everything below it can
- * stay light. Shared by the livestock and agriculture homes.
+ * stay light.
  */
-export function HomeHero({ domain = 'aviculture', farmName, verified, onFarmPress, headline, stats, weather, hint }: HomeHeroProps) {
-  const glow = domain === 'agriculture' ? palette.green[400] : palette.brand[400];
-  const gradId = `heroBg-${domain}`;
-  const glowId = `heroGlow-${domain}`;
+export function HomeHero({ farmName, verified, onFarmPress, headline, stats, weather, hint }: HomeHeroProps) {
+  const glow = palette.brand[400];
+  const gradId = 'heroBg-aviculture';
+  const glowId = 'heroGlow-aviculture';
 
   return (
     <View style={styles.card}>

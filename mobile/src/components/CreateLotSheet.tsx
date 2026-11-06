@@ -18,6 +18,7 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { fetchBuildings, fetchBreeds, fetchBreedStandards, fetchProtocols, fetchSanitaryProgram } from '@/api';
 import type { BatchType, Building, FeedPhase, Species } from '@/api/types';
 import { endOfLayStandard } from '@/constants/flock';
+import { addIsoDays, bandOpening, MAX_ARRIVAL_AGE_DAYS, parseArrivalAgeDays } from '@/utils/band';
 
 type BatchInput = {
   batchName: string;
@@ -34,7 +35,8 @@ type BatchInput = {
   chickLotNumber?: string;
   hatchDate?: string;
   chickUnitPriceFcfa?: number;
-  quantityAlive?: number;
+  /** Age of the birds on arrival (J+x, POUFA band opening); 0 = day-old chicks. */
+  initialAgeDays?: number;
 };
 
 /** Integer fields: drop spaces, dots and commas ("3 000" / "1.500" → "3000" / "1500"). */
@@ -42,10 +44,15 @@ function digitsOnly(text: string): string {
   return text.replace(/\D/g, '');
 }
 
-function addDaysToDate(base: Date, days: number): Date {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d;
+/** Today's local day (module scope: keeps `Date.now` out of render). */
+function todayYmd(): string {
+  return localYmd(new Date());
+}
+
+/** `YYYY-MM-DD` → local midnight Date (for the date-based advisory). */
+function ymdToDate(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 /** Age lisible : semaines en premier, jours en reste (ex : "3 sem 2 j", "5 j"). */
@@ -178,12 +185,28 @@ function buildingSpace(b: Building, type: BatchType): BuildingSpace {
   return { occupied, capacityAvailable, densityAvailable, available };
 }
 
+/**
+ * Pre-filled opening after a confirmed chick delivery (POUFA L4
+ * `openBandHint`). `chickCostBooked`: the chicks are already an expense, so
+ * the chick price is neither asked nor sent.
+ */
+export interface LotPrefill {
+  quantityAtStart: number;
+  integrationDate: string;
+  couvoirSupplier: string;
+  chickLotNumber: string;
+  chickCostBooked: boolean;
+}
+
 interface CreateLotSheetProps {
   visible: boolean;
   onClose: () => void;
+  prefill?: LotPrefill | null;
+  /** Called with the opened band (e.g. to link a delivery to it). */
+  onCreated?: (batch: { id: string }) => void;
 }
 
-export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
+export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateLotSheetProps) {
   const { farmId } = useAuth();
   const qc = useQueryClient();
 
@@ -199,7 +222,8 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
 
   // Running lot mode
   const [isRunning, setIsRunning] = useState(false);
-  const [quantityAlive, setQuantityAlive] = useState('');
+  /** « Âge à l'arrivée (jours) », sent as `initialAgeDays` (empty = 0). */
+  const [arrivalAge, setArrivalAge] = useState('');
   const [feedPhase, setFeedPhase] = useState<FeedPhase | ''>('');
   const [completedStepIds, setCompletedStepIds] = useState<Set<string>>(new Set());
   const [showFeedPhasePicker, setShowFeedPhasePicker] = useState(false);
@@ -255,11 +279,29 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
 
   const [selectedBuildingId, setSelectedBuildingId] = useState<string | null>(null);
 
-  // Auto-calculate age in days for running lots
-  const currentAgeDays = useMemo(() => {
-    const ms = Date.now() - integrationDate.getTime();
-    return Math.max(0, Math.floor(ms / 86_400_000));
-  }, [integrationDate]);
+  // Delivery prefill: applied each time the sheet opens with one.
+  const noChickPrice = prefill?.chickCostBooked === true;
+  useEffect(() => {
+    if (!visible || !prefill) return;
+    setQuantityAtStart(String(prefill.quantityAtStart));
+    setIntegrationDate(ymdToDate(prefill.integrationDate.slice(0, 10)));
+    setCouvoirSupplier(prefill.couvoirSupplier);
+    setChickLotNumber(prefill.chickLotNumber);
+    setChickUnitPrice('');
+    setIsRunning(false);
+    setArrivalAge('');
+  }, [visible, prefill]);
+
+  // Band opening (POUFA rule): integrationDate = arrival day, initialAgeDays =
+  // age of the birds on arrival. Age, feed phase and care due follow J+x.
+  const arrivalAgeDays = parseArrivalAgeDays(arrivalAge);
+  const opening = useMemo(
+    () => bandOpening({ arrivalDay: localYmd(integrationDate), arrivalAgeDays: arrivalAgeDays ?? 0, today: todayYmd() }),
+    [integrationDate, arrivalAgeDays],
+  );
+  const currentAgeDays = opening.ageToday;
+  /** J0 of the birds: the breed curves and protocols count from it. */
+  const ageZeroDate = useMemo(() => ymdToDate(opening.ageZeroDay), [opening.ageZeroDay]);
 
   // ── Feed phase options ──
   const CHAIR_FEED_PHASES: { key: FeedPhase; label: string; dayFrom: number; dayTo: number }[] = [
@@ -421,8 +463,8 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
         finalWeek?.week ??
         6;
 
-      const slaughterDate = addWeeks(integrationDate, slaughterWeek);
-      const finalDate = addWeeks(integrationDate, finalWeek?.week ?? 12);
+      const slaughterDate = addWeeks(ageZeroDate, slaughterWeek);
+      const finalDate = addWeeks(ageZeroDate, finalWeek?.week ?? 12);
 
       // Density check (10 birds/m² for Chair)
       const totalKg = qty * finalWeight;
@@ -445,9 +487,9 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
           totalRevenuePerPiece: qty * 5000,
         },
         lifecycle: [
-          { week: 0, label: 'Poussins', desc: 'Démarrage, chaleur, eau + vitamines', date: addWeeks(integrationDate, 0) },
-          { week: slaughterWeek, label: 'Prêt à vendre', desc: `${finalWeight.toFixed(1)} kg, IC ${finalFcr.toFixed(2)}`, date: addWeeks(integrationDate, slaughterWeek) },
-          { week: finalWeek?.week ?? 12, label: 'Fin de cycle', desc: 'Abattage ou vendre vivante', date: addWeeks(integrationDate, finalWeek?.week ?? 12) },
+          { week: 0, label: 'Poussins', desc: 'Démarrage, chaleur, eau + vitamines', date: addWeeks(ageZeroDate, 0) },
+          { week: slaughterWeek, label: 'Prêt à vendre', desc: `${finalWeight.toFixed(1)} kg, IC ${finalFcr.toFixed(2)}`, date: addWeeks(ageZeroDate, slaughterWeek) },
+          { week: finalWeek?.week ?? 12, label: 'Fin de cycle', desc: 'Abattage ou vendre vivante', date: addWeeks(ageZeroDate, finalWeek?.week ?? 12) },
         ],
       };
     } else {
@@ -458,9 +500,9 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       const startLaying = standards.find((s) => (s.targetLayRatePercent ?? 0) >= 10);
       const endCycle = endOfLayStandard(standards, peakWeek.week);
 
-      const peakDate = addWeeks(integrationDate, peakWeek.week);
-      const startLayingDate = addWeeks(integrationDate, startLaying?.week ?? 18);
-      const endCycleDate = endCycle ? addWeeks(integrationDate, endCycle.week) : null;
+      const peakDate = addWeeks(ageZeroDate, peakWeek.week);
+      const startLayingDate = addWeeks(ageZeroDate, startLaying?.week ?? 18);
+      const endCycleDate = endCycle ? addWeeks(ageZeroDate, endCycle.week) : null;
 
       // Density check (6 birds/m² for Pondeuse)
       const estimatedArea = qty / 6;
@@ -497,14 +539,14 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
         monthlyRevenueFcfa,
         estimatedAreaM2: estimatedArea,
         lifecycle: [
-          { week: 0, label: 'Poussins', desc: 'Démarrage, croissance', date: addWeeks(integrationDate, 0) },
-          { week: startLaying?.week ?? 18, label: 'Début ponte', desc: 'Premiers œufs, montée en cadence', date: addWeeks(integrationDate, startLaying?.week ?? 18) },
-          { week: peakWeek.week, label: 'Pic de production', desc: `${peakWeek.targetLayRatePercent}% ponte`, date: addWeeks(integrationDate, peakWeek.week) },
-          { week: endCycle?.week ?? 72, label: 'Fin de ponte', desc: 'Transition → vente vivante ou abattage chair', date: addWeeks(integrationDate, endCycle?.week ?? 72) },
+          { week: 0, label: 'Poussins', desc: 'Démarrage, croissance', date: addWeeks(ageZeroDate, 0) },
+          { week: startLaying?.week ?? 18, label: 'Début ponte', desc: 'Premiers œufs, montée en cadence', date: addWeeks(ageZeroDate, startLaying?.week ?? 18) },
+          { week: peakWeek.week, label: 'Pic de production', desc: `${peakWeek.targetLayRatePercent}% ponte`, date: addWeeks(ageZeroDate, peakWeek.week) },
+          { week: endCycle?.week ?? 72, label: 'Fin de ponte', desc: 'Transition → vente vivante ou abattage chair', date: addWeeks(ageZeroDate, endCycle?.week ?? 72) },
         ],
       };
     }
-  }, [standardsQuery.data, type, quantityAtStart, integrationDate]);
+  }, [standardsQuery.data, type, quantityAtStart, ageZeroDate]);
 
   const createMutation = useMutation({
     mutationFn: async (input: BatchInput) => {
@@ -520,7 +562,8 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
               productName: step.name,
               dosage: step.dosage ?? undefined,
               route: step.route ?? undefined,
-              administeredAt: localYmd(addDaysToDate(integrationDate, step.dayFrom)),
+              // Step of day N = J0 + N (may precede the opening: care given before arrival).
+              administeredAt: addIsoDays(opening.ageZeroDay, step.dayFrom),
               withdrawalDays: step.withdrawalDays || undefined,
               notes: `Renseigné lors de l'ajout du lot en cours (âge ${formatAge(currentAgeDays) || '0 j'})`,
             })
@@ -529,10 +572,11 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       }
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidateFarmQueries(qc, { farmId });
       resetForm();
       onClose();
+      if (result?.id) onCreated?.({ id: result.id });
     },
   });
 
@@ -551,7 +595,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
     setHatchDate(null);
     setChickUnitPrice('');
     setIsRunning(false);
-    setQuantityAlive('');
+    setArrivalAge('');
     setFeedPhase('');
     setCompletedStepIds(new Set());
   };
@@ -567,21 +611,24 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       : selectedBreedId != null) &&
     selectedBuildingId != null &&
     !selectedBuildingFull &&
-    (!isRunning || (quantityAlive.trim().length > 0 && parseInt(quantityAlive, 10) >= 0));
+    arrivalAgeDays != null &&
+    // A lot already on the farm: its age at opening must be typed (no silent J0).
+    (!isRunning || arrivalAge.trim().length > 0);
 
   const onSubmit = () => {
     if (!canSubmit) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     const payload: BatchInput = {
       batchName: batchName.trim(),
-      integrationDate: localYmd(integrationDate),
+      // POUFA: the arrival (opening) day, the birds' age on that day apart.
+      integrationDate: opening.integrationDate,
+      initialAgeDays: opening.initialAgeDays,
+      // A « lot en cours » starts with the birds present on arrival (the
+      // backend rebuilds the live count from this figure).
       quantityAtStart: parseInt(quantityAtStart, 10),
       type,
       species,
     };
-    if (isRunning && quantityAlive.trim()) {
-      payload.quantityAlive = parseInt(quantityAlive, 10);
-    }
     if (isAutre) {
       payload.customSpecies = customSpecies.trim();
       payload.customBreed = customBreed.trim();
@@ -592,7 +639,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
     if (couvoirSupplier.trim()) payload.couvoirSupplier = couvoirSupplier.trim();
     if (chickLotNumber.trim()) payload.chickLotNumber = chickLotNumber.trim();
     if (hatchDate) payload.hatchDate = localYmd(hatchDate);
-    if (chickUnitPrice.trim()) payload.chickUnitPriceFcfa = parseInt(chickUnitPrice, 10);
+    if (chickUnitPrice.trim() && !noChickPrice) payload.chickUnitPriceFcfa = parseInt(chickUnitPrice, 10);
     createMutation.mutate(payload);
   };
 
@@ -629,7 +676,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       {/* ── Mode toggle: Nouveau vs En cours ── */}
       <View style={styles.modeRow}>
         <Pressable
-          onPress={() => { Haptics.selectionAsync().catch(() => {}); setIsRunning(false); setQuantityAlive(''); }}
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); setIsRunning(false); }}
           style={[styles.modeBtn, !isRunning && styles.modeBtnActive]}
           accessibilityRole='button'>
           <AppText size='small' weight={!isRunning ? 'bold' : 'medium'} color={!isRunning ? 'surface' : 'muted'}>
@@ -649,8 +696,8 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       {isRunning && (
         <View style={styles.runningBanner}>
           <Zap size={14} color={palette.amber[600]} />
-          <AppText size='small' color='text' style={{ flex: 1 }} numberOfLines={1}>
-            Âge calculé depuis la mise en place.
+          <AppText size='small' color='text' style={{ flex: 1 }} numberOfLines={2}>
+            La bande s’ouvre à l’arrivée, à l’âge des sujets ce jour-là (J+x).
           </AppText>
         </View>
       )}
@@ -808,55 +855,60 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
       </Field>
 
       {/* ── Quantité poussins ── */}
-      <Field label={isRunning ? "Quantité d'origine *" : "Quantité de poussins *"}>
-        <TextInput value={quantityAtStart} onChangeText={(t) => setQuantityAtStart(digitsOnly(t))} placeholder='Ex : 3000' keyboardType='numeric' />
+      <Field label={isRunning ? "Effectif vivant à l'ouverture *" : 'Quantité de sujets *'}>
+        <TextInput value={quantityAtStart} onChangeText={(t) => setQuantityAtStart(digitsOnly(t))} placeholder={isRunning ? 'Ex : 2850' : 'Ex : 3000'} keyboardType='numeric' />
+        {isRunning && (
+          <AppText size='small' color='faint' style={styles.fieldHint}>
+            La bande démarre avec les sujets présents ce jour-là : les pertes d’avant l’ouverture ne sont pas comptées.
+          </AppText>
+        )}
       </Field>
 
-      {/* ── Running lot: current stock + age ── */}
-      {isRunning && (
-        <>
-          <Field label='Effectif vivant actuel *'>
-            <TextInput value={quantityAlive} onChangeText={(t) => setQuantityAlive(digitsOnly(t))} placeholder='Ex : 2850' keyboardType='numeric' />
-          </Field>
-          {quantityAtStart.trim() && quantityAlive.trim() && parseInt(quantityAtStart, 10) > 0 && (
-            <View style={styles.runningInsight}>
-              <AppText size='small' color='muted'>
-                Mortalité : {Math.max(0, parseInt(quantityAtStart, 10) - parseInt(quantityAlive, 10))} oiseaux
-                ({((1 - parseInt(quantityAlive, 10) / parseInt(quantityAtStart, 10)) * 100).toFixed(1)}%)
-              </AppText>
-            </View>
-          )}
-        </>
-      )}
-
-      {/* ── Date de mise en place / d'arrivée ── */}
-      <Field label={isRunning ? 'Date de mise en place du lot (Âge du lot) *' : "Date d'arrivée des poussins *"}>
+      {/* ── Date d'arrivée = ouverture de la bande (POUFA) ── */}
+      <Field label={isRunning ? "Date d'ouverture de la bande *" : "Date d'arrivée des sujets *"}>
         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowIntegrationPicker(true); }} style={styles.dateBtn}>
           <AppText size='body' color='text'>{fmtDate(integrationDate)}</AppText>
-          {isRunning ? (
-            currentAgeDays > 0 ? (
-              <View style={styles.dateAgeChip}>
-                <Clock size={12} color={semantic.primary} />
-                <AppText size='label' weight='bold' color='brand'>
-                  {formatAge(currentAgeDays)}
-                </AppText>
-              </View>
-            ) : (
-              <AppText size='caption' color='faint'>— âge auto</AppText>
-            )
+          {currentAgeDays > 0 ? (
+            <View style={styles.dateAgeChip}>
+              <Clock size={12} color={semantic.primary} />
+              <AppText size='label' weight='bold' color='brand'>
+                {`J${currentAgeDays} aujourd’hui`}
+              </AppText>
+            </View>
           ) : (
             <ChevronDown size={18} color={color.ink[400]} />
           )}
         </Pressable>
-        {isRunning && (
-          <AppText size='small' color='faint' style={styles.fieldHint}>
-            L’âge (semaines et jours) est calculé depuis cette date.
-          </AppText>
-        )}
+        <AppText size='small' color='faint' style={styles.fieldHint}>
+          {isRunning
+            ? 'En général aujourd’hui : le suivi (saisies du jour) commence à cette date.'
+            : 'Jour où les sujets arrivent à la ferme : la bande s’ouvre ce jour-là.'}
+        </AppText>
         {showIntegrationPicker && (
           <DateTimePicker value={integrationDate} mode='date'
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={onIntegrationDateChange} maximumDate={new Date()} locale='fr-FR' />
+        )}
+      </Field>
+
+      {/* ── Âge à l'arrivée (J+x, initialAgeDays) ── */}
+      <Field label={isRunning ? "Âge des sujets à l'ouverture (jours) *" : "Âge à l'arrivée (jours)"}>
+        <TextInput
+          value={arrivalAge}
+          onChangeText={(t) => setArrivalAge(digitsOnly(t))}
+          placeholder={isRunning ? 'Ex : 21' : '0'}
+          keyboardType='numeric'
+        />
+        {arrivalAgeDays == null ? (
+          <AppText size='small' color='danger' style={styles.fieldHint}>
+            {`Âge entre 0 et ${MAX_ARRIVAL_AGE_DAYS} jours.`}
+          </AppText>
+        ) : (
+          <AppText size='small' color='faint' style={styles.fieldHint}>
+            {isRunning
+              ? `Âge des sujets à la date d’ouverture${opening.initialAgeDays > 0 ? ` (${formatAge(opening.initialAgeDays)})` : ''} : la bande s’ouvre à J${opening.initialAgeDays}.`
+              : `0 = poussins d’un jour. Des sujets démarrés arrivent à J+x${opening.initialAgeDays > 0 ? ` (ici J${opening.initialAgeDays})` : ''}.`}
+          </AppText>
         )}
       </Field>
 
@@ -923,7 +975,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
           <View style={styles.treatmentInfo}>
             <ShieldCheck size={14} color={semantic.primary} />
             <AppText size='small' color='muted' style={{ flex: 1 }}>
-              Cochez les soins déjà administrés à ce lot. Ils seront enregistrés à leur jour planifié (date de mise en place + jour du protocole).
+              Cochez les soins déjà administrés à ce lot. Ils seront enregistrés à leur jour planifié (J0 des sujets + jour du protocole).
             </AppText>
           </View>
           {dueSteps.map((step) => (
@@ -1302,9 +1354,15 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
             onChange={onHatchDateChange} maximumDate={new Date()} locale='fr-FR' />
         )}
       </Field>
-      <Field label='Prix poussin (FCFA)'>
-        <TextInput value={chickUnitPrice} onChangeText={(t) => setChickUnitPrice(digitsOnly(t))} placeholder='Ex : 1500' keyboardType='numeric' />
-      </Field>
+      {noChickPrice ? (
+        <AppText size='small' color='muted'>
+          Prix du poussin : déjà compté en dépense à la confirmation de la livraison.
+        </AppText>
+      ) : (
+        <Field label='Prix poussin (FCFA)'>
+          <TextInput value={chickUnitPrice} onChangeText={(t) => setChickUnitPrice(digitsOnly(t))} placeholder='Ex : 1500' keyboardType='numeric' />
+        </Field>
+      )}
 
       {/* ── Running lot: Review summary ── */}
       {isRunning && (
@@ -1319,30 +1377,15 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
             <ReviewRow label='Espèce' value={isAutre ? customSpecies.trim() || '—' : SPECIES_LABEL[species]} />
             <ReviewRow label='Souche' value={isAutre ? customBreed.trim() || '—' : (selectedBreed ? `${selectedBreed.name}${selectedBreed.refCode ? ` (${selectedBreed.refCode})` : ''}` : '—')} />
             <ReviewRow label='Bâtiment' value={selectedBuilding?.name ?? '—'} />
-            <ReviewRow label={isRunning ? 'Date de mise en place' : "Date d'arrivée"} value={fmtDate(integrationDate)} />
-            <ReviewRow label='Âge du lot' value={currentAgeDays > 0 ? formatAge(currentAgeDays) : '—'} />
-            <ReviewRow label="Quantité d'origine" value={quantityAtStart ? `${parseInt(quantityAtStart, 10).toLocaleString('fr-FR')} oiseaux` : '—'} />
-            <ReviewRow label='Effectif vivant' value={quantityAlive ? `${parseInt(quantityAlive, 10).toLocaleString('fr-FR')} oiseaux` : '—'} />
-            {quantityAtStart.trim() && quantityAlive.trim() && parseInt(quantityAtStart, 10) > 0 && (
-              <ReviewRow
-                label='Mortalité'
-                value={`${Math.max(0, parseInt(quantityAtStart, 10) - parseInt(quantityAlive, 10)).toLocaleString('fr-FR')} (${((1 - parseInt(quantityAlive, 10) / parseInt(quantityAtStart, 10)) * 100).toFixed(1)}%)`}
-                danger={parseInt(quantityAlive, 10) / parseInt(quantityAtStart, 10) < 0.9}
-              />
-            )}
+            <ReviewRow label="Date d'ouverture" value={fmtDate(integrationDate)} />
+            <ReviewRow label="Âge à l'ouverture" value={`J${opening.initialAgeDays}`} />
+            <ReviewRow label="Âge aujourd'hui" value={`J${currentAgeDays}${currentAgeDays > 0 ? ` · ${formatAge(currentAgeDays)}` : ''}`} />
+            <ReviewRow label="Effectif à l'ouverture" value={quantityAtStart ? `${parseInt(quantityAtStart, 10).toLocaleString('fr-FR')} oiseaux` : '—'} />
             {couvoirSupplier.trim() && <ReviewRow label='Couvoir' value={couvoirSupplier.trim()} />}
             {chickLotNumber.trim() && <ReviewRow label='N° lot poussins' value={chickLotNumber.trim()} />}
             {hatchDate && <ReviewRow label="Date d'éclosion" value={fmtDate(hatchDate)} />}
             {chickUnitPrice.trim() && <ReviewRow label='Prix poussin' value={`${parseInt(chickUnitPrice, 10).toLocaleString('fr-FR')} FCFA`} />}
           </View>
-          {quantityAtStart.trim() && quantityAlive.trim() && parseInt(quantityAtStart, 10) > 0 && parseInt(quantityAlive, 10) / parseInt(quantityAtStart, 10) < 0.85 && (
-            <View style={styles.reviewWarn}>
-              <AlertTriangle size={14} color={palette.amber[600]} />
-              <AppText size='small' color='amber'>
-                mortalité supérieure à 15 % — vérifiez les données avant de créer le lot.
-              </AppText>
-            </View>
-          )}
         </View>
       )}
 
@@ -1516,10 +1559,6 @@ const styles = StyleSheet.create({
   runningBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, paddingVertical: 8, paddingHorizontal: 10,
     backgroundColor: semantic.warnSoft, borderRadius: radii.md, borderWidth: 1, borderColor: palette.amber[200],
-  },
-  runningInsight: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, padding: 8,
-    backgroundColor: semantic.surfaceAlt, borderRadius: radii.md,
   },
   /* ── Lot type segmented control ── */
   typeRow: {
@@ -1722,9 +1761,4 @@ const styles = StyleSheet.create({
   reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   reviewGrid: { gap: 6 },
   reviewRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  reviewWarn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4,
-    backgroundColor: semantic.warnSoft, borderRadius: radii.md, padding: 8,
-    borderWidth: 1, borderColor: palette.amber[200],
-  },
 });

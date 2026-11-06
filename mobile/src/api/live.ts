@@ -68,11 +68,6 @@ import type {
   FarmTask,
   DailyEntryRecord,
   Species,
-  Culture,
-  Parcelle,
-  ParcelleStock,
-  Recolte,
-  CropCategory,
 } from './types';
 
 interface BackendAdvisoryAction {
@@ -209,6 +204,10 @@ interface RawBatch {
   customSpecies?: string | null;
   customBreed?: string | null;
   status: BatchStatus;
+  code?: string | null;
+  initialAgeDays?: number | null;
+  referenceDurationDays?: number | null;
+  closedAt?: string | null;
   metrics: RawBatchMetrics;
 }
 
@@ -324,6 +323,12 @@ function mapBatch(b: RawBatch, breedsById: BreedLabels): BatchWithMetrics {
     customSpecies: b.customSpecies ?? null,
     customBreed: b.customBreed ?? null,
     status: b.status,
+    // POUFA band fields (dropped here before, so the band code, the J+x and
+    // the reference duration never reached the lot screens).
+    code: b.code ?? null,
+    initialAgeDays: b.initialAgeDays ?? null,
+    referenceDurationDays: b.referenceDurationDays ?? null,
+    closedAt: b.closedAt ?? null,
     metrics: mapMetrics(b.metrics),
   };
 }
@@ -716,8 +721,9 @@ export class LiveApi {
     return apiFetch<FarmMember[]>(`/farms/${farmId}/eleveurs`);
   }
 
-  async fetchFarmProfile(farmId: string): Promise<FarmMemberProfile> {
-    return apiFetch<FarmMemberProfile>(`/farms/${farmId}/me`);
+  /** null: the account has no profile on this farm (the server answers an empty body). */
+  async fetchFarmProfile(farmId: string): Promise<FarmMemberProfile | null> {
+    return apiFetch<FarmMemberProfile | null>(`/farms/${farmId}/me`);
   }
 
   async fetchPermissionCatalog(farmId: string): Promise<PermissionCatalog> {
@@ -764,82 +770,5 @@ export class LiveApi {
       standards: BreedStandard[];
     }>(`/breeds/${breedId}/standards?farmId=${encodeURIComponent(farmId)}`);
     return res.standards;
-  }
-
-  async fetchCultures(farmId: string): Promise<Culture[]> {
-    return apiFetch<Culture[]>(`/cultures?farmId=${encodeURIComponent(farmId)}`);
-  }
-
-  async createCulture(farmId: string, input: {
-    name: string;
-    category: CropCategory;
-    defaultCycleDays?: number;
-    waterNeedsLPlantDay?: number;
-    notes?: string;
-  }): Promise<Culture> {
-    return apiFetch<Culture>('/cultures', { method: 'POST', body: { ...input, farmId } });
-  }
-
-  async fetchParcelles(farmId: string): Promise<Parcelle[]> {
-    return apiFetch<Parcelle[]>(`/farms/${farmId}/parcelles`);
-  }
-
-  async fetchRecoltes(farmId: string): Promise<Recolte[]> {
-    return apiFetch<Recolte[]>(`/farms/${farmId}/recoltes`);
-  }
-
-  async fetchRecolteStock(farmId: string): Promise<ParcelleStock[]> {
-    return apiFetch<ParcelleStock[]>(`/farms/${farmId}/recoltes/stock`);
-  }
-
-  async fetchParcelle(farmId: string, parcelleId: string): Promise<Parcelle> {
-    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles/${parcelleId}`);
-  }
-
-  async createParcelle(
-    farmId: string,
-    input: {
-      name: string;
-      cultureId: string;
-      areaHa?: number;
-      boundaryGeoJson?: Parcelle['boundaryGeoJson'];
-      plantedAt?: string;
-      status?: Parcelle['status'];
-      notes?: string;
-    },
-  ): Promise<Parcelle> {
-    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles`, {
-      method: 'POST',
-      body: input,
-    });
-  }
-
-  async updateParcelle(
-    farmId: string,
-    parcelleId: string,
-    input: Partial<{
-      name: string;
-      cultureId: string;
-      areaHa: number;
-      boundaryGeoJson: Parcelle['boundaryGeoJson'];
-      plantedAt: string | null;
-      status: Parcelle['status'];
-      notes: string | null;
-    }>,
-  ): Promise<Parcelle> {
-    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles/${parcelleId}`, {
-      method: 'PATCH',
-      body: input,
-    });
-  }
-
-  async deleteParcelle(
-    farmId: string,
-    parcelleId: string,
-  ): Promise<{ deleted: boolean }> {
-    return apiFetch<{ deleted: boolean }>(
-      `/farms/${farmId}/parcelles/${parcelleId}`,
-      { method: 'DELETE' },
-    );
   }
 }

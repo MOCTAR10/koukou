@@ -99,12 +99,9 @@ export default function BuyerRegisterScreen() {
                 <TextField value={city} onChangeText={setCity} maxLength={80} accessibilityLabel="Ville" />
               </Labeled>
               <Button label="Continuer" icon={ArrowRight} disabled={fullName.trim().length < 3} onPress={() => setStep(2)} />
-              <Pressable onPress={() => router.replace('/register')} style={styles.link} accessibilityRole="link">
-                <AppText size="small" color="muted" align="center">
-                  Vous êtes éleveur ?{' '}
-                  <AppText size="small" weight="semibold" color="brand">Créer un compte ferme</AppText>
-                </AppText>
-              </Pressable>
+              <AppText size="small" color="faint" align="center">
+                Vous êtes exploitant du programme ? Votre accès vous est remis par le programme : connectez-vous avec le code reçu.
+              </AppText>
             </>
           ) : (
             <>

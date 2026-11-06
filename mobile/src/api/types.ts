@@ -67,9 +67,19 @@ export interface Farm {
   logoUrl: string | null;
   latitude: number | null;
   longitude: number | null;
+  /** Programme farm code (`G1-0012`), set by the registry; null on old rows. */
+  code?: string | null;
+  provinceId?: string | null;
+  /** Province of the registry sheet, served by `GET /farms` (null without a province). */
+  provinceCode?: string | null;
+  provinceName?: string | null;
+  /** Registry status (STATUT_FERME list code), e.g. ACTIVE / SUSPENDUE. */
+  statusCode?: string | null;
 }
 
-export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN' | 'ACHETEUR';
+/** Mirror of the backend `UserRole`: INSTITUTION = programme institutions
+ *  (DGE, vétérinaires, agents…), OPERATEUR = reserved, refused at login. */
+export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN' | 'ACHETEUR' | 'INSTITUTION' | 'OPERATEUR';
 
 /** Rôle de membre du staff ferme (Administrateur Fermia / Éleveur Fermia). */
 export type FarmStaffRole = 'ADMIN' | 'ELEVEUR';
@@ -180,7 +190,8 @@ export interface AssignableTeamMember {
 /** Profil « moi » sur une ferme (GET /farms/:id/me) : personnalité + poste + droits effectifs. */
 export interface FarmMemberProfile {
   farmId: string;
-  role: 'PROPRIETAIRE' | FarmStaffRole;
+  /** INSTITUTION: programme account within its scope (jobTitle = access profile label). */
+  role: 'PROPRIETAIRE' | FarmStaffRole | 'INSTITUTION';
   jobTitle: string | null;
   buildingAssignment: string | null;
   active: boolean;
@@ -288,69 +299,6 @@ export interface Building {
   };
 }
 
-export type CropCategory = 'TUBERCULE' | 'MARAICHAGE' | 'FRUIT' | 'CEREALE' | 'AUTRE';
-
-/** Culture du référentiel global (Agriculture), regroupée par catégorie. */
-export interface Culture {
-  id: string;
-  name: string;
-  category: CropCategory;
-  defaultCycleDays: number | null;
-  waterNeedsLPlantDay: number | null;
-  notes: string | null;
-}
-
-export type ParcelleStatus = 'PREPARATION' | 'ACTIVE' | 'JACHERE' | 'CLOTURE';
-
-/** Contour de parcelle au format GeoJSON (Polygon / MultiPolygon). */
-export interface GeoJsonGeometry {
-  type: 'Polygon' | 'MultiPolygon';
-  coordinates: number[][][][] | number[][][];
-}
-
-/** Parcelle agricole d'une ferme. */
-export interface Parcelle {
-  id: string;
-  farmId: string;
-  name: string;
-  culture: Culture;
-  cultureId: string;
-  areaHa: number;
-  areaM2: number | null;
-  boundaryGeoJson: GeoJsonGeometry | null;
-  plantedAt: string | null;
-  status: ParcelleStatus;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type RecolteUnit = 'KG' | 'PIECE' | 'SAC';
-
-/** Entrée du journal des récoltes (alimente le stock vendable au POS Ferme). */
-export interface Recolte {
-  id: string;
-  farmId: string;
-  parcelleId: string;
-  harvestDate: string;
-  quantity: number;
-  unit: RecolteUnit;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** Stock disponible par (parcelle, unité) : récolté − vendu (POS Ferme). */
-export interface ParcelleStock {
-  parcelleId: string;
-  parcelleName: string;
-  cultureName: string | null;
-  unit: RecolteUnit;
-  harvested: number;
-  sold: number;
-  available: number;
-}
-
 export interface ProductionBatch {
   id: string;
   farmId: string;
@@ -377,6 +325,14 @@ export interface ProductionBatch {
   breedId?: string | null;
   /** Auto-signal de disponibilité à la vente (persisté côté serveur). */
   readyForSaleAt?: string | null;
+  /** POUFA band code `G1-0012-B07` (farm code + rank), set at opening, never changed. */
+  code?: string | null;
+  /** Age of the birds (days) when the band was opened (J+x); 0 at placement. */
+  initialAgeDays?: number | null;
+  /** `BANDE_DUREE_REFERENCE_J` in force at opening (cycle length of the band). */
+  referenceDurationDays?: number | null;
+  /** Closing date of the band (CLOTURE). */
+  closedAt?: string | null;
 }
 
 /** Saisie journalière existante (upsert par date côté serveur). */

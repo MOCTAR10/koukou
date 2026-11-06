@@ -14,7 +14,12 @@ export type OfflineKind =
   | 'pdv-update'
   | 'pdv-delete'
   | 'stock-transfer-create'
-  | 'stock-transfer-cancel';
+  | 'stock-transfer-cancel'
+  // POUFA field work (mobile M2): idempotent creations.
+  | 'health-event'
+  | 'delivery-confirm'
+  | 'sortie'
+  | 'farm-gps';
 
 export interface OfflineOp {
   id: string;
