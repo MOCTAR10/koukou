@@ -66,6 +66,9 @@ jobs:
       # Fixed test secret so tokens survive the whole run (the fallback is a
       # random secret per boot). Not a real credential.
       JWT_SECRET: ci-e2e-only-not-a-secret-7f3c9a1e5b
+      # Mandatory for the app (test/e2e-setup.ts sets it too); the migration
+      # steps do not need it.
+      PROGRAM_CODE: POUFA
 
     steps:
       - name: Check out the code

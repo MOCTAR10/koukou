@@ -32,8 +32,8 @@ const PROGRAM_DEFAULTS: Readonly<
 export const SEED_VALID_FROM = new Date('2000-01-01T00:00:00Z');
 
 /**
- * Seeds the configured programme (only when `PROGRAM_CODE` is set): the
- * programme row, Gabon's provinces and localities, the default lists and the
+ * Seeds the configured programme (`PROGRAM_CODE`, mandatory): the programme
+ * row, Gabon's provinces and localities, the default lists and the
  * catalog's default parameters. Idempotent, one transaction under an advisory
  * lock (several instances may boot together); never overwrites an existing
  * row and never adds a parameter version once the key has one.
@@ -49,9 +49,7 @@ export class ProgrammeSeedService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    const code = this.programme.configuredCode();
-    if (!code) return;
-    await this.seed(code);
+    await this.seed(this.programme.configuredCode());
   }
 
   async seed(code: string): Promise<void> {

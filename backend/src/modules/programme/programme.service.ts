@@ -1,45 +1,45 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Program } from './entities/program.entity.js';
-
-export const NO_PROGRAMME_MESSAGE = 'Aucun programme configuré.';
+import { requireProgramCode } from './program-code.js';
 
 /**
- * The programme served by this instance, named by `PROGRAM_CODE`. Unset (the
- * public Fermia SaaS) = no programme: the programme layer is inert and its
- * endpoints answer 404.
+ * The programme served by this instance, named by `PROGRAM_CODE`
+ * (mandatory: the constructor stops the boot without it). Its row is seeded
+ * at boot by `ProgrammeSeedService`.
  */
 @Injectable()
 export class ProgrammeService {
   private cached: Program | null = null;
+  private readonly code: string;
 
   constructor(
-    private readonly config: ConfigService,
+    config: ConfigService,
     @InjectRepository(Program) private readonly programs: Repository<Program>,
-  ) {}
-
-  /** The configured programme code, or null when none. */
-  configuredCode(): string | null {
-    const code = this.config.get<string>('PROGRAM_CODE')?.trim();
-    return code ? code : null;
+  ) {
+    this.code = requireProgramCode(config.get<string>('PROGRAM_CODE'));
   }
 
-  /** The current programme, or null when none is configured (or not seeded yet). */
-  async find(): Promise<Program | null> {
-    const code = this.configuredCode();
-    if (!code) return null;
-    if (this.cached?.code === code) return this.cached;
-    const program = await this.programs.findOne({ where: { code } });
-    if (program) this.cached = program;
-    return program;
+  /** The configured programme code. */
+  configuredCode(): string {
+    return this.code;
   }
 
-  /** @throws NotFoundException « Aucun programme configuré » */
+  /**
+   * The current programme.
+   * @throws Error when its row is missing (the boot seed creates it)
+   */
   async current(): Promise<Program> {
-    const program = await this.find();
-    if (!program) throw new NotFoundException(NO_PROGRAMME_MESSAGE);
+    if (this.cached) return this.cached;
+    const program = await this.programs.findOne({ where: { code: this.code } });
+    if (!program) {
+      throw new Error(
+        `Programme ${this.code} absent de la base : il est créé au démarrage par ProgrammeSeedService.`,
+      );
+    }
+    this.cached = program;
     return program;
   }
 }

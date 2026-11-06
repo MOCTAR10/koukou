@@ -39,8 +39,8 @@ import { Action, Domain } from '../../../common/decorators/domain.decorator.js';
 const uuid = new ParseUUIDPipe({ version: '4' });
 
 /**
- * Farm registry of the programme (POUFA §5.1). Every route answers 404
- * « Aucun programme configuré » when `PROGRAM_CODE` is unset.
+ * Farm registry of the programme (POUFA §5.1): the only way a farm is
+ * created, then handed to its exploitant by `activate-owner`.
  *
  * Platform admin, or an institutional account whose profile grants REGISTRE
  * (owner activation: ADMINISTRATION), always within its scope (ScopeResolver: list filtered, sheet
