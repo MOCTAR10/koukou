@@ -58,7 +58,8 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
       PILOTAGE: ['CONSULTER'],
       // POUFA lot A2 vet: VALIDER = owns the follow-up parameters (owner key
       // DGE, `PARAMETER_OWNER_RIGHTS`); migration VeterinaryAuthorityMatrix.
-      PARAMETRES: ['CONSULTER', 'MODIFIER', 'VALIDER'],
+      // POUFA lot A2 divers: CREER = shared breed reference (F8).
+      PARAMETRES: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
       // POUFA lot A droits: the Fermia bonus domains, in consultation (user
       // decision 2026-11-06; migration InstitutionFermiaGrants for existing
       // programmes).

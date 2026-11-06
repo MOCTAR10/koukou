@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { ProgramListType } from '../../common/enums/program-list-type.enum.js';
 import {
@@ -11,12 +11,21 @@ import type { TraceLot } from './entities/trace-lot.entity.js';
 import { saleCessionLines, type SaleCessionItem } from './sale-cessions.js';
 import { TraceLotsService } from './trace-lots.service.js';
 
+/** TYPE_OPERATEUR family of a slaughterhouse (`ref-list-families.ts`). */
+export const ABATTOIR_FAMILY = 'ABATTOIR';
+
+export const ABATTOIR_OPERATOR_MESSAGE =
+  'Abattoir inconnu, inactif ou d’un autre type : choisissez un abattoir actif du registre des opérateurs du programme.';
+
 export interface SaleCessionInput {
   farmId: string;
   saleId: string;
   referenceNumber: string;
   /** Day the animals change hands (sale day, delivery day for an order). */
   day: string;
+  /** When the hand-over was recorded (an offline delivery: the device capture). */
+  capturedAt?: Date;
+  clockCorrected?: boolean;
   customerId: string | null;
   userId: string | null;
   items: readonly SaleCessionItem[];
@@ -121,8 +130,8 @@ export class SaleCessionService {
             ? `Cession de carcasses : vente ${input.referenceNumber}`
             : `Cession : vente ${input.referenceNumber}`,
           idempotencyKey: null,
-          capturedAt: new Date(),
-          clockCorrected: false,
+          capturedAt: input.capturedAt ?? new Date(),
+          clockCorrected: input.clockCorrected ?? false,
           createdById: input.userId,
         }),
       );
@@ -130,5 +139,138 @@ export class SaleCessionService {
       if (lot) out.push(lot);
     }
     return out;
+  }
+
+  // POUFA lot A2 divers (F4) ------------------------------------------------
+
+  /**
+   * An abattoir named on a slaughter order (`slaughter_orders.operator_id`):
+   * the abattoir must be an active operator of the farm's programme whose
+   * TYPE_OPERATEUR family is ABATTOIR. A farm slaughter (INTERNE) has none.
+   * @throws BadRequestException with a French reason
+   */
+  async assertAbattoir(
+    em: EntityManager,
+    farmId: string,
+    operatorId: string,
+    destination: string,
+  ): Promise<void> {
+    if (destination === 'INTERNE') {
+      throw new BadRequestException(
+        'Abattage à la ferme : pas d’opérateur abattoir (choisissez la destination « externe » pour céder le lot à un abattoir).',
+      );
+    }
+    const farms: { programId: string }[] = await em.query(
+      'SELECT program_id AS "programId" FROM farms WHERE id = $1',
+      [farmId],
+    );
+    const operator = await em
+      .getRepository(Operator)
+      .findOne({ where: { id: operatorId } });
+    const type = operator
+      ? await em.getRepository(RefItem).findOne({
+          where: {
+            programId: operator.programId,
+            listType: ProgramListType.TYPE_OPERATEUR,
+            code: operator.typeCode,
+          },
+        })
+      : null;
+    if (
+      !operator ||
+      !operator.active ||
+      operator.programId !== farms[0]?.programId ||
+      type?.family !== ABATTOIR_FAMILY
+    ) {
+      throw new BadRequestException(ABATTOIR_OPERATOR_MESSAGE);
+    }
+  }
+
+  /**
+   * F4: a slaughter order processed with an abattoir cedes its birds, like an
+   * ABATTOIR sortie towards an operator: an ABATTOIR sortie record linked to
+   * the order, then the sub-lot, its QR and the CESSION event. The order's
+   * birds are counted through the order as before (a sortie linked to a
+   * processed order is the same record the sortie path writes), on the
+   * planned day, or on the processing day when it comes earlier. Nothing
+   * when a sortie already carries the order (it was ceded at the sortie), or
+   * when the abattoir has been deactivated since (never blocks a slaughter).
+   */
+  async cedeSlaughterOrder(
+    em: EntityManager,
+    order: {
+      id: string;
+      farmId: string;
+      batchId: string;
+      referenceNumber: string;
+      plannedDate: string;
+      birdCount: number;
+      totalWeightKg: number | null;
+      operatorId: string | null;
+    },
+    userId: string | null,
+    today: string,
+  ): Promise<TraceLot | null> {
+    if (!order.operatorId) return null;
+    const already: unknown[] = await em.query(
+      'SELECT 1 FROM sorties WHERE slaughter_order_id = $1 LIMIT 1',
+      [order.id],
+    );
+    if (already.length > 0) return null;
+    const farms: { programId: string }[] = await em.query(
+      'SELECT program_id AS "programId" FROM farms WHERE id = $1',
+      [order.farmId],
+    );
+    const programId = farms[0]?.programId;
+    const operator = await em
+      .getRepository(Operator)
+      .findOne({ where: { id: order.operatorId } });
+    if (!programId || !operator?.active || operator.programId !== programId) {
+      this.logger.warn(
+        `Abattage ${order.referenceNumber} : abattoir inactif ou hors programme, aucune cession.`,
+      );
+      return null;
+    }
+    const reasons = await em.getRepository(RefItem).find({
+      where: {
+        programId,
+        listType: ProgramListType.MOTIF_SORTIE,
+        family: SORTIE_FAMILY.ABATTOIR,
+      },
+      order: { active: 'DESC', sort: 'ASC', code: 'ASC' },
+    });
+    const reason = reasons[0];
+    if (!reason) {
+      this.logger.warn(
+        `Abattage ${order.referenceNumber} : aucun motif de sortie de la famille ABATTOIR, aucune cession.`,
+      );
+      return null;
+    }
+    const planned = order.plannedDate.slice(0, 10);
+    const repo = em.getRepository(Sortie);
+    const sortie = await repo.save(
+      repo.create({
+        farmId: order.farmId,
+        batchId: order.batchId,
+        sortieDate: planned < today ? planned : today,
+        count: order.birdCount,
+        weightKg: order.totalWeightKg,
+        reasonCode: reason.code,
+        reasonFamily: SORTIE_FAMILY.ABATTOIR,
+        recipientName: operator.name,
+        recipientPhone: null,
+        operatorId: operator.id,
+        unitPriceFcfa: null,
+        priceUnit: null,
+        saleId: null,
+        slaughterOrderId: order.id,
+        notes: `Cession à l’abattoir : ordre ${order.referenceNumber}`,
+        idempotencyKey: null,
+        capturedAt: new Date(),
+        clockCorrected: false,
+        createdById: userId,
+      }),
+    );
+    return this.lots.cede(em, sortie, reason);
   }
 }

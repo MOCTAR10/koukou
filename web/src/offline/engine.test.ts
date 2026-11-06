@@ -115,6 +115,16 @@ describe('flushQueue', () => {
     expect(loadRejected()).toHaveLength(0);
   });
 
+  it('replays an order delivery with the time it was recorded', async () => {
+    await queueOne({ kind: 'order-deliver', farmId: FARM, path: `/farms/${FARM}/orders/o/livrer`, body: {}, label: 'Livraison' });
+    const op = loadOps()[0]!;
+    expect((op.body as { capturedAt: string }).capturedAt).toBe(op.createdAt);
+    route('POST', /livrer/, { status: 201, body: {} });
+    await flushQueue();
+    expect(calls.at(-1)?.body).toMatchObject({ capturedAt: op.createdAt });
+    expect(typeof (calls.at(-1)?.body as { deviceSentAt?: string }).deviceSentAt).toBe('string');
+  });
+
   it('retries after an expired token instead of losing the op', async () => {
     await queueOne();
     route('POST', /sales/, { status: 401 });

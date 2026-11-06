@@ -235,14 +235,11 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
     await patch('/admin/payment-methods/CASH', { enabled: false }).expect(400);
   });
 
-  it('modifie une souche ; les protocoles sanitaires restent aux vétérinaires', async () => {
+  it('races par la matrice (lot A2 F8) ; les protocoles sanitaires restent aux vétérinaires', async () => {
     const breeds = await get('/breeds').expect(200);
     breedId = breeds.body[0].id;
-    const updated = await patch(`/admin/breeds/${breedId}`, {
-      active: false,
-    }).expect(200);
-    expect(updated.body.active).toBe(false);
-    await patch(`/admin/breeds/${breedId}`, { active: true }).expect(200);
+    // POUFA lot A2 divers: the breed reference belongs to PARAMETRES:CREER.
+    await patch(`/admin/breeds/${breedId}`, { active: false }).expect(403);
 
     const protocols = await get('/sanitary/protocols').expect(200);
     const editableProtocol = (protocols.body as any[]).find(

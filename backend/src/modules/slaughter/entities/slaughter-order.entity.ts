@@ -14,6 +14,7 @@ import { SlaughterType } from '../../../common/enums/slaughter-type.enum.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { Farm } from '../../farms/entities/farm.entity.js';
 import { User } from '../../users/entities/user.entity.js';
+import type { Operator } from '../../trace/entities/operator.entity.js';
 
 @Entity('slaughter_orders')
 export class SlaughterOrder {
@@ -69,6 +70,17 @@ export class SlaughterOrder {
 
   @Column({ name: 'abattoir_lot_code', type: 'varchar', nullable: true })
   abattoirLotCode: string | null;
+
+  /**
+   * POUFA lot A2 divers (F4): programme operator (abattoir) receiving the
+   * birds; processing the order cedes the lot to it (sub-lot, signed QR).
+   */
+  @ManyToOne('Operator', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'operator_id' })
+  operator?: Operator | null;
+
+  @Column({ name: 'operator_id', type: 'uuid', nullable: true })
+  operatorId: string | null;
 
   @Column({
     type: 'enum',

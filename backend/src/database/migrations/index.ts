@@ -22,6 +22,9 @@ import { WeighingReminderTeam1794000400000 } from './1794000400000-WeighingRemin
 import { InstitutionFermiaGrants1794000500000 } from './1794000500000-InstitutionFermiaGrants.js';
 import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalaries.js';
 // POUFA lot A droits (end)
+// POUFA lot A2 divers
+import { SlaughterOrderOperator1794100500000 } from './1794100500000-SlaughterOrderOperator.js';
+import { BreedReferenceRight1794100500100 } from './1794100500100-BreedReferenceRight.js';
 // POUFA lot A sante: CDC n° 22-23 (treatments, vaccinations, offline keys).
 import { SanitaryConformity1794000300000 } from './1794000300000-SanitaryConformity.js';
 // POUFA lot A2 sante: reference calendar steps, postponement trace, care product code.
@@ -70,4 +73,8 @@ export const MIGRATIONS = [
   VeterinaryAuthorityMatrix1794100200000,
   DeclarationReview1794100200100,
   // POUFA lot A2 vet (end)
+  // POUFA lot A2 divers (begin)
+  SlaughterOrderOperator1794100500000,
+  BreedReferenceRight1794100500100,
+  // POUFA lot A2 divers (end)
 ];

@@ -44,6 +44,8 @@ export function invalidateFarmQueries(
   void queryClient.invalidateQueries({ queryKey: ['farm-profile', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['permission-catalog', farmId] });
   void queryClient.invalidateQueries({ queryKey: ['tasks', farmId] });
+  // POUFA lot A2 divers: official band indicators (home card, Lots tab).
+  void queryClient.invalidateQueries({ queryKey: ['band-history', farmId] });
   if (batchId) {
     void queryClient.invalidateQueries({ queryKey: ['batch', farmId, batchId] });
     void queryClient.invalidateQueries({ queryKey: ['daily-entries', farmId, batchId] });

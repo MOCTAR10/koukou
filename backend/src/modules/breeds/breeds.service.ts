@@ -83,4 +83,24 @@ export class BreedsService {
     });
     return this.repo.save(breed);
   }
+
+  /** POUFA lot A2 divers (F8): edit a shared breed (farm breeds stay the farm's). */
+  async updateShared(
+    id: string,
+    input: { name?: string; type?: BatchType; species?: Species; active?: boolean },
+  ): Promise<Breed> {
+    const breed = await this.repo.findOne({ where: { id } });
+    if (!breed || breed.farmId) {
+      throw new NotFoundException('Race du référentiel commun introuvable.');
+    }
+    if (input.name != null && input.name !== breed.name) {
+      const clash = await this.repo.findOne({ where: sharedOrFarm<Breed>(null, { name: input.name }) });
+      if (clash) throw new ConflictException('Une souche porte déjà ce nom. Choisissez un autre nom.');
+      breed.name = input.name;
+    }
+    if (input.type) breed.type = input.type;
+    if (input.species) breed.species = input.species;
+    if (input.active != null) breed.active = input.active;
+    return this.repo.save(breed);
+  }
 }

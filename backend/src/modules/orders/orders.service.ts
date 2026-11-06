@@ -74,6 +74,9 @@ import { RentabiliteService } from '../finance/rentabilite.service.js';
 import { SalesService } from '../finance/sales.service.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import { SaleCessionService } from '../trace/sale-cession.service.js';
+import { SyncService } from '../sync/sync.service.js';
+import { TraceLotsService } from '../trace/trace-lots.service.js';
+import { utcDay } from './delivery-day.js';
 import {
   CreateOrderDto,
   FinalizeOrderDto,
@@ -213,6 +216,8 @@ export class OrdersService {
     private readonly accountingService: AccountingService,
     private readonly bandeStats: BandeStatsService,
     private readonly saleCessions: SaleCessionService,
+    private readonly sync: SyncService,
+    private readonly traceLots: TraceLotsService,
   ) {}
 
   // ---------- Création (bon de commande) ----------
@@ -682,6 +687,16 @@ export class OrdersService {
       const items = await itemRepo.find({ where: { saleId: sale.id } });
       const byId = new Map(items.map((i) => [i.id, i]));
 
+      // POUFA lot A2 divers: an offline delivery keeps the device's day
+      // (cession, delivery date, ledger), never the day of the sync.
+      const capture = await this.sync.capture(
+        em,
+        { programId: farm.programId, farmId, userId: user.id },
+        dto,
+      );
+      const deliveredAt = capture.capturedAt;
+      const deliveryDay = utcDay(deliveredAt);
+
       // Sanitary rules are advisory for a farm's own sales, but a Market buyer
       // can't judge them: the platform doesn't deliver during a withdrawal.
       if (order.source === OrderSource.MARKET) {
@@ -844,7 +859,7 @@ export class OrdersService {
       // Le bon de commande reflète le montant réellement facturé.
       order.totalAmountFcfa = total;
       order.status = OrderStatus.LIVRE;
-      order.livredAt = new Date();
+      order.livredAt = deliveredAt;
       order.depositFcfa = Math.min(await this.paidSum(em, sale.id), total);
       await orderRepo.save(order);
 
@@ -854,7 +869,7 @@ export class OrdersService {
       await this.accountingService.ensureSaleEntry(em, {
         farmId,
         sale: { id: sale.id, referenceNumber: sale.referenceNumber },
-        date: todayStr(),
+        date: deliveryDay,
         items: items.map((i) => ({
           productType: i.productType,
           amountFcfa: i.amountFcfa,
@@ -869,7 +884,9 @@ export class OrdersService {
         farmId,
         saleId: sale.id,
         referenceNumber: order.referenceNumber,
-        day: todayStr(),
+        day: deliveryDay,
+        capturedAt: deliveredAt,
+        clockCorrected: capture.corrected,
         customerId: sale.customerId,
         userId: user.id,
         items,
@@ -1158,6 +1175,8 @@ export class OrdersService {
       depositFcfa: paid,
       remainingFcfa: Math.max(0, order.totalAmountFcfa - paid),
       method: confirmed[0]?.method ?? 'ESPECES',
+      // POUFA lot A2 divers (F10): traced lots of the order, signed QR.
+      traceLots: await this.traceLots.saleTraceLots(farmId, order.saleId),
     });
   }
 

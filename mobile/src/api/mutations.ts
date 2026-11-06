@@ -1054,10 +1054,15 @@ export function recordOrderPayment(
 }
 
 /** Livre la commande : décrémente le cheptel, fige le snapshot, génère le bon de commande PDF. */
-export function deliverOrder(farmId: string, orderId: string): Promise<unknown> {
+export function deliverOrder(
+  farmId: string,
+  orderId: string,
+  // POUFA lot A2 divers: an offline delivery keeps the day it was recorded on the phone.
+  meta?: { capturedAt: string; deviceId: string; deviceSentAt: string },
+): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/orders/${orderId}/livrer`, {
     method: 'POST',
-    body: {},
+    body: meta ?? {},
   });
 }
 
