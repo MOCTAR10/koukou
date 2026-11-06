@@ -10,7 +10,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { errorMessage } from '@/components/ui/Feedback';
 import { fetchBandHistory } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
-import { HEADLINE, bestBands, findIndicator, officialText } from '@/poufa/official-headline';
+import { HEADLINE, bestBands, findIndicator, officialText, showsBandEconomics } from '@/poufa/official-headline';
 import { color, fmtFcfa, palette, semantic } from '@/constants/theme';
 
 function frDay(iso: string | null): string {
@@ -32,6 +32,8 @@ export function BandHistoryList({ farmId, currentId }: { farmId: string; current
   });
   const rows = history.data ?? [];
   const best = bestBands(rows);
+  // POUFA lot A2 droits (F6): no money line for a reader without ECONOMIQUE.
+  const money = showsBandEconomics(rows.map((r) => r.summary));
 
   return (
     <View style={{ gap: 10 }}>
@@ -82,13 +84,19 @@ export function BandHistoryList({ farmId, currentId }: { farmId: string; current
                     </View>
                   ))}
                 </View>
-                <AppText size="small" color="muted">
-                  CA {s?.revenueFcfa != null ? fmtFcfa(s.revenueFcfa) : '—'} · Marge{' '}
-                  <AppText size="small" weight="semibold" color={s?.marginFcfa != null && s.marginFcfa < 0 ? 'danger' : 'text'}>
-                    {s?.marginFcfa != null ? fmtFcfa(s.marginFcfa) : '—'}
+                {money ? (
+                  <AppText size="small" color="muted">
+                    CA {s?.revenueFcfa != null ? fmtFcfa(s.revenueFcfa) : '—'} · Marge{' '}
+                    <AppText size="small" weight="semibold" color={s?.marginFcfa != null && s.marginFcfa < 0 ? 'danger' : 'text'}>
+                      {s?.marginFcfa != null ? fmtFcfa(s.marginFcfa) : '—'}
+                    </AppText>
+                    {s?.snapshotVersion && s.snapshotVersion > 1 ? ` · bilan v${s.snapshotVersion} (corrigé)` : ''}
                   </AppText>
-                  {s?.snapshotVersion && s.snapshotVersion > 1 ? ` · bilan v${s.snapshotVersion} (corrigé)` : ''}
-                </AppText>
+                ) : s?.snapshotVersion && s.snapshotVersion > 1 ? (
+                  <AppText size="small" color="muted">
+                    bilan v{s.snapshotVersion} (corrigé)
+                  </AppText>
+                ) : null}
               </View>
             );
           })

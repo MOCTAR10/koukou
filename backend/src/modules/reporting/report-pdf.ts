@@ -9,6 +9,7 @@ import type {
 } from '../../common/services/pdf.service.js';
 import { ReportSection } from '../../common/enums/report.enum.js';
 import type { BandeSnapshot } from '../bandes/entities/bande-snapshot.entity.js';
+import { withoutEconomicIndicators } from '../indicators/economic-indicators.js';
 import type { BandComparison } from './band-comparison.service.js';
 import { SECTION_LABELS } from './data/default-report-templates.js';
 import type {
@@ -442,10 +443,17 @@ export function bandReport(input: BandReportInput): AccountingReportData {
           ['Sortis vivants (têtes)', fmt(v.sortis_tetes ?? null)],
           ['Poids vif sorti', `${fmt(v.poids_sortis_kg ?? null, 1)} kg`],
           ['Aliment consommé', `${fmt(v.aliment_kg ?? null, 1)} kg`],
-          ...s.indicators.map((i) => [
+          // POUFA lot A2 droits (F6): the report also goes to the agent
+          // technique (TECHNIQUE only), so it carries no revenue, cost nor
+          // margin; they stay in the band's profitability (ECONOMIQUE).
+          ...withoutEconomicIndicators(s.indicators).map((i) => [
             i.label,
             `${fmt(i.value, 2)}${i.unit ? ` ${i.unit}` : ''}`,
           ]),
+          [
+            'Indicateurs économiques',
+            'dans la rentabilité de la bande (droit Économique)',
+          ],
           ['Complétude des saisies', pctText(s.completenessPct)],
           ['Version du bilan', String(s.version)],
         ],

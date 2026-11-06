@@ -8,6 +8,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -15,6 +16,8 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
+import { FarmsService } from '../farms/farms.service.js';
+import { economicView } from '../indicators/economic-indicators.js';
 import { BandeCorrectionsService } from './bande-corrections.service.js';
 import { BandeIndicatorsService } from './bande-indicators.service.js';
 import { BandeSnapshotsService } from './bande-snapshots.service.js';
@@ -33,6 +36,10 @@ import { SortiesService } from './sorties.service.js';
  * with the farm. Correcting a closed band takes TECHNIQUE + ADMINISTRER,
  * granted per profile by the programme administration (no default profile
  * has it; CDC §8 « profil habilité »).
+ *
+ * POUFA lot A2 droits: the official revenue, charges, cost and margin of a
+ * band go to ECONOMIQUE readers only (`economicView`, audit F6); the reads
+ * carrying farm data are journaled for third parties (CDC §8).
  */
 @ApiTags('Bandes POUFA')
 @Domain('TECHNIQUE')
@@ -45,9 +52,11 @@ export class BandesController {
     private readonly sorties: SortiesService,
     private readonly corrections: BandeCorrectionsService,
     private readonly stats: BandeStatsService,
+    private readonly farms: FarmsService,
   ) {}
 
   @Get()
+  @AuditThirdPartyRead('Historique des bandes (bilans officiels, données économiques)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
@@ -55,7 +64,7 @@ export class BandesController {
   })
   @ApiParam({ name: 'farmId' })
   @ApiQuery({ name: 'status', required: false, enum: ['CLOTURE', 'EN_COURS'] })
-  list(
+  async list(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Query('status') status?: string,
@@ -66,7 +75,14 @@ export class BandesController {
         'Statut de bande inconnu (CLOTURE ou EN_COURS).',
       );
     }
-    return this.snapshots.history(user, farmId, filter);
+    const [bands, reads] = await Promise.all([
+      this.snapshots.history(user, farmId, filter),
+      this.farms.readsEconomics(user),
+    ]);
+    return bands.map((b) => ({
+      ...b,
+      summary: b.summary ? economicView(b.summary, reads) : null,
+    }));
   }
 
   @Get(':batchId')
@@ -84,6 +100,7 @@ export class BandesController {
   }
 
   @Get(':batchId/indicators')
+  @AuditThirdPartyRead('Indicateurs officiels d’une bande (données économiques)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
@@ -97,20 +114,28 @@ export class BandesController {
     @Query('asOf') asOf?: string,
   ) {
     const { farm, batch } = await this.bandes.load(user, farmId, batchId);
-    return this.indicators.compute(farm, batch, asOf || undefined);
+    return economicView(
+      await this.indicators.compute(farm, batch, asOf || undefined),
+      await this.farms.readsEconomics(user),
+    );
   }
 
   @Get(':batchId/snapshots')
+  @AuditThirdPartyRead('Bilans figés d’une bande (données économiques)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Bilans figés de la bande (une version par correction)',
   })
-  snapshotsOf(
+  async snapshotsOf(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('batchId') batchId: string,
   ) {
-    return this.snapshots.list(user, farmId, batchId);
+    const [list, reads] = await Promise.all([
+      this.snapshots.list(user, farmId, batchId),
+      this.farms.readsEconomics(user),
+    ]);
+    return list.map((s) => economicView(s, reads));
   }
 
   @Get(':batchId/daily-stats')
@@ -143,6 +168,7 @@ export class BandesController {
   }
 
   @Get(':batchId/sorties')
+  @AuditThirdPartyRead('Sorties d’une bande (prix, destinataires)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Sorties d’animaux de la bande' })
   sortiesOf(
@@ -178,12 +204,24 @@ export class BandesController {
     summary:
       'Corriger une saisie d’une bande clôturée (profil habilité, motif obligatoire, nouveau bilan)',
   })
-  correct(
+  async correct(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('batchId') batchId: string,
     @Body() dto: CorrectClosedBandeDto,
   ) {
-    return this.corrections.correctDailyEntry(user, farmId, batchId, dto);
+    const result = await this.corrections.correctDailyEntry(
+      user,
+      farmId,
+      batchId,
+      dto,
+    );
+    return {
+      ...result,
+      snapshot: economicView(
+        result.snapshot,
+        await this.farms.readsEconomics(user),
+      ),
+    };
   }
 }

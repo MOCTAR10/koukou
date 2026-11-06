@@ -9,6 +9,7 @@ import {
   officialText,
   officialTooltip,
   openBandsHeadline,
+  showsBandEconomics,
   summariesById,
 } from './headline';
 
@@ -101,5 +102,14 @@ describe('band history', () => {
     expect(best.ic).toBe('B03');
     // Only one band has a GMQ: nothing to compare.
     expect(best.gmq_g_j).toBeUndefined();
+  });
+});
+
+// POUFA lot A2 droits (F6).
+describe('showsBandEconomics', () => {
+  it('hides the money block once the server masked it', () => {
+    expect(showsBandEconomics([])).toBe(true);
+    expect(showsBandEconomics([null, { economicMasked: false }, {}])).toBe(true);
+    expect(showsBandEconomics([{ economicMasked: false }, { economicMasked: true }])).toBe(false);
   });
 });

@@ -33,3 +33,19 @@ export const ALSO_GRANTED_BY_KEY = 'accessAlsoGrantedBy';
 export const AlsoGrantedBy = (
   ...grants: ReadonlyArray<readonly [AccessDomain, AccessAction]>
 ) => SetMetadata(ALSO_GRANTED_BY_KEY, grants);
+
+// POUFA lot A2 droits (begin): Fermia bonus features in read-only.
+export const INSTITUTION_READ_ONLY_KEY = 'accessInstitutionReadOnly';
+
+/**
+ * A Fermia bonus feature stored under a programme domain (expenses, FEFO
+ * stock, slaughter, tasks, advisory alerts…): an institutional account
+ * consults it with the domain's CONSULTER, but never writes, even when its
+ * matrix grants a write action on that domain (`ProgramAccessGuard`, French
+ * 403 naming `feature`). The Fermia bonus domains themselves (VENTES, MARCHE,
+ * COMPTABILITE, EQUIPE) are read-only without it. Controller or method level;
+ * `feature` is the module's French name, e.g. « Dépenses ».
+ */
+export const InstitutionReadOnly = (feature: string) =>
+  SetMetadata(INSTITUTION_READ_ONLY_KEY, feature);
+// POUFA lot A2 droits (end)

@@ -38,6 +38,7 @@ export class FarmsController {
   constructor(private readonly farmsService: FarmsService) {}
 
   @Get()
+  @AuditThirdPartyRead('Liste des fermes accessibles (exploitants, téléphones)')
   // The caller's own list, whatever its matrix (the scope still applies, in
   // the service through ScopeResolver).
   @Domain('SESSION')

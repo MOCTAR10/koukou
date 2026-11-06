@@ -41,6 +41,7 @@ import {
   splitIndicators,
   type CorrectionForm,
 } from './bandSummary';
+import { ECONOMICS_MASKED_NOTE } from './headline';
 import { conflictExplanation, type SyncConflictRow } from './syncConflicts';
 
 /**
@@ -211,6 +212,7 @@ function IndicatorsBlock({ data }: { data: BandeIndicators }) {
         ))}
       </div>
       {others.length > 0 ? <IndicatorTable list={others} /> : null}
+      {data.economicMasked ? <p className="text-xs text-slate-500">{ECONOMICS_MASKED_NOTE}</p> : null}
     </div>
   );
 }
@@ -423,10 +425,16 @@ function SnapshotsCard({ lot, sheet }: { lot: Lot; sheet: BandSheet | undefined 
           {current.reason ? <Note tone="amber">Motif : {current.reason}</Note> : null}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Mini label="Complétude">{current.completenessPct != null ? `${current.completenessPct.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %` : '—'}</Mini>
-            <Mini label="Recettes">{fcfa(current.revenueFcfa)}</Mini>
-            <Mini label="Charges">{fcfa(current.chargesFcfa)}</Mini>
-            <Mini label="Marge">{fcfa(current.marginFcfa)}</Mini>
+            {/* POUFA lot A2 droits (F6): no money block without ECONOMIQUE. */}
+            {current.economicMasked ? null : (
+              <>
+                <Mini label="Recettes">{fcfa(current.revenueFcfa)}</Mini>
+                <Mini label="Charges">{fcfa(current.chargesFcfa)}</Mini>
+                <Mini label="Marge">{fcfa(current.marginFcfa)}</Mini>
+              </>
+            )}
           </div>
+          {current.economicMasked ? <p className="text-xs text-slate-500">{ECONOMICS_MASKED_NOTE}</p> : null}
           <SnapshotIndicators list={current.indicators} />
         </div>
       ) : null}

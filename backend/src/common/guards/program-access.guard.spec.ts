@@ -3,7 +3,11 @@ import { Reflector } from '@nestjs/core';
 import type { ExecutionContext } from '@nestjs/common';
 import { AccessScopeKind } from '../enums/access-scope-kind.enum.js';
 import { UserRole } from '../enums/role.enum.js';
-import { Action, Domain } from '../decorators/domain.decorator.js';
+import {
+  Action,
+  Domain,
+  InstitutionReadOnly,
+} from '../decorators/domain.decorator.js';
 import { Public } from '../decorators/public.decorator.js';
 import type { InstitutionAccess } from '../../modules/access/access-rules.js';
 import type { ScopeResolver } from '../../modules/access/scope-resolver.service.js';
@@ -34,6 +38,32 @@ class RegistryController {
 
   @Get('open')
   @Public()
+  open() {}
+}
+
+// POUFA lot A2 droits: a Fermia bonus stored under a programme domain.
+@Domain('ECONOMIQUE')
+@InstitutionReadOnly('Dépenses')
+@Controller('farms/:farmId/expenses')
+class ExpensesController {
+  @Get()
+  list() {}
+
+  @Post()
+  create() {}
+
+  @Post('check')
+  @Action('CONSULTER')
+  check() {}
+}
+
+@Domain('VENTES')
+@Controller('farms/:farmId/caisse')
+class CaisseController {
+  @Get()
+  read() {}
+
+  @Post('open')
   open() {}
 }
 
@@ -163,6 +193,43 @@ describe('ProgramAccessGuard', () => {
         ctx(RegistryController, 'check', 'POST', UserRole.OPERATEUR),
       ),
     ).rejects.toThrow(/opérateurs/);
+  });
+
+  it('keeps a Fermia bonus read-only whatever the matrix grants', async () => {
+    const { guard } = guardWith({
+      ...ACCESS,
+      matrix: {
+        ECONOMIQUE: ['CONSULTER', 'CREER', 'MODIFIER'],
+        VENTES: ['CONSULTER'],
+      },
+    });
+    const params = { farmId: 'in-scope' };
+    await expect(
+      guard.canActivate(
+        ctx(ExpensesController, 'list', 'GET', UserRole.INSTITUTION, params),
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      guard.canActivate(
+        ctx(ExpensesController, 'check', 'POST', UserRole.INSTITUTION, params),
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      guard.canActivate(
+        ctx(ExpensesController, 'create', 'POST', UserRole.INSTITUTION, params),
+      ),
+    ).rejects.toThrow(/« Dépenses » est un module de gestion propre à la ferme/);
+    await expect(
+      guard.canActivate(
+        ctx(CaisseController, 'open', 'POST', UserRole.INSTITUTION, params),
+      ),
+    ).rejects.toThrow(/« Caisse et ventes ».*consultation seule/);
+    // The farm's own accounts are not concerned.
+    await expect(
+      guard.canActivate(
+        ctx(ExpensesController, 'create', 'POST', UserRole.PROPRIETAIRE, params),
+      ),
+    ).resolves.toBe(true);
   });
 
   it('lets public routes through', async () => {

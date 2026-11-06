@@ -1,3 +1,4 @@
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -37,6 +38,7 @@ export class BatchesController {
   }
 
   @Get()
+  @AuditThirdPartyRead('Lots d’une ferme (prix des poussins)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Lister les lots avec métriques' })
   @ApiParam({ name: 'farmId' })
@@ -49,6 +51,7 @@ export class BatchesController {
   }
 
   @Get(':batchId')
+  @AuditThirdPartyRead('Détail d’un lot (prix des poussins)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Détail d’un lot avec métriques' })
   findOne(

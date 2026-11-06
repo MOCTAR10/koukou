@@ -1,3 +1,4 @@
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import {
@@ -21,6 +22,7 @@ export class FarmSanitaryAlertsController {
   constructor(private readonly alerts: SanitaryAlertsService) {}
 
   @Get()
+  @AuditThirdPartyRead('Alertes sanitaires d’une ferme')
   @ApiOperation({
     summary: 'Alertes sanitaires officielles de la ferme et leur statut',
   })
@@ -34,6 +36,7 @@ export class FarmSanitaryAlertsController {
   }
 
   @Get(':alertId')
+  @AuditThirdPartyRead('Détail d’une alerte sanitaire d’une ferme')
   @ApiOperation({ summary: 'Détail d’une alerte sanitaire de la ferme' })
   @ApiParam({ name: 'farmId' })
   @ApiParam({ name: 'alertId' })

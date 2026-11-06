@@ -15,10 +15,11 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { RentabiliteService } from './rentabilite.service.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Rentabilité & Compte de résultat')
 @Domain('ECONOMIQUE')
+@InstitutionReadOnly('Rentabilité')
 @Controller('farms/:farmId/rentabilite')
 export class RentabiliteController {
   constructor(private readonly rentabiliteService: RentabiliteService) {}

@@ -114,6 +114,42 @@ export function decideRouteAny(
   return primary;
 }
 
+// POUFA lot A2 droits (begin): Fermia bonus features in read-only.
+/** French name of each Fermia bonus domain, for the read-only refusal. */
+const FERMIA_DOMAIN_FEATURES: Readonly<Record<string, string>> = {
+  VENTES: 'Caisse et ventes',
+  MARCHE: 'Market',
+  COMPTABILITE: 'Comptabilité',
+  EQUIPE: 'Équipe et RH',
+};
+
+export const readOnlyFeatureMessage = (feature: string): string =>
+  `Accès refusé : « ${feature} » est un module de gestion propre à la ferme (Fermia), ouvert aux comptes institutionnels en consultation seule, quels que soient les droits accordés.`;
+
+/**
+ * Read-only rule of the Fermia bonus features for an institutional account
+ * (user decision 2026-11-06: the government benefits from them, in
+ * consultation): a route of a Fermia bonus domain, or marked
+ * `@InstitutionReadOnly(feature)` (a bonus stored under a programme domain:
+ * expenses, FEFO stock, slaughter…), refuses every action but CONSULTER,
+ * whatever the matrix grants. Returns the French refusal, or null when the
+ * rule does not apply.
+ */
+export function readOnlyRefusal(
+  domain: AccessDomain | undefined,
+  action: AccessAction,
+  feature: string | undefined,
+): string | null {
+  if (action === 'CONSULTER') return null;
+  const name =
+    feature ??
+    (domain && isInstitutionFermiaDomain(domain)
+      ? FERMIA_DOMAIN_FEATURES[domain]
+      : undefined);
+  return name ? readOnlyFeatureMessage(name) : null;
+}
+// POUFA lot A2 droits (end)
+
 /** Whether an institutional access consults `domain` (its scope rules apart). */
 export function consults(
   access: Pick<InstitutionAccess, 'matrix' | 'scopeKind'>,

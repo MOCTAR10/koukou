@@ -91,3 +91,10 @@ export function latestComparison(c: BandComparison | null | undefined): Comparis
   const withBand = rows.filter((r) => r.cells.mortalityPct.band !== '—' || r.cells.fcr.band !== '—' || r.cells.gmqG.band !== '—');
   return withBand.find((r) => !r.suppressed && r.cells.mortalityPct.programme !== '—') ?? withBand[0] ?? null;
 }
+
+// POUFA lot A2 droits (F6): the server masks the band economics for a reader
+// without ECONOMIQUE (`economicMasked`); the screens then hide the money line.
+/** Whether every band answer of the list carries its money figures. */
+export function showsBandEconomics(list: readonly ({ economicMasked?: boolean } | null | undefined)[]): boolean {
+  return !list.some((item) => item?.economicMasked === true);
+}
