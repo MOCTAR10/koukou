@@ -47,7 +47,13 @@
           "barStyle": "dark"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Fermia utilise votre position pour relever le point GPS de la ferme, sur place, quand vous le demandez."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

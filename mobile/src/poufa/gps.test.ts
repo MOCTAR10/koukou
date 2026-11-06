@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getCurrentPosition, LOCATION_AVAILABLE } from '@/location/current-position';
 import { PositionError, accuracyGrade, accuracyLabel, buildGpsPayload, formatCoords, positionRefusal, withTimeout } from './gps';
 
 const fix = { latitude: 0.3912345678, longitude: 9.4521234567, accuracyM: 7.84, capturedAt: '2026-11-06T08:00:00.000Z' };
@@ -66,12 +65,5 @@ describe('withTimeout', () => {
     await expect(withTimeout(Promise.reject(new PositionError('PERMISSION_DENIED')), 1000)).rejects.toMatchObject({
       reason: 'PERMISSION_DENIED',
     });
-  });
-});
-
-describe('getCurrentPosition (module absent de cette version)', () => {
-  it('explique que le relevé arrive avec la prochaine version', async () => {
-    expect(LOCATION_AVAILABLE).toBe(false);
-    await expect(getCurrentPosition()).rejects.toMatchObject({ reason: 'NOT_INSTALLED' });
   });
 });

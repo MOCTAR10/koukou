@@ -1,20 +1,31 @@
-// The phone's current position, behind one small seam.
+// The phone's current position, behind one small seam (expo-location, SDK 54).
 //
-// `expo-location` (SDK 54: ~19.0.8) is not installed yet. Once it is, only
-// `readDevicePosition` changes (permission, location services, then one
-// high-accuracy fix under `withTimeout`); callers already handle every
-// `PositionError` reason with its French message.
-import { PositionError, type DevicePosition } from '@/poufa/gps';
+// Foreground permission only: the point is taken on site, when the user asks.
+// Callers handle every `PositionError` reason with its French message.
+import * as Location from 'expo-location';
+
+import { PositionError, withTimeout, type DevicePosition } from '@/poufa/gps';
 
 /** A fix outdoors takes a few seconds; past this the farmer is told why. */
 export const POSITION_TIMEOUT_MS = 20_000;
 
 /** Whether the location module ships in this build (the farm card explains when not). */
-export const LOCATION_AVAILABLE = false;
+export const LOCATION_AVAILABLE = true;
 
 /** Device read: permission, location services, then one high-accuracy fix. */
-async function readDevicePosition(_timeoutMs: number): Promise<DevicePosition> {
-  throw new PositionError('NOT_INSTALLED');
+async function readDevicePosition(timeoutMs: number): Promise<DevicePosition> {
+  let perm = await Location.getForegroundPermissionsAsync();
+  if (perm.status !== 'granted' && perm.canAskAgain) perm = await Location.requestForegroundPermissionsAsync();
+  if (perm.status !== 'granted') throw new PositionError('PERMISSION_DENIED');
+  if (!(await Location.hasServicesEnabledAsync())) throw new PositionError('SERVICES_OFF');
+  // The timeout covers the fix only, never the permission prompt.
+  const fix = await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), timeoutMs);
+  return {
+    latitude: fix.coords.latitude,
+    longitude: fix.coords.longitude,
+    accuracyM: fix.coords.accuracy ?? null,
+    capturedAt: new Date(fix.timestamp).toISOString(),
+  };
 }
 
 /** One fix of the phone's position, or a `PositionError` (French message). */
