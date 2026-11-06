@@ -51,7 +51,8 @@ function MoveDateSheet({ farmId, listing, onClose }: { farmId: string; listing: 
   );
 }
 
-export function FarmListingsPanel({ farmId }: { farmId: string }) {
+/** `readOnly` (POUFA lot A droits): an institution granted MARCHE reads the listings, no action. */
+export function FarmListingsPanel({ farmId, readOnly = false }: { farmId: string; readOnly?: boolean }) {
   const client = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<FarmMarketListing | null>(null);
@@ -77,7 +78,7 @@ export function FarmListingsPanel({ farmId }: { farmId: string }) {
 
   return (
     <View style={{ gap: 10 }}>
-      <Button label="Nouvelle annonce" icon={Plus} onPress={() => setCreating(true)} />
+      {readOnly ? null : <Button label="Nouvelle annonce" icon={Plus} onPress={() => setCreating(true)} />}
       {query.isLoading ? <Spinner label="Chargement…" /> : null}
       {query.error && listings.length === 0 ? <Notice tone="danger">{marketError(query.error)}</Notice> : null}
       {!query.isLoading && !query.error && listings.length === 0 ? (
@@ -108,7 +109,7 @@ export function FarmListingsPanel({ farmId }: { farmId: string }) {
               {l.depositPct ? ` · acompte ${l.depositPct} %` : ''}
             </AppText>
             {hidden ? <Notice tone="warning" icon={AlertTriangle}>{hidden}</Notice> : null}
-            {open ? (
+            {open && !readOnly ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {l.status === 'PUBLISHED' ? (
                   <Button label="Suspendre" icon={Pause} tone="ghost" size="sm" block={false} onPress={() => action.mutate({ id: l.id, verb: 'pause' })} />

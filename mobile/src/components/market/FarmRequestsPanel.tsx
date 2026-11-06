@@ -41,11 +41,14 @@ export function FarmRequestsPanel({
   orders,
   isLoading,
   error,
+  readOnly = false,
 }: {
   farmId: string;
   orders: FarmMarketOrder[];
   isLoading: boolean;
   error: unknown;
+  /** POUFA lot A droits: an institution granted MARCHE reads the requests, never answers them. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const client = useQueryClient();
@@ -164,13 +167,13 @@ export function FarmRequestsPanel({
             {o.state === 'REQUESTED' && requestLeft ? <AppText size="caption" color="faint">Sans réponse d’ici {requestLeft}, la demande expire.</AppText> : null}
 
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {o.state === 'REQUESTED' ? (
+              {o.state === 'REQUESTED' && !readOnly ? (
                 <>
                   <Button label="Accepter" icon={Check} size="sm" block={false} loading={accept.isPending && accept.variables === o.id} onPress={() => void askAccept(o)} />
                   <Button label="Refuser" icon={X} tone="ghost" size="sm" block={false} onPress={() => setRejecting(o)} />
                 </>
               ) : null}
-              {o.status === 'AWAITING_DEPOSIT' && !o.depositExtendedAt ? (
+              {o.status === 'AWAITING_DEPOSIT' && !o.depositExtendedAt && !readOnly ? (
                 <Button label="Prolonger de 24 h" icon={CalendarClock} tone="ghost" size="sm" block={false} onPress={() => void askExtend(o)} />
               ) : null}
               {o.orderId ? (

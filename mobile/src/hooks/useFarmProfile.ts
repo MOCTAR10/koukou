@@ -4,7 +4,9 @@ import { useAuth } from '@/auth/AuthContext';
 import { ApiError } from '@/api/client';
 import { fetchFarmProfile } from '@/api';
 import type { PermissionCode } from '@/api/types';
-import { accessAllows, readsFermiaData, resolveFarmAccess, type ProfileFetchState } from './farm-access';
+import { accessAllows, resolveFarmAccess, type ProfileFetchState } from './farm-access';
+// POUFA lot A droits: Fermia screens follow the matrix grants (read codes of /me), read-only for institutions.
+import { fermiaReadOnly, fermiaWrites, readsFermiaArea, type FermiaArea } from '@/poufa/fermia-access';
 
 /** Server out of reach (offline start), as opposed to a refusal. */
 function isNetworkFailure(error: unknown): boolean {
@@ -48,8 +50,12 @@ export function useFarmProfile() {
     isGroundEleveur: profile?.role === 'ELEVEUR' && profile.active !== false,
     /** Institutional account (programme): its rights come from its access profile. */
     isInstitution: user.role === 'INSTITUTION',
-    /** May read the Fermia-only domains (caisse, orders, customers, POS, Market, accounting, team); never an institution. */
-    fermiaData: readsFermiaData(user.role),
+    /** May load a Fermia area (caisse/ventes, Market, accounting, team, economics): farm accounts, or an institution granted it. */
+    readsFermia: (area: FermiaArea) => readsFermiaArea(user.role, area, (code) => accessAllows(access, code)),
+    /** Fermia screens in consultation only (« Consultation seule »): institutions. */
+    fermiaReadOnly: fermiaReadOnly(user.role),
+    /** A write on a Fermia screen: the permission, never for an institution. */
+    fermiaWrites: (code: PermissionCode) => fermiaWrites(user.role, accessAllows(access, code)),
     isLoading: query.isLoading,
     refetch: query.refetch,
   };

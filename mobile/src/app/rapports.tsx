@@ -18,6 +18,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchBatches, fetchPointsOfSale, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales } from '@/api';
 import { downloadPdf } from '@/api/pdf';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import type { BatchPnl, BatchStatus } from '@/api/types';
 import { color, fmt, fmtFcfa, palette, radii, semantic } from '@/constants/theme';
 import { BreakdownBars, CollectionBar } from '@/components/finance/BreakdownBars';
@@ -87,8 +88,9 @@ export default function RapportsScreen() {
     queryFn: () => fetchSales(farmId, periodFrom ?? undefined, periodTo ?? undefined),
     enabled: !!periodFrom,
   });
-  // Points of sale are a Fermia-only domain: an institution gets no per-POS breakdown.
-  const { fermiaData } = useFarmProfile();
+  // POUFA lot A droits: the per-POS breakdown (VENTES) only for an institution granted it.
+  const { readsFermia } = useFarmProfile();
+  const fermiaData = readsFermia('VENTES');
   const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId), enabled: fermiaData });
 
   const revenue = ov?.sales?.totalFcfa ?? 0;
@@ -157,6 +159,7 @@ export default function RapportsScreen() {
         />
       }>
       <View style={styles.stack}>
+        <ReadOnlyNotice what="Rentabilité" />
         <PeriodBar defaultSpan={DEFAULT_SPAN} onChange={handlePeriodChange} style={styles.periodBar} />
 
         {overviewQuery.isLoading ? (

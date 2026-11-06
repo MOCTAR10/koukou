@@ -19,6 +19,7 @@ import { fetchExpenses } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { createExpense, deleteExpense, syncExpenses, updateExpense } from '@/api/mutations';
 import type { Expense, ExpenseCategory } from '@/api/types';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { color, fmtFcfa, radii, spacing, fontFamily } from '@/constants/theme';
 
 const CATEGORIES: { key: ExpenseCategory; label: string; account: string; tone: ChipTone }[] = [
@@ -93,10 +94,11 @@ function ExpenseRow({
 
 export default function DepensesScreen() {
   const { farmId } = useAuth();
-  const { hasPermission } = useFarmProfile();
+  const { fermiaWrites } = useFarmProfile();
   const queryClient = useQueryClient();
 
-  const canEdit = !!farmId && hasPermission('compta:depense');
+  // POUFA lot A droits: an institution (ÉCONOMIQUE) reads the expenses, never writes them.
+  const canEdit = !!farmId && fermiaWrites('compta:depense');
 
   const [sheet, setSheet] = useState<'create' | 'edit' | null>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -249,6 +251,7 @@ export default function DepensesScreen() {
           }
         />
       }>
+      <ReadOnlyNotice what="Dépenses" />
       {q.isLoading ? (
         <Spinner label="Chargement des dépenses…" />
       ) : (

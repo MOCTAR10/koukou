@@ -42,9 +42,11 @@ import type { PermissionCode } from '@/api/types';
 // ── POUFA field work (M2) ──
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { hasInbox, readsProgrammeDomain } from '@/poufa/access';
+// POUFA lot A droits: Fermia tiles follow the matrix grants; the DGE synthesis tile.
+import { menuItemVisible, readsEconomieSynthesis, type FermiaArea } from '@/poufa/fermia-access';
 
 /** Deliveries tile: farm accounts, or an institution whose matrix reads INTRANTS. */
-function usePoufaMenuItems(): { deliveries: MenuItem[]; inbox: MenuItem[] } {
+function usePoufaMenuItems(): { deliveries: MenuItem[]; inbox: MenuItem[]; synthesis: MenuItem[] } {
   const { user } = useAuth();
   const access = useProgrammeAccess();
   const deliveries: MenuItem[] = readsProgrammeDomain(user.role, access.matrix, 'INTRANTS')
@@ -53,7 +55,10 @@ function usePoufaMenuItems(): { deliveries: MenuItem[]; inbox: MenuItem[] } {
   const inbox: MenuItem[] = hasInbox(user.role)
     ? [{ key: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' as Href }]
     : [];
-  return { deliveries, inbox };
+  const synthesis: MenuItem[] = readsEconomieSynthesis(user.role, access.matrix)
+    ? [{ key: 'synthese', label: 'Synthèse du programme', icon: Landmark, href: '/synthese' as Href }]
+    : [];
+  return { deliveries, inbox, synthesis };
 }
 // ── end POUFA ──
 
@@ -64,8 +69,8 @@ interface MenuItem {
   href: Href;
   /** Droits (au moins un) requis pour afficher la tuile ; absent = visible par tous. */
   perms?: PermissionCode[];
-  /** Fermia-only domain the backend refuses to any institution, whatever its permissions. */
-  fermiaOnly?: boolean;
+  /** Fermia area: an institution sees the tile with the area's read code (POUFA lot A droits). */
+  fermiaArea?: FermiaArea;
 }
 
 interface MenuGroup {
@@ -161,7 +166,8 @@ function GroundHome() {
 
 export default function MenuScreen() {
   const router = useRouter();
-  const { isGroundEleveur, hasPermission, fermiaData } = useFarmProfile();
+  const { user } = useAuth();
+  const { isGroundEleveur, hasPermission } = useFarmProfile();
   const poufa = usePoufaMenuItems();
 
   if (isGroundEleveur) {
@@ -192,11 +198,11 @@ export default function MenuScreen() {
       iconColor: palette.accent[700],
       iconBg: semantic.accentSoft,
       items: [
-        { key: 'caisse', label: 'Caisse', icon: Coins, href: '/pos?tab=CAISSE', perms: ['caisse:lire'] },
-        { key: 'commandes', label: 'Commandes', icon: ClipboardList, href: '/commandes', perms: ['vente:commande'] },
-        { key: 'clients', label: 'Clients', icon: Handshake, href: '/clients', perms: ['compta:client'] },
-        { key: 'pointsvente', label: 'Points de vente', icon: MapPin, href: '/points-vente', perms: ['pdv:gerer'] },
-        { key: 'marche', label: 'Marché', icon: Store, href: '/marche', perms: ['market:publier', 'vente:commande'] },
+        { key: 'caisse', label: 'Caisse', icon: Coins, href: '/pos?tab=CAISSE', perms: ['caisse:lire'], fermiaArea: 'VENTES' },
+        { key: 'commandes', label: 'Commandes', icon: ClipboardList, href: '/commandes', perms: ['vente:commande'], fermiaArea: 'VENTES' },
+        { key: 'clients', label: 'Clients', icon: Handshake, href: '/clients', perms: ['compta:client'], fermiaArea: 'VENTES' },
+        { key: 'pointsvente', label: 'Points de vente', icon: MapPin, href: '/points-vente', perms: ['pdv:gerer'], fermiaArea: 'VENTES' },
+        { key: 'marche', label: 'Marché', icon: Store, href: '/marche', perms: ['market:publier', 'vente:commande'], fermiaArea: 'MARCHE' },
       ],
     },
     {
@@ -207,9 +213,10 @@ export default function MenuScreen() {
       iconColor: palette.amber[700],
       iconBg: semantic.warnSoft,
       items: [
-        { key: 'rapports', label: 'Rentabilité', icon: FileBarChart2, href: '/rapports', perms: ['compta:rapports'] },
-        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'], fermiaOnly: true },
-        { key: 'depenses', label: 'Dépenses', icon: ReceiptText, href: '/depenses', perms: ['compta:depense'] },
+        { key: 'rapports', label: 'Rentabilité', icon: FileBarChart2, href: '/rapports', perms: ['compta:rapports'], fermiaArea: 'ECONOMIQUE' },
+        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'], fermiaArea: 'COMPTABILITE' },
+        { key: 'depenses', label: 'Dépenses', icon: ReceiptText, href: '/depenses', perms: ['compta:depense'], fermiaArea: 'ECONOMIQUE' },
+        ...poufa.synthesis,
       ],
     },
     {
@@ -219,8 +226,8 @@ export default function MenuScreen() {
       icon: Settings,
       ...ADMIN_TINT,
       items: [
-        { key: 'equipe', label: 'Équipe', icon: Users, href: '/equipe', perms: ['equipe:gerer'] },
-        { key: 'rh', label: 'Dossiers RH', icon: Briefcase, href: '/rh', perms: ['rh:lire', 'equipe:gerer'] },
+        { key: 'equipe', label: 'Équipe', icon: Users, href: '/equipe', perms: ['equipe:gerer'], fermiaArea: 'EQUIPE' },
+        { key: 'rh', label: 'Dossiers RH', icon: Briefcase, href: '/rh', perms: ['rh:lire', 'equipe:gerer'], fermiaArea: 'EQUIPE' },
         { key: 'profil', label: 'Profil', icon: User, href: '/reglages' },
         ...poufa.inbox,
       ],
@@ -232,7 +239,7 @@ export default function MenuScreen() {
     .map((group) => ({
       ...group,
       items: group.items.filter(
-        (item) => (fermiaData || !item.fermiaOnly) && (!item.perms || item.perms.some((code) => hasPermission(code))),
+        (item) => menuItemVisible(user.role, item, (code) => hasPermission(code as PermissionCode)),
       ),
     }))
     .filter((group) => group.items.length > 0);
