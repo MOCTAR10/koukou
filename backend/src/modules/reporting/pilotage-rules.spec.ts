@@ -115,11 +115,9 @@ describe('colour keys', () => {
     expect(completenessLevel(89.9, c)).toBe('JAUNE');
     expect(completenessLevel(69, c)).toBe('ROUGE');
   });
-  it('alert: red or published = ROUGE, other open alert = JAUNE', () => {
-    expect(alertLevel({ activeRed: 0, active: 0, published: 0 })).toBe('VERT');
-    expect(alertLevel({ activeRed: 0, active: 2, published: 0 })).toBe('JAUNE');
-    expect(alertLevel({ activeRed: 1, active: 1, published: 0 })).toBe('ROUGE');
-    expect(alertLevel({ activeRed: 0, active: 0, published: 1 })).toBe('ROUGE');
+  it('alert: only a published sanitary alert colours a farm', () => {
+    expect(alertLevel({ published: 0 })).toBe('VERT');
+    expect(alertLevel({ published: 1 })).toBe('ROUGE');
   });
 });
 

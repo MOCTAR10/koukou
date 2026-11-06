@@ -21,7 +21,10 @@ import { ProductionBatch } from '../batches/entities/production-batch.entity.js'
 import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsModule } from '../farms/farms.module.js';
 import { ProgrammeModule } from '../programme/programme.module.js';
-import { BandComparisonController } from './band-comparison.controller.js';
+import {
+  BandComparisonController,
+  ProgrammePerimeterController,
+} from './band-comparison.controller.js';
 import { BandComparisonService } from './band-comparison.service.js';
 import { ReportRun } from './entities/report-run.entity.js';
 import { ReportTemplate } from './entities/report-template.entity.js';
@@ -66,6 +69,7 @@ import { ReportsService } from './reports.service.js';
     PilotageController,
     ReportsController,
     BandComparisonController,
+    ProgrammePerimeterController,
   ],
   providers: [
     PilotageScopeService,

@@ -33,3 +33,25 @@ export class BandComparisonController {
     return this.comparisons.compare(user, farmId, batchId);
   }
 }
+
+/**
+ * POUFA lot A (F2): the band types the programme counts, read from the farm
+ * (same access as the band sheet) so its screens can mark the other bands
+ * « hors programme ». `BANDE_TYPES_ELIGIBLES` itself stays a DGE parameter.
+ */
+@ApiTags('Bandes POUFA')
+@Domain('TECHNIQUE')
+@Controller('farms/:farmId/programme-perimeter')
+export class ProgrammePerimeterController {
+  constructor(private readonly comparisons: BandComparisonService) {}
+
+  @Get()
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @ApiOperation({
+    summary:
+      'Types de bandes comptés dans le programme (les autres sont « hors programme »)',
+  })
+  perimeter(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
+    return this.comparisons.perimeter(user, farmId);
+  }
+}

@@ -48,10 +48,16 @@ export interface Facts {
   carcassPieceQty: number;
   carcassPieceFcfa: number;
   revenueFcfa: number;
+  /**
+   * Conduct alerts: Fermia advisory alerts (JAUNE/ROUGE) of the kinds listed
+   * in `PILOTAGE_ALERTES_CONDUITE_TYPES`, on the programme's bands. Shown
+   * apart, never a sanitary alert, never a farm's colour.
+   */
   alertsRaised: number;
   alertsRaisedRed: number;
   alertsActive: number;
   alertsActiveRed: number;
+  /** Sanitary alerts published by the veterinary authority: the only « alerte ». */
   publishedAlerts: number;
 }
 
@@ -108,7 +114,7 @@ export interface PilotageMetrics {
   bandsOpened: number;
   placedHeads: number;
   deaths: number;
-  /** Deaths of the period / birds at risk × 100. */
+  /** `FORMULE_MORTALITE_PERIODE_PCT` (deaths of the period / birds at risk × 100). */
   mortalityPct: number | null;
   produced: { heads: number; kg: number; tonnes: number };
   sold: {
@@ -128,18 +134,43 @@ export interface PilotageMetrics {
     daysElapsed: number;
   };
   alerts: {
-    /** Advisory alerts (JAUNE/ROUGE) raised in the period. */
-    raised: number;
-    raisedRed: number;
-    /** Advisory alerts still active now. */
-    activeNow: number;
-    activeRedNow: number;
-    /** Sanitary alerts published by the veterinary authority (L5). */
+    /** Sanitary alerts published by the veterinary authority (L5): the only « alerte ». */
     published: number;
+    /** « Alertes de conduite (conseil, non sanitaires) », shown apart. */
+    conduct: ConductAlerts;
   };
 }
 
-export function metricsOf(f: Facts): PilotageMetrics {
+export interface ConductAlerts {
+  /** Conduct alerts (JAUNE/ROUGE) raised in the period. */
+  raised: number;
+  raisedRed: number;
+  /** Conduct alerts still active now. */
+  activeNow: number;
+  activeRedNow: number;
+}
+
+/** Mortality of a period from its summed deaths and birds at risk. */
+export type PeriodMortality = (deaths: number, exposed: number) => number | null;
+
+export function conductAlertsOf(f: Facts): ConductAlerts {
+  return {
+    raised: f.alertsRaised,
+    raisedRed: f.alertsRaisedRed,
+    activeNow: f.alertsActive,
+    activeRedNow: f.alertsActiveRed,
+  };
+}
+
+/**
+ * Figures of a group. `mortality` is the period formula in force
+ * (`mortalityOf` in pilotage-programme.ts); the plain ratio is only the
+ * fallback of the unit tests.
+ */
+export function metricsOf(
+  f: Facts,
+  mortality: PeriodMortality = pct,
+): PilotageMetrics {
   return {
     farms: f.farms,
     farmsReporting: f.farmsReporting,
@@ -149,7 +180,7 @@ export function metricsOf(f: Facts): PilotageMetrics {
     bandsOpened: f.bandsOpened,
     placedHeads: f.placed,
     deaths: f.deaths,
-    mortalityPct: pct(f.deaths, f.exposed),
+    mortalityPct: mortality(f.deaths, f.exposed),
     produced: {
       heads: f.exits,
       kg: round(f.exitKg, 1),
@@ -172,21 +203,19 @@ export function metricsOf(f: Facts): PilotageMetrics {
       daysElapsed: f.daysElapsed,
     },
     alerts: {
-      raised: f.alertsRaised,
-      raisedRed: f.alertsRaisedRed,
-      activeNow: f.alertsActive,
-      activeRedNow: f.alertsActiveRed,
       published: f.publishedAlerts,
+      conduct: conductAlertsOf(f),
     },
   };
 }
 
 /** Methods of the dashboards, served with them (French, for the users). */
 export const METRIC_NOTES: readonly string[] = [
-  'Mortalité de la période = morts de la période / effectif présent au premier jour de la période (ou à la mise en place) × 100, toutes bandes confondues.',
+  'Périmètre : bandes des types éligibles au programme (paramètre BANDE_TYPES_ELIGIBLES, poulet de chair par défaut) ; les autres bandes des fermes sont « hors programme » et n’entrent dans aucun agrégat.',
+  'Mortalité de la période = formule FORMULE_MORTALITE_PERIODE_PCT en vigueur (par défaut : morts de la période / effectif présent au premier jour de la période, ou mis en place, × 100), toutes bandes confondues.',
   'Volumes produits = animaux sortis vivants (ventes, abattoir, réformes, autres sorties) ; poids = poids vif mesuré à la sortie quand il est saisi, sinon têtes sorties × dernier poids moyen pesé de la bande.',
   'Effectif = animaux présents le dernier jour de la période dans les bandes non clôturées.',
   'Volumes vendus et prix moyens = ventes de poulets vifs et de carcasses non annulées (commandes : à la livraison).',
   'Complétude = jours saisis / jours écoulés × 100 (le jour en cours compte une fois saisi).',
-  'Alertes : alertes de conseil Fermia (jaune, rouge) et alertes sanitaires publiées par les services vétérinaires.',
+  'Alertes : seules les alertes sanitaires publiées par les services vétérinaires comptent comme alertes. Les alertes de conduite (conseil Fermia, non sanitaires, types du paramètre PILOTAGE_ALERTES_CONDUITE_TYPES) sont montrées à part et ne colorent jamais une ferme.',
 ];

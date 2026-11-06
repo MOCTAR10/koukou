@@ -143,15 +143,13 @@ export function completenessLevel(
   return 'VERT';
 }
 
-/** Alert colour of a farm: a red or published alert = ROUGE, any other open alert = JAUNE. */
-export function alertLevel(a: {
-  activeRed: number;
-  active: number;
-  published: number;
-}): ColourLevel {
-  if (a.activeRed > 0 || a.published > 0) return 'ROUGE';
-  if (a.active > 0) return 'JAUNE';
-  return 'VERT';
+/**
+ * Alert colour of a farm: ROUGE only with a sanitary alert published by the
+ * veterinary authority (CDC §5.2, §8). Fermia's conduct alerts never colour a
+ * farm: they are advice, not a sanitary verdict (POUFA lot A, audit F1).
+ */
+export function alertLevel(a: { published: number }): ColourLevel {
+  return a.published > 0 ? 'ROUGE' : 'VERT';
 }
 
 /** Week of age (0 = days 0-6) of a band on a day of age. */

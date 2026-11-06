@@ -22,6 +22,7 @@ import {
   formulasInForce,
   type OfficialIndicator,
 } from '../indicators/official-indicators.js';
+import { isPeriodIndicator } from '../indicators/formula/formula-catalog.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
 import { bandeVariables, type BandeVariables } from './bande-variables.js';
@@ -120,10 +121,11 @@ export class BandeIndicatorsService {
       ageDays: ageOn(start, batch.initialAgeDays, day),
       parametersAt: at.toISOString(),
       variables,
+      // POUFA lot A pilot: the steering's per-period formulas are not a band's.
       indicators: evaluateOfficialIndicators(
         formulasInForce(resolver, at),
         variables,
-      ),
+      ).filter((i) => !isPeriodIndicator(i.key)),
       completenessPct: completenessPct(rows, start, day, utcDay()),
     };
   }
