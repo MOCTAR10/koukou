@@ -100,7 +100,7 @@ export class ProgrammeFarmsController {
   })
   @ApiOperation({
     summary:
-      'Importer la liste des fermes (CSV « file » ou lignes JSON « rows » ; essai à blanc par défaut). Formats : liste POUFA (numero,nom,province — le numéro est ignoré) ou complet (nom, province, localite, exploitant, telephone, amiRef, cohorte, capacite, latitude, longitude, statut).',
+      'Importer la liste des fermes (CSV ou Excel .xlsx « file » ou lignes JSON « rows » ; essai à blanc par défaut). Formats : liste POUFA (numero,nom,province — le numéro est ignoré) ou complet (nom, province, localite, exploitant, telephone, amiRef, cohorte, capacite, latitude, longitude, statut).',
   })
   import(
     @CurrentUser() user: AuthUser,

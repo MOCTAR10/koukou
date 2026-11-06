@@ -17,6 +17,11 @@ import { Province } from '../entities/province.entity.js';
 import type { RefItem } from '../entities/ref-item.entity.js';
 import { ProgrammeService } from '../programme.service.js';
 import { RefListsService } from '../ref-lists.service.js';
+import {
+  looksLikeXlsx,
+  readXlsx,
+  SpreadsheetError,
+} from '../../../common/utils/spreadsheet.js';
 import { CsvError, parseCsv } from './csv.js';
 import {
   mapCsvTable,
@@ -132,7 +137,7 @@ export class FarmImportService {
         );
       }
     }
-    const mapped = this.read(input);
+    const mapped = await this.read(input);
     if (mapped.error) throw new BadRequestException(mapped.error);
     if (mapped.rows.length > IMPORT_MAX_ROWS) {
       throw new BadRequestException(
@@ -160,21 +165,30 @@ export class FarmImportService {
         });
   }
 
-  private read(input: {
+  /** The upload as a table: an .xlsx (first sheet) or a CSV. */
+  private async read(input: {
     file?: UploadedCsvFile;
     rows?: Record<string, unknown>[];
-  }): MappedImport {
+  }): Promise<MappedImport> {
     if (input.file) {
+      const buffer = input.file.buffer;
       try {
-        return mapCsvTable(parseCsv(decodeCsv(input.file.buffer)));
+        return mapCsvTable(
+          looksLikeXlsx(buffer)
+            ? // Header + IMPORT_MAX_ROWS rows; longer files are refused early.
+              await readXlsx(buffer, { maxRows: IMPORT_MAX_ROWS + 1 })
+            : parseCsv(decodeCsv(buffer)),
+        );
       } catch (e) {
-        if (e instanceof CsvError) throw new BadRequestException(e.message);
+        if (e instanceof CsvError || e instanceof SpreadsheetError) {
+          throw new BadRequestException(e.message);
+        }
         throw e;
       }
     }
     if (input.rows) return mapJsonRows(input.rows);
     throw new BadRequestException(
-      'Envoyez un fichier CSV (champ « file ») ou des lignes JSON (« rows »).',
+      'Envoyez un fichier CSV ou Excel .xlsx (champ « file ») ou des lignes JSON (« rows »).',
     );
   }
 
