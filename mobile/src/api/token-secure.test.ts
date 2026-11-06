@@ -93,4 +93,21 @@ describe('token — stockage sécurisé (iOS/Android)', () => {
     expect(loadSession()?.token).toBe('jwt-mem');
     expect(device.files.get('koukou.session')).not.toContain('jwt-mem');
   });
+
+  it('session enregistrée en mode « agriculture » : relue en élevage seul (mode abandonné)', async () => {
+    device.files.set('koukou.session', JSON.stringify({ user, farms: [], activeFarmId: 'f-1', mode: 'agriculture' }));
+    device.vault.token = 'jwt-old';
+    const { loadSession } = await restart();
+    const session = loadSession();
+    expect(session?.token).toBe('jwt-old');
+    expect(session?.activeFarmId).toBe('f-1');
+    expect(session).not.toHaveProperty('mode');
+  });
+
+  it('ancien fichier avec jeton en clair et mode agriculture : migré sans le mode', async () => {
+    device.files.set('koukou.session', JSON.stringify({ token: 'jwt-plain', user, farms: [], mode: 'agriculture' }));
+    const { loadSession } = await restart();
+    expect(loadSession()).not.toHaveProperty('mode');
+    expect(device.files.get('koukou.session')).not.toContain('agriculture');
+  });
 });

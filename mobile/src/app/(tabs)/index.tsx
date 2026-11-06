@@ -15,9 +15,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { EggStockCard } from '@/components/EggStockCard';
 import { Button } from '@/components/ui/Button';
 import { FarmSelector } from '@/components/ui/FarmSelector';
-import { FarmModeSwitch } from '@/components/FarmModeSwitch';
 import { GRADE_LABEL, GRADE_ON_DARK, HomeHero, MORTALITY_ON_DARK } from '@/components/home/HomeHero';
-import { AgricultureHome } from '@/components/agriculture/AgricultureHome';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -62,7 +60,7 @@ function lastSevenDays(): string[] {
 export default function AccueilScreen() {
   const router = useRouter();
 
-  const { user, farms, farmId, setActiveFarmId, farmMode } = useAuth();
+  const { user, farms, farmId, setActiveFarmId } = useAuth();
   const { hasPermission } = useFarmProfile();
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [cheptelOpen, setCheptelOpen] = useState(false);
@@ -94,23 +92,19 @@ export default function AccueilScreen() {
   const dashboard = useQuery({
     queryKey: ['dashboard', farmId, queryDateStr, queryTimeStr],
     queryFn: () => fetchDashboard(farmId, queryDateStr, queryTimeStr),
-    enabled: farmMode === 'aviculture',
   });
   const advisory = useQuery({
     queryKey: ['advisory', farmId],
     queryFn: () => fetchAdvisory(farmId),
-    enabled: farmMode === 'aviculture',
   });
   const batchesQuery = useQuery({
     queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''],
     queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined),
     refetchInterval: !window.isFiltered ? 60_000 : undefined,
-    enabled: farmMode === 'aviculture',
   });
   const slaughterQuery = useQuery({
     queryKey: ['slaughter-orders', farmId],
     queryFn: () => fetchSlaughterOrders(farmId),
-    enabled: farmMode === 'aviculture',
   });
   // Supplément Statistiques : P&L + portefeuille clients, chargés à la demande
   // (une fois le panneau « Plus » ouvert) selon les permissions.
@@ -119,12 +113,12 @@ export default function AccueilScreen() {
   const pnlQuery = useQuery({
     queryKey: ['rentabilite', farmId, window.from ?? '', window.to ?? ''],
     queryFn: () => fetchRentabiliteOverview(farmId, window.from, window.to),
-    enabled: farmMode === 'aviculture' && canRapports && statsExpanded,
+    enabled: canRapports && statsExpanded,
   });
   const customersSummaryQuery = useQuery({
     queryKey: ['customers-summary', farmId],
     queryFn: () => fetchCustomersSummary(farmId),
-    enabled: farmMode === 'aviculture' && canClients && statsExpanded,
+    enabled: canClients && statsExpanded,
   });
   // Série réelle des œufs collectés sur 7 jours, sommée sur les lots pondeurs :
   // le backend n'expose pas de série journalière, on agrège les saisies.
@@ -257,11 +251,6 @@ export default function AccueilScreen() {
     void Promise.all([dashboard.refetch(), advisory.refetch(), batchesQuery.refetch(), pnlQuery.refetch(), customersSummaryQuery.refetch()]);
   };
 
-  // ── Domaine Agriculture : tableau de bord dédié (pas d'élevage). ──
-  if (farmMode === 'agriculture') {
-    return <AgricultureHome />;
-  }
-
   return (
     <Screen
       // Mesuré depuis le haut de la barre d'onglets : juste assez pour
@@ -316,8 +305,6 @@ export default function AccueilScreen() {
         <BrandLoader />
       ) : (
         <>
-          {/* ── Bascule Élevage / Agriculture ── */}
-          <FarmModeSwitch />
           <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
           {/* ── Hero : l'essentiel du jour ── */}
           <HomeHero

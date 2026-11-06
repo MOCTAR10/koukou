@@ -666,7 +666,7 @@ function RegularisationSheet({
         <TextInput
           value={label}
           onChangeText={setLabel}
-          placeholder="Ex. Ajustement provende culture"
+          placeholder="Ex. Ajustement de stock provende"
           placeholderTextColor={color.ink[300]}
           style={styles.input}
         />

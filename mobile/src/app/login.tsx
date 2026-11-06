@@ -67,7 +67,7 @@ export default function LoginScreen() {
         automaticallyAdjustKeyboardInsets={false}
         showsVerticalScrollIndicator={false}
       >
-          <AuthHero subtitle="Élevage et cultures, pilotés au quotidien." />
+          <AuthHero subtitle="Vos bandes de volailles, pilotées au quotidien." />
 
           <View style={styles.sheet}>
           <AppText size="h2" weight="bold" color="text">

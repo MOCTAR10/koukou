@@ -7,8 +7,16 @@ export interface StoredSession {
   user: PublicUser;
   farms: Farm[];
   activeFarmId?: string;
-  /** Domaine d'exploitation actif : élevage (aviculture) ou agriculture. */
-  mode?: 'aviculture' | 'agriculture';
+}
+
+/**
+ * Sessions saved by earlier versions may carry `mode: 'agriculture'` (crops
+ * screen). Crops are hidden in the POUFA instance, so the app is poultry
+ * only: the stored mode is dropped, whatever it was.
+ */
+export function withoutLegacyMode<T extends object>(session: T): Omit<T, 'mode'> {
+  const { mode: _mode, ...rest } = session as T & { mode?: unknown };
+  return rest;
 }
 
 const KEY = 'koukou.session';
@@ -78,7 +86,7 @@ export function loadSession(): StoredSession | null {
   if (!raw) return null;
   let parsed: Partial<StoredSession>;
   try {
-    parsed = JSON.parse(raw) as Partial<StoredSession>;
+    parsed = withoutLegacyMode(JSON.parse(raw) as Partial<StoredSession> & { mode?: unknown });
   } catch {
     saveSession(null);
     return null;

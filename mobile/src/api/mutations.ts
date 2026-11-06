@@ -139,7 +139,7 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
   return p;
 }
 
-export type PosProduct = 'PIECE' | 'KG' | 'OEUF' | 'AUTRE' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'PROVENDE' | 'RECOLTE';
+export type PosProduct = 'PIECE' | 'KG' | 'OEUF' | 'AUTRE' | 'ABATTU_PIECE' | 'ABATTU_KG' | 'PROVENDE';
 
 export type BuildSaleItemResult =
   | { item: SaleItemPayload }
@@ -154,10 +154,6 @@ export interface BuildSaleItemOptions {
   sourceSlaughterOrderId?: string;
   /** Réserve d'un transfert ferme → boutique (ABATTU, OEUFS ou PROVENDE). */
   stockTransferId?: string;
-  /** Parcelle source pour RECOLTE (stock vendable au POS Ferme). */
-  parcelleId?: string;
-  /** Libellé personnalisé (ex : récolte de la parcelle). */
-  label?: string;
   /** Unité de vente proposée (PROVENDE réservée : SAC ou KG). */
   unit?: SaleUnit;
 }
@@ -256,22 +252,6 @@ export function buildSaleItem(
         },
       };
     }
-    case 'RECOLTE': {
-      if (!opts?.parcelleId) return { error: 'Sélectionnez la parcelle de la récolte.' };
-      if (!opts.unit || opts.unit === 'ALVEOLES' || opts.unit === 'UNITE') {
-        return { error: 'Choisissez une unité de récolte (KG, PIECE ou SAC).' };
-      }
-      return {
-        item: {
-          productType: 'RECOLTE',
-          unit: opts.unit,
-          label: opts.label ?? 'Récolte de la parcelle',
-          quantity,
-          unitPriceFcfa,
-          parcelleId: opts.parcelleId,
-        },
-      };
-    }
     default:
       return { item: { productType: 'AUTRE', unit: 'UNITE', label: 'Autre', quantity, unitPriceFcfa } };
   }
@@ -348,7 +328,7 @@ export interface SaleItemPayload {
   sourceSlaughterOrderId?: string;
   /** Réserve d'un transfert ferme → boutique (vente ABATTU, OEUFS ou PROVENDE). */
   stockTransferId?: string;
-  /** Parcelle source pour RECOLTE. */
+  /** Parcelle source of a RECOLTE line (crops, hidden in the POUFA instance; kept for queued sales). */
   parcelleId?: string;
 }
 
@@ -381,23 +361,6 @@ export function createSale(
   payload: SalePayload,
 ): Promise<CreateSaleResponse> {
   return apiFetch<CreateSaleResponse>(`/farms/${farmId}/sales`, {
-    method: 'POST',
-    body: payload,
-  });
-}
-
-/** Journalise une récolte de parcelle (alimente le stock vendable au POS Ferme). */
-export function createRecolte(
-  farmId: string,
-  payload: {
-    parcelleId: string;
-    harvestDate?: string;
-    quantity: number;
-    unit: 'KG' | 'PIECE' | 'SAC';
-    notes?: string;
-  },
-): Promise<unknown> {
-  return apiFetch(`/farms/${farmId}/recoltes`, {
     method: 'POST',
     body: payload,
   });

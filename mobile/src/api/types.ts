@@ -291,69 +291,6 @@ export interface Building {
   };
 }
 
-export type CropCategory = 'TUBERCULE' | 'MARAICHAGE' | 'FRUIT' | 'CEREALE' | 'AUTRE';
-
-/** Culture du référentiel global (Agriculture), regroupée par catégorie. */
-export interface Culture {
-  id: string;
-  name: string;
-  category: CropCategory;
-  defaultCycleDays: number | null;
-  waterNeedsLPlantDay: number | null;
-  notes: string | null;
-}
-
-export type ParcelleStatus = 'PREPARATION' | 'ACTIVE' | 'JACHERE' | 'CLOTURE';
-
-/** Contour de parcelle au format GeoJSON (Polygon / MultiPolygon). */
-export interface GeoJsonGeometry {
-  type: 'Polygon' | 'MultiPolygon';
-  coordinates: number[][][][] | number[][][];
-}
-
-/** Parcelle agricole d'une ferme. */
-export interface Parcelle {
-  id: string;
-  farmId: string;
-  name: string;
-  culture: Culture;
-  cultureId: string;
-  areaHa: number;
-  areaM2: number | null;
-  boundaryGeoJson: GeoJsonGeometry | null;
-  plantedAt: string | null;
-  status: ParcelleStatus;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export type RecolteUnit = 'KG' | 'PIECE' | 'SAC';
-
-/** Entrée du journal des récoltes (alimente le stock vendable au POS Ferme). */
-export interface Recolte {
-  id: string;
-  farmId: string;
-  parcelleId: string;
-  harvestDate: string;
-  quantity: number;
-  unit: RecolteUnit;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** Stock disponible par (parcelle, unité) : récolté − vendu (POS Ferme). */
-export interface ParcelleStock {
-  parcelleId: string;
-  parcelleName: string;
-  cultureName: string | null;
-  unit: RecolteUnit;
-  harvested: number;
-  sold: number;
-  available: number;
-}
-
 export interface ProductionBatch {
   id: string;
   farmId: string;

@@ -68,11 +68,6 @@ import type {
   FarmTask,
   DailyEntryRecord,
   Species,
-  Culture,
-  Parcelle,
-  ParcelleStock,
-  Recolte,
-  CropCategory,
 } from './types';
 
 interface BackendAdvisoryAction {
@@ -765,82 +760,5 @@ export class LiveApi {
       standards: BreedStandard[];
     }>(`/breeds/${breedId}/standards?farmId=${encodeURIComponent(farmId)}`);
     return res.standards;
-  }
-
-  async fetchCultures(farmId: string): Promise<Culture[]> {
-    return apiFetch<Culture[]>(`/cultures?farmId=${encodeURIComponent(farmId)}`);
-  }
-
-  async createCulture(farmId: string, input: {
-    name: string;
-    category: CropCategory;
-    defaultCycleDays?: number;
-    waterNeedsLPlantDay?: number;
-    notes?: string;
-  }): Promise<Culture> {
-    return apiFetch<Culture>('/cultures', { method: 'POST', body: { ...input, farmId } });
-  }
-
-  async fetchParcelles(farmId: string): Promise<Parcelle[]> {
-    return apiFetch<Parcelle[]>(`/farms/${farmId}/parcelles`);
-  }
-
-  async fetchRecoltes(farmId: string): Promise<Recolte[]> {
-    return apiFetch<Recolte[]>(`/farms/${farmId}/recoltes`);
-  }
-
-  async fetchRecolteStock(farmId: string): Promise<ParcelleStock[]> {
-    return apiFetch<ParcelleStock[]>(`/farms/${farmId}/recoltes/stock`);
-  }
-
-  async fetchParcelle(farmId: string, parcelleId: string): Promise<Parcelle> {
-    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles/${parcelleId}`);
-  }
-
-  async createParcelle(
-    farmId: string,
-    input: {
-      name: string;
-      cultureId: string;
-      areaHa?: number;
-      boundaryGeoJson?: Parcelle['boundaryGeoJson'];
-      plantedAt?: string;
-      status?: Parcelle['status'];
-      notes?: string;
-    },
-  ): Promise<Parcelle> {
-    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles`, {
-      method: 'POST',
-      body: input,
-    });
-  }
-
-  async updateParcelle(
-    farmId: string,
-    parcelleId: string,
-    input: Partial<{
-      name: string;
-      cultureId: string;
-      areaHa: number;
-      boundaryGeoJson: Parcelle['boundaryGeoJson'];
-      plantedAt: string | null;
-      status: Parcelle['status'];
-      notes: string | null;
-    }>,
-  ): Promise<Parcelle> {
-    return apiFetch<Parcelle>(`/farms/${farmId}/parcelles/${parcelleId}`, {
-      method: 'PATCH',
-      body: input,
-    });
-  }
-
-  async deleteParcelle(
-    farmId: string,
-    parcelleId: string,
-  ): Promise<{ deleted: boolean }> {
-    return apiFetch<{ deleted: boolean }>(
-      `/farms/${farmId}/parcelles/${parcelleId}`,
-      { method: 'DELETE' },
-    );
   }
 }

@@ -23,12 +23,9 @@ export type SignInResult = 'signed-in' | 'otp' | 'failed';
 const EMPTY_USER: PublicUser = { id: '', fullName: '', phone: '', role: 'PROPRIETAIRE' };
 
 export type AuthMode = 'live';
-export type FarmMode = 'aviculture' | 'agriculture';
 
 interface AuthContextValue {
   mode: AuthMode;
-  /** Domaine d'exploitation actif (élevage / agriculture), persisté par session. */
-  farmMode: FarmMode;
   signedIn: boolean;
   user: PublicUser;
   farms: Farm[];
@@ -37,7 +34,6 @@ interface AuthContextValue {
   busy: boolean;
   error: string | null;
   setActiveFarmId: (farmId: string) => void;
-  setFarmMode: (farmMode: FarmMode) => void;
   /** `otp`: an institutional account must now type the code received by SMS (`verifyOtp`). */
   signIn: (phone: string, code: string) => Promise<SignInResult>;
   /** Pending SMS step of an institutional login, null otherwise. */
@@ -205,18 +201,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [session],
   );
 
-  const setFarmMode = useCallback(
-    (farmMode: FarmMode) => {
-      setSession((prev) => {
-        if (!prev?.token) return prev;
-        const next: StoredSession = { ...prev, mode: farmMode };
-        saveSession(next);
-        return next;
-      });
-    },
-    [],
-  );
-
   const refreshFarms = useCallback(async () => {
     const token = loadSession()?.token;
     if (!token) return;
@@ -238,7 +222,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const activeFarmId = resolveActiveFarmId(session?.farms ?? [], session?.activeFarmId, session?.user.role);
     return {
       mode: 'live',
-      farmMode: session?.mode ?? 'aviculture',
       signedIn,
       user: session?.user ?? EMPTY_USER,
       farms: session?.farms ?? [],
@@ -253,10 +236,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       registerBuyer,
       signOut,
       setActiveFarmId,
-      setFarmMode,
       refreshFarms,
     };
-  }, [session, busy, error, signIn, otpChallenge, verifyOtp, cancelOtp, registerBuyer, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
+  }, [session, busy, error, signIn, otpChallenge, verifyOtp, cancelOtp, registerBuyer, signOut, setActiveFarmId, refreshFarms]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

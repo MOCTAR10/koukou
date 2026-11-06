@@ -10,10 +10,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Bird, Tractor, House, LayoutGrid, Plus, Sprout, Wheat } from 'lucide-react-native';
+import { Bird, House, LayoutGrid, Plus, Wheat } from 'lucide-react-native';
 
 import { AppText } from '../ui/AppText';
-import { useAuth, type FarmMode } from '@/auth/AuthContext';
+import { useAuth } from '@/auth/AuthContext';
 import { useOfflineQueue } from '@/offline';
 import { useCreateCenter } from '../create/CreateCenter';
 import { color, palette, shadow, semantic } from '@/constants/theme';
@@ -28,21 +28,16 @@ interface CustomTabBarProps {
   };
 }
 
-/** Étiquettes + icônes des onglets, quel que soit le domaine. */
+/** Étiquettes + icônes des onglets. */
 const TABS: Record<string, { label: string; icon: typeof House }> = {
   index: { label: 'Accueil', icon: House },
   lots: { label: 'Lots', icon: Bird },
   provende: { label: 'Provende', icon: Wheat },
   menu: { label: 'Menu', icon: LayoutGrid },
-  parcelles: { label: 'Parcelles', icon: Sprout },
-  recoltes: { label: 'Récoltes', icon: Tractor },
 };
 
-/** Onglets visibles (ordre d'affichage) par domaine d'exploitation. */
-const MODE_TABS: Record<FarmMode, string[]> = {
-  aviculture: ['index', 'lots', 'provende', 'menu'],
-  agriculture: ['index', 'parcelles', 'recoltes', 'menu'],
-};
+/** Onglets visibles, dans l'ordre d'affichage (élevage seul : les cultures sont masquées). */
+const TAB_ORDER = ['index', 'lots', 'provende', 'menu'];
 
 const FAB_SPRING = { damping: 15, stiffness: 400, mass: 0.8 };
 const INDICATOR_SPRING = { damping: 22, stiffness: 260, mass: 0.7 };
@@ -61,9 +56,8 @@ const RING_R = RING_SIZE / 2 - 2.5;
 const RING_W = 4;
 const WHITE_R = FAB_R + 1.5;
 const WHITE_W = 2;
-// One tonal rim per domain: the FAB reads as a single object, not a
-// three-colour badge.
-const RIM = { aviculture: palette.brand[200], agriculture: palette.green[200] } as const;
+// One tonal rim: the FAB reads as a single object, not a three-colour badge.
+const RIM = palette.brand[200];
 
 const SLOT_MAP = [0, 1, 3, 4];
 
@@ -96,7 +90,7 @@ function pillShapePath(W: number, R: number, H: number, cx: number, nr: number):
 
 export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { farmId, farmMode } = useAuth();
+  const { farmId } = useAuth();
   const { openCreateMenu } = useCreateCenter();
   const offline = useOfflineQueue(farmId);
   const pendingOffline = offline.pending.length;
@@ -110,9 +104,8 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
   const indicatorOpacity = useSharedValue(0);
   const hapticRef = useRef(false);
 
-  // Onglets visibles dans l'ordre du domaine actif, indexés sur les routes réelles.
-  const tabOrder = MODE_TABS[farmMode];
-  const visibleRoutes = tabOrder
+  // Onglets visibles, indexés sur les routes réelles.
+  const visibleRoutes = TAB_ORDER
     .map((name) => state.routes.find((r) => r.name === name))
     .filter((r): r is TabRoute => Boolean(r));
 
@@ -184,14 +177,7 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
             <NavTab route={visibleRoutes[0]} focused={visibleRoutes[0]?.name === focusedName} navigation={navigation} badge={false} badgeCount={0} />
             <NavTab route={visibleRoutes[1]} focused={visibleRoutes[1]?.name === focusedName} navigation={navigation} badge={false} badgeCount={0} />
 
-            <AnimatedFAB
-              mode={farmMode}
-              onPress={
-                farmMode === 'agriculture'
-                  ? () => navigation.navigate('parcelles', { new: '1' })
-                  : openCreateMenu
-              }
-            />
+            <AnimatedFAB onPress={openCreateMenu} />
 
             <NavTab route={visibleRoutes[2]} focused={visibleRoutes[2]?.name === focusedName} navigation={navigation} badge={false} badgeCount={0} />
             <NavTab
@@ -276,9 +262,8 @@ function NavTab({
   );
 }
 
-function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void }) {
-  const isAgri = mode === 'agriculture';
-  const fabBg = isAgri ? palette.green[700] : color.brand[600];
+function AnimatedFAB({ onPress }: { onPress: () => void }) {
+  const fabBg = color.brand[600];
   const scale = useSharedValue(1);
   const rotation = useSharedValue(0);
   const ringOpacity = useSharedValue(0);
@@ -300,7 +285,7 @@ function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void })
   const handlePressIn = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     scale.value = withSpring(0.85, FAB_SPRING);
-    rotation.value = withTiming(isAgri ? 0 : 45, { duration: 200 });
+    rotation.value = withTiming(45, { duration: 200 });
     ringOpacity.value = withTiming(1, { duration: 200 });
     ringScale.value = withTiming(1.6, { duration: 400 });
   };
@@ -319,7 +304,7 @@ function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void })
       onPressOut={handlePressOut}
       style={styles.fabSlot}
       accessibilityRole="button"
-      accessibilityLabel={isAgri ? 'Nouvelle parcelle' : 'Ajouter'}>
+      accessibilityLabel="Ajouter">
       <View style={styles.fabContainer}>
         <Animated.View style={[styles.fabRing, ringStyle, { backgroundColor: fabBg }]} />
         <Animated.View style={[styles.fabOuter, outerStyle]}>
@@ -337,7 +322,7 @@ function AnimatedFAB({ mode, onPress }: { mode: FarmMode; onPress: () => void })
               cy={RING_SIZE / 2}
               r={RING_R}
               fill="none"
-              stroke={RIM[mode]}
+              stroke={RIM}
               strokeWidth={RING_W}
             />
           </Svg>

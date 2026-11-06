@@ -42,7 +42,6 @@ import {
   fetchFeedStock,
   fetchPointsOfSale,
   fetchPromotions,
-  fetchRecolteStock,
   fetchSales,
   fetchSlaughterOrders,
 } from '@/api';
@@ -84,7 +83,6 @@ export default function PosScreen() {
   const salesQuery = useQuery({ queryKey: ['sales', farmId, today, today], queryFn: () => fetchSales(farmId, today, today) });
   const dashboardQuery = useQuery({ queryKey: ['dashboard', farmId], queryFn: () => fetchDashboard(farmId), staleTime: 30_000 });
   const feedStockQuery = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
-  const recolteStockQuery = useQuery({ queryKey: ['recoltes-stock', farmId], queryFn: () => fetchRecolteStock(farmId) });
   const caisseQuery = useQuery({ queryKey: ['caisse', farmId], queryFn: () => fetchCaisseCurrent(farmId), staleTime: 15_000 });
   const queue = useOfflineQueue(farmId);
 
@@ -957,7 +955,6 @@ export default function PosScreen() {
         transfers={isBoutique ? transfers : undefined}
         posKind={pdv?.kind}
         eggStock={dashboardQuery.data?.eggStock ?? null}
-        recolteStock={recolteStockQuery.data ?? []}
         committed={lines}
         initial={editing}
         presetBatchId={presetBatchId}
