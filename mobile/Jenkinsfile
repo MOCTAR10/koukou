@@ -47,7 +47,7 @@ pipeline {
             OUT="fermia-${VERSION}-${BUILD_NUMBER}.apk"
             "$BT/zipalign" -f -p 4 android/app/build/outputs/apk/release/app-release.apk "$OUT"
             "$BT/apksigner" sign --ks "$SECRETS/release.keystore" --ks-key-alias fermia \
-              --ks-pass file:"$SECRETS/keystore.pass" --key-pass file:"$SECRETS/keystore.pass" "$OUT"
+              --ks-pass file:"$SECRETS/keystore.pass" "$OUT"
             "$BT/apksigner" verify "$OUT"
             mkdir -p "$OUT_DIR"
             cp "$OUT" "$OUT_DIR/"
