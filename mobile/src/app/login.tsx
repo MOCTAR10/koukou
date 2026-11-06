@@ -115,11 +115,14 @@ export default function LoginScreen() {
                 />
               </View>
 
-              <Pressable onPress={() => router.push('/register')} style={styles.registerLink} accessibilityRole="link">
+              <AppText size="small" align="center" color="faint">
+                Exploitant du programme : votre code de connexion vous est remis par le programme.
+              </AppText>
+              <Pressable onPress={() => router.push('/inscription-acheteur' as Href)} style={styles.registerLink} accessibilityRole="link">
                 <AppText size="bodyM" align="center" color="muted">
-                  Pas encore de compte ?{' '}
+                  Vous achetez ?{' '}
                   <AppText size="bodyM" weight="semibold" color="brand">
-                    Créer mon compte →
+                    Créer un compte client du Marché →
                   </AppText>
                 </AppText>
               </Pressable>

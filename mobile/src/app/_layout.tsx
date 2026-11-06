@@ -69,7 +69,6 @@ function RootNavigator() {
         <Stack.Screen name="profil-acheteur" />
       </Stack.Protected>
       <Stack.Screen name="login" />
-      <Stack.Screen name="register" />
       <Stack.Screen name="inscription-acheteur" />
       <Stack.Screen name="annonces/index" />
       <Stack.Screen name="annonces/[id]" />

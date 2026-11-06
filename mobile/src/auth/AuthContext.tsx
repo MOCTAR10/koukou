@@ -36,10 +36,8 @@ interface AuthContextValue {
   setActiveFarmId: (farmId: string) => void;
   setFarmMode: (farmMode: FarmMode) => void;
   signIn: (phone: string, code: string) => Promise<boolean>;
-  signUp: (phone: string, fullName: string, code: string, farmName?: string) => Promise<boolean>;
+  /** Market customer sign-up: the only self-service account (farms come from the programme registry). */
   registerBuyer: (input: RegisterBuyerInput) => Promise<boolean>;
-  /** A buyer starts farming: the answer carries a token with the new role. */
-  becomeFarmer: (farmName: string, farmCity?: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   /** Recharge /farms et met à jour la session (après renommage / logo). */
   refreshFarms: () => Promise<void>;
@@ -96,35 +94,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [queryClient],
   );
 
-  const signUp = useCallback(
-    async (phone: string, fullName: string, code: string, farmName?: string): Promise<boolean> => {
-      setBusy(true);
-      setError(null);
-      try {
-        const res = await apiFetch<{ accessToken: string; user: PublicUser }>('/auth/register', {
-          method: 'POST',
-          body: { phone, fullName, code, farmName: farmName?.trim() || undefined },
-        });
-        const next: StoredSession = { token: res.accessToken, user: res.user, farms: [] };
-        saveSession(next);
-        const farms = await apiFetch<Farm[]>('/farms');
-        const full: StoredSession = { ...next, farms };
-        saveSession(full);
-        // Drop the previous account's cache (salaries, cash…): invalidating
-        // would keep showing it until each query refetches.
-        queryClient.clear();
-        setSession(full);
-        return true;
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Erreur inconnue lors de l’inscription.');
-        return false;
-      } finally {
-        setBusy(false);
-      }
-    },
-    [queryClient],
-  );
-
   const authenticate = useCallback(
     async (path: string, body: object, fallbackError: string): Promise<boolean> => {
       setBusy(true);
@@ -151,11 +120,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registerBuyer = useCallback(
     (input: RegisterBuyerInput) => authenticate('/auth/register-buyer', input, 'Erreur inconnue lors de l’inscription.'),
-    [authenticate],
-  );
-
-  const becomeFarmer = useCallback(
-    (farmName: string, farmCity?: string) => authenticate('/auth/become-farmer', { farmName, farmCity }, 'Erreur inconnue lors de la création de la ferme.'),
     [authenticate],
   );
 
@@ -232,15 +196,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       busy,
       error,
       signIn,
-      signUp,
       registerBuyer,
-      becomeFarmer,
       signOut,
       setActiveFarmId,
       setFarmMode,
       refreshFarms,
     };
-  }, [session, busy, error, signIn, signUp, registerBuyer, becomeFarmer, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
+  }, [session, busy, error, signIn, registerBuyer, signOut, setActiveFarmId, setFarmMode, refreshFarms]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
