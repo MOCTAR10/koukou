@@ -311,6 +311,72 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
     });
   });
 
+  describe('membership: account details', () => {
+    it('edits the name, phone (normalized) and e-mail of an account', async () => {
+      const agent = await createInstitution(readerProfile, {
+        farmIds: [farmA],
+      });
+      const next = phone();
+      const spaced = `${next.slice(0, 4)} ${next.slice(4, 6)}.${next.slice(6, 9)}-${next.slice(9)}`;
+      const email = `agent.${digits}@E2E.ga`;
+      const res = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { fullName: '  Agent Renommé  ', phone: spaced, email },
+        adminToken,
+      ).expect(200);
+      expect(res.body.user).toMatchObject({
+        fullName: 'Agent Renommé',
+        phone: next,
+        email: email.toLowerCase(),
+      });
+      // The phone is the login.
+      await login(agent.phone, agent.code).expect(401);
+      await login(next, agent.code).expect(201);
+
+      // Another account's phone or e-mail: 409, a Market buyer's flagged.
+      const buyer = await registerBuyer(server, { phone: phone() });
+      const toBuyer = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { phone: buyer.phone },
+        adminToken,
+      ).expect(409);
+      expect(toBuyer.body).toMatchObject({ buyerAccount: true });
+      expect(toBuyer.body.message).toContain('acheteur du Market');
+      const toOther = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { phone: accounts.DGE.phone },
+        adminToken,
+      ).expect(409);
+      expect(toOther.body.message).toContain('autre compte');
+      const other = await createInstitution(readerProfile, {
+        farmIds: [farmA],
+      });
+      const sameEmail = await patch(
+        `/programme/access/memberships/${other.id}`,
+        { email },
+        adminToken,
+      ).expect(409);
+      expect(sameEmail.body.message).toContain('adresse e-mail');
+      await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { phone: 'abc' },
+        adminToken,
+      ).expect(400);
+      const cleared = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { email: null },
+        adminToken,
+      ).expect(200);
+      expect(cleared.body.user.email).toBeNull();
+      // Still no self-edit.
+      await patch(
+        `/programme/access/memberships/${accounts.ADMIN.id}`,
+        { fullName: 'Moi' },
+        accounts.ADMIN.token,
+      ).expect(403);
+    });
+  });
+
   describe('reference data (REFERENCE)', () => {
     it('opens provinces and list items to every member, whatever its matrix', async () => {
       for (const p of DEFAULT_PROFILES) {

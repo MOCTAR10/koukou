@@ -42,6 +42,13 @@ import { ProgramMembership } from './entities/program-membership.entity.js';
 import { ScopeResolver } from './scope-resolver.service.js';
 
 /** Refusal when an institutional admin edits an account or profile beyond its own. */
+const PHONE_TAKEN_MESSAGE =
+  'Ce numéro de téléphone est déjà celui d’un autre compte : renseignez un autre numéro.';
+const BUYER_PHONE_TAKEN_MESSAGE =
+  'Ce numéro appartient à un compte acheteur du Market : il ne peut pas devenir celui d’un compte institutionnel. Renseignez un autre numéro.';
+const EMAIL_TAKEN_MESSAGE =
+  'Cette adresse e-mail est déjà celle d’un autre compte.';
+
 const BEYOND_OWN_ACCESS_MESSAGE =
   "Accès refusé : ce compte ou ce profil a des droits ou un périmètre plus larges que les vôtres ; seul un administrateur qui les détient (ou l'administrateur de la plateforme) peut le modifier.";
 
@@ -296,7 +303,10 @@ export class AccessAdminService {
     }
   }
 
-  /** Change of profile or scope, suspension (`active: false`), validity. */
+  /**
+   * Change of profile or scope, suspension (`active: false`), validity, and
+   * the account's name, phone (its login) and e-mail.
+   */
   async updateMembership(
     actor: AuthUser,
     id: string,
@@ -336,8 +346,72 @@ export class AccessAdminService {
         ...scope,
         active: dto.active ?? m.active,
       });
+      await this.updateAccount(em, m.userId, dto);
+    }).catch((err: unknown) => {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException(
+          'Ce numéro ou cette adresse e-mail est déjà celui d’un autre compte.',
+        );
+      }
+      throw err;
     });
     return this.membershipById(id);
+  }
+
+  /**
+   * Name, phone and e-mail of an institutional account. The phone is the
+   * login: another account's (a Market buyer's included) is refused, as is
+   * another account's e-mail.
+   * @throws ConflictException
+   */
+  private async updateAccount(
+    em: EntityManager,
+    userId: string,
+    dto: Pick<UpdateMembershipDto, 'fullName' | 'phone' | 'email'>,
+  ): Promise<void> {
+    if (
+      dto.fullName === undefined &&
+      dto.phone === undefined &&
+      dto.email === undefined
+    ) {
+      return;
+    }
+    const users = em.getRepository(User);
+    const user = await users.findOneOrFail({
+      where: { id: userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const patch: Partial<User> = {};
+    if (dto.fullName !== undefined && dto.fullName !== user.fullName) {
+      patch.fullName = dto.fullName;
+    }
+    if (dto.phone !== undefined && dto.phone !== user.phone) {
+      const holder = await users.findOne({ where: { phone: dto.phone } });
+      if (holder && holder.id !== user.id) {
+        if (holder.role === UserRole.ACHETEUR) {
+          throw new ConflictException({
+            statusCode: 409,
+            error: 'Conflict',
+            message: BUYER_PHONE_TAKEN_MESSAGE,
+            buyerAccount: true,
+          });
+        }
+        throw new ConflictException(PHONE_TAKEN_MESSAGE);
+      }
+      patch.phone = dto.phone;
+    }
+    if (dto.email !== undefined && dto.email !== user.email) {
+      if (dto.email !== null) {
+        const holder = await users.findOne({ where: { email: dto.email } });
+        if (holder && holder.id !== user.id) {
+          throw new ConflictException(EMAIL_TAKEN_MESSAGE);
+        }
+      }
+      patch.email = dto.email;
+    }
+    if (Object.keys(patch).length > 0) {
+      await users.save({ ...user, ...patch });
+    }
   }
 
   // ----- Helpers -----
