@@ -22,6 +22,7 @@ import { SlaughterPage } from './pages/SlaughterPage';
 import { TeamPage } from './pages/TeamPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { PlatformPage } from './pages/PlatformPage';
+import { RegistryPage } from './pages/RegistryPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PointsOfSalePage } from './pages/PointsOfSalePage';
 import { ExpensesPage } from './pages/ExpensesPage';
@@ -100,6 +101,8 @@ export function App() {
           <Route path="parcels" element={<Navigate to="/app/dashboard" replace />} />
           <Route path="harvests" element={<Navigate to="/app/dashboard" replace />} />
           <Route path="help" element={<HelpPage />} />
+          {/* Programme farm registry: the page checks its own access (useMenuAccess). */}
+          <Route path="registre" element={<RegistryPage />} />
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>

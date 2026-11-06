@@ -1,3 +1,5 @@
+import { useAuth } from '../auth/AuthContext';
+import { registryRights } from '../components/registry/registryAccess';
 import { useFarmProfile } from './useFarmProfile';
 
 /**
@@ -9,7 +11,12 @@ import { useFarmProfile } from './useFarmProfile';
  * (programme domains, aggregate and audit scopes that have no farm). Branch
  * here on the account's role; the Shell only reads this hook.
  */
-export function useMenuAccess(): { hasPermission: (...codes: string[]) => boolean; isGroundEleveur: boolean } {
+export function useMenuAccess(): { hasPermission: (...codes: string[]) => boolean; isGroundEleveur: boolean; canOpenRegistry: boolean } {
+  const { user } = useAuth();
   const { hasPermission, isGroundEleveur } = useFarmProfile();
-  return { hasPermission, isGroundEleveur };
+  // TODO(W3): an INSTITUTION whose profile grants REGISTRE (CONSULTER) opens the
+  // registry too, within its scope: decide it from `/programme/access/me` in
+  // `registryRights` (components/registry/registryAccess.ts).
+  const canOpenRegistry = registryRights(user?.role).view;
+  return { hasPermission, isGroundEleveur, canOpenRegistry };
 }
