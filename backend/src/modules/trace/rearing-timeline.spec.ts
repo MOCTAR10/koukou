@@ -94,6 +94,79 @@ describe('rearingTimeline', () => {
     expect(items[8].details).toMatchObject({ lotCode: 'G1-0012-B07-L01-01' });
   });
 
+  it('T2 intrants: deliveries received and feed consumed per stock lot', () => {
+    const items = rearingTimeline({
+      ...base,
+      deliveries: [
+        {
+          id: 'd1',
+          code: 'G1-0012-L03',
+          receivedDate: '2026-10-01',
+          source: 'ETAT_SMAG',
+          supplierName: null,
+          lines: [
+            {
+              intrantCode: 'ALIMENT_DEMARRAGE',
+              intrantLabel: 'Aliment démarrage',
+              unitCode: 'SAC',
+              receivedQuantity: 20,
+              feedPhase: 'DEMARRAGE',
+            },
+            {
+              intrantCode: 'VACCIN_GUMBORO',
+              intrantLabel: null,
+              unitCode: 'FLACON',
+              receivedQuantity: 0,
+              feedPhase: null,
+            },
+          ],
+        },
+      ],
+      feedLots: [
+        {
+          inputLotId: 'l1',
+          productName: 'Aliment démarrage',
+          supplierLotNumber: 'SMAG-77',
+          fromDay: '2026-10-02',
+          toDay: '2026-10-08',
+          kg: 512.25,
+        },
+        {
+          inputLotId: null,
+          productName: null,
+          supplierLotNumber: null,
+          fromDay: '2026-10-09',
+          toDay: '2026-10-09',
+          kg: 30,
+        },
+        {
+          inputLotId: 'l2',
+          productName: 'Rien',
+          supplierLotNumber: 'X',
+          fromDay: '2026-10-09',
+          toDay: '2026-10-09',
+          kg: 0,
+        },
+      ],
+    });
+    expect(items.slice(0, 3).map((i) => [i.date, i.kind])).toEqual([
+      ['2026-10-01', K.OUVERTURE],
+      ['2026-10-01', K.INTRANT],
+      ['2026-10-02', K.ALIMENT],
+    ]);
+    expect(items[1].label).toBe(
+      'Livraison G1-0012-L03 reçue : Aliment démarrage 20 SAC',
+    );
+    expect(items[1].details).toMatchObject({ code: 'G1-0012-L03' });
+    expect(items[2].label).toBe(
+      'Aliment consommé : 512,3 kg (Aliment démarrage, lot SMAG-77), du 2026-10-02 au 2026-10-08',
+    );
+    expect(items[2].quantity).toBe(512.25);
+    const outside = items.filter((i) => i.kind === K.ALIMENT);
+    expect(outside).toHaveLength(2);
+    expect(outside[1].label).toBe('Aliment consommé : 30 kg (hors stock suivi)');
+  });
+
   it('leaves out health events the viewer may not read', () => {
     const items = rearingTimeline({ ...base, healthEvents: null });
     expect(items.some((i) => i.kind === K.EVENEMENT_SANITAIRE)).toBe(false);
