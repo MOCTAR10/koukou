@@ -59,13 +59,10 @@ export function resolveFarmAccess(input: {
 }
 
 /**
- * Whether the account may read the Fermia-only domains of a farm (sales desk
- * and caisse, orders, customers, points of sale, transfers, Market,
- * accounting, team, account/push): owner, staff and platform admin only. The
- * backend refuses those domains to any institutional profile
- * (`validateMatrix`), whatever its matrix, so an institution's screen must not
- * even ask (a 403 per screen otherwise). Programme domains (technique,
- * sanitaire, intrants, économique…) follow the permissions instead.
+ * Accounts working on their own farm (owner, staff, platform admin): today
+ * only the push device registration (COMPTE, never granted to an
+ * institution). POUFA lot A droits: the Fermia screens follow the matrix
+ * grants instead, see `poufa/fermia-access.ts` and `useFarmProfile().readsFermia`.
  */
 export function readsFermiaData(userRole: UserRole | undefined): boolean {
   return userRole === 'PROPRIETAIRE' || userRole === 'ELEVEUR' || userRole === 'PLATFORM_ADMIN';
