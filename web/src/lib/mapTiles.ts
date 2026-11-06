@@ -1,14 +1,14 @@
 /**
- * Basemap of the web maps. Default: CARTO Positron (sober light style, no API key,
- * free for non-commercial / modest use). Lot B can switch provider without code:
+ * Basemap of the web maps. Default: OpenStreetMap standard tiles, toned down by CSS
+ * (`.leaflet-tile-pane` filter in index.css) for a sober look. CARTO now requires an API key. Lot B can switch provider without code:
  * VITE_MAP_TILE_URL (xyz template), VITE_MAP_TILE_ATTRIBUTION (HTML) and VITE_MAP_TILE_MAX_ZOOM.
  */
 const env = import.meta.env as Record<string, string | undefined>;
 
-export const MAP_TILE_URL = env.VITE_MAP_TILE_URL || 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+export const MAP_TILE_URL = env.VITE_MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 export const MAP_TILE_ATTRIBUTION =
   env.VITE_MAP_TILE_ATTRIBUTION ||
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 export const MAP_TILE_MAX_ZOOM = Number(env.VITE_MAP_TILE_MAX_ZOOM) || 19;
 export const MAP_TILE_SUBDOMAINS = 'abcd';
 

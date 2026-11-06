@@ -244,3 +244,8 @@ td,
   outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
 }
+
+/* Sober basemap: desaturate the OSM tiles (markers and overlays keep their colours). */
+.leaflet-tile-pane {
+  filter: saturate(0.3) brightness(1.04) contrast(0.95);
+}
