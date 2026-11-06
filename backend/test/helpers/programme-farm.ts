@@ -39,13 +39,24 @@ export async function login(
 /** Self-registered buyer account (the only open sign-up). */
 export async function registerBuyer(
   server: App,
-  opts: { phone?: string; fullName?: string; code?: string } = {},
+  opts: {
+    phone?: string;
+    fullName?: string;
+    code?: string;
+    /** Buyer profile fields: `type`, `organizationName`, `city`. */
+    profile?: Record<string, unknown>;
+  } = {},
 ): Promise<{ token: string; phone: string; code: string; userId: string }> {
   const phone = opts.phone ?? uniquePhone();
   const code = opts.code ?? 'secret123';
   const res = await request(server)
     .post('/auth/register-buyer')
-    .send({ phone, fullName: opts.fullName ?? 'Acheteur E2E', code })
+    .send({
+      phone,
+      fullName: opts.fullName ?? 'Acheteur E2E',
+      code,
+      ...opts.profile,
+    })
     .expect(201);
   return {
     token: res.body.accessToken as string,

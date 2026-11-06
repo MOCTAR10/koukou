@@ -11,5 +11,9 @@ export default defineConfig({
     fileParallelism: false,
     maxWorkers: 1,
     minWorkers: 1,
+    // Each spec boots the whole app and builds its data through the registry
+    // (admin, farm, activate-owner, logins: several bcrypt rounds): 10 s is
+    // too tight for a beforeAll on a loaded machine.
+    hookTimeout: 60_000,
   },
 });
