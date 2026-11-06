@@ -43,20 +43,16 @@ describe('Module 1 — Gestion des Lots (e2e)', () => {
   });
 
   it('crée une ferme (registre du programme) et connecte son exploitant', async () => {
+    // Registry capacity: what moduleRatioVsCapacity uses when the band has
+    // no building and the farm no per-building capacity.
     const created = await createProgrammeFarm(server, adminToken, {
       name: `Ferme E2E ${Date.now()}`,
+      extra: { capacityPlaces: 1500 },
     });
     token = created.ownerToken;
     ownerPhone = created.ownerPhone;
     farmId = created.farmId;
     expect(farmId).toBeTruthy();
-    // The registry has no per-building capacity: set the legacy field the
-    // metrics read (moduleRatioVsCapacity).
-    await app
-      .get(DataSource)
-      .query(`UPDATE farms SET "capacityPerBuilding" = 1500 WHERE id = $1`, [
-        farmId,
-      ]);
   });
 
   it('crée un lot surdensitaire (2400 poussins / 40 m²) et expose densité + moduleRatioVsCapacity', async () => {
