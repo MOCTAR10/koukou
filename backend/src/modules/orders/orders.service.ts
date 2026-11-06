@@ -73,6 +73,7 @@ import { PaymentsService } from '../finance/payments.service.js';
 import { RentabiliteService } from '../finance/rentabilite.service.js';
 import { SalesService } from '../finance/sales.service.js';
 import { AccountingService } from '../accounting/accounting.service.js';
+import { SaleCessionService } from '../trace/sale-cession.service.js';
 import {
   CreateOrderDto,
   FinalizeOrderDto,
@@ -211,6 +212,7 @@ export class OrdersService {
     private readonly pdfService: PdfService,
     private readonly accountingService: AccountingService,
     private readonly bandeStats: BandeStatsService,
+    private readonly saleCessions: SaleCessionService,
   ) {}
 
   // ---------- Création (bon de commande) ----------
@@ -859,6 +861,18 @@ export class OrdersService {
         })),
         totalAmountFcfa: total,
         operatorId: user.id,
+      });
+
+      // Traceability (F4): an order delivered to an operator's customer
+      // (Market orders included) cedes the lot on the delivery day.
+      await this.saleCessions.cedeSale(em, {
+        farmId,
+        saleId: sale.id,
+        referenceNumber: order.referenceNumber,
+        day: todayStr(),
+        customerId: sale.customerId,
+        userId: user.id,
+        items,
       });
 
       // POUFA band projection, same transaction.

@@ -914,6 +914,7 @@ async function main() {
       sortieDate: day(-5),
       count: 12,
       reasonCode: 'REFORME',
+      recipientName: 'Réforme sur place (consommation de la ferme)',
       notes: 'Sujets chétifs retirés',
     },
     tokens.mba,

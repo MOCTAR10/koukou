@@ -70,7 +70,8 @@ export async function batchReservation(
 /**
  * Birds already sent to the abattoir (SENT, not yet processed): they still
  * count in quantityAlive until processing, but can't be promised to a
- * customer order anymore.
+ * customer order anymore. Orders created by a POUFA ABATTOIR sortie are left
+ * out: their birds left quantityAlive at the sortie.
  */
 export async function sentSlaughterBirds(
   em: EntityManager,
@@ -84,7 +85,11 @@ export async function sentSlaughterBirds(
     .select('COALESCE(SUM(o.bird_count), 0)', 'birds')
     .where('o.farm_id = :farmId', { farmId })
     .andWhere('o.batch_id = :batchId', { batchId })
-    .andWhere('o.status = :status', { status: SlaughterStatus.SENT });
+    .andWhere('o.status = :status', { status: SlaughterStatus.SENT })
+    // A sortie's order already left quantityAlive.
+    .andWhere(
+      'NOT EXISTS (SELECT 1 FROM sorties s WHERE s.slaughter_order_id = o.id)',
+    );
   if (excludeSlaughterOrderId) {
     qb.andWhere('o.id != :excludeId', { excludeId: excludeSlaughterOrderId });
   }

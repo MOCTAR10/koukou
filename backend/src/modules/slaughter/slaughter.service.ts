@@ -34,6 +34,7 @@ import {
 } from './dto/slaughter.dto.js';
 import { SlaughterOrder } from './entities/slaughter-order.entity.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
+import { FlockReconciliationService } from '../batches/flock-reconciliation.service.js';
 
 // Préfixe codé en dur (même convention que VTE pour les ventes — pas de compteur séparé).
 const SLAUGHTER_PREFIX = 'ABT';
@@ -89,7 +90,22 @@ export class SlaughterService {
     private readonly pdfService: PdfService,
     private readonly dataSource: DataSource,
     private readonly bandeStats: BandeStatsService,
+    private readonly reconciliation: FlockReconciliationService,
   ) {}
+
+  /**
+   * The order comes from a POUFA ABATTOIR sortie: its birds left the band at
+   * the sortie (CDC « effectif = mis en place − morts − sorties »), so sending
+   * or processing it changes the headcount no more, and cancelling it gives
+   * the birds back.
+   */
+  private async fromSortie(em: EntityManager, orderId: string): Promise<boolean> {
+    const rows: unknown[] = await em.query(
+      'SELECT 1 FROM sorties WHERE slaughter_order_id = $1 LIMIT 1',
+      [orderId],
+    );
+    return rows.length > 0;
+  }
 
   /**
    * With `opts.em` the order is created inside the caller's transaction (a
@@ -204,6 +220,15 @@ export class SlaughterService {
       ) {
         throw new BadRequestException(
           'Ordre déjà envoyé à l’abattoir : le nombre d’oiseaux et le type ne sont plus modifiables (annulez puis recréez l’ordre).',
+        );
+      }
+      if (
+        dto.birdCount !== undefined &&
+        dto.birdCount !== order.birdCount &&
+        (await this.fromSortie(em, order.id))
+      ) {
+        throw new BadRequestException(
+          'Ordre issu d’une sortie de bande : le nombre d’oiseaux suit la sortie (annulez l’ordre puis enregistrez une nouvelle sortie).',
         );
       }
       if (dto.slaughterType !== undefined)
@@ -349,23 +374,28 @@ export class SlaughterService {
         );
       }
       order = locked;
-      if (batch.status === BatchStatus.CLOTURE) {
-        throw new BadRequestException(
-          'Lot clôturé : abattage impossible (immuabilité du lot et de son bilan).',
-        );
+      // A sortie's birds already left the headcount: processing moves no
+      // bird, so it stays possible once the sortie closed the band.
+      const sortieBirds = await this.fromSortie(em, order.id);
+      if (!sortieBirds) {
+        if (batch.status === BatchStatus.CLOTURE) {
+          throw new BadRequestException(
+            'Lot clôturé : abattage impossible (immuabilité du lot et de son bilan).',
+          );
+        }
+        if (order.birdCount > batch.quantityAlive) {
+          throw new BadRequestException(
+            `Cheptel insuffisant pour l'abattage : il reste ${batch.quantityAlive} oiseau(x) vivant(s) sur le lot, ordre de ${order.birdCount}.`,
+          );
+        }
+        // Batch row is locked: a concurrent order creation waits for us.
+        await this.assertNotReserved(em, order, batch, 'l’abattage');
+        batch.quantityAlive -= order.birdCount;
+        if (batch.quantityAlive <= 0) {
+          batch.status = BatchStatus.FINI;
+        }
+        await em.getRepository(ProductionBatch).save(batch);
       }
-      if (order.birdCount > batch.quantityAlive) {
-        throw new BadRequestException(
-          `Cheptel insuffisant pour l'abattage : il reste ${batch.quantityAlive} oiseau(x) vivant(s) sur le lot, ordre de ${order.birdCount}.`,
-        );
-      }
-      // Batch row is locked: a concurrent order creation waits for us.
-      await this.assertNotReserved(em, order, batch, 'l’abattage');
-      batch.quantityAlive -= order.birdCount;
-      if (batch.quantityAlive <= 0) {
-        batch.status = BatchStatus.FINI;
-      }
-      await em.getRepository(ProductionBatch).save(batch);
 
       if (dto.abattoirLotCode !== undefined)
         order.abattoirLotCode = dto.abattoirLotCode;
@@ -382,7 +412,9 @@ export class SlaughterService {
       }
       await em.getRepository(SlaughterOrder).save(order);
       // POUFA band projection, same transaction.
-      await this.bandeStats.refresh(em, batch.id);
+      if (batch.status !== BatchStatus.CLOTURE) {
+        await this.bandeStats.refresh(em, batch.id);
+      }
       return order;
     });
   }
@@ -394,7 +426,16 @@ export class SlaughterService {
     dto?: CancelSlaughterOrderDto,
   ): Promise<SlaughterOrder> {
     await this.farmsService.assertAccessible(user, farmId);
+    const { batchId } = await this.getOne(user, farmId, orderId);
     return this.dataSource.transaction(async (em) => {
+      // Same lock order as send()/process(): batch, then order.
+      const batch = await em
+        .getRepository(ProductionBatch)
+        .createQueryBuilder('batch')
+        .setLock('pessimistic_write')
+        .where('batch.id = :id', { id: batchId })
+        .andWhere('batch.farm_id = :farmId', { farmId })
+        .getOne();
       const order = await em
         .getRepository(SlaughterOrder)
         .createQueryBuilder('o')
@@ -402,12 +443,18 @@ export class SlaughterService {
         .where('o.id = :id', { id: orderId })
         .andWhere('o.farm_id = :farmId', { farmId })
         .getOne();
-      if (!order) {
+      if (!order || !batch) {
         throw new NotFoundException(
           'Ordre d’abattage introuvable dans cette ferme.',
         );
       }
       this.assertMutable(order);
+      const sortieBirds = await this.fromSortie(em, order.id);
+      if (sortieBirds && batch.status === BatchStatus.CLOTURE) {
+        throw new BadRequestException(
+          'Bande clôturée : l’ordre issu d’une sortie ne peut plus être annulé, ses sujets ne peuvent pas revenir dans une bande clôturée (correction par un profil habilité).',
+        );
+      }
       if (dto?.reason) {
         const suffix = dto.reason.trim();
         order.abattoirNotes = order.abattoirNotes
@@ -416,6 +463,11 @@ export class SlaughterService {
       }
       order.status = SlaughterStatus.CANCELLED;
       await em.getRepository(SlaughterOrder).save(order);
+      if (sortieBirds) {
+        // The sortie's birds come back into the headcount.
+        await this.reconciliation.recomputeLiveCount(em, batch.id);
+        await this.bandeStats.refresh(em, batch.id);
+      }
       return order;
     });
   }
@@ -534,20 +586,25 @@ export class SlaughterService {
     order: SlaughterOrder,
     batch: ProductionBatch,
   ): Promise<void> {
-    if (batch.status === BatchStatus.CLOTURE) {
+    // A sortie's birds already left the band (checked at the sortie): the
+    // band may even be closed by it, the order still goes to the abattoir.
+    const sortieBirds = await this.fromSortie(em, order.id);
+    if (!sortieBirds && batch.status === BatchStatus.CLOTURE) {
       throw new BadRequestException(
         'Lot clôturé : envoi à l’abattage impossible.',
       );
     }
     // Synchronisation du stock : on n'envoie que les oiseaux réellement
     // présents sur le lot (toutes les sorties doivent rester cohérentes).
-    if (order.birdCount > batch.quantityAlive) {
+    if (!sortieBirds && order.birdCount > batch.quantityAlive) {
       throw new BadRequestException(
         `Cheptel insuffisant pour l'envoi : il reste ${batch.quantityAlive} oiseau(x) vivant(s) sur le lot, ordre de ${order.birdCount}.`,
       );
     }
     // Under the batch lock (see send); process() re-checks it too.
-    await this.assertNotReserved(em, order, batch, 'l’envoi');
+    if (!sortieBirds) {
+      await this.assertNotReserved(em, order, batch, 'l’envoi');
+    }
     // Critères sanitaires (normes internationales) : pas de délai d'attente actif
     // et prophylaxie à jour avant de pouvoir envoyer un lot à l'abattage.
     const holds = await sanitaryHolds(

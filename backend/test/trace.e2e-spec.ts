@@ -229,6 +229,7 @@ describe('Programme POUFA — traçabilité des lots (L7, e2e)', () => {
         sortieDate: day(0),
         count: 3,
         reasonCode: 'DON',
+        recipientName: 'Voisin',
       }).expect(201);
       expect(
         (await lotsOf(band.id)).filter((l) => l.kind === 'SOUS_LOT'),
@@ -397,6 +398,7 @@ describe('Programme POUFA — traçabilité des lots (L7, e2e)', () => {
         sortieDate: day(0),
         count: alive,
         reasonCode: 'REFORME',
+        recipientName: 'Réforme sur place',
       }).expect(201);
       // The stored status follows the BATCH_CLOSED listener; reads already
       // treat the root lot as closed.

@@ -71,13 +71,14 @@ const n = (v: unknown): number => (v == null ? 0 : Number(v));
 /**
  * CTE `ws` (needs `sf`): measured live weight of the sorties whose animals did
  * leave (any REFORME/AUTRE, a VENTE whose sale is not cancelled, an ABATTOIR
- * whose slaughter order is processed), per band and per day of removal (the
- * slaughter's planned date, as in `FlockReconciliationService.removalsByDate`).
- * `from`/`to` are SQL placeholders.
+ * whose slaughter order is not cancelled: its birds leave at the sortie), per
+ * band and per day of removal (the sortie's date, as in
+ * `FlockReconciliationService.removalsByDate`). `from`/`to` are SQL
+ * placeholders.
  */
 export function weighedSortiesCte(from: string, to: string): string {
   return `ws AS (
-         SELECT so.batch_id, COALESCE(o.planned_date, so.sortie_date) AS day,
+         SELECT so.batch_id, so.sortie_date AS day,
                 SUM(so.count) AS heads, SUM(so.weight_kg) AS kg
            FROM sorties so
            JOIN sf ON sf.id = so.farm_id
@@ -86,8 +87,8 @@ export function weighedSortiesCte(from: string, to: string): string {
           WHERE so.weight_kg > 0
             AND (so.reason_family NOT IN ('VENTE', 'ABATTOIR')
                  OR (so.reason_family = 'VENTE' AND sa.status <> 'CANCELLED')
-                 OR (so.reason_family = 'ABATTOIR' AND o.status = 'PROCESSED'))
-            AND COALESCE(o.planned_date, so.sortie_date) BETWEEN ${from}::date AND ${to}::date
+                 OR (so.reason_family = 'ABATTOIR' AND o.status <> 'CANCELLED'))
+            AND so.sortie_date BETWEEN ${from}::date AND ${to}::date
           GROUP BY 1, 2
        )`;
 }

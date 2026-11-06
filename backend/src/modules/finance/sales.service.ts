@@ -66,6 +66,7 @@ import { CreateSaleDto } from './dto/sale.dto.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
+import { SaleCessionService } from '../trace/sale-cession.service.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 
 const SALE_PREFIX = 'VTE';
@@ -125,6 +126,7 @@ export class SalesService {
     private readonly pdfService: PdfService,
     private readonly accountingService: AccountingService,
     private readonly bandeStats: BandeStatsService,
+    private readonly saleCessions: SaleCessionService,
   ) {}
 
   // ---------- Création (transaction POS) ----------
@@ -132,13 +134,15 @@ export class SalesService {
   /**
    * With `opts.em` the sale is booked inside the caller's transaction (a
    * POUFA sortie): the caller then runs `afterSaleCommitted` once committed,
-   * and gets no alert warnings back.
+   * and gets no alert warnings back. A sale to a customer linked to a
+   * programme operator cedes the lot (F4, `SaleCessionService`) unless
+   * `opts.skipCession` (a VENTE sortie is the cession itself).
    */
   async create(
     user: AuthUser,
     farmId: string,
     dto: CreateSaleDto,
-    opts?: { em?: EntityManager },
+    opts?: { em?: EntityManager; skipCession?: boolean },
   ) {
     const farm = await this.farmsService.assertAccessible(user, farmId);
     if (dto.idempotencyKey) {
@@ -324,6 +328,20 @@ export class SalesService {
         ],
         operatorId: user.id,
       });
+
+      // Traceability (F4): a sale to an operator's customer is a cession,
+      // in this transaction (bands already locked above).
+      if (!opts?.skipCession) {
+        await this.saleCessions.cedeSale(em, {
+          farmId,
+          saleId: savedSale.id,
+          referenceNumber: savedSale.referenceNumber,
+          day: savedSale.saleDate,
+          customerId: savedSale.customerId,
+          userId: user.id,
+          items,
+        });
+      }
 
       // POUFA band projection, same transaction.
       for (const batchId of involvedBatches) {
