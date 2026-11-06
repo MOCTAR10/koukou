@@ -76,6 +76,8 @@ function farmPaths(farmId: string): Array<[ReadDomain, string]> {
     ['TRACABILITE', `${f}/slaughter-orders`],
     ['TECHNIQUE', `${f}/tasks`],
     ['TECHNIQUE', `/reference-constants`],
+    // POUFA lot A sante: the products the treatment form picks from offline.
+    ['SANITAIRE', `/programme/lists/PRODUIT_TRAITEMENT`],
   ];
 }
 

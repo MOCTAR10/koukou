@@ -94,10 +94,15 @@ export function adminRights(role: Role | null | undefined, access?: Profile | nu
   };
 }
 
+// POUFA lot A sante: CDC §5.2 n° 25, mirror of the server's OWNER_PROFILES_CLOSED_TO_PLATFORM.
+/** Owner profiles the platform admin reads but never changes: the veterinary thresholds. */
+export const OWNER_PROFILES_CLOSED_TO_PLATFORM: readonly string[] = ['VETERINAIRE'];
+
 /** Whether the caller may record a new version of a parameter owned by `ownerProfile` (server `mayChangeParameter`). */
 export function mayPropose(rights: AdminRights['parameters'], ownerProfile: string): boolean {
   if (!rights.write) return false;
-  return rights.anyOwner || (rights.profileCode !== null && rights.profileCode === ownerProfile);
+  if (rights.anyOwner) return !OWNER_PROFILES_CLOSED_TO_PLATFORM.includes(ownerProfile);
+  return rights.profileCode !== null && rights.profileCode === ownerProfile;
 }
 
 /** Whether a programme administration entry shows at all. */

@@ -32,6 +32,11 @@ const KEYED_KINDS: ReadonlySet<OfflineKind> = new Set<OfflineKind>([
   // a replayed sortie returns the existing one (unique farm + key).
   'delivery-confirm',
   'band-sortie',
+  // POUFA lot A sante: a replayed treatment returns the stored one, a replayed
+  // completion the care it completed (unique farm + key). A refusal is kept for
+  // the user: a sanitary record is never lost silently.
+  'treatment',
+  'prophylaxis-complete',
 ]);
 
 /** A refusal of these is kept for the user to re-enter, never silently deleted. */
