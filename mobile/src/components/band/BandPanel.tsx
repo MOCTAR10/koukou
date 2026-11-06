@@ -15,6 +15,9 @@ import { fetchBandComparison, fetchBandIndicators, fetchBandSnapshots, fetchSort
 import { cachedRead } from '@/offline/ref-cache';
 import { useOfflineQueue } from '@/offline';
 import { COMPARISON_METRICS, comparisonRows, fmtIndicator, suppressionNote, type CellTone } from '@/poufa/comparison';
+// POUFA lot A indic: the farm's band history under the band sheet; margin label of the formula in force.
+import { BandHistoryList } from './BandHistoryList';
+import { marginLabel } from '@/poufa/official-headline';
 import { color, palette, semantic } from '@/constants/theme';
 
 const TRIGGER_LABEL: Record<string, string> = {
@@ -291,7 +294,7 @@ export function BandPanel({ farmId, batch, canExit, has }: Props) {
                 {snap.marginFcfa != null ? (
                   <View style={styles.metric}>
                     <AppText size="small" color="muted" style={{ flex: 1 }}>
-                      Marge
+                      {marginLabel(snap.indicators, 'marge_fcfa')}
                     </AppText>
                     <AppText size="small" weight="semibold" color={snap.marginFcfa < 0 ? 'danger' : 'text'}>
                       {snap.marginFcfa.toLocaleString('fr-FR')} FCFA
@@ -302,6 +305,8 @@ export function BandPanel({ farmId, batch, canExit, has }: Props) {
             ))
         )}
       </Card>
+
+      <BandHistoryList farmId={farmId} currentId={batchId} />
 
       {canExit ? <SortieSheet visible={sortieOpen} onClose={() => setSortieOpen(false)} farmId={farmId} batch={batch} has={has} /> : null}
     </View>

@@ -41,6 +41,11 @@ function ListingCard({ listing }: { listing: MarketListing }) {
             {listing.farm.city ? ` · ${listing.farm.city}` : ''}
           </AppText>
         </View>
+        {listing.traceLot ? (
+          <AppText size="caption" weight="semibold" color="brand" numberOfLines={1}>
+            Lot tracé {listing.traceLot.code}
+          </AppText>
+        ) : null}
       </View>
       <View>
         <AppText size="bodyM" weight="bold" color="brand">

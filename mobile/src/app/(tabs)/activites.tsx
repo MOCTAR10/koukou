@@ -41,7 +41,7 @@ const PANEL_OPTIONS: SegmentedOption<PanelKey>[] = [
   { key: 'TACHES', label: 'Tâches' },
   { key: 'LOTS', label: 'Lots' },
   { key: 'CAISSE', label: 'Caisse' },
-  { key: 'RAPPORTS', label: 'Rapports' },
+  { key: 'RAPPORTS', label: 'Bilan hebdo' },
 ];
 
 function capitalize(value: string | null | undefined): string {

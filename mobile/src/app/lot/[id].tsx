@@ -87,6 +87,10 @@ import { SPECIES_LABELS } from '@/api/format';
 import { bandCycle } from '@/utils/band';
 // ── POUFA band sheet (M2) ──
 import { BandPanel } from '@/components/band/BandPanel';
+// POUFA lot A indic: official indicators head the lot screen, the band sheet is the default view.
+import { fetchBandIndicators } from '@/api/poufa';
+import { cachedRead } from '@/offline/ref-cache';
+import { COST_PER_KG_SOLD_LABEL, conduiteLine, findIndicator, marginLabel, officialText } from '@/poufa/official-headline';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
 // ── end POUFA ──
@@ -244,7 +248,17 @@ export default function LotDetailScreen() {
   const buildingsQ = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
 
   // ── State ──
-  const [mainTab, setMainTab] = useState<MainTab>('overview');
+  // Until the farmer picks a tab: the official band sheet when the profile reads it.
+  const [chosenTab, setMainTab] = useState<MainTab | null>(null);
+  const mainTab: MainTab = chosenTab ?? (showBandSheet ? 'programme' : 'overview');
+  const officialQ = useQuery({
+    queryKey: ['band-indicators', farmId, batchId],
+    queryFn: () => cachedRead(`band-indicators.${farmId}.${batchId}`, () => fetchBandIndicators(farmId, batchId)),
+    enabled: !!batchId && showBandSheet,
+    retry: false,
+  });
+  const official = (key: string) => findIndicator(officialQ.data?.indicators, key);
+  const hasOfficial = !!officialQ.data;
   const [curveTab, setCurveTab] = useState<'weight' | 'fcr' | 'water' | 'mortality' | 'eggs'>('weight');
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const [healthFilter, setHealthFilter] = useState<'all' | 'event' | 'care'>('all');
@@ -656,13 +670,17 @@ export default function LotDetailScreen() {
               <HeroStat value={fmt(m?.liveCount ?? 0)} label="vivants" small />
               <View style={styles.heroStatSep} />
               <HeroStat
-                value={`${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
-                label="mortalité"
-                tone={normalizeMortalityStatus(m?.mortalityStatus, m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
+                value={hasOfficial ? officialText(official('taux_mortalite')) : `${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
+                label={hasOfficial ? 'mortalité officielle' : 'mortalité Fermia'}
+                tone={normalizeMortalityStatus(m?.mortalityStatus, official('taux_mortalite')?.value ?? m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
                 small
               />
               <View style={styles.heroStatSep} />
-              <HeroStat value={(m?.fcr ?? 0).toLocaleString('fr-FR')} label="IC" small />
+              <HeroStat
+                value={hasOfficial ? officialText(official('ic')) : (m?.fcr ?? 0).toLocaleString('fr-FR')}
+                label={hasOfficial ? 'IC officiel' : 'IC Fermia'}
+                small
+              />
               <View style={styles.heroStatSep} />
               {isLayer ? (
                 <HeroStat value={m?.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : '—'} label="Taux de ponte" tone={m?.layRatePercent != null && m.layRatePercent >= 100 ? 'danger' : 'text'} small />
@@ -727,9 +745,25 @@ export default function LotDetailScreen() {
         <View style={styles.overviewStack}>
           {/* Metric tiles */}
           <View style={styles.metricGrid}>
-            <MetricTile label="GMQ" value={m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'} icon={TrendingUp} tone="brand" threeCol />
+            <MetricTile
+              label={hasOfficial ? 'GMQ officiel' : 'GMQ (Fermia)'}
+              value={hasOfficial ? officialText(official('gmq_g_j')) : m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'}
+              sub={hasOfficial ? conduiteLine(m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—') : undefined}
+              icon={TrendingUp}
+              tone="brand"
+              threeCol
+              labelLines={2}
+            />
             <MetricTile label={m?.ipeTarget != null ? `IPE (cible ${Math.round(m.ipeTarget)})` : 'IPE'} value={m?.ipe != null ? String(Math.round(m.ipe)) : '—'} icon={Activity} tone="accent" threeCol labelLines={2} />
-            <MetricTile label="Viabilité" value={`${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`} icon={HeartPulse} tone={(m?.viabilityPercent ?? 100) >= 95 ? 'green' : 'amber'} threeCol />
+            <MetricTile
+              label={hasOfficial ? 'Viabilité officielle' : 'Viabilité (Fermia)'}
+              value={hasOfficial ? officialText(official('viabilite')) : `${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`}
+              sub={hasOfficial ? conduiteLine(`${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`) : undefined}
+              icon={HeartPulse}
+              tone={(official('viabilite')?.value ?? m?.viabilityPercent ?? 100) >= 95 ? 'green' : 'amber'}
+              threeCol
+              labelLines={2}
+            />
             <MetricTile label="Poids moyen" value={avgWeightKg != null ? `${avgWeightKg.toFixed(1)} kg` : '—'} icon={Weight} tone="brand" threeCol labelLines={2} />
             <MetricTile label="Aliment/bird" value={healthQ.data?.feedPerBirdGrams != null && healthQ.data.feedPerBirdGrams > 0 ? `${Math.round(healthQ.data.feedPerBirdGrams)} g/j` : '—'} icon={Wheat} tone="default" threeCol labelLines={2} />
             <MetricTile label="Densité" value={m?.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : '—'} icon={Layers} tone="default" threeCol />
@@ -940,7 +974,7 @@ export default function LotDetailScreen() {
                   <AppText size="body" weight="bold" color="text">{fmtFcfa(pnl.revenueFcfa)}</AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Coût/kg</AppText>
+                  <AppText size="small" color="muted">{COST_PER_KG_SOLD_LABEL} (Fermia)</AppText>
                   <AppText size="body" weight="bold" color="text">{pnl.costPerKgFcfa != null ? fmtFcfa(pnl.costPerKgFcfa) : '—'}</AppText>
                 </View>
                 <View style={styles.healthStat}>
@@ -952,11 +986,25 @@ export default function LotDetailScreen() {
                   <AppText size="body" weight="bold" color="text">{pnl.kgSold > 0 ? `${pnl.kgSold.toLocaleString('fr-FR')} kg` : '—'}</AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Marge</AppText>
+                  <AppText size="small" color="muted">Taux de marge (Fermia)</AppText>
                   <AppText size="body" weight="bold" color={pnl.marginPct != null && pnl.marginPct < 0 ? 'danger' : 'text'}>
                     {pnl.marginPct != null ? `${pnl.marginPct.toFixed(1)} %` : '—'}
                   </AppText>
                 </View>
+                {official('marge_fcfa') ? (
+                  <View style={styles.healthStat}>
+                    <AppText size="small" color="muted">{marginLabel(officialQ.data?.indicators, 'marge_fcfa')} (officiel)</AppText>
+                    <AppText size="body" weight="bold" color={(official('marge_fcfa')?.value ?? 0) < 0 ? 'danger' : 'text'}>
+                      {officialText(official('marge_fcfa'))}
+                    </AppText>
+                  </View>
+                ) : null}
+                {official('cout_production_kg') ? (
+                  <View style={styles.healthStat}>
+                    <AppText size="small" color="muted">{official('cout_production_kg')!.label} (officiel)</AppText>
+                    <AppText size="body" weight="bold" color="text">{officialText(official('cout_production_kg'))}</AppText>
+                  </View>
+                ) : null}
               </View>
             </Card>
           )}
@@ -1106,19 +1154,19 @@ export default function LotDetailScreen() {
               </View>
               <View style={styles.healthGrid}>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Mortalité</AppText>
+                  <AppText size="small" color="muted">Mortalité (Fermia)</AppText>
                   <AppText size="body" weight="bold" color={normalizeMortalityStatus(healthQ.data.mortalityStatus, healthQ.data.mortalityPercent) === 'normal' ? 'text' : 'danger'}>
                     {healthQ.data.mortalityPercent.toLocaleString('fr-FR')} %
                   </AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Viabilité</AppText>
+                  <AppText size="small" color="muted">Viabilité (Fermia)</AppText>
                   <AppText size="body" weight="bold" color="text">
                     {healthQ.data.viabilityPercent.toLocaleString('fr-FR')} %
                   </AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">IC</AppText>
+                  <AppText size="small" color="muted">IC (Fermia)</AppText>
                   <AppText size="body" weight="bold" color="text">
                     {healthQ.data.fcr?.toLocaleString('fr-FR') ?? '—'}
                   </AppText>
