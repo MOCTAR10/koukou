@@ -25,6 +25,7 @@ import type { FeedStockSummary } from '../../api/types';
 import type { DailyEntryRecord, Lot } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { useCanRead } from '../../app/useMenuAccess';
+import { lotAgeOn } from './band';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
@@ -51,8 +52,8 @@ const BAG_SIZES = [10, 25, 40, 50];
 const WATER_LO = 1.8;
 const WATER_HI = 2.6;
 
-function suggestedPhase(b: Lot): string {
-  const age = b.metrics.ageDays;
+/** Feed phase advised at `age` (the birds' age on the entry's day). */
+function suggestedPhase(b: Lot, age: number): string {
   if (age <= 10) return 'POUSSIN';
   if (age <= 24) return 'DEMARRAGE';
   if (b.type === 'PONDEUSE') {
@@ -142,8 +143,9 @@ export function DailyEntryModal({
             </IconField>
           </div>
           <p className="text-xs text-slate-500">
-            {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'} · J{lot.metrics.ageDays} ·
-            semaine {ageWeek(lot.metrics.ageDays)} · {num(lot.metrics.liveCount)} vivants sur {num(lot.quantityAtStart)}
+            {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'} · J{lotAgeOn(lot, date, today)}
+            {date !== today ? ' ce jour-là' : ''} · semaine {ageWeek(lotAgeOn(lot, date, today))} · {num(lot.metrics.liveCount)} vivants sur{' '}
+            {num(lot.quantityAtStart)}
             {' '}· mortalité {num(lot.metrics.mortalityPercent)} %
           </p>
           <ErrorNote error={entries.error} />
@@ -189,10 +191,12 @@ function EntryForm({
   const { farmId, farm } = useFarm();
   const invalidate = useInvalidateFarm();
   const isLayer = lot.type === 'PONDEUSE';
+  // A back-dated entry: the birds' age on that day (J+x rule), not today's.
+  const ageDays = lotAgeOn(lot, date, localYmd());
   const existing = entries.find((e) => e.entryDate.slice(0, 10) === date) ?? null;
   const allowedPhases = phasesFor(lot);
   const defaultPhase =
-    existing?.feedPhase && allowedPhases.includes(existing.feedPhase) ? existing.feedPhase : suggestedPhase(lot);
+    existing?.feedPhase && allowedPhases.includes(existing.feedPhase) ? existing.feedPhase : suggestedPhase(lot, ageDays);
 
   const defaultBag = existing?.bagSizeKg ?? farm?.defaultSacKg ?? 50;
   const [deaths, setDeaths] = useState(str(existing?.deaths));
@@ -259,14 +263,14 @@ function EntryForm({
   const lastWeighing = recent.find((e) => e.avgWeightKg != null) ?? null;
   const prevWeightG = lastWeighing?.avgWeightKg != null ? lastWeighing.avgWeightKg * 1000 : null;
 
-  const week = ageWeek(lot.metrics.ageDays);
+  const week = ageWeek(ageDays);
   const std = standards.data;
   const standardRow = std?.find((s) => s.week === week) ?? (std ? [...std].reverse().find((s) => s.week <= week) : undefined);
   const targetWeight = standardRow?.targetAvgWeightKg ?? null;
   const targetLay = standardRow?.targetLayRatePercent ?? null;
 
   const rec = estimateDailyFeed({
-    ageDays: lot.metrics.ageDays,
+    ageDays,
     isLayer,
     liveCount: live,
     weighedWeightKg: weightGN > 0 ? weightGN / 1000 : prevWeightG != null ? prevWeightG / 1000 : null,
@@ -406,7 +410,7 @@ function EntryForm({
               </Field>
             </>
           )}
-          <Field label="Phase d'alimentation" hint={`Conseillée à J${lot.metrics.ageDays} : ${FEED_PHASE_LABEL[suggestedPhase(lot)]}`}>
+          <Field label="Phase d'alimentation" hint={`Conseillée à J${ageDays} : ${FEED_PHASE_LABEL[suggestedPhase(lot, ageDays)]}`}>
             <select
               className={inputCls}
               value={phase}

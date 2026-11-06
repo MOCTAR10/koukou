@@ -80,7 +80,10 @@ export interface ProductionBatch {
   buildingId: string | null;
   breedId: string | null;
   batchName: string | null;
+  /** Opening (arrival) day of the band; age = `initialAgeDays` + days since it. */
   integrationDate: string;
+  /** Age of the birds at opening (J+x, POUFA); null / 0 = day-old chicks. */
+  initialAgeDays?: number | null;
   quantityAtStart: number;
   quantityAlive: number;
   chickUnitPriceFcfa: number | null;

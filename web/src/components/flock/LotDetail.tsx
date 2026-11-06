@@ -157,7 +157,8 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
               <h2 className="text-xl font-bold text-slate-900">{lotName(lot)}</h2>
               <p className="text-sm text-slate-500">
                 {kindLabel(lot)} · {lot.breedName ?? lot.customBreed ?? 'Souche non renseignée'}
-                {building ? ` · ${building.name}` : ''} · démarré le {dateFr(lot.integrationDate)} avec{' '}
+                {building ? ` · ${building.name}` : ''} · démarré le {dateFr(lot.integrationDate)}
+                {lot.initialAgeDays ? ` à J${lot.initialAgeDays}` : ''} avec{' '}
                 {num(lot.quantityAtStart)} oiseaux
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">

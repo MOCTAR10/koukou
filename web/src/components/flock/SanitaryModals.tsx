@@ -16,6 +16,7 @@ import type {
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { useCanRead } from '../../app/useMenuAccess';
+import { ageZeroDay } from './band';
 import { lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
@@ -649,7 +650,8 @@ export function PlanCareModal({
                         <li key={s.id} className={passed ? 'text-slate-400 line-through' : undefined}>
                           J{s.dayFrom} : {s.name}
                           {s.route ? ` · ${s.route}` : ''}
-                          {passed ? '' : ` · ${dateFr(addUtcDays(first.integrationDate, s.dayFrom))}`}
+                          {/* Day N of the protocol = the birds' J0 + N (J0 = opening − age at opening). */}
+                          {passed ? '' : ` · ${dateFr(addUtcDays(ageZeroDay(first.integrationDate, first.initialAgeDays), s.dayFrom))}`}
                         </li>
                       );
                     })}
