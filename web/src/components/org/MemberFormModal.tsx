@@ -8,7 +8,6 @@ import {
   Landmark,
   Settings,
   ShieldCheck,
-  Sprout,
   Store,
   Stethoscope,
   UserCog,
@@ -38,7 +37,7 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
   production: Wheat,
   team: Users,
   rh: Briefcase,
-  agriculture: Sprout,
+  // No agriculture group: crops are hidden on the POUFA instance (the server stops serving it).
   caisse: Coins,
   ventes: HandCoins,
   compta: Landmark,

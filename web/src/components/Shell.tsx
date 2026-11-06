@@ -23,7 +23,6 @@ import {
   Settings,
   Shield,
   ShoppingCart,
-  Sprout,
   Store,
   Tractor,
   Users,
@@ -66,13 +65,7 @@ const NAV: Array<{
       { to: '/app/slaughter', label: 'Abattage', icon: Factory, perms: ['production:abattage'] },
     ],
   },
-  {
-    title: 'Cultures',
-    items: [
-      { to: '/app/parcels', label: 'Parcelles', icon: Sprout },
-      { to: '/app/harvests', label: 'Récoltes', icon: Tractor },
-    ],
-  },
+  // No « Cultures » group: crops are hidden on the POUFA instance (poultry programme).
   {
     title: 'Ventes',
     items: [

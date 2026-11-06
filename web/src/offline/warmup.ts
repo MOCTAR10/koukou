@@ -70,9 +70,6 @@ function farmPaths(farmId: string): string[] {
     `${f}/promotions`,
     `${f}/slaughter-orders`,
     `${f}/tasks`,
-    `${f}/parcelles`,
-    `${f}/recoltes`,
-    `${f}/recoltes/stock`,
     `/reference-constants`,
   ];
 }

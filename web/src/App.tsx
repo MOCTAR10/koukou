@@ -30,8 +30,6 @@ import { ReportsPage } from './pages/ReportsPage';
 import { TasksPage } from './pages/TasksPage';
 import { HrPage } from './pages/HrPage';
 import { ActivitiesPage } from './pages/ActivitiesPage';
-import { ParcelsPage } from './pages/ParcelsPage';
-import { HarvestsPage } from './pages/HarvestsPage';
 import { HelpPage } from './pages/HelpPage';
 import { MarketCataloguePage } from './pages/MarketCataloguePage';
 import { MarketListingPage } from './pages/MarketListingPage';
@@ -98,8 +96,9 @@ export function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="hr" element={<RequiresPermission any={['rh:lire', 'equipe:gerer']}><HrPage /></RequiresPermission>} />
           <Route path="activities" element={<ActivitiesPage />} />
-          <Route path="parcels" element={<ParcelsPage />} />
-          <Route path="harvests" element={<HarvestsPage />} />
+          {/* Cultures are hidden on the POUFA instance (poultry programme). */}
+          <Route path="parcels" element={<Navigate to="/app/dashboard" replace />} />
+          <Route path="harvests" element={<Navigate to="/app/dashboard" replace />} />
           <Route path="help" element={<HelpPage />} />
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />

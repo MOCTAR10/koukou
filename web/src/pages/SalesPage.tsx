@@ -7,7 +7,6 @@ import type { CashSession, FeedStockSummary } from '../api/types';
 import type {
   CaisseSummary,
   CarcassPool,
-  ParcelleStock,
   PointOfSale,
   PosBatch,
   SaleFull,
@@ -85,11 +84,6 @@ export function SalesPage() {
     queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
     enabled,
   });
-  const recolte = useQuery({
-    queryKey: ['recoltes-stock', farmId],
-    queryFn: () => api.get<ParcelleStock[]>(`/farms/${farmId}/recoltes/stock`),
-    enabled,
-  });
   const salesToday = useQuery({
     queryKey: ['sales', farmId, 'today', today],
     queryFn: () => api.get<SaleFull[]>(`/farms/${farmId}/sales?from=${today}&to=${today}`),
@@ -144,7 +138,6 @@ export function SalesPage() {
     () => (feedStock.data?.lots ?? []).filter((l) => l.entryType !== 'MEDICAMENT' && l.availableKg > 0),
     [feedStock.data],
   );
-  const sellableRecolte = useMemo(() => (recolte.data ?? []).filter((s) => s.available > 0), [recolte.data]);
 
   const hasEggs = (b: PosBatch) => (b.metrics.eggStockAvailableEggs ?? 0) > 0;
   const hasCarcasses = (b: PosBatch) => (carcassesByBatch.get(b.id) ?? 0) > 0;
@@ -545,7 +538,6 @@ export function SalesPage() {
           pools={pools}
           reserves={reserves}
           feedLots={feedLots}
-          recolte={sellableRecolte}
           sacKg={farm?.defaultSacKg ?? 50}
           committed={lines}
           initial={lineModal.initial}

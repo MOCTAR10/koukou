@@ -35,7 +35,6 @@ import { Donut, LineChart } from '../components/Charts';
 import { ErrorNote } from '../components/form';
 import { ActionQueue, EggStockPanel, OwnerStats, PerformanceTiles, Ranking, WeatherCard } from '../components/sales/DashboardPanels';
 import { CheptelModal, mainSpeciesImage } from '../components/flock/CheptelModal';
-import { AgricultureHome, FarmModeSwitch, useFarmMode } from '../components/agri/AgricultureHome';
 import { HEALTH_LABEL } from '../components/sales/labels';
 import { batchPhoto } from '../components/sales/pos';
 import { AlertLevelBadge } from '../components/sales/shared';
@@ -64,12 +63,11 @@ function lastDays(n: number): string[] {
   return out;
 }
 
+/** Livestock only: the crops view (« Évolution ») is hidden on the POUFA instance. */
 export function DashboardPage() {
-  const [mode, setMode] = useFarmMode();
   return (
     <div className="space-y-4">
-      <FarmModeSwitch value={mode} onChange={setMode} />
-      {mode === 'agriculture' ? <AgricultureHome /> : <LivestockDashboard />}
+      <LivestockDashboard />
     </div>
   );
 }

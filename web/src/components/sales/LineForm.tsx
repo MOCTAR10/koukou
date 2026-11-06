@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Check, ShoppingCart } from 'lucide-react';
 import type { FeedStockSummary } from '../../api/types';
-import type { CarcassPool, ParcelleStock, PointOfSale, PosBatch, StockTransfer } from '../../api/types-sales';
+import type { CarcassPool, PointOfSale, PosBatch, StockTransfer } from '../../api/types-sales';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
 import { fcfa, num } from '../../lib/format';
-import { unitLabel } from './labels';
 import {
   batchPhoto,
   formatEggAlveoles,
@@ -71,7 +70,6 @@ export function LineForm({
   pools,
   reserves,
   feedLots,
-  recolte,
   sacKg,
   committed,
   initial,
@@ -85,7 +83,6 @@ export function LineForm({
   /** Active reserves of this boutique. */
   reserves: StockTransfer[];
   feedLots: FeedLot[];
-  recolte: ParcelleStock[];
   sacKg: number;
   committed: PosLine[];
   initial?: PosLine;
@@ -104,9 +101,6 @@ export function LineForm({
   const [poolId, setPoolId] = useState(initial?.slaughterOrderId ?? '');
   const [transferId, setTransferId] = useState(initial?.transferId ?? presetTransfer?.id ?? '');
   const [feedLotId, setFeedLotId] = useState(initial?.inputLotId ?? '');
-  const [recolteKey, setRecolteKey] = useState(
-    initial?.parcelleId ? `${initial.parcelleId}:${initial.unit}` : '',
-  );
   const [feedUnit, setFeedUnit] = useState<'SAC' | 'KG'>(
     initial?.unit === 'KG' || presetTransfer?.unit === 'KG' ? 'KG' : 'SAC',
   );
@@ -129,7 +123,6 @@ export function LineForm({
   const pool = pools.find((p) => p.id === poolId);
   const transfer = reserves.find((t) => t.id === transferId);
   const feedLot = feedLots.find((l) => l.id === feedLotId);
-  const recolteRow = recolte.find((s) => `${s.parcelleId}:${s.unit}` === recolteKey);
   const eggLots = lots.filter((b) => (b.metrics.eggStockAvailableAlveoles ?? 0) > 0);
   const kg = isKgProduct(product);
 
@@ -153,10 +146,6 @@ export function LineForm({
         return pool ? Math.max((pool.carcassesAvailable ?? 0) - sumQty((l) => l.slaughterOrderId === pool.id), 0) : 0;
       case 'OEUF':
         return lot ? Math.max((lot.metrics.eggStockAvailableAlveoles ?? 0) - sumQty((l) => l.product === 'OEUF' && l.batchId === lot.id), 0) : 0;
-      case 'RECOLTE':
-        return recolteRow
-          ? Math.max(recolteRow.available - sumQty((l) => l.product === 'RECOLTE' && l.parcelleId === recolteRow.parcelleId && l.unit === recolteRow.unit), 0)
-          : 0;
       case 'PROVENDE': {
         if (!feedLot) return 0;
         const usedKg = others
@@ -176,7 +165,6 @@ export function LineForm({
   const amount = lineAmount({ product, qty: parsedQty, weightKg: parsedWeight, unitPriceFcfa: parsedPrice });
   const meta = productMeta(pos.kind, product);
 
-  const recolteUnitName = recolteRow?.unit === 'KG' ? 'kg' : recolteRow?.unit === 'SAC' ? 'sac' : recolteRow?.unit === 'PIECE' ? 'pièce' : 'unité';
   const qtyLabel = kg
     ? 'Nombre d’oiseaux'
     : product === 'OEUF'
@@ -185,14 +173,12 @@ export function LineForm({
         ? feedUnit === 'KG'
           ? 'Quantité (kg)'
           : 'Nombre de sacs'
-        : product === 'RECOLTE'
-          ? `Quantité (${recolteUnitName})`
-          : isAbattu(product)
-            ? 'Nombre de carcasses'
-            : product === 'AUTRE'
-              ? 'Quantité'
-              : 'Nombre de pièces';
-  const priceUnit = product === 'PROVENDE' ? (feedUnit === 'KG' ? 'kg' : 'sac') : product === 'RECOLTE' ? recolteUnitName : meta.priceUnit;
+        : isAbattu(product)
+          ? 'Nombre de carcasses'
+          : product === 'AUTRE'
+            ? 'Quantité'
+            : 'Nombre de pièces';
+  const priceUnit = product === 'PROVENDE' ? (feedUnit === 'KG' ? 'kg' : 'sac') : meta.priceUnit;
 
   const selectProduct = (next: PosProduct) => {
     setProduct(next);
@@ -224,7 +210,6 @@ export function LineForm({
     if (isBoutique) return transfer ? transferTitle(transfer) : '';
     if (isAbattu(product)) return pool ? `${pool.batch?.batchName ?? 'Lot'} · ${pool.referenceNumber}` : '';
     if (product === 'PROVENDE') return feedLot?.productName ?? '';
-    if (product === 'RECOLTE') return recolteRow?.parcelleName ?? '';
     if (product === 'AUTRE') return '';
     return lot?.batchName ?? 'Lot';
   };
@@ -240,7 +225,6 @@ export function LineForm({
       if ((product === 'PIECE' || product === 'KG' || product === 'OEUF') && !lot) return setError('Sélectionnez un lot.');
       if (isAbattu(product) && !pool) return setError('Sélectionnez un lot de carcasses (abattoir).');
       if (product === 'PROVENDE' && !feedLot) return setError('Sélectionnez le lot d’aliment (traçabilité HACCP).');
-      if (product === 'RECOLTE' && !recolteRow) return setError('Sélectionnez la parcelle et l’unité de la récolte.');
     }
     if (maxQty != null && parsedQty > maxQty) {
       return setError(`Stock insuffisant : maximum ${num(maxQty, 2)}.`);
@@ -261,8 +245,7 @@ export function LineForm({
       slaughterOrderId: !isBoutique && isAbattu(product) ? pool?.id : undefined,
       transferId: isBoutique ? transfer?.id : undefined,
       inputLotId: !isBoutique && product === 'PROVENDE' ? feedLot?.id : undefined,
-      parcelleId: product === 'RECOLTE' ? recolteRow?.parcelleId : undefined,
-      unit: product === 'PROVENDE' ? feedUnit : product === 'RECOLTE' ? recolteRow?.unit : undefined,
+      unit: product === 'PROVENDE' ? feedUnit : undefined,
       qty: parsedQty,
       weightKg: kg ? parsedWeight : undefined,
       unitPriceFcfa: parsedPrice,
@@ -271,7 +254,7 @@ export function LineForm({
   };
 
   const advice = !isBoutique && lot && (product === 'PIECE' || product === 'KG') ? readinessAdvice(lot) : null;
-  const showMax = maxQty != null && (isBoutique ? !!transfer : !!(lot || pool || feedLot || recolteRow));
+  const showMax = maxQty != null && (isBoutique ? !!transfer : !!(lot || pool || feedLot));
   const sourceBatchId = isBoutique ? (transfer?.batchId ?? transfer?.slaughterOrder?.batchId) : isAbattu(product) ? pool?.batchId : lotId;
 
   return (
@@ -347,25 +330,6 @@ export function LineForm({
               {feedLots.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.supplierLotNumber} - {l.productName} · {num(l.availableKg)} kg
-                </option>
-              ))}
-            </select>
-          </Field>
-        ) : product === 'RECOLTE' ? (
-          <Field label="Parcelle">
-            <select
-              className={inputCls}
-              value={recolteKey}
-              onChange={(e) => {
-                setRecolteKey(e.target.value);
-                setError(null);
-              }}
-            >
-              <option value="">— Choisir une parcelle —</option>
-              {recolte.map((s) => (
-                <option key={`${s.parcelleId}:${s.unit}`} value={`${s.parcelleId}:${s.unit}`}>
-                  {s.parcelleName}
-                  {s.cultureName ? ` (${s.cultureName})` : ''} · {num(s.available, 2)} {unitLabel(s.unit)}
                 </option>
               ))}
             </select>
