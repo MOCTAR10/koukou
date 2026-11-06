@@ -16,7 +16,10 @@ export interface PilotageRights {
   editTemplates: boolean;
   /** `POST /pilotage/reports/templates/:code/runs` (POST = `PILOTAGE:CREER`). */
   generate: boolean;
-  /** `GET /pilotage/reports/runs`: the steering profiles, and a farm account for its own bands' reports. */
+  /**
+   * `GET /pilotage/reports/runs`: the steering profiles, a farm account for its own bands' reports,
+   * and (POUFA lot A) an institution with TECHNIQUE:CONSULTER for the end-of-band reports of its scope.
+   */
   runs: boolean;
 }
 
@@ -44,7 +47,7 @@ export function pilotageRights(role: Role | null | undefined, access?: Profile |
     farmRows: view && !aggregateOnly,
     editTemplates: grantsAccess(access, 'PILOTAGE', 'ADMINISTRER'),
     generate: grantsAccess(access, 'PILOTAGE', 'CREER'),
-    runs: view,
+    runs: view || grantsAccess(access, 'TECHNIQUE', 'CONSULTER'),
   };
 }
 

@@ -3,7 +3,7 @@
  * from the thresholds the server serves (`CARTE_*` parameters). Pure,
  * unit-tested; the Leaflet canvas only draws what this returns.
  */
-import type { ColourLevel, MapColours, PilotageMap } from '../../api/types-pilotage';
+import type { ColourLevel, MapAlerts, MapColours, PilotageMap } from '../../api/types-pilotage';
 
 export type ColourKey = keyof MapColours;
 
@@ -49,8 +49,9 @@ function n(v: number): string {
 /**
  * Legend of a key. Mortality: red from the red threshold, yellow from the
  * yellow one. Completeness: red under the red threshold, yellow under the
- * yellow one. Alert: the server's rule (red alert or published sanitary
- * alert = red, any other active alert = yellow).
+ * yellow one. Alert: the server's rule (POUFA lot A): red only with a
+ * sanitary alert published by the veterinary services; Fermia conduct
+ * alerts never colour a farm (`legend.alert.conduct` says so).
  */
 export function legendFor(key: ColourKey, legend: PilotageMap['legend']): LegendItem[] {
   const item = (level: LegendItem['level'], label: string): LegendItem => ({ level, colour: LEVEL_COLOURS[level], label });
@@ -73,10 +74,23 @@ export function legendFor(key: ColourKey, legend: PilotageMap['legend']): Legend
     ];
   }
   return [
-    item('VERT', 'aucune alerte active'),
-    item('JAUNE', 'alerte active (jaune)'),
-    item('ROUGE', 'alerte rouge active ou alerte sanitaire publiée'),
+    item('VERT', 'aucune alerte sanitaire publiée'),
+    item('ROUGE', 'alerte sanitaire publiée sur la période'),
   ];
+}
+
+/** Tooltip line: published sanitary alerts first, conduct alerts apart. */
+export function alertText(a: MapAlerts | null | undefined): string {
+  const published = a?.published ?? 0;
+  const conduct = a?.conduct.activeNow ?? 0;
+  return `Alertes sanitaires publiées ${published} · alertes de conduite actives ${conduct}`;
+}
+
+/** Table cell: « 1 publiée · 2 de conduite ». */
+export function alertCell(a: MapAlerts | null | undefined): string {
+  const published = a?.published ?? 0;
+  const conduct = a?.conduct.activeNow ?? 0;
+  return `${published} publiée${published > 1 ? 's' : ''} · ${conduct} de conduite`;
 }
 
 /** Radius (px) of a province cluster: grows with the farms, bounded. */

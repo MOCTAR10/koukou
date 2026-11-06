@@ -21,6 +21,12 @@ describe('ruleFormProblem', () => {
     expect(ruleFormProblem({ ...base, profileCode: 'DGE' }, { creating: true, confidential: false })).toBeNull();
   });
 
+  it('keeps the report recipients audience for the report event (POUFA lot A)', () => {
+    const report = { ...base, event: 'REPORT_READY' as const, audience: 'REPORT_RECIPIENTS' as const, profileCode: '' };
+    expect(ruleFormProblem(report, { creating: true, confidential: false })).toBeNull();
+    expect(ruleFormProblem({ ...report, event: 'WEIGHING_LATE' }, { creating: true, confidential: false })).toMatch(/rapport disponible/);
+  });
+
   it('allows at most one of SMS or escalation, within 1..1440 minutes', () => {
     expect(ruleFormProblem({ ...base, sms: true, escalate: '30' }, { creating: false, confidential: false })).toMatch(/pas les deux/);
     expect(ruleFormProblem({ ...base, escalate: '0' }, { creating: false, confidential: false })).toMatch(/1 à 1440/);

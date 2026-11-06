@@ -21,7 +21,7 @@ import { classNames, dateFr, dateTimeFr, fcfa } from '../../lib/format';
 import { Button, ErrorNote, Field, FormColumns, Modal, inputCls } from '../form';
 import { Note, Pill, SectionCard, useInvalidateFarm } from '../flock/shared';
 import { canCorrectClosedBand } from '../pilotage/pilotageAccess';
-import { END_OF_BAND_TEMPLATE } from '../pilotage/reports';
+import { END_OF_BAND_TEMPLATE, runsQueryString } from '../pilotage/reports';
 import { RUNS_KEY, RunDetail, RunsTable } from '../pilotage/ReportsView';
 import { DataTable, Loading, Td, Th } from '../ui';
 import {
@@ -70,6 +70,12 @@ export function BandSummaryTab({ lot }: { lot: Lot }) {
 
   return (
     <div className="space-y-4">
+      {comparison.data && comparison.data.programmeEligible === false ? (
+        <Note tone="slate">
+          Bande hors programme : son type n’est pas suivi par le programme POUFA. Elle reste dans votre ferme mais ne compte pas dans les chiffres du
+          programme ni dans sa moyenne.
+        </Note>
+      ) : null}
       <SheetCard sheet={sheet.data} error={sheet.error} loading={sheet.isLoading} />
       <ComparisonSummary comparison={comparison.data} />
       <SectionCard
@@ -466,14 +472,18 @@ function CorrectionModal({ lot, sheet, onClose }: { lot: Lot; sheet: BandSheet; 
   );
 }
 
-/** End-of-band reports of this band (`GET /pilotage/reports/runs?level=BANDE`, already limited to the reader's farms by the server). */
+/**
+ * End-of-band reports of this band (`GET /pilotage/reports/runs?batchId=`,
+ * POUFA lot A; already limited to the reader's farms by the server, which
+ * also lets an institution with TECHNIQUE:CONSULTER read them).
+ */
 function BandReports({ lot, closed }: { lot: Lot; closed: boolean }) {
   const { pilotage, canRead } = useMenuAccess();
   const qc = useQueryClient();
-  const readable = pilotage.runs && canRead('PILOTAGE');
+  const readable = pilotage.runs && (canRead('PILOTAGE') || canRead('TECHNIQUE'));
   const runs = useQuery({
     queryKey: [RUNS_KEY, 'band', lot.id],
-    queryFn: () => api.get<ReportRun[]>('/pilotage/reports/runs?level=BANDE'),
+    queryFn: () => api.get<ReportRun[]>(`/pilotage/reports/runs${runsQueryString({ batchId: lot.id })}`),
     enabled: readable && closed,
     retry: false,
   });

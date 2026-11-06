@@ -169,14 +169,17 @@ export const NOTIFICATION_EVENTS = [
   'DECLARATION_RECEIVED',
   'WEIGHING_LATE',
   'SYNC_CONFLICT',
+  // POUFA lot A pilot: a programme report was produced.
+  'REPORT_READY',
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 
 export type NotificationChannel = 'IN_APP' | 'PUSH' | 'SMS';
 export const NOTIFICATION_CHANNELS: readonly NotificationChannel[] = ['IN_APP', 'PUSH', 'SMS'];
 
-export type NotificationAudience = 'PROFILE' | 'FARM_MANAGERS' | 'FARM_TEAM';
-export const NOTIFICATION_AUDIENCES: readonly NotificationAudience[] = ['PROFILE', 'FARM_MANAGERS', 'FARM_TEAM'];
+/** REPORT_RECIPIENTS (POUFA lot A): the report's recipients, for REPORT_READY only. */
+export type NotificationAudience = 'PROFILE' | 'FARM_MANAGERS' | 'FARM_TEAM' | 'REPORT_RECIPIENTS';
+export const NOTIFICATION_AUDIENCES: readonly NotificationAudience[] = ['PROFILE', 'FARM_MANAGERS', 'FARM_TEAM', 'REPORT_RECIPIENTS'];
 
 export type NotificationStatus = 'EN_ATTENTE' | 'ENVOYEE' | 'DISTRIBUEE' | 'LUE' | 'ECHEC';
 

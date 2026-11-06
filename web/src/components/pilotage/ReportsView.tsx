@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Download, FileText, Pencil, Play, Users } from 'lucide-react';
+import { Copy, CopyPlus, Download, FileText, Pencil, Play, Plus, Users } from 'lucide-react';
 import { api } from '../../api/client';
 import { SCOPE_KIND_LABELS, type ScopeKind } from '../../api/types-access';
 import type { GenerateReportResult, ReportLevel, ReportRun, ReportSection, ReportTemplate } from '../../api/types-pilotage';
@@ -10,6 +11,7 @@ import { Note, Pill, SectionCard } from '../flock/shared';
 import { useProvinces } from '../registry/queries';
 import { DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { bytesLabel } from './format';
+import { PILOTAGE_REFRESH_MS } from './perimeter';
 import type { PilotageRights } from './pilotageAccess';
 import {
   AUDIENCE_SCOPE_KINDS,
@@ -19,15 +21,20 @@ import {
   SECTIONS_BY_LEVEL,
   SECTION_LABELS,
   audienceSummary,
+  createTemplateBody,
+  createTemplateError,
   generateBody,
   generateFormError,
   namesFarms,
+  newTemplateForm,
+  normaliseTemplateCode,
   recipientsSummary,
   runFilename,
   runPeriodLabel,
   runsQueryString,
   templateForm,
   templateFormError,
+  templateCodeError,
   templatePatch,
   type GenerateForm,
   type TemplateForm,
@@ -43,7 +50,9 @@ export const RUNS_KEY = 'pilotage-report-runs';
  * reports (the server filters the runs).
  */
 export function ReportsView({ rights }: { rights: PilotageRights }) {
-  const [openRun, setOpenRun] = useState<string | null>(null);
+  // POUFA lot A pilot: `?rapport=<runId>` (a REPORT_READY notification) opens that run.
+  const [params] = useSearchParams();
+  const [openRun, setOpenRun] = useState<string | null>(() => params.get('rapport'));
   return (
     <div className="space-y-6">
       {rights.view ? <TemplatesSection rights={rights} onRun={setOpenRun} /> : null}
@@ -66,8 +75,22 @@ function TemplatesSection({ rights, onRun }: { rights: PilotageRights; onRun: (i
   const templates = useTemplates(true);
   const [editing, setEditing] = useState<ReportTemplate | null>(null);
   const [generating, setGenerating] = useState<ReportTemplate | null>(null);
+  // POUFA lot A pilot: create and duplicate templates.
+  const [creating, setCreating] = useState(false);
+  const [duplicating, setDuplicating] = useState<ReportTemplate | null>(null);
   return (
-    <SectionCard title="Modèles de rapports" subtitle="Produits automatiquement chaque heure pour les périodes closes" icon={<FileText />}>
+    <SectionCard
+      title="Modèles de rapports"
+      subtitle="Produits automatiquement chaque heure pour les périodes closes"
+      icon={<FileText />}
+      actions={
+        rights.editTemplates ? (
+          <Button tone="secondary" onClick={() => setCreating(true)}>
+            <Plus className="h-4 w-4" /> Nouveau modèle
+          </Button>
+        ) : undefined
+      }
+    >
       {templates.isLoading ? (
         <Loading />
       ) : templates.error ? (
@@ -94,6 +117,11 @@ function TemplatesSection({ rights, onRun }: { rights: PilotageRights; onRun: (i
                     <Pencil className="h-4 w-4" /> Paramétrer
                   </Button>
                 ) : null}
+                {rights.editTemplates ? (
+                  <Button tone="secondary" onClick={() => setDuplicating(t)}>
+                    <CopyPlus className="h-4 w-4" /> Dupliquer
+                  </Button>
+                ) : null}
                 {rights.generate && t.level !== 'BANDE' ? (
                   <Button tone="secondary" onClick={() => setGenerating(t)}>
                     <Play className="h-4 w-4" /> Produire
@@ -108,6 +136,8 @@ function TemplatesSection({ rights, onRun }: { rights: PilotageRights; onRun: (i
         </div>
       )}
       {editing ? <TemplateModal template={editing} onClose={() => setEditing(null)} /> : null}
+      {creating ? <NewTemplateModal onClose={() => setCreating(false)} /> : null}
+      {duplicating ? <DuplicateTemplateModal template={duplicating} onClose={() => setDuplicating(null)} /> : null}
       {generating ? (
         <GenerateModal
           template={generating}
@@ -133,77 +163,16 @@ function TemplateModal({ template, onClose }: { template: ReportTemplate; onClos
       onClose();
     },
   });
-  const allowed = SECTIONS_BY_LEVEL[template.level];
-  const toggleSection = (s: ReportSection) =>
-    setForm((f) => ({ ...f, sections: f.sections.includes(s) ? f.sections.filter((x) => x !== s) : [...f.sections, s] }));
-  const toggleKind = (k: ScopeKind) =>
-    setForm((f) => ({ ...f, scopeKinds: f.scopeKinds.includes(k) ? f.scopeKinds.filter((x) => x !== k) : [...f.scopeKinds, k] }));
   const submit = () => {
     const err = templateFormError(template.level, form);
     setCheckError(err);
     if (!err) save.mutate();
   };
-  const farmRows = namesFarms(template.level, form.sections);
 
   return (
     <Modal large title={`Paramétrer : ${template.label}`} onClose={onClose}>
       <div className="space-y-4">
-        <FormColumns>
-          <div className="space-y-4">
-            <Field label="Libellé">
-              <input className={inputCls} value={form.label} maxLength={160} onChange={(e) => setForm({ ...form, label: e.target.value })} />
-            </Field>
-            <Field label="Périodicité">
-              <select className={inputCls} value={form.periodicity} onChange={(e) => setForm({ ...form, periodicity: e.target.value as TemplateForm['periodicity'] })}>
-                {PERIODICITIES_BY_LEVEL[template.level].map((p) => (
-                  <option key={p} value={p}>
-                    {PERIODICITY_LABELS[p]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <fieldset>
-              <legend className="mb-1 text-xs font-medium text-slate-600">Sections (niveau {LEVEL_LABELS[template.level].toLowerCase()})</legend>
-              <div className="grid gap-1.5 sm:grid-cols-2">
-                {allowed.map((s) => (
-                  <label key={s} className="inline-flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={form.sections.includes(s)} onChange={() => toggleSection(s)} />
-                    {SECTION_LABELS[s]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            {farmRows ? (
-              <Note tone="amber">Ce rapport nomme des fermes : il ne sera jamais envoyé à un profil de données agrégées.</Note>
-            ) : null}
-          </div>
-          <div className="space-y-4">
-            <fieldset>
-              <legend className="mb-1 text-xs font-medium text-slate-600">Destinataires : périmètres</legend>
-              <div className="space-y-1.5">
-                {AUDIENCE_SCOPE_KINDS.map((k) => (
-                  <label key={k} className="flex items-center gap-2 text-sm text-slate-700">
-                    <input type="checkbox" checked={form.scopeKinds.includes(k)} onChange={() => toggleKind(k)} />
-                    {SCOPE_KIND_LABELS[k]}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <Field label="Restreindre à ces profils" hint="Codes séparés par des virgules (ex. DGE, MAEDR) ; vide = tous les profils ayant Pilotage : Consulter.">
-              <input className={inputCls} value={form.profileCodes} onChange={(e) => setForm({ ...form, profileCodes: e.target.value })} />
-            </Field>
-            {template.level === 'BANDE' ? (
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input type="checkbox" checked={form.farmOwners} onChange={(e) => setForm({ ...form, farmOwners: e.target.checked })} />
-                Prévenir l’exploitant de la ferme
-              </label>
-            ) : null}
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-              Modèle actif (production automatique)
-            </label>
-          </div>
-        </FormColumns>
+        <TemplateFields level={template.level} form={form} setForm={setForm} />
         <ErrorNote error={checkError ?? save.error} />
         <div className="flex justify-end gap-2">
           <Button tone="secondary" onClick={onClose}>
@@ -215,6 +184,175 @@ function TemplateModal({ template, onClose }: { template: ReportTemplate; onClos
         </div>
       </div>
     </Modal>
+  );
+}
+
+// POUFA lot A pilot: a new template (`POST /pilotage/reports/templates`).
+function NewTemplateModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const [code, setCode] = useState('');
+  const [level, setLevel] = useState<ReportLevel>('NATIONAL');
+  const [form, setForm] = useState<TemplateForm>(() => newTemplateForm('NATIONAL'));
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: () => api.post<ReportTemplate>('/pilotage/reports/templates', createTemplateBody(code, level, form)),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['pilotage-report-templates'] });
+      onClose();
+    },
+  });
+  const changeLevel = (l: ReportLevel) => {
+    setLevel(l);
+    setForm((f) => ({ ...newTemplateForm(l), label: f.label }));
+  };
+  const submit = () => {
+    const err = createTemplateError(code, level, form);
+    setCheckError(err);
+    if (!err) save.mutate();
+  };
+  return (
+    <Modal large title="Nouveau modèle de rapport" onClose={onClose}>
+      <div className="space-y-4">
+        <FormColumns>
+          <Field label="Code" hint="Unique et définitif : majuscules, chiffres et _ (ex. HEBDO_DGE).">
+            <input className={inputCls} value={code} maxLength={40} onChange={(e) => setCode(normaliseTemplateCode(e.target.value))} />
+          </Field>
+          <Field label="Niveau">
+            <select className={inputCls} value={level} onChange={(e) => changeLevel(e.target.value as ReportLevel)}>
+              {(Object.keys(LEVEL_LABELS) as ReportLevel[]).map((l) => (
+                <option key={l} value={l}>
+                  {LEVEL_LABELS[l]}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </FormColumns>
+        <TemplateFields level={level} form={form} setForm={setForm} />
+        <ErrorNote error={checkError ?? save.error} />
+        <div className="flex justify-end gap-2">
+          <Button tone="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button busy={save.isPending} onClick={submit}>
+            Créer le modèle
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// POUFA lot A pilot: a copy of a template (`POST …/templates/:code/duplicate`), inactive until reviewed.
+function DuplicateTemplateModal({ template, onClose }: { template: ReportTemplate; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [code, setCode] = useState(() => normaliseTemplateCode(`${template.code}_COPIE`).slice(0, 40));
+  const [label, setLabel] = useState(`Copie de ${template.label}`.slice(0, 160));
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const save = useMutation({
+    mutationFn: () =>
+      api.post<ReportTemplate>(`/pilotage/reports/templates/${encodeURIComponent(template.code)}/duplicate`, {
+        code,
+        label: label.trim() || undefined,
+      }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['pilotage-report-templates'] });
+      onClose();
+    },
+  });
+  const submit = () => {
+    const err = templateCodeError(code);
+    setCheckError(err);
+    if (!err) save.mutate();
+  };
+  return (
+    <Modal title={`Dupliquer : ${template.label}`} onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">La copie reprend le niveau, la périodicité, les sections et les destinataires. Elle est créée inactive : vérifiez-la puis activez-la.</p>
+        <Field label="Code de la copie">
+          <input className={inputCls} value={code} maxLength={40} onChange={(e) => setCode(normaliseTemplateCode(e.target.value))} />
+        </Field>
+        <Field label="Libellé">
+          <input className={inputCls} value={label} maxLength={160} onChange={(e) => setLabel(e.target.value)} />
+        </Field>
+        <ErrorNote error={checkError ?? save.error} />
+        <div className="flex justify-end gap-2">
+          <Button tone="secondary" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button busy={save.isPending} onClick={submit}>
+            <CopyPlus className="h-4 w-4" /> Dupliquer
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** The template form (sections and periodicities of the level, audience). */
+function TemplateFields({ level, form, setForm }: { level: ReportLevel; form: TemplateForm; setForm: (f: TemplateForm | ((f: TemplateForm) => TemplateForm)) => void }) {
+  const allowed = SECTIONS_BY_LEVEL[level];
+  const toggleSection = (s: ReportSection) =>
+    setForm((f) => ({ ...f, sections: f.sections.includes(s) ? f.sections.filter((x) => x !== s) : [...f.sections, s] }));
+  const toggleKind = (k: ScopeKind) =>
+    setForm((f) => ({ ...f, scopeKinds: f.scopeKinds.includes(k) ? f.scopeKinds.filter((x) => x !== k) : [...f.scopeKinds, k] }));
+  const farmRows = namesFarms(level, form.sections);
+  return (
+    <FormColumns>
+      <div className="space-y-4">
+        <Field label="Libellé">
+          <input className={inputCls} value={form.label} maxLength={160} onChange={(e) => setForm({ ...form, label: e.target.value })} />
+        </Field>
+        <Field label="Périodicité">
+          <select className={inputCls} value={form.periodicity} onChange={(e) => setForm({ ...form, periodicity: e.target.value as TemplateForm['periodicity'] })}>
+            {PERIODICITIES_BY_LEVEL[level].map((p) => (
+              <option key={p} value={p}>
+                {PERIODICITY_LABELS[p]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <fieldset>
+          <legend className="mb-1 text-xs font-medium text-slate-600">Sections (niveau {LEVEL_LABELS[level].toLowerCase()})</legend>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {allowed.map((s) => (
+              <label key={s} className="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={form.sections.includes(s)} onChange={() => toggleSection(s)} />
+                {SECTION_LABELS[s]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {farmRows ? (
+          <Note tone="amber">Ce rapport nomme des fermes : il ne sera jamais envoyé à un profil de données agrégées.</Note>
+        ) : null}
+      </div>
+      <div className="space-y-4">
+        <fieldset>
+          <legend className="mb-1 text-xs font-medium text-slate-600">Destinataires : périmètres</legend>
+          <div className="space-y-1.5">
+            {AUDIENCE_SCOPE_KINDS.map((k) => (
+              <label key={k} className="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" checked={form.scopeKinds.includes(k)} onChange={() => toggleKind(k)} />
+                {SCOPE_KIND_LABELS[k]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <Field label="Restreindre à ces profils" hint="Codes séparés par des virgules (ex. DGE, MAEDR) ; vide = tous les profils ayant Pilotage : Consulter.">
+          <input className={inputCls} value={form.profileCodes} onChange={(e) => setForm({ ...form, profileCodes: e.target.value })} />
+        </Field>
+        {level === 'BANDE' ? (
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={form.farmOwners} onChange={(e) => setForm({ ...form, farmOwners: e.target.checked })} />
+            Prévenir l’exploitant de la ferme
+          </label>
+        ) : null}
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
+          Modèle actif (production automatique)
+        </label>
+      </div>
+    </FormColumns>
   );
 }
 
@@ -294,6 +432,7 @@ function RunsSection({ farmAccount, onOpen }: { farmAccount: boolean; onOpen: (i
     queryKey: [RUNS_KEY, qs],
     queryFn: () => api.get<ReportRun[]>(`/pilotage/reports/runs${qs}`),
     retry: false,
+    refetchInterval: PILOTAGE_REFRESH_MS,
   });
   return (
     <SectionCard

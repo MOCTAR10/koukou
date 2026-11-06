@@ -25,12 +25,17 @@ import {
   weekLabel,
   weightLabel,
 } from './format';
-import { clusterRadius, colourOf, legendFor, levelOn, parseColourKey } from './mapKeys';
+import { alertCell, alertText, clusterRadius, colourOf, legendFor, levelOn, parseColourKey } from './mapKeys';
+import { bandTypesLabel, isProgrammeBand, PILOTAGE_REFRESH_MS } from './perimeter';
 import { canCorrectClosedBand, pilotageRights } from './pilotageAccess';
 import {
+  createTemplateBody,
+  createTemplateError,
   generateBody,
   generateFormError,
   namesFarms,
+  newTemplateForm,
+  normaliseTemplateCode,
   parseProfileCodes,
   recipientsSummary,
   runsQueryString,
@@ -70,6 +75,10 @@ describe('pilotageRights', () => {
     expect(pilotageRights('INSTITUTION', p('FARMS', { TECHNIQUE: ['CONSULTER'] })).view).toBe(false);
     expect(pilotageRights('INSTITUTION', p('AUDIT', { PILOTAGE: ['CONSULTER'] })).view).toBe(false);
     expect(pilotageRights('INSTITUTION', null).runs).toBe(false);
+  });
+
+  it('lets a technical agent read the end-of-band reports of its scope (POUFA lot A)', () => {
+    expect(pilotageRights('INSTITUTION', p('FARMS', { TECHNIQUE: ['CONSULTER'] }))).toMatchObject({ view: false, runs: true, generate: false });
   });
 
   it('lets a farm account read only its bands’ reports', () => {
@@ -183,7 +192,7 @@ describe('map colour keys', () => {
   const legend: PilotageMap['legend'] = {
     mortality: { jaune: 5, rouge: 10, unit: '%', description: '' },
     completeness: { jaune: 80, rouge: 50, unit: '%', description: '' },
-    alert: { description: '' },
+    alert: { description: '', conduct: '' },
   };
 
   it('builds each legend from the served thresholds', () => {
@@ -199,7 +208,15 @@ describe('map colour keys', () => {
       ['ROUGE', 'moins de 50 %'],
       ['NONE', 'pas de donnée sur la période'],
     ]);
-    expect(legendFor('alert', legend)).toHaveLength(3);
+    // POUFA lot A: only a published sanitary alert colours a farm red.
+    expect(legendFor('alert', legend).map((i) => i.level)).toEqual(['VERT', 'ROUGE']);
+  });
+
+  it('shows published sanitary alerts first and conduct alerts apart', () => {
+    const a = { published: 2, conduct: { raised: 5, raisedRed: 1, activeNow: 3, activeRedNow: 1 } };
+    expect(alertCell(a)).toBe('2 publiées · 3 de conduite');
+    expect(alertCell(null)).toBe('0 publiée · 0 de conduite');
+    expect(alertText(a)).toBe('Alertes sanitaires publiées 2 · alertes de conduite actives 3');
   });
 
   it('colours a point on the chosen key, grey without data or when hidden', () => {
@@ -276,5 +293,40 @@ describe('report templates and runs', () => {
     ).toBe('2 comptes institutionnels · 1 exploitant');
     expect(runsQueryString({})).toBe('');
     expect(runsQueryString({ level: 'BANDE', from: '2026-01-01' })).toBe('?level=BANDE&from=2026-01-01');
+    expect(runsQueryString({ batchId: 'b1' })).toBe('?batchId=b1');
+  });
+
+  it('creates a template like the server checks it (POUFA lot A)', () => {
+    const form = { ...newTemplateForm('PROVINCE'), label: ' Hebdo DGE ', profileCodes: 'dge' };
+    expect(form.sections).toContain('INTRANTS');
+    expect(normaliseTemplateCode(' hebdo dge-2 ')).toBe('HEBDO_DGE_2');
+    expect(createTemplateError('x', 'PROVINCE', form)).toMatch(/Code invalide/);
+    expect(createTemplateError('HEBDO_DGE', 'PROVINCE', form)).toBeNull();
+    expect(createTemplateError('HEBDO_DGE', 'BANDE', form)).toMatch(/Périodicité/);
+    expect(createTemplateBody('HEBDO_DGE', 'PROVINCE', form)).toMatchObject({
+      code: 'HEBDO_DGE',
+      label: 'Hebdo DGE',
+      level: 'PROVINCE',
+      periodicity: 'HEBDOMADAIRE',
+      audience: { scopeKinds: ['PROVINCES'], profileCodes: ['DGE'], farmOwners: false },
+      active: true,
+    });
+    expect(newTemplateForm('BANDE')).toMatchObject({ periodicity: 'FIN_DE_BANDE', sections: ['BILAN', 'COMPARAISON'], farmOwners: true });
+  });
+});
+
+describe('programme perimeter (POUFA lot A)', () => {
+  const types = [{ species: 'POULET', type: 'CHAIR' }];
+
+  it('labels the eligible band types and flags the bands out of the programme', () => {
+    expect(bandTypesLabel(types)).toBe('bandes de poulet de chair');
+    expect(bandTypesLabel([])).toBe('aucune bande');
+    expect(isProgrammeBand(types, { species: 'POULET', type: 'CHAIR' })).toBe(true);
+    expect(isProgrammeBand(types, { species: 'POULET', type: 'PONDEUSE' })).toBe(false);
+  });
+
+  it('refreshes the steering screens within 5 to 15 minutes', () => {
+    expect(PILOTAGE_REFRESH_MS).toBeGreaterThanOrEqual(5 * 60_000);
+    expect(PILOTAGE_REFRESH_MS).toBeLessThanOrEqual(15 * 60_000);
   });
 });

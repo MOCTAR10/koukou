@@ -21,6 +21,7 @@ import {
   weightLabel,
 } from './format';
 import { ExportsCard } from './ExportsCard';
+import { bandTypesLabel, PILOTAGE_REFRESH_MS } from './perimeter';
 import { FigureRow, FigureText, MethodNotes, ScopeBanner, Suppressed } from './shared';
 
 /**
@@ -37,6 +38,7 @@ export function DashboardView({ filters, aggregateOnly }: { filters: PilotageFil
     queryFn: () => api.get<PilotageDashboard>(`/pilotage/dashboard${qs}`),
     enabled: !invalid,
     retry: false,
+    refetchInterval: PILOTAGE_REFRESH_MS,
   });
 
   if (invalid) return null;
@@ -111,24 +113,31 @@ export function DashboardView({ filters, aggregateOnly }: { filters: PilotageFil
             <Suppressed k={k} />
           )}
         </SectionCard>
-        <SectionCard title="Alertes" subtitle="Conseil Fermia et alertes sanitaires publiées" icon={<AlertTriangle />} iconTone="amber">
-          {m ? (
-            <>
-              <FigureRow label="Levées sur la période">{m.alerts.raised}</FigureRow>
-              <FigureRow label="dont rouges">{m.alerts.raisedRed}</FigureRow>
-              <FigureRow label="Actives aujourd’hui">
-                {m.alerts.activeNow} (dont {m.alerts.activeRedNow} rouges)
-              </FigureRow>
-            </>
-          ) : (
-            <Suppressed k={k} />
-          )}
+        <SectionCard title="Alertes sanitaires" subtitle="Publiées par les services vétérinaires" icon={<AlertTriangle />} iconTone="amber">
           <FigureRow label="Alertes sanitaires publiées">
             {d.publishedAlerts.available ? d.publishedAlerts.count : <span className="text-xs italic text-slate-400">source indisponible</span>}
           </FigureRow>
-          <p className="mt-2 text-xs text-slate-500">Les alertes publiées par les services vétérinaires (nationales et provinciales) comptent dans le total, pas dans une ferme.</p>
+          <p className="mt-2 text-xs text-slate-500">Seules les alertes publiées comptent comme « alerte ». Les alertes nationales et provinciales comptent dans le total, pas dans une ferme.</p>
+          {/* POUFA lot A pilot: Fermia advisory alerts, apart and never « alerte ». */}
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <p className="text-sm font-medium text-slate-700">{conductLabel(d)}</p>
+            {m ? (
+              <>
+                <FigureRow label="Levées sur la période">{m.alerts.conduct.raised}</FigureRow>
+                <FigureRow label="dont rouges">{m.alerts.conduct.raisedRed}</FigureRow>
+                <FigureRow label="Actives aujourd’hui">
+                  {m.alerts.conduct.activeNow} (dont {m.alerts.conduct.activeRedNow} rouges)
+                </FigureRow>
+              </>
+            ) : (
+              <Suppressed k={k} />
+            )}
+            <p className="mt-2 text-xs text-slate-500">Conseils de conduite d’élevage : ils ne colorent jamais une ferme en rouge.</p>
+          </div>
         </SectionCard>
       </div>
+
+      <PerimeterNote d={d} />
 
       <SeriesCard d={d} />
 
@@ -240,7 +249,7 @@ function ProvincesTable({ d }: { d: PilotageDashboard }) {
               <Th className="hidden lg:table-cell">Vendu (vif)</Th>
               <Th className="hidden lg:table-cell">Chiffre d’affaires</Th>
               <Th>Complétude</Th>
-              <Th>Alertes actives</Th>
+              <Th>Alertes de conduite actives</Th>
             </tr>
           </thead>
           <tbody>
@@ -270,9 +279,9 @@ function ProvincesTable({ d }: { d: PilotageDashboard }) {
                         {fcfaLabel(pm.sold.revenueFcfa)}
                       </Td>
                       <Td label="Complétude">{pctLabel(pm.completeness.pct)}</Td>
-                      <Td label="Alertes actives">
-                        {pm.alerts.activeNow}
-                        {pm.alerts.activeRedNow > 0 ? <span className="ml-1 text-red-600">({pm.alerts.activeRedNow} rouges)</span> : null}
+                      <Td label="Alertes de conduite actives">
+                        {pm.alerts.conduct.activeNow}
+                        {pm.alerts.conduct.activeRedNow > 0 ? <span className="ml-1 text-amber-700">({pm.alerts.conduct.activeRedNow} rouges)</span> : null}
                       </Td>
                     </>
                   )}
@@ -283,6 +292,22 @@ function ProvincesTable({ d }: { d: PilotageDashboard }) {
         </DataTable>
       )}
     </SectionCard>
+  );
+}
+
+// POUFA lot A pilot: what the figures count (programme parameters).
+function conductLabel(d: PilotageDashboard): string {
+  return d.perimeter?.conductAlerts.label ?? 'Alertes de conduite (conseil Fermia, non sanitaires)';
+}
+
+function PerimeterNote({ d }: { d: PilotageDashboard }) {
+  const p = d.perimeter;
+  if (!p) return null;
+  return (
+    <Note tone="slate">
+      Périmètre du programme : {bandTypesLabel(p.eligibleBandTypes)}. Les autres bandes des fermes sont hors programme et ne comptent pas dans ces chiffres.
+      {p.mortalityFormula ? ` Mortalité de la période = ${p.mortalityFormula.expression} (paramètre ${p.mortalityFormula.parameterKey}).` : ''}
+    </Note>
   );
 }
 

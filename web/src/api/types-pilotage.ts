@@ -56,12 +56,26 @@ export interface PilotageMetrics {
   };
   completeness: { pct: number | null; daysEntered: number; daysElapsed: number };
   alerts: {
-    raised: number;
-    raisedRed: number;
-    activeNow: number;
-    activeRedNow: number;
+    /** Sanitary alerts published by the veterinary services: the only « alerte ». */
     published: number;
+    /** « Alertes de conduite (conseil, non sanitaires) », shown apart. */
+    conduct: ConductAlerts;
   };
+}
+
+/** Fermia advisory alerts of the kinds in `PILOTAGE_ALERTES_CONDUITE_TYPES` (POUFA lot A). */
+export interface ConductAlerts {
+  raised: number;
+  raisedRed: number;
+  activeNow: number;
+  activeRedNow: number;
+}
+
+/** What the steering counts (POUFA lot A, `PilotageDashboard.perimeter`). */
+export interface PilotagePerimeter {
+  eligibleBandTypes: { species: string; type: string }[];
+  conductAlerts: { label: string; kinds: string[] };
+  mortalityFormula: { expression: string; parameterKey: string } | null;
 }
 
 export interface GroupFigures {
@@ -111,6 +125,7 @@ export interface PilotageDashboard {
   farms: { total: number; producing: number; byStatus: CountItem[]; byCohort: CountItem[] };
   series: WeekFigures[];
   publishedAlerts: { available: boolean; count: number };
+  perimeter: PilotagePerimeter;
   inputs: { available: boolean; thresholdPct: number; suppressed: boolean; figures: InputGapFigures | null };
   notes: string[];
 }
@@ -126,9 +141,8 @@ export interface MapColours {
 }
 
 export interface MapAlerts {
-  activeNow: number;
-  activeRedNow: number;
   published: number;
+  conduct: ConductAlerts;
 }
 
 export interface MapPoint {
@@ -177,7 +191,7 @@ export interface PilotageMap {
   legend: {
     mortality: MapThresholds;
     completeness: MapThresholds;
-    alert: { description: string };
+    alert: { description: string; conduct: string };
   };
   points: MapPoint[];
   farmsWithoutGps: number;
@@ -243,7 +257,8 @@ export type ReportSection =
   | 'OBJECTIF'
   | 'FERMES_A_SUIVRE'
   | 'BILAN'
-  | 'COMPARAISON';
+  | 'COMPARAISON'
+  | 'INTRANTS';
 
 export interface ReportAudience {
   scopeKinds: ScopeKind[];
@@ -272,6 +287,23 @@ export interface UpdateReportTemplateBody {
   sections?: ReportSection[];
   audience?: Partial<ReportAudience>;
   active?: boolean;
+}
+
+/** `POST /pilotage/reports/templates` (`CreateReportTemplateDto`, POUFA lot A). */
+export interface CreateReportTemplateBody {
+  code: string;
+  label: string;
+  level: ReportLevel;
+  periodicity: ReportPeriodicity;
+  sections: ReportSection[];
+  audience?: Partial<ReportAudience>;
+  active?: boolean;
+}
+
+/** `POST /pilotage/reports/templates/:code/duplicate` (`DuplicateReportTemplateDto`). */
+export interface DuplicateReportTemplateBody {
+  code: string;
+  label?: string;
 }
 
 /** `POST /pilotage/reports/templates/:code/runs` (`GenerateReportDto`). */
@@ -423,8 +455,16 @@ export interface BandComparison {
   ageDays: number | null;
   currentWeek: number | null;
   minGroupSize: number;
+  /** The band's type counts in the programme (`BANDE_TYPES_ELIGIBLES`). */
+  programmeEligible: boolean;
   weeks: ComparisonWeek[];
   method: string[];
+}
+
+/** `GET /farms/:farmId/programme-perimeter` (POUFA lot A, F2). */
+export interface ProgrammePerimeter {
+  eligibleBandTypes: { species: string; type: string }[];
+  note: string;
 }
 
 /** `POST …/corrections` (`CorrectClosedBandeDto`). */

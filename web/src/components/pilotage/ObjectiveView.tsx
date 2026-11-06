@@ -9,6 +9,7 @@ import { DataTable, Loading, StatCard, Td, Th } from '../ui';
 import { objectiveQueryString, type PilotageFilters } from './filters';
 import { countLabel, headsLabel, numLabel, pctLabel, tonnesLabel } from './format';
 import { FigureRow, MethodNotes } from './shared';
+import { PILOTAGE_REFRESH_MS } from './perimeter';
 
 /**
  * The 100 000 t objective (`GET /pilotage/objective`): what the programme
@@ -22,6 +23,7 @@ export function ObjectiveView({ filters }: { filters: PilotageFilters }) {
     queryKey: ['pilotage-objective', qs],
     queryFn: () => api.get<PilotageObjective>(`/pilotage/objective${qs}`),
     retry: false,
+    refetchInterval: PILOTAGE_REFRESH_MS,
   });
   if (query.isLoading) return <Loading label="Calcul de la projection…" />;
   if (query.error || !query.data) return <ErrorNote error={query.error ?? 'Objectif indisponible.'} />;
