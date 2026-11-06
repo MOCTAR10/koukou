@@ -19,9 +19,11 @@ import {
   HeartPulse,
   Layers,
   Lock,
+  LogOut,
   PackageCheck,
   PenLine,
   Pencil,
+  QrCode,
   Receipt,
   Scale,
   ShieldCheck,
@@ -66,6 +68,9 @@ import { BarChart, LineChart } from '../Charts';
 import { Button, ErrorNote, Modal } from '../form';
 import { DataTable, EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
 import { DailyEntryModal } from './DailyEntryModal';
+// POUFA W6: band sorties and traceability tabs.
+import { SortiesTab } from '../bandes/SortiesTab';
+import { LotTraceTab } from '../trace/LotTraceTab';
 import { ageWeek } from './feedRecommendation';
 import {
   CARE_STATUS_LABEL,
@@ -97,7 +102,7 @@ import {
   utcYmd,
 } from './shared';
 
-type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire';
+type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire' | 'sorties' | 'tracabilite';
 
 export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const { farmId } = useFarm();
@@ -110,6 +115,8 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const pdf = useAsyncAction();
   // An institution opens the lots with TECHNIQUE: its sanitary side needs SANITAIRE too.
   const sanitary = useCanRead()('SANITAIRE');
+  // POUFA W6: the traceability lots need TRACABILITE for an institution.
+  const traceability = useCanRead()('TRACABILITE');
 
   const buildings = useBuildings();
   const building = buildings.data?.find((b) => b.id === lot.buildingId) ?? null;
@@ -252,6 +259,8 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
           { key: 'saisies', label: 'Saisies', icon: <PenLine /> },
           { key: 'historique', label: 'Historique', icon: <Clock /> },
           ...(sanitary ? [{ key: 'sanitaire' as const, label: 'Sanitaire', icon: <HeartPulse /> }] : []),
+          { key: 'sorties', label: 'Sorties', icon: <LogOut /> },
+          ...(traceability ? [{ key: 'tracabilite' as const, label: 'Traçabilité', icon: <QrCode /> }] : []),
         ]}
       />
 
@@ -260,6 +269,8 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
       {tab === 'saisies' ? <EntriesTab lot={lot} onEdit={(date) => setEntry({ date })} /> : null}
       {tab === 'historique' ? <HistoryTab lot={lot} /> : null}
       {tab === 'sanitaire' && sanitary ? <HealthTab lot={lot} events={prophylaxis.data ?? []} /> : null}
+      {tab === 'sorties' ? <SortiesTab lot={lot} /> : null}
+      {tab === 'tracabilite' && traceability ? <LotTraceTab batchId={lot.id} /> : null}
 
       {entry ? <DailyEntryModal initialBatchId={lot.id} initialDate={entry.date} onClose={() => setEntry(null)} /> : null}
       {closing ? <CloseLotModal lot={lot} onClose={() => setClosing(false)} /> : null}

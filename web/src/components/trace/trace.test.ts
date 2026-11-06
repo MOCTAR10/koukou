@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { LotView, OperatorView } from '../../api/types-trace';
 import { createPayload, draftOf, filterOperators, patchPayload, validateOperator } from './operatorRules';
 import { fetchPublicLot, producerLine, publicLotStateFrom, publicLotUrl } from './publicLot';
-import { isProgrammeWidePath, programmeEntries, traceRights } from './traceAccess';
+import { isProgrammeWidePath, programmeEntries, programmeWideLabel, traceRights, traceTabOf, traceTabs } from './traceAccess';
 import { codeFromInput, lotsTree, scanWarnings } from './traceLabels';
 
 const VIEW = {
@@ -78,6 +78,7 @@ describe('traceability rights', () => {
     expect(isProgrammeWidePath('/app/intrants')).toBe(true);
     expect(isProgrammeWidePath('/app/tracabilite/operateurs')).toBe(true);
     expect(isProgrammeWidePath('/app/tracabilite')).toBe(false);
+    expect(isProgrammeWidePath('/app/tracabilite/recherche')).toBe(true);
   });
 });
 
@@ -141,5 +142,29 @@ describe('lots helpers', () => {
       '1 scan avec une signature invalide (QR code altéré ou copié).',
       '2 scans après la clôture du lot.',
     ]);
+  });
+});
+
+describe('traceability page tabs', () => {
+  const all = traceRights('PLATFORM_ADMIN', null);
+  const none = traceRights('INSTITUTION', null);
+  it('lists the tabs open to the caller', () => {
+    expect(traceTabs(all, true)).toEqual(['lots', 'recherche', 'operateurs']);
+    expect(traceTabs(all, false)).toEqual(['recherche', 'operateurs']);
+    expect(traceTabs(none, true)).toEqual(['operateurs']);
+  });
+  it('picks the tab of the path, else the first allowed one', () => {
+    expect(traceTabOf('/app/tracabilite/operateurs', ['lots', 'operateurs'])).toBe('operateurs');
+    expect(traceTabOf('/app/tracabilite/recherche', ['recherche', 'operateurs'])).toBe('recherche');
+    expect(traceTabOf('/app/tracabilite', ['recherche', 'operateurs'])).toBe('recherche');
+    expect(traceTabOf('/app/tracabilite/recherche', ['operateurs'])).toBe('operateurs');
+  });
+});
+
+describe('programme-wide header line', () => {
+  it('names the page, or nothing outside the area', () => {
+    expect(programmeWideLabel('/app/intrants')).toMatch(/Intrants/);
+    expect(programmeWideLabel('/app/tracabilite/operateurs')).toMatch(/opérateurs/);
+    expect(programmeWideLabel('/app/tracabilite')).toBeNull();
   });
 });

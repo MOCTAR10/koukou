@@ -70,5 +70,39 @@ export function programmeEntries(role: Role | null | undefined, showEntry: (to: 
 
 /** Programme-wide pages of this area (no farm picker, no quick actions). */
 export function isProgrammeWidePath(pathname: string): boolean {
-  return pathname.startsWith(INTRANTS_PATH) || pathname.startsWith(OPERATORS_PATH);
+  return pathname.startsWith(INTRANTS_PATH) || pathname.startsWith(OPERATORS_PATH) || pathname.startsWith('/app/tracabilite/recherche');
+}
+
+export const TRACE_SEARCH_PATH = '/app/tracabilite/recherche';
+
+export type TraceTab = 'lots' | 'recherche' | 'operateurs';
+
+/** Tabs of the « Traçabilité » page the caller may open, in display order. */
+export function traceTabs(rights: TraceRights, hasFarm: boolean): TraceTab[] {
+  const out: TraceTab[] = [];
+  if (rights.farmLots && hasFarm) out.push('lots');
+  if (rights.searchByCode) out.push('recherche');
+  // The registry is read by every account that reaches the page (active operators).
+  out.push('operateurs');
+  return out;
+}
+
+/** The tab a path asks for, or the first allowed one when it is not open to the caller. */
+export function traceTabOf(pathname: string, allowed: readonly TraceTab[]): TraceTab {
+  const asked: TraceTab = pathname.startsWith(OPERATORS_PATH) ? 'operateurs' : pathname.startsWith(TRACE_SEARCH_PATH) ? 'recherche' : 'lots';
+  return allowed.includes(asked) ? asked : (allowed[0] ?? 'operateurs');
+}
+
+export const TRACE_TAB_PATH: Record<TraceTab, string> = {
+  lots: TRACE_PATH,
+  recherche: TRACE_SEARCH_PATH,
+  operateurs: OPERATORS_PATH,
+};
+
+/** Header line of a programme-wide page of this area (Shell), or null. */
+export function programmeWideLabel(pathname: string): string | null {
+  if (pathname.startsWith(INTRANTS_PATH)) return 'Intrants livrés aux fermes du programme';
+  if (pathname.startsWith(OPERATORS_PATH)) return 'Registre des opérateurs du programme';
+  if (pathname.startsWith(TRACE_SEARCH_PATH)) return 'Traçabilité des lots du programme';
+  return null;
 }

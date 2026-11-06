@@ -13,6 +13,7 @@ import { useIdempotencyKey } from '../../lib/idempotency';
 import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
 import { invalidateCash } from './pos';
 import { salePaid } from './SaleDetail';
+import { CustomerOperatorField } from '../trace/CustomerOperatorField';
 
 export function CreateCustomerModal({ farmId, onClose }: { farmId: string | null; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -293,6 +294,8 @@ export function CustomerDetail({
           </select>
         </Field>
         <ErrorNote error={setType.error} />
+        {/* POUFA W6: link the customer to a programme operator (traceability). */}
+        <CustomerOperatorField farmId={farmId} customer={customer} />
 
         <div className="grid grid-cols-3 gap-3">
           <Figure label="Total facturé" value={fcfa(invoiced)} icon={<ReceiptText />} />
