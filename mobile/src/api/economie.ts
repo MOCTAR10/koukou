@@ -9,6 +9,10 @@ export interface SynthesisColumns {
   collected: boolean;
   payroll: boolean;
   stock: boolean;
+  // POUFA lot A2 dge: SYSCOHADA (COMPTABILITE), Market (MARCHE), production (TECHNIQUE).
+  accounting?: boolean;
+  market?: boolean;
+  production?: boolean;
 }
 
 export interface SynthesisRow {
@@ -27,6 +31,23 @@ export interface SynthesisRow {
   payrollMonthlyFcfa: number | null;
   employeeCount: number | null;
   feedStockKg: number | null;
+  // POUFA lot A2 dge.
+  accountingChargesFcfa?: number | null;
+  accountingProductsFcfa?: number | null;
+  accountingResultFcfa?: number | null;
+  treasuryFcfa?: number | null;
+  receivablesFcfa?: number | null;
+  marketRequests?: number | null;
+  marketAccepted?: number | null;
+  marketDelivered?: number | null;
+  marketSalesFcfa?: number | null;
+  marketBirds?: number | null;
+  marketCarcasses?: number | null;
+  /** FORMULE_COMPLETUDE_PCT in force. */
+  completenessPct?: number | null;
+  /** FORMULE_VOLUME_PRODUIT_TETES / _KG in force. */
+  producedHeads?: number | null;
+  producedKg?: number | null;
 }
 
 export interface EconomieSynthesis {

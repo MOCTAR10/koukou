@@ -85,4 +85,21 @@ describe('menuItemVisible', () => {
   it('a tile without perms stays visible', () => {
     expect(menuItemVisible('INSTITUTION', {}, none)).toBe(true);
   });
+
+  // POUFA lot A2 dge: stock FEFO, slaughter and sanitary tiles for institutions.
+  it('opens a programme bonus tile to an institution by its matrix, read-only', () => {
+    const stock = { perms: ['stock:gerer'], programmeArea: 'INTRANTS' as const };
+    const slaughter = { perms: ['production:abattage'], programmeArea: 'TRACABILITE' as const };
+    const care = { perms: ['sanitaire:lecture'], programmeArea: 'SANITAIRE' as const };
+    const dge = { INTRANTS: ['CONSULTER' as const], TRACABILITE: ['CONSULTER' as const], TECHNIQUE: ['CONSULTER' as const] };
+    expect(menuItemVisible('INSTITUTION', stock, none, dge)).toBe(true);
+    expect(menuItemVisible('INSTITUTION', slaughter, none, dge)).toBe(true);
+    // No SANITAIRE in the DGE matrix: no sanitary tile, so no declaration either.
+    expect(menuItemVisible('INSTITUTION', care, codes('sanitaire:lecture'), dge)).toBe(false);
+    expect(menuItemVisible('INSTITUTION', care, none, { ...dge, SANITAIRE: ['CONSULTER'] })).toBe(true);
+    expect(menuItemVisible('INSTITUTION', stock, codes('stock:gerer'), null)).toBe(false);
+    // Farm accounts keep their permission codes.
+    expect(menuItemVisible('ELEVEUR', stock, codes('stock:gerer'), null)).toBe(true);
+    expect(menuItemVisible('ELEVEUR', slaughter, none, dge)).toBe(false);
+  });
 });

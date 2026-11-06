@@ -20,10 +20,14 @@ import { color, fmt, fmtFcfa, radii, semantic } from '@/constants/theme';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import {
   farmsOfProvince,
+  shownGroup,
+  SYNTHESIS_GROUPS,
   SYNTHESIS_SPANS,
+  synthesisGroups,
   synthesisWindow,
   visibleFigures,
   type Figure,
+  type SynthesisGroup,
   type SynthesisSpan,
 } from '@/poufa/economie';
 import { readsEconomieSynthesis } from '@/poufa/fermia-access';
@@ -36,15 +40,17 @@ function figureText(f: Figure): string {
   return fmt(f.value);
 }
 
-function Figures({ row, columns }: { row: SynthesisRow; columns: SynthesisColumns }) {
+const NEGATIVE_BAD = new Set(['margin', 'result']);
+
+function Figures({ row, columns, group }: { row: SynthesisRow; columns: SynthesisColumns; group: SynthesisGroup }) {
   return (
     <View style={styles.figures}>
-      {visibleFigures(row, columns).map((f) => (
+      {visibleFigures(row, columns, group).map((f) => (
         <View key={f.key} style={styles.figure}>
           <AppText size="caption" color="muted" numberOfLines={1}>
             {f.label}
           </AppText>
-          <AppText size="body" weight="semibold" color={f.key === 'margin' && (f.value ?? 0) < 0 ? 'danger' : 'text'} numberOfLines={1}>
+          <AppText size="body" weight="semibold" color={NEGATIVE_BAD.has(f.key) && (f.value ?? 0) < 0 ? 'danger' : 'text'} numberOfLines={1}>
             {figureText(f)}
           </AppText>
         </View>
@@ -59,6 +65,7 @@ export default function SyntheseScreen() {
   const allowed = readsEconomieSynthesis(user.role, access.matrix);
   const [span, setSpan] = useState<SynthesisSpan>('MOIS');
   const [open, setOpen] = useState<string | null>(null);
+  const [picked, setPicked] = useState<SynthesisGroup>('VENTES');
   const window = synthesisWindow(span, todayStr());
 
   const query = useQuery({
@@ -67,10 +74,13 @@ export default function SyntheseScreen() {
     enabled: allowed,
   });
   const s = query.data;
+  // POUFA lot A2 dge: one column group at a time (sales, SYSCOHADA, Market, entries and volumes).
+  const groups = s ? synthesisGroups(s.columns) : [];
+  const group = s ? shownGroup(picked, s.columns) : 'VENTES';
 
   return (
     <Screen
-      header={<ScreenHeader title="Synthèse du programme" subtitle="Finances, salaires, ventes et stock des fermes" back right={<Landmark size={18} color={color.ink[300]} />} />}
+      header={<ScreenHeader title="Synthèse du programme" subtitle="Finances, comptabilité, Market, saisies et volumes des fermes" back right={<Landmark size={18} color={color.ink[300]} />} />}
       refreshing={query.isFetching}
       onRefresh={allowed ? () => void query.refetch() : undefined}>
       {!allowed ? (
@@ -86,7 +96,7 @@ export default function SyntheseScreen() {
               Consultation seule
             </AppText>
             <AppText size="small" color="muted">
-              Chiffres des fermes de votre périmètre. Les colonnes suivent les droits de votre profil ; l’export CSV ou Excel se fait sur le web.
+              Chiffres des fermes de votre périmètre, consultation inscrite au journal d’audit. Les colonnes suivent les droits de votre profil ; complétude, volumes et marge suivent les formules du programme. L’export CSV ou Excel se fait sur le web.
             </AppText>
           </View>
           <Segmented<SynthesisSpan> options={SYNTHESIS_SPANS.map((o) => ({ key: o.key, label: o.label }))} value={span} onChange={setSpan} />
@@ -97,6 +107,13 @@ export default function SyntheseScreen() {
             <EmptyState icon={Landmark} title="Synthèse indisponible" description={errorMessage(query.error)} />
           ) : s ? (
             <>
+              {groups.length > 1 ? (
+                <Segmented<SynthesisGroup>
+                  options={SYNTHESIS_GROUPS.filter((g) => groups.includes(g.key)).map((g) => ({ key: g.key, label: g.label }))}
+                  value={group}
+                  onChange={setPicked}
+                />
+              ) : null}
               <Card tone="brand" style={{ gap: 8 }}>
                 <AppText size="bodyM" weight="bold">
                   Programme · {fmt(s.total.farmCount ?? 0)} fermes
@@ -104,7 +121,7 @@ export default function SyntheseScreen() {
                 <AppText size="caption" color="muted">
                   Du {s.from.split('-').reverse().join('/')} au {s.to.split('-').reverse().join('/')}
                 </AppText>
-                <Figures row={s.total} columns={s.columns} />
+                <Figures row={s.total} columns={s.columns} group={group} />
               </Card>
 
               {s.provinces.length === 0 ? (
@@ -127,7 +144,7 @@ export default function SyntheseScreen() {
                       </View>
                       {expanded ? <ChevronDown size={18} color={color.ink[400]} /> : <ChevronRight size={18} color={color.ink[400]} />}
                     </Pressable>
-                    <Figures row={p} columns={s.columns} />
+                    <Figures row={p} columns={s.columns} group={group} />
                     {expanded
                       ? farmsOfProvince(s.farms, p.provinceCode).map((f) => (
                           <View key={f.farmId} style={styles.farm}>
@@ -135,7 +152,7 @@ export default function SyntheseScreen() {
                               {f.code ? `${f.code} · ` : ''}
                               {f.name}
                             </AppText>
-                            <Figures row={f} columns={s.columns} />
+                            <Figures row={f} columns={s.columns} group={group} />
                           </View>
                         ))
                       : null}

@@ -33,6 +33,11 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
+// POUFA lot A2 dge: an institution reads the stock with INTRANTS:CONSULTER, read-only.
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { readsProgrammeDomain } from '@/poufa/access';
 import { fetchFeedMovements, fetchFeedStock } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { localYmd } from '@/api/mutations';
@@ -280,7 +285,10 @@ function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]
 }
 
 export default function ProvendeScreen() {
-  const { farmId, farms } = useAuth();
+  const { farmId, farms, user } = useAuth();
+  const { fermiaReadOnly } = useFarmProfile();
+  const programme = useProgrammeAccess();
+  const readsStock = readsProgrammeDomain(user.role, programme.matrix, 'INTRANTS');
   // The server converts sacks with the farm's sack size, not a fixed 50 kg.
   const sacKg = farms.find((f) => f.id === farmId)?.defaultSacKg ?? 50;
   const queryClient = useQueryClient();
@@ -302,14 +310,16 @@ export default function ProvendeScreen() {
   const stock = useQuery({
     queryKey: ['feed-stock', farmId],
     queryFn: () => fetchFeedStock(farmId),
+    enabled: Boolean(farmId) && readsStock,
   });
   const movements = useQuery({
     queryKey: ['feed-stock', 'movements', farmId],
     queryFn: () => fetchFeedMovements(farmId),
+    enabled: Boolean(farmId) && readsStock,
   });
 
   useLiveMinute(() => {
-    if (window.isFiltered) return;
+    if (window.isFiltered || !readsStock) return;
     void stock.refetch();
     void movements.refetch();
   });
@@ -418,7 +428,7 @@ export default function ProvendeScreen() {
     <Screen
       bottomPad={120}
       refreshing={stock.isFetching}
-      onRefresh={() => void stock.refetch()}
+      onRefresh={readsStock ? () => void stock.refetch() : undefined}
       header={
         <>
           {/* ── HEADER + DATE BAR (fixes, comme Accueil) ── */}
@@ -449,7 +459,16 @@ export default function ProvendeScreen() {
         />
       </View>
 
-{stock.isLoading ? (
+      <ReadOnlyNotice what="Stock FEFO" />
+{!readsStock ? (
+        programme.isLoading ? (
+          <Spinner label="Chargement de vos droits…" />
+        ) : (
+          <AppText size="small" color="muted">
+            Votre profil n’ouvre pas le stock de cette ferme (domaine Intrants).
+          </AppText>
+        )
+      ) : stock.isLoading ? (
         <Spinner label="Chargement du stock…" />
       ) : stock.isError ? (
         <AppText size="small" color="danger">
@@ -476,6 +495,7 @@ export default function ProvendeScreen() {
             </Card>
           ) : null}
 
+          {!fermiaReadOnly ? (<>
           <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -508,6 +528,7 @@ export default function ProvendeScreen() {
               </View>
             </View>
           </Card>
+          </>) : null}
 
           <View style={styles.metricGrid}>
             <MetricTile
