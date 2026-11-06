@@ -465,3 +465,20 @@ export function mayChangeParameter(
   if (role !== UserRole.INSTITUTION) return false;
   return profileCode !== null && profileCode === ownerProfile;
 }
+
+/**
+ * Who reads deactivated list items and localités (`?all=true`): the profiles
+ * that manage them, from their matrix. Any ADMINISTRATION right (programme
+ * lists, territories), PARAMETRES:MODIFIER (the profiles that maintain the
+ * programme settings: DGE, veterinary services, programme administrator by
+ * default) and, for the sanitary lists the vets maintain, SANITAIRE:MODIFIER.
+ * Reading inactive reference items changes nothing: a broad rule is safe.
+ */
+export function mayReadInactiveItems(
+  matrix: AccessMatrix,
+  opts: { sanitaryList?: boolean } = {},
+): boolean {
+  if ((matrix.ADMINISTRATION?.length ?? 0) > 0) return true;
+  if (grants(matrix, 'PARAMETRES', 'MODIFIER')) return true;
+  return opts.sanitaryList === true && grants(matrix, 'SANITAIRE', 'MODIFIER');
+}

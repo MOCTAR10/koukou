@@ -146,6 +146,8 @@ describe('Market : carcasses (e2e)', () => {
     const farm = await createProgrammeFarm(server, admin.token, {
       name: `Ferme Carcasses ${uniquePhone('')}`,
       exploitantName: 'Proprio Carcasses',
+      // Market listings are only shown for OPERATIONNELLE farms (POUFA).
+      extra: { statusCode: 'OPERATIONNELLE' },
     });
     ownerToken = farm.ownerToken;
     ownerId = farm.ownerId;

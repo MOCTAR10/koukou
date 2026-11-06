@@ -14,6 +14,7 @@ import { SlaughterModule } from '../slaughter/slaughter.module.js';
 import { SyncModule } from '../sync/sync.module.js';
 import { TraceCoreModule } from '../trace/trace-core.module.js';
 import { TraceLotsService } from '../trace/trace-lots.service.js';
+import { OFFICIAL_BAND_INDICATORS } from '../indicators/official-band-indicators.port.js';
 import { BandeCorrectionsService } from './bande-corrections.service.js';
 import { BandeIndicatorsService } from './bande-indicators.service.js';
 import { BandeSnapshotsService } from './bande-snapshots.service.js';
@@ -60,6 +61,8 @@ import { WeighingsService } from './weighings.service.js';
     WeighingsService,
     // Traceability (L7): a sortie towards an operator is a cession.
     { provide: SORTIE_CESSION_HOOK, useExisting: TraceLotsService },
+    // Official indicators for the passport and lot P&L PDFs (lazy, no cycle).
+    { provide: OFFICIAL_BAND_INDICATORS, useExisting: BandeIndicatorsService },
   ],
   exports: [BandesService, BandeIndicatorsService, WeighingsService],
 })

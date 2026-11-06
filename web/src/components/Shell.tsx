@@ -72,7 +72,8 @@ const NAV: Array<{
     title: 'Pilotage',
     items: [
       { to: '/app/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-      { to: '/app/alerts', label: 'Alertes', icon: AlertTriangle },
+      // POUFA lot A indic: Fermia's advice is not the programme's sanitary alerting (F12).
+      { to: '/app/alerts', label: 'Conseils d’élevage', icon: AlertTriangle },
       { to: '/app/tasks', label: 'Tâches', icon: ListTodo },
     ],
   },

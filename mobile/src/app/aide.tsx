@@ -85,9 +85,9 @@ export default function AideScreen() {
         />
         <GuideCard
           icon={<RefreshCw size={18} color={color.brand[600]} />}
-          title="Alertes & advisory"
+          title="Conseils d’élevage"
           lines={[
-            'L’onglet Alertes priorise vos actions (rouge → jaune) : saisie manquante, soin, stock de provende.',
+            'L’écran Conseils d’élevage priorise vos actions (rouge → jaune) : saisie manquante, soin, stock de provende.',
             'Acquittez une alerte en la touchant ; elle restera historisée.',
           ]}
         />

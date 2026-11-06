@@ -12,7 +12,9 @@ export type MarketHiddenReason =
   | 'LOT_ENDED'
   | 'SANITARY'
   | 'DATE_PASSED'
-  | 'OUT_OF_STOCK';
+  | 'OUT_OF_STOCK'
+  // POUFA lot A indic: the farm's programme status is not OPERATIONNELLE.
+  | 'FARM_NOT_OPERATIONAL';
 
 export type MarketBuyerStatus =
   | 'PENDING'
@@ -35,6 +37,15 @@ export interface MarketFarm {
   logoUrl: string | null;
 }
 
+/** POUFA lot A indic: the band's public traceability page, no personal data. */
+export interface ListingTraceLot {
+  code: string;
+  /** Relative path of the web page (`/l/<code>?t=…`). */
+  path: string;
+  /** Absolute URL, opened in the browser. */
+  url: string;
+}
+
 interface MarketListingBase {
   id: string;
   kind: MarketKind;
@@ -54,6 +65,7 @@ interface MarketListingBase {
   breedName: string | null;
   batchType: string | null;
   slaughteredAt: string | null;
+  traceLot?: ListingTraceLot | null;
 }
 
 export interface MarketListing extends MarketListingBase {

@@ -32,7 +32,7 @@ export function TerritoriesView({ rights }: { rights: AdminRights['lists'] }) {
       <Note tone="slate" icon={<Info />}>
         Les 9 provinces sont fixes. Le contour d’une province sert à vérifier qu’un point GPS du registre est bien dans sa province : un point
         hors contour est signalé, jamais refusé. Sans contour chargé, la vérification n’a pas lieu.
-        {!rights.readInactive ? ' Les localités désactivées ne sont visibles que par l’administrateur plateforme.' : ''}
+        {!rights.readInactive ? ' Les localités désactivées ne sont visibles que par les profils qui gèrent les listes.' : ''}
         {!rights.write ? ' Consultation seule : la modification demande le droit Administration · Administrer.' : ''}
       </Note>
       <ErrorNote error={provinces.error} />
@@ -211,7 +211,7 @@ function ToggleLocaliteModal({ localite, readInactive, onClose }: { localite: Lo
             ? 'La localité ne sera plus proposée pour les nouvelles fiches. Elle n’est jamais supprimée : les fiches qui l’utilisent la gardent.'
             : 'La localité sera de nouveau proposée.'}
         </p>
-        {deactivating && !readInactive ? <Note tone="amber">Vous ne la verrez plus ici : seul l’administrateur plateforme peut la réactiver.</Note> : null}
+        {deactivating && !readInactive ? <Note tone="amber">Vous ne la verrez plus ici : seuls les profils qui gèrent les listes peuvent la réactiver.</Note> : null}
         <ErrorNote error={save.error} />
         <div className="flex justify-end gap-2">
           <Button tone="secondary" onClick={onClose} disabled={save.isPending}>

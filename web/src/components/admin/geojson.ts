@@ -15,10 +15,12 @@ export type BoundaryGeometry = Polygon | MultiPolygon;
 export type GeometryResult = { ok: true; geometry: BoundaryGeometry; polygons: number; points: number; bytes: number } | { ok: false; error: string };
 
 /**
- * Nest's default JSON body limit (100 KB): a heavier boundary answers 413
- * before reaching the programme route, so it is refused here with a hint.
+ * The boundary route's JSON body limit (`common/http/body-limits.ts`,
+ * `GEOMETRY_BODY_LIMIT` = 5 MB; 100 KB elsewhere), less a margin for the
+ * body around the geometry: a heavier boundary would answer 413, so it is
+ * refused here with a hint.
  */
-export const MAX_GEOMETRY_BYTES = 100 * 1024;
+export const MAX_GEOMETRY_BYTES = 5 * 1024 * 1024 - 16 * 1024;
 
 /** 5 decimals ≈ 1 m: plenty for a province, and much lighter than a GIS export's 15. */
 export const GEOMETRY_DIGITS = 5;
@@ -120,7 +122,7 @@ export function boundaryFromGeoJson(value: unknown, digits = GEOMETRY_DIGITS): G
   if (bytes > MAX_GEOMETRY_BYTES) {
     return {
       ok: false,
-      error: `Contour trop lourd (${Math.ceil(bytes / 1024)} Ko, ${points} points ; le serveur accepte environ ${MAX_GEOMETRY_BYTES / 1024} Ko) : simplifiez-le dans votre logiciel SIG (par exemple mapshaper, simplification à quelques centaines de mètres) puis recommencez.`,
+      error: `Contour trop lourd (${Math.ceil(bytes / 1024)} Ko, ${points} points ; le serveur accepte environ ${Math.round(MAX_GEOMETRY_BYTES / 1024 / 1024)} Mo) : simplifiez-le dans votre logiciel SIG (par exemple mapshaper, simplification à quelques centaines de mètres) puis recommencez.`,
     };
   }
   return { ok: true, geometry, polygons: cleaned.length, points, bytes };

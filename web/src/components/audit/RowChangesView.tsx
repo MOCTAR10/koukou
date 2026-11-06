@@ -159,6 +159,7 @@ export function RowChangesView({ initialRequestId }: { initialRequestId: string 
                 <div className="space-y-2 border-t border-slate-100 px-4 py-3">
                   <p className="text-[11px] text-slate-500">
                     Requête <span className="font-mono">{c.requestId ?? '— (écriture hors transaction)'}</span> · auteur{' '}
+                    {c.actorName ? <span className="font-medium text-slate-700">{c.actorName} </span> : null}
                     <span className="font-mono">{c.actorUserId ?? '—'}</span> · transaction <span className="font-mono">{c.txid}</span>
                   </p>
                   <DiffView change={c} />

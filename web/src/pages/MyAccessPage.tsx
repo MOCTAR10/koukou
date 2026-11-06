@@ -22,7 +22,7 @@ import { dateFr } from '../lib/format';
 /** Pages of the web app a domain opens (existing routes only), with their menu label. */
 const PAGE_LABELS: Record<string, string> = {
   '/app/dashboard': 'Tableau de bord',
-  '/app/alerts': 'Alertes',
+  '/app/alerts': 'Conseils d’élevage',
   '/app/tasks': 'Tâches',
   '/app/batches': 'Lots & suivi',
   '/app/activities': 'Activités',

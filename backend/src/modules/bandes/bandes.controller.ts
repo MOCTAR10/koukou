@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import { Action, Domain } from '../../common/decorators/domain.decorator.js';
@@ -10,6 +18,7 @@ import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import { BandeCorrectionsService } from './bande-corrections.service.js';
 import { BandeIndicatorsService } from './bande-indicators.service.js';
 import { BandeSnapshotsService } from './bande-snapshots.service.js';
+import { parseBandStatusFilter } from './band-summary.js';
 import { BandesService } from './bandes.service.js';
 import { CorrectClosedBandeDto, CreateSortieDto } from './dto/sortie.dto.js';
 import { SortiesService } from './sorties.service.js';
@@ -41,11 +50,23 @@ export class BandesController {
   @Get()
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
-    summary: 'Historique des bandes de la ferme (fiche de chaque bande)',
+    summary:
+      'Historique des bandes de la ferme : fiche de chaque bande et son résumé officiel (dernier bilan figé pour une bande clôturée, indicateurs du jour sinon)',
   })
   @ApiParam({ name: 'farmId' })
-  list(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
-    return this.bandes.list(user, farmId);
+  @ApiQuery({ name: 'status', required: false, enum: ['CLOTURE', 'EN_COURS'] })
+  list(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Query('status') status?: string,
+  ) {
+    const filter = parseBandStatusFilter(status);
+    if (filter === null) {
+      throw new BadRequestException(
+        'Statut de bande inconnu (CLOTURE ou EN_COURS).',
+      );
+    }
+    return this.snapshots.history(user, farmId, filter);
   }
 
   @Get(':batchId')

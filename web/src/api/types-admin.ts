@@ -29,7 +29,13 @@ export interface ParameterView {
   validFrom: string | null;
   reason: string | null;
   createdById: string | null;
+  /** Author's name; null for the seed or an unknown account. */
+  createdByName?: string | null;
   versionId: string | null;
+  /** Catalog « Proposé » value, used while no version is stored. */
+  defaultValue?: unknown;
+  /** Who must still decide the default, when the catalog says so. */
+  defaultNote?: string | null;
 }
 
 /** A stored version (`ProgramParameter`), immutable. */
@@ -42,6 +48,8 @@ export interface ParameterVersion {
   validFrom: string;
   /** Null for the seed (« Proposé » value). */
   createdById: string | null;
+  /** Author's name (`GET …/:key/history`); null for the seed or an unknown account. */
+  createdByName?: string | null;
   reason: string | null;
   createdAt: string;
 }
@@ -70,6 +78,20 @@ export type ProgramListType =
   | 'SIGNE_CLINIQUE'
   | 'TYPE_OPERATEUR'
   | 'STATUT_ALERTE';
+
+/** `GET /programme/lists/:listType/history` entry (`ref-list-history.ts`), newest first. */
+export interface ListHistoryEntry {
+  id: string;
+  at: string;
+  kind: 'CREATION' | 'MODIFICATION' | 'SUPPRESSION';
+  code: string | null;
+  label: string | null;
+  /** Changed fields: label, active, sort, parentId, meta. */
+  changes: Array<{ field: string; before: unknown; after: unknown }>;
+  actorUserId: string | null;
+  actorName: string | null;
+  requestId: string | null;
+}
 
 /** `GET /programme/lists/:listType` item (`RefItem`). */
 export interface ListItem {
@@ -147,6 +169,8 @@ export interface AuditEvent {
   requestId: string | null;
   action: AuditAction;
   actorUserId: string | null;
+  /** Author's name (null: system, not signed in or unknown account). */
+  actorName?: string | null;
   actorRole: string | null;
   farmId: string | null;
   method: string;
@@ -163,6 +187,8 @@ export interface AuditEvent {
 
 /** Level 2: a row before / after (`AuditRowChange`). */
 export interface AuditRowChange {
+  /** Author's name (null: system or unknown account). */
+  actorName?: string | null;
   id: string;
   at: string;
   requestId: string | null;

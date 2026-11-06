@@ -10,6 +10,7 @@ import {
   HandCoins,
   Info,
   PackageOpen,
+  Stethoscope,
   Zap,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -32,6 +33,8 @@ interface AlertCardProps {
   showWhy?: boolean;
   /** Sale rights (`vente:creer`): without them a sale alert only opens the lot. */
   canSell?: boolean;
+  /** POUFA lot A indic: opens the sanitary declaration for a disease advice (declaration rights). */
+  onDeclare?: (batchId: string) => void;
 }
 
 function statusChipTone(status: Alert['status']): ChipTone {
@@ -46,7 +49,7 @@ function statusLabel(status: Alert['status']): string {
   return 'En cours';
 }
 
-export function AlertCard({ alert, busy = false, onPrimary, onOpenLot, showWhy = true, canSell = true }: AlertCardProps) {
+export function AlertCard({ alert, busy = false, onPrimary, onOpenLot, showWhy = true, canSell = true, onDeclare }: AlertCardProps) {
   const [open, setOpen] = useState(false);
   const isCare = alert.category === 'SOIN';
   const readyItem = alert.category === 'VENTE' && alert.id.startsWith('ready:');
@@ -140,6 +143,15 @@ export function AlertCard({ alert, busy = false, onPrimary, onOpenLot, showWhy =
             ) : null}
           </View>
         )}
+        {!done && alert.kind === 'MALADIE' && alert.batchId && onDeclare ? (
+          <Button
+            label="Déclarer aux services vétérinaires"
+            tone="danger"
+            size="md"
+            icon={Stethoscope}
+            onPress={() => onDeclare(alert.batchId!)}
+          />
+        ) : null}
 
         {showWhy && alert.why.length > 0 && (
           <Pressable onPress={() => setOpen((o) => !o)} style={styles.whyToggle} accessibilityRole="button">

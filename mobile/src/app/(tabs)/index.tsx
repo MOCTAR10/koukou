@@ -32,6 +32,10 @@ import { CheptelModal } from '@/components/CheptelModal';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
 import type { BatchWithMetrics, FarmWeather } from '@/api/types';
 import { ipeStatus } from '@/constants/flock';
+// POUFA lot A indic: « Ma bande en cours » (official indicators) heads the home screen.
+import { CurrentBandCard } from '@/components/band/CurrentBandCard';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { readsProgrammeDomain } from '@/poufa/access';
 
 function weatherHint(w: FarmWeather): string {
   const t = w.temperatureC ?? 0;
@@ -153,6 +157,8 @@ export default function AccueilScreen() {
 
   const farm = farms.find((f) => f.id === farmId) ?? farms[0] ?? null;
   const d = dashboard.data;
+  const programmeAccess = useProgrammeAccess();
+  const showCurrentBand = readsProgrammeDomain(user.role, programmeAccess.matrix, 'TECHNIQUE');
   const canCaisse = hasPermission('caisse:lire');
 
 
@@ -309,6 +315,9 @@ export default function AccueilScreen() {
         <BrandLoader />
       ) : (
         <>
+          {showCurrentBand ? (
+            <CurrentBandCard farmId={farmId} feedAutonomyDays={d.feedAutonomyDays ?? null} onOpen={(id) => router.push(`/lot/${id}`)} />
+          ) : null}
           <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
           {/* ── Hero : l'essentiel du jour ── */}
           <HomeHero
@@ -337,7 +346,7 @@ export default function AccueilScreen() {
                 onPress: () => router.push('/sanitary'),
               },
               {
-                label: 'Mortalité',
+                label: 'Mortalité Fermia',
                 value: d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—',
                 tint: MORTALITY_ON_DARK[mortalityStatus],
               },
@@ -374,7 +383,7 @@ export default function AccueilScreen() {
             </View>
             <View style={styles.healthMortalityBar}>
               <View style={styles.healthMortalityHead}>
-                <AppText size='small' color='muted'>Mortalité cumulée</AppText>
+                <AppText size='small' color='muted'>Mortalité cumulée (Fermia)</AppText>
                 <AppText size='small' weight='semibold' color={mortalityStatus === 'normal' ? 'success' : mortalityStatus === 'elevated' ? 'warn' : 'danger'}>
                   {d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—'}
                 </AppText>
@@ -402,7 +411,7 @@ export default function AccueilScreen() {
           {/* ── Performance row: IC, GMQ, IPE — always one row ── */}
           <View style={styles.metricGridNoWrap}>
             <MetricTile
-              label='IC (FCR)'
+              label='IC Fermia'
               value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
               sub={avgFcr != null && avgFcr > 2.2 ? 'Élevé' : avgFcr != null && avgFcr < 1.8 ? 'Excellent' : 'Conforme'}
               tone={avgFcr != null && avgFcr > 2.2 ? 'red' : avgFcr != null && avgFcr < 1.8 ? 'green' : 'default'}
@@ -411,7 +420,7 @@ export default function AccueilScreen() {
               threeCol
             />
             <MetricTile
-              label='GMQ (g/j)'
+              label='GMQ Fermia (g/j)'
               value={avgGmq != null ? `${avgGmq.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}` : '—'}
               sub={avgGmq != null && avgGmq > 55 ? 'Croissance rapide' : avgGmq != null && avgGmq < 0 ? 'Perte de poids' : avgGmq != null ? 'Croissance normale' : undefined}
               tone={avgGmq != null && avgGmq > 55 ? 'green' : avgGmq != null && avgGmq < 0 ? 'amber' : 'default'}
@@ -420,7 +429,7 @@ export default function AccueilScreen() {
               threeCol
             />
             <MetricTile
-              label='IPE'
+              label='IPE Fermia'
               value={avgIpe != null && avgIpe > 0 ? fmt(Math.round(avgIpe)) : '—'}
               sub={ipeState?.label}
               tone={ipeState?.tone ?? 'default'}

@@ -7,6 +7,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { userNames } from '../../common/utils/user-names.js';
 import { mayChangeParameter } from '../access/access-rules.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { ProgramParameter } from './entities/program-parameter.entity.js';
@@ -36,8 +37,19 @@ export interface ParameterView {
   readonly validFrom: Date | null;
   readonly reason: string | null;
   readonly createdById: string | null;
+  /** Author's name; null for the seed (« Proposé » value) or an unknown account. */
+  readonly createdByName: string | null;
   readonly versionId: string | null;
+  /** Catalog « Proposé » value, used while no version is stored. */
+  readonly defaultValue: unknown;
+  /** Who must still decide the default, when the catalog says so. */
+  readonly defaultNote: string | null;
 }
+
+/** A stored version with its author's name. */
+export type ParameterVersionView = ProgramParameter & {
+  createdByName: string | null;
+};
 
 /**
  * Every version of one programme's parameters, resolved at any date without a
@@ -120,17 +132,32 @@ export class ParametersService {
     const program = await this.programme.current();
     const rows = await this.params.find({ where: { programId: program.id } });
     const inForce = versionsInForce(rows, at);
-    return PARAMETER_CATALOG.map((def) => this.view(def, inForce.get(def.key)));
+    const names = await userNames(
+      this.dataSource,
+      [...inForce.values()].map((r) => r.createdById),
+    );
+    return PARAMETER_CATALOG.map((def) =>
+      this.view(def, inForce.get(def.key), names),
+    );
   }
 
   /** Every version of `key`, newest effective date first. */
-  async history(key: string): Promise<ProgramParameter[]> {
+  async history(key: string): Promise<ParameterVersionView[]> {
     this.definition(key);
     const program = await this.programme.current();
-    return this.params.find({
+    const rows = await this.params.find({
       where: { programId: program.id, key },
       order: { validFrom: 'DESC', createdAt: 'DESC' },
     });
+    const names = await userNames(
+      this.dataSource,
+      rows.map((r) => r.createdById),
+    );
+    return rows.map((r) =>
+      Object.assign(r, {
+        createdByName: r.createdById ? (names.get(r.createdById) ?? null) : null,
+      }),
+    );
   }
 
   /**
@@ -266,6 +293,7 @@ export class ParametersService {
   private view(
     def: ParameterDefinition,
     row: ProgramParameter | undefined,
+    names: ReadonlyMap<string, string> = new Map(),
   ): ParameterView {
     return {
       key: def.key,
@@ -279,7 +307,12 @@ export class ParametersService {
       validFrom: row?.validFrom ?? null,
       reason: row?.reason ?? null,
       createdById: row?.createdById ?? null,
+      createdByName: row?.createdById
+        ? (names.get(row.createdById) ?? null)
+        : null,
       versionId: row?.id ?? null,
+      defaultValue: def.defaultValue,
+      defaultNote: def.defaultNote ?? null,
     };
   }
 }

@@ -53,6 +53,15 @@ export function ParameterHistoryPanel({
           ) : null}
           <dt className="text-slate-500">Profil responsable</dt>
           <dd>{ownerLabel(param.ownerProfile)}</dd>
+          {param.defaultValue !== undefined ? (
+            <>
+              <dt className="text-slate-500">Valeur par défaut</dt>
+              <dd className={param.type === 'formula' ? 'break-words font-mono text-xs' : undefined}>
+                {formatParameterValue(param.type, param.defaultValue, param.unit)}
+                {param.defaultNote ? <span className="block text-xs text-amber-700">{param.defaultNote}</span> : null}
+              </dd>
+            </>
+          ) : null}
         </dl>
 
         {canPropose ? (
@@ -86,7 +95,11 @@ export function ParameterHistoryPanel({
                 {v.reason ? <p className="text-xs text-slate-600">Motif : {v.reason}</p> : null}
                 <p className="text-[11px] text-slate-400">
                   Enregistrée le {dateTimeFr(v.createdAt)}
-                  {v.createdById ? ` · auteur ${v.createdById.slice(0, 8)}… (voir le journal d’audit)` : ' · par le serveur (valeur initiale)'}
+                  {v.createdById
+                    ? v.createdByName
+                      ? ` · par ${v.createdByName}`
+                      : ` · auteur ${v.createdById.slice(0, 8)}… (voir le journal d’audit)`
+                    : ' · par le serveur (valeur initiale)'}
                 </p>
               </li>
             ))}

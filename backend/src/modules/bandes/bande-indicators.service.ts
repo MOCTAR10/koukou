@@ -111,7 +111,9 @@ export class BandeIndicatorsService {
       deathEventsByDate: new Map(deathEvents.map((d) => [d.date, d.quantity])),
       weighedSorties: await this.weighedSorties(sorties),
       revenueFcfa: pnl.revenueFcfa,
-      chargesFcfa: pnl.expensesFcfa,
+      // Every cost of the band, input costs without an expense included
+      // (legacy lots), so the official margin and Fermia's agree.
+      chargesFcfa: pnl.revenueFcfa - pnl.netFcfa,
     });
     const at = factInstant(day);
     return {

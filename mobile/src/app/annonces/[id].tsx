@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { CalendarClock, MapPin, Store } from 'lucide-react-native';
+import { CalendarClock, MapPin, QrCode, Store } from 'lucide-react-native';
 
 import { ApiError } from '@/api/client';
 import { fetchMarketListing } from '@/api/market';
@@ -59,6 +59,17 @@ export default function ListingScreen() {
               {listing.availableQuantity} {unitName(listing.product, listing.availableQuantity)} · minimum {listing.minOrderQty}
             </AppText>
             {listing.description ? <AppText size="body">{listing.description}</AppText> : null}
+            {listing.traceLot ? (
+              // POUFA lot A indic: the band's public traceability page.
+              <Button
+                label={`Lot tracé ${listing.traceLot.code}`}
+                tone="ghost"
+                size="sm"
+                block={false}
+                icon={QrCode}
+                onPress={() => void Linking.openURL(listing.traceLot!.url)}
+              />
+            ) : null}
           </Card>
 
           {listing.kind === 'PRE' && listing.readyDate ? (

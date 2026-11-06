@@ -143,6 +143,8 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
     const farm = await createProgrammeFarm(server, adminToken, {
       name: `Ferme Demandes ${uniquePhone('')}`,
       exploitantName: 'Proprio Demandes',
+      // Market listings are only shown for OPERATIONNELLE farms (POUFA).
+      extra: { statusCode: 'OPERATIONNELLE' },
     });
     ownerToken = farm.ownerToken;
     farmId = farm.farmId;

@@ -391,8 +391,12 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         );
         expect(provinces.body[0].localites.length).toBeGreaterThan(0);
         await get('/programme/lists/STATUT_FERME', token).expect(200);
-        // Inactive items stay administrator-only.
-        await get('/programme/provinces?all=true', token).expect(403);
+        // Inactive items: the profiles managing the lists and settings only
+        // (POUFA lot A: ADMINISTRATION or PARAMETRES:MODIFIER by default).
+        const manages = ['DGE', 'VETERINAIRE', 'ADMIN'].includes(p.code);
+        await get('/programme/provinces?all=true', token).expect(
+          manages ? 200 : 403,
+        );
       }
       // Writes keep their domain: an institution without ADMINISTRATION.
       await post(

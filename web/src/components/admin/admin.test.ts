@@ -50,7 +50,15 @@ describe('adminRights', () => {
     expect(dge.audit.view).toBe(false);
 
     const admin = adminRights('INSTITUTION', ADMIN);
-    expect(admin.lists).toEqual({ view: true, write: true, readInactive: false });
+    expect(admin.lists).toEqual({ view: true, write: true, readInactive: true, readInactiveSanitary: true });
+    // The profiles that maintain the lists read the deactivated items (`?all=true`).
+    expect(adminRights('INSTITUTION', DGE).lists.readInactive).toBe(true);
+    expect(adminRights('INSTITUTION', VETERINAIRE).lists.readInactive).toBe(true);
+    expect(adminRights('INSTITUTION', MAEDR).lists).toMatchObject({ readInactive: false, readInactiveSanitary: false });
+    expect(adminRights('INSTITUTION', AGENT).lists.readInactive).toBe(false);
+    expect(
+      adminRights('INSTITUTION', profile('VET_TERRAIN', 'PROVINCES', { SANITAIRE: ['CONSULTER', 'MODIFIER'] })).lists,
+    ).toMatchObject({ readInactive: false, readInactiveSanitary: true });
     // REGISTRE:CONSULTER only: reads the recovery, can't validate.
     expect(admin.recovery).toMatchObject({ view: true, deposit: false, validate: false });
   });
@@ -315,10 +323,14 @@ describe('province boundary', () => {
 
   it('refuses a boundary above the body limit', () => {
     const big: number[][] = [];
-    for (let i = 0; i < 8000; i++) big.push([9 + i / 10_000, 0.3 + (i % 2) / 1000]);
+    for (let i = 0; i < 400_000; i++) big.push([9 + i / 100_000, 0.3 + (i % 2) / 1000]);
     big.push(big[0]!);
     const r = boundaryFromGeoJson({ type: 'Polygon', coordinates: [big] });
-    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/trop lourd/) });
-    expect(MAX_GEOMETRY_BYTES).toBe(102400);
+    expect(r).toMatchObject({ ok: false, error: expect.stringMatching(/trop lourd.*5 Mo/) });
+    // A province outline of a few thousand points now fits (the server takes 5 MB on this route).
+    const outline = big.slice(0, 9000);
+    outline.push(outline[0]!);
+    expect(boundaryFromGeoJson({ type: 'Polygon', coordinates: [outline] })).toMatchObject({ ok: true });
+    expect(MAX_GEOMETRY_BYTES).toBe(5 * 1024 * 1024 - 16 * 1024);
   });
 });

@@ -9,6 +9,7 @@ import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { OrdersModule } from '../orders/orders.module.js';
 import { ReferenceConstantsModule } from '../reference-constants/reference-constants.module.js';
+import { TraceCoreModule } from '../trace/trace-core.module.js';
 import { MarketListing } from './entities/market-listing.entity.js';
 import { MarketOrder } from './entities/market-order.entity.js';
 import {
@@ -36,6 +37,7 @@ import { MarketSweepService } from './market-sweep.service.js';
     FinanceModule,
     OrdersModule,
     ReferenceConstantsModule,
+    TraceCoreModule,
   ],
   controllers: [
     MarketCatalogueController,

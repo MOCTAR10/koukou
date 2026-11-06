@@ -36,6 +36,9 @@ import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
 import { ErrorNote } from '../components/form';
 import { ActionQueue, EggStockPanel, OwnerStats, PerformanceTiles, Ranking, WeatherCard } from '../components/sales/DashboardPanels';
+// POUFA lot A indic: official headline of the open bands, Fermia's figure second.
+import { ConduiteValue, OfficialValue, useBandHistory } from '../components/bandes/OfficialHeadline';
+import { CONDUITE_LABEL, FERMIA_FORMULAS, currentBand, findIndicator, openBandsHeadline, summariesById } from '../components/bandes/headline';
 import { CheptelModal, mainSpeciesImage } from '../components/flock/CheptelModal';
 import { HEALTH_LABEL } from '../components/sales/labels';
 import { batchPhoto } from '../components/sales/pos';
@@ -122,6 +125,11 @@ function LivestockDashboard() {
     enabled: !!farmId && canClients,
   });
   const batchList = useMemo(() => batches.data ?? [], [batches.data]);
+  const bandHistory = useBandHistory();
+  const headline = useMemo(() => openBandsHeadline(bandHistory.data), [bandHistory.data]);
+  const bandSummaries = useMemo(() => summariesById(bandHistory.data), [bandHistory.data]);
+  const officialHeadline = bandHistory.data && headline.bands > 0 ? headline : undefined;
+  const mortalityFormula = findIndicator(currentBand(bandHistory.data)?.summary?.indicators, 'taux_mortalite')?.expression;
   // The backend has no daily egg series: sum the entries of the laying lots, as mobile does.
   const layerIds = batchList.filter((b) => b.status !== 'CLOTURE' && b.type === 'PONDEUSE').map((b) => b.id);
   const eggSeries = useQuery({
@@ -198,13 +206,31 @@ function LivestockDashboard() {
           />
         </motion.div>
         <motion.div variants={staggerItem}>
-          <StatCard
-            label="Mortalité"
-            value={pct(d.mortalityPercent)}
-            hint={`Viabilité ${d.viabilityPercent != null ? pct(d.viabilityPercent) : '—'}`}
-            icon={<Activity className="h-5 w-5" />}
-            tone={d.mortalityPercent != null && d.mortalityPercent > 5 ? 'bad' : 'default'}
-          />
+          {officialHeadline ? (
+            <StatCard
+              label="Mortalité (officielle)"
+              value={
+                <span title={mortalityFormula ? `Formule du programme : ${mortalityFormula}` : undefined}>
+                  {officialHeadline.taux_mortalite != null ? pct(officialHeadline.taux_mortalite) : 'non calculable'}
+                </span>
+              }
+              hint={
+                <span title={FERMIA_FORMULAS.mortality}>
+                  Viabilité {officialHeadline.viabilite != null ? pct(officialHeadline.viabilite) : '—'} · Fermia {pct(d.mortalityPercent)} ({CONDUITE_LABEL})
+                </span>
+              }
+              icon={<Activity className="h-5 w-5" />}
+              tone={(officialHeadline.taux_mortalite ?? d.mortalityPercent ?? 0) > 5 ? 'bad' : 'default'}
+            />
+          ) : (
+            <StatCard
+              label="Mortalité (Fermia)"
+              value={<span title={FERMIA_FORMULAS.mortality}>{pct(d.mortalityPercent)}</span>}
+              hint={`Viabilité ${d.viabilityPercent != null ? pct(d.viabilityPercent) : '—'} · ${CONDUITE_LABEL}`}
+              icon={<Activity className="h-5 w-5" />}
+              tone={d.mortalityPercent != null && d.mortalityPercent > 5 ? 'bad' : 'default'}
+            />
+          )}
         </motion.div>
         <motion.div variants={staggerItem}>
           <StatCard
@@ -342,7 +368,7 @@ function LivestockDashboard() {
                   <Th>Type</Th>
                   <Th>Âge</Th>
                   <Th>Perf.</Th>
-                  <Th>IC</Th>
+                  <Th>IC (officiel)</Th>
                   <Th>Vivants</Th>
                 </tr>
               </thead>
@@ -358,7 +384,12 @@ function LivestockDashboard() {
                     <Td label="Type"><StatusBadge status={b.type} /></Td>
                     <Td label="Âge" className="whitespace-nowrap">{b.ageDays} j</Td>
                     <Td label="Perf." className="font-semibold">{b.perfIndex != null ? num(b.perfIndex) : '—'}</Td>
-                    <Td label="IC">{b.fcr != null ? num(b.fcr, 2) : '—'}</Td>
+                    <Td label="IC">
+                      <span className="block">
+                        <OfficialValue indicator={findIndicator(bandSummaries.get(b.batchId)?.indicators, 'ic')} />
+                      </span>
+                      <ConduiteValue text={b.fcr != null ? num(b.fcr, 2) : '—'} formula={FERMIA_FORMULAS.fcr} />
+                    </Td>
                     <Td label="Vivants">{num(b.liveCount)}</Td>
                   </tr>
                 ))}
@@ -480,7 +511,7 @@ function LivestockDashboard() {
         <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-6 min-[1800px]:grid-cols-[minmax(0,1fr)_400px]">
           <div className="space-y-6">
             {kpis}
-            <PerformanceTiles batches={batchList} />
+            <PerformanceTiles batches={batchList} official={officialHeadline} />
             {curve_card}
             {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
             {tables_row}
@@ -500,7 +531,7 @@ function LivestockDashboard() {
           {kpis}
           <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             <WeatherCard weather={d.weather} />
-            <PerformanceTiles batches={batchList} />
+            <PerformanceTiles batches={batchList} official={officialHeadline} />
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
             {health}

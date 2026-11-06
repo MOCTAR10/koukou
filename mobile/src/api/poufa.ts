@@ -459,6 +459,47 @@ export function fetchBandComparison(farmId: string, batchId: string): Promise<Ba
   return apiFetch<BandComparison>(`/farms/${farmId}/bandes/${batchId}/comparison`);
 }
 
+// POUFA lot A indic: band history with the official headline (CDC n° 11).
+export interface BandSummaryIndicator {
+  key: string;
+  label: string;
+  unit: string;
+  value: number | null;
+  expression: string;
+}
+
+/** Last frozen bilan (closed band) or live indicators (open band). */
+export interface BandSummary {
+  source: 'BILAN' | 'EN_COURS';
+  asOf: string;
+  ageDays: number;
+  durationDays: number | null;
+  snapshotVersion: number | null;
+  indicators: BandSummaryIndicator[];
+  revenueFcfa: number | null;
+  chargesFcfa: number | null;
+  marginFcfa: number | null;
+  completenessPct: number | null;
+}
+
+/** `GET /farms/:farmId/bandes[?status=]`: one band sheet with its summary, newest first. */
+export interface BandHistoryRow {
+  id: string;
+  code: string | null;
+  batchName: string | null;
+  status: string;
+  integrationDate: string;
+  closedAt: string | null;
+  ageDays: number | null;
+  quantityAtStart: number;
+  quantityAlive: number;
+  summary: BandSummary | null;
+}
+
+export function fetchBandHistory(farmId: string, status?: 'CLOTURE' | 'EN_COURS'): Promise<BandHistoryRow[]> {
+  return apiFetch<BandHistoryRow[]>(`/farms/${farmId}/bandes${status ? `?status=${status}` : ''}`);
+}
+
 export interface TraceOperator {
   id: string;
   code: string;

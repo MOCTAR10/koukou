@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Info, Lock, Pencil, Plus, Power, RotateCcw } from 'lucide-react';
+import { History, Info, Lock, Pencil, Plus, Power, RotateCcw } from 'lucide-react';
 import { api } from '../../api/client';
 import type { ListItem, ProgramListType, UpdateListItemBody } from '../../api/types-admin';
 import { classNames } from '../../lib/format';
@@ -8,6 +8,7 @@ import { Note, Pill } from '../flock/shared';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
 import { Card, DataTable, EmptyState, IconButton, Loading, Td, Th } from '../ui';
 import type { AdminRights } from './adminRights';
+import { ListHistoryPanel } from './ListHistoryPanel';
 import {
   codeFromLabel,
   createItemBody,
@@ -31,7 +32,10 @@ import { invalidateList, useListItems } from './queries';
  */
 export function ListsView({ rights }: { rights: AdminRights['lists'] }) {
   const [listType, setListType] = useState<ProgramListType>('STATUT_FERME');
-  const items = useListItems(listType, rights.readInactive);
+  // POUFA lot A indic: the profiles that manage a list read its deactivated items and its history.
+  const readInactive = isVetList(listType) ? rights.readInactiveSanitary : rights.readInactive;
+  const items = useListItems(listType, readInactive);
+  const [showHistory, setShowHistory] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<ListItem | null>(null);
   const [toggling, setToggling] = useState<ListItem | null>(null);
@@ -86,12 +90,17 @@ export function ListsView({ rights }: { rights: AdminRights['lists'] }) {
             Consultation seule : la modification des listes demande le droit Administration · Administrer.
           </Note>
         ) : null}
-        {!rights.readInactive ? (
+        {!readInactive ? (
           <p className="text-xs text-slate-500">
-            Seuls les éléments actifs sont affichés : les éléments désactivés ne sont visibles (et réactivables) que par l’administrateur
-            plateforme.
+            Seuls les éléments actifs sont affichés : les éléments désactivés ne sont visibles (et réactivables) que par les profils qui
+            gèrent cette liste.
           </p>
-        ) : null}
+        ) : (
+          <Button tone="secondary" onClick={() => setShowHistory(true)}>
+            <History className="h-4 w-4" /> Historique de la liste
+          </Button>
+        )}
+        {showHistory ? <ListHistoryPanel listType={listType} onClose={() => setShowHistory(false)} /> : null}
         {families ? (
           <p className="text-xs text-slate-500">
             Chaque élément porte une famille ({families.map((f) => FAMILY_LABELS[f] ?? f).join(', ')}) : c’est elle, et non le code ou le
@@ -166,7 +175,7 @@ export function ListsView({ rights }: { rights: AdminRights['lists'] }) {
       {creating ? <CreateItemModal listType={listType} existing={items.data ?? []} onClose={() => setCreating(false)} /> : null}
       {editing ? <EditItemModal listType={listType} item={editing} onClose={() => setEditing(null)} /> : null}
       {toggling ? (
-        <ToggleItemModal listType={listType} item={toggling} readInactive={rights.readInactive} onClose={() => setToggling(null)} />
+        <ToggleItemModal listType={listType} item={toggling} readInactive={readInactive} onClose={() => setToggling(null)} />
       ) : null}
     </div>
   );
@@ -321,7 +330,7 @@ function ToggleItemModal({ listType, item, readInactive, onClose }: { listType: 
             </p>
             {!readInactive ? (
               <Note tone="amber">
-                Vous ne le verrez plus ici : seuls les éléments actifs vous sont affichés, et seul l’administrateur plateforme peut le réactiver.
+                Vous ne le verrez plus ici : seuls les éléments actifs vous sont affichés, et seuls les profils qui gèrent cette liste peuvent le réactiver.
               </Note>
             ) : null}
           </>

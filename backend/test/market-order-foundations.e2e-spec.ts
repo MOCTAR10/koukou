@@ -99,6 +99,8 @@ describe('Commandes : socle du Market (e2e)', () => {
     const created = await createProgrammeFarm(server, admin.token, {
       name: `Ferme Socle ${uniquePhone('')}`,
       exploitantName: 'Proprio Socle',
+      // Market listings are only shown for OPERATIONNELLE farms (POUFA).
+      extra: { statusCode: 'OPERATIONNELLE' },
     });
     token = created.ownerToken;
     ownerId = created.ownerId;

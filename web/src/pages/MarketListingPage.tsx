@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, CalendarClock, MapPin, Store } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarClock, MapPin, QrCode, Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
@@ -189,6 +189,17 @@ export function MarketListingPage() {
               {fcfa(listing.unitPriceFcfa)} <span className="text-sm font-normal text-slate-500">/ {unitName(listing.product)}</span>
             </p>
             {listing.description ? <p className="mt-3 whitespace-pre-line text-sm text-slate-700">{listing.description}</p> : null}
+            {listing.traceLot ? (
+              // POUFA lot A indic: the band's public traceability page.
+              <a
+                href={listing.traceLot.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-2.5 py-1 text-sm font-medium text-brand-700 ring-1 ring-brand-200 hover:bg-brand-100"
+              >
+                <QrCode className="h-4 w-4" /> Lot tracé {listing.traceLot.code}
+              </a>
+            ) : null}
           </Card>
           {listing.kind === 'PRE' && listing.readyDate ? (
             <Card className="p-5">

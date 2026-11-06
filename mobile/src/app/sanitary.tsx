@@ -701,7 +701,7 @@ export default function SanitaryScreen() {
   const batchId = lot?.id ?? '';
 
   // Accès « planifier un soin » profond depuis une carte lot (?lot=..&plan=1).
-  const { lot: lotParam, plan: planParam, tab: tabParam } = useLocalSearchParams<{ lot?: string; plan?: string; tab?: string }>();
+  const { lot: lotParam, plan: planParam, tab: tabParam, declare: declareParam } = useLocalSearchParams<{ lot?: string; plan?: string; tab?: string; declare?: string }>();
 
   const [tab, setTab] = useState<TabKey>(() => (TAB_KEYS as readonly string[]).includes(tabParam ?? '') ? (tabParam as TabKey) : 'sante');
 
@@ -812,6 +812,16 @@ export default function SanitaryScreen() {
       setLotId(lotParam);
     }
   }, [lotParam, lots]);
+
+  // POUFA lot A indic: « Déclarer aux services vétérinaires » (?lot=..&declare=1) opens the declaration form.
+  const deepDeclareOpened = useRef(false);
+  useEffect(() => {
+    if (declareParam !== '1' || deepDeclareOpened.current || batchId === '') return;
+    if (lotParam && lotId !== lotParam) return;
+    deepDeclareOpened.current = true;
+    setTab('maladies');
+    setFormOpen(true);
+  }, [declareParam, lotParam, batchId, lotId]);
 
   useEffect(() => {
     if (planParam !== '1' || deepPlanOpened.current || batchId === '') return;

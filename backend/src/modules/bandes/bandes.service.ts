@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
@@ -14,6 +14,7 @@ import {
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
+import type { BandStatusFilter } from './band-summary.js';
 import { BandeSnapshot } from './entities/bande-snapshot.entity.js';
 import { WeighingsService } from './weighings.service.js';
 
@@ -73,11 +74,25 @@ export class BandesService {
     return this.sheetOf(await this.load(user, farmId, batchId));
   }
 
-  /** Every band of a programme farm, newest first (history, comparison). */
-  async list(user: AuthUser, farmId: string): Promise<BandSheet[]> {
+  /**
+   * Every band of a programme farm, newest first (history, comparison);
+   * `status`: only the closed (CLOTURE) or the open (EN_COURS) ones.
+   */
+  async list(
+    user: AuthUser,
+    farmId: string,
+    status?: BandStatusFilter,
+  ): Promise<BandSheet[]> {
     const farm = await this.programmeFarm(user, farmId);
     const batches = await this.batches.find({
-      where: { farmId },
+      where: {
+        farmId,
+        ...(status === 'CLOTURE'
+          ? { status: BatchStatus.CLOTURE }
+          : status === 'EN_COURS'
+            ? { status: Not(BatchStatus.CLOTURE) }
+            : {}),
+      },
       order: { integrationDate: 'DESC', createdAt: 'DESC' },
     });
     const out: BandSheet[] = [];

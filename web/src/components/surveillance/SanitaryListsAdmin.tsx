@@ -31,8 +31,9 @@ const LIST_HINTS: Record<SanitaryList, string> = {
 /**
  * The sanitary lists the veterinary services maintain (`/surveillance/lists`):
  * create, rename, deactivate (never delete). Codes and families never change.
- * Only the platform admin reads the deactivated items (`?all=true`); the
- * ones deactivated here stay listed for this visit so they can be turned back on.
+ * The profiles that maintain the list (SANITAIRE:MODIFIER, platform admin)
+ * read the deactivated items (`?all=true`, server `mayReadInactiveItems`); for
+ * the others, the ones deactivated here stay listed for this visit.
  */
 export function SanitaryListsAdmin({ canEdit }: { canEdit: boolean }) {
   const [list, setList] = useState<SanitaryList>('SIGNE_CLINIQUE');
@@ -47,7 +48,8 @@ export function SanitaryListsAdmin({ canEdit }: { canEdit: boolean }) {
 function ListEditor({ list, canEdit }: { list: SanitaryList; canEdit: boolean }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const all = user?.role === 'PLATFORM_ADMIN';
+  // POUFA lot A indic: SANITAIRE:MODIFIER reads the deactivated items too.
+  const all = user?.role === 'PLATFORM_ADMIN' || canEdit;
   const items = useQuery({
     queryKey: ['programme-list', list, all ? 'all' : 'active'],
     queryFn: () => api.getFresh<RefItem[]>(`/programme/lists/${list}${all ? '?all=true' : ''}`),

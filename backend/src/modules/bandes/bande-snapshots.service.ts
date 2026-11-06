@@ -19,7 +19,13 @@ import { daysBetween } from '../batches/flock-performance.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { indicatorValue } from '../indicators/official-indicators.js';
 import { BandeIndicatorsService } from './bande-indicators.service.js';
-import { BandesService } from './bandes.service.js';
+import {
+  summaryFromLive,
+  summaryFromSnapshot,
+  type BandStatusFilter,
+  type BandSummary,
+} from './band-summary.js';
+import { BandesService, type BandSheet } from './bandes.service.js';
 import {
   BandeSnapshot,
   type BandeSnapshotTrigger,
@@ -150,6 +156,56 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
       where: { batchId: batch.id },
       order: { version: 'ASC' },
     });
+  }
+
+  /**
+   * The farm's band history (CDC n° 11): every band (or only the closed /
+   * open ones) with its official headline, so the farm compares its bands.
+   * A closed band reads its latest frozen bilan, an open one today's
+   * indicators; a band whose indicators can't be computed gets `summary`
+   * null rather than failing the whole list.
+   */
+  async history(
+    user: AuthUser,
+    farmId: string,
+    status?: BandStatusFilter,
+  ): Promise<(BandSheet & { summary: BandSummary | null })[]> {
+    const farm = await this.bandes.programmeFarm(user, farmId);
+    const sheets = await this.bandes.list(user, farmId, status);
+    const out: (BandSheet & { summary: BandSummary | null })[] = [];
+    for (const sheet of sheets) {
+      out.push({ ...sheet, summary: await this.summaryOf(farm, sheet) });
+    }
+    return out;
+  }
+
+  private async summaryOf(
+    farm: Farm,
+    sheet: BandSheet,
+  ): Promise<BandSummary | null> {
+    try {
+      if (sheet.status === BatchStatus.CLOTURE) {
+        await this.ensureClosureSnapshot(sheet.id);
+        const last = await this.snapshots.findOne({
+          where: { batchId: sheet.id },
+          order: { version: 'DESC' },
+        });
+        if (last) return summaryFromSnapshot(last);
+      }
+      const batch = await this.batches.findOneOrFail({
+        where: { id: sheet.id },
+      });
+      const live = await this.indicators.compute(farm, batch);
+      return summaryFromLive(
+        live,
+        daysBetween(batch.integrationDate.slice(0, 10), live.asOf),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Résumé de la bande ${sheet.id} indisponible : ${String(err)}`,
+      );
+      return null;
+    }
   }
 
   private async build(

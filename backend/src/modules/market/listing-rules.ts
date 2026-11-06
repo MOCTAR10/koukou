@@ -46,7 +46,8 @@ export function hiddenReason(input: {
     status: MarketListingStatus;
     readyDate: string | null;
   };
-  farm: { active: boolean; isVerified: boolean };
+  /** `operational`: programme status of the OPERATIONNELLE family (POUFA). */
+  farm: { active: boolean; isVerified: boolean; operational: boolean };
   batchStatus: BatchStatus;
   holds: { withdrawalEndDate: string | null; prophylaxisOverdue: boolean };
   availableQuantity: number;
@@ -58,6 +59,7 @@ export function hiddenReason(input: {
   }
   if (!farm.active) return MarketHiddenReason.FARM_SUSPENDED;
   if (!farm.isVerified) return MarketHiddenReason.FARM_NOT_VERIFIED;
+  if (!farm.operational) return MarketHiddenReason.FARM_NOT_OPERATIONAL;
   // A lot often ends by being slaughtered: its carcasses remain for sale.
   if (
     listing.product !== MarketProduct.CARCASS &&

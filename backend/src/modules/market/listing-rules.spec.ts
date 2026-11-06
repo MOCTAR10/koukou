@@ -70,7 +70,7 @@ describe('hiddenReason', () => {
       status: MarketListingStatus.PUBLISHED,
       readyDate: '2026-11-20',
     },
-    farm: { active: true, isVerified: true },
+    farm: { active: true, isVerified: true, operational: true },
     batchStatus: BatchStatus.ACTIF,
     holds: NO_HOLDS,
     availableQuantity: 10,
@@ -109,12 +109,16 @@ describe('hiddenReason', () => {
       MarketHiddenReason.NOT_PUBLISHED,
     ],
     [
-      { farm: { active: false, isVerified: true } },
+      { farm: { active: false, isVerified: true, operational: true } },
       MarketHiddenReason.FARM_SUSPENDED,
     ],
     [
-      { farm: { active: true, isVerified: false } },
+      { farm: { active: true, isVerified: false, operational: true } },
       MarketHiddenReason.FARM_NOT_VERIFIED,
+    ],
+    [
+      { farm: { active: true, isVerified: true, operational: false } },
+      MarketHiddenReason.FARM_NOT_OPERATIONAL,
     ],
     [{ batchStatus: BatchStatus.FINI }, MarketHiddenReason.LOT_ENDED],
     [{ batchStatus: BatchStatus.CLOTURE }, MarketHiddenReason.LOT_ENDED],

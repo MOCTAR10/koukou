@@ -72,6 +72,23 @@ export class AuditEventsQueryDto extends PeriodQueryDto {
   @IsString()
   @MaxLength(200)
   route?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Statut HTTP : un code (403), une classe (4xx) ou SUCCES (< 400) / ECHEC (≥ 400)',
+    example: '4xx',
+  })
+  @IsOptional()
+  @Matches(/^(\d{3}|[1-5]xx|SUCCES|ECHEC)$/i, {
+    message:
+      'Statut invalide (un code comme 403, une classe comme 4xx, SUCCES ou ECHEC).',
+  })
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Identifiant de requête (X-Request-Id)' })
+  @IsOptional()
+  @IsUUID('all', { message: 'Identifiant de requête invalide.' })
+  requestId?: string;
 }
 
 export class AuditRowChangesQueryDto extends PeriodQueryDto {

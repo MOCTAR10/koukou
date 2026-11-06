@@ -13,17 +13,14 @@ import {
   AUDIT_ACTIONS,
   AUDIT_PAGE_SIZE,
   EMPTY_EVENT_FILTERS,
-  EMPTY_PAGE_FILTERS,
   eventFilterError,
   eventsQueryString,
   exportFileName,
-  filterPage,
   pageCount,
   ROLE_LABELS,
   STATUS_CLASS_LABELS,
   statusTone,
   type EventFilters,
-  type PageFilters,
   type StatusClass,
 } from './audit';
 import { EventDetailPanel } from './EventDetailPanel';
@@ -33,7 +30,6 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
   const navigate = useNavigate();
   const [draft, setDraft] = useState<EventFilters>(EMPTY_EVENT_FILTERS);
   const [filters, setFilters] = useState<EventFilters>(EMPTY_EVENT_FILTERS);
-  const [pageFilters, setPageFilters] = useState<PageFilters>(EMPTY_PAGE_FILTERS);
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<AuditEvent | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
@@ -44,7 +40,13 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
     queryFn: () => api.getFresh<AuditPage<AuditEvent>>(`/audit/events${qs}`),
     placeholderData: keepPreviousData,
   });
-  const exportCsv = useMutation({ mutationFn: () => api.download(`/audit/events/export${eventsQueryString(filters)}`, exportFileName(filters)) });
+  // The export says when it stopped at its row cap (`X-Audit-Truncated`).
+  const exportCsv = useMutation({
+    mutationFn: async () => {
+      const headers = await api.download(`/audit/events/export${eventsQueryString(filters)}`, exportFileName(filters));
+      return { truncated: headers.get('X-Audit-Truncated') === 'true' };
+    },
+  });
 
   const apply = (next: EventFilters) => {
     const err = eventFilterError(next);
@@ -57,9 +59,8 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
   const set = (key: keyof EventFilters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setDraft((d) => ({ ...d, [key]: e.target.value }));
 
   const data = events.data;
-  const rows = data ? filterPage(data.items, pageFilters) : [];
+  const rows = data?.items ?? [];
   const pages = data ? pageCount(data.total, data.limit) : 1;
-  const pageFiltered = !!pageFilters.status || !!pageFilters.requestId.trim();
 
   return (
     <div className="space-y-4">
@@ -97,12 +98,8 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
             <Field label="Ferme (identifiant)">
               <input className={`${inputCls} font-mono text-xs`} value={draft.farmId} onChange={set('farmId')} placeholder="UUID" />
             </Field>
-            <Field label="Statut (page affichée)">
-              <select
-                className={inputCls}
-                value={pageFilters.status}
-                onChange={(e) => setPageFilters((f) => ({ ...f, status: e.target.value as StatusClass | '' }))}
-              >
+            <Field label="Statut">
+              <select className={inputCls} value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as StatusClass | '' }))}>
                 <option value="">Tous</option>
                 {(Object.keys(STATUS_CLASS_LABELS) as StatusClass[]).map((s) => (
                   <option key={s} value={s}>
@@ -111,13 +108,8 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
                 ))}
               </select>
             </Field>
-            <Field label="Requête (page affichée)">
-              <input
-                className={`${inputCls} font-mono text-xs`}
-                value={pageFilters.requestId}
-                onChange={(e) => setPageFilters((f) => ({ ...f, requestId: e.target.value }))}
-                placeholder="début de l’identifiant"
-              />
+            <Field label="Requête (identifiant)" hint="Ou ouvrez une action et suivez sa requête.">
+              <input className={`${inputCls} font-mono text-xs`} value={draft.requestId} onChange={set('requestId')} placeholder="UUID" />
             </Field>
           </div>
           <ErrorNote error={filterError} />
@@ -127,10 +119,7 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
             </Button>
             <Button
               tone="secondary"
-              onClick={() => {
-                setPageFilters(EMPTY_PAGE_FILTERS);
-                apply(EMPTY_EVENT_FILTERS);
-              }}
+              onClick={() => apply(EMPTY_EVENT_FILTERS)}
             >
               Effacer
             </Button>
@@ -139,19 +128,15 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
             </Button>
           </div>
           <p className="text-xs text-slate-500">
-            Dates en UTC. L’export reprend les filtres de période, d’action, de route, d’utilisateur et de ferme (50 000 lignes au plus, les plus
-            récentes) ; il est lui-même inscrit au journal.
+            Dates en UTC. L’export reprend tous les filtres (50 000 lignes au plus, les plus récentes) ; il est lui-même inscrit au journal.
           </p>
           <ErrorNote error={exportCsv.error} />
+          {exportCsv.data?.truncated ? (
+            <Note tone="amber">L’export a été tronqué à 50 000 lignes (les plus récentes) : resserrez la période pour obtenir le reste.</Note>
+          ) : null}
         </form>
       </Card>
 
-      {pageFiltered ? (
-        <Note tone="amber">
-          Le statut et l’identifiant de requête filtrent seulement la page affichée (le serveur ne propose pas ces filtres) : changez de page
-          pour voir la suite.
-        </Note>
-      ) : null}
       <ErrorNote error={events.error} />
 
       <Card className="overflow-hidden">
@@ -212,15 +197,32 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
                           apply({ ...filters, actorUserId: e.actorUserId ?? '' });
                         }}
                       >
-                        <span className="block">{e.actorRole ? (ROLE_LABELS[e.actorRole] ?? e.actorRole) : 'Utilisateur'}</span>
-                        <span className="block font-mono text-[11px] text-slate-500">{e.actorUserId.slice(0, 8)}…</span>
+                        <span className="block">{e.actorName ?? (e.actorRole ? (ROLE_LABELS[e.actorRole] ?? e.actorRole) : 'Utilisateur')}</span>
+                        <span className="block font-mono text-[11px] text-slate-500">
+                          {e.actorName && e.actorRole ? `${ROLE_LABELS[e.actorRole] ?? e.actorRole} · ` : ''}
+                          {e.actorUserId.slice(0, 8)}…
+                        </span>
                       </button>
                     ) : (
                       <span className="text-xs text-slate-500">{e.action === 'SYSTEM' ? 'Serveur' : 'Non connecté'}</span>
                     )}
                   </Td>
                   <Td label="Requête" className="md:max-lg:hidden">
-                    <span className="font-mono text-[11px] text-slate-500">{e.requestId ? `${e.requestId.slice(0, 8)}…` : '—'}</span>
+                    {e.requestId ? (
+                      <button
+                        type="button"
+                        title="Filtrer sur cette requête"
+                        className="font-mono text-[11px] text-slate-500 hover:underline"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          apply({ ...filters, requestId: e.requestId ?? '' });
+                        }}
+                      >
+                        {e.requestId.slice(0, 8)}…
+                      </button>
+                    ) : (
+                      <span className="font-mono text-[11px] text-slate-500">—</span>
+                    )}
                   </Td>
                   <Td className="row-chevron w-8">
                     <ChevronRight className="h-4 w-4 text-slate-300" />

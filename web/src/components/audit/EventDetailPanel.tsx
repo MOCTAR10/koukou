@@ -40,6 +40,7 @@ export function EventDetailPanel({ event, onClose, onOpenRowChanges }: { event: 
           <dd>
             {event.actorUserId ? (
               <>
+                {event.actorName ? <span className="block font-medium text-slate-900">{event.actorName}</span> : null}
                 {event.actorRole ? (ROLE_LABELS[event.actorRole] ?? event.actorRole) : 'Utilisateur'}{' '}
                 <span className="break-all font-mono text-[11px] text-slate-500">{event.actorUserId}</span>
               </>

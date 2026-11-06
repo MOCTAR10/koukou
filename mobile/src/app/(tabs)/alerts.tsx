@@ -99,7 +99,11 @@ export default function AlertsScreen() {
 
   const openLot = (batchId: string) => router.push(`/lot/${batchId}`);
   // A sale opens the POS (Fermia-only sales desk): an institution sees the lot instead.
-  const canSell = useFarmProfile().hasPermission('vente:creer');
+  const farmProfile = useFarmProfile();
+  const canSell = farmProfile.hasPermission('vente:creer');
+  // POUFA lot A indic: a disease advice opens the sanitary declaration to the vets.
+  const canDeclare = farmProfile.hasPermission('sanitaire:signaler') || farmProfile.hasPermission('sanitaire:gerer');
+  const declare = canDeclare ? (batchId: string) => router.push(`/sanitary?lot=${batchId}&declare=1`) : undefined;
 
   const runAcknowledge = (alert: Alert) => {
     if (!alert.alertId || busyId) return;
@@ -182,7 +186,7 @@ export default function AlertsScreen() {
       bottomPad={120}
       refreshing={refreshing}
       onRefresh={refresh}
-      header={<ScreenHeader title="Alertes" subtitle="Vigilance immédiate, triée par impact" />}>
+      header={<ScreenHeader title="Conseils d’élevage" subtitle="Ce que Fermia a repéré sur vos lots, trié par impact" />}>
 
       <View style={styles.summary}>
         {status !== 'RESOLUE' && advisory.data ? (
@@ -301,7 +305,7 @@ export default function AlertsScreen() {
                 ACTIONS PRIORITAIRES
               </AppText>
               {priority.map((a) => (
-                <AlertCard key={a.id} alert={a} busy={busyId === a.id} onPrimary={handlePrimary} onOpenLot={openLot} canSell={canSell} />
+                <AlertCard key={a.id} alert={a} busy={busyId === a.id} onPrimary={handlePrimary} onOpenLot={openLot} canSell={canSell} onDeclare={declare} />
               ))}
             </>
           )}
