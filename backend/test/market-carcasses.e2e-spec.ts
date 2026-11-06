@@ -9,6 +9,11 @@ import { Farm } from './../src/modules/farms/entities/farm.entity.js';
 import { RentabiliteService } from './../src/modules/finance/rentabilite.service.js';
 import { OrdersService } from './../src/modules/orders/orders.service.js';
 import { CreateOrderDto } from './../src/modules/orders/dto/order.dto.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function dayOffset(days: number): string {
   return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
@@ -24,7 +29,6 @@ describe('Market : carcasses (e2e)', () => {
   let buyerToken: string;
   let seq = 0;
 
-  const phone = () => `+24170${String(Date.now()).slice(-6)}${seq++}`;
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
   const owner = () => auth(ownerToken);
   const buyer = () => auth(buyerToken);
@@ -112,7 +116,10 @@ describe('Market : carcasses (e2e)', () => {
       .post(`/farms/${farmId}/market/orders/${asked.body.id}/accept`)
       .set(owner())
       .expect(201);
-    return { id: asked.body.id as string, orderId: accepted.body.orderId as string };
+    return {
+      id: asked.body.id as string,
+      orderId: accepted.body.orderId as string,
+    };
   };
 
   const orderOf = async (orderId: string) =>
@@ -128,24 +135,24 @@ describe('Market : carcasses (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
     dataSource = app.get(DataSource);
 
-    const reg = await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(), fullName: 'Proprio Carcasses', code: 'secret123' })
-      .expect(201);
-    ownerToken = reg.body.accessToken;
-    ownerId = reg.body.user.id;
-    const farm = await request(server)
-      .post('/farms')
-      .set(owner())
-      .send({ name: `Ferme Carcasses ${Date.now()}`, administrativeCity: 'Mouila' })
-      .expect(201);
-    farmId = farm.body.id;
-    await dataSource.getRepository(Farm).update({ id: farmId }, { isVerified: true });
+    const admin = await createPlatformAdmin(server, dataSource);
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Carcasses ${uniquePhone('')}`,
+      exploitantName: 'Proprio Carcasses',
+    });
+    ownerToken = farm.ownerToken;
+    ownerId = farm.ownerId;
+    farmId = farm.farmId;
+    await dataSource
+      .getRepository(Farm)
+      .update({ id: farmId }, { isVerified: true });
     await request(server)
       .post(`/farms/${farmId}/caisse/open`)
       .set(owner())
@@ -154,10 +161,15 @@ describe('Market : carcasses (e2e)', () => {
 
     const b = await request(server)
       .post('/auth/register-buyer')
-      .send({ phone: phone(), fullName: 'Restaurant', code: 'secret123', type: 'RESTAURANT' })
+      .send({
+        phone: uniquePhone(),
+        fullName: 'Restaurant',
+        code: 'secret123',
+        type: 'RESTAURANT',
+      })
       .expect(201);
     buyerToken = b.body.accessToken;
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();
@@ -173,8 +185,13 @@ describe('Market : carcasses (e2e)', () => {
         .expect(200);
       expect(read.body.batchId).toBe(batchId);
 
-      const pub = await request(server).get(`/market/listings/${id}`).expect(200);
-      expect(pub.body).toMatchObject({ product: 'CARCASS', availableQuantity: 30 });
+      const pub = await request(server)
+        .get(`/market/listings/${id}`)
+        .expect(200);
+      expect(pub.body).toMatchObject({
+        product: 'CARCASS',
+        availableQuantity: 30,
+      });
       expect(pub.body.slaughteredAt).toBeTruthy();
       expect(JSON.stringify(pub.body)).not.toContain(slaughterId);
     });
@@ -201,11 +218,20 @@ describe('Market : carcasses (e2e)', () => {
 
     it('refuse une précommande, un abattage non traité ou d’une autre ferme', async () => {
       const { slaughterId, batchId } = await slaughtered();
-      const body = { product: 'CARCASS', unitPriceFcfa: 4000, quantityPublished: 1 };
+      const body = {
+        product: 'CARCASS',
+        unitPriceFcfa: 4000,
+        quantityPublished: 1,
+      };
       await request(server)
         .post(`/farms/${farmId}/market/listings`)
         .set(owner())
-        .send({ ...body, kind: 'PRE', slaughterOrderId: slaughterId, readyDate: dayOffset(5) })
+        .send({
+          ...body,
+          kind: 'PRE',
+          slaughterOrderId: slaughterId,
+          readyDate: dayOffset(5),
+        })
         .expect(400);
 
       const draft = await request(server)
@@ -228,7 +254,11 @@ describe('Market : carcasses (e2e)', () => {
       await request(server)
         .post(`/farms/${farmId}/market/listings`)
         .set(owner())
-        .send({ ...body, kind: 'NOW', slaughterOrderId: '00000000-0000-4000-8000-000000000000' })
+        .send({
+          ...body,
+          kind: 'NOW',
+          slaughterOrderId: '00000000-0000-4000-8000-000000000000',
+        })
         .expect(404);
       await request(server)
         .post(`/farms/${farmId}/market/listings`)
@@ -243,7 +273,11 @@ describe('Market : carcasses (e2e)', () => {
       await request(server)
         .post(`/farms/${farmId}/batches/${batchId}/treatments`)
         .set(owner())
-        .send({ careType: 'ANTIBIOTIQUE', productName: 'Amoxicilline', withdrawalDays: 10 })
+        .send({
+          careType: 'ANTIBIOTIQUE',
+          productName: 'Amoxicilline',
+          withdrawalDays: 10,
+        })
         .expect(201);
       await dataSource.query(
         `UPDATE production_batches SET status = 'FINI', quantity_alive = 0 WHERE id = $1`,
@@ -287,7 +321,14 @@ describe('Market : carcasses (e2e)', () => {
         .set(owner())
         .send({
           canal: 'FERME',
-          items: [{ productType: 'POULET_PIECE', quantity: alive, unitPriceFcfa: 3000, batchId }],
+          items: [
+            {
+              productType: 'POULET_PIECE',
+              quantity: alive,
+              unitPriceFcfa: 3000,
+              batchId,
+            },
+          ],
         })
         .expect(201);
     });
@@ -416,7 +457,11 @@ describe('Market : carcasses (e2e)', () => {
       await request(server)
         .post(`/farms/${farmId}/batches/${batchId}/treatments`)
         .set(owner())
-        .send({ careType: 'ANTIBIOTIQUE', productName: 'Amoxicilline', withdrawalDays: 10 })
+        .send({
+          careType: 'ANTIBIOTIQUE',
+          productName: 'Amoxicilline',
+          withdrawalDays: 10,
+        })
         .expect(201);
       await request(server)
         .post(`/farms/${farmId}/orders/${orderId}/livrer`)
@@ -432,7 +477,9 @@ describe('Market : carcasses (e2e)', () => {
         'UPDATE slaughter_orders SET carcasses_available = 5 WHERE id = $1',
         [slaughterId],
       );
-      const pub = await request(server).get(`/market/listings/${id}`).expect(200);
+      const pub = await request(server)
+        .get(`/market/listings/${id}`)
+        .expect(200);
       expect(pub.body.availableQuantity).toBe(5);
     });
   });
@@ -483,7 +530,9 @@ describe('Market : carcasses (e2e)', () => {
 
     it('sans l’option interne, une source est ignorée même en interne', async () => {
       const { slaughterId, batchId } = await slaughtered();
-      const farm = await dataSource.getRepository(Farm).findOneByOrFail({ id: farmId });
+      const farm = await dataSource
+        .getRepository(Farm)
+        .findOneByOrFail({ id: farmId });
       const dto = {
         canal: 'FERME',
         items: [
@@ -500,7 +549,12 @@ describe('Market : carcasses (e2e)', () => {
         dataSource.transaction((em) =>
           app
             .get(OrdersService)
-            .createWithin(em, { id: ownerId, role: UserRole.PROPRIETAIRE }, farm, dto),
+            .createWithin(
+              em,
+              { id: ownerId, role: UserRole.PROPRIETAIRE },
+              farm,
+              dto,
+            ),
         ),
       ).rejects.toThrow(/volaille sur pied/);
     });

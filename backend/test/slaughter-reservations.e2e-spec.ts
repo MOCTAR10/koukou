@@ -2,7 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -68,27 +74,13 @@ describe('Abattage / vente POS ↔ réservations de commandes (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24194${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Réserve', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set(auth())
-      .send({
-        name: `Ferme Réserve ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Réserve ${uniquePhone('')}`,
+      exploitantName: 'Proprio Réserve',
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -101,7 +93,7 @@ describe('Abattage / vente POS ↔ réservations de commandes (e2e)', () => {
       })
       .expect(201);
     batchId = batch.body.id;
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();

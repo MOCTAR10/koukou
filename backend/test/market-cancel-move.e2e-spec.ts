@@ -5,6 +5,12 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import { Farm } from './../src/modules/farms/entities/farm.entity.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  registerBuyer,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function dayOffset(days: number): string {
   return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
@@ -17,9 +23,9 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
   let ownerToken: string;
   let farmId: string;
   let buyerToken: string;
+  let adminToken: string;
   let seq = 0;
 
-  const phone = () => `+24179${String(Date.now()).slice(-6)}${seq++}`;
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
   const owner = () => auth(ownerToken);
   const buyer = () => auth(buyerToken);
@@ -79,11 +85,12 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
     request(server).post(`/market/orders/${id}/cancel`).set(auth(token));
 
   const buyerRead = async (id: string) =>
-    (await request(server).get(`/market/orders/${id}`).set(buyer()).expect(200)).body;
+    (await request(server).get(`/market/orders/${id}`).set(buyer()).expect(200))
+      .body;
 
   const available = async (listingId: string) =>
-    (await request(server).get(`/market/listings/${listingId}`).expect(200)).body
-      .availableQuantity as number;
+    (await request(server).get(`/market/listings/${listingId}`).expect(200))
+      .body.availableQuantity as number;
 
   const cashBalance = async () =>
     (
@@ -120,35 +127,31 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
     dataSource = app.get(DataSource);
 
-    const reg = await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(), fullName: 'Proprio Annulation', code: 'secret123' })
-      .expect(201);
-    ownerToken = reg.body.accessToken;
-    const farm = await request(server)
-      .post('/farms')
-      .set(owner())
-      .send({ name: `Ferme Annulation ${Date.now()}`, administrativeCity: 'Franceville' })
-      .expect(201);
-    farmId = farm.body.id;
-    await dataSource.getRepository(Farm).update({ id: farmId }, { isVerified: true });
+    adminToken = (await createPlatformAdmin(server, dataSource)).token;
+    const farm = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme Annulation ${uniquePhone('')}`,
+      exploitantName: 'Proprio Annulation',
+    });
+    ownerToken = farm.ownerToken;
+    farmId = farm.farmId;
+    await dataSource
+      .getRepository(Farm)
+      .update({ id: farmId }, { isVerified: true });
     await request(server)
       .post(`/farms/${farmId}/caisse/open`)
       .set(owner())
       .send({ openingBalanceFcfa: 100000 })
       .expect(201);
 
-    const b = await request(server)
-      .post('/auth/register-buyer')
-      .send({ phone: phone(), fullName: 'Acheteur', code: 'secret123' })
-      .expect(201);
-    buyerToken = b.body.accessToken;
-  });
+    buyerToken = (await registerBuyer(server, { fullName: 'Acheteur' })).token;
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();
@@ -185,7 +188,9 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
 
       const res = await cancel(id).expect(201);
       expect(res.body.status).toBe('CANCEL_REQUESTED');
-      expect(res.body.timeline.map((e: { type: string }) => e.type)).toContain('CANCEL_REQUESTED');
+      expect(res.body.timeline.map((e: { type: string }) => e.type)).toContain(
+        'CANCEL_REQUESTED',
+      );
       expect((await orderOf(orderId)).status).toBe('CONFIRMED');
       expect(await available(listing.id)).toBe(40);
       expect(await cashBalance()).toBe(before);
@@ -224,11 +229,8 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
 
     it('refuse après livraison, et sur la commande d’un autre', async () => {
       const { id, orderId } = await acceptedOrder({ depositPct: undefined });
-      const stranger = await request(server)
-        .post('/auth/register-buyer')
-        .send({ phone: phone(), fullName: 'Autre', code: 'secret123' })
-        .expect(201);
-      await cancel(id, stranger.body.accessToken).expect(404);
+      const stranger = await registerBuyer(server, { fullName: 'Autre' });
+      await cancel(id, stranger.token).expect(404);
 
       await request(server)
         .post(`/farms/${farmId}/orders/${orderId}/livrer`)
@@ -293,19 +295,29 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
       const original = dayOffset(14);
       const next = dayOffset(21);
       const res = await move(listing.id, next).expect(201);
-      expect(res.body).toMatchObject({ readyDate: next, previousReadyDate: original });
+      expect(res.body).toMatchObject({
+        readyDate: next,
+        previousReadyDate: original,
+      });
 
       expect((await orderOf(orderId)).expectedDate).toBe(next);
 
       const read = await buyerRead(id);
       expect(read.readyDate).toBe(next);
       expect(read.previousReadyDate).toBe(original);
-      expect(read.timeline.map((e: { type: string }) => e.type)).toContain('DATE_MOVED');
+      expect(read.timeline.map((e: { type: string }) => e.type)).toContain(
+        'DATE_MOVED',
+      );
       // No answer from the buyer keeps the order.
       expect(read.status).toBe('AWAITING_DEPOSIT');
 
-      const pub = await request(server).get(`/market/listings/${listing.id}`).expect(200);
-      expect(pub.body).toMatchObject({ readyDate: next, previousReadyDate: original });
+      const pub = await request(server)
+        .get(`/market/listings/${listing.id}`)
+        .expect(200);
+      expect(pub.body).toMatchObject({
+        readyDate: next,
+        previousReadyDate: original,
+      });
     });
 
     it('n’annonce pas de changement à qui commande après', async () => {
@@ -314,7 +326,9 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
       const id = await ask(listing.id);
       const read = await buyerRead(id);
       expect(read.previousReadyDate).toBeNull();
-      expect(read.timeline.map((e: { type: string }) => e.type)).not.toContain('DATE_MOVED');
+      expect(read.timeline.map((e: { type: string }) => e.type)).not.toContain(
+        'DATE_MOVED',
+      );
     });
 
     it('une demande acceptée après le déplacement prend la nouvelle date', async () => {
@@ -373,7 +387,11 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
       const pre = await newListing();
       await move(pre.id, dayOffset(14)).expect(400);
 
-      const now = await newListing({ kind: 'NOW', readyDate: undefined, depositPct: undefined });
+      const now = await newListing({
+        kind: 'NOW',
+        readyDate: undefined,
+        depositPct: undefined,
+      });
       await move(now.id, dayOffset(21)).expect(400);
 
       const draft = await request(server)
@@ -396,7 +414,11 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
       await request(server)
         .post(`/farms/${farmId}/batches/${listing.batchId}/treatments`)
         .set(owner())
-        .send({ careType: 'ANTIBIOTIQUE', productName: 'Amoxicilline', withdrawalDays: 10 })
+        .send({
+          careType: 'ANTIBIOTIQUE',
+          productName: 'Amoxicilline',
+          withdrawalDays: 10,
+        })
         .expect(201);
       const res = await move(listing.id, dayOffset(5)).expect(400);
       expect(res.body.message).toMatch(/Délai d’attente/);
@@ -410,17 +432,12 @@ describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => 
         .set(buyer())
         .send({ readyDate: dayOffset(21) })
         .expect(403);
-      const other = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Autre', code: 'secret123' })
-        .expect(201);
-      const otherFarms = await request(server)
-        .get('/farms')
-        .set(auth(other.body.accessToken))
-        .expect(200);
+      const other = await createProgrammeFarm(server, adminToken, {
+        exploitantName: 'Autre',
+      });
       await request(server)
-        .post(`/farms/${otherFarms.body[0].id}/market/listings/${listing.id}/move-date`)
-        .set(auth(other.body.accessToken))
+        .post(`/farms/${other.farmId}/market/listings/${listing.id}/move-date`)
+        .set(auth(other.ownerToken))
         .send({ readyDate: dayOffset(21) })
         .expect(404);
     });

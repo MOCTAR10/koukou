@@ -2,7 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  login,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -78,31 +85,13 @@ describe('Module 4 — POS ferme (régression & gardes manquantes, e2e)', () => 
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24160${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio POS',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme POS ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme POS ${uniquePhone('')}`,
+      exploitantName: 'Proprio POS',
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -135,7 +124,7 @@ describe('Module 4 — POS ferme (régression & gardes manquantes, e2e)', () => 
     feedLotId = feed.body.id;
 
     await openCaisse().expect(201);
-  });
+  }, 60_000);
 
   it('méthodes désactivées : MOBILE_MONEY et QR_CODE refusés (400 « arrive bientôt »)', async () => {
     for (const method of ['MOBILE_MONEY', 'QR_CODE']) {
@@ -272,17 +261,13 @@ describe('Module 4 — POS ferme (régression & gardes manquantes, e2e)', () => 
   });
 
   it('un Éleveur ne peut pas ouvrir la caisse (403), mais consulte la session ouverte (200)', async () => {
-    const empPhone = `+24161${Date.now()}`;
+    const empPhone = uniquePhone();
     await post('/farms/' + farmId + '/eleveurs', {
       phone: empPhone,
       fullName: 'Éleveur POS',
       code: 'secret123',
     }).expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone: empPhone, code: 'secret123' })
-      .expect(201);
-    const empToken = login.body.accessToken;
+    const empToken = await login(server, empPhone, 'secret123');
 
     const res403 = await request(server)
       .post(`/farms/${farmId}/caisse/open`)

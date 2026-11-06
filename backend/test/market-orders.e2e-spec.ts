@@ -7,6 +7,12 @@ import { AppModule } from './../src/app.module.js';
 import { Farm } from './../src/modules/farms/entities/farm.entity.js';
 import { MarketOrder } from './../src/modules/market/entities/market-order.entity.js';
 import { MarketSweepService } from './../src/modules/market/market-sweep.service.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  login,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function dayOffset(days: number): string {
   return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
@@ -22,14 +28,15 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
   let farmId: string;
   let buyerToken: string;
   let buyerPhone: string;
+  let adminToken: string;
   let seq = 0;
 
-  const phone = () => `+24178${String(Date.now()).slice(-6)}${seq++}`;
   const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
   const farmOrders = () => `/farms/${farmId}/market/orders`;
 
+  // Not `registerBuyer`: these buyers carry a type, organisation and city.
   const newBuyer = async (over: Record<string, unknown> = {}) => {
-    const number = phone();
+    const number = uniquePhone();
     const res = await request(server)
       .post('/auth/register-buyer')
       .send({ phone: number, fullName: 'Acheteur', code: 'secret123', ...over })
@@ -72,7 +79,11 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
     return { id: listing.body.id as string, batchId: batch.body.id as string };
   };
 
-  const ask = (listingId: string, over: Record<string, unknown> = {}, token = buyerToken) =>
+  const ask = (
+    listingId: string,
+    over: Record<string, unknown> = {},
+    token = buyerToken,
+  ) =>
     request(server)
       .post('/market/orders')
       .set(auth(token))
@@ -85,21 +96,29 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
     const listing = await newListing(over);
     const asked = await ask(listing.id).expect(201);
     const accepted = await accept(asked.body.id).expect(201);
-    return { listing, id: asked.body.id as string, orderId: accepted.body.orderId as string };
+    return {
+      listing,
+      id: asked.body.id as string,
+      orderId: accepted.body.orderId as string,
+    };
   };
 
   const buyerRead = async (id: string, token = buyerToken) =>
-    (await request(server).get(`/market/orders/${id}`).set(auth(token)).expect(200)).body;
+    (
+      await request(server)
+        .get(`/market/orders/${id}`)
+        .set(auth(token))
+        .expect(200)
+    ).body;
 
   const available = async (listingId: string) =>
-    (await request(server).get(`/market/listings/${listingId}`).expect(200)).body
-      .availableQuantity as number;
+    (await request(server).get(`/market/listings/${listingId}`).expect(200))
+      .body.availableQuantity as number;
 
   const pastDeadline = (id: string) =>
-    dataSource.getRepository(MarketOrder).update(
-      { id },
-      { depositDueAt: new Date(Date.now() - HOUR) },
-    );
+    dataSource
+      .getRepository(MarketOrder)
+      .update({ id }, { depositDueAt: new Date(Date.now() - HOUR) });
 
   const recordDeposit = (orderId: string, amountFcfa: number) =>
     request(server)
@@ -112,24 +131,24 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
     dataSource = app.get(DataSource);
     sweep = app.get(MarketSweepService);
 
-    const owner = await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(), fullName: 'Proprio Demandes', code: 'secret123' })
-      .expect(201);
-    ownerToken = owner.body.accessToken;
-    const farm = await request(server)
-      .post('/farms')
-      .set(auth(ownerToken))
-      .send({ name: `Ferme Demandes ${Date.now()}`, administrativeCity: 'Oyem' })
-      .expect(201);
-    farmId = farm.body.id;
-    await dataSource.getRepository(Farm).update({ id: farmId }, { isVerified: true });
+    adminToken = (await createPlatformAdmin(server, dataSource)).token;
+    const farm = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme Demandes ${uniquePhone('')}`,
+      exploitantName: 'Proprio Demandes',
+    });
+    ownerToken = farm.ownerToken;
+    farmId = farm.farmId;
+    await dataSource
+      .getRepository(Farm)
+      .update({ id: farmId }, { isVerified: true });
     await request(server)
       .post(`/farms/${farmId}/caisse/open`)
       .set(auth(ownerToken))
@@ -143,7 +162,9 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
     });
     buyerToken = buyer.token;
     buyerPhone = buyer.phone;
-  });
+    // App boot + admin, programme farm, activation and logins (bcrypt each):
+    // over the default 10 s hook timeout when the machine is loaded.
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();
@@ -152,7 +173,10 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
   describe('demande', () => {
     it('fige le prix, ne réserve rien et cache le téléphone de la ferme', async () => {
       const listing = await newListing();
-      const res = await ask(listing.id, { fulfilment: 'DELIVERY', address: 'Akanda' }).expect(201);
+      const res = await ask(listing.id, {
+        fulfilment: 'DELIVERY',
+        address: 'Akanda',
+      }).expect(201);
       expect(res.body).toMatchObject({
         status: 'PENDING',
         quantity: 10,
@@ -189,7 +213,11 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
     it.each([
       ['sous le minimum', { minOrderQty: 5 }, { quantity: 4 }],
       ['au-dessus du disponible', {}, { quantity: 51 }],
-      ['livraison non proposée', { deliveryAvailable: false, deliveryFeeFcfa: 0 }, { fulfilment: 'DELIVERY', address: 'A' }],
+      [
+        'livraison non proposée',
+        { deliveryAvailable: false, deliveryFeeFcfa: 0 },
+        { fulfilment: 'DELIVERY', address: 'A' },
+      ],
       ['livraison sans adresse', {}, { fulfilment: 'DELIVERY' }],
       ['retrait non proposé', { pickupAvailable: false }, {}],
       ['date choisie sur une précommande', {}, { desiredDate: dayOffset(3) }],
@@ -212,26 +240,22 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       const own = await ask(listing.id, {}, ownerToken).expect(400);
       expect(own.body.message).toMatch(/propre ferme/);
 
-      const staffPhone = phone();
+      const staffPhone = uniquePhone();
       await request(server)
         .post(`/farms/${farmId}/eleveurs`)
         .set(auth(ownerToken))
         .send({ phone: staffPhone, fullName: 'Employé', code: 'secret123' })
         .expect(201);
-      const staff = await request(server)
-        .post('/auth/login')
-        .send({ phone: staffPhone, code: 'secret123' })
-        .expect(201);
-      await ask(listing.id, {}, staff.body.accessToken).expect(400);
+      const staffToken = await login(server, staffPhone, 'secret123');
+      await ask(listing.id, {}, staffToken).expect(400);
     });
 
     it('laisse un autre propriétaire commander', async () => {
       const listing = await newListing();
-      const other = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Autre Éleveur', code: 'secret123' })
-        .expect(201);
-      await ask(listing.id, {}, other.body.accessToken).expect(201);
+      const other = await createProgrammeFarm(server, adminToken, {
+        exploitantName: 'Autre Éleveur',
+      });
+      await ask(listing.id, {}, other.ownerToken).expect(201);
     });
 
     it('limite les demandes ouvertes par acheteur', async () => {
@@ -240,7 +264,11 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       for (let i = 0; i < 10; i++) {
         await ask(listing.id, { quantity: 1 }, buyer.token).expect(201);
       }
-      const refused = await ask(listing.id, { quantity: 1 }, buyer.token).expect(400);
+      const refused = await ask(
+        listing.id,
+        { quantity: 1 },
+        buyer.token,
+      ).expect(400);
       expect(refused.body.message).toMatch(/demandes en attente/);
     });
 
@@ -298,7 +326,15 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       const read = await buyerRead(id);
       expect(read.status).toBe('CANCELLED');
       const body = JSON.stringify(read);
-      for (const secret of ['client pénible', 'cancelledReason', 'passport', 'batchId', 'batchName', 'customerId', 'saleId']) {
+      for (const secret of [
+        'client pénible',
+        'cancelledReason',
+        'passport',
+        'batchId',
+        'batchName',
+        'customerId',
+        'saleId',
+      ]) {
         expect(body).not.toContain(secret);
       }
     });
@@ -311,36 +347,28 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         .set(auth(buyerToken))
         .expect(403);
 
-      const other = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Autre', code: 'secret123' })
-        .expect(201);
+      const other = await createProgrammeFarm(server, adminToken, {
+        exploitantName: 'Autre',
+      });
       await request(server)
         .post(`${farmOrders()}/${asked.body.id}/accept`)
-        .set(auth(other.body.accessToken))
+        .set(auth(other.ownerToken))
         .expect(403);
-      const otherFarms = await request(server)
-        .get('/farms')
-        .set(auth(other.body.accessToken))
-        .expect(200);
       await request(server)
-        .post(`/farms/${otherFarms.body[0].id}/market/orders/${asked.body.id}/accept`)
-        .set(auth(other.body.accessToken))
+        .post(`/farms/${other.farmId}/market/orders/${asked.body.id}/accept`)
+        .set(auth(other.ownerToken))
         .expect(404);
 
-      const staffPhone = phone();
+      const staffPhone = uniquePhone();
       await request(server)
         .post(`/farms/${farmId}/eleveurs`)
         .set(auth(ownerToken))
         .send({ phone: staffPhone, fullName: 'Éleveur', code: 'secret123' })
         .expect(201);
-      const staff = await request(server)
-        .post('/auth/login')
-        .send({ phone: staffPhone, code: 'secret123' })
-        .expect(201);
+      const staffToken = await login(server, staffPhone, 'secret123');
       await request(server)
         .post(`${farmOrders()}/${asked.body.id}/accept`)
-        .set(auth(staff.body.accessToken))
+        .set(auth(staffToken))
         .expect(403);
     });
   });
@@ -348,11 +376,17 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
   describe('acceptation', () => {
     it('crée la commande, réserve le stock et donne le téléphone de la ferme', async () => {
       const listing = await newListing();
-      const asked = await ask(listing.id, { fulfilment: 'DELIVERY', address: 'Akanda' }).expect(201);
+      const asked = await ask(listing.id, {
+        fulfilment: 'DELIVERY',
+        address: 'Akanda',
+      }).expect(201);
       const res = await accept(asked.body.id).expect(201);
       expect(res.body.state).toBe('ACCEPTED');
       expect(res.body.status).toBe('AWAITING_DEPOSIT');
-      expect(res.body.buyer).toMatchObject({ type: 'HOTEL', organizationName: 'Hôtel du Port' });
+      expect(res.body.buyer).toMatchObject({
+        type: 'HOTEL',
+        organizationName: 'Hôtel du Port',
+      });
 
       const order = await request(server)
         .get(`/farms/${farmId}/orders/${res.body.orderId}`)
@@ -375,8 +409,13 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       const read = await buyerRead(asked.body.id);
       expect(read.status).toBe('AWAITING_DEPOSIT');
       expect(read.farm.phone).toBeTruthy();
-      expect(new Date(read.depositDueAt).getTime()).toBeGreaterThan(Date.now() + 23 * HOUR);
-      expect(read.timeline.map((e: { type: string }) => e.type)).toEqual(['REQUESTED', 'ACCEPTED']);
+      expect(new Date(read.depositDueAt).getTime()).toBeGreaterThan(
+        Date.now() + 23 * HOUR,
+      );
+      expect(read.timeline.map((e: { type: string }) => e.type)).toEqual([
+        'REQUESTED',
+        'ACCEPTED',
+      ]);
     });
 
     it('n’attend pas d’acompte quand l’annonce n’en demande pas', async () => {
@@ -412,7 +451,14 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         .set(auth(ownerToken))
         .send({
           canal: 'FERME',
-          items: [{ productType: 'POULET_PIECE', quantity: 60, unitPriceFcfa: 3000, batchId: listing.batchId }],
+          items: [
+            {
+              productType: 'POULET_PIECE',
+              quantity: 60,
+              unitPriceFcfa: 3000,
+              batchId: listing.batchId,
+            },
+          ],
         })
         .expect(201);
       const res = await accept(asked.body.id).expect(400);
@@ -427,7 +473,11 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       await request(server)
         .post(`/farms/${farmId}/batches/${listing.batchId}/treatments`)
         .set(auth(ownerToken))
-        .send({ careType: 'ANTIBIOTIQUE', productName: 'Amoxicilline', withdrawalDays: 10 })
+        .send({
+          careType: 'ANTIBIOTIQUE',
+          productName: 'Amoxicilline',
+          withdrawalDays: 10,
+        })
         .expect(201);
       const res = await accept(asked.body.id).expect(400);
       expect(res.body.message).toMatch(/délai d’attente/);
@@ -436,10 +486,12 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
     it('refuse une demande expirée, même avant le passage du balayage', async () => {
       const listing = await newListing();
       const asked = await ask(listing.id).expect(201);
-      await dataSource.getRepository(MarketOrder).update(
-        { id: asked.body.id },
-        { requestExpiresAt: new Date(Date.now() - 1000) },
-      );
+      await dataSource
+        .getRepository(MarketOrder)
+        .update(
+          { id: asked.body.id },
+          { requestExpiresAt: new Date(Date.now() - 1000) },
+        );
       await accept(asked.body.id).expect(400);
     });
 
@@ -467,11 +519,15 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
     it('refuse sur une ferme suspendue', async () => {
       const listing = await newListing();
       const asked = await ask(listing.id).expect(201);
-      await dataSource.getRepository(Farm).update({ id: farmId }, { active: false });
+      await dataSource
+        .getRepository(Farm)
+        .update({ id: farmId }, { active: false });
       try {
         await accept(asked.body.id).expect(400);
       } finally {
-        await dataSource.getRepository(Farm).update({ id: farmId }, { active: true });
+        await dataSource
+          .getRepository(Farm)
+          .update({ id: farmId }, { active: true });
       }
     });
   });
@@ -507,7 +563,9 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         .expect(201);
       const read = await buyerRead(id);
       expect(read.status).toBe('DELIVERED');
-      expect(read.timeline.map((e: { type: string }) => e.type)).toContain('DELIVERED');
+      expect(read.timeline.map((e: { type: string }) => e.type)).toContain(
+        'DELIVERED',
+      );
       expect(await available(listing.id)).toBe(40);
     });
 
@@ -528,8 +586,13 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         'UPDATE production_batches SET quantity_alive = 5 WHERE id = $1',
         [listing.batchId],
       );
-      const list = await request(server).get(farmOrders()).set(auth(ownerToken)).expect(200);
-      expect(list.body.find((o: { id: string }) => o.id === id).oversold).toBe(true);
+      const list = await request(server)
+        .get(farmOrders())
+        .set(auth(ownerToken))
+        .expect(200);
+      expect(list.body.find((o: { id: string }) => o.id === id).oversold).toBe(
+        true,
+      );
     });
 
     it('refuse de livrer une commande Market pendant un délai d’attente, pas une commande de la ferme', async () => {
@@ -539,13 +602,24 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         .set(auth(ownerToken))
         .send({
           canal: 'FERME',
-          items: [{ productType: 'POULET_PIECE', quantity: 1, unitPriceFcfa: 3000, batchId: listing.batchId }],
+          items: [
+            {
+              productType: 'POULET_PIECE',
+              quantity: 1,
+              unitPriceFcfa: 3000,
+              batchId: listing.batchId,
+            },
+          ],
         })
         .expect(201);
       await request(server)
         .post(`/farms/${farmId}/batches/${listing.batchId}/treatments`)
         .set(auth(ownerToken))
-        .send({ careType: 'ANTIBIOTIQUE', productName: 'Amoxicilline', withdrawalDays: 3 })
+        .send({
+          careType: 'ANTIBIOTIQUE',
+          productName: 'Amoxicilline',
+          withdrawalDays: 3,
+        })
         .expect(201);
       const refused = await request(server)
         .post(`/farms/${farmId}/orders/${orderId}/livrer`)
@@ -568,14 +642,18 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       expect((await sweep.sweep()).requests).toBeGreaterThanOrEqual(0);
       expect((await buyerRead(asked.body.id)).status).toBe('PENDING');
 
-      await dataSource.getRepository(MarketOrder).update(
-        { id: asked.body.id },
-        { requestExpiresAt: new Date(Date.now() - 1000) },
-      );
+      await dataSource
+        .getRepository(MarketOrder)
+        .update(
+          { id: asked.body.id },
+          { requestExpiresAt: new Date(Date.now() - 1000) },
+        );
       await sweep.sweep();
       const read = await buyerRead(asked.body.id);
       expect(read.status).toBe('REQUEST_EXPIRED');
-      expect(read.timeline.map((e: { type: string }) => e.type)).toContain('REQUEST_EXPIRED');
+      expect(read.timeline.map((e: { type: string }) => e.type)).toContain(
+        'REQUEST_EXPIRED',
+      );
     });
   });
 
@@ -599,7 +677,9 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       await sweep.sweep();
       const read = await buyerRead(id);
       expect(read.status).toBe('DEPOSIT_EXPIRED');
-      expect(read.timeline.map((e: { type: string }) => e.type)).toContain('DEPOSIT_EXPIRED');
+      expect(read.timeline.map((e: { type: string }) => e.type)).toContain(
+        'DEPOSIT_EXPIRED',
+      );
       expect(await available(listing.id)).toBe(50);
 
       const order = await request(server)
@@ -613,7 +693,9 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         .get(`/farms/${farmId}/caisse/current`)
         .set(auth(ownerToken))
         .expect(200);
-      expect(after.body.expectedBalanceFcfa).toBe(caisse.body.expectedBalanceFcfa);
+      expect(after.body.expectedBalanceFcfa).toBe(
+        caisse.body.expectedBalanceFcfa,
+      );
 
       const again = await sweep.sweep();
       expect(again.deposits).toBe(0);
@@ -627,7 +709,10 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       const read = await buyerRead(id);
       expect(read.status).toBe('CONFIRMED');
 
-      const list = await request(server).get(farmOrders()).set(auth(ownerToken)).expect(200);
+      const list = await request(server)
+        .get(farmOrders())
+        .set(auth(ownerToken))
+        .expect(200);
       const row = list.body.find((o: { id: string }) => o.id === id);
       expect(row.depositPaidFcfa).toBe(100);
       expect(row.depositShortFcfa).toBe(8900);
@@ -637,7 +722,10 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       for (let round = 0; round < 3; round++) {
         const { id, orderId } = await acceptedOrder();
         await pastDeadline(id);
-        const [deposit] = await Promise.all([recordDeposit(orderId, 9000), sweep.sweep()]);
+        const [deposit] = await Promise.all([
+          recordDeposit(orderId, 9000),
+          sweep.sweep(),
+        ]);
         const read = await buyerRead(id);
         if (deposit.status === 201) {
           expect(read.status).toBe('CONFIRMED');
@@ -655,10 +743,9 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
 
     it('ne touche pas une commande sans acompte demandé', async () => {
       const { id } = await acceptedOrder({ depositPct: undefined });
-      await dataSource.getRepository(MarketOrder).update(
-        { id },
-        { requestExpiresAt: new Date(Date.now() - HOUR) },
-      );
+      await dataSource
+        .getRepository(MarketOrder)
+        .update({ id }, { requestExpiresAt: new Date(Date.now() - HOUR) });
       await sweep.sweep();
       expect((await buyerRead(id)).status).toBe('CONFIRMED');
     });
@@ -671,8 +758,12 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         .set(auth(ownerToken))
         .expect(201);
       const read = await buyerRead(id);
-      expect(new Date(read.depositDueAt).getTime() - new Date(before).getTime()).toBe(24 * HOUR);
-      expect(read.timeline.map((e: { type: string }) => e.type)).toContain('DEPOSIT_EXTENDED');
+      expect(
+        new Date(read.depositDueAt).getTime() - new Date(before).getTime(),
+      ).toBe(24 * HOUR);
+      expect(read.timeline.map((e: { type: string }) => e.type)).toContain(
+        'DEPOSIT_EXTENDED',
+      );
 
       const again = await request(server)
         .post(`${farmOrders()}/${id}/extend-deposit`)
@@ -698,39 +789,71 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
 
   describe('vente immédiate et œufs', () => {
     it('crée une commande à la ferme, ou en livraison avec ses frais', async () => {
-      const pickup = await newListing({ kind: 'NOW', readyDate: undefined, depositPct: undefined });
+      const pickup = await newListing({
+        kind: 'NOW',
+        readyDate: undefined,
+        depositPct: undefined,
+      });
       const a = await ask(pickup.id, { desiredDate: dayOffset(2) }).expect(201);
       const accepted = await accept(a.body.id).expect(201);
       const order = await request(server)
         .get(`/farms/${farmId}/orders/${accepted.body.orderId}`)
         .set(auth(ownerToken))
         .expect(200);
-      expect(order.body).toMatchObject({ canal: 'FERME', expectedDate: dayOffset(2), totalAmountFcfa: 30000 });
+      expect(order.body).toMatchObject({
+        canal: 'FERME',
+        expectedDate: dayOffset(2),
+        totalAmountFcfa: 30000,
+      });
 
-      const b = await ask(pickup.id, { fulfilment: 'DELIVERY', address: 'Owendo' }).expect(201);
+      const b = await ask(pickup.id, {
+        fulfilment: 'DELIVERY',
+        address: 'Owendo',
+      }).expect(201);
       const delivered = await accept(b.body.id).expect(201);
       const orderB = await request(server)
         .get(`/farms/${farmId}/orders/${delivered.body.orderId}`)
         .set(auth(ownerToken))
         .expect(200);
-      expect(orderB.body).toMatchObject({ canal: 'LIVRAISON', address: 'Owendo', totalAmountFcfa: 32000 });
+      expect(orderB.body).toMatchObject({
+        canal: 'LIVRAISON',
+        address: 'Owendo',
+        totalAmountFcfa: 32000,
+      });
     });
 
     it('vend des œufs par alvéole et les réserve', async () => {
       const lot = await request(server)
         .post(`/farms/${farmId}/batches`)
         .set(auth(ownerToken))
-        .send({ batchName: `Pondeuses ${seq++}`, integrationDate: dayOffset(-200), quantityAtStart: 100, type: 'PONDEUSE' })
+        .send({
+          batchName: `Pondeuses ${seq++}`,
+          integrationDate: dayOffset(-200),
+          quantityAtStart: 100,
+          type: 'PONDEUSE',
+        })
         .expect(201);
       await request(server)
         .post(`/farms/${farmId}/batches/${lot.body.id}/daily-entries`)
         .set(auth(ownerToken))
-        .send({ entryDate: dayOffset(0), eggsCollected: 300, deaths: 0, feedKg: 10, waterLiters: 20 })
+        .send({
+          entryDate: dayOffset(0),
+          eggsCollected: 300,
+          deaths: 0,
+          feedKg: 10,
+          waterLiters: 20,
+        })
         .expect((r) => expect(r.status).toBeLessThan(300));
       const listing = await request(server)
         .post(`/farms/${farmId}/market/listings`)
         .set(auth(ownerToken))
-        .send({ kind: 'NOW', product: 'EGGS', batchId: lot.body.id, unitPriceFcfa: 2500, quantityPublished: 10 })
+        .send({
+          kind: 'NOW',
+          product: 'EGGS',
+          batchId: lot.body.id,
+          unitPriceFcfa: 2500,
+          quantityPublished: 10,
+        })
         .expect(201);
       await request(server)
         .post(`/farms/${farmId}/market/listings/${listing.body.id}/publish`)
@@ -742,7 +865,11 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
         .get(`/farms/${farmId}/orders/${accepted.body.orderId}`)
         .set(auth(ownerToken))
         .expect(200);
-      expect(order.body.items[0]).toMatchObject({ productType: 'OEUFS', quantity: 4, unit: 'ALVEOLES' });
+      expect(order.body.items[0]).toMatchObject({
+        productType: 'OEUFS',
+        quantity: 4,
+        unit: 'ALVEOLES',
+      });
       expect(order.body.totalAmountFcfa).toBe(10000);
       expect(await available(listing.body.id)).toBe(6);
     });

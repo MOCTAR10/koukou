@@ -19,6 +19,11 @@ import {
   OrderCreationExtras,
   OrdersService,
 } from './../src/modules/orders/orders.service.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function daysAgo(days: number): string {
   return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
@@ -60,7 +65,13 @@ describe('Commandes : socle du Market (e2e)', () => {
     extras: OrderCreationExtras = { source: OrderSource.MARKET },
   ) =>
     dataSource.transaction((em) =>
-      orders.createWithin(em, { id: ownerId, role: UserRole.PROPRIETAIRE }, farm, dto, extras),
+      orders.createWithin(
+        em,
+        { id: ownerId, role: UserRole.PROPRIETAIRE },
+        farm,
+        dto,
+        extras,
+      ),
     );
 
   const cashBalance = async () => {
@@ -76,34 +87,24 @@ describe('Commandes : socle du Market (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
     orders = app.get(OrdersService);
     dataSource = app.get(DataSource);
 
-    const phone = `+24175${Date.now()}`;
-    const reg = await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Socle', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-    ownerId = reg.body.user?.id ?? login.body.user.id;
-
-    const created = await request(server)
-      .post('/farms')
-      .set(auth())
-      .send({
-        name: `Ferme Socle ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farm = await dataSource.getRepository(Farm).findOneByOrFail({ id: created.body.id });
+    const admin = await createPlatformAdmin(server, dataSource);
+    const created = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Socle ${uniquePhone('')}`,
+      exploitantName: 'Proprio Socle',
+    });
+    token = created.ownerToken;
+    ownerId = created.ownerId;
+    farm = await dataSource
+      .getRepository(Farm)
+      .findOneByOrFail({ id: created.farmId });
 
     const batch = await request(server)
       .post(`/farms/${farm.id}/batches`)
@@ -122,7 +123,7 @@ describe('Commandes : socle du Market (e2e)', () => {
       .set(auth())
       .send({ openingBalanceFcfa: 10000 })
       .expect(201);
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();
@@ -161,9 +162,9 @@ describe('Commandes : socle du Market (e2e)', () => {
         })
         .expect(400);
 
-      expect(
-        await orders.cancelForBuyer(farm.id, order.id, 'nettoyage'),
-      ).toBe(BuyerCancelOutcome.CANCELLED);
+      expect(await orders.cancelForBuyer(farm.id, order.id, 'nettoyage')).toBe(
+        BuyerCancelOutcome.CANCELLED,
+      );
     });
 
     it('ne change pas le type d’un client qui existe déjà', async () => {
@@ -173,9 +174,12 @@ describe('Commandes : socle du Market (e2e)', () => {
         .set(auth())
         .send({ fullName: 'Client Existant', phone })
         .expect(201);
-      const order = await createMarketOrder(birdsDto(1, { customerPhone: phone }), {
-        customerType: CustomerType.HOTEL,
-      });
+      const order = await createMarketOrder(
+        birdsDto(1, { customerPhone: phone }),
+        {
+          customerType: CustomerType.HOTEL,
+        },
+      );
       expect(order.customerId).toBe(customer.body.id);
       const after = await request(server)
         .get(`/farms/${farm.id}/customers/${customer.body.id}`)
@@ -293,7 +297,12 @@ describe('Commandes : socle du Market (e2e)', () => {
           latitude: 0.5,
           longitude: 9.4,
           items: [
-            { productType: 'POULET_PIECE', quantity: 1, unitPriceFcfa: 3000, batchId },
+            {
+              productType: 'POULET_PIECE',
+              quantity: 1,
+              unitPriceFcfa: 3000,
+              batchId,
+            },
           ],
         })
         .expect(201);
@@ -315,7 +324,12 @@ describe('Commandes : socle du Market (e2e)', () => {
           latitude: 0.5,
           longitude: 9.4,
           items: [
-            { productType: 'POULET_PIECE', quantity: 1, unitPriceFcfa: 3000, batchId },
+            {
+              productType: 'POULET_PIECE',
+              quantity: 1,
+              unitPriceFcfa: 3000,
+              batchId,
+            },
           ],
         })
         .expect(201);
@@ -328,7 +342,12 @@ describe('Commandes : socle du Market (e2e)', () => {
           canal: 'FERME',
           address: 'Akanda',
           items: [
-            { productType: 'POULET_PIECE', quantity: 1, unitPriceFcfa: 3000, batchId },
+            {
+              productType: 'POULET_PIECE',
+              quantity: 1,
+              unitPriceFcfa: 3000,
+              batchId,
+            },
           ],
         })
         .expect(201);
@@ -349,7 +368,12 @@ describe('Commandes : socle du Market (e2e)', () => {
           source: 'MARKET',
           deliveryFeeFcfa: 5000,
           items: [
-            { productType: 'POULET_PIECE', quantity: 1, unitPriceFcfa: 3000, batchId },
+            {
+              productType: 'POULET_PIECE',
+              quantity: 1,
+              unitPriceFcfa: 3000,
+              batchId,
+            },
           ],
         })
         .expect(201);
@@ -374,12 +398,14 @@ describe('Commandes : socle du Market (e2e)', () => {
     it('annule une commande impayée sans toucher la caisse et libère les oiseaux', async () => {
       const balance = await cashBalance();
       const order = await createMarketOrder(birdsDto(90));
-      await expect(
-        createMarketOrder(birdsDto(90)),
-      ).rejects.toThrow();
+      await expect(createMarketOrder(birdsDto(90))).rejects.toThrow();
 
       expect(
-        await orders.cancelForBuyer(farm.id, order.id, 'Annulée par l’acheteur'),
+        await orders.cancelForBuyer(
+          farm.id,
+          order.id,
+          'Annulée par l’acheteur',
+        ),
       ).toBe(BuyerCancelOutcome.CANCELLED);
 
       const read = await request(server)
@@ -402,9 +428,9 @@ describe('Commandes : socle du Market (e2e)', () => {
         .set(auth())
         .send({ declaredBalanceFcfa: await cashBalance() })
         .expect((r) => expect(r.status).toBeLessThan(300));
-      expect(await orders.cancelForBuyer(farm.id, order.id, 'délai dépassé')).toBe(
-        BuyerCancelOutcome.CANCELLED,
-      );
+      expect(
+        await orders.cancelForBuyer(farm.id, order.id, 'délai dépassé'),
+      ).toBe(BuyerCancelOutcome.CANCELLED);
       await request(server)
         .post(`/farms/${farm.id}/caisse/open`)
         .set(auth())

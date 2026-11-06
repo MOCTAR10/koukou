@@ -5,6 +5,13 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import { Farm } from './../src/modules/farms/entities/farm.entity.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  login,
+  registerBuyer,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function dayOffset(days: number): string {
   return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
@@ -18,9 +25,9 @@ describe('Market : annonces et catalogue public (e2e)', () => {
   let farmId: string;
   let farmCity: string;
   let batchId: string;
+  let adminToken: string;
   let seq = 0;
 
-  const phone = () => `+24177${String(Date.now()).slice(-6)}${seq++}`;
   const auth = (t = token) => ({ Authorization: `Bearer ${t}` });
   const base = () => `/farms/${farmId}/market/listings`;
 
@@ -64,7 +71,10 @@ describe('Market : annonces et catalogue public (e2e)', () => {
 
   const published = async (over: Record<string, unknown> = {}) => {
     const id = await createDraft(over);
-    await request(server).post(`${base()}/${id}/publish`).set(auth()).expect(201);
+    await request(server)
+      .post(`${base()}/${id}/publish`)
+      .set(auth())
+      .expect(201);
     return id;
   };
 
@@ -81,31 +91,31 @@ describe('Market : annonces et catalogue public (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
     dataSource = app.get(DataSource);
 
-    const reg = await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(), fullName: 'Proprio Market', code: 'secret123' })
-      .expect(201);
-    token = reg.body.accessToken;
+    adminToken = (await createPlatformAdmin(server, dataSource)).token;
+    const farm = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme Market ${uniquePhone('')}`,
+      exploitantName: 'Proprio Market',
+      extra: { gps: { latitude: 0.41, longitude: 9.45 } },
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
+    // A city no other farm has, for the catalogue filters.
     farmCity = `Ville${Date.now()}`;
-    const farm = await request(server)
-      .post('/farms')
+    await request(server)
+      .patch(`/farms/${farmId}`)
       .set(auth())
-      .send({
-        name: `Ferme Market ${Date.now()}`,
-        administrativeCity: farmCity,
-        latitude: 0.41,
-        longitude: 9.45,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+      .send({ administrativeCity: farmCity })
+      .expect(200);
     await setVerified(farmId, true);
     batchId = await newBatch();
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await app.close();
@@ -114,7 +124,10 @@ describe('Market : annonces et catalogue public (e2e)', () => {
   describe('création', () => {
     it('crée un brouillon invisible du public', async () => {
       const id = await createDraft();
-      const read = await request(server).get(`${base()}/${id}`).set(auth()).expect(200);
+      const read = await request(server)
+        .get(`${base()}/${id}`)
+        .set(auth())
+        .expect(200);
       expect(read.body.status).toBe('DRAFT');
       expect(read.body.hiddenReason).toBe('NOT_PUBLISHED');
       expect(await catalogueIds()).not.toContain(id);
@@ -122,42 +135,61 @@ describe('Market : annonces et catalogue public (e2e)', () => {
     });
 
     it('donne à la ferme l’espèce et la souche de ses annonces', async () => {
-      const batchId = await newBatch({ species: 'AUTRE', customSpecies: 'Canard', customBreed: 'Coureur indien' });
-      const created = await request(server).post(base()).set(auth()).send(preDraft({ batchId })).expect(201);
-      const expected = { species: 'AUTRE', customSpecies: 'Canard', breedName: 'Coureur indien' };
+      const batchId = await newBatch({
+        species: 'AUTRE',
+        customSpecies: 'Canard',
+        customBreed: 'Coureur indien',
+      });
+      const created = await request(server)
+        .post(base())
+        .set(auth())
+        .send(preDraft({ batchId }))
+        .expect(201);
+      const expected = {
+        species: 'AUTRE',
+        customSpecies: 'Canard',
+        breedName: 'Coureur indien',
+      };
 
-      const read = await request(server).get(`${base()}/${created.body.id}`).set(auth()).expect(200);
+      const read = await request(server)
+        .get(`${base()}/${created.body.id}`)
+        .set(auth())
+        .expect(200);
       expect(read.body).toMatchObject(expected);
       const list = await request(server).get(base()).set(auth()).expect(200);
-      expect(list.body.find((l: { id: string }) => l.id === created.body.id)).toMatchObject(expected);
+      expect(
+        list.body.find((l: { id: string }) => l.id === created.body.id),
+      ).toMatchObject(expected);
     });
 
     it.each([
       ['des œufs en précommande', { product: 'EGGS' }],
       ['une précommande sans date', { readyDate: undefined }],
       ['une vente immédiate avec date', { kind: 'NOW', depositPct: undefined }],
-      ['une vente immédiate avec acompte', { kind: 'NOW', readyDate: undefined }],
+      [
+        'une vente immédiate avec acompte',
+        { kind: 'NOW', readyDate: undefined },
+      ],
       ['un acompte de plus de 100 %', { depositPct: 101 }],
       ['ni retrait ni livraison', { pickupAvailable: false }],
       ['des frais sans livraison', { deliveryFeeFcfa: 1000 }],
       ['un minimum au-dessus de la quantité', { minOrderQty: 51 }],
       ['un prix nul', { unitPriceFcfa: 0 }],
     ])('refuse %s', async (_label, over) => {
-      await request(server).post(base()).set(auth()).send(preDraft(over)).expect(400);
+      await request(server)
+        .post(base())
+        .set(auth())
+        .send(preDraft(over))
+        .expect(400);
     });
 
     it('refuse le lot d’une autre ferme', async () => {
-      const other = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Autre', code: 'secret123' })
-        .expect(201);
-      const otherFarms = await request(server)
-        .get('/farms')
-        .set(auth(other.body.accessToken))
-        .expect(200);
+      const other = await createProgrammeFarm(server, adminToken, {
+        exploitantName: 'Autre',
+      });
       await request(server)
-        .post(`/farms/${otherFarms.body[0].id}/market/listings`)
-        .set(auth(other.body.accessToken))
+        .post(`/farms/${other.farmId}/market/listings`)
+        .set(auth(other.ownerToken))
         .send(preDraft())
         .expect(404);
     });
@@ -165,33 +197,26 @@ describe('Market : annonces et catalogue public (e2e)', () => {
 
   describe('droits', () => {
     it('refuse un acheteur, un autre propriétaire et un éleveur', async () => {
-      const buyer = await request(server)
-        .post('/auth/register-buyer')
-        .send({ phone: phone(), fullName: 'Acheteur', code: 'secret123' })
-        .expect(201);
+      const buyer = await registerBuyer(server, { fullName: 'Acheteur' });
       await request(server)
         .post(base())
-        .set(auth(buyer.body.accessToken))
+        .set(auth(buyer.token))
         .send(preDraft())
         .expect(403);
 
-      const other = await request(server)
-        .post('/auth/register')
-        .send({ phone: phone(), fullName: 'Autre', code: 'secret123' })
-        .expect(201);
-      await request(server).get(base()).set(auth(other.body.accessToken)).expect(403);
+      const other = await createProgrammeFarm(server, adminToken, {
+        exploitantName: 'Autre',
+      });
+      await request(server).get(base()).set(auth(other.ownerToken)).expect(403);
 
-      const staffPhone = phone();
+      const staffPhone = uniquePhone();
       await request(server)
         .post(`/farms/${farmId}/eleveurs`)
         .set(auth())
         .send({ phone: staffPhone, fullName: 'Éleveur', code: 'secret123' })
         .expect(201);
-      const staff = await request(server)
-        .post('/auth/login')
-        .send({ phone: staffPhone, code: 'secret123' })
-        .expect(201);
-      await request(server).get(base()).set(auth(staff.body.accessToken)).expect(403);
+      const staffToken = await login(server, staffPhone, 'secret123');
+      await request(server).get(base()).set(auth(staffToken)).expect(403);
     });
 
     it('propose le droit au catalogue des permissions', async () => {
@@ -213,7 +238,10 @@ describe('Market : annonces et catalogue public (e2e)', () => {
         .expect(400);
       expect(refused.body.message).toMatch(/vérifiées/);
       await setVerified(farmId, true);
-      await request(server).post(`${base()}/${id}/publish`).set(auth()).expect(201);
+      await request(server)
+        .post(`${base()}/${id}/publish`)
+        .set(auth())
+        .expect(201);
       expect(await catalogueIds()).toContain(id);
     });
 
@@ -234,36 +262,68 @@ describe('Market : annonces et catalogue public (e2e)', () => {
         .send({
           canal: 'FERME',
           items: [
-            { productType: 'POULET_PIECE', quantity: 60, unitPriceFcfa: 3000, batchId: lot },
+            {
+              productType: 'POULET_PIECE',
+              quantity: 60,
+              unitPriceFcfa: 3000,
+              batchId: lot,
+            },
           ],
         })
         .expect(201);
       const id = await createDraft({ batchId: lot, quantityPublished: 41 });
-      await request(server).post(`${base()}/${id}/publish`).set(auth()).expect(400);
+      await request(server)
+        .post(`${base()}/${id}/publish`)
+        .set(auth())
+        .expect(400);
       await request(server)
         .patch(`${base()}/${id}`)
         .set(auth())
         .send({ quantityPublished: 40 })
         .expect(200);
-      await request(server).post(`${base()}/${id}/publish`).set(auth()).expect(201);
+      await request(server)
+        .post(`${base()}/${id}/publish`)
+        .set(auth())
+        .expect(201);
     });
 
     it('refuse une précommande dont la date est passée', async () => {
       const id = await createDraft({ readyDate: dayOffset(0) });
-      await request(server).post(`${base()}/${id}/publish`).set(auth()).expect(400);
+      await request(server)
+        .post(`${base()}/${id}/publish`)
+        .set(auth())
+        .expect(400);
     });
 
     it('suit le cycle publié, suspendu, republié, clôturé', async () => {
       const id = await published();
-      await request(server).post(`${base()}/${id}/pause`).set(auth()).expect(201);
+      await request(server)
+        .post(`${base()}/${id}/pause`)
+        .set(auth())
+        .expect(201);
       expect(await catalogueIds()).not.toContain(id);
-      await request(server).post(`${base()}/${id}/pause`).set(auth()).expect(400);
-      await request(server).post(`${base()}/${id}/publish`).set(auth()).expect(201);
+      await request(server)
+        .post(`${base()}/${id}/pause`)
+        .set(auth())
+        .expect(400);
+      await request(server)
+        .post(`${base()}/${id}/publish`)
+        .set(auth())
+        .expect(201);
       expect(await catalogueIds()).toContain(id);
-      await request(server).post(`${base()}/${id}/close`).set(auth()).expect(201);
-      await request(server).post(`${base()}/${id}/close`).set(auth()).expect(201);
+      await request(server)
+        .post(`${base()}/${id}/close`)
+        .set(auth())
+        .expect(201);
+      await request(server)
+        .post(`${base()}/${id}/close`)
+        .set(auth())
+        .expect(201);
       expect(await catalogueIds()).not.toContain(id);
-      await request(server).post(`${base()}/${id}/publish`).set(auth()).expect(400);
+      await request(server)
+        .post(`${base()}/${id}/publish`)
+        .set(auth())
+        .expect(400);
       await request(server)
         .patch(`${base()}/${id}`)
         .set(auth())
@@ -296,18 +356,37 @@ describe('Market : annonces et catalogue public (e2e)', () => {
         readyDate: undefined,
         depositPct: undefined,
       });
-      const after = await createDraft({ batchId: lot, readyDate: dayOffset(20) });
-      const during = await createDraft({ batchId: lot, readyDate: dayOffset(5) });
+      const after = await createDraft({
+        batchId: lot,
+        readyDate: dayOffset(20),
+      });
+      const during = await createDraft({
+        batchId: lot,
+        readyDate: dayOffset(5),
+      });
 
       await request(server)
         .post(`/farms/${farmId}/batches/${lot}/treatments`)
         .set(auth())
-        .send({ careType: 'ANTIBIOTIQUE', productName: 'Amoxicilline', withdrawalDays: 10 })
+        .send({
+          careType: 'ANTIBIOTIQUE',
+          productName: 'Amoxicilline',
+          withdrawalDays: 10,
+        })
         .expect(201);
 
-      await request(server).post(`${base()}/${now}/publish`).set(auth()).expect(400);
-      await request(server).post(`${base()}/${during}/publish`).set(auth()).expect(400);
-      await request(server).post(`${base()}/${after}/publish`).set(auth()).expect(201);
+      await request(server)
+        .post(`${base()}/${now}/publish`)
+        .set(auth())
+        .expect(400);
+      await request(server)
+        .post(`${base()}/${during}/publish`)
+        .set(auth())
+        .expect(400);
+      await request(server)
+        .post(`${base()}/${after}/publish`)
+        .set(auth())
+        .expect(201);
       expect(await catalogueIds()).toContain(after);
     });
 
@@ -318,19 +397,32 @@ describe('Market : annonces et catalogue public (e2e)', () => {
       await request(server)
         .post(`/farms/${farmId}/batches/${lot}/treatments`)
         .set(auth())
-        .send({ careType: 'ANTIBIOTIQUE', productName: 'Amoxicilline', withdrawalDays: 10 })
+        .send({
+          careType: 'ANTIBIOTIQUE',
+          productName: 'Amoxicilline',
+          withdrawalDays: 10,
+        })
         .expect(201);
       expect(await catalogueIds()).not.toContain(id);
       await request(server).get(`/market/listings/${id}`).expect(404);
-      const read = await request(server).get(`${base()}/${id}`).set(auth()).expect(200);
+      const read = await request(server)
+        .get(`${base()}/${id}`)
+        .set(auth())
+        .expect(200);
       expect(read.body.hiddenReason).toBe('SANITARY');
     });
   });
 
   describe('catalogue public', () => {
     it('se lit sans connexion et ne montre rien de sensible', async () => {
-      const id = await published({ description: 'Poulets fermiers', deliveryAvailable: true, deliveryFeeFcfa: 2000 });
-      const res = await request(server).get(`/market/listings/${id}`).expect(200);
+      const id = await published({
+        description: 'Poulets fermiers',
+        deliveryAvailable: true,
+        deliveryFeeFcfa: 2000,
+      });
+      const res = await request(server)
+        .get(`/market/listings/${id}`)
+        .expect(200);
       expect(res.body).toMatchObject({
         id,
         kind: 'PRE',
@@ -361,12 +453,20 @@ describe('Market : annonces et catalogue public (e2e)', () => {
 
     it('filtre par ville, type et produit', async () => {
       const id = await published();
-      expect(await catalogueIds({ city: farmCity.toLowerCase() })).toContain(id);
+      expect(await catalogueIds({ city: farmCity.toLowerCase() })).toContain(
+        id,
+      );
       expect(await catalogueIds({ city: 'NullePart' })).not.toContain(id);
       expect(await catalogueIds({ kind: 'PRE', city: farmCity })).toContain(id);
-      expect(await catalogueIds({ kind: 'NOW', city: farmCity })).not.toContain(id);
-      expect(await catalogueIds({ product: 'EGGS', city: farmCity })).not.toContain(id);
-      expect(await catalogueIds({ species: 'DINDE', city: farmCity })).not.toContain(id);
+      expect(await catalogueIds({ kind: 'NOW', city: farmCity })).not.toContain(
+        id,
+      );
+      expect(
+        await catalogueIds({ product: 'EGGS', city: farmCity }),
+      ).not.toContain(id);
+      expect(
+        await catalogueIds({ species: 'DINDE', city: farmCity }),
+      ).not.toContain(id);
     });
 
     it('pagine sans doublon', async () => {
@@ -386,7 +486,10 @@ describe('Market : annonces et catalogue public (e2e)', () => {
     });
 
     it('refuse un paramètre invalide et un identifiant mal formé', async () => {
-      await request(server).get('/market/listings').query({ limit: 51 }).expect(400);
+      await request(server)
+        .get('/market/listings')
+        .query({ limit: 51 })
+        .expect(400);
       await request(server).get('/market/listings/pas-un-uuid').expect(400);
     });
 
@@ -399,11 +502,18 @@ describe('Market : annonces et catalogue public (e2e)', () => {
         .send({
           canal: 'FERME',
           items: [
-            { productType: 'POULET_PIECE', quantity: 30, unitPriceFcfa: 3000, batchId: lot },
+            {
+              productType: 'POULET_PIECE',
+              quantity: 30,
+              unitPriceFcfa: 3000,
+              batchId: lot,
+            },
           ],
         })
         .expect(201);
-      const capped = await request(server).get(`/market/listings/${id}`).expect(200);
+      const capped = await request(server)
+        .get(`/market/listings/${id}`)
+        .expect(200);
       expect(capped.body.availableQuantity).toBe(70);
 
       await request(server)
@@ -412,19 +522,29 @@ describe('Market : annonces et catalogue public (e2e)', () => {
         .send({
           canal: 'FERME',
           items: [
-            { productType: 'POULET_PIECE', quantity: 70, unitPriceFcfa: 3000, batchId: lot },
+            {
+              productType: 'POULET_PIECE',
+              quantity: 70,
+              unitPriceFcfa: 3000,
+              batchId: lot,
+            },
           ],
         })
         .expect(201);
       await request(server).get(`/market/listings/${id}`).expect(404);
-      const read = await request(server).get(`${base()}/${id}`).set(auth()).expect(200);
+      const read = await request(server)
+        .get(`${base()}/${id}`)
+        .set(auth())
+        .expect(200);
       expect(read.body.hiddenReason).toBe('OUT_OF_STOCK');
 
       await request(server)
         .delete(`/farms/${farmId}/orders/${sale.body.id}`)
         .set(auth())
         .expect(200);
-      const back = await request(server).get(`/market/listings/${id}`).expect(200);
+      const back = await request(server)
+        .get(`/market/listings/${id}`)
+        .expect(200);
       expect(back.body.availableQuantity).toBe(30);
     });
 
@@ -432,14 +552,21 @@ describe('Market : annonces et catalogue public (e2e)', () => {
       const id = await published();
       await setVerified(farmId, false);
       expect(await catalogueIds()).not.toContain(id);
-      const read = await request(server).get(`${base()}/${id}`).set(auth()).expect(200);
+      const read = await request(server)
+        .get(`${base()}/${id}`)
+        .set(auth())
+        .expect(200);
       expect(read.body.hiddenReason).toBe('FARM_NOT_VERIFIED');
       await setVerified(farmId, true);
 
-      await dataSource.getRepository(Farm).update({ id: farmId }, { active: false });
+      await dataSource
+        .getRepository(Farm)
+        .update({ id: farmId }, { active: false });
       expect(await catalogueIds()).not.toContain(id);
       await request(server).get(`/market/listings/${id}`).expect(404);
-      await dataSource.getRepository(Farm).update({ id: farmId }, { active: true });
+      await dataSource
+        .getRepository(Farm)
+        .update({ id: farmId }, { active: true });
       expect(await catalogueIds()).toContain(id);
     });
 
@@ -448,7 +575,13 @@ describe('Market : annonces et catalogue public (e2e)', () => {
       await request(server)
         .post(`/farms/${farmId}/batches/${lot}/daily-entries`)
         .set(auth())
-        .send({ entryDate: dayOffset(0), eggsCollected: 300, deaths: 0, feedKg: 10, waterLiters: 20 })
+        .send({
+          entryDate: dayOffset(0),
+          eggsCollected: 300,
+          deaths: 0,
+          feedKg: 10,
+          waterLiters: 20,
+        })
         .expect((r) => expect(r.status).toBeLessThan(300));
       const draft = {
         kind: 'NOW',
@@ -459,10 +592,18 @@ describe('Market : annonces et catalogue public (e2e)', () => {
         unitPriceFcfa: 2500,
       };
       const tooMany = await createDraft({ ...draft, quantityPublished: 11 });
-      await request(server).post(`${base()}/${tooMany}/publish`).set(auth()).expect(400);
+      await request(server)
+        .post(`${base()}/${tooMany}/publish`)
+        .set(auth())
+        .expect(400);
       const id = await published({ ...draft, quantityPublished: 10 });
-      const res = await request(server).get(`/market/listings/${id}`).expect(200);
-      expect(res.body).toMatchObject({ product: 'EGGS', availableQuantity: 10 });
+      const res = await request(server)
+        .get(`/market/listings/${id}`)
+        .expect(200);
+      expect(res.body).toMatchObject({
+        product: 'EGGS',
+        availableQuantity: 10,
+      });
     });
   });
 
@@ -488,7 +629,9 @@ describe('Market : annonces et catalogue public (e2e)', () => {
     });
 
     it('refuse le lot d’une autre ferme', async () => {
-      await suggest({ batchId: '00000000-0000-4000-8000-000000000000' }).expect(404);
+      await suggest({ batchId: '00000000-0000-4000-8000-000000000000' }).expect(
+        404,
+      );
     });
   });
 });
