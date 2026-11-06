@@ -26,6 +26,9 @@ import type { AccessAction, AccessDomain, AccessMatrix, MyAccess, ScopeKind } fr
  * | /app/acces              | ADMINISTRATION:CONSULTER | programme/access/{catalog,profiles,memberships}           |
  * | /app/pilotage           | PILOTAGE:CONSULTER       | pilotage/dashboard, map, objective, exports, reports      |
  * | /app/mon-acces, /app/help | always                 | programme/access/me (SESSION), none                       |
+ * | /app/surveillance(/…)   | SANITAIRE:CONSULTER      | surveillance/alerts, lists, calendars (SANITAIRE)         |
+ * | /app/notifications      | always                   | notifications (SESSION: the account's own inbox)          |
+ * | /app/notifications/regles | ADMINISTRATION:CONSULTER | programme/notification-rules (ADMINISTRATION)           |
  * | /app/finance…, orders, market, points-of-sale | never | VENTES, MARCHE (Fermia-only)                         |
  * | /app/accounting         | never                    | COMPTABILITE (Fermia-only)                                |
  * | /app/team, /app/hr      | never                    | EQUIPE (Fermia-only)                                      |
@@ -59,6 +62,11 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/registre': consult('REGISTRE'),
   '/app/acces': consult('ADMINISTRATION'),
   '/app/pilotage': consult('PILOTAGE'),
+  // POUFA L5 (begin): sanitary surveillance and notifications.
+  '/app/surveillance': consult('SANITAIRE'),
+  '/app/notifications': { kind: 'always' },
+  '/app/notifications/regles': consult('ADMINISTRATION'),
+  // POUFA L5 (end)
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   '/app/finance': fermia('VENTES'),

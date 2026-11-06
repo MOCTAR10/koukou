@@ -182,6 +182,23 @@ describe('institutionLanding', () => {
   });
 });
 
+describe('surveillance and notifications (POUFA L5)', () => {
+  it('opens the programme surveillance and its settings with SANITAIRE', () => {
+    expect(institutionShowsEntry('/app/surveillance', VETERINAIRE)).toBe(true);
+    expect(institutionOpensPath('/app/surveillance/parametres', VETERINAIRE)).toBe(true);
+    expect(institutionShowsEntry('/app/surveillance', DGE)).toBe(false);
+    expect(institutionOpensPath('/app/surveillance', ANINF)).toBe(false);
+  });
+
+  it('opens the inbox to every institution, the rules with ADMINISTRATION only', () => {
+    expect(alwaysOpen('/app/notifications')).toBe(true);
+    expect(institutionOpensPath('/app/notifications', MAEDR)).toBe(true);
+    expect(institutionOpensPath('/app/notifications/regles', ADMIN)).toBe(true);
+    expect(institutionOpensPath('/app/notifications/regles', VETERINAIRE)).toBe(false);
+    expect(alwaysOpen('/app/notifications/regles')).toBe(false);
+  });
+});
+
 describe('helpers', () => {
   it('scopeReachesFarms matches the server', () => {
     expect((['ALL', 'PROVINCES', 'FARMS'] as ScopeKind[]).every(scopeReachesFarms)).toBe(true);
@@ -189,7 +206,7 @@ describe('helpers', () => {
   });
 
   it('pagesOfDomain lists the pages a domain opens', () => {
-    expect(pagesOfDomain('SANITAIRE')).toEqual(['/app/sanitary']);
+    expect(pagesOfDomain('SANITAIRE')).toEqual(['/app/sanitary', '/app/surveillance']);
     expect(pagesOfDomain('ECONOMIQUE')).toEqual(['/app/reports', '/app/expenses']);
     expect(pagesOfDomain('AUDIT')).toEqual([]);
   });

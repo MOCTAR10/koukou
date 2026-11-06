@@ -236,6 +236,10 @@ export interface HealthEvent {
   treatmentGiven?: string | null;
   vetConsulted?: boolean;
   vetName?: string | null;
+  /** POUFA L5 declaration: SIGNE_CLINIQUE codes, suspicion (opens an official alert), photos. */
+  clinicalSigns?: string[];
+  suspicion?: boolean;
+  photos?: import('./types-surveillance').HealthEventPhoto[];
 }
 
 export interface BatchHealth {

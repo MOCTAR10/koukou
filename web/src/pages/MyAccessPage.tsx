@@ -34,7 +34,13 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/registre': 'Registre des fermes',
   '/app/acces': 'Accès institutionnels',
   '/app/pilotage': 'Pilotage du programme',
+  // POUFA L5 (begin)
+  '/app/surveillance': 'Surveillance sanitaire',
+  '/app/notifications/regles': 'Règles de notification',
+  // POUFA L5 (end)
 };
+
+/** Programme-wide pages: open without a farm in the scope (POUFA L5 adds surveillance and notification rules). */
 
 /** Domains without a screen in the web app yet: what the account can expect. */
 const NO_SCREEN_YET: Partial<Record<AccessDomain, string>> = {

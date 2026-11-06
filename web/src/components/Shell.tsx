@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   BadgePercent,
   BookMarked,
+  BellRing,
   Briefcase,
   ClipboardList,
   Coins,
@@ -27,6 +28,7 @@ import {
   Settings,
   Shield,
   ShoppingCart,
+  ShieldAlert,
   Store,
   Tractor,
   Users,
@@ -45,6 +47,9 @@ import { Loading } from './ui';
 import { OfflineBar } from './OfflineBar';
 import { FarmPicker } from './programme/FarmPicker';
 import { QuickCreate } from './QuickCreate';
+// POUFA L5: programme surveillance entries and the notification bell.
+import { NotificationBell } from './surveillance/NotificationBell';
+import { useNotificationRights, useSurveillanceRights } from './surveillance/useSurveillanceRights';
 import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
 import { motion, useReducedMotion } from 'motion/react';
@@ -130,7 +135,13 @@ export function Shell() {
   const onRegistry = pathname.startsWith('/app/registre');
   const onAccess = pathname.startsWith('/app/acces') || pathname.startsWith('/app/mon-acces');
   const onPilotage = pathname.startsWith('/app/pilotage');
-  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage;
+  // POUFA L5 (begin)
+  const onSurveillance = pathname.startsWith('/app/surveillance');
+  const onNotifications = pathname.startsWith('/app/notifications');
+  const surveillance = useSurveillanceRights();
+  const notificationRights = useNotificationRights();
+  // POUFA L5 (end)
+  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications;
   const reduced = useReducedMotion();
   const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage } =
     useMenuAccess();
@@ -145,6 +156,9 @@ export function Shell() {
     ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
     ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
     ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
+    // POUFA L5: programme sanitary surveillance, notification rules.
+    ...(surveillance.view ? [{ to: '/app/surveillance', label: 'Surveillance sanitaire', icon: ShieldAlert }] : []),
+    ...(notificationRights.readRules ? [{ to: '/app/notifications/regles', label: 'Règles de notification', icon: BellRing }] : []),
   ];
   const nav = NAV.map((group) => ({
     ...group,
@@ -318,12 +332,18 @@ export function Shell() {
               'Accès institutionnels du programme'
             ) : onPilotage ? (
               pilotage.view ? 'Pilotage du programme' : 'Rapports de fin de bande'
+            ) : onSurveillance ? (
+              'Surveillance sanitaire du programme'
+            ) : onNotifications ? (
+              'Notifications'
             ) : null}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
             {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
           </div>
           <div className="ml-auto lg:ml-0">{!onProgramme && farmId ? <QuickCreate /> : null}</div>
+          {/* POUFA L5: unread notifications (hidden without the inbox right). */}
+          <NotificationBell />
           {isAdmin ? (
             <button
               onClick={() => navigate('/app/platform')}

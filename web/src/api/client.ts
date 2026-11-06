@@ -153,6 +153,25 @@ export const api = {
    */
   upload: <T>(path: string, form: FormData): Promise<T> =>
     request<T>('POST', path, form, { timeoutMs: UPLOAD_TIMEOUT_MS }),
+  /**
+   * An authenticated file as a Blob (a photo shown in the page): same 401
+   * handling as the other calls, never cached offline.
+   */
+  async blob(path: string): Promise<Blob> {
+    const headers: Record<string, string> = { Accept: '*/*' };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    let res: Response;
+    try {
+      res = await fetch(buildUrl(path), { headers, signal: AbortSignal.timeout(WRITE_TIMEOUT_MS) });
+    } catch {
+      markOffline();
+      throw new OfflineError('Hors ligne : ce fichier pourra être affiché une fois reconnecté.');
+    }
+    handleUnauthorized(res);
+    if (!res.ok) throw await apiErrorFrom(res);
+    return res.blob();
+  },
   /** Télécharge un PDF/binaire et déclenche le téléchargement navigateur. */
   async download(path: string, filename: string): Promise<void> {
     const headers: Record<string, string> = { Accept: 'application/pdf' };

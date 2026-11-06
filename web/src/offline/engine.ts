@@ -25,6 +25,9 @@ const KEYED_KINDS: ReadonlySet<OfflineKind> = new Set<OfflineKind>([
   'customer-payment',
   'pdv-create',
   'stock-transfer-create',
+  // Sanitary declaration (POUFA L5): the form may bring its own key
+  // (`useIdempotencyKey`), which then wins over the op id.
+  'health-event',
 ]);
 
 /** A refusal of these is kept for the user to re-enter, never silently deleted. */
