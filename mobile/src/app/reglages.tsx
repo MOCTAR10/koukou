@@ -39,6 +39,7 @@ import { FarmLogo } from '@/components/ui/FarmLogo';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { FarmIdentityCard } from '@/components/farm/FarmIdentityCard';
+import { FarmGpsCard } from '@/components/farm/FarmGpsCard';
 import { RemindersCard } from '@/components/RemindersCard';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -287,6 +288,11 @@ export default function ReglagesScreen() {
             icon={Crosshair}
           />
           <FarmIdentityCard farm={farm} canEdit={canEditFarm} />
+          {/* ── POUFA GPS capture (M2) ── */}
+          <View style={{ marginTop: 8 }}>
+            <FarmGpsCard farm={farm} />
+          </View>
+          {/* ── end POUFA ── */}
         </Animated.View>
       ) : null}
 

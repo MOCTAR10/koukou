@@ -36,7 +36,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Fermia utilise vos photos pour choisir le logo de votre ferme."
+          "photosPermission": "Fermia utilise vos photos pour le logo de votre ferme et pour joindre des photos à une déclaration sanitaire.",
+          "cameraPermission": "Fermia utilise l’appareil photo pour joindre des photos des animaux malades à une déclaration sanitaire."
         }
       ],
       [
