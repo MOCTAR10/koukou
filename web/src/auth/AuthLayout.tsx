@@ -196,13 +196,14 @@ function ProgrammeAside() {
       <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
         <div className="flex items-center gap-4">
           <img
-            src="/maedr-logo-light.png"
-            alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
-            className="h-36 w-auto drop-shadow-[0_4px_14px_rgb(0_0_0/0.55)] xl:h-44 [@media(max-height:780px)]:h-28"
+            src="/republique-gabonaise.webp"
+            alt="Sceau de la République gabonaise"
+            className="h-14 w-auto rounded-lg shadow-xl shadow-black/40 ring-1 ring-white/40 xl:h-16 [@media(max-height:780px)]:h-12"
           />
-          <div className="border-l border-white/30 pl-5 text-xs uppercase tracking-[0.2em] text-white/85">
-            <p className="font-semibold text-white">République gabonaise</p>
-            <p className="mt-1 text-[11px] tracking-[0.15em] text-white/70">Système d’information officiel</p>
+          <div className="border-l border-white/30 pl-5 text-white">
+            <p className="whitespace-nowrap text-[clamp(0.95rem,1.25vw,1.35rem)] font-semibold leading-snug drop-shadow">
+              Ministère de l’Agriculture, de l’Élevage et du Développement Rural
+            </p>
           </div>
         </div>
 
@@ -220,8 +221,7 @@ function ProgrammeAside() {
             </p>
         </div>
 
-        <div className="relative mt-auto overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.14] to-white/[0.04] p-7 shadow-[0_30px_80px_-30px_rgb(0_0_0/0.7)] ring-1 ring-white/20 backdrop-blur-2xl xl:p-8 [@media(max-height:780px)]:p-5">
-          <div aria-hidden className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/80 to-transparent" />
+        <div className="mt-auto">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200/90">
             Modules de la plateforme
           </p>
@@ -239,7 +239,7 @@ function ProgrammeAside() {
 
         <p className="mt-5 flex items-center gap-2 text-xs text-white/55 [@media(max-height:780px)]:mt-3">
           <img src="/logo.png" alt="" className="h-4 w-auto opacity-80" />
-          Ministère de l’Agriculture, de l’Élevage et du Développement rural · Plateforme propulsée par Fermia
+          Plateforme propulsée par Fermia
         </p>
       </div>
     </aside>
