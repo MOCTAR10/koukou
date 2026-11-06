@@ -101,7 +101,9 @@ export function growthOrigin(
   const offset = t.initialAgeDays ?? 0;
   const date =
     offset > 0
-      ? new Date(Date.parse(`${t.integrationDate}T00:00:00Z`) - offset * 86400000)
+      ? new Date(
+          Date.parse(`${t.integrationDate}T00:00:00Z`) - offset * 86400000,
+        )
           .toISOString()
           .slice(0, 10)
       : t.integrationDate;
@@ -160,7 +162,8 @@ export function performanceAtLastWeighing(
   if (!last) return null;
   const date = last.entryDate;
   const kg = last.avgWeightKg!;
-  const ageDays = (t.initialAgeDays ?? 0) + daysBetween(t.integrationDate, date);
+  const ageDays =
+    (t.initialAgeDays ?? 0) + daysBetween(t.integrationDate, date);
   const origin = growthOrigin(t);
   const growthDays = daysBetween(origin.date, date);
   const population = populationOn(t, date);

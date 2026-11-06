@@ -330,8 +330,10 @@ export class ProgrammeFarmsService {
         farmId: e.id,
         code: e.code,
         name: e.name,
-        provinceCode: (e.provinceId && provinces.get(e.provinceId)?.code) || null,
-        provinceName: (e.provinceId && provinces.get(e.provinceId)?.name) || null,
+        provinceCode:
+          (e.provinceId && provinces.get(e.provinceId)?.code) || null,
+        provinceName:
+          (e.provinceId && provinces.get(e.provinceId)?.name) || null,
         score: Math.round(s.score * 100) / 100,
         reasons: s.reasons.map((r) => DUPLICATE_REASON_LABELS[r]),
         ...(e.line !== undefined ? { line: e.line } : {}),
@@ -1063,7 +1065,7 @@ export class ProgrammeFarmsService {
         });
         if (owned.some((f) => !includesFarm(access, f))) {
           throw new ForbiddenException(
-            "Accès refusé : cet exploitant a aussi des fermes hors de votre périmètre ; seul un administrateur qui les voit toutes peut régénérer son code.",
+            'Accès refusé : cet exploitant a aussi des fermes hors de votre périmètre ; seul un administrateur qui les voit toutes peut régénérer son code.',
           );
         }
       }

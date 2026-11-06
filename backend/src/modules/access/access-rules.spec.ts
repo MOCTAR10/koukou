@@ -143,9 +143,9 @@ describe('decideRoute', () => {
 
   it('opens REFERENCE to any member, the audit scope included, never in a matrix', () => {
     for (const code of ['MAEDR', 'ANINF', 'BCEG', 'AGENT_TECHNIQUE']) {
-      expect(
-        decideRoute(access(code), 'REFERENCE', 'CONSULTER').allowed,
-      ).toBe(true);
+      expect(decideRoute(access(code), 'REFERENCE', 'CONSULTER').allowed).toBe(
+        true,
+      );
     }
     expect(decideRoute(null, 'REFERENCE', 'CONSULTER').allowed).toBe(false);
     const refused = validateMatrix(

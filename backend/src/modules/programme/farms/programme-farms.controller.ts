@@ -218,7 +218,7 @@ export class ProgrammeFarmsController {
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
-      "Nouveau code de connexion du compte Propriétaire de la ferme (renvoyé une seule fois)",
+      'Nouveau code de connexion du compte Propriétaire de la ferme (renvoyé une seule fois)',
   })
   ownerLoginCode(
     @CurrentUser() user: AuthUser,

@@ -312,47 +312,49 @@ export class AccessAdminService {
   ) {
     const program = await this.programme.current();
     const granter = await this.granterOf(actor);
-    await this.dataSource.transaction(async (em) => {
-      const repo = em.getRepository(ProgramMembership);
-      const m = await repo.findOne({
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
+    try {
+      await this.dataSource.transaction(async (em) => {
+        const repo = em.getRepository(ProgramMembership);
+        const m = await repo.findOne({
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!m) throw new NotFoundException('Rattachement introuvable.');
+        if (m.userId === actor.id) {
+          throw new ForbiddenException(
+            'Vous ne pouvez pas modifier votre propre rattachement.',
+          );
+        }
+        const current = await em.getRepository(AccessProfile).findOneByOrFail({
+          id: m.profileId,
+        });
+        if (current.programId !== program.id) {
+          throw new NotFoundException('Rattachement introuvable.');
+        }
+        // The account as it is must be within the caller's own access...
+        await this.assertWithinOwnAccess(em, granter, current, m);
+        const profile = dto.profileCode
+          ? await this.profileByCode(em, program.id, dto.profileCode)
+          : current;
+        const scope = await this.resolveScope(em, program.id, profile, dto, m);
+        // ...and so must the access it is given.
+        await this.assertMayGrant(em, granter, profile, scope);
+        await repo.save({
+          ...m,
+          profileId: profile.id,
+          ...scope,
+          active: dto.active ?? m.active,
+        });
+        await this.updateAccount(em, m.userId, dto);
       });
-      if (!m) throw new NotFoundException('Rattachement introuvable.');
-      if (m.userId === actor.id) {
-        throw new ForbiddenException(
-          'Vous ne pouvez pas modifier votre propre rattachement.',
-        );
-      }
-      const current = await em.getRepository(AccessProfile).findOneByOrFail({
-        id: m.profileId,
-      });
-      if (current.programId !== program.id) {
-        throw new NotFoundException('Rattachement introuvable.');
-      }
-      // The account as it is must be within the caller's own access...
-      await this.assertWithinOwnAccess(em, granter, current, m);
-      const profile = dto.profileCode
-        ? await this.profileByCode(em, program.id, dto.profileCode)
-        : current;
-      const scope = await this.resolveScope(em, program.id, profile, dto, m);
-      // ...and so must the access it is given.
-      await this.assertMayGrant(em, granter, profile, scope);
-      await repo.save({
-        ...m,
-        profileId: profile.id,
-        ...scope,
-        active: dto.active ?? m.active,
-      });
-      await this.updateAccount(em, m.userId, dto);
-    }).catch((err: unknown) => {
+    } catch (err) {
       if (isUniqueViolation(err)) {
         throw new ConflictException(
           'Ce numéro ou cette adresse e-mail est déjà celui d’un autre compte.',
         );
       }
       throw err;
-    });
+    }
     return this.membershipById(id);
   }
 

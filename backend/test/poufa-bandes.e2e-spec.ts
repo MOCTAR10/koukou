@@ -125,7 +125,10 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
 
     it('âge J+x partout : métriques du lot, calendrier sanitaire', async () => {
       // Received today at 20 days old.
-      const band = await openBand({ integrationDate: day(0), initialAgeDays: 20 });
+      const band = await openBand({
+        integrationDate: day(0),
+        initialAgeDays: 20,
+      });
       const lot = await get(`/farms/${farmId}/batches/${band.id}`).expect(200);
       expect(lot.body.metrics.ageDays).toBe(20);
       const sheet = await get(`/farms/${farmId}/bandes/${band.id}`).expect(200);
