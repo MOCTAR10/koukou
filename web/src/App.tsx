@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FarmProvider } from './app/FarmContext';
 import { useFarmProfile } from './app/useFarmProfile';
-import { RequiresAuth, RequiresBuyerArea, RequiresFarmAccount, RequiresInstitution, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
+import { RequiresAccessAdmin, RequiresAuth, RequiresBuyerArea, RequiresFarmAccount, RequiresInstitution, RequiresPermission, RequiresPlatformAdmin } from './auth/guards';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { BuyerRegisterPage } from './auth/BuyerRegisterPage';
@@ -36,6 +36,7 @@ import { MarketListingPage } from './pages/MarketListingPage';
 import { MarketFarmPage } from './pages/MarketFarmPage';
 import { BuyerAccountPage } from './pages/BuyerAccountPage';
 import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
+import { AccessPage } from './pages/AccessPage';
 import { MyAccessPage } from './pages/MyAccessPage';
 import { InstitutionHomeRedirect } from './components/access/InstitutionHomeRedirect';
 
@@ -106,7 +107,10 @@ export function App() {
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>
-          {/* Institutional access (POUFA): the account's own access. */}
+          {/* Institutional access (POUFA): administration, and the account's own access. */}
+          <Route element={<RequiresAccessAdmin />}>
+            <Route path="acces/*" element={<AccessPage />} />
+          </Route>
           <Route element={<RequiresInstitution />}>
             <Route path="mon-acces" element={<MyAccessPage />} />
           </Route>
