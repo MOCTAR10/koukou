@@ -4,8 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import type { MapCluster, MapPoint } from '../../api/types-pilotage';
 import { COUNTRY_ZOOM, GABON_CENTER, clusterRadius, colourOf, levelOn, type ColourKey } from './mapKeys';
 
-const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+import { GABON_BOUNDS, GABON_MIN_ZOOM, MAP_TILE_ATTRIBUTION, MAP_TILE_MAX_ZOOM, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '../../lib/mapTiles';
 const TILE_ERRORS_BEFORE_GIVING_UP = 4;
 
 export interface PilotageMapCanvasProps {
@@ -34,7 +33,7 @@ function linesNode(lines: string[]): HTMLElement {
 
 /**
  * Leaflet map of the programme farms (registry GPS) and province clusters,
- * loaded on demand. Tiles from OpenStreetMap; without them (offline) the
+ * loaded on demand. Tiles from a configurable light basemap (lib/mapTiles.ts); without them (offline) the
  * map keeps its marks on a plain background: the data never depends on tiles.
  */
 export default function PilotageMapCanvas({ points, clusters, colourKey, showClusters, pointLines, clusterLines, onTilesFailed }: PilotageMapCanvasProps) {
@@ -47,13 +46,18 @@ export default function PilotageMapCanvas({ points, clusters, colourKey, showClu
 
   useEffect(() => {
     if (!container.current) return;
-    const instance = L.map(container.current, { scrollWheelZoom: false }).setView(GABON_CENTER, COUNTRY_ZOOM);
+    const instance = L.map(container.current, {
+      scrollWheelZoom: false,
+      minZoom: GABON_MIN_ZOOM,
+      maxBounds: GABON_BOUNDS,
+      maxBoundsViscosity: 1,
+    }).setView(GABON_CENTER, COUNTRY_ZOOM);
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       callbacks.current.onTilesFailed();
     } else {
       let loaded = false;
       let errors = 0;
-      const tiles = L.tileLayer(OSM_URL, { maxZoom: 18, attribution: OSM_ATTRIBUTION });
+      const tiles = L.tileLayer(MAP_TILE_URL, { maxZoom: MAP_TILE_MAX_ZOOM, subdomains: MAP_TILE_SUBDOMAINS, attribution: MAP_TILE_ATTRIBUTION });
       tiles
         .on('tileload', () => {
           loaded = true;

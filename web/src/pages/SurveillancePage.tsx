@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, ClipboardCheck, Eraser, Settings2, ShieldAlert } from 'lucide-react';
 import { api } from '../api/client';
 import { ALERT_FAMILIES, type SanitaryAlertPage } from '../api/types-surveillance';
+import { FiltersPanel } from '../components/FiltersPanel';
 import { PageNotOpen } from '../components/access/PageNotOpen';
 import { Button, ErrorNote, Field, inputCls, DateInput } from '../components/form';
 import { LEVEL_LABEL, Note, Pill, Tabs, levelTone } from '../components/flock/shared';
@@ -44,6 +45,7 @@ export function SurveillancePage() {
   const signs = useSanitaryList('SIGNE_CLINIQUE', rights.view);
   const provinces = useProvinces(rights.view);
   const badPeriod = periodProblem(filters);
+  const activeCount = Object.values(filters).filter((v) => v !== '').length;
   // POUFA lot A2 vet: the register of declarations (CDC n° 26), vets only.
   const view = rights.declarations && params.get('vue') === 'declarations' ? 'declarations' : 'alertes';
 
@@ -120,7 +122,7 @@ export function SurveillancePage() {
         </Note>
       ) : null}
 
-      <Card className="p-4 @container">
+      <FiltersPanel storageKey="surveillance" count={activeCount} forceOpen={Boolean(badPeriod)}>
         <div className="grid gap-3 @md:grid-cols-2 @3xl:grid-cols-4">
           <Field label="Famille de statut">
             <select className={inputCls} value={filters.statusFamily} onChange={(e) => setFilter('statusFamily', e.target.value)}>
@@ -181,7 +183,7 @@ export function SurveillancePage() {
           </div>
         </div>
         {badPeriod ? <p className="mt-2 text-sm text-amber-700">{badPeriod}</p> : null}
-      </Card>
+      </FiltersPanel>
 
       <ErrorNote error={list.error} />
       {list.isLoading ? (

@@ -335,6 +335,7 @@ function LivestockDashboard() {
                   new Date(`${w.weekStart}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
                 )}
                 valueFmt={(v) => `${v.toFixed(2)} kg`}
+                unit="poids moyen (kg)"
               />
               <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-500 sm:grid-cols-4">
                 <div>Vivants : <b>{num(curve.data.liveCount)}</b></div>
