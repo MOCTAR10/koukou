@@ -110,6 +110,7 @@ import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 // POUFA lot A sante: treatment register and care completion (CDC n° 22-23), offline.
 import { CompleteCareSheet, TreatmentSheet } from '@/components/sanitary/SanitaryRecordSheets';
 import { treatmentPeriodLabel } from '@/poufa/sanitary-records';
+import { librevilleDay } from '@/utils/libreville';
 
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements' | 'alertes';
 
@@ -125,7 +126,7 @@ const TAB_KEYS: readonly TabKey[] = ['sante', 'check', 'maladies', 'traitements'
 
 /** Clock of the band picker, kept out of render (purity convention). */
 function todayIsoUtc(): string {
-  return new Date().toISOString().slice(0, 10);
+  return librevilleDay();
 }
 
 const CARE_TYPE_LABEL: Record<CareType, string> = {

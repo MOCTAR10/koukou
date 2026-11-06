@@ -8,6 +8,7 @@ import {
   createDailyEntryQueued,
   createDeclarationQueued,
   createSortieQueued,
+  deliverOrderQueued,
   flushQueue,
   setFarmGpsQueued,
 } from './engine';
@@ -259,5 +260,23 @@ describe('saisie quotidienne (daily-entry) : règle de conflit hors ligne', () =
     await flushQueue();
     expect(loadOps()).toEqual([]);
     expect(loadRejected().map((r) => r.kind)).toEqual(['daily-entry']);
+  });
+});
+
+describe('livraison hors ligne (jour du Gabon)', () => {
+  it('capturedAt est écrit à l’heure du Gabon : 23:30 UTC = lendemain +01:00', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-03T23:30:00Z'));
+    try {
+      const live = stubFetch(networkError);
+      await deliverOrderQueued('f-1', 'o-1');
+      const [op] = loadOps();
+      const sent = body(live);
+      expect(sent.capturedAt).toBe('2026-11-04T00:30:00+01:00');
+      expect(Date.parse(sent.capturedAt)).toBe(Date.parse('2026-11-03T23:30:00Z'));
+      expect((op.payload as { capturedAt: string }).capturedAt).toBe('2026-11-04T00:30:00+01:00');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
