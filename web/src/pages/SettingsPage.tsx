@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Building,
   Crosshair,
+  Hash,
   Crown,
   Info,
   LogOut,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { api } from '../api/client';
+import { exploitantPhoneOf } from '../api/types';
 import type { FarmMemberProfile, FarmWithLogo } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
@@ -71,7 +73,7 @@ export function SettingsPage() {
         ? me.jobTitle?.trim() || statusLabel('INSTITUTION')
         : STAFF_ROLE_LABEL[me.role];
   // The stored session carries the phone although AuthUser doesn't declare it.
-  const phone = (user as { phone?: string } | null)?.phone ?? farm?.owner?.phone ?? '—';
+  const phone = (user as { phone?: string } | null)?.phone ?? exploitantPhoneOf(farm) ?? '—';
   const hasAllRights = me?.permissions.includes('*') === true;
 
   return (
@@ -99,6 +101,7 @@ export function SettingsPage() {
             {farm ? (
               <>
                 <InfoRow icon={Building} label="Ferme" value={farm.name} />
+                {farm.code ? <InfoRow icon={Hash} label="Code programme" value={farm.code} /> : null}
                 <InfoRow icon={MapPin} label="Commune" value={farm.administrativeCity || 'Non renseignée'} />
               </>
             ) : null}
@@ -122,7 +125,7 @@ export function SettingsPage() {
         ) : null}
       </div>
 
-      <Section title="Ma ferme" subtitle={hasPermission('reglages:ferme') ? 'Nom et logo modifiables' : 'Informations de la ferme'} icon={<Crosshair className="h-4 w-4" />}>
+      <Section title="Ma ferme" subtitle={hasPermission('reglages:ferme') ? 'Logo modifiable ; nom et code tenus par le registre' : 'Informations de la ferme'} icon={<Crosshair className="h-4 w-4" />}>
         {farm ? <FarmIdentityCard key={farm.id} farm={farm} /> : <Loading />}
       </Section>
 

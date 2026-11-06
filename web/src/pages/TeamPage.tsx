@@ -41,10 +41,12 @@ export function TeamPage() {
   });
 
   const members = team.data ?? [];
-  const isOwnFarm = farm?.ownerId === user?.id;
-  const ownerName = farm?.owner?.fullName ?? (isOwnFarm ? user?.fullName : undefined);
+  // A programme farm may have no owner account yet: the registry sheet names the exploitant.
+  const isOwnFarm = farm?.ownerId != null && farm.ownerId === user?.id;
+  const ownerName = farm?.owner?.fullName ?? (isOwnFarm ? user?.fullName : undefined) ?? farm?.exploitantName ?? undefined;
   // The stored session carries the phone although AuthUser doesn't declare it.
-  const ownerPhone = farm?.owner?.phone ?? (isOwnFarm ? (user as { phone?: string } | null)?.phone : undefined);
+  const ownerPhone =
+    farm?.owner?.phone ?? (isOwnFarm ? (user as { phone?: string } | null)?.phone : undefined) ?? farm?.exploitantPhone ?? undefined;
 
   // Server rule (assertCanDelegate): not yourself, nor an administrator holding a right you lack.
   const canEdit = (m: FarmMember) =>

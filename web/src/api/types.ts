@@ -9,6 +9,13 @@ export interface PublicUser {
   active: boolean;
 }
 
+/** How a programme farm's GPS point was obtained. */
+export type GpsSource = 'APPAREIL' | 'MANUEL' | 'IMPORT';
+
+/**
+ * A farm as `GET /farms` returns it: always a programme farm (POUFA-only
+ * instance), created by the registry with its sheet.
+ */
 export interface Farm {
   id: string;
   name: string;
@@ -20,9 +27,44 @@ export interface Farm {
   longitude: number | null;
   latitude: number | null;
   isVerified: boolean;
+  /** Follows the programme status: false while SUSPENDUE. */
   active: boolean;
-  ownerId: string;
+  /** Null until the exploitant's account is activated: fall back to `exploitantName`/`exploitantPhone`. */
+  ownerId: string | null;
+  /** Not loaded by `GET /farms`; some admin lists join it. */
   owner?: PublicUser | null;
+  // ----- Registry sheet -----
+  programId?: string;
+  /** `G1-0012`: never changes once set. */
+  code?: string | null;
+  provinceId?: string | null;
+  localiteId?: string | null;
+  amiRef?: string | null;
+  /** Code of a COHORTE list item. */
+  cohort?: string | null;
+  /** Bird places: base of the occupation rate. */
+  capacityPlaces?: number | null;
+  exploitantName?: string | null;
+  exploitantPhone?: string | null;
+  /** Current STATUT_FERME code (EN_PREPARATION, OPERATIONNELLE, SUSPENDUE…). */
+  statusCode?: string | null;
+  statusSince?: string | null;
+  gpsCapturedAt?: string | null;
+  gpsSource?: GpsSource | null;
+  gpsAccuracyM?: number | null;
+  /** GPS outside the farm's province: a warning, never a block. */
+  gpsProvinceWarning?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Name to show for the farm's exploitant: his account, else the registry sheet. */
+export function exploitantNameOf(farm: Pick<Farm, 'owner' | 'exploitantName'> | null | undefined): string | null {
+  return farm?.owner?.fullName ?? farm?.exploitantName ?? null;
+}
+
+export function exploitantPhoneOf(farm: Pick<Farm, 'owner' | 'exploitantPhone'> | null | undefined): string | null {
+  return farm?.owner?.phone ?? farm?.exploitantPhone ?? null;
 }
 
 export type BatchType = 'CHAIR' | 'PONDEUSE';

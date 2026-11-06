@@ -1,24 +1,25 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Camera, Check, Pencil, Trash2 } from 'lucide-react';
-import { useRef, useState, type FormEvent } from 'react';
+import { Camera, Check, Info, Trash2 } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { api } from '../../api/client';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import type { FarmWithLogo } from '../../api/types-org';
-import { Button, ErrorNote, inputCls } from '../form';
+import { Button, ErrorNote } from '../form';
 import { Card } from '../ui';
 import { FarmLogo } from './FarmLogo';
 import { ConfirmModal, farmLogoSrc, Pill, uploadFarmLogo } from './shared';
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
+/**
+ * The farm's identity. Name and code belong to the programme registry (its
+ * duplicate checks): the owner reads them here and only manages the logo.
+ */
 export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
   const { hasPermission } = useFarmProfile();
   const canEdit = hasPermission('reglages:ferme');
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(farm.name);
-  const [nameError, setNameError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   // The server keeps the same path when a logo is replaced: force the new image.
@@ -26,13 +27,6 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
 
   const refreshFarms = () => queryClient.invalidateQueries({ queryKey: ['farms'] });
 
-  const rename = useMutation({
-    mutationFn: (name: string) => api.patch<FarmWithLogo>(`/farms/${farm.id}`, { name }),
-    onSuccess: async () => {
-      await refreshFarms();
-      setEditing(false);
-    },
-  });
   const upload = useMutation({
     mutationFn: (file: File) => uploadFarmLogo(farm.id, file),
     onSuccess: async () => {
@@ -47,14 +41,6 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
       setConfirmRemove(false);
     },
   });
-
-  const submitName = (e: FormEvent) => {
-    e.preventDefault();
-    const name = draft.trim();
-    if (name.length < 2) return setNameError('Le nom doit comporter au moins 2 caractères.');
-    setNameError(null);
-    rename.mutate(name);
-  };
 
   const pickFile = (file: File | undefined) => {
     setFileError(null);
@@ -71,57 +57,22 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
       <div className="flex items-center gap-4">
         <FarmLogo farm={farm} version={logoVersion} size="h-14 w-14" />
         <div className="min-w-0 flex-1">
-          {editing ? (
-            <form className="flex flex-wrap items-center gap-2" onSubmit={submitName}>
-              <input
-                className={`${inputCls} max-w-sm`}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                aria-label="Nom de la ferme"
-                autoFocus
-              />
-              <Button type="submit" busy={rename.isPending}>
-                {rename.isPending ? null : <Check className="h-4 w-4" />}
-                Enregistrer
-              </Button>
-              <Button
-                tone="secondary"
-                disabled={rename.isPending}
-                onClick={() => {
-                  setDraft(farm.name);
-                  setNameError(null);
-                  rename.reset();
-                  setEditing(false);
-                }}
-              >
-                Annuler
-              </Button>
-            </form>
-          ) : (
-            <div className="flex items-center gap-2">
-              <p className="truncate text-base font-bold text-slate-900">{farm.name}</p>
-              {canEdit ? (
-              <button
-                type="button"
-                title="Renommer la ferme"
-                aria-label="Renommer la ferme"
-                className="rounded p-1 text-brand-600 hover:bg-slate-100"
-                onClick={() => {
-                  setDraft(farm.name);
-                  setEditing(true);
-                }}
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-              ) : null}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-base font-bold text-slate-900">{farm.name}</p>
+            {farm.code ? (
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600">{farm.code}</span>
+            ) : null}
+          </div>
           <p className="mt-0.5 text-sm text-slate-500">{farm.administrativeCity || 'Commune non renseignée'}</p>
         </div>
         <Pill tone={farm.active ? 'emerald' : 'red'}>{farm.active ? 'Active' : 'Suspendue'}</Pill>
       </div>
 
-      <ErrorNote error={nameError ?? rename.error} />
+      <p className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+        Le nom et le code de la ferme sont ceux du registre du programme POUFA. Pour corriger le nom, adressez-vous à
+        l’administration du programme.
+      </p>
 
       {canEdit ? (
       <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">

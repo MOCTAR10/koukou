@@ -124,6 +124,7 @@ export function Shell() {
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const farmOptions = farms.map((f) => (
     <option key={f.id} value={f.id}>
+      {f.code ? `${f.code} · ` : ''}
       {f.name}
       {!f.active ? ' (suspendue)' : ''}
     </option>
@@ -278,6 +279,11 @@ export function Shell() {
                   {isAdmin ? <span className="text-slate-400">Ferme : </span> : null}
                   {farm.name}
                 </span>
+                {farm.code ? (
+                  <span className="ml-2 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600 md:max-xl:hidden">
+                    {farm.code}
+                  </span>
+                ) : null}
                 <span className="ml-2 hidden text-xs font-normal text-slate-400 sm:inline">
                   {farm.administrativeCity} · {farm.active ? 'ferme active' : 'ferme suspendue'}
                 </span>

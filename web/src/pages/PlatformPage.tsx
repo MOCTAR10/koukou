@@ -9,8 +9,11 @@ import {
   Wrench,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { PlatformFarmRow, PlatformMetrics, ReferenceConstant } from '../api/types';
-import type { PublicUser } from '../api/types';
+import { exploitantNameOf } from '../api/types';
+import type { Farm, PlatformFarmRow, PlatformMetrics, PublicUser, ReferenceConstant } from '../api/types';
+import { useFarm } from '../app/FarmContext';
+import { FarmStatusModal, statusLabelOf, useFarmStatusItems } from '../components/programme/FarmStatusModal';
+import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../components/programme/farmStatus';
 import { Card, DataTable, EmptyState, LevelBadge, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
 import { classNames, fcfa, num } from '../lib/format';
 
@@ -23,13 +26,14 @@ const tabs = [
   { id: 'constants', label: 'Constantes', icon: Wrench },
 ];
 
-const inputCls =
-  'w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100';
-
 export function PlatformPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('overview');
-  const [provisioning, setProvisioning] = useState(false);
+  const [statusFarm, setStatusFarm] = useState<Farm | null>(null);
+  // `GET /farms` gives the admin every farm with its registry sheet (code, status, exploitant).
+  const { farms: sheets } = useFarm();
+  const sheetById = new Map(sheets.map((f) => [f.id, f]));
+  const statusItems = useFarmStatusItems();
 
   const metrics = useQuery({
     queryKey: ['admin-metrics'],
@@ -57,18 +61,10 @@ export function PlatformPage() {
   });
 
   const invalidateAll = () => {
-    // 'farms' feeds the farm switcher (a provisioned or renamed farm).
+    // 'farms' feeds the farm switcher (a renamed or suspended farm).
     const keys = ['admin-metrics', 'admin-farms', 'admin-users', 'reference-constants', 'farms'];
     keys.forEach((k) => void queryClient.invalidateQueries({ queryKey: [k] }));
   };
-
-  const provision = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api.post('/admin/farms', body),
-    onSuccess: () => {
-      invalidateAll();
-      setProvisioning(false);
-    },
-  });
 
   const patchFarm = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
@@ -151,83 +147,40 @@ export function PlatformPage() {
 
       {tab === 'farms' ? (
         <div className="space-y-4">
-          {!provisioning ? (
-            <button
-              onClick={() => setProvisioning(true)}
-              className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-            >
-              + Provisionner une ferme (compte propriétaire + ferme)
-            </button>
-          ) : (
-            <Card className="p-4">
-              <h2 className="mb-3 text-sm font-semibold text-slate-700">Provisionnement</h2>
-              <form
-                className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  provision.mutate({
-                    name: String(f.get('name')),
-                    administrativeCity: String(f.get('administrativeCity')),
-                    owner: {
-                      fullName: String(f.get('fullName')),
-                      phone: String(f.get('phone')),
-                      email: (f.get('email') as string) || undefined,
-                      code: String(f.get('code')),
-                    },
-                  });
-                }}
-              >
-                <Field name="name" label="Nom de la ferme *" required />
-                <Field name="administrativeCity" label="Localité *" required />
-                <Field name="fullName" label="Propriétaire (nom complet) *" required />
-                <Field name="phone" label="Téléphone propriétaire *" required placeholder="+241…" />
-                <Field name="email" label="E-mail" type="email" />
-                <Field name="code" label="Code secret *" type="password" required />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="submit"
-                    disabled={provision.isPending}
-                    className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
-                  >
-                    {provision.isPending ? 'Création…' : 'Provisionner'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProvisioning(false)}
-                    className="rounded-lg px-4 py-2 text-sm text-slate-500 hover:bg-slate-100"
-                  >
-                    Annuler
-                  </button>
-                </div>
-                {provision.isError ? (
-                  <p className="text-sm text-red-600">{(provision.error as Error).message}</p>
-                ) : null}
-              </form>
-            </Card>
-          )}
-
+          <p className="text-sm text-slate-500">
+            Les fermes s’enregistrent au registre du programme ; leur suspension passe par le statut du programme (motif
+            obligatoire, ventes bloquées).
+          </p>
           <Card className="overflow-hidden">
             <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Ferme</Th>
-                    <Th>Propriétaire</Th>
+                    <Th>Exploitant</Th>
                     <Th>Lots / cheptel</Th>
                     <Th>CA</Th>
                     <Th>Alertes</Th>
                     <Th>Vérif.</Th>
-                    <Th>Actif</Th>
+                    <Th>Statut</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(farms.data ?? []).map((r) => (
+                  {(farms.data ?? []).map((r) => {
+                    const sheet = sheetById.get(r.farm.id);
+                    const exploitant = r.owner?.fullName ?? exploitantNameOf(sheet);
+                    return (
                     <tr key={r.farm.id} className="border-t border-slate-100">
                       <Td>
-                        <p className="font-medium">{r.farm.name}</p>
+                        <p className="font-medium">
+                          {sheet?.code ? <span className="mr-1.5 font-mono text-xs text-slate-500">{sheet.code}</span> : null}
+                          {r.farm.name}
+                        </p>
                         <p className="text-xs text-slate-400">{r.farm.administrativeCity ?? ''}</p>
                       </Td>
-                      <Td label="Propriétaire">{r.owner?.fullName ?? '—'}</Td>
+                      <Td label="Exploitant">
+                        <p>{exploitant ?? '—'}</p>
+                        {!r.owner && !sheet?.ownerId ? <p className="text-xs text-slate-400">Compte non activé</p> : null}
+                      </Td>
                       <Td label="Lots / cheptel">
                         {r.lots.active} lot(s) · {num(r.lots.cheptel)} têtes
                       </Td>
@@ -250,31 +203,25 @@ export function PlatformPage() {
                           {r.farm.isVerified ? 'Vérifiée' : 'Non vérifiée'}
                         </button>
                       </Td>
-                      <Td label="Actif">
-                        <button
-                          onClick={() =>
-                            confirm(
-                              r.farm.active
-                                ? `Suspendre la ferme « ${r.farm.name} » ? (ventes bloquées)`
-                                : `Réactiver la ferme « ${r.farm.name} » ?`,
-                            ) &&
-                            patchFarm.mutate({
-                              id: r.farm.id,
-                              body: { active: !r.farm.active },
-                            })
-                          }
-                          className={classNames(
-                            'rounded-full px-2 py-0.5 text-xs font-medium',
-                            r.farm.active
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-slate-200 text-slate-600',
-                          )}
-                        >
-                          {r.farm.active ? 'Active' : 'Suspendue'}
-                        </button>
+                      <Td label="Statut">
+                        {sheet ? (
+                          <button
+                            onClick={() => setStatusFarm(sheet)}
+                            title="Changer le statut"
+                            className={classNames(
+                              'rounded-full px-2 py-0.5 text-xs font-medium',
+                              statusTone(r.farm.active, statusItems.data?.find((i) => i.code === sheet.statusCode)?.family),
+                            )}
+                          >
+                            {statusLabelOf(statusItems.data, sheet.statusCode)}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400">{r.farm.active ? 'Active' : 'Suspendue'}</span>
+                        )}
                       </Td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {!farms.data?.length ? (
                     <tr>
                       <Td className="py-8 text-center text-slate-400">
@@ -287,6 +234,8 @@ export function PlatformPage() {
           </Card>
         </div>
       ) : null}
+
+      {statusFarm ? <FarmStatusModal farm={statusFarm} onClose={() => setStatusFarm(null)} /> : null}
 
       {tab === 'users' ? (
         <Card className="overflow-hidden">
@@ -445,6 +394,12 @@ export function PlatformPage() {
   );
 }
 
+function statusTone(active: boolean, family: string | null | undefined): string {
+  if (!active || family === SUSPENDED_FAMILY) return 'bg-red-100 text-red-700';
+  if (family === PREPARATION_FAMILY) return 'bg-amber-100 text-amber-800';
+  return 'bg-emerald-100 text-emerald-700';
+}
+
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <Card className="p-3">
@@ -452,33 +407,6 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
       <p className="mt-0.5 text-lg font-bold text-slate-900">{value}</p>
       {hint ? <p className="text-xs text-slate-400">{hint}</p> : null}
     </Card>
-  );
-}
-
-function Field({
-  name,
-  label,
-  type = 'text',
-  required,
-  placeholder,
-}: {
-  name: string;
-  label: string;
-  type?: string;
-  required?: boolean;
-  placeholder?: string;
-}) {
-  return (
-    <label className="block text-xs">
-      <span className="mb-1 block font-medium text-slate-600">{label}</span>
-      <input
-        name={name}
-        type={type}
-        required={required}
-        placeholder={placeholder}
-        className={inputCls}
-      />
-    </label>
   );
 }
 
