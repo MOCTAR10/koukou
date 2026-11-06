@@ -53,8 +53,9 @@ describe('parameter catalog', () => {
   it('has one FORMULE_* key per default indicator, keys unique', () => {
     const formulas = PARAMETER_CATALOG.filter((d) => d.type === 'formula');
     expect(formulas).toHaveLength(POUFA_DEFAULT_FORMULAS.length);
-    // 12 CDC formulas + the steering's period mortality (POUFA lot A).
-    expect(formulas).toHaveLength(13);
+    // 12 CDC formulas + the steering's period mortality (POUFA lot A) +
+    // completeness and the two produced volumes (POUFA lot A2 dge).
+    expect(formulas).toHaveLength(16);
     expect(def('FORMULE_TAUX_MORTALITE').defaultValue).toBe(
       'morts_cumules / mis_en_place * 100',
     );

@@ -73,7 +73,6 @@ import {
   groupVisible,
   lastCompletePeriod,
   mortalityLevel,
-  pct,
   periodContaining,
   isDay,
   type Period,
@@ -817,8 +816,11 @@ export class ReportsService {
     const out: (FarmToFollow & { score: number })[] = [];
     for (const { farm, facts } of ctx.rows) {
       if (facts.bands === 0 && facts.publishedAlerts === 0) continue;
-      const mortalityPct = ctx.mortality(facts.deaths, facts.exposed);
-      const completenessPct = pct(facts.daysEntered, facts.daysElapsed);
+      const mortalityPct = ctx.indicators.mortality(facts.deaths, facts.exposed);
+      const completenessPct = ctx.indicators.completeness(
+        facts.daysEntered,
+        facts.daysElapsed,
+      );
       const reasons: string[] = [];
       if (mortalityLevel(mortalityPct, mT) === 'ROUGE')
         reasons.push('mortalité');
