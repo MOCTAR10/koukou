@@ -15,6 +15,7 @@ import type {
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
+import { useCanRead } from '../../app/useMenuAccess';
 import { lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
@@ -432,10 +433,12 @@ export function PlanCareModal({
   const uniform =
     selected.length > 0 && selected.every((l) => l.species === first?.species && l.type === first?.type);
 
+  // The medicine lots are INTRANTS: a veterinary profile plans the care without them.
+  const canReadInputs = useCanRead()('INTRANTS');
   const inputs = useQuery({
     queryKey: ['inputs', farmId],
     queryFn: () => api.get<InputLot[]>(`/farms/${farmId}/inputs`),
-    enabled: !!farmId,
+    enabled: !!farmId && canReadInputs,
   });
   const medLots = (inputs.data ?? []).filter((i) => i.entryType === 'MEDICAMENT' && i.quantity > 0);
   const medLot = medLots.find((m) => m.id === medLotId) ?? null;

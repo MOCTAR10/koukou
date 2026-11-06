@@ -39,6 +39,7 @@ import type {
 } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
 import { BarChart } from '../components/Charts';
 import { ConfirmModal, EditScheduleModal, HealthEventModal, PlanCareModal } from '../components/flock/SanitaryModals';
 import {
@@ -80,6 +81,8 @@ export function SanitaryPage() {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  // The lots are listed by a TECHNIQUE route: a profile without it can't pick one here.
+  const canListLots = useCanRead()('TECHNIQUE');
   const [params, setParams] = useSearchParams();
   const lots = useLots();
   const active = useMemo(() => (lots.data ?? []).filter((b) => b.status === 'ACTIF' || b.status === 'EN_VENTE'), [lots.data]);
@@ -131,7 +134,12 @@ export function SanitaryPage() {
         }
       />
       <ErrorNote error={lots.error} />
-      {lots.isLoading ? (
+      {!canListLots ? (
+        <EmptyState
+          message="Votre profil ne permet pas de lister les lots de la ferme (droit « Suivi technique : Consulter »). Demandez-le à l’administrateur des accès."
+          icon={<Activity />}
+        />
+      ) : lots.isLoading ? (
         <Loading label="Chargement des lots…" />
       ) : !lot ? (
         <EmptyState message="Aucun lot actif : créez un lot pour suivre sa santé." icon={<Activity />} />

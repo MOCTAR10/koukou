@@ -29,6 +29,7 @@ import type {
 } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
 import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, StatCard, StatusBadge, Td, Th } from '../components/ui';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
@@ -75,8 +76,11 @@ export function DashboardPage() {
 function LivestockDashboard() {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
-  const canReports = hasPermission('compta:rapports');
-  const canClients = hasPermission('compta:client');
+  // An institution opens this page with TECHNIQUE: the other domains' reads wait for their own « Consulter ».
+  const canRead = useCanRead();
+  const canReports = hasPermission('compta:rapports') && canRead('ECONOMIQUE');
+  const canClients = hasPermission('compta:client') && canRead('VENTES');
+  const canSlaughter = canRead('TRACABILITE');
   const [selectedDate, setSelectedDate] = useState(localToday);
   const isToday = selectedDate === localToday();
   const dash = useQuery({
@@ -103,7 +107,7 @@ function LivestockDashboard() {
   const slaughter = useQuery({
     queryKey: ['slaughter', farmId],
     queryFn: () => api.get<CarcassPool[]>(`/farms/${farmId}/slaughter-orders`),
-    enabled: !!farmId,
+    enabled: !!farmId && canSlaughter,
   });
   const pnlFrom = lastDays(30)[0]!;
   const pnl = useQuery({

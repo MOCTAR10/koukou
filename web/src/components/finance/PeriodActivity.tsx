@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Coins, ListOrdered, PackageCheck, Receipt } from 'lucide-react';
 import { api } from '../../api/client';
+import { useCanRead } from '../../app/useMenuAccess';
 import type { Expense, OverviewPnl } from '../../api/types-finance';
 import type { Order } from '../../api/types-orders';
 import type { SaleFull } from '../../api/types-sales';
@@ -73,9 +74,12 @@ export function PeriodActivity({
     queryKey: ['expenses', farmId, from, to],
     queryFn: () => api.get<Expense[]>(`/farms/${farmId}/expenses?from=${from}&to=${to}`),
   });
+  // Orders are Fermia-only (VENTES): the block stays out for an institution.
+  const showOrders = useCanRead()('VENTES');
   const orders = useQuery({
     queryKey: ['orders', farmId],
     queryFn: () => api.get<Order[]>(`/farms/${farmId}/orders`),
+    enabled: showOrders,
   });
 
   const recentSales = (sales.data ?? [])
@@ -115,16 +119,18 @@ export function PeriodActivity({
           <Row key={m.method} left={m.label} right={fcfa(m.amountFcfa)} />
         ))}
       </Block>
-      <Block title="Commandes en cours" icon={<ListOrdered />} empty="Aucune commande ouverte." error={orders.error}>
-        {openOrders.map((o) => (
-          <Row
-            key={o.id}
-            left={`${o.referenceNumber} · ${ORDER_CANAL_LABEL[o.canal] ?? o.canal}`}
-            caption={`${ORDER_STATUS_LABEL[o.status] ?? o.status}${o.depositFcfa > 0 ? ` · acompte ${fcfa(o.depositFcfa)}` : ''}`}
-            right={fcfa(o.totalAmountFcfa)}
-          />
-        ))}
-      </Block>
+      {showOrders ? (
+        <Block title="Commandes en cours" icon={<ListOrdered />} empty="Aucune commande ouverte." error={orders.error}>
+          {openOrders.map((o) => (
+            <Row
+              key={o.id}
+              left={`${o.referenceNumber} · ${ORDER_CANAL_LABEL[o.canal] ?? o.canal}`}
+              caption={`${ORDER_STATUS_LABEL[o.status] ?? o.status}${o.depositFcfa > 0 ? ` · acompte ${fcfa(o.depositFcfa)}` : ''}`}
+              right={fcfa(o.totalAmountFcfa)}
+            />
+          ))}
+        </Block>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,14 @@
 import { useAuth } from '../auth/AuthContext';
 import { registryRights, type RegistryRights } from '../components/registry/registryAccess';
-import { alwaysOpen, canAdministerAccess, institutionOpensPath, institutionShowsEntry, menuRuleFor } from './menu-access';
+import {
+  alwaysOpen,
+  canAdministerAccess,
+  institutionOpensPath,
+  institutionReads,
+  institutionShowsEntry,
+  menuRuleFor,
+  type ReadDomain,
+} from './menu-access';
 import { useFarmProfile } from './useFarmProfile';
 import { useInstitutionAccess } from './useInstitutionAccess';
 
@@ -9,6 +17,13 @@ export interface MenuAccess {
   showEntry: (to: string, perms?: string[]) => boolean;
   /** Whether a page opens (route guards, the Shell's « not open » screen). */
   canOpen: (pathname: string, perms?: string[]) => boolean;
+  /**
+   * Whether the account may read routes of a backend domain: always for a
+   * farm account (its farm permissions gate the rest); for an INSTITUTION,
+   * « Consulter » on that domain, never a Fermia-only one (`institutionReads`).
+   * Gate with it every query a page makes outside its own domain.
+   */
+  canRead: (domain: ReadDomain) => boolean;
   /** The decision isn't known yet: guards wait instead of redirecting. */
   isLoading: boolean;
   isGroundEleveur: boolean;
@@ -44,6 +59,7 @@ export function useMenuAccess(): MenuAccess {
     return {
       showEntry: (_to, perms) => !perms || hasPermission(...perms),
       canOpen: (_path, perms) => !perms || hasPermission(...perms),
+      canRead: () => true,
       isLoading: profileLoading,
       isGroundEleveur,
       showPlatform: isAdmin,
@@ -67,6 +83,7 @@ export function useMenuAccess(): MenuAccess {
   return {
     showEntry: (to, perms) => decide(to, perms, true),
     canOpen: (path, perms) => decide(path, perms, false),
+    canRead: (domain) => !inst.pending && !inst.revoked && institutionReads(access?.profile ?? null, domain),
     isLoading: inst.pending || (!access && profileLoading),
     // The ground home is the farm éleveur's.
     isGroundEleveur: false,
@@ -75,4 +92,9 @@ export function useMenuAccess(): MenuAccess {
     showMyAccess: true,
     registry: registryRights(user?.role, inst.revoked ? null : access?.profile),
   };
+}
+
+/** `useMenuAccess().canRead`, for the components that only gate their reads. */
+export function useCanRead(): (domain: ReadDomain) => boolean {
+  return useMenuAccess().canRead;
 }

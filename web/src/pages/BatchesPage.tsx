@@ -25,6 +25,7 @@ import { api } from '../api/client';
 import type { OverviewPnl } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
 import { BuildingFormModal, BuildingsPanel } from '../components/flock/Buildings';
 import { CreateLotModal } from '../components/flock/CreateLotModal';
 import { DailyEntryModal } from '../components/flock/DailyEntryModal';
@@ -70,7 +71,8 @@ const LEVEL_RANK: Record<string, number> = { ROUGE: 0, JAUNE: 1, VERT: 2 };
 export function BatchesPage() {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
-  const canReports = hasPermission('compta:rapports');
+  const canReadReports = useCanRead()('ECONOMIQUE');
+  const canReports = hasPermission('compta:rapports') && canReadReports;
   const [params, setParams] = useSearchParams();
   const selectedId = params.get('lot');
   const [view, setView] = useState<'lots' | 'buildings'>('lots');

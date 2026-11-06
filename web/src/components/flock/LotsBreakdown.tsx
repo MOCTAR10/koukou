@@ -4,6 +4,7 @@ import { Egg, Wheat } from 'lucide-react';
 import { api } from '../../api/client';
 import type { BatchHealth, Lot } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { useCanRead } from '../../app/useMenuAccess';
 import { lotImage } from '../../lib/animalImages';
 import { num } from '../../lib/format';
 import { PhotoThumb } from '../ui';
@@ -16,12 +17,14 @@ import { kindLabel, lotName, Metric } from './shared';
  */
 export function LotsBreakdown({ lots, historical }: { lots: Lot[]; historical: boolean }) {
   const { farmId } = useFarm();
+  // The daily health figures are SANITAIRE: without it, feed over bird-days, like a past date.
+  const sanitary = useCanRead()('SANITAIRE');
   const healthList = useQueries({
     queries: lots.map((b) => ({
       // Same key as the lot detail, so both share one call.
       queryKey: ['health', farmId, b.id],
       queryFn: () => api.get<BatchHealth>(`/farms/${farmId}/batches/${b.id}/health`),
-      enabled: !!farmId && !historical,
+      enabled: !!farmId && !historical && sanitary,
       staleTime: 60_000,
     })),
   });

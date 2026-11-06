@@ -114,6 +114,29 @@ function ruleAllows(rule: MenuRule, access: Pick<MyAccess['profile'], 'matrix' |
   return rule.any.some(([d, a]) => grantsAccess(access, d, a));
 }
 
+/**
+ * Fermia-only domains (backend `access-domains.ts` `FERMIA_DOMAINS`): refused
+ * by `validateMatrix`, so never granted to an institution.
+ */
+export const FERMIA_DOMAINS = ['VENTES', 'MARCHE', 'COMPTABILITE', 'EQUIPE', 'CULTURES', 'COMPTE', 'PLATEFORME'] as const;
+export type FermiaDomain = (typeof FERMIA_DOMAINS)[number];
+/** The backend `@Domain` of a route a page reads. */
+export type ReadDomain = AccessDomain | FermiaDomain;
+
+/**
+ * Whether an institution's GET on a route of `domain` passes the server's
+ * `ProgramAccessGuard` (« Consulter » on that domain). A page an institution
+ * opens gates with this every read outside its own domain (the dashboard's
+ * slaughter orders, the tasks' team…), so it renders without them instead of
+ * collecting 403s. Fermia-only domains: never. Unreadable access (offline,
+ * never loaded): programme domains are left to the server (cached answers).
+ */
+export function institutionReads(access: Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> | null, domain: ReadDomain): boolean {
+  if ((FERMIA_DOMAINS as readonly string[]).includes(domain)) return false;
+  if (!access) return true;
+  return grantsAccess(access, domain as AccessDomain, 'CONSULTER');
+}
+
 /** Whether the institution's menu shows the entry (unknown entry: hidden). */
 export function institutionShowsEntry(to: string, access: Pick<MyAccess['profile'], 'matrix' | 'scopeKind'>): boolean {
   const rule = menuRuleFor(to);

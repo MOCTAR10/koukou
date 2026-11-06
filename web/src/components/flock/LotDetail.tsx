@@ -59,6 +59,7 @@ import type {
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
+import { useCanRead } from '../../app/useMenuAccess';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
@@ -107,13 +108,15 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const [closing, setClosing] = useState(false);
   const [confirmSelling, setConfirmSelling] = useState(false);
   const pdf = useAsyncAction();
+  // An institution opens the lots with TECHNIQUE: its sanitary side needs SANITAIRE too.
+  const sanitary = useCanRead()('SANITAIRE');
 
   const buildings = useBuildings();
   const building = buildings.data?.find((b) => b.id === lot.buildingId) ?? null;
   const prophylaxis = useQuery({
     queryKey: ['prophylaxis', farmId, lot.id],
     queryFn: () => api.get<ProphylaxisEvent[]>(`/farms/${farmId}/batches/${lot.id}/prophylaxis`),
-    enabled: !!farmId,
+    enabled: !!farmId && sanitary,
   });
   const standards = useBreedStandards(lot.breedId);
 
@@ -247,7 +250,7 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
           { key: 'courbes', label: 'Courbes', icon: <Activity /> },
           { key: 'saisies', label: 'Saisies', icon: <PenLine /> },
           { key: 'historique', label: 'Historique', icon: <Clock /> },
-          { key: 'sanitaire', label: 'Sanitaire', icon: <HeartPulse /> },
+          ...(sanitary ? [{ key: 'sanitaire' as const, label: 'Sanitaire', icon: <HeartPulse /> }] : []),
         ]}
       />
 
@@ -255,7 +258,7 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
       {tab === 'courbes' ? <CurvesTab lot={lot} /> : null}
       {tab === 'saisies' ? <EntriesTab lot={lot} onEdit={(date) => setEntry({ date })} /> : null}
       {tab === 'historique' ? <HistoryTab lot={lot} /> : null}
-      {tab === 'sanitaire' ? <HealthTab lot={lot} events={prophylaxis.data ?? []} /> : null}
+      {tab === 'sanitaire' && sanitary ? <HealthTab lot={lot} events={prophylaxis.data ?? []} /> : null}
 
       {entry ? <DailyEntryModal initialBatchId={lot.id} initialDate={entry.date} onClose={() => setEntry(null)} /> : null}
       {closing ? <CloseLotModal lot={lot} onClose={() => setClosing(false)} /> : null}
@@ -324,26 +327,29 @@ function useEntries(lotId: string) {
 
 function useHealth(lotId: string) {
   const { farmId } = useFarm();
+  const canRead = useCanRead();
   return useQuery({
     queryKey: ['health', farmId, lotId],
     queryFn: () => api.get<BatchHealth>(`/farms/${farmId}/batches/${lotId}/health`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('SANITAIRE'),
   });
 }
 
 function useSlaughterOrders() {
   const { farmId } = useFarm();
+  const canRead = useCanRead();
   return useQuery({
     queryKey: ['slaughter-orders', farmId],
     queryFn: () => api.get<SlaughterOrderFull[]>(`/farms/${farmId}/slaughter-orders`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('TRACABILITE'),
   });
 }
 
 function OverviewTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
-  const canReports = hasPermission('compta:rapports');
+  const canRead = useCanRead();
+  const canReports = hasPermission('compta:rapports') && canRead('ECONOMIQUE');
   const invalidate = useInvalidateFarm();
   const m = lot.metrics;
   const isLayer = lot.type === 'PONDEUSE';
@@ -373,7 +379,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
   const stock = useQuery({
     queryKey: ['feed-stock', farmId],
     queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('INTRANTS'),
   });
 
   const ack = useAsyncAction();
@@ -866,15 +872,16 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
 
 function useLotCare(lotId: string) {
   const { farmId } = useFarm();
+  const sanitary = useCanRead()('SANITAIRE');
   const treatments = useQuery({
     queryKey: ['treatments', farmId, lotId],
     queryFn: () => api.get<TreatmentRecord[]>(`/farms/${farmId}/batches/${lotId}/treatments`),
-    enabled: !!farmId,
+    enabled: !!farmId && sanitary,
   });
   const events = useQuery({
     queryKey: ['health-events', farmId, lotId],
     queryFn: () => api.get<HealthEvent[]>(`/farms/${farmId}/batches/${lotId}/health-events`),
-    enabled: !!farmId,
+    enabled: !!farmId && sanitary,
   });
   return { treatments, events };
 }
@@ -894,10 +901,11 @@ function HistoryTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
   const { treatments, events } = useLotCare(lot.id);
   const slaughter = useSlaughterOrders();
+  const canRead = useCanRead();
   const prophylaxis = useQuery({
     queryKey: ['prophylaxis', farmId, lot.id],
     queryFn: () => api.get<ProphylaxisEvent[]>(`/farms/${farmId}/batches/${lot.id}/prophylaxis`),
-    enabled: !!farmId,
+    enabled: !!farmId && canRead('SANITAIRE'),
   });
   const [filter, setFilter] = useState<HistoryFilter>('all');
 

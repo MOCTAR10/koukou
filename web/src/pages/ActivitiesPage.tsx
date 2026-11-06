@@ -23,6 +23,7 @@ import { api } from '../api/client';
 import type { AdvisoryResponse, CaisseSummary, FarmTask, FlockDashboard } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useCanRead } from '../app/useMenuAccess';
 import { buildActionQueue, buildJournal } from '../components/flock/activityFeed';
 import { Metric, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { ErrorNote } from '../components/form';
@@ -105,7 +106,9 @@ const deltaText = (v: number | null | undefined, unit: string, digits = 1) =>
 export function ActivitiesPage() {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
-  const canCaisse = hasPermission('caisse:lire');
+  // The cash register is Fermia-only (VENTES).
+  const canReadCash = useCanRead()('VENTES');
+  const canCaisse = hasPermission('caisse:lire') && canReadCash;
   const [panel, setPanel] = useState<Panel>('taches');
   const [span, setSpan] = useState<7 | 30 | 90>(7);
 

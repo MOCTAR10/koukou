@@ -8,6 +8,7 @@ import {
   INSTITUTION_LANDING_ORDER,
   INSTITUTION_MENU,
   institutionLanding,
+  institutionReads,
   institutionOpensPath,
   institutionShowsEntry,
   menuRuleFor,
@@ -109,6 +110,29 @@ describe('institution menu', () => {
   it('keeps an AUDIT scope to the journal, like the server', () => {
     expect(grantsAccess(p('AUDIT', { TECHNIQUE: ['CONSULTER'] }), 'TECHNIQUE', 'CONSULTER')).toBe(false);
     expect(grantsAccess(ANINF, 'AUDIT', 'CONSULTER')).toBe(true);
+  });
+});
+
+describe('institutionReads', () => {
+  it('reads a programme domain with « Consulter » on it', () => {
+    expect(institutionReads(DGE, 'TRACABILITE')).toBe(true);
+    expect(institutionReads(AGENT_TECHNIQUE, 'TRACABILITE')).toBe(false);
+    expect(institutionReads(AGENT_TECHNIQUE, 'SANITAIRE')).toBe(false);
+    expect(institutionReads(VETERINAIRE, 'SANITAIRE')).toBe(true);
+    expect(institutionReads(VETERINAIRE, 'TECHNIQUE')).toBe(false);
+    // Only « Consulter » opens a read.
+    expect(institutionReads(p('ALL', { ECONOMIQUE: ['CREER'] }), 'ECONOMIQUE')).toBe(false);
+    // The AUDIT scope reads the journal only.
+    expect(institutionReads(ANINF, 'AUDIT')).toBe(true);
+    expect(institutionReads(p('AUDIT', { TECHNIQUE: ['CONSULTER'] }), 'TECHNIQUE')).toBe(false);
+  });
+
+  it('never reads a Fermia-only domain, even with the access unreadable', () => {
+    for (const d of ['VENTES', 'MARCHE', 'COMPTABILITE', 'EQUIPE', 'CULTURES', 'COMPTE', 'PLATEFORME'] as const) {
+      expect(institutionReads(DGE, d)).toBe(false);
+      expect(institutionReads(null, d)).toBe(false);
+    }
+    expect(institutionReads(null, 'TECHNIQUE')).toBe(true);
   });
 });
 

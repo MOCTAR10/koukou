@@ -24,6 +24,7 @@ import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
 import type { DailyEntryRecord, Lot } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
+import { useCanRead } from '../../app/useMenuAccess';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
@@ -214,10 +215,12 @@ function EntryForm({
   const [doubleYolk, setDoubleYolk] = useState(str(existing?.eggsDoubleYolk));
   const [dirty, setDirty] = useState(str(existing?.eggsDirty));
 
+  // INTRANTS: the feed lots to pick from, when the account reads them.
+  const canReadStock = useCanRead()('INTRANTS');
   const stock = useQuery({
     queryKey: ['feed-stock', farmId],
     queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
-    enabled: !!farmId,
+    enabled: !!farmId && canReadStock,
   });
   const standards = useBreedStandards(lot.breedId);
 
