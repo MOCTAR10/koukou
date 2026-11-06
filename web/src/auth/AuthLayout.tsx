@@ -191,7 +191,7 @@ function ProgrammeAside() {
   return (
     <aside className="relative hidden h-screen overflow-hidden bg-brand-950 text-white lg:block">
       <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_30%]" />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950/90 via-brand-950/15 via-40% to-transparent" />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950/90 via-brand-950/35 via-35% to-transparent" />
       <div aria-hidden className="absolute inset-x-0 top-0 h-[20rem] bg-gradient-to-b from-black/45 to-transparent" />
       <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
         <div className="flex items-center gap-4">
@@ -221,7 +221,7 @@ function ProgrammeAside() {
             </p>
         </div>
 
-        <div className="mt-auto mb-10 [@media(max-height:780px)]:mb-4">
+        <div className="mt-auto mb-24 [@media(max-height:780px)]:mb-10">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200/90">
             Modules de la plateforme
           </p>
