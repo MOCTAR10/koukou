@@ -54,6 +54,11 @@ import {
 } from './market-order-rules.js';
 
 const DEPOSIT_EXPIRED_REASON = 'Acompte non reçu dans le délai de 24 heures.';
+const BUYER_CANCEL_REASON = 'Annulée par l’acheteur sur le Market.';
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 @Injectable()
 export class MarketOrdersService {
@@ -200,6 +205,41 @@ export class MarketOrdersService {
     return this.getForBuyer(user, id);
   }
 
+  /**
+   * Unpaid: cancelled at once. Paid: only asks, as the farm has to give the
+   * money back and only it can touch its caisse. The birds stay reserved until
+   * then. Asking twice changes nothing.
+   */
+  async cancel(user: AuthUser, id: string) {
+    await this.dataSource.transaction(async (em) => {
+      const mo = await this.lock(em, { id, buyerUserId: user.id });
+      if (mo.state === MarketOrderState.REQUESTED) {
+        mo.state = MarketOrderState.WITHDRAWN;
+        mo.closedAt = new Date();
+        await em.save(mo);
+        return;
+      }
+      if (mo.state !== MarketOrderState.ACCEPTED || !mo.orderId) {
+        throw new BadRequestException('Cette commande ne peut plus être annulée.');
+      }
+      const outcome = await this.ordersService.cancelForBuyer(
+        mo.farmId,
+        mo.orderId,
+        BUYER_CANCEL_REASON,
+      );
+      if (outcome === BuyerCancelOutcome.DELIVERED) {
+        throw new BadRequestException(
+          'Commande déjà livrée : contactez la ferme.',
+        );
+      }
+      if (outcome === BuyerCancelOutcome.HAS_PAYMENT && !mo.cancelRequestedAt) {
+        mo.cancelRequestedAt = new Date();
+        await em.save(mo);
+      }
+    });
+    return this.getForBuyer(user, id);
+  }
+
   // ---------- Farm ----------
 
   async listForFarm(
@@ -263,6 +303,7 @@ export class MarketOrdersService {
           paid > 0 ? Math.max(0, mo.depositRequiredFcfa - paid) : 0,
         depositDueAt: mo.depositDueAt,
         depositExtendedAt: mo.depositExtendedAt,
+        cancelRequestedAt: mo.cancelRequestedAt,
         fulfilment: mo.fulfilment,
         address: mo.address,
         contactPhone: mo.contactPhone,
@@ -370,6 +411,65 @@ export class MarketOrdersService {
       await em.save(mo);
     });
     return this.oneForFarm(user, farmId, id);
+  }
+
+  /**
+   * Moves a pre-order's date and every open order on it, as one change. The
+   * listing is locked first, as in accept(), so no order can be accepted with
+   * the old date while this runs. Buyers see it on their order, and can cancel.
+   */
+  async moveReadyDate(
+    user: AuthUser,
+    farmId: string,
+    listingId: string,
+    readyDate: string,
+  ) {
+    await this.farmsService.assertAccessible(user, farmId);
+    await this.dataSource.transaction(async (em) => {
+      const listing = await em.getRepository(MarketListing).findOne({
+        where: { id: listingId, farmId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!listing) throw new NotFoundException('Annonce introuvable.');
+      if (listing.kind !== MarketListingKind.PRE) {
+        throw new BadRequestException('Seule une précommande a une date.');
+      }
+      if (listing.status === MarketListingStatus.DRAFT) {
+        throw new BadRequestException(
+          'Un brouillon se modifie directement, sans déplacer sa date.',
+        );
+      }
+      if (readyDate <= todayStr()) {
+        throw new BadRequestException(
+          'La nouvelle date doit être dans le futur.',
+        );
+      }
+      if (readyDate === listing.readyDate) {
+        throw new BadRequestException('La date est déjà celle-ci.');
+      }
+      const holds = await sanitaryHolds(em, farmId, listing.batchId);
+      if (holds.withdrawalEndDate && holds.withdrawalEndDate >= readyDate) {
+        throw new BadRequestException(
+          `Délai d’attente en cours sur ce lot jusqu’au ${holds.withdrawalEndDate} : choisissez une date après.`,
+        );
+      }
+
+      listing.previousReadyDate = listing.readyDate;
+      listing.readyDate = readyDate;
+      listing.readyDateMovedAt = new Date();
+      await em.save(listing);
+
+      const accepted = await em.getRepository(MarketOrder).find({
+        where: { listingId, state: MarketOrderState.ACCEPTED },
+      });
+      await this.ordersService.moveExpectedDate(
+        em,
+        farmId,
+        accepted.flatMap((mo) => mo.orderId ?? []),
+        readyDate,
+      );
+    });
+    return this.listingsService.getForFarm(user, farmId, listingId);
   }
 
   async extendDeposit(user: AuthUser, farmId: string, id: string) {
@@ -600,7 +700,10 @@ export class MarketOrdersService {
       customSpecies: listing.batch.customSpecies,
       breedName: listing.batch.breed?.name ?? listing.batch.customBreed,
       readyDate: listing.readyDate,
-      previousReadyDate: listing.previousReadyDate,
+      // Only a move that happened after they ordered is news to this buyer.
+      previousReadyDate: this.dateMovedAfterOrdering(mo)
+        ? listing.previousReadyDate
+        : null,
       desiredDate: mo.desiredDate,
       quantity: mo.quantity,
       unitPriceFcfa: mo.unitPriceFcfa,
@@ -609,6 +712,7 @@ export class MarketOrdersService {
       depositRequiredFcfa: mo.depositRequiredFcfa,
       depositPaidFcfa: order?.depositFcfa ?? 0,
       depositDueAt: mo.depositDueAt,
+      cancelRequestedAt: mo.cancelRequestedAt,
       fulfilment: mo.fulfilment,
       address: mo.address,
       contactPhone: mo.contactPhone,
@@ -627,6 +731,13 @@ export class MarketOrdersService {
       },
       timeline: this.timelineOf(mo),
     };
+  }
+
+  private dateMovedAfterOrdering(mo: MarketOrder): boolean {
+    const movedAt = mo.listing.readyDateMovedAt;
+    if (!movedAt || movedAt <= mo.createdAt) return false;
+    const ended = mo.order?.livredAt ?? mo.order?.cancelledAt ?? mo.closedAt;
+    return !ended || movedAt <= ended;
   }
 
   /** Built from the dates already stored, so it can't disagree with them. */
@@ -649,6 +760,12 @@ export class MarketOrdersService {
     if (mo.acceptedAt) events.push({ type: 'ACCEPTED', at: mo.acceptedAt });
     if (mo.depositExtendedAt) {
       events.push({ type: 'DEPOSIT_EXTENDED', at: mo.depositExtendedAt });
+    }
+    if (this.dateMovedAfterOrdering(mo)) {
+      events.push({ type: 'DATE_MOVED', at: mo.listing.readyDateMovedAt! });
+    }
+    if (mo.cancelRequestedAt) {
+      events.push({ type: 'CANCEL_REQUESTED', at: mo.cancelRequestedAt });
     }
     if (order?.livredAt) events.push({ type: 'DELIVERED', at: order.livredAt });
     if (order?.cancelledAt) {

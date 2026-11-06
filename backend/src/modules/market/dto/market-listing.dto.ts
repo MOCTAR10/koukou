@@ -87,6 +87,11 @@ export class UpdateMarketListingDto extends PartialType(
   ] as const),
 ) {}
 
+export class MoveReadyDateDto {
+  @IsDateString({}, { message: 'La date doit être au format YYYY-MM-DD.' })
+  readyDate: string;
+}
+
 export class ReadyDateSuggestionQueryDto {
   @IsUUID('4', { message: 'Identifiant de lot invalide.' })
   batchId: string;

@@ -18,6 +18,7 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import {
   CreateMarketListingDto,
   MarketCatalogueQueryDto,
+  MoveReadyDateDto,
   ReadyDateSuggestionQueryDto,
   UpdateMarketListingDto,
 } from './dto/market-listing.dto.js';
@@ -56,7 +57,23 @@ export class MarketCatalogueController {
 @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
 @Permissions('market:publier')
 export class FarmMarketController {
-  constructor(private readonly listings: MarketListingsService) {}
+  constructor(
+    private readonly listings: MarketListingsService,
+    private readonly orders: MarketOrdersService,
+  ) {}
+
+  @Post('listings/:listingId/move-date')
+  @ApiOperation({
+    summary: 'Déplacer la date d’une précommande et de ses commandes ouvertes',
+  })
+  moveDate(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('listingId', ParseUUIDPipe) listingId: string,
+    @Body() dto: MoveReadyDateDto,
+  ) {
+    return this.orders.moveReadyDate(user, farmId, listingId, dto.readyDate);
+  }
 
   @Get('listings')
   @ApiOperation({ summary: 'Annonces de la ferme, avec leur visibilité' })
@@ -162,6 +179,18 @@ export class BuyerMarketOrdersController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.orders.getForBuyer(user, id);
+  }
+
+  @Post(':id/cancel')
+  @ApiOperation({
+    summary:
+      'Annuler : immédiat sans acompte, sinon demande à la ferme, qui rembourse',
+  })
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.cancel(user, id);
   }
 
   @Post(':id/withdraw')

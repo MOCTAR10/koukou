@@ -46,6 +46,7 @@ export function buyerStatus(
     state: MarketOrderState;
     depositRequiredFcfa: number;
     depositExpiredAt: Date | null;
+    cancelRequestedAt: Date | null;
   },
   order: { status: OrderStatus; depositFcfa: number } | null,
 ): MarketBuyerStatus {
@@ -68,6 +69,7 @@ export function buyerStatus(
       : MarketBuyerStatus.CANCELLED;
   }
   if (order.status === OrderStatus.LIVRE) return MarketBuyerStatus.DELIVERED;
+  if (mo.cancelRequestedAt) return MarketBuyerStatus.CANCEL_REQUESTED;
   if (mo.depositRequiredFcfa > 0 && order.depositFcfa === 0) {
     return MarketBuyerStatus.AWAITING_DEPOSIT;
   }

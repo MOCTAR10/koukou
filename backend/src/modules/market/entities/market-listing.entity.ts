@@ -65,6 +65,9 @@ export class MarketListing {
   @Column({ name: 'previous_ready_date', type: 'date', nullable: true })
   previousReadyDate: string | null;
 
+  @Column({ name: 'ready_date_moved_at', type: 'timestamptz', nullable: true })
+  readyDateMovedAt: Date | null;
+
   /** PRE only: share of the order to pay within 24 hours of acceptance. */
   @Column({ name: 'deposit_pct', type: 'int', nullable: true })
   depositPct: number | null;
