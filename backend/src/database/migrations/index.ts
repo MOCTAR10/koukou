@@ -24,6 +24,7 @@ import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalarie
 // POUFA lot A droits (end)
 // POUFA lot A2 divers
 import { SlaughterOrderOperator1794100500000 } from './1794100500000-SlaughterOrderOperator.js';
+import { BreedReferenceRight1794100500100 } from './1794100500100-BreedReferenceRight.js';
 // POUFA lot A sante: CDC n° 22-23 (treatments, vaccinations, offline keys).
 import { SanitaryConformity1794000300000 } from './1794000300000-SanitaryConformity.js';
 
@@ -62,5 +63,6 @@ export const MIGRATIONS = [
   // POUFA lot A droits (end)
   // POUFA lot A2 divers (begin)
   SlaughterOrderOperator1794100500000,
+  BreedReferenceRight1794100500100,
   // POUFA lot A2 divers (end)
 ];

@@ -9,6 +9,8 @@ import {
   auth,
   createPlatformAdmin,
   createProgrammeFarm,
+  login,
+  uniquePhone,
 } from './helpers/programme-farm.js';
 
 const day = (n: number) =>
@@ -166,5 +168,21 @@ describe('POUFA lot A2 divers (e2e)', () => {
     expect(await shownIn()).toBe(0);
     await request(server).put(`/farms/${farmId}/input-deliveries/${delivery.body.id}/band`).set(auth(ownerToken)).send({ bandId: open[0].id }).expect(200);
     expect(await shownIn()).toBe(1);
+  });
+
+  it('F8 : l’administrateur plateforme lit les fermes sans y écrire ; les races passent par la matrice', async () => {
+    await get(`/farms/${farmId}/batches`, adminToken).expect(200);
+    await post(`/farms/${farmId}/batches`, { batchName: 'x', type: 'CHAIR', integrationDate: day(0), quantityAtStart: 10 }, adminToken).expect(403);
+    await post('/breeds', { name: `Race ${tag}`, type: 'CHAIR' }, adminToken).expect(403);
+    await post('/breeds/reference', { name: `Race ${tag}`, type: 'CHAIR' }, adminToken).expect(403);
+    const phone = uniquePhone('+2417');
+    const m = await post('/programme/access/memberships', { fullName: `DGE A2 ${tag}`, phone, profileCode: 'DGE' }, adminToken).expect(201);
+    const dge = await login(server, phone, m.body.loginCode as string);
+    const breed = await post('/breeds/reference', { name: `Race A2 ${tag}`, type: 'CHAIR' }, dge).expect(201);
+    expect(breed.body.farmId ?? null).toBeNull();
+    await patch(`/breeds/reference/${breed.body.id}`, { active: false }, dge).expect(200);
+    await patch(`/admin/breeds/${breed.body.id}`, { active: true }, adminToken).expect(403);
+    // An owner never reaches the reference routes.
+    await post('/breeds/reference', { name: `Race B ${tag}`, type: 'CHAIR' }).expect(403);
   });
 });

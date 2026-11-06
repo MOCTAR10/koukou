@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ForbiddenException,
   Controller,
   Get,
   Param,
@@ -245,8 +246,12 @@ export class PlatformAdminController {
     summary:
       'Modifier une souche (nom, type, espèce, actif) — disponible aussi au Propriétaire dans la ferme.',
   })
-  updateBreed(@Param('id') id: string, @Body() dto: UpdateBreedDto) {
-    return this.platformService.updateBreed(id, dto);
+  updateBreed(@Param('id') _id: string, @Body() _dto: UpdateBreedDto) {
+    // POUFA lot A2 divers (F8): the breed reference belongs to a matrix
+    // profile (PARAMETRES:CREER, DGE by default), not to the platform admin.
+    throw new ForbiddenException(
+      'Le référentiel des races est géré par le profil habilité (Paramètres : Créer), pas par l’administrateur plateforme.',
+    );
   }
 
   @Patch('protocols/:id')
