@@ -17,6 +17,9 @@ export interface SaleCessionInput {
   referenceNumber: string;
   /** Day the animals change hands (sale day, delivery day for an order). */
   day: string;
+  /** When the hand-over was recorded (an offline delivery: the device capture). */
+  capturedAt?: Date;
+  clockCorrected?: boolean;
   customerId: string | null;
   userId: string | null;
   items: readonly SaleCessionItem[];
@@ -121,8 +124,8 @@ export class SaleCessionService {
             ? `Cession de carcasses : vente ${input.referenceNumber}`
             : `Cession : vente ${input.referenceNumber}`,
           idempotencyKey: null,
-          capturedAt: new Date(),
-          clockCorrected: false,
+          capturedAt: input.capturedAt ?? new Date(),
+          clockCorrected: input.clockCorrected ?? false,
           createdById: input.userId,
         }),
       );

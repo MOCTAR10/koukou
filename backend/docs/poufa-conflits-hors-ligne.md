@@ -86,6 +86,8 @@ Les agents et les profils institutionnels qui lisent la bande (domaine TECHNIQUE
 
 Une sortie est une création : elle porte une clé d'idempotence (`idempotencyKey` = identifiant de l'opération). Un nouvel envoi de la même opération renvoie la sortie déjà enregistrée, sans doublon. Son heure de capture est corrigée selon la même règle d'horloge (§2).
 
+**Livraison d'une commande** (commande de la ferme ou du Market, `POST /farms/:farmId/orders/:orderId/livrer`) : le web et le mobile envoient l'heure de la livraison sur l'appareil (`capturedAt`, fixée au premier essai, et `deviceSentAt` à chaque envoi). Corrigée selon la même règle d'horloge (§2), elle donne **le jour de la livraison** : date de livraison de la commande, écriture comptable du chiffre d'affaires et, pour un client lié à un opérateur, **date de la cession** (sortie VENTE, sous-lot et QR). Une livraison faite hors ligne le lundi et synchronisée le mercredi est donc cédée le lundi. Sans `capturedAt` (écriture en ligne), c'est le jour du serveur. Les jours sont comptés en UTC (`src/modules/orders/delivery-day.ts`). La livraison est une transition : un second envoi est refusé (« déjà livrée ») et l'opération est abandonnée sans effet.
+
 ## 7. Exemple
 
 | Heure réelle | Appareil | Action |

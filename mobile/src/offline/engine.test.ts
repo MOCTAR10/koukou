@@ -271,6 +271,26 @@ describe('capture hors-ligne — enfile et rejette', () => {
     expect(JSON.parse(readCall(replay).init.body as string).idempotencyKey).toBe(liveKey);
   });
 
+  it('livraison hors ligne : rejouée avec l’heure de la livraison sur le téléphone', async () => {
+    const live = stubFetch(networkError);
+    await deliverOrderQueued('f-1', 'o-1');
+    const liveBody = JSON.parse(readCall(live).init.body as string);
+    expect(typeof liveBody.capturedAt).toBe('string');
+    expect(typeof liveBody.deviceSentAt).toBe('string');
+    const replay = stubFetch(async () => jsonResponse(201, { id: 'o-1' }));
+    await flushQueue();
+    const body = JSON.parse(readCall(replay).init.body as string);
+    expect(body.capturedAt).toBe(liveBody.capturedAt);
+    expect(body.deviceId).toBe(liveBody.deviceId);
+  });
+
+  it('livraison mise en file avant le lot A2 : l’heure de l’op tient lieu de capture', async () => {
+    enqueueOp({ id: 'off-order-deliver-legacy', kind: 'order-deliver', farmId: 'f-1', payload: { orderId: 'o-1' }, createdAt: '2026-10-01T09:00:00.000Z' });
+    const fetchMock = stubFetch(async () => jsonResponse(201, { id: 'o-1' }));
+    await flushQueue();
+    expect(JSON.parse(readCall(fetchMock).init.body as string).capturedAt).toBe('2026-10-01T09:00:00.000Z');
+  });
+
   it('op ancienne sans clé : rejouée avec op.id comme clé', async () => {
     enqueueOp({
       id: 'off-stock-loss-legacy',

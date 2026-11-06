@@ -81,7 +81,7 @@ function shouldDrop(e: unknown): boolean {
 
 function send<T>(op: Pick<OfflineOp, 'method' | 'path' | 'body'> & { kind?: OfflineKind }): Promise<T> {
   // POUFA lot A bande: the device clock at each sending (server clock-skew check).
-  if (op.kind === 'daily-entry' && op.method === 'POST') return api.post<T>(op.path, withSendTime(op.body));
+  if ((op.kind === 'daily-entry' || op.kind === 'order-deliver') && op.method === 'POST') return api.post<T>(op.path, withSendTime(op.body));
   if (op.method === 'POST') return api.post<T>(op.path, op.body);
   if (op.method === 'PATCH') return api.patch<T>(op.path, op.body);
   return api.del<T>(op.path);
@@ -137,7 +137,8 @@ export async function sendOrQueue<T = unknown>(req: OfflineRequest): Promise<Sen
     body: KEYED_KINDS.has(req.kind)
       ? { idempotencyKey: id, ...req.body }
       : // POUFA lot A bande: capture time and device, fixed at the first attempt.
-        req.kind === 'daily-entry'
+        // POUFA lot A2 divers: an order delivery keeps its own day too.
+        req.kind === 'daily-entry' || req.kind === 'order-deliver'
         ? withCaptureMeta(req.body, createdAt, deviceId())
         : req.body,
     label: req.label,

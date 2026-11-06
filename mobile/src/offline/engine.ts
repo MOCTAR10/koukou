@@ -420,15 +420,19 @@ export async function recordCustomerPaymentQueued(
 
 /** Livraison de commande : mise en file si hors ligne (rejouée à la connexion). */
 export async function deliverOrderQueued(farmId: string, orderId: string): Promise<SendResult> {
+  // POUFA lot A2 divers: the delivery time is fixed now; a replay sends it
+  // so the cession and the delivery keep this day (backend delivery-day.ts).
+  const capturedAt = new Date().toISOString();
+  const device = deviceId();
   return sendOrQueue(
     {
       id: nextId('order-deliver'),
       kind: 'order-deliver',
       farmId,
-      payload: { orderId },
+      payload: { orderId, capturedAt, deviceId: device },
     },
     async () => {
-      await deliverOrder(farmId, orderId);
+      await deliverOrder(farmId, orderId, { capturedAt, deviceId: device, deviceSentAt: new Date().toISOString() });
     },
   );
 }
@@ -752,7 +756,13 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       await ensureCashOpenOrRetry(op);
       await recordCustomerPayment(op.farmId, p.customerId, p.amountFcfa, { idempotencyKey: p.idempotencyKey });
     } else if (op.kind === 'order-deliver') {
-      await deliverOrder(op.farmId, (op.payload as { orderId: string }).orderId);
+      const p = op.payload as { orderId: string; capturedAt?: string; deviceId?: string };
+      // Ops queued before lot A2 have no capture: the op creation time stands in.
+      await deliverOrder(op.farmId, p.orderId, {
+        capturedAt: p.capturedAt ?? op.createdAt,
+        deviceId: p.deviceId ?? deviceId(),
+        deviceSentAt: new Date().toISOString(),
+      });
     } else if (op.kind === 'order-cancel') {
       const p = op.payload as { orderId: string; reason: string };
       await cancelOrder(op.farmId, p.orderId, p.reason);
