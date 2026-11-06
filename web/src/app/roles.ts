@@ -63,11 +63,12 @@ export function farmSpaceState(input: { farmsLoading: boolean; farmsFailed: bool
 }
 
 /**
- * Pages that make sense without a farm (the rest show the no-farm screen).
- * The registry is where the first farm gets created.
+ * Pages that make sense without a farm (the rest show the no-farm screen): the
+ * platform console, the help, the institutional access screens and the registry
+ * (where the first farm gets created).
  */
 export function worksWithoutFarm(pathname: string): boolean {
-  return isUnder(pathname, '/app/platform') || isUnder(pathname, '/app/help') || isUnder(pathname, '/app/registre');
+  return ['/app/platform', '/app/help', '/app/acces', '/app/mon-acces', '/app/registre'].some((root) => isUnder(pathname, root));
 }
 
 /** French text of the no-farm screen, per kind of account. */

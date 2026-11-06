@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../api/errors';
+import type { MyAccess } from '../../api/types-access';
 import type { ImportReport, RegistrySheet } from '../../api/types-programme';
 import { candidateTitle, readDuplicateConflict, scoreLabel } from './duplicates';
 import { checkImportFile, importFormData, linesOf, outcomeCounts, summarizeImport } from './importReport';
@@ -144,11 +145,38 @@ describe('one-time login code', () => {
   });
 });
 
+type Profile = Pick<MyAccess['profile'], 'matrix' | 'scopeKind'>;
+
 describe('registryRights', () => {
-  it('opens the registry to the platform admin only (W3 adds institutions)', () => {
-    expect(registryRights('PLATFORM_ADMIN')).toEqual({ view: true, edit: true, activateOwner: true, import: true, regenerateCode: true });
-    expect(registryRights('INSTITUTION').view).toBe(false);
+  it('gives the platform admin every right, a farm account none', () => {
+    expect(registryRights('PLATFORM_ADMIN')).toEqual({
+      view: true,
+      create: true,
+      edit: true,
+      activateOwner: true,
+      import: true,
+      regenerateCode: true,
+    });
     expect(registryRights('PROPRIETAIRE').view).toBe(false);
+    expect(registryRights('INSTITUTION').view).toBe(false); // access not loaded
+  });
+
+  it("reads an institution's rights from its access profile, like the server", () => {
+    const agent: Profile = { scopeKind: 'PROVINCES', matrix: { REGISTRE: ['CONSULTER', 'MODIFIER'], ADMINISTRATION: ['ADMINISTRER'] } };
+    expect(registryRights('INSTITUTION', agent)).toEqual({
+      view: true,
+      create: false,
+      edit: true,
+      activateOwner: true,
+      import: false,
+      regenerateCode: false,
+    });
+    const national: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
+    expect(registryRights('INSTITUTION', national)).toMatchObject({ create: true, import: true, edit: false, activateOwner: false });
+    const provincial: Profile = { scopeKind: 'PROVINCES', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
+    expect(registryRights('INSTITUTION', provincial).import).toBe(false);
+    // An AUDIT-scope profile reads the journal only.
+    expect(registryRights('INSTITUTION', { scopeKind: 'AUDIT', matrix: { REGISTRE: ['CONSULTER'] } }).view).toBe(false);
   });
 });
 

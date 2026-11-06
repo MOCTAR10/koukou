@@ -1,22 +1,78 @@
 import { useAuth } from '../auth/AuthContext';
-import { registryRights } from '../components/registry/registryAccess';
+import { registryRights, type RegistryRights } from '../components/registry/registryAccess';
+import { alwaysOpen, canAdministerAccess, institutionOpensPath, institutionShowsEntry, menuRuleFor } from './menu-access';
 import { useFarmProfile } from './useFarmProfile';
+import { useInstitutionAccess } from './useInstitutionAccess';
+
+export interface MenuAccess {
+  /** Whether the nav entry `to` shows; `perms`: farm permission codes, one of which is needed (absent: none). */
+  showEntry: (to: string, perms?: string[]) => boolean;
+  /** Whether a page opens (route guards, the Shell's « not open » screen). */
+  canOpen: (pathname: string, perms?: string[]) => boolean;
+  /** The decision isn't known yet: guards wait instead of redirecting. */
+  isLoading: boolean;
+  isGroundEleveur: boolean;
+  /** « Cockpit plateforme » (platform admin). */
+  showPlatform: boolean;
+  /** The institutional access administration (profiles, accounts). */
+  showAccessAdmin: boolean;
+  /** The account's own access page (institution). */
+  showMyAccess: boolean;
+  /** What the farm registry offers (`components/registry/registryAccess.ts`). */
+  registry: RegistryRights;
+}
 
 /**
- * Rights the farm menu is filtered with. Today every account, INSTITUTION
- * included, uses its profile on the active farm (`GET /farms/:id/me`: for an
- * institution the server maps its access matrix onto farm permission codes).
+ * Rights the menu and the page guards are filtered with; the Shell reads only
+ * this hook.
  *
- * Seam for W3: an INSTITUTION menu will come from `GET /programme/access/me`
- * (programme domains, aggregate and audit scopes that have no farm). Branch
- * here on the account's role; the Shell only reads this hook.
+ * - Farm accounts (owner, staff, platform admin): their profile on the active
+ *   farm (`GET /farms/:id/me`).
+ * - INSTITUTION: its access profile (`GET /programme/access/me`) through the
+ *   table of `menu-access.ts`; Fermia-only areas never show. Unreadable access
+ *   (offline before any load): the farm profile the server mapped from the
+ *   matrix, Fermia-only areas still hidden. Refused access (no active
+ *   membership): only the pages that need nothing.
  */
-export function useMenuAccess(): { hasPermission: (...codes: string[]) => boolean; isGroundEleveur: boolean; canOpenRegistry: boolean } {
+export function useMenuAccess(): MenuAccess {
   const { user } = useAuth();
-  const { hasPermission, isGroundEleveur } = useFarmProfile();
-  // TODO(W3): an INSTITUTION whose profile grants REGISTRE (CONSULTER) opens the
-  // registry too, within its scope: decide it from `/programme/access/me` in
-  // `registryRights` (components/registry/registryAccess.ts).
-  const canOpenRegistry = registryRights(user?.role).view;
-  return { hasPermission, isGroundEleveur, canOpenRegistry };
+  const { hasPermission, isGroundEleveur, isLoading: profileLoading } = useFarmProfile();
+  const inst = useInstitutionAccess();
+  const isAdmin = user?.role === 'PLATFORM_ADMIN';
+
+  if (!inst.isInstitution) {
+    return {
+      showEntry: (_to, perms) => !perms || hasPermission(...perms),
+      canOpen: (_path, perms) => !perms || hasPermission(...perms),
+      isLoading: profileLoading,
+      isGroundEleveur,
+      showPlatform: isAdmin,
+      showAccessAdmin: isAdmin,
+      showMyAccess: false,
+      registry: registryRights(user?.role),
+    };
+  }
+
+  const { access } = inst;
+  const decide = (path: string, perms: string[] | undefined, entry: boolean): boolean => {
+    if (alwaysOpen(path)) return true;
+    if (inst.pending || inst.revoked) return false;
+    if (access) return entry ? institutionShowsEntry(path, access.profile) : institutionOpensPath(path, access.profile);
+    // Access unreadable (offline, never loaded): the farm profile, never a Fermia-only area.
+    const rule = menuRuleFor(path);
+    if (rule?.kind === 'never') return false;
+    if (entry && !rule) return false;
+    return !perms || hasPermission(...perms);
+  };
+  return {
+    showEntry: (to, perms) => decide(to, perms, true),
+    canOpen: (path, perms) => decide(path, perms, false),
+    isLoading: inst.pending || (!access && profileLoading),
+    // The ground home is the farm éleveur's.
+    isGroundEleveur: false,
+    showPlatform: false,
+    showAccessAdmin: canAdministerAccess(user?.role, access?.profile),
+    showMyAccess: true,
+    registry: registryRights(user?.role, inst.revoked ? null : access?.profile),
+  };
 }

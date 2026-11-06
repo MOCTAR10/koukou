@@ -5,13 +5,11 @@ import { AlertTriangle, BookMarked, ChevronLeft, ChevronRight, FileUp, Plus, Sea
 import { api } from '../api/client';
 import type { RegistryFarmPage } from '../api/types-programme';
 import { useMenuAccess } from '../app/useMenuAccess';
-import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote, inputCls } from '../components/form';
 import { useFarmStatusItems } from '../components/programme/FarmStatusModal';
 import { FarmFormModal } from '../components/registry/FarmFormModal';
 import { ImportModal } from '../components/registry/ImportModal';
 import { useProgrammeList, useProvinces } from '../components/registry/queries';
-import { registryRights } from '../components/registry/registryAccess';
 import {
   hasActiveFilter,
   localitesOf,
@@ -38,9 +36,8 @@ const SHEET_PARAM = 'ferme';
  * server filters and pages (the scope of an institution included).
  */
 export function RegistryPage() {
-  const { user } = useAuth();
-  const { canOpenRegistry } = useMenuAccess();
-  const rights = registryRights(user?.role);
+  const { registry: rights, isLoading: accessLoading } = useMenuAccess();
+  const canOpenRegistry = rights.view;
   const [params, setParams] = useSearchParams();
   const filters = useMemo(() => parseRegistryParams(params), [params]);
   const openId = params.get(SHEET_PARAM);
@@ -91,7 +88,8 @@ export function RegistryPage() {
     setQ(filters.q);
   }, [filters.q]);
 
-  if (!canOpenRegistry) return <Navigate to="/app" replace />;
+  // An institution's access profile may still be loading: wait before sending it away.
+  if (!canOpenRegistry) return accessLoading ? <Loading /> : <Navigate to="/app" replace />;
 
   const data = list.data;
   const pages = data ? pageCount(data.total, data.pageSize) : 1;
@@ -111,7 +109,7 @@ export function RegistryPage() {
                 <FileUp className="h-4 w-4" /> Importer un CSV
               </Button>
             ) : null}
-            {rights.edit ? (
+            {rights.create ? (
               <Button onClick={() => setCreating(true)}>
                 <Plus className="h-4 w-4" /> Nouvelle ferme
               </Button>

@@ -1,5 +1,6 @@
 import { Building2, LifeBuoy, LogOut, RotateCcw, Shield } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { MY_ACCESS_PATH } from '../app/menu-access';
 import { noFarmMessage, type FarmSpaceState } from '../app/roles';
 import { useAuth } from '../auth/AuthContext';
 import { Button } from './form';
@@ -12,6 +13,9 @@ import { Card, IconTile, Loading } from './ui';
 export function NoFarmScreen({ state, onRetry }: { state: Exclude<FarmSpaceState, 'ready'>; onRetry: () => void }) {
   const { user, logout } = useAuth();
   if (state === 'loading') return <Loading label="Chargement de vos fermes…" />;
+  // An institution without a farm (aggregate, audit, financed scope, or none
+  // registered yet) gets its access page: what it can use instead.
+  if (user?.role === 'INSTITUTION') return <Navigate to={MY_ACCESS_PATH} replace />;
 
   const failed = state === 'error';
   const text = failed

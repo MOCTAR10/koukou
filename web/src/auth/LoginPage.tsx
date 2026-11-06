@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Lock, MessageSquareText, User } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { ApiError, getStoredUser } from '../api/client';
+import { clearSessionExpired, sessionExpired, SESSION_EXPIRED_MESSAGE } from '../api/session-expiry';
 import { landingAfterLogin } from '../app/roles';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
 import { AuthLayout, authLinkCls } from './AuthLayout';
@@ -26,6 +27,12 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const buying = from?.startsWith('/marche') ?? false;
+  // Sent back here by a 401 (token past its validity): say so, once.
+  const [expired] = useState(() => sessionExpired());
+
+  useEffect(() => {
+    clearSessionExpired();
+  }, []);
 
   useEffect(() => {
     const u = getStoredUser();
@@ -167,6 +174,11 @@ export function LoginPage() {
       }
     >
       <form onSubmit={onSubmit} className="space-y-4">
+        {expired && !error ? (
+          <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
+            {SESSION_EXPIRED_MESSAGE}
+          </p>
+        ) : null}
         <ErrorNote error={error} />
         <Field label="Téléphone">
           <span className="relative block">

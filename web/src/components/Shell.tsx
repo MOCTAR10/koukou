@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
+  BadgeCheck,
   AlertTriangle,
   BadgePercent,
   BookMarked,
@@ -11,6 +12,7 @@ import {
   Factory,
   FileBarChart,
   Handshake,
+  KeyRound,
   LayoutDashboard,
   LifeBuoy,
   ListTodo,
@@ -36,7 +38,9 @@ import { useFarm } from '../app/FarmContext';
 import { farmSpaceState, worksWithoutFarm } from '../app/roles';
 import { useMenuAccess } from '../app/useMenuAccess';
 import { Logo } from './Logo';
+import { PageNotOpen } from './access/PageNotOpen';
 import { NoFarmScreen } from './NoFarmScreen';
+import { Loading } from './ui';
 import { OfflineBar } from './OfflineBar';
 import { FarmPicker } from './programme/FarmPicker';
 import { useProvinces } from './registry/queries';
@@ -124,14 +128,23 @@ export function Shell() {
   // Programme-wide pages, not about the active farm: no farm picker nor quick actions.
   const onPlatform = pathname.startsWith('/app/platform');
   const onRegistry = pathname.startsWith('/app/registre');
-  const onProgramme = onPlatform || onRegistry;
+  const onAccess = pathname.startsWith('/app/acces') || pathname.startsWith('/app/mon-acces');
+  const onProgramme = onPlatform || onRegistry || onAccess;
   const reduced = useReducedMotion();
-  const { hasPermission, isGroundEleveur, canOpenRegistry } = useMenuAccess();
+  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry } =
+    useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const provinces = useProvinces(farms.length > 0);
   const provinceNames = useMemo(() => new Map((provinces.data ?? []).map((p) => [p.id, p.name])), [provinces.data]);
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
   const farmProvince = farm?.provinceId ? provinceNames.get(farm.provinceId) : undefined;
+  // Programme-wide entries: the registry, the platform console, the institutional access administration, an institution's own access.
+  const adminItems = [
+    ...(registry.view ? [{ to: '/app/registre', label: 'Registre des fermes', icon: BookMarked }] : []),
+    ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
+    ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
+    ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
+  ];
   const nav = NAV.map((group) => ({
     ...group,
     items: [
@@ -139,8 +152,8 @@ export function Shell() {
         ? [{ to: '/app/home', label: 'Mon terrain', icon: Tractor }]
         : []),
       // Without a farm, only the pages that work without one.
-      ...group.items.filter((item) =>
-        space === 'ready' ? !item.perms || hasPermission(...item.perms) : worksWithoutFarm(item.to),
+      ...group.items.filter(
+        (item) => (space === 'ready' || worksWithoutFarm(item.to)) && showEntry(item.to, item.perms),
       ),
     ],
   })).filter((group) => group.items.length > 0);
@@ -157,7 +170,7 @@ export function Shell() {
           <Logo className="h-9 w-auto shrink-0" />
           <div className={classNames('whitespace-nowrap', RAIL_BLOCK)}>
             <p className="text-sm font-bold text-white">Fermia</p>
-            <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : 'Espace ferme'}</p>
+            <p className="text-[11px] text-brand-200">{isAdmin ? 'Console plateforme' : user?.role === 'INSTITUTION' ? 'Espace programme' : 'Espace ferme'}</p>
           </div>
           <button
             className="ml-auto rounded p-1 text-brand-200 hover:text-white md:hidden"
@@ -207,34 +220,24 @@ export function Shell() {
               </div>
             </div>
           ))}
-          {isAdmin || canOpenRegistry ? (
+          {adminItems.length > 0 ? (
             <div>
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
                 {isAdmin ? 'Plateforme' : 'Programme'}
               </p>
               <div className="space-y-0.5">
-                {canOpenRegistry ? (
+                {adminItems.map((item) => (
                   <NavLink
-                    to="/app/registre"
+                    key={item.to}
+                    to={item.to}
                     onClick={() => setMobileOpen(false)}
-                    aria-label="Registre des fermes"
+                    aria-label={item.label}
                     className={navLinkCls}
                   >
-                    <BookMarked className="h-4 w-4 shrink-0" />
-                    <span className={RAIL_TEXT}>Registre des fermes</span>
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className={RAIL_TEXT}>{item.label}</span>
                   </NavLink>
-                ) : null}
-                {isAdmin ? (
-                <NavLink
-                  to="/app/platform"
-                  onClick={() => setMobileOpen(false)}
-                  aria-label="Cockpit plateforme"
-                  className={navLinkCls}
-                >
-                  <Shield className="h-4 w-4 shrink-0" />
-                  <span className={RAIL_TEXT}>Cockpit plateforme</span>
-                </NavLink>
-                ) : null}
+                ))}
               </div>
             </div>
           ) : null}
@@ -312,6 +315,8 @@ export function Shell() {
               'Console administrateur plateforme'
             ) : onRegistry ? (
               'Registre des fermes du programme'
+            ) : onAccess ? (
+              'Accès institutionnels du programme'
             ) : null}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
@@ -343,7 +348,13 @@ export function Shell() {
             transition={pageTm}
           >
             {space === 'ready' || worksWithoutFarm(pathname) ? (
-              <Outlet />
+              canOpen(pathname) ? (
+                <Outlet />
+              ) : accessLoading ? (
+                <Loading />
+              ) : (
+                <PageNotOpen />
+              )
             ) : (
               <NoFarmScreen state={space} onRetry={refetchFarms} />
             )}

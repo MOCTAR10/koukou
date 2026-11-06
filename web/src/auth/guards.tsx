@@ -1,7 +1,9 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { BUYER_HOME, canUseBuyerArea, FARM_HOME, isBuyer } from '../app/roles';
-import { useFarmProfile } from '../app/useFarmProfile';
+import { canAdministerAccess } from '../app/menu-access';
+import { useInstitutionAccess } from '../app/useInstitutionAccess';
+import { useMenuAccess } from '../app/useMenuAccess';
 import { Loading } from '../components/ui';
 import { useAuth } from './AuthContext';
 
@@ -38,12 +40,33 @@ export function RequiresBuyerArea() {
 /**
  * Sends a typed URL back to /app instead of a page of 403 errors. Waits for the
  * profile first: a redirect during loading would throw out allowed users.
+ * An institution is judged by its access profile (`useMenuAccess`), the
+ * farm codes `any` being the rule of farm accounts.
  */
 export function RequiresPermission({ any, children }: { any: string[]; children: ReactNode }) {
-  const { hasPermission, isLoading } = useFarmProfile();
+  const { pathname } = useLocation();
+  const { canOpen, isLoading } = useMenuAccess();
   if (isLoading) return <Loading />;
-  if (!hasPermission(...any)) return <Navigate to="/app" replace />;
+  if (!canOpen(pathname, any)) return <Navigate to="/app" replace />;
   return <>{children}</>;
+}
+
+/** The institutional access administration: platform admin, or a profile granted ADMINISTRATION. */
+export function RequiresAccessAdmin() {
+  const { user } = useAuth();
+  const { access, pending } = useInstitutionAccess();
+  if (!user) return <Navigate to="/login" replace />;
+  if (pending) return <Loading />;
+  if (!canAdministerAccess(user.role, access?.profile)) return <Navigate to="/app" replace />;
+  return <Outlet />;
+}
+
+/** The account's own access page: institutional accounts only. */
+export function RequiresInstitution() {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== 'INSTITUTION') return <Navigate to="/app" replace />;
+  return <Outlet />;
 }
 
 export function RequiresPlatformAdmin() {
