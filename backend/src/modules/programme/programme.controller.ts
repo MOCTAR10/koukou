@@ -29,6 +29,7 @@ import { ParametersService } from './parameters.service.js';
 import { ProgrammeService } from './programme.service.js';
 import { RefListsService } from './ref-lists.service.js';
 import { TerritoryService } from './territory.service.js';
+import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 
 const listTypePipe = new ParseEnumPipe(ProgramListType, {
   exceptionFactory: () =>
@@ -42,11 +43,13 @@ const listTypePipe = new ParseEnumPipe(ProgramListType, {
  * Every route answers 404 « Aucun programme configuré » when `PROGRAM_CODE`
  * is unset.
  *
- * TODO(access lot): writes are PLATFORM_ADMIN-only for now. The access module
- * will open them to the institutional profiles (DGE, vétérinaires…) and
- * enforce each parameter's owner profile.
+ * Platform admin, or an institutional account whose profile grants the
+ * route's domain (PARAMETRES; lists, localités and boundaries:
+ * ADMINISTRATION; GPS check: REGISTRE). A parameter is changed by its owner
+ * profile only (`ParametersService.set`).
  */
 @ApiTags('Programme (POUFA)')
+@Domain('PARAMETRES')
 @Controller('programme')
 export class ProgrammeController {
   constructor(
@@ -114,6 +117,8 @@ export class ProgrammeController {
   // ----- Administration -----
 
   @Post('lists/:listType')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({ summary: 'Ajouter un élément à une liste paramétrable' })
   @ApiParam({ name: 'listType', enum: ProgramListType })
@@ -125,6 +130,8 @@ export class ProgrammeController {
   }
 
   @Patch('lists/:listType/:code')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
@@ -140,6 +147,8 @@ export class ProgrammeController {
   }
 
   @Post('localites')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({ summary: 'Ajouter une localité à une province' })
   createLocalite(@Body() dto: CreateLocaliteDto) {
@@ -147,6 +156,8 @@ export class ProgrammeController {
   }
 
   @Patch('localites/:id')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary: 'Modifier une localité (nom, type, chef-lieu, ordre, activation)',
@@ -166,6 +177,7 @@ export class ProgrammeController {
   }
 
   @Post('parameters/:key')
+  @Action('MODIFIER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
@@ -186,6 +198,8 @@ export class ProgrammeController {
   }
 
   @Put('provinces/:code/geometry')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
@@ -199,6 +213,8 @@ export class ProgrammeController {
   }
 
   @Post('geo/check')
+  @Domain('REGISTRE')
+  @Action('CONSULTER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:

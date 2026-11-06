@@ -13,6 +13,8 @@ import { Province } from './entities/province.entity.js';
 import { RefItem } from './entities/ref-item.entity.js';
 import { IdCounterService } from './id-counter.service.js';
 import { PARAMETER_CATALOG, seedReason } from './parameter-catalog.js';
+import { DEFAULT_PROFILES } from '../access/data/default-profiles.js';
+import { AccessProfile } from '../access/entities/access-profile.entity.js';
 import { ProgrammeService } from './programme.service.js';
 
 /** Known programmes; any other `PROGRAM_CODE` gets its code as name. */
@@ -61,6 +63,7 @@ export class ProgrammeSeedService implements OnApplicationBootstrap {
       await this.seedTerritory(em, program.id);
       await this.seedLists(em, program.id);
       await this.seedParameters(em, program.id);
+      await this.seedAccessProfiles(em, program.id);
     });
     this.logger.log(`Programme ${code} : données initiales vérifiées.`);
   }
@@ -78,6 +81,26 @@ export class ProgrammeSeedService implements OnApplicationBootstrap {
       .orIgnore()
       .execute();
     return em.getRepository(Program).findOneByOrFail({ code });
+  }
+
+  /** The seven institutional profiles (system: never overwritten once there). */
+  private async seedAccessProfiles(em: EntityManager, programId: string) {
+    await em
+      .createQueryBuilder()
+      .insert()
+      .into(AccessProfile)
+      .values(
+        DEFAULT_PROFILES.map((p) => ({
+          programId,
+          code: p.code,
+          label: p.label,
+          scopeKind: p.scopeKind,
+          matrix: p.matrix,
+          system: true,
+        })),
+      )
+      .orIgnore()
+      .execute();
   }
 
   private async seedTerritory(em: EntityManager, programId: string) {

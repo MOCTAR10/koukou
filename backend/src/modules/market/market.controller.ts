@@ -29,9 +29,11 @@ import {
 } from './dto/market-order.dto.js';
 import { MarketListingsService } from './market-listings.service.js';
 import { MarketOrdersService } from './market-orders.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 /** Read by anyone, signed in or not. */
 @ApiTags('Market')
+@Domain('MARCHE')
 @Controller('market/listings')
 export class MarketCatalogueController {
   constructor(private readonly listings: MarketListingsService) {}
@@ -53,6 +55,7 @@ export class MarketCatalogueController {
 
 /** Routes carry farmId so PermissionsGuard applies. */
 @ApiTags('Market')
+@Domain('MARCHE')
 @Controller('farms/:farmId/market')
 @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
 @Permissions('market:publier')
@@ -155,6 +158,7 @@ export class FarmMarketController {
 
 /** A buyer's own orders. Every signed-in role can buy. */
 @ApiTags('Market')
+@Domain('MARCHE')
 @Controller('market/orders')
 @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.ACHETEUR)
 export class BuyerMarketOrdersController {
@@ -208,6 +212,7 @@ export class BuyerMarketOrdersController {
  * through the order screens, without vente:creer (which every Éleveur has).
  */
 @ApiTags('Market')
+@Domain('MARCHE')
 @Controller('farms/:farmId/market/orders')
 @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
 @Permissions('vente:commande')

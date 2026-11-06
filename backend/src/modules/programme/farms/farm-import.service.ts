@@ -1,10 +1,16 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import type { AuthUser } from '../../../common/decorators/current-user.decorator.js';
 import { GpsSource } from '../../../common/enums/gps-source.enum.js';
 import { ProgramListType } from '../../../common/enums/program-list-type.enum.js';
 import { normalizePhone } from '../../../common/utils/phone.js';
+import { AccessScopeKind } from '../../../common/enums/access-scope-kind.enum.js';
+import { ScopeResolver } from '../../access/scope-resolver.service.js';
 import type { Program } from '../entities/program.entity.js';
 import { Localite } from '../entities/localite.entity.js';
 import { Province } from '../entities/province.entity.js';
@@ -104,6 +110,7 @@ export class FarmImportService {
     private readonly programme: ProgrammeService,
     private readonly lists: RefListsService,
     private readonly registry: ProgrammeFarmsService,
+    private readonly scope: ScopeResolver,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -116,6 +123,15 @@ export class FarmImportService {
       confirmDuplicate?: boolean;
     },
   ): Promise<ImportReport> {
+    if (this.scope.isInstitution(user)) {
+      // A bulk import may touch any province: national scope only.
+      const access = await this.scope.requireAccess(user);
+      if (access.scopeKind !== AccessScopeKind.ALL) {
+        throw new ForbiddenException(
+          "L'import de fermes est réservé aux profils de périmètre national.",
+        );
+      }
+    }
     const mapped = this.read(input);
     if (mapped.error) throw new BadRequestException(mapped.error);
     if (mapped.rows.length > IMPORT_MAX_ROWS) {
@@ -208,6 +224,9 @@ export class FarmImportService {
         provinceId: resolved.province.id,
         localiteId: resolved.localite?.id ?? null,
         phone: resolved.exploitantPhone,
+        exploitantName: resolved.exploitantName,
+        latitude: resolved.gps?.latitude ?? null,
+        longitude: resolved.gps?.longitude ?? null,
         amiRef: resolved.amiRef,
         line,
       };

@@ -537,23 +537,31 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     });
 
     it('une 2e ferme du même exploitant se rattache à son compte existant', async () => {
-      const dup = await post('/programme/farms', {
-        name: `Ferme Exploitant B ${stamp}`,
-        provinceCode: 'G9',
-        exploitantName: 'Paul Exploitant',
-        exploitantPhone: phone,
-      }).expect(409);
-      expect(dup.body.duplicates[0].reasons).toEqual([
-        'même téléphone de l’exploitant',
-      ]);
+      // Same exploitant and phone, another name: a second farm, not a duplicate.
       const b = await post('/programme/farms', {
-        name: `Ferme Exploitant B ${stamp}`,
+        name: 'Poulailler Mboumba',
         provinceCode: 'G9',
         exploitantName: 'Paul Exploitant',
         exploitantPhone: phone,
-        confirmDuplicate: true,
       }).expect(201);
       farmB = b.body.id;
+      expect(b.body.duplicateOverride).toBeNull();
+      // The same exploitant and phone with a resembling name: blocked.
+      const dup = await post('/programme/farms', {
+        name: `Exploitant A ${stamp}`,
+        provinceCode: 'G9',
+        exploitantName: 'PAUL EXPLOITANT',
+        exploitantPhone: phone,
+      }).expect(409);
+      expect(dup.body.duplicates).toHaveLength(1);
+      expect(dup.body.duplicates[0]).toMatchObject({
+        farmId: farmA,
+        reasons: [
+          'nom ressemblant',
+          'même téléphone de l’exploitant',
+          'même nom d’exploitant',
+        ],
+      });
 
       const refused = await post(
         `/programme/farms/${farmB}/activate-owner`,
@@ -612,39 +620,6 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         {},
         ownerToken,
       ).expect(403);
-    });
-  });
-
-  describe('inscription d’une ferme Fermia existante', () => {
-    it('inscrit la ferme d’un propriétaire existant, une seule fois', async () => {
-      const phone = `+24168${digits}`;
-      await register(phone, 'Marie Existante');
-      const token = await login(phone);
-      const [farm] = (await get('/farms', token).expect(200)).body;
-
-      const res = await post(`/programme/farms/${farm.id}/enrol`, {
-        provinceCode: 'G2',
-        cohort: 'COHORTE_1',
-        capacityPlaces: 1000,
-      }).expect(201);
-      // Haut-Ogooué: 17 imported farms.
-      expect(res.body).toMatchObject({
-        id: farm.id,
-        code: 'G2-0018',
-        province: { code: 'G2' },
-        status: { code: 'EN_PREPARATION' },
-        exploitant: { name: 'Marie Existante', phone },
-        owner: { fullName: 'Marie Existante' },
-        hasOwnerAccount: true,
-        capacityPlaces: 1000,
-      });
-      await post(`/programme/farms/${farm.id}/enrol`, {
-        provinceCode: 'G2',
-      }).expect(409);
-      // The owner keeps his farm and reads its programme sheet.
-      const mine = await get('/farms', token).expect(200);
-      expect(mine.body.map((f: any) => f.id)).toEqual([farm.id]);
-      await get(`/programme/farms/${farm.id}`, token).expect(200);
     });
   });
 

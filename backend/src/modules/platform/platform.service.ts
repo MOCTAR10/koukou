@@ -5,7 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
+import { generateLoginCode } from '../../common/utils/login-code.js';
 import { PaymentMethod } from '../../common/enums/payment-method.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
@@ -270,6 +272,29 @@ export class PlatformService {
   /** Suspendre / réactiver un utilisateur. `suspended: true` suspend. */
   async suspendUser(userId: string, suspended: boolean): Promise<PublicUser> {
     return this.setUserActive(userId, suspended);
+  }
+
+  /**
+   * New login code for an account (farm owner or member, buyer,
+   * institutional agent), e.g. to hand demo credentials or unlock someone.
+   * Returned once, stored hashed; the row journal records that the hash
+   * changed, never the code. Platform admin accounts are excluded.
+   * Sessions already open stay valid until they expire.
+   */
+  async resetLoginCode(
+    userId: string,
+  ): Promise<{ user: PublicUser; loginCode: string }> {
+    const user = await this.usersRepo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Utilisateur introuvable.');
+    if (user.role === UserRole.PLATFORM_ADMIN) {
+      throw new BadRequestException(
+        "Le code d'un administrateur plateforme ne se régénère pas depuis le tableau de bord.",
+      );
+    }
+    const loginCode = generateLoginCode();
+    user.passwordHash = await bcrypt.hash(loginCode, 10);
+    const saved = await this.usersRepo.save(user);
+    return { user: this.toPublicUser(saved), loginCode };
   }
 
   private toPublicUser(user: User): PublicUser {

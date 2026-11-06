@@ -12,8 +12,10 @@ import {
   OpenCashSessionDto,
   UpdateCashMovementDto,
 } from './dto/caisse.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Caisse journalière')
+@Domain('VENTES')
 @Controller('farms/:farmId/caisse')
 export class CaisseController {
   constructor(private readonly caisseService: CaisseService) {}

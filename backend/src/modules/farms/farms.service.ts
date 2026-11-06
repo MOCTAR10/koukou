@@ -27,6 +27,9 @@ import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
 import { User } from '../users/entities/user.entity.js';
 import { FarmEmployee } from './entities/farm-employee.entity.js';
 import { Farm } from './entities/farm.entity.js';
+import type { InstitutionAccess } from '../access/access-rules.js';
+import { institutionPermissions } from '../access/permission-domains.js';
+import { ScopeResolver } from '../access/scope-resolver.service.js';
 
 export interface CreateFarmInput {
   name: string;
@@ -115,6 +118,7 @@ export class FarmsService {
     private readonly employeeRepo: Repository<FarmEmployee>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly scope: ScopeResolver,
   ) {}
 
   async create(
@@ -206,7 +210,18 @@ export class FarmsService {
     if (user.role === UserRole.PROPRIETAIRE) {
       return this.farmRepo.find({ where: { ownerId: user.id } });
     }
-    if (user.role === UserRole.ACHETEUR) return [];
+    if (user.role === UserRole.ACHETEUR || user.role === UserRole.OPERATEUR) {
+      return [];
+    }
+    if (user.role === UserRole.INSTITUTION) {
+      // The farms of the scope (none for AGGREGATE / AUDIT / FINANCED yet).
+      const access = await this.scope.accessOf(user.id);
+      if (!access) return [];
+      return this.scope
+        .applyFarmScope(this.farmRepo.createQueryBuilder('f'), 'f', access)
+        .orderBy('f.name', 'ASC')
+        .getMany();
+    }
     const employments = await this.employeeRepo.find({
       where: { userId: user.id },
       relations: { farm: true },
@@ -242,6 +257,11 @@ export class FarmsService {
     if (user.role === UserRole.PLATFORM_ADMIN) {
       return farm;
     }
+    if (user.role === UserRole.INSTITUTION) {
+      const access = await this.scope.requireAccess(user);
+      this.scope.assertFarm(access, farm);
+      return farm;
+    }
     if (
       user.role === UserRole.PROPRIETAIRE &&
       farm.ownerId !== null &&
@@ -265,6 +285,15 @@ export class FarmsService {
     );
   }
 
+  /** Access of an institutional account to `farm`, or null when out of scope. */
+  private async institutionAccessTo(
+    user: AuthUser,
+    farm: Farm,
+  ): Promise<InstitutionAccess | null> {
+    const access = await this.scope.accessOf(user.id);
+    return access && this.scope.includes(access, farm) ? access : null;
+  }
+
   /** Les rattachements créés avant le système de rôles n'ont pas de rôle : Éleveur par défaut. */
   private staffRole(role: FarmStaffRole | null | undefined): FarmStaffRole {
     return role === FarmStaffRole.ADMIN
@@ -280,10 +309,28 @@ export class FarmsService {
   async resolveEffectivePermissions(
     user: AuthUser,
     farmId: string,
-  ): Promise<'ALL' | { role: FarmStaffRole; permissions: ReadonlySet<PermissionCode> } | null> {
+  ): Promise<
+    | 'ALL'
+    | {
+        role: FarmStaffRole | 'INSTITUTION';
+        permissions: ReadonlySet<PermissionCode>;
+      }
+    | null
+  > {
     if (user.role === UserRole.PLATFORM_ADMIN) return 'ALL';
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     if (!farm) return null;
+    if (user.role === UserRole.INSTITUTION) {
+      // In scope: the farm codes its profile's matrix grants, never 'ALL'.
+      const access = await this.institutionAccessTo(user, farm);
+      return access
+        ? {
+            role: 'INSTITUTION',
+            permissions: institutionPermissions(access.matrix),
+          }
+        : null;
+    }
+    if (user.role === UserRole.OPERATEUR) return null;
     // A programme farm may have no owner yet (ownerId null).
     if (farm.ownerId !== null && farm.ownerId === user.id) return 'ALL';
     const link = await this.employeeRepo.findOne({
@@ -307,7 +354,7 @@ export class FarmsService {
   ): Promise<
     | {
         farmId: string;
-        role: 'PROPRIETAIRE' | FarmStaffRole;
+        role: 'PROPRIETAIRE' | FarmStaffRole | 'INSTITUTION';
         jobTitle: string | null;
         buildingAssignment: string | null;
         active: boolean;
@@ -327,6 +374,18 @@ export class FarmsService {
       };
     }
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
+    if (user.role === UserRole.INSTITUTION) {
+      const access = farm ? await this.institutionAccessTo(user, farm) : null;
+      if (!access) return null;
+      return {
+        farmId,
+        role: 'INSTITUTION',
+        jobTitle: access.profileLabel,
+        buildingAssignment: null,
+        active: true,
+        permissions: [...institutionPermissions(access.matrix)],
+      };
+    }
     if (farm?.ownerId != null && farm.ownerId === user.id) {
       return {
         farmId,

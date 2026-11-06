@@ -16,8 +16,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
 import { TasksService } from './tasks.service.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Tâches & équipe')
+@Domain('TECHNIQUE')
 @Controller('farms/:farmId/tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}

@@ -25,8 +25,10 @@ import {
   FinalizeOrderDto,
   OrderDepositDto,
 } from './dto/order.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Commandes / bons de commande')
+@Domain('VENTES')
 @Controller('farms/:farmId/orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}

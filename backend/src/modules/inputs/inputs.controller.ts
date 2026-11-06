@@ -8,8 +8,10 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { InputsService } from './inputs.service.js';
 import { CreateInputLotDto } from './dto/create-input-lot.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Traçabilité HACCP (Intrants)')
+@Domain('INTRANTS')
 @Controller('farms/:farmId/inputs')
 export class InputsController {
   constructor(

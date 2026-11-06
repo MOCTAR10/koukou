@@ -7,8 +7,10 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FeedStockService } from './feed-stock.service.js';
 import { CreateLossDto } from './dto/create-loss.dto.js';
+import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Stock & Inventaire provende (Module 3)')
+@Domain('INTRANTS')
 @Controller('farms/:farmId/feed-stock')
 export class FeedStockController {
   constructor(private readonly feedStockService: FeedStockService) {}

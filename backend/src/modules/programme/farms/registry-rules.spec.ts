@@ -9,6 +9,7 @@ import {
 } from './import-mapping.js';
 import {
   compactKey,
+  distanceM,
   duplicateScore,
   foldText,
   isProbableDuplicate,
@@ -102,13 +103,83 @@ describe('duplicate scoring', () => {
     ).toBe(false);
   });
 
-  it('flags the same exploitant phone, whatever the province', () => {
-    const s = duplicateScore(
-      key('Ferme Alpha', 'G1', { phone: '+24177000000' }),
-      key('Ferme Omega', 'G5', { phone: '+24177000000' }),
+  it('never flags on the phone or the exploitant alone (one exploitant, several farms)', () => {
+    const phone = '+24177000000';
+    const alone = duplicateScore(
+      key('Ferme Alpha', 'G1', { phone }),
+      key('Ferme Omega', 'G5', { phone }),
     );
-    expect(s.reasons).toEqual(['MEME_TELEPHONE']);
+    expect(alone.reasons).toEqual(['MEME_TELEPHONE']);
+    expect(isProbableDuplicate(alone)).toBe(false);
+    const sameMan = duplicateScore(
+      key('Ferme Alpha', 'G1', { phone, exploitantName: 'Paul Mba' }),
+      key('Ferme Omega', 'G1', { phone, exploitantName: 'PAUL  MBA' }),
+    );
+    expect(sameMan.reasons).toEqual(['MEME_TELEPHONE', 'MEME_EXPLOITANT']);
+    expect(sameMan.score).toBe(0.7);
+    expect(isProbableDuplicate(sameMan)).toBe(false);
+  });
+
+  it('flags a resembling name corroborated by the sheet, even in another province', () => {
+    const phone = '+24177000000';
+    const s = duplicateScore(
+      key('Ferme Bilongo Nord', 'G1', { phone, exploitantName: 'Paul Mba' }),
+      key('Bilongo', 'G4', { phone, exploitantName: 'Paul Mba' }),
+    );
+    expect(s.reasons).toEqual([
+      'NOM_RESSEMBLANT',
+      'MEME_TELEPHONE',
+      'MEME_EXPLOITANT',
+    ]);
+    expect(s.score).toBe(1);
     expect(isProbableDuplicate(s)).toBe(true);
+    // The resembling name and the phone alone are not enough.
+    expect(
+      isProbableDuplicate(
+        duplicateScore(
+          key('Ferme Bilongo Nord', 'G1', { phone }),
+          key('Bilongo', 'G4', { phone }),
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it('flags the same site: GPS within 200 m and the same phone', () => {
+    const phone = '+24177000000';
+    const here = { latitude: 0.39, longitude: 9.45, phone };
+    // ~110 m north.
+    const near = { latitude: 0.391, longitude: 9.45, phone };
+    const s = duplicateScore(
+      key('Ferme Alpha', 'G1', here),
+      key('Ferme Omega', 'G1', near),
+    );
+    expect(s.reasons).toEqual(['POSITION_PROCHE', 'MEME_TELEPHONE']);
+    expect(isProbableDuplicate(s)).toBe(true);
+    // ~1.1 km away: two farms.
+    const far = { latitude: 0.4, longitude: 9.45, phone };
+    expect(
+      isProbableDuplicate(
+        duplicateScore(
+          key('Ferme Alpha', 'G1', here),
+          key('Ferme Omega', 'G1', far),
+        ),
+      ),
+    ).toBe(false);
+    // The position alone is a neighbour, not a duplicate.
+    expect(
+      isProbableDuplicate(
+        duplicateScore(
+          key('Ferme Alpha', 'G1', { latitude: 0.39, longitude: 9.45 }),
+          key('Ferme Omega', 'G1', { latitude: 0.391, longitude: 9.45 }),
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it('measures distances in metres', () => {
+    expect(distanceM(0, 0, 0, 0)).toBe(0);
+    // 0.001° of latitude ≈ 111 m.
+    expect(distanceM(0.39, 9.45, 0.391, 9.45)).toBeCloseTo(111, 0);
   });
 
   it('never flags two farms of the POUFA list', () => {

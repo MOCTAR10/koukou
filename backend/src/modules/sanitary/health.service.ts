@@ -13,6 +13,7 @@ import {
   BatchStatus,
   BatchType,
 } from '../../common/enums/batch-type.enum.js';
+import { SanitaryDeclarationPolicy } from '../access/sanitary-declaration.policy.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { BatchesService } from '../batches/batches.service.js';
@@ -66,6 +67,7 @@ export class HealthService {
     private readonly dataSource: DataSource,
     private readonly flockReconciliation: FlockReconciliationService,
     private readonly batchesService: BatchesService,
+    private readonly declarations: SanitaryDeclarationPolicy,
   ) {}
 
   async getHealth(user: AuthUser, farmId: string, batchId: string) {
@@ -137,6 +139,8 @@ export class HealthService {
     farmId: string,
     batchId: string,
   ): Promise<HealthEvent[]> {
+    // Legal rule: declarations stay between the farm and the vets.
+    await this.declarations.assert(user);
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     return this.eventRepo.find({
@@ -151,6 +155,8 @@ export class HealthService {
     batchId: string,
     dto: CreateHealthEventDto,
   ): Promise<HealthEvent> {
+    // Legal rule: declarations stay between the farm and the vets.
+    await this.declarations.assert(user);
     await this.farmsService.assertAccessible(user, farmId);
     const batch = await this.assertBatchInFarm(farmId, batchId);
     const quantity = dto.quantity ?? 0;
@@ -224,6 +230,8 @@ export class HealthService {
     batchId: string,
     eventId: string,
   ): Promise<HealthEvent> {
+    // Legal rule: declarations stay between the farm and the vets.
+    await this.declarations.assert(user);
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     const event = await this.eventRepo.findOne({ where: { id: eventId, farmId, batchId } });
@@ -239,6 +247,8 @@ export class HealthService {
     batchId: string,
     eventId: string,
   ): Promise<{ deleted: boolean }> {
+    // Legal rule: declarations stay between the farm and the vets.
+    await this.declarations.assert(user);
     // Gated by @Permissions('sanitaire:gerer') on the route (owner, platform
     // admin and ADMIN staff holding it), not by the global user role.
     await this.farmsService.assertAccessible(user, farmId);
