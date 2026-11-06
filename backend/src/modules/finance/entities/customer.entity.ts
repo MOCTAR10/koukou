@@ -11,6 +11,7 @@ import {
 import { Farm } from '../../farms/entities/farm.entity.js';
 import { User } from '../../users/entities/user.entity.js';
 import { CustomerType } from '../../../common/enums/customer-type.enum.js';
+import type { Operator } from '../../trace/entities/operator.entity.js';
 
 @Entity('customers')
 @Index('IDX_customers_farm_phone', ['farmId', 'phone'])
@@ -42,6 +43,17 @@ export class Customer {
    */
   @Column({ name: 'buyer_user_id', type: 'uuid', nullable: true })
   buyerUserId: string | null;
+
+  /**
+   * Programme operator this customer is (traceability, L7): optional link
+   * set by the farm, e.g. the slaughterhouse it sells to.
+   */
+  @ManyToOne('Operator', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'operator_id' })
+  operator?: Operator | null;
+
+  @Column({ name: 'operator_id', type: 'uuid', nullable: true })
+  operatorId: string | null;
 
   /** Nature du client (particulier, restaurant, hôtel…). Sépare le segment (valeur calculée). */
   @Column({ name: 'type', type: 'varchar', default: CustomerType.PARTICULIER })

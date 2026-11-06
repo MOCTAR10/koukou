@@ -20,5 +20,6 @@ import { SyncModule } from '../sync/sync.module.js';
   ],
   controllers: [DailyEntriesController],
   providers: [DailyEntriesService],
+  exports: [DailyEntriesService],
 })
 export class DailyEntriesModule {}

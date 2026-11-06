@@ -4,6 +4,7 @@ import { Farm } from '../../farms/entities/farm.entity.js';
 import { bandeCode, bandeCounterScope } from '../../programme/codes.js';
 import { IdCounterService } from '../../programme/id-counter.service.js';
 import { ParametersService } from '../../programme/parameters.service.js';
+import { TraceLotsService } from '../../trace/trace-lots.service.js';
 import { ProductionBatch } from '../entities/production-batch.entity.js';
 import { factInstant } from './bande-rules.js';
 import { BandeStatsService } from './bande-stats.service.js';
@@ -16,7 +17,8 @@ export interface BandeOpeningInput {
 /**
  * Opening of a POUFA band (every lot is one): band number from the farm
  * code and an IdCounter rank, age and weight at a mid-cycle opening (J+x),
- * reference duration copied from the parameter in force at the opening date.
+ * reference duration copied from the parameter in force at the opening date,
+ * and the band's root traceability lot (`G1-0012-B07-L01`, same transaction).
  */
 @Injectable()
 export class BandeOpeningService {
@@ -24,6 +26,7 @@ export class BandeOpeningService {
     private readonly idCounter: IdCounterService,
     private readonly parameters: ParametersService,
     private readonly stats: BandeStatsService,
+    private readonly trace: TraceLotsService,
   ) {}
 
   /** Saves `batch` in `em` as a new band of `farm`. */
@@ -48,6 +51,7 @@ export class BandeOpeningService {
       factInstant(batch.integrationDate.slice(0, 10)),
     );
     const saved = await em.getRepository(ProductionBatch).save(batch);
+    await this.trace.openRootLot(em, farm.programId, saved);
     await this.stats.refresh(em, saved.id);
     return saved;
   }
