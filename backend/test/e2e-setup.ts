@@ -12,6 +12,9 @@ process.env.WEIGHING_SWEEP_DISABLED = 'true';
 process.env.AUDIT_SEAL_DISABLED = 'true';
 // Never call the real Expo Push service (the push spec swaps the transport).
 process.env.PUSH_DISABLED = 'true';
+// Traceability QR signatures: a fixed test key and public address.
+process.env.TRACE_QR_SECRET = 'e2e-trace-qr-secret';
+process.env.TRACE_PUBLIC_BASE_URL = 'https://poufa.e2e.ga';
 
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {
