@@ -12,7 +12,7 @@ import { AppModule } from './../src/app.module.js';
 import { AccessScopeKind } from './../src/common/enums/access-scope-kind.enum.js';
 import type {
   AccessAction,
-  ProgrammeDomain,
+  GrantableDomain,
 } from './../src/modules/access/access-domains.js';
 import { DEFAULT_PROFILES } from './../src/modules/access/data/default-profiles.js';
 import {
@@ -26,7 +26,7 @@ import {
   registerBuyer,
 } from './helpers/programme-farm.js';
 
-type Need = readonly [ProgrammeDomain, AccessAction];
+type Need = readonly [GrantableDomain, AccessAction];
 
 interface Probe {
   name: string;
@@ -226,9 +226,11 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         { scopeKind: 'PROVINCES' },
         adminToken,
       ).expect(400);
+      // POUFA lot A droits: the Fermia bonus domains open in consultation only.
       for (const matrix of [
-        { MARCHE: ['CONSULTER'] },
-        { COMPTABILITE: ['CONSULTER'] },
+        { MARCHE: ['CREER'] },
+        { COMPTABILITE: ['CONSULTER', 'MODIFIER'] },
+        { CULTURES: ['CONSULTER'] },
         { AUDIT: ['CONSULTER'] },
       ]) {
         await post(
@@ -527,29 +529,30 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         needs: [['ADMINISTRATION', 'ADMINISTRER']],
         call: () => post('/programme/access/profiles', {}, ''),
       },
-      // Fermia-only domains: closed to every institutional profile.
+      // Fermia bonus domains (POUFA lot A droits): consultation through the
+      // matrix (the DGE by default); the other Fermia domains stay closed.
       {
         name: 'VENTES (caisse)',
         farm: true,
-        needs: [],
+        needs: [['VENTES', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/caisse/current`, ''),
       },
       {
         name: 'MARCHE',
         farm: true,
-        needs: [],
+        needs: [['MARCHE', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/market/listings`, ''),
       },
       {
         name: 'COMPTABILITE',
         farm: true,
-        needs: [],
+        needs: [['COMPTABILITE', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/accounting/journal`, ''),
       },
       {
         name: 'EQUIPE',
         farm: true,
-        needs: [],
+        needs: [['EQUIPE', 'CONSULTER']],
         call: (f) => get(`/farms/${f}/eleveurs`, ''),
       },
       {

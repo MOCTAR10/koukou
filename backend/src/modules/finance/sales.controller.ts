@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuditExport } from '../../common/decorators/audit.decorator.js';
+import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -30,6 +30,7 @@ export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
   @Get()
+  @AuditThirdPartyRead('Ventes d’une ferme (clients compris)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary: 'Liste des ventes (filtre par période / statut)',
@@ -65,6 +66,7 @@ export class SalesController {
   }
 
   @Get(':saleId')
+  @AuditThirdPartyRead('Détail d’une vente')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Détail d’une vente (articles + paiements)' })
   @ApiParam({ name: 'farmId' })

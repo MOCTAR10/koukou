@@ -5,6 +5,8 @@ import { api } from '../api/client';
 import type { Customer } from '../api/types';
 import type { CustomerFull, CustomerSummary } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { Button, ErrorNote, inputCls } from '../components/form';
 import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, StatCard, Th, Td } from '../components/ui';
 import { CollectModal, CreateCustomerModal, CustomerDetail } from '../components/sales/CustomerPanels';
@@ -17,6 +19,8 @@ type DebtState = 'TOUS' | 'DUES' | 'SOLVES';
 export function CustomersPage() {
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
+  // POUFA lot A droits: an institution (VENTES:CONSULTER) reads, never writes.
+  const canEdit = useFarmProfile().hasPermission('compta:client');
   const [q, setQ] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [segment, setSegment] = useState('');
@@ -93,16 +97,19 @@ export function CustomersPage() {
         icon={<Handshake />}
         subtitle="Fiches, codes, soldes, encaissements et historique d’achats."
         actions={
-          <>
-            <Button tone="secondary" onClick={() => setCollect({ customer: null })}>
-              <Banknote className="h-4 w-4" /> Encaisser une dette
-            </Button>
-            <Button onClick={() => setCreating(true)}>
-              <UserPlus className="h-4 w-4" /> Nouveau client
-            </Button>
-          </>
+          canEdit ? (
+            <>
+              <Button tone="secondary" onClick={() => setCollect({ customer: null })}>
+                <Banknote className="h-4 w-4" /> Encaisser une dette
+              </Button>
+              <Button onClick={() => setCreating(true)}>
+                <UserPlus className="h-4 w-4" /> Nouveau client
+              </Button>
+            </>
+          ) : undefined
         }
       />
+      <ReadOnlyNotice what="clients et créances" />
 
       <ErrorNote error={customers.error ?? summary.error ?? patchType.error} />
 
@@ -220,7 +227,7 @@ export function CustomersPage() {
                           aria-label={`Type de ${c.fullName}`}
                           value={c.type}
                           onChange={(e) => patchType.mutate({ id: c.id, type: e.target.value })}
-                          disabled={patchType.isPending}
+                          disabled={patchType.isPending || !canEdit}
                           title="Catégorie commerciale (indicative)"
                           className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 outline-none focus:border-brand-500"
                         >
@@ -247,7 +254,7 @@ export function CustomersPage() {
                       </Td>
                       <Td label="Inscrit le" className="whitespace-nowrap md:max-xl:hidden">{dateFr(c.createdAt)}</Td>
                       <Td className="text-right">
-                        {due > 0 ? (
+                        {due > 0 && canEdit ? (
                           <Button tone="secondary" className="px-2.5 py-1 text-xs" onClick={() => setCollect({ customer: c })}>
                             <Banknote className="h-3.5 w-3.5" /> Encaisser
                           </Button>

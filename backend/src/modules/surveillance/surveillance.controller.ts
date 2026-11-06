@@ -33,6 +33,7 @@ import {
   SANITARY_LIST_TYPES,
   SanitaryListsService,
 } from './sanitary-lists.service.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 const sanitaryListPipe = new ParseEnumPipe(ProgramListType, {
   exceptionFactory: () =>
@@ -61,6 +62,7 @@ export class SurveillanceController {
   ) {}
 
   @Get('alerts')
+  @AuditThirdPartyRead('Alertes sanitaires (non publiées comprises)')
   @ApiOperation({
     summary:
       'Alertes sanitaires officielles du périmètre (non publiées : services vétérinaires seulement)',
@@ -70,6 +72,7 @@ export class SurveillanceController {
   }
 
   @Get('alerts/:alertId')
+  @AuditThirdPartyRead('Détail d’une alerte sanitaire')
   @ApiOperation({ summary: 'Détail d’une alerte sanitaire et son historique' })
   @ApiParam({ name: 'alertId' })
   detail(

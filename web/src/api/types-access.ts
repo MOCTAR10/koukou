@@ -17,11 +17,33 @@ export const PROGRAMME_DOMAINS = [
   'AUDIT',
   'ADMINISTRATION',
 ] as const;
-export type AccessDomain = (typeof PROGRAMME_DOMAINS)[number];
+export type ProgrammeDomain = (typeof PROGRAMME_DOMAINS)[number];
+
+/**
+ * POUFA lot A droits: Fermia business domains an institutional profile may be
+ * granted, in consultation only (`access-domains.ts`
+ * `INSTITUTION_FERMIA_DOMAINS`): the government reads the farms' cash, Market,
+ * accounting and HR; the server refuses any other action on them.
+ */
+export const FERMIA_GRANTABLE_DOMAINS = ['VENTES', 'MARCHE', 'COMPTABILITE', 'EQUIPE'] as const;
+export type FermiaGrantableDomain = (typeof FERMIA_GRANTABLE_DOMAINS)[number];
+
+/** Every domain a matrix may hold: the programme ones, then the Fermia ones (read-only). */
+export const GRANTABLE_DOMAINS = [...PROGRAMME_DOMAINS, ...FERMIA_GRANTABLE_DOMAINS] as const;
+export type AccessDomain = ProgrammeDomain | FermiaGrantableDomain;
+
+export function isFermiaGrantableDomain(domain: string): domain is FermiaGrantableDomain {
+  return (FERMIA_GRANTABLE_DOMAINS as readonly string[]).includes(domain);
+}
 
 /** Actions of the matrix, in the server's catalogue order (`ACCESS_ACTIONS`). */
 export const ACCESS_ACTIONS = ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER', 'ADMINISTRER'] as const;
 export type AccessAction = (typeof ACCESS_ACTIONS)[number];
+
+/** Actions a domain may be granted: « Consulter » only for a Fermia domain. */
+export function grantableActions(domain: AccessDomain): readonly AccessAction[] {
+  return isFermiaGrantableDomain(domain) ? ['CONSULTER'] : ACCESS_ACTIONS;
+}
 
 export type ScopeKind = 'ALL' | 'PROVINCES' | 'FARMS' | 'FINANCED' | 'OPERATOR' | 'AGGREGATE' | 'AUDIT';
 
@@ -35,7 +57,8 @@ export interface CatalogEntry<C extends string = string> {
 
 /** `GET /programme/access/catalog`. */
 export interface AccessCatalog {
-  domains: CatalogEntry<AccessDomain>[];
+  /** `actions`: the grantable ones (« Consulter » only for a Fermia domain); `fermia`: a Fermia business domain. Older servers omit both. */
+  domains: Array<CatalogEntry<AccessDomain> & { actions?: AccessAction[]; fermia?: boolean }>;
   actions: CatalogEntry<AccessAction>[];
   scopeKinds: CatalogEntry<ScopeKind>[];
 }
@@ -192,6 +215,10 @@ export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
   PARAMETRES: 'Paramètres du programme',
   AUDIT: 'Journal d’audit',
   ADMINISTRATION: 'Administration',
+  VENTES: 'Ventes et caisse (Fermia)',
+  MARCHE: 'Market (Fermia)',
+  COMPTABILITE: 'Comptabilité (Fermia)',
+  EQUIPE: 'Équipe et RH (Fermia)',
 };
 
 export const ACTION_LABELS: Readonly<Record<AccessAction, string>> = {

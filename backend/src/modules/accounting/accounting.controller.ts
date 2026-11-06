@@ -10,7 +10,7 @@
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuditExport } from '../../common/decorators/audit.decorator.js';
+import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
@@ -71,8 +71,9 @@ export class AccountingController {
   }
 
   @Get('journal')
+  @AuditThirdPartyRead('Comptabilité SYSCOHADA : journal')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({ summary: 'Journal — toutes les écritures chronologiques.' })
   @ApiParam({ name: 'farmId' })
   @ApiQuery({ name: 'from', required: false, example: '2026-08-01' })
@@ -87,8 +88,9 @@ export class AccountingController {
   }
 
   @Get('grand-livre')
+  @AuditThirdPartyRead('Comptabilité SYSCOHADA : grand livre')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({ summary: 'Grand livre — mouvements détaillés par compte.' })
   @ApiParam({ name: 'farmId' })
   @ApiQuery({ name: 'from', required: false, example: '2026-08-01' })
@@ -111,8 +113,9 @@ export class AccountingController {
   }
 
   @Get('balance')
+  @AuditThirdPartyRead('Comptabilité SYSCOHADA : balance')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({ summary: 'Balance d’essai — soldes de tous les comptes.' })
   @ApiParam({ name: 'farmId' })
   @ApiQuery({ name: 'from', required: false, example: '2026-08-01' })
@@ -127,8 +130,9 @@ export class AccountingController {
   }
 
   @Get('compte-resultat')
+  @AuditThirdPartyRead('Comptabilité SYSCOHADA : compte de résultat')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({
     summary: 'Compte de résultat — charges (classe 6) vs produits (classe 7).',
   })
@@ -145,8 +149,9 @@ export class AccountingController {
   }
 
   @Get('bilan')
+  @AuditThirdPartyRead('Comptabilité SYSCOHADA : bilan')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({
     summary:
       'Bilan — situation cumulée arrêtée au `to` (défaut : aujourd’hui) : actif / passif / capitaux (report à nouveau + résultat de l’exercice).',
@@ -168,8 +173,9 @@ export class AccountingController {
   }
 
   @Get('stock')
+  @AuditThirdPartyRead('Comptabilité SYSCOHADA : stock')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({
     summary:
       'Stock provende valorisé (classe 3) : disponible comptable par lot × coût unitaire.',
@@ -183,8 +189,9 @@ export class AccountingController {
   }
 
   @Get('exercices')
+  @AuditThirdPartyRead('Comptabilité SYSCOHADA : exercices')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({ summary: 'Exercices comptables de la ferme.' })
   @ApiParam({ name: 'farmId' })
   exercices(
@@ -214,7 +221,7 @@ export class AccountingController {
   @Get('export')
   @AuditExport('Export comptable (PDF ou CSV)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('compta:rapports')
+  @Permissions('compta:rapports', 'compta:lire')
   @ApiOperation({
     summary:
       'Export PDF ou CSV du rapport demandé (journal, grand-livre, balance, compte-resultat, bilan).',

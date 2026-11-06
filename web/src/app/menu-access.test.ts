@@ -31,6 +31,14 @@ const DGE = p('ALL', {
   PILOTAGE: ['CONSULTER'],
   PARAMETRES: ['CONSULTER', 'MODIFIER'],
 });
+// The DGE after the « lot A droits » migration: the Fermia modules in consultation.
+const DGE_FERMIA = p('ALL', {
+  ...DGE.matrix,
+  VENTES: ['CONSULTER'],
+  MARCHE: ['CONSULTER'],
+  COMPTABILITE: ['CONSULTER'],
+  EQUIPE: ['CONSULTER'],
+});
 const VETERINAIRE = p('ALL', { REGISTRE: ['CONSULTER'], SANITAIRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'], PARAMETRES: ['CONSULTER', 'MODIFIER'] });
 const MAEDR = p('AGGREGATE', { PILOTAGE: ['CONSULTER', 'VALIDER'], PARAMETRES: ['CONSULTER'] });
 const ANINF = p('AUDIT', { AUDIT: ['CONSULTER'] });
@@ -39,7 +47,8 @@ const ADMIN = p('ALL', { REGISTRE: ['CONSULTER'], PARAMETRES: ['CONSULTER', 'MOD
 describe('menuRuleFor', () => {
   it('finds the entry or its closest parent', () => {
     expect(menuRuleFor('/app/sanitary')).toEqual(INSTITUTION_MENU['/app/sanitary']);
-    expect(menuRuleFor('/app/finance/caisse')?.kind).toBe('never');
+    expect(menuRuleFor('/app/finance/caisse')).toEqual(INSTITUTION_MENU['/app/finance']);
+    expect(menuRuleFor('/app/settings')?.kind).toBe('never');
     expect(menuRuleFor('/app/acces/profils')).toEqual(INSTITUTION_MENU['/app/acces']);
     expect(menuRuleFor('/app/batches/')).toEqual(INSTITUTION_MENU['/app/batches']);
     expect(menuRuleFor('/app/stock?tab=x')).toEqual(INSTITUTION_MENU['/app/stock']);
@@ -62,10 +71,9 @@ describe('institution menu', () => {
       ADMINISTRATION: ['CONSULTER', 'ADMINISTRER'],
     });
     for (const path of [
+      // POUFA lot A droits: the Fermia modules need their own grant, not ECONOMIQUE.
       '/app/finance/ventes',
       '/app/finance/caisse',
-      '/app/finance/clients',
-      '/app/finance/promotions',
       '/app/orders',
       '/app/market',
       '/app/points-of-sale',
@@ -128,12 +136,52 @@ describe('institutionReads', () => {
     expect(institutionReads(p('AUDIT', { TECHNIQUE: ['CONSULTER'] }), 'TECHNIQUE')).toBe(false);
   });
 
-  it('never reads a Fermia-only domain, even with the access unreadable', () => {
-    for (const d of ['VENTES', 'MARCHE', 'COMPTABILITE', 'EQUIPE', 'CULTURES', 'COMPTE', 'PLATEFORME'] as const) {
-      expect(institutionReads(DGE, d)).toBe(false);
+  it('never reads a never-grantable Fermia domain, even with the access unreadable', () => {
+    for (const d of ['CULTURES', 'COMPTE', 'PLATEFORME'] as const) {
+      expect(institutionReads(DGE_FERMIA, d)).toBe(false);
       expect(institutionReads(null, d)).toBe(false);
     }
     expect(institutionReads(null, 'TECHNIQUE')).toBe(true);
+  });
+
+  // POUFA lot A droits: the Fermia modules, granted in consultation.
+  it('reads a Fermia module only when granted, never with the access unreadable', () => {
+    for (const d of ['VENTES', 'MARCHE', 'COMPTABILITE', 'EQUIPE'] as const) {
+      expect(institutionReads(DGE, d)).toBe(false);
+      expect(institutionReads(DGE_FERMIA, d)).toBe(true);
+      expect(institutionReads(AGENT_TECHNIQUE, d)).toBe(false);
+      expect(institutionReads(null, d)).toBe(false);
+    }
+  });
+});
+
+describe('Fermia modules for institutions (POUFA lot A droits)', () => {
+  it('opens each module page with its own domain', () => {
+    expect(institutionShowsEntry('/app/finance/ventes', DGE_FERMIA)).toBe(true);
+    expect(institutionShowsEntry('/app/finance/caisse', DGE_FERMIA)).toBe(true);
+    expect(institutionShowsEntry('/app/orders', DGE_FERMIA)).toBe(true);
+    expect(institutionShowsEntry('/app/points-of-sale', DGE_FERMIA)).toBe(true);
+    expect(institutionShowsEntry('/app/market', DGE_FERMIA)).toBe(true);
+    expect(institutionShowsEntry('/app/accounting', DGE_FERMIA)).toBe(true);
+    expect(institutionShowsEntry('/app/hr', DGE_FERMIA)).toBe(true);
+    expect(institutionShowsEntry('/app/team', DGE_FERMIA)).toBe(true);
+    // Granted separately.
+    const caisseOnly = p('ALL', { VENTES: ['CONSULTER'] });
+    expect(institutionShowsEntry('/app/finance/caisse', caisseOnly)).toBe(true);
+    expect(institutionShowsEntry('/app/accounting', caisseOnly)).toBe(false);
+    expect(institutionShowsEntry('/app/hr', caisseOnly)).toBe(false);
+  });
+
+  it('keeps the farm settings, platform and ground home closed', () => {
+    for (const path of ['/app/settings', '/app/platform', '/app/home', '/app/parcels']) {
+      expect(institutionOpensPath(path, DGE_FERMIA)).toBe(false);
+    }
+  });
+
+  it('opens the expenses and the programme synthesis with ECONOMIQUE', () => {
+    expect(institutionShowsEntry('/app/expenses', DGE)).toBe(true);
+    expect(institutionShowsEntry('/app/economie', DGE)).toBe(true);
+    expect(institutionShowsEntry('/app/economie', AGENT_TECHNIQUE)).toBe(false);
   });
 });
 
@@ -221,7 +269,8 @@ describe('helpers', () => {
 
   it('pagesOfDomain lists the pages a domain opens', () => {
     expect(pagesOfDomain('SANITAIRE')).toEqual(['/app/sanitary', '/app/surveillance']);
-    expect(pagesOfDomain('ECONOMIQUE')).toEqual(['/app/reports', '/app/expenses']);
+    expect(pagesOfDomain('ECONOMIQUE')).toEqual(['/app/reports', '/app/expenses', '/app/economie']);
+    expect(pagesOfDomain('EQUIPE')).toEqual(['/app/team', '/app/hr']);
     expect(pagesOfDomain('AUDIT')).toEqual(['/app/audit']);
   });
 });

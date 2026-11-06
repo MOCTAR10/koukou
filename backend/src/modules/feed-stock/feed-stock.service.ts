@@ -825,6 +825,19 @@ export class FeedStockService {
 
   // ---------- Calcul du stock ----------
 
+  // POUFA lot A droits: the programme synthesis reads the stock of each farm.
+  /** Feed available in the farm (kg, expired lots excluded), without side effects. */
+  async availableKg(farmId: string): Promise<number> {
+    const [criticalDays, warnDays] = await Promise.all([
+      this.constants.get(ReferenceKey.FEED_STOCK_CRITICAL_DAYS, 3),
+      this.constants.get(ReferenceKey.FEED_STOCK_WARN_DAYS, 5),
+    ]);
+    const stock = await this.computeFeedStock(farmId, criticalDays, warnDays);
+    return stock.lots
+      .filter((l) => !l.expired)
+      .reduce((sum, l) => sum + Math.max(0, l.availableKg), 0);
+  }
+
   private async computeFeedStock(
     farmId: string,
     criticalDays: number,

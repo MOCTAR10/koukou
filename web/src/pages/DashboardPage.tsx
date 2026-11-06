@@ -30,6 +30,7 @@ import type {
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { useCanRead } from '../app/useMenuAccess';
+import { showsCollectedToday } from '../app/economicVisibility';
 import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, StatCard, StatusBadge, Td, Th } from '../components/ui';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
@@ -213,14 +214,16 @@ function LivestockDashboard() {
             tone={d.feedAutonomyDays != null && d.feedAutonomyDays < 3 ? 'warn' : 'default'}
           />
         </motion.div>
-        <motion.div variants={staggerItem}>
-          <StatCard
-            label="Encaissé du jour"
-            value={<AnimatedNumber value={d.collectedTodayFcfa} format={fcfa} />}
-            icon={<Banknote className="h-5 w-5" />}
-            tone="good"
-          />
-        </motion.div>
+        {showsCollectedToday(d.collectedTodayFcfa, canRead) ? (
+          <motion.div variants={staggerItem}>
+            <StatCard
+              label="Encaissé du jour"
+              value={<AnimatedNumber value={d.collectedTodayFcfa ?? 0} format={fcfa} />}
+              icon={<Banknote className="h-5 w-5" />}
+              tone="good"
+            />
+          </motion.div>
+        ) : null}
         <motion.div variants={staggerItem}>
           <StatCard
             label="Équipe"

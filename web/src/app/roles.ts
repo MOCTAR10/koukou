@@ -85,6 +85,8 @@ export function worksWithoutFarm(pathname: string): boolean {
     // POUFA W6: programme-wide inputs and traceability (the farm lots tab needs a farm, the page hides it without one).
     '/app/intrants',
     '/app/tracabilite',
+    // POUFA lot A droits: the programme economic synthesis (every farm of the scope).
+    '/app/economie',
   ].some((root) => isUnder(pathname, root));
 }
 

@@ -32,13 +32,20 @@ export function canConfirmDeliveries(role: UserRole | undefined, hasStockRight: 
 }
 
 /**
- * `PUT /programme/farms/:farmId/gps`: platform admin, or an institution whose
- * matrix grants REGISTRE:MODIFIER (farm in scope, checked by the server).
- * The owner is refused by the route today (backend gap, see the report).
+ * `PUT /programme/farms/:farmId/gps` (POUFA lot A droits): platform admin;
+ * the farm's owner and members holding `registre:gps` (the éleveur by
+ * default), on site; an institution whose matrix grants REGISTRE:MODIFIER or
+ * TECHNIQUE:VALIDER (the agent technique on a visit). Farm in scope and
+ * permissions are checked by the server.
  */
-export function canSetFarmGps(role: UserRole | undefined, matrix: AccessMatrix | null | undefined): boolean {
+export function canSetFarmGps(
+  role: UserRole | undefined,
+  matrix: AccessMatrix | null | undefined,
+  hasGpsRight = false,
+): boolean {
   if (role === 'PLATFORM_ADMIN') return true;
-  if (role === 'INSTITUTION') return matrixGrants(matrix, 'REGISTRE', 'MODIFIER');
+  if (role === 'PROPRIETAIRE' || role === 'ELEVEUR') return hasGpsRight;
+  if (role === 'INSTITUTION') return matrixGrants(matrix, 'REGISTRE', 'MODIFIER') || matrixGrants(matrix, 'TECHNIQUE', 'VALIDER');
   return false;
 }
 

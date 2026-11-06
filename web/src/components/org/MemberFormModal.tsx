@@ -51,7 +51,8 @@ const GROUP_ICONS: Record<string, LucideIcon> = {
 const CUSTOM_KEY = '__custom__';
 const CUSTOM_PROFILE: StaffProfile = { key: CUSTOM_KEY, label: 'Profil personnalisé', role: 'ADMIN', jobTitle: '', permissions: [] };
 /** Base rights of a new Administrator (mirror of the server's ADMIN_DEFAULT_PERMISSIONS). */
-const ADMIN_BASE_PERMISSIONS = ['saisie:creer', 'caisse:lire', 'sanitaire:lecture', 'sanitaire:signaler'];
+// POUFA lot A droits: + GPS point on site and the State deliveries.
+const ADMIN_BASE_PERMISSIONS = ['saisie:creer', 'caisse:lire', 'sanitaire:lecture', 'sanitaire:signaler', 'registre:gps', 'intrants:lire'];
 
 function matchProfileKey(member: FarmMember, profiles: StaffProfile[]): string {
   if (member.role === 'ELEVEUR') return 'eleveur';

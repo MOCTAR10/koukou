@@ -42,7 +42,11 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
   {
     key: 'market',
     label: 'Market',
-    items: [{ code: 'market:publier', label: 'Publier sur le Market' }],
+    items: [
+      { code: 'market:publier', label: 'Publier sur le Market' },
+      // POUFA lot A droits
+      { code: 'market:lire', label: 'Voir le Market de la ferme' },
+    ],
   },
   {
     key: 'compta',
@@ -52,6 +56,8 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
       { code: 'compta:client', label: 'Fiches clients' },
       { code: 'compta:rapports', label: 'Rapports' },
       { code: 'compta:ecritures', label: 'Écritures comptables' },
+      // POUFA lot A droits
+      { code: 'compta:lire', label: 'Voir la comptabilité' },
     ],
   },
   {
@@ -79,6 +85,16 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
       { code: 'rh:gerer', label: 'Gérer les dossiers RH' },
     ],
   },
+  // POUFA lot A droits (begin)
+  {
+    key: 'programme',
+    label: 'Programme POUFA',
+    items: [
+      { code: 'registre:gps', label: 'Relever le GPS de la ferme' },
+      { code: 'intrants:lire', label: 'Voir les livraisons de l’État' },
+    ],
+  },
+  // POUFA lot A droits (end)
   {
     key: 'reglages',
     label: 'Réglages',
@@ -92,6 +108,9 @@ export const CREATE_ADMIN_DEFAULT_PERMISSIONS: string[] = [
   'caisse:lire',
   'sanitaire:lecture',
   'sanitaire:signaler',
+  // POUFA lot A droits: GPS point on site and the State deliveries.
+  'registre:gps',
+  'intrants:lire',
 ];
 
 export function permissionLabel(code: PermissionCode | string): string {

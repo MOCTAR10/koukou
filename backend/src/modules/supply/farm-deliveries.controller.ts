@@ -30,6 +30,7 @@ export class FarmDeliveriesController {
   ) {}
 
   @Get('input-deliveries')
+  @Permissions('intrants:lire', 'stock:gerer')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Livraisons d’intrants de la ferme' })
   list(
@@ -41,6 +42,7 @@ export class FarmDeliveriesController {
   }
 
   @Get('input-deliveries/:id')
+  @Permissions('intrants:lire', 'stock:gerer')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Détail d’une livraison de la ferme' })
   get(
@@ -84,6 +86,7 @@ export class FarmDeliveriesController {
   }
 
   @Get('declarative-stock')
+  @Permissions('intrants:lire', 'stock:gerer')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:

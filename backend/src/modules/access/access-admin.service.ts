@@ -20,7 +20,9 @@ import {
   ACCESS_ACTIONS,
   ACTION_LABELS,
   DOMAIN_LABELS,
-  PROGRAMME_DOMAINS,
+  GRANTABLE_DOMAINS,
+  grantableActions,
+  isInstitutionFermiaDomain,
 } from './access-domains.js';
 import {
   SCOPE_KIND_LABELS,
@@ -66,9 +68,12 @@ export class AccessAdminService {
   /** Domains, actions and scope kinds, for the administration screens. */
   catalog() {
     return {
-      domains: PROGRAMME_DOMAINS.map((code) => ({
+      // POUFA lot A droits: the Fermia bonus domains too, consultation only.
+      domains: GRANTABLE_DOMAINS.map((code) => ({
         code,
         label: DOMAIN_LABELS[code],
+        actions: grantableActions(code),
+        fermia: isInstitutionFermiaDomain(code),
       })),
       actions: ACCESS_ACTIONS.map((code) => ({
         code,

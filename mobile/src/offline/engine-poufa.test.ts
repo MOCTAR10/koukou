@@ -158,7 +158,7 @@ describe('sortie de bande (sortie)', () => {
 });
 
 describe('point GPS (farm-gps)', () => {
-  it('hors ligne : rejoué tel quel (même capturedAt)', async () => {
+  it('hors ligne : rejoué avec sa clé (même capturedAt, même idempotencyKey)', async () => {
     stubFetch(networkError);
     const gps = { latitude: 0.39, longitude: 9.45, capturedAt: '2026-11-06T08:00:00.000Z', source: 'APPAREIL' as const, accuracyM: 8 };
     expect(await setFarmGpsQueued('f-1', gps)).toEqual({ status: 'queued' });
@@ -166,7 +166,14 @@ describe('point GPS (farm-gps)', () => {
     await flushQueue();
     expect(readCall(replay).url).toContain('/programme/farms/f-1/gps');
     expect(readCall(replay).init.method).toBe('PUT');
-    expect(body(replay)).toEqual(gps);
+    expect(body(replay)).toMatchObject(gps);
+    expect(String((body(replay) as { idempotencyKey?: string }).idempotencyKey)).toMatch(/^off-farm-gps-/);
+  });
+
+  it('en direct : envoie la clé de rejeu', async () => {
+    const live = stubFetch(async () => jsonResponse(200, { gps: null, previous: null, provinceWarning: null, applied: true }));
+    await setFarmGpsQueued('f-1', { latitude: 0.4, longitude: 9.4 });
+    expect((body(live) as { idempotencyKey?: string }).idempotencyKey).toBeTruthy();
   });
 });
 

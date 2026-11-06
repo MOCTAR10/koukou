@@ -16,6 +16,7 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { PromotionsService } from './promotions.service.js';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Finance — Promotions (coupons réduction)')
 @Domain('VENTES')
@@ -37,6 +38,7 @@ export class PromotionsController {
   }
 
   @Get()
+  @AuditThirdPartyRead('Promotions d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Liste des promotions de la ferme' })
   @ApiParam({ name: 'farmId' })

@@ -17,6 +17,7 @@ import { RequestContext } from '../../common/context/request-context.js';
 import {
   AUDIT_PLAN,
   AUDIT_RECORDED,
+  planApplies,
   resolveAuditPlan,
   type AuditPlan,
 } from './audit-plan.js';
@@ -59,7 +60,7 @@ export class AuditInterceptor implements NestInterceptor {
     const req = http.getRequest<AuditedRequest>();
     const res = http.getResponse<Response>();
     const plan = planFor(this.reflector, context);
-    if (!plan) return next.handle();
+    if (!plan || !planApplies(plan, req.user?.role)) return next.handle();
     if (req.user?.id)
       RequestContext.setActor(req.user.id, req.user.role ?? null);
 

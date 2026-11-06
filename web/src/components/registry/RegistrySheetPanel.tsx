@@ -12,6 +12,7 @@ import { useRegistrySheet } from './queries';
 import type { RegistryRights } from './registryAccess';
 import { InfrastructuresSection, StatusSection } from './SheetSections';
 import { RegistryStatusPill } from './shared';
+import { VerificationSection } from './VerificationSection';
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -109,6 +110,8 @@ export function RegistrySheetPanel({ farmId, rights, onClose }: { farmId: string
 
           <Block title="Statut">
             <StatusSection sheet={s} canEdit={rights.edit} />
+            {/* POUFA lot A droits: Market verification (REGISTRE:VALIDER). */}
+            <VerificationSection sheet={s} canVerify={rights.verify} />
           </Block>
 
           <Block title="Capacité et occupation">
@@ -121,7 +124,7 @@ export function RegistrySheetPanel({ farmId, rights, onClose }: { farmId: string
           </Block>
 
           <Block title="Position GPS">
-            <GpsSection sheet={s} canEdit={rights.edit} />
+            <GpsSection sheet={s} canEdit={rights.gps} />
           </Block>
 
           <Block title="Infrastructures">

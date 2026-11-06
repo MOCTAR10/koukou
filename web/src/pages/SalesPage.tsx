@@ -31,6 +31,7 @@ import {
 import { FilterChip, ProductThumb } from '../components/sales/shared';
 import { SalesHistory } from '../components/sales/SalesHistory';
 import { unitLabel } from '../components/sales/labels';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { classNames, fcfa, num, statusLabel } from '../lib/format';
 
 type LineModal = { initial?: PosLine; preset?: LinePreset };
@@ -39,6 +40,8 @@ export function SalesPage() {
   const { farmId, farm } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canManagePos = hasPermission('pdv:gerer');
+  // POUFA lot A droits: without « vente:creer » (an institution reading the farm), the receipts and history only.
+  const canSell = hasPermission('vente:creer');
   const [params, setParams] = useSearchParams();
   const today = todayIso();
 
@@ -59,6 +62,7 @@ export function SalesPage() {
   }, [farmId]);
 
   const enabled = !!farmId;
+  const posEnabled = enabled && canSell;
   const pointsOfSale = useQuery({
     queryKey: ['points-of-sale', farmId],
     queryFn: () => api.get<PointOfSale[]>(`/farms/${farmId}/points-of-sale`),
@@ -67,27 +71,27 @@ export function SalesPage() {
   const batches = useQuery({
     queryKey: ['batches', farmId],
     queryFn: () => api.get<PosBatch[]>(`/farms/${farmId}/batches`),
-    enabled,
+    enabled: posEnabled,
   });
   const slaughter = useQuery({
     queryKey: ['slaughter', farmId],
     queryFn: () => api.get<CarcassPool[]>(`/farms/${farmId}/slaughter-orders`),
-    enabled,
+    enabled: posEnabled,
   });
   const transfers = useQuery({
     queryKey: ['stock-transfers', farmId],
     queryFn: () => api.get<StockTransfer[]>(`/farms/${farmId}/stock-transfers`),
-    enabled,
+    enabled: posEnabled,
   });
   const feedStock = useQuery({
     queryKey: ['feed-stock', farmId],
     queryFn: () => api.get<FeedStockSummary>(`/farms/${farmId}/feed-stock`),
-    enabled,
+    enabled: posEnabled,
   });
   const salesToday = useQuery({
     queryKey: ['sales', farmId, 'today', today],
     queryFn: () => api.get<SaleFull[]>(`/farms/${farmId}/sales?from=${today}&to=${today}`),
-    enabled,
+    enabled: posEnabled,
   });
   const caisse = useQuery({
     queryKey: ['caisse-current', farmId],
@@ -231,7 +235,9 @@ export function SalesPage() {
 
       <ErrorNote error={loadError} />
 
-      {pointsOfSale.isLoading ? (
+      {!canSell ? (
+        <ReadOnlyNotice what="ventes et reçus" />
+      ) : pointsOfSale.isLoading ? (
         <Loading label="Chargement des points de vente…" />
       ) : activePos.length === 0 ? (
         <div className="space-y-2">

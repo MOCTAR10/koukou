@@ -29,6 +29,19 @@ describe('audit sanitizer', () => {
     });
   });
 
+  // POUFA lot A droits (F9)
+  it('masks salary amounts but keeps the key', () => {
+    expect(
+      sanitizeValue({ fullName: 'Awa', salaryFcfa: 150000, member: { salary: 9 }, notes: null }),
+    ).toEqual({
+      fullName: 'Awa',
+      salaryFcfa: '[masqué]',
+      member: { salary: '[masqué]' },
+      notes: null,
+    });
+    expect(sanitizeValue({ salaryFcfa: null })).toEqual({ salaryFcfa: null });
+  });
+
   it('truncates long strings and keeps scalars', () => {
     const clean = sanitizeValue({
       notes: 'a'.repeat(MAX_STRING_LENGTH + 50),

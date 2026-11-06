@@ -5,6 +5,8 @@ import { api } from '../api/client';
 import type { FeedProduct, FeedStockSummary } from '../api/types';
 import type { FeedEntryType, FeedMovement } from '../api/types-flock';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { FeedEntryModal, LossModal } from '../components/flock/StockModals';
 import {
   ENTRY_TYPE_LABEL,
@@ -108,6 +110,8 @@ function stockTone(autonomy: number | null, available: number): { tone: 'red' | 
 
 export function StockPage() {
   const { farmId } = useFarm();
+  // POUFA lot A droits: an institution (INTRANTS:CONSULTER) reads the FEFO stock, never receives nor declares.
+  const canWrite = useFarmProfile().hasPermission('stock:gerer');
   const [tab, setTab] = useState<TabKey>('stock');
   const [receiving, setReceiving] = useState(false);
   const [losing, setLosing] = useState(false);
@@ -189,18 +193,21 @@ export function StockPage() {
         icon={<Warehouse />}
         subtitle="Provende, médicaments et matières premières"
         actions={
-          <div className="flex gap-2">
-            <Button tone="secondary" onClick={() => setLosing(true)}>
-              <PackageX className="h-4 w-4" /> Déclarer une perte
-            </Button>
-            <Button onClick={() => setReceiving(true)}>
-              <PackagePlus className="h-4 w-4" /> Réception de stock
-            </Button>
-          </div>
+          canWrite ? (
+            <div className="flex gap-2">
+              <Button tone="secondary" onClick={() => setLosing(true)}>
+                <PackageX className="h-4 w-4" /> Déclarer une perte
+              </Button>
+              <Button onClick={() => setReceiving(true)}>
+                <PackagePlus className="h-4 w-4" /> Réception de stock
+              </Button>
+            </div>
+          ) : undefined
         }
       />
+      <ReadOnlyNotice what="stock FEFO" />
       <ErrorNote error={stock.error} />
-      <PendingDeliveriesNote />
+      {canWrite ? <PendingDeliveriesNote /> : null}
       <Tabs<TabKey>
         value={tab}
         onChange={setTab}
@@ -412,7 +419,7 @@ export function StockPage() {
         </SectionCard>
       ) : null}
 
-      {tab === 'catalogue' ? <CatalogPanel /> : null}
+      {tab === 'catalogue' ? <CatalogPanel readOnly={!canWrite} /> : null}
       {tab === 'declaratif' ? <DeclarativeStockPanel /> : null}
 
       {receiving ? <FeedEntryModal stock={stock.data} onClose={() => setReceiving(false)} /> : null}
@@ -421,7 +428,7 @@ export function StockPage() {
   );
 }
 
-function CatalogPanel() {
+function CatalogPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { farmId } = useFarm();
   const invalidate = useInvalidateFarm();
   const products = useQuery({
@@ -465,7 +472,7 @@ function CatalogPanel() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <div className="lg:col-span-2">
+      <div className={readOnly ? 'lg:col-span-3' : 'lg:col-span-2'}>
         <SectionCard title="Catalogue de la ferme" icon={<PackagePlus />} subtitle="Votre provende habituelle" flush>
           <ErrorNote error={products.error} />
           {products.isLoading ? (
@@ -514,6 +521,7 @@ function CatalogPanel() {
           )}
         </SectionCard>
       </div>
+      {readOnly ? null : (
       <SectionCard title="Ajouter un produit" icon={<Plus />}>
         <form onSubmit={submit} className="space-y-3">
           <Field label="Nom *">
@@ -558,6 +566,7 @@ function CatalogPanel() {
           </Button>
         </form>
       </SectionCard>
+      )}
     </div>
   );
 }

@@ -17,6 +17,7 @@ import { FeedProductsService } from './feed-products.service.js';
 import { CreateFeedProductDto } from './dto/create-feed-product.dto.js';
 import { UpdateFeedProductDto } from './dto/update-feed-product.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Catalogue provende (Stock & Inventaire — Module 3)')
 @Domain('INTRANTS')
@@ -41,6 +42,7 @@ export class FeedProductsController {
   }
 
   @Get()
+  @AuditThirdPartyRead('Produits d’aliment d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Lister le catalogue provende de la ferme' })
   @ApiParam({ name: 'farmId' })

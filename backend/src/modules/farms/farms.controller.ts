@@ -19,7 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
-import { AuditRead } from '../../common/decorators/audit.decorator.js';
+import { AuditRead, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -187,9 +187,10 @@ export class FarmsController {
   }
 
   @Get(':farmId/team')
+  @AuditThirdPartyRead('Équipe d’une ferme')
   @Domain('EQUIPE')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
-  @Permissions('equipe:taches')
+  @Permissions('equipe:taches', 'rh:lire')
   @ApiOperation({
     summary:
       'Équipe assignable à des tâches : membres actifs (id, userId, fullName, rôle)',

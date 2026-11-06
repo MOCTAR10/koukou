@@ -6,6 +6,13 @@
 /** Keys never stored in the journal (passwords, PIN codes, tokens, hashes, OTP). */
 export const SECRET_KEY_RE = /pass|code|secret|token|hash|otp/i;
 
+/**
+ * Keys whose value is masked but whose presence is kept (proportionality,
+ * CDC §8, POUFA audit F9): the journal says a salary was sent, not how much.
+ */
+export const MASKED_KEY_RE = /salary|salaire/i;
+export const MASKED_VALUE = '[masqué]';
+
 export const MAX_STRING_LENGTH = 500;
 export const MAX_SUMMARY_BYTES = 8 * 1024;
 const MAX_DEPTH = 8;
@@ -31,6 +38,10 @@ export function sanitizeValue(value: unknown, depth = 0): unknown {
   for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
     if (SECRET_KEY_RE.test(key)) continue;
     if (item === undefined || typeof item === 'function') continue;
+    if (MASKED_KEY_RE.test(key)) {
+      out[key] = item === null ? null : MASKED_VALUE;
+      continue;
+    }
     out[key] = sanitizeValue(item, depth + 1);
   }
   return out;

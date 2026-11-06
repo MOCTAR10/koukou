@@ -24,6 +24,7 @@ import type { AdvisoryResponse, CaisseSummary, FarmTask, FlockDashboard } from '
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { useCanRead } from '../app/useMenuAccess';
+import { showsCollectedToday } from '../app/economicVisibility';
 import { buildActionQueue, buildJournal } from '../components/flock/activityFeed';
 import { Metric, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { ErrorNote } from '../components/form';
@@ -107,7 +108,8 @@ export function ActivitiesPage() {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   // The cash register is Fermia-only (VENTES).
-  const canReadCash = useCanRead()('VENTES');
+  const canRead = useCanRead();
+  const canReadCash = canRead('VENTES');
   const canCaisse = hasPermission('caisse:lire') && canReadCash;
   const [panel, setPanel] = useState<Panel>('taches');
   const [span, setSpan] = useState<7 | 30 | 90>(7);
@@ -179,7 +181,9 @@ export function ActivitiesPage() {
     <div className="space-y-5">
       <PageHeader title="Activités" subtitle={title} icon={<NotebookPen className="h-6 w-6" />} />
       <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-        <Metric label="Encaissé aujourd'hui" value={iconValue(<Wallet className="h-4 w-4 text-slate-400" />, fcfa(d.collectedTodayFcfa))} />
+        {showsCollectedToday(d.collectedTodayFcfa, canRead) ? (
+          <Metric label="Encaissé aujourd'hui" value={iconValue(<Wallet className="h-4 w-4 text-slate-400" />, fcfa(d.collectedTodayFcfa))} />
+        ) : null}
         <Metric label="Stock vivant" value={iconValue(<Bird className="h-4 w-4 text-slate-400" />, num(d.liveStock))} />
         <Metric
           label="Autonomie aliment"

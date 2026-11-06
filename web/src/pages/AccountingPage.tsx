@@ -148,6 +148,7 @@ export function AccountingPage() {
         title="Comptabilité SYSCOHADA"
         subtitle={farm?.name ?? 'Ferme'}
         icon={<Landmark />}
+        // POUFA lot A droits: an institution granted COMPTABILITE reads the books (exports included), never posts.
         actions={
           <>
             {canPost ? (

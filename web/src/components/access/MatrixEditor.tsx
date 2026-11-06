@@ -1,13 +1,14 @@
 import { Lock } from 'lucide-react';
-import type { AccessCatalog, ScopeKind } from '../../api/types-access';
+import { isFermiaGrantableDomain, type AccessCatalog, type ScopeKind } from '../../api/types-access';
 import { classNames } from '../../lib/format';
-import { cellKey, domainLockReason, setDomain, toggleCell, type MatrixCells } from './matrix';
+import { actionLockReason, cellKey, domainLockReason, setDomain, toggleCell, type MatrixCells } from './matrix';
 
 /**
  * Domains × actions grid of an access profile (labels from the server's
  * catalogue). A computer gets a table; a phone, one block per domain with its
  * actions as chips. Rows the scope kind can't hold are locked (the journal
- * belongs to an AUDIT scope profile only).
+ * belongs to an AUDIT scope profile only). The Fermia modules (cash, Market,
+ * accounting, HR) come last under their own heading, « Consulter » only.
  */
 export function MatrixEditor({
   catalog,
@@ -34,13 +35,28 @@ export function MatrixEditor({
           </span>
         ))}
       </div>
-      {catalog.domains.map((d) => {
+      {catalog.domains.map((d, index) => {
         const lock = domainLockReason(d.code, scopeKind);
-        const rowCells = catalog.actions.filter((a) => cells.has(cellKey(d.code, a.code)));
-        const full = rowCells.length === catalog.actions.length;
+        // POUFA lot A droits: a Fermia domain opens in consultation only.
+        const fermia = d.fermia ?? isFermiaGrantableDomain(d.code);
+        const cellLock = (action: (typeof catalog.actions)[number]['code']) =>
+          d.actions ? (d.actions.includes(action) ? null : 'Module Fermia : consultation seule pour un profil institutionnel.') : actionLockReason(d.code, action);
+        const open = catalog.actions.filter((a) => !cellLock(a.code));
+        const rowCells = open.filter((a) => cells.has(cellKey(d.code, a.code)));
+        const full = rowCells.length === open.length;
+        const prev = catalog.domains[index - 1];
+        const firstFermia = fermia && !(prev && (prev.fermia ?? isFermiaGrantableDomain(prev.code)));
         return (
+          <div key={d.code} className="contents">
+          {firstFermia ? (
+            <div className="border-b border-slate-200 bg-amber-50/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800">
+              Modules Fermia (consultation seule)
+              <span className="mt-0.5 block text-xs font-normal normal-case tracking-normal text-amber-700">
+                Ventes et caisse, Market, comptabilité, équipe et salaires des fermes du périmètre. Chaque consultation est journalisée.
+              </span>
+            </div>
+          ) : null}
           <div
-            key={d.code}
             className={classNames(
               'border-b border-slate-100 px-3 py-2.5 last:border-b-0 md:grid md:items-center',
               cols,
@@ -69,21 +85,23 @@ export function MatrixEditor({
             </div>
             <div className="flex flex-wrap gap-1.5 md:contents">
               {catalog.actions.map((a) => {
-                const on = !lock && cells.has(cellKey(d.code, a.code));
+                const locked = lock ?? cellLock(a.code);
+                const on = !locked && cells.has(cellKey(d.code, a.code));
                 return (
                   <label
                     key={a.code}
                     className={classNames(
                       'flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs md:justify-center md:border-0 md:px-0 md:py-0',
                       on ? 'border-brand-300 bg-brand-50 text-brand-800 md:bg-transparent' : 'border-slate-200 text-slate-600',
-                      lock || readOnly ? 'cursor-not-allowed' : 'cursor-pointer',
+                      locked || readOnly ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
                     )}
                   >
                     <input
                       type="checkbox"
                       className="h-4 w-4 shrink-0 accent-brand-600"
                       checked={on}
-                      disabled={!!lock || readOnly}
+                      disabled={!!locked || readOnly}
+                      title={locked ?? undefined}
                       onChange={() => onChange(toggleCell(cells, d.code, a.code))}
                       aria-label={`${d.label} : ${a.label}`}
                     />
@@ -92,6 +110,7 @@ export function MatrixEditor({
                 );
               })}
             </div>
+          </div>
           </div>
         );
       })}

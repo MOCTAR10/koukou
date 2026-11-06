@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import type { FarmMember } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { ErrorNote } from '../components/form';
 import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL } from '../components/org/shared';
 import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
@@ -23,6 +24,8 @@ export function HrPage() {
   const list = members.data ?? [];
   const activeCount = list.filter((m) => m.active).length;
   const withDossier = list.filter((m) => m.contractType || m.hireDate || m.salaryFcfa != null).length;
+  // POUFA lot A droits: the monthly payroll of the active members (also read by the DGE).
+  const payroll = list.filter((m) => m.active).reduce((a, m) => a + (m.salaryFcfa ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -42,6 +45,7 @@ export function HrPage() {
         }
       />
 
+      <ReadOnlyNotice what="dossiers RH et salaires" />
       <ErrorNote error={members.error} />
 
       {members.isLoading ? (
@@ -51,6 +55,7 @@ export function HrPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <StatCard label="Employés actifs" value={activeCount} icon={<Users className="h-5 w-5" />} />
             <StatCard label="Dossiers renseignés" value={withDossier} tone="good" icon={<Briefcase className="h-5 w-5" />} />
+            <StatCard label="Masse salariale mensuelle" value={fcfa(payroll)} hint="Employés actifs" icon={<Briefcase className="h-5 w-5" />} />
           </div>
 
           <Card className="overflow-hidden">

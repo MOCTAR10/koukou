@@ -21,3 +21,15 @@ export const Domain = (domain: AccessDomain) => SetMetadata(DOMAIN_KEY, domain);
  * checks something (`CONSULTER`) or validates (`VALIDER`).
  */
 export const Action = (action: AccessAction) => SetMetadata(ACTION_KEY, action);
+
+export const ALSO_GRANTED_BY_KEY = 'accessAlsoGrantedBy';
+
+/**
+ * Another grant that opens the route to an institutional account, besides
+ * its domain and action (e.g. the farm GPS point, REGISTRE:MODIFIER, is also
+ * open to TECHNIQUE:VALIDER: the agent technique checks the farm on site).
+ * Method level; repeatable through the array form.
+ */
+export const AlsoGrantedBy = (
+  ...grants: ReadonlyArray<readonly [AccessDomain, AccessAction]>
+) => SetMetadata(ALSO_GRANTED_BY_KEY, grants);

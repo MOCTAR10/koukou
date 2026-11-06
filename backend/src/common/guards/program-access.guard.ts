@@ -11,10 +11,14 @@ import {
   type AccessAction,
   type AccessDomain,
 } from '../../modules/access/access-domains.js';
-import { decideRoute } from '../../modules/access/access-rules.js';
+import { decideRouteAny } from '../../modules/access/access-rules.js';
 import { ScopeResolver } from '../../modules/access/scope-resolver.service.js';
 import { AuthUser } from '../decorators/current-user.decorator.js';
-import { ACTION_KEY, DOMAIN_KEY } from '../decorators/domain.decorator.js';
+import {
+  ACTION_KEY,
+  ALSO_GRANTED_BY_KEY,
+  DOMAIN_KEY,
+} from '../decorators/domain.decorator.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { UserRole } from '../enums/role.enum.js';
 
@@ -60,7 +64,11 @@ export class ProgramAccessGuard implements CanActivate {
         targets,
       ) ?? actionForMethod(String(request.method ?? 'GET'));
     const access = domain ? await this.scope.accessOf(user.id) : null;
-    const decision = decideRoute(access, domain, action);
+    const alternatives =
+      this.reflector.get<
+        ReadonlyArray<readonly [AccessDomain, AccessAction]> | undefined
+      >(ALSO_GRANTED_BY_KEY, context.getHandler()) ?? [];
+    const decision = decideRouteAny(access, domain, action, alternatives);
     if (!decision.allowed) throw new ForbiddenException(decision.reason);
 
     const farmId: unknown = request.params?.farmId;

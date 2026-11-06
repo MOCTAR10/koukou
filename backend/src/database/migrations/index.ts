@@ -18,6 +18,10 @@ import { DataRecovery1793959230932 } from './1793959230932-DataRecovery.js';
 import { PilotReportsSent1794000100000 } from './1794000100000-PilotReportsSent.js';
 // POUFA lot A bande: weighing reminder to the whole farm team.
 import { WeighingReminderTeam1794000400000 } from './1794000400000-WeighingReminderTeam.js';
+// POUFA lot A droits (begin)
+import { InstitutionFermiaGrants1794000500000 } from './1794000500000-InstitutionFermiaGrants.js';
+import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalaries.js';
+// POUFA lot A droits (end)
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -46,4 +50,8 @@ export const MIGRATIONS = [
   PilotReportsSent1794000100000,
   // POUFA lot A bande
   WeighingReminderTeam1794000400000,
+  // POUFA lot A droits (begin)
+  InstitutionFermiaGrants1794000500000,
+  AuditMaskSalaries1794000500100,
+  // POUFA lot A droits (end)
 ];

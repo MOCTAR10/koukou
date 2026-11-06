@@ -6,6 +6,7 @@ import type { CashSession } from '../api/types';
 import type { CaisseSummary, CashMovement } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../components/form';
 import { Card, DataTable, EmptyState, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
 import { MOVEMENT_SOURCE_LABEL } from '../components/sales/labels';
@@ -198,6 +199,7 @@ export function CaissePage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Caisse journalière" subtitle="Ouverture, mouvements, clôture et contrôle des écarts." icon={<Coins />} />
+      <ReadOnlyNotice what="caisse et mouvements" />
 
       <ErrorNote error={current.error ?? sessions.error} />
 

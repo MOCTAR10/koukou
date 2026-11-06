@@ -29,11 +29,16 @@ describe('access', () => {
     expect(canConfirmDeliveries('PLATFORM_ADMIN', true)).toBe(false);
   });
 
-  it('GPS : admin, ou institution avec REGISTRE:MODIFIER', () => {
+  it('GPS : admin, compte de ferme avec registre:gps, institution REGISTRE:MODIFIER ou TECHNIQUE:VALIDER', () => {
     expect(canSetFarmGps('PLATFORM_ADMIN', null)).toBe(true);
     expect(canSetFarmGps('INSTITUTION', dge)).toBe(true);
+    expect(canSetFarmGps('INSTITUTION', { TECHNIQUE: ['CONSULTER', 'VALIDER'] })).toBe(true);
     expect(canSetFarmGps('INSTITUTION', vet)).toBe(false);
     expect(canSetFarmGps('PROPRIETAIRE', null)).toBe(false);
+    expect(canSetFarmGps('PROPRIETAIRE', null, true)).toBe(true);
+    expect(canSetFarmGps('ELEVEUR', null, true)).toBe(true);
+    expect(canSetFarmGps('ELEVEUR', null, false)).toBe(false);
+    expect(canSetFarmGps('ACHETEUR', null, true)).toBe(false);
   });
 
   it('boîte de réception : pas pour un acheteur', () => {

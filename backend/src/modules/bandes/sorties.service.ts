@@ -312,7 +312,10 @@ export class SortiesService {
       where: { batchId: batch.id },
       order: { sortieDate: 'ASC', createdAt: 'ASC' },
     });
-    return this.views(rows);
+    const views = await this.views(rows);
+    // POUFA lot A droits: prices for economic readers only (audit F6).
+    if (await this.farms.readsEconomics(user)) return views;
+    return views.map((v) => ({ ...v, unitPriceFcfa: null }));
   }
 
   private async assertFamilyPermission(

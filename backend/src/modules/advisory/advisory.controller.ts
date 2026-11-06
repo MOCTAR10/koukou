@@ -6,6 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { AdvisoryService } from './advisory.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Assistant de ferme (actions prioritaires)')
 @Domain('TECHNIQUE')
@@ -14,6 +15,7 @@ export class AdvisoryController {
   constructor(private readonly advisoryService: AdvisoryService) {}
 
   @Get('next-actions')
+  @AuditThirdPartyRead('Conseils d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:

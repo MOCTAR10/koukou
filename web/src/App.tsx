@@ -56,6 +56,8 @@ import { FarmDeliveriesPage } from './pages/FarmDeliveriesPage';
 import { IntrantsPage } from './pages/IntrantsPage';
 import { PublicLotPage } from './pages/PublicLotPage';
 import { TracabilitePage } from './pages/TracabilitePage';
+// POUFA lot A droits: programme economic synthesis (finance, payroll, sales and stock of the farms in scope).
+import { EconomiePage } from './pages/EconomiePage';
 
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
@@ -109,10 +111,11 @@ export function App() {
           <Route path="team" element={<RequiresPermission any={['equipe:gerer']}><TeamPage /></RequiresPermission>} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="orders" element={<RequiresPermission any={['vente:commande', 'vente:creer']}><OrdersPage /></RequiresPermission>} />
-          <Route path="market" element={<RequiresPermission any={['market:publier', 'vente:commande']}><MarketFarmPage /></RequiresPermission>} />
+          <Route path="market" element={<RequiresPermission any={['market:publier', 'vente:commande', 'market:lire']}><MarketFarmPage /></RequiresPermission>} />
           <Route path="points-of-sale" element={<RequiresPermission any={['pdv:gerer']}><PointsOfSalePage /></RequiresPermission>} />
-          <Route path="expenses" element={<RequiresPermission any={['compta:depense']}><ExpensesPage /></RequiresPermission>} />
-          <Route path="accounting" element={<RequiresPermission any={['compta:rapports']}><AccountingPage /></RequiresPermission>} />
+          {/* POUFA lot A droits: the expenses open in reading with « compta:rapports » (same rule as the menu), the books with « compta:lire » too. */}
+          <Route path="expenses" element={<RequiresPermission any={['compta:depense', 'compta:rapports']}><ExpensesPage /></RequiresPermission>} />
+          <Route path="accounting" element={<RequiresPermission any={['compta:rapports', 'compta:lire']}><AccountingPage /></RequiresPermission>} />
           <Route path="reports" element={<RequiresPermission any={['compta:rapports']}><ReportsPage /></RequiresPermission>} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="hr" element={<RequiresPermission any={['rh:lire', 'equipe:gerer']}><HrPage /></RequiresPermission>} />
@@ -134,6 +137,8 @@ export function App() {
           <Route path="intrants" element={<IntrantsPage />} />
           <Route path="livraisons" element={<FarmDeliveriesPage />} />
           <Route path="tracabilite/*" element={<TracabilitePage />} />
+          {/* POUFA lot A droits: the page checks its own access (economieRights). */}
+          <Route path="economie" element={<EconomiePage />} />
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>

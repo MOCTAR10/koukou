@@ -1,4 +1,4 @@
-import type { AccessAction, AccessDomain, AccessMatrix, MyAccess, ScopeKind } from '../api/types-access';
+import { FERMIA_GRANTABLE_DOMAINS, type AccessAction, type AccessDomain, type AccessMatrix, type MyAccess, type ScopeKind } from '../api/types-access';
 
 /**
  * Menu of an INSTITUTION account (POUFA): which pages its access profile
@@ -35,15 +35,22 @@ import type { AccessAction, AccessDomain, AccessMatrix, MyAccess, ScopeKind } fr
  * | /app/surveillance(/…)   | SANITAIRE:CONSULTER      | surveillance/alerts, lists, calendars (SANITAIRE)         |
  * | /app/notifications      | always                   | notifications (SESSION: the account's own inbox)          |
  * | /app/notifications/regles | ADMINISTRATION:CONSULTER | programme/notification-rules (ADMINISTRATION)           |
- * | /app/finance…, orders, market, points-of-sale | never | VENTES, MARCHE (Fermia-only)                         |
- * | /app/accounting         | never                    | COMPTABILITE (Fermia-only)                                |
- * | /app/team, /app/hr      | never                    | EQUIPE (Fermia-only)                                      |
+ * | /app/finance…, orders, points-of-sale | VENTES:CONSULTER | sales list, caisse, customers, orders, POS (VENTES; sales ECONOMIQUE) |
+ * | /app/market             | MARCHE:CONSULTER         | farms/:id/market listings and orders (MARCHE)             |
+ * | /app/accounting         | COMPTABILITE:CONSULTER   | farms/:id/accounting (COMPTABILITE)                       |
+ * | /app/team, /app/hr      | EQUIPE:CONSULTER         | farms/:id/eleveurs, team (EQUIPE)                         |
+ * | /app/economie           | ECONOMIQUE:CONSULTER     | programme/economie/synthese (ECONOMIQUE, programme-wide)  |
  * | /app/settings           | never                    | farm account settings, COMPTE (Fermia-only)               |
  * | /app/platform           | never                    | admin/* PLATEFORME (Fermia-only)                          |
  * | /app/home, parcels, harvests | never               | ground éleveur home; CULTURES (hidden)                    |
  *
  * A page missing from the table stays out of the menu (default deny, like the
  * server); a typed URL missing from it still opens (the server answers).
+ *
+ * POUFA lot A droits: the Fermia modules (VENTES, MARCHE, COMPTABILITE,
+ * EQUIPE) open to an institution in consultation only, when the admin grants
+ * them (the DGE by default). The pages stay read-only: an institution never
+ * holds their write codes (`access/permission-domains.ts`).
  */
 
 export type MenuRule =
@@ -90,13 +97,16 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/tracabilite': { kind: 'grant', any: [['TRACABILITE', 'CONSULTER'], ['ADMINISTRATION', 'CONSULTER']] },
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
-  '/app/finance': fermia('VENTES'),
-  '/app/orders': fermia('VENTES'),
-  '/app/market': fermia('MARCHE'),
-  '/app/points-of-sale': fermia('VENTES'),
-  '/app/accounting': fermia('COMPTABILITE'),
-  '/app/team': fermia('EQUIPE'),
-  '/app/hr': fermia('EQUIPE'),
+  // POUFA lot A droits: Fermia modules, consultation only, granted through the matrix.
+  '/app/finance': consult('VENTES'),
+  '/app/orders': consult('VENTES'),
+  '/app/market': consult('MARCHE'),
+  '/app/points-of-sale': consult('VENTES'),
+  '/app/accounting': consult('COMPTABILITE'),
+  '/app/team': consult('EQUIPE'),
+  '/app/hr': consult('EQUIPE'),
+  '/app/economie': consult('ECONOMIQUE'),
+  // POUFA lot A droits (end)
   '/app/settings': fermia('COMPTE'),
   '/app/platform': fermia('PLATEFORME'),
   '/app/home': fermia('ground éleveur'),
@@ -149,11 +159,15 @@ function ruleAllows(rule: MenuRule, access: Pick<MyAccess['profile'], 'matrix' |
 }
 
 /**
- * Fermia-only domains (backend `access-domains.ts` `FERMIA_DOMAINS`): refused
- * by `validateMatrix`, so never granted to an institution.
+ * Fermia-only domains never granted to an institution (refused by the
+ * server's `validateMatrix`). POUFA lot A droits: VENTES, MARCHE, COMPTABILITE
+ * and EQUIPE left this list: they are grantable in consultation
+ * (`FERMIA_GRANTABLE_DOMAINS`, part of `AccessDomain`).
  */
-export const FERMIA_DOMAINS = ['VENTES', 'MARCHE', 'COMPTABILITE', 'EQUIPE', 'CULTURES', 'COMPTE', 'PLATEFORME'] as const;
+export const FERMIA_DOMAINS = ['CULTURES', 'COMPTE', 'PLATEFORME'] as const;
 export type FermiaDomain = (typeof FERMIA_DOMAINS)[number];
+/** Fermia modules an institution may read when granted (`api/types-access.ts`). */
+export const FERMIA_READ_DOMAINS = FERMIA_GRANTABLE_DOMAINS;
 /** The backend `@Domain` of a route a page reads. */
 export type ReadDomain = AccessDomain | FermiaDomain;
 
@@ -162,12 +176,13 @@ export type ReadDomain = AccessDomain | FermiaDomain;
  * `ProgramAccessGuard` (« Consulter » on that domain). A page an institution
  * opens gates with this every read outside its own domain (the dashboard's
  * slaughter orders, the tasks' team…), so it renders without them instead of
- * collecting 403s. Fermia-only domains: never. Unreadable access (offline,
- * never loaded): programme domains are left to the server (cached answers).
+ * collecting 403s. Never-grantable Fermia domains: never. Unreadable access
+ * (offline, never loaded): programme domains are left to the server (cached
+ * answers); the Fermia modules stay closed until the access is known.
  */
 export function institutionReads(access: Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> | null, domain: ReadDomain): boolean {
   if ((FERMIA_DOMAINS as readonly string[]).includes(domain)) return false;
-  if (!access) return true;
+  if (!access) return !(FERMIA_READ_DOMAINS as readonly string[]).includes(domain);
   return grantsAccess(access, domain as AccessDomain, 'CONSULTER');
 }
 

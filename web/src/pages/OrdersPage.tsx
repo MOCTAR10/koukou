@@ -5,6 +5,8 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { Order, OrderStatus } from '../api/types-orders';
 import { useFarm } from '../app/FarmContext';
+import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { Button, ErrorNote, inputCls } from '../components/form';
 import { CreateOrderModal } from '../components/orders/CreateOrderModal';
 import { ORDER_CANAL_LABEL, ORDER_STATUS_LABEL } from '../components/orders/helpers';
@@ -29,6 +31,8 @@ function dueOf(o: Order): number {
 
 export function OrdersPage() {
   const { farmId } = useFarm();
+  // POUFA lot A droits: an institution (VENTES:CONSULTER) reads the orders only.
+  const canCreate = useFarmProfile().hasPermission('vente:commande', 'vente:creer');
   const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useState<Filter>('ALL');
   const [search, setSearch] = useState('');
@@ -87,11 +91,14 @@ export function OrdersPage() {
         subtitle="Précommandes et bons de commande."
         icon={<ClipboardList />}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4" /> Nouvelle commande
-          </Button>
+          canCreate ? (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" /> Nouvelle commande
+            </Button>
+          ) : undefined
         }
       />
+      <ReadOnlyNotice what="commandes" />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="À livrer" value={num(stats.confirmed, 0)} hint="Confirmées" icon={<Truck />} />

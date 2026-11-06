@@ -517,12 +517,18 @@ export interface FarmGpsPayload {
   source?: 'APPAREIL' | 'MANUEL';
   accuracyM?: number;
   reason?: string;
+  /** Offline replay key, unique per farm: a replay adds no second point. */
+  idempotencyKey?: string;
 }
 
 export interface FarmGpsResult {
   gps: { latitude: number; longitude: number; capturedAt: string; source: string; accuracyM: number | null } | null;
   previous: { latitude: number; longitude: number } | null;
   provinceWarning: string | null;
+  /** False for a replay or a fix older than the current point (then `message` says why). */
+  applied?: boolean;
+  replay?: boolean;
+  message?: string | null;
 }
 
 export function setFarmGps(farmId: string, payload: FarmGpsPayload): Promise<FarmGpsResult> {
