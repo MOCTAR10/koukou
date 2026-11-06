@@ -94,6 +94,9 @@ export interface DuplicateCandidate {
   readonly farmId: string | null;
   readonly code: string | null;
   readonly name: string;
+  /** Province of the candidate (null when it has none). */
+  readonly provinceCode: string | null;
+  readonly provinceName: string | null;
   readonly score: number;
   readonly reasons: string[];
   readonly line?: number;
@@ -105,6 +108,12 @@ export interface HiddenDuplicate {
   readonly score: number;
   readonly reasons: string[];
 }
+
+/** Code and name of the provinces, by id (duplicate candidates). */
+export type ProvinceLabels = ReadonlyMap<
+  string,
+  { readonly code: string; readonly name: string }
+>;
 
 /** A database candidate with what the scope check needs. */
 interface ScopedDuplicate extends DuplicateCandidate {
@@ -287,10 +296,23 @@ export class ProgrammeFarmsService {
     return rows.map((f) => this.entryOf(f));
   }
 
+  /** Code and name of every province of the programme, by id. */
+  async provinceLabels(
+    em: EntityManager,
+    programId: string,
+  ): Promise<ProvinceLabels> {
+    const rows = await em.getRepository(Province).find({
+      where: { programId },
+      select: { id: true, code: true, name: true },
+    });
+    return new Map(rows.map((p) => [p.id, { code: p.code, name: p.name }]));
+  }
+
   /** Probable duplicates of `entry` among `pool`, best first (10 at most). */
   scoreAgainst(
     entry: RegistryEntry,
     pool: readonly RegistryEntry[],
+    provinces: ProvinceLabels,
   ): DuplicateCandidate[] {
     const found: { e: RegistryEntry; s: DuplicateScore }[] = [];
     for (const other of pool) {
@@ -305,6 +327,8 @@ export class ProgrammeFarmsService {
         farmId: e.id,
         code: e.code,
         name: e.name,
+        provinceCode: (e.provinceId && provinces.get(e.provinceId)?.code) || null,
+        provinceName: (e.provinceId && provinces.get(e.provinceId)?.name) || null,
         score: Math.round(s.score * 100) / 100,
         reasons: s.reasons.map((r) => DUPLICATE_REASON_LABELS[r]),
         ...(e.line !== undefined ? { line: e.line } : {}),
@@ -325,7 +349,8 @@ export class ProgrammeFarmsService {
       (e) => !entry.id || e.id !== entry.id,
     );
     const provinces = new Map(pool.map((e) => [e.id, e.provinceId]));
-    return this.scoreAgainst(entry, pool).map((c) => ({
+    const labels = await this.provinceLabels(em, programId);
+    return this.scoreAgainst(entry, pool, labels).map((c) => ({
       ...c,
       farmId: c.farmId as string,
       provinceId: provinces.get(c.farmId) ?? null,
@@ -366,6 +391,8 @@ export class ProgrammeFarmsService {
           farmId: d.farmId,
           code: d.code,
           name: d.name,
+          provinceCode: d.provinceCode,
+          provinceName: d.provinceName,
           score: d.score,
           reasons: d.reasons,
         });

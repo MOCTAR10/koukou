@@ -303,6 +303,10 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(typo.duplicates[0].reasons).toEqual([
         'nom très proche dans la même province',
       ]);
+      expect(typo.duplicates[0]).toMatchObject({
+        provinceCode: 'G1',
+        provinceName: 'Estuaire',
+      });
 
       const sheet = await get(`/programme/farms/${created.farmId}`).expect(200);
       expect(sheet.body).toMatchObject({
@@ -384,6 +388,8 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(dup.body.duplicates).toHaveLength(1);
       expect(dup.body.duplicates[0]).toMatchObject({
         name: agriVert,
+        provinceCode: 'G1',
+        provinceName: 'Estuaire',
         reasons: ['même nom dans la même province'],
       });
       expect(dup.body.message).toContain('confirmDuplicate');

@@ -616,6 +616,8 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
           ],
         },
       ]);
+      // Nothing more than before about a hidden candidate: no province.
+      expect(dup.body.duplicates[0]).not.toHaveProperty('provinceCode');
       expect(dup.body.message).toContain('hors de votre périmètre');
       expect(dup.body.message).not.toContain('confirmDuplicate');
       const body = JSON.stringify(dup.body);
@@ -635,6 +637,8 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       expect(seen.body.duplicates[0]).toMatchObject({
         farmId: south.body.id,
         code: south.body.code,
+        provinceCode: 'G2',
+        provinceName: expect.any(String),
       });
       const created = await post(
         '/programme/farms',
