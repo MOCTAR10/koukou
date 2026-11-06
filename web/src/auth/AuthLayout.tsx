@@ -137,8 +137,11 @@ export function AuthLayout({
             <div className={programme ? 'rounded-3xl bg-white p-7 shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 sm:p-9 [@media(max-height:760px)]:p-6' : ''}>
               {programme ? (
                 <div className="flex items-center gap-2.5">
-                  <img src="/logo.png" alt="" className="h-10 w-auto [@media(max-height:760px)]:h-8" />
-                  <span className="text-2xl font-bold tracking-tight text-brand-900 [@media(max-height:760px)]:text-xl">Fermia</span>
+                  <img src="/logo.png" alt="" className="h-11 w-auto [@media(max-height:760px)]:h-9" />
+                  <span className="leading-none">
+                    <span className="block text-2xl font-bold tracking-tight text-brand-900 [@media(max-height:760px)]:text-xl">Fermia</span>
+                    <span className="mt-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Gérez votre ferme</span>
+                  </span>
                 </div>
               ) : eyebrow ? (
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{eyebrow}</p>

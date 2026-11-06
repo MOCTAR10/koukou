@@ -167,7 +167,7 @@ export function LoginPage() {
       audience={buying ? 'buyer' : 'programme'}
       eyebrow={buying ? 'Marché Fermia' : 'Espace sécurisé'}
       title={buying ? 'Connexion' : 'Bienvenue'}
-      subtitle={buying ? 'Connectez-vous avec votre téléphone et votre code secret.' : 'Saisissez votre numéro de téléphone et votre code secret.'}
+      subtitle={buying ? 'Connectez-vous avec votre téléphone et votre code secret.' : undefined}
       footer={
         buying ? (
           <p>
