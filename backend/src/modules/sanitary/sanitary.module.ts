@@ -18,6 +18,11 @@ import { ProtocolStep } from './entities/protocol-step.entity.js';
 import { ProphylaxisEvent } from './entities/prophylaxis-event.entity.js';
 import { TreatmentRecord } from './entities/treatment-record.entity.js';
 import { HealthEvent } from './entities/health-event.entity.js';
+import { HealthEventPhoto } from './entities/health-event-photo.entity.js';
+import { ProgrammeModule } from '../programme/programme.module.js';
+import { SurveillanceModule } from '../surveillance/surveillance.module.js';
+import { VaccinationCalendarsController } from './vaccination-calendars.controller.js';
+import { VaccinationCalendarsService } from './vaccination-calendars.service.js';
 
 @Module({
   imports: [
@@ -27,6 +32,7 @@ import { HealthEvent } from './entities/health-event.entity.js';
       ProphylaxisEvent,
       TreatmentRecord,
       HealthEvent,
+      HealthEventPhoto,
       ProductionBatch,
       InputLot,
       DailyEntry,
@@ -35,14 +41,21 @@ import { HealthEvent } from './entities/health-event.entity.js';
     AlertsModule,
     ReferenceConstantsModule,
     BatchesModule,
+    ProgrammeModule,
+    SurveillanceModule,
   ],
   controllers: [
     SanitaryController,
     SanitaryProtocolsController,
     HealthController,
     VaccineSchedulesController,
+    VaccinationCalendarsController,
   ],
-  providers: [SanitaryService, HealthService],
+  providers: [
+    SanitaryService,
+    HealthService,
+    VaccinationCalendarsService,
+  ],
   exports: [SanitaryService],
 })
 export class SanitaryModule {}

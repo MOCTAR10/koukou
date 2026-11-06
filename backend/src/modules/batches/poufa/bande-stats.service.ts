@@ -75,6 +75,12 @@ export class BandeStatsService {
       await this.autoClose(em, batch);
     }
     await this.write(em, batch, programId);
+    // Readers of the projection (sanitary mortality threshold) see the
+    // committed rows.
+    const refreshed = { farmId: batch.farmId, batchId: batch.id, programId };
+    runAfterCommit(em, () =>
+      koukouBus.emit(KOUKOU_EVENTS.BANDE_STATS_REFRESHED, refreshed),
+    );
   }
 
   /** Rebuilds a band's projection from its source rows (own transaction). */

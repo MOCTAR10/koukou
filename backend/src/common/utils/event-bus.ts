@@ -62,6 +62,42 @@ export interface TasksOverdueEvent {
   }>;
 }
 
+/** A band's `bande_daily_stats` projection was rewritten (after commit). */
+export interface BandeStatsRefreshedEvent {
+  farmId: string;
+  batchId: string;
+  programId: string;
+}
+
+/** An official sanitary alert was opened, changed status or was published. */
+export interface SanitaryAlertEvent {
+  alertId: string;
+  farmId: string;
+  batchId: string | null;
+  /** `AS-2026-0001`. */
+  code: string;
+  /** `SanitaryAlertOrigin`. */
+  origin: string;
+  statusCode: string;
+  statusFamily: string;
+  /** `AlertLevel`. */
+  severity: string;
+  /** The transition that produced the event (status change, publication). */
+  transitionId?: string;
+}
+
+/** A sanitary declaration (`HealthEvent`) was recorded (after commit). */
+export interface DeclarationReceivedEvent {
+  farmId: string;
+  batchId: string;
+  healthEventId: string;
+  /** `HealthEventKind`. */
+  kind: string;
+  /** `AlertLevel`. */
+  severity: string;
+  suspicion: boolean;
+}
+
 /**
  * Bus d'événements in-process minimal : permet aux modules de s'abonner à des
  * moments clés sans créer de dépendances circulaires (ex. clôture d'un lot →
@@ -76,6 +112,11 @@ export const KOUKOU_EVENTS = {
   TASKS_OVERDUE: 'tasks.overdue',
   WEIGHING_LATE: 'weighing.late',
   SYNC_CONFLICT: 'sync.conflict',
+  BANDE_STATS_REFRESHED: 'bande.stats.refreshed',
+  SANITARY_ALERT_CREATED: 'sanitary.alert.created',
+  SANITARY_ALERT_STATUS_CHANGED: 'sanitary.alert.status.changed',
+  SANITARY_ALERT_PUBLISHED: 'sanitary.alert.published',
+  DECLARATION_RECEIVED: 'sanitary.declaration.received',
 } as const;
 
 class FermiaBus extends EventEmitter {}

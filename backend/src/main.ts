@@ -15,11 +15,12 @@ import { uploadsRoot } from './modules/farms/farms.service.js';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Logos de ferme : fichiers écrits par POST /farms/:farmId/logo, servis
-  // publiquement sous /uploads (aucun secret : ce sont des logos).
+  // Farm logos (POST /farms/:farmId/logo) are public under /uploads/logos.
+  // Only that folder: the rest of UPLOADS_DIR (sanitary declaration photos)
+  // is served by its own routes, to the people allowed to read it.
   const uploads = uploadsRoot();
   await mkdir(join(uploads, 'logos'), { recursive: true });
-  app.useStaticAssets(uploads, { prefix: '/uploads/' });
+  app.useStaticAssets(join(uploads, 'logos'), { prefix: '/uploads/logos/' });
 
   app.useGlobalPipes(
     new ValidationPipe({
