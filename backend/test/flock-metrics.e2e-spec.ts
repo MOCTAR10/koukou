@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -42,27 +47,18 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24166${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Indicateurs', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({ name: `Ferme Indicateurs ${Date.now()}`, administrativeCity: 'Libreville' })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Indicateurs ${Date.now()}`,
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -108,7 +104,10 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     const eau = (alerts.body as any[]).filter(
-      (a) => a.batchId === batchId && ['EAU', 'MALADIE'].includes(a.kind) && a.status === 'ACTIVE',
+      (a) =>
+        a.batchId === batchId &&
+        ['EAU', 'MALADIE'].includes(a.kind) &&
+        a.status === 'ACTIVE',
     );
     expect(eau).toEqual([]);
 
@@ -148,7 +147,13 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
     await request(server)
       .post(`/farms/${farmId}/batches/${id}/daily-entries`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ entryDate: today, deaths: 10, feedUnit: 'KG', feedType: 'CROISSANCE', feedQuantity: 50 })
+      .send({
+        entryDate: today,
+        deaths: 10,
+        feedUnit: 'KG',
+        feedType: 'CROISSANCE',
+        feedQuantity: 50,
+      })
       .expect(201);
     await request(server)
       .post(`/farms/${farmId}/batches/${id}/health-events`)
@@ -179,7 +184,8 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     const mortalite = (alerts.body as any[]).find(
-      (a) => a.batchId === id && a.kind === 'MORTALITE' && a.status === 'ACTIVE',
+      (a) =>
+        a.batchId === id && a.kind === 'MORTALITE' && a.status === 'ACTIVE',
     );
     expect(mortalite).toBeDefined();
     expect(mortalite.level).toBe('JAUNE');
@@ -188,7 +194,9 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
       .get(`/farms/${farmId}/dashboard`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    const row = (dash.body.healthOverview as any[]).find((r) => r.batchId === id);
+    const row = (dash.body.healthOverview as any[]).find(
+      (r) => r.batchId === id,
+    );
     expect(row.mortalityPercent).toBe(4);
     expect(row.weekDeaths).toBe(40);
 
@@ -196,14 +204,18 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
       .get(`/farms/${farmId}/batches/${id}/curve`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    expect((curve.body.weekly as any[]).reduce((s, w) => s + w.deaths, 0)).toBe(40);
+    expect((curve.body.weekly as any[]).reduce((s, w) => s + w.deaths, 0)).toBe(
+      40,
+    );
 
     const health = await request(server)
       .get(`/farms/${farmId}/batches/${id}/health`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(health.body.totalDeaths).toBe(40);
-    expect(health.body.trends.mortality[health.body.trends.mortality.length - 1]).toBe(40);
+    expect(
+      health.body.trends.mortality[health.body.trends.mortality.length - 1],
+    ).toBe(40);
   });
 
   it('IPE jugé contre la souche à l’âge de la pesée (pas un seuil absolu)', async () => {
@@ -258,7 +270,10 @@ describe('Indicateurs de lot : IC / GMQ / eau après sorties (e2e)', () => {
       return {
         m: batch.body.metrics,
         ipeAlert: (alerts.body as any[]).find(
-          (a) => a.batchId === b.body.id && a.kind === 'IPE' && a.status === 'ACTIVE',
+          (a) =>
+            a.batchId === b.body.id &&
+            a.kind === 'IPE' &&
+            a.status === 'ACTIVE',
         ),
       };
     };

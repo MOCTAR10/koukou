@@ -5,6 +5,10 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
+import {
   PushMessage,
   PushService,
 } from './../src/modules/push/push.service.js';
@@ -52,29 +56,12 @@ describe('Notifications push serveur (e2e)', () => {
       return Promise.resolve();
     };
 
-    const phone = `+24175${stamp}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Push', code: 'secret123' })
-      .expect(201);
-    token = (
-      await request(server)
-        .post('/auth/login')
-        .send({ phone, code: 'secret123' })
-        .expect(201)
-    ).body.accessToken;
-
-    farmId = (
-      await request(server)
-        .post('/farms')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
-          name: `Ferme Push ${stamp}`,
-          administrativeCity: 'Libreville',
-          capacityPerBuilding: 1000,
-        })
-        .expect(201)
-    ).body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const owner = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Push ${stamp}`,
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
 
     const eleveurPhone = `+24176${stamp}`;
     eleveurId = (

@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -15,8 +20,6 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
   let server: App;
   let token: string;
   let farmId: string;
-
-  const ownerPhone = `+24180${Date.now()}`;
 
   async function createBatch(integrationDate: string) {
     const res = await request(server)
@@ -44,30 +47,12 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: ownerPhone,
-        fullName: 'Proprio Sanitaire',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone: ownerPhone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Sanitaire ${Date.now()}`,
-        administrativeCity: 'Ntoum',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Sanitaire ${Date.now()}`,
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
   });
 
   it('seed : les protocoles sanitaires par défaut sont disponibles (chair + pondeuse)', async () => {

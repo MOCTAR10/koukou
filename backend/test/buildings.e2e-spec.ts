@@ -4,6 +4,10 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 import { DatabaseSeedService } from './../src/database/database-seed.service.js';
 
 function daysAgo(n: number): string {
@@ -33,31 +37,12 @@ describe('Module 1 — Bâtiments & bandes (e2e)', () => {
   });
 
   beforeAll(async () => {
-    const phone = `+24180${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Bâtiments',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Bât ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1500,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Bât ${Date.now()}`,
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
   });
 
   it('crée des bâtiments', async () => {

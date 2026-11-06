@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function dayOffset(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
@@ -16,7 +21,6 @@ describe('Revue de bugs 3 : saisies, abattage, commandes, sanitaire, comptes (e2
   let farmId = '';
 
   const digits = String(stamp).slice(-7);
-  const phone = (n: number) => `+2416${n}${digits}`;
   const owner = () => ({
     get: (url: string) =>
       request(server).get(url).set('Authorization', `Bearer ${token}`),
@@ -50,26 +54,12 @@ describe('Revue de bugs 3 : saisies, abattage, commandes, sanitaire, comptes (e2
     await app.init();
     server = app.getHttpServer();
 
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(1), fullName: 'Proprio Revue 3', code: 'secret123' })
-      .expect(201);
-    token = (
-      await request(server)
-        .post('/auth/login')
-        .send({ phone: phone(1), code: 'secret123' })
-        .expect(201)
-    ).body.accessToken;
-    farmId = (
-      await owner()
-        .post('/farms')
-        .send({
-          name: `Ferme Revue 3 ${stamp}`,
-          administrativeCity: 'Libreville',
-          capacityPerBuilding: 1000,
-        })
-        .expect(201)
-    ).body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const created = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Revue 3 ${stamp}`,
+    });
+    token = created.ownerToken;
+    farmId = created.farmId;
   }, 180000);
 
   afterAll(async () => {
@@ -177,8 +167,9 @@ describe('Revue de bugs 3 : saisies, abattage, commandes, sanitaire, comptes (e2
   it('comptes : le numéro est normalisé (espaces, tirets)', async () => {
     const spaced = `+241 6 9-${digits.slice(0, 3)} ${digits.slice(3)}`;
     const compact = `+24169${digits}`;
+    // The only open sign-up is the buyer's (owners come from the registry).
     await request(server)
-      .post('/auth/register')
+      .post('/auth/register-buyer')
       .send({ phone: spaced, fullName: 'Client Espacé', code: 'secret123' })
       .expect(201);
     await request(server)
@@ -186,7 +177,7 @@ describe('Revue de bugs 3 : saisies, abattage, commandes, sanitaire, comptes (e2
       .send({ phone: compact, code: 'secret123' })
       .expect(201);
     await request(server)
-      .post('/auth/register')
+      .post('/auth/register-buyer')
       .send({ phone: compact, fullName: 'Doublon', code: 'secret123' })
       .expect(409);
   });

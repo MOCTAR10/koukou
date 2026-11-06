@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -30,28 +35,12 @@ describe('Sanitaire — Santé & événements sanitaires (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24170${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Santé', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Santé ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
-
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Santé ${Date.now()}`,
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
     const eleveurPhone = `+24171${Date.now()}`;
     await request(server)
       .post(`/farms/${farmId}/eleveurs`)
@@ -69,16 +58,7 @@ describe('Sanitaire — Santé & événements sanitaires (e2e)', () => {
       .expect(201);
     eleveurToken = eleveurLogin.body.accessToken;
 
-    const otherPhone = `+24172${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: otherPhone, fullName: 'Autre Proprio', code: 'secret123' })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
+    otherToken = (await createProgrammeFarm(server, admin.token)).ownerToken;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -146,7 +126,9 @@ describe('Sanitaire — Santé & événements sanitaires (e2e)', () => {
 
   it('résoudre un événement → statut RESOLU', async () => {
     const res = await request(server)
-      .patch(`/farms/${farmId}/batches/${batchId}/health-events/${eventId}/resolve`)
+      .patch(
+        `/farms/${farmId}/batches/${batchId}/health-events/${eventId}/resolve`,
+      )
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(res.body.status).toBe('RESOLU');
@@ -288,12 +270,22 @@ describe('Sanitaire — Santé & événements sanitaires (e2e)', () => {
     await request(server)
       .post(`/farms/${farmId}/batches/${batchId}/health-events`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ kind: 'MALADIE', occurredAt: today(), severity: 'JAUNE', title: '' })
+      .send({
+        kind: 'MALADIE',
+        occurredAt: today(),
+        severity: 'JAUNE',
+        title: '',
+      })
       .expect(400);
     await request(server)
       .post(`/farms/${farmId}/batches/${batchId}/health-events`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ kind: 'MALADIE', occurredAt: today(), severity: 'BLEU', title: 'x' })
+      .send({
+        kind: 'MALADIE',
+        occurredAt: today(),
+        severity: 'BLEU',
+        title: 'x',
+      })
       .expect(400);
   });
 
@@ -315,7 +307,9 @@ describe('Sanitaire — Santé & événements sanitaires (e2e)', () => {
       .expect(201);
 
     await request(server)
-      .delete(`/farms/${farmId}/batches/${batchId}/health-events/${created.body.id}`)
+      .delete(
+        `/farms/${farmId}/batches/${batchId}/health-events/${created.body.id}`,
+      )
       .set('Authorization', `Bearer ${eleveurToken}`)
       .expect(403);
   });
