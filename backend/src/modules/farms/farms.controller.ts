@@ -38,6 +38,9 @@ export class FarmsController {
   constructor(private readonly farmsService: FarmsService) {}
 
   @Get()
+  // The caller's own list, whatever its matrix (the scope still applies, in
+  // the service through ScopeResolver).
+  @Domain('SESSION')
   // A buyer gets an empty list: the apps call this at sign-in.
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.ACHETEUR)
   @ApiOperation({ summary: 'Lister mes fermes (selon rôle)' })
@@ -157,6 +160,10 @@ export class FarmsController {
   }
 
   @Get(':farmId/me')
+  // The caller's own profile on the farm: SESSION, not REGISTRE. The guard
+  // skips the :farmId scope check for SESSION; profileOf runs
+  // assertAccessible (scope included).
+  @Domain('SESSION')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:

@@ -7,6 +7,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { toXlsx } from './../src/common/utils/spreadsheet.js';
+import { parseCsv } from './../src/modules/programme/farms/csv.js';
 import {
   createPlatformAdmin,
   createProgrammeFarm,
@@ -176,6 +178,31 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         true,
       );
       expect(await countListed()).toBe(0);
+    });
+
+    it('accepte la même liste en Excel .xlsx (première feuille), même rapport', async () => {
+      const [header, ...rows] = parseCsv(poufaList.csv.toString('utf8'));
+      const xlsx = await toXlsx(header, rows, { sheetName: 'Fermes POUFA' });
+      const res = await request(server)
+        .post('/programme/farms/import')
+        .set(auth(adminToken))
+        .attach('file', xlsx, 'fermes-poufa.xlsx')
+        .expect(201);
+      expect(res.body).toMatchObject({
+        dryRun: true,
+        format: 'LISTE_POUFA',
+        read: 150,
+        created: 150,
+        rejected: 0,
+      });
+      expect(await countListed()).toBe(0);
+      // A broken workbook is a 400 with a French message, not a 500.
+      const broken = await request(server)
+        .post('/programme/farms/import')
+        .set(auth(adminToken))
+        .attach('file', Buffer.concat([xlsx.subarray(0, 64)]), 'abime.xlsx')
+        .expect(400);
+      expect(broken.body.message).toMatch(/Fichier Excel illisible/);
     });
 
     it('import réel : 150 fermes créées, codes distincts par province', async () => {

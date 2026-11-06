@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import type { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
+import type { Operator } from '../../trace/entities/operator.entity.js';
 
 /** MOTIF_SORTIE families (`ref-list-families.ts`). */
 export const SORTIE_FAMILY = {
@@ -83,9 +84,13 @@ export class Sortie {
   recipientPhone: string | null;
 
   /**
-   * Programme operator receiving the animals (cession, traceability lot L7).
-   * No foreign key yet: the `Operator` registry lands with L7.
+   * Programme operator receiving the animals: the sortie is then a cession,
+   * which creates a traceability sub-lot (`SORTIE_CESSION_HOOK`, L7).
    */
+  @ManyToOne('Operator', { onDelete: 'RESTRICT', nullable: true })
+  @JoinColumn({ name: 'operator_id' })
+  operator?: Operator | null;
+
   @Column({ name: 'operator_id', type: 'uuid', nullable: true })
   operatorId: string | null;
 

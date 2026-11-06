@@ -56,6 +56,134 @@ export function indicatorKeyOf(parameterKey: string): string | null {
 
 const pct = { unit: '%', min: 0, max: 100 } as const;
 
+/** The CDC does not set these values: Fermia proposes them. */
+const FERMIA_PROPOSAL =
+  'le cahier des charges ne la fixe pas : proposition de Fermia, à valider par la DGE';
+
+/**
+ * Programme steering (L6, POUFA plan §13): anonymity of the aggregates, map
+ * colours and the projection to the 100 000 t objective.
+ */
+const PILOTAGE_PARAMETERS: readonly ParameterDefinition[] = [
+  {
+    // Aggregates fed by fewer farms are hidden (MAEDR, farmer comparison).
+    key: 'PILOTAGE_GROUPE_MIN_FERMES',
+    label: 'Nombre minimal de fermes pour publier une moyenne ou un agrégat',
+    type: 'integer',
+    unit: 'fermes',
+    ownerProfile: OWNER_PROFILE.DGE,
+    min: 2,
+    max: 1000,
+    defaultValue: 5,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    key: 'CARTE_MORTALITE_JAUNE_PCT',
+    label:
+      'Carte : mortalité de la période à partir de laquelle la ferme est en jaune',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: 3,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    key: 'CARTE_MORTALITE_ROUGE_PCT',
+    label:
+      'Carte : mortalité de la période à partir de laquelle la ferme est en rouge',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: 6,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    key: 'CARTE_COMPLETUDE_JAUNE_PCT',
+    label:
+      'Carte : complétude des saisies en dessous de laquelle la ferme est en jaune',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: 90,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    key: 'CARTE_COMPLETUDE_ROUGE_PCT',
+    label:
+      'Carte : complétude des saisies en dessous de laquelle la ferme est en rouge',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: 70,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    // CDC §1: « contribuer à une production de 100 000 tonnes ».
+    key: 'OBJECTIF_NATIONAL_T',
+    label: 'Objectif national de production (poids vif)',
+    type: 'number',
+    unit: 't',
+    ownerProfile: OWNER_PROFILE.DGE,
+    min: 1,
+    max: 10_000_000,
+    defaultValue: 100_000,
+  },
+  {
+    key: 'PROJECTION_BANDES_PAR_AN',
+    label: 'Projection : bandes par ferme et par an',
+    type: 'number',
+    unit: 'bandes',
+    ownerProfile: OWNER_PROFILE.DGE,
+    min: 0.5,
+    max: 12,
+    defaultValue: 6,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    key: 'PROJECTION_TAUX_OCCUPATION_PCT',
+    label: 'Projection : taux d’occupation des places',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: 80,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    // Used until enough closed bands give an observed mortality.
+    key: 'PROJECTION_MORTALITE_PCT',
+    label: 'Projection : mortalité par bande (à défaut de bandes clôturées)',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: 5,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    // Used until enough weighed exits give an observed weight.
+    key: 'PROJECTION_POIDS_SORTIE_KG',
+    label:
+      'Projection : poids vif moyen à la sortie (à défaut de sorties observées)',
+    type: 'number',
+    unit: 'kg',
+    ownerProfile: OWNER_PROFILE.DGE,
+    min: 0.3,
+    max: 6,
+    defaultValue: 2.2,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    key: 'PROJECTION_CROISSANCE_ANNUELLE_PCT',
+    label: 'Projection : croissance annuelle de la production du programme',
+    type: 'number',
+    unit: '%',
+    ownerProfile: OWNER_PROFILE.DGE,
+    min: -100,
+    max: 500,
+    defaultValue: 0,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+];
+
 export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
   {
     key: 'BANDE_DUREE_REFERENCE_J',
@@ -132,6 +260,19 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     max: 86_400,
     defaultValue: 300,
   },
+  {
+    // Notify (architecture §12): SMS guard-rail, an SMS costs money and
+    // travels in clear. Beyond it, the SMS is not sent (ECHEC).
+    key: 'NOTIF_SMS_PLAFOND_JOUR',
+    label: 'Plafond de SMS de notification par jour et par utilisateur',
+    type: 'integer',
+    unit: 'SMS',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 0,
+    max: 100,
+    defaultValue: 5,
+  },
+  ...PILOTAGE_PARAMETERS,
   ...POUFA_DEFAULT_FORMULAS.map((f): ParameterDefinition => ({
     key: formulaParameterKey(f.key),
     label: `Formule : ${f.label}`,

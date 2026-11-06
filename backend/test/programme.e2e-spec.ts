@@ -5,6 +5,7 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import { IdCounterService } from './../src/modules/programme/id-counter.service.js';
+import { PARAMETER_CATALOG } from './../src/modules/programme/parameter-catalog.js';
 import { ProgrammeSeedService } from './../src/modules/programme/programme-seed.service.js';
 import {
   createPlatformAdmin,
@@ -166,7 +167,9 @@ describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2
     it('sème les paramètres proposés par le cahier des charges', async () => {
       const res = await get('/programme/parameters', ownerToken).expect(200);
       const byKey = new Map(res.body.map((p: any) => [p.key, p]));
-      expect(res.body).toHaveLength(8 + 12);
+      // Every catalog key is seeded (8 base + 12 formulas + later lots' keys).
+      expect(res.body).toHaveLength(PARAMETER_CATALOG.length);
+      expect(res.body.length).toBeGreaterThanOrEqual(8 + 12);
       expect(byKey.get('SEUIL_TRACABILITE_QR_PCT')).toMatchObject({
         value: 95,
         ownerProfile: 'DGE',

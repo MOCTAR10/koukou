@@ -208,7 +208,26 @@ export class CustomersService {
     if (dto.city != null) customer.city = dto.city;
     if (dto.notes != null) customer.notes = dto.notes;
     if (dto.type != null) customer.type = dto.type;
+    if (dto.operatorId !== undefined) {
+      if (dto.operatorId) await this.assertOperator(farmId, dto.operatorId);
+      customer.operatorId = dto.operatorId ?? null;
+    }
     return this.customerRepo.save(customer);
+  }
+
+  /** An active operator of the farm's programme (traceability registry). */
+  private async assertOperator(
+    farmId: string,
+    operatorId: string,
+  ): Promise<void> {
+    const rows: unknown[] = await this.customerRepo.query(
+      `SELECT 1 FROM operators o JOIN farms f ON f.program_id = o.program_id
+        WHERE o.id = $1 AND f.id = $2 AND o.active`,
+      [operatorId, farmId],
+    );
+    if (rows.length === 0) {
+      throw new BadRequestException('Opérateur inconnu ou inactif.');
+    }
   }
 
   async list(user: AuthUser, farmId: string): Promise<Customer[]> {

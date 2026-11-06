@@ -171,7 +171,7 @@ export class BatchPasseportController {
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
-      'Passeport sanitaire du lot (PDF + QR) : certifie la conformité sanitaire pour la vente directe aux abattoirs industriels et supermarchés.',
+      'Fiche de suivi sanitaire du lot (PDF + QR) : soins, délais d’attente et indicateurs déclarés par l’élevage. Ce n’est pas un certificat sanitaire.',
   })
   @ApiParam({ name: 'farmId' })
   async passeport(

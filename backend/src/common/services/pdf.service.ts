@@ -103,10 +103,15 @@ const CONFORMITY_STYLES: Record<
   PasseportData['conformity'],
   { label: string; color: string }
 > = {
-  CONFORME: { label: 'CONFORME', color: '#27ae60' },
-  PRECONFORMITE: { label: 'PRÉCONFORMITÉ', color: '#d68910' },
-  EN_ATTENTE: { label: 'EN ATTENTE', color: '#c0392b' },
+  // POUFA wording: a summary of what the farm recorded, never a certificate.
+  CONFORME: { label: 'SOINS À JOUR', color: '#27ae60' },
+  PRECONFORMITE: { label: 'SOINS EN RETARD', color: '#d68910' },
+  EN_ATTENTE: { label: 'DÉLAI D’ATTENTE EN COURS', color: '#c0392b' },
 };
+
+/** Mandatory mention of the sanitary sheet (CDC §8: no sanitary certificate). */
+export const PASSEPORT_NOTICE =
+  'Ce document résume le suivi sanitaire déclaré par l’élevage. Il ne constitue pas un certificat sanitaire.';
 
 @Injectable()
 export class PdfService {
@@ -148,6 +153,19 @@ export class PdfService {
     }
     await this.fontPromise;
     return pdfmake;
+  }
+
+  /**
+   * Renders a document definition built by a feature module (e.g. the
+   * traceability lot label, the data-recovery report) with the shared fonts,
+   * Roboto by default, so features never set up a pdfmake instance of their
+   * own. The feature owns its layout.
+   */
+  async render(documentDefinition: object): Promise<Buffer> {
+    const pdfmake = await this.ensurePdfmake();
+    return pdfmake
+      .createPdf({ defaultStyle: { font: 'Roboto' }, ...documentDefinition })
+      .getBuffer();
   }
 
   async createReceiptPdf(data: ReceiptData): Promise<Buffer> {
@@ -489,7 +507,7 @@ export class PdfService {
     const documentDefinition = {
       content: [
         { text: data.farmName, style: 'header' },
-        { text: 'Passeport sanitaire du lot', style: 'subheader' },
+        { text: 'Fiche de suivi sanitaire du lot', style: 'subheader' },
         { text: data.batchLabel, style: 'meta' },
         {
           table: {
@@ -517,7 +535,7 @@ export class PdfService {
             headerRows: 0,
             body: [
               [
-                'Conformité sanitaire',
+                'Situation sanitaire déclarée',
                 {
                   text: conformityStyle.label,
                   color: conformityStyle.color,
@@ -556,7 +574,14 @@ export class PdfService {
           margin: [0, 14, 0, 0],
         },
         {
-          text: `Généré le ${data.generatedAtLabel}.\nFermia — passeport sanitaire généré par l’appareil.`,
+          text: PASSEPORT_NOTICE,
+          bold: true,
+          fontSize: 9,
+          alignment: 'center',
+          margin: [0, 10, 0, 0],
+        },
+        {
+          text: `Généré le ${data.generatedAtLabel}.\nFermia — document établi à partir des saisies de l’élevage.`,
           style: 'footer',
         },
       ],
@@ -678,9 +703,9 @@ export class PdfService {
                 p.sanitary.vetVisited ? 'Oui' : 'Non',
               ],
               [
-                'Conformité',
+                'Situation sanitaire déclarée',
                 {
-                  text: p.sanitary.conformity,
+                  text: CONFORMITY_STYLES[p.sanitary.conformity].label,
                   color: conformityStyle,
                   bold: true,
                 },

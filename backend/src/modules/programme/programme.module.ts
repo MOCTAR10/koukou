@@ -65,6 +65,7 @@ import { TerritoryService } from './territory.service.js';
     IdCounterService,
     GeoService,
     ProgrammeFarmsService,
+    FarmImportService,
   ],
 })
 export class ProgrammeModule {}

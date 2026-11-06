@@ -1,4 +1,6 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -14,6 +16,7 @@ import {
 import { AlertLevel } from '../../../common/enums/alert-level.enum.js';
 import { DiseaseSeverity } from '../../../common/enums/disease-severity.enum.js';
 import { HealthEventKind } from '../../../common/enums/health-event-kind.enum.js';
+import { IdempotentDto } from '../../../common/utils/idempotency.js';
 
 const LEVELS = [AlertLevel.VERT, AlertLevel.JAUNE, AlertLevel.ROUGE] as const;
 
@@ -26,7 +29,7 @@ const KIND_MESSAGES: Record<HealthEventKind, string> = {
   AUTRE: 'Autre',
 };
 
-export class CreateHealthEventDto {
+export class CreateHealthEventDto extends IdempotentDto {
   @IsEnum(HealthEventKind, {
     message: `Le type d'événement doit être l'un de : ${Object.values(
       HealthEventKind,
@@ -116,6 +119,25 @@ export class CreateHealthEventDto {
     message: 'Le champ « événement résolu » doit être un booléen.',
   })
   resolved?: boolean;
+
+  /** Codes of the SIGNE_CLINIQUE programme list (active items). */
+  @IsOptional()
+  @IsArray({ message: 'Les signes cliniques doivent être une liste de codes.' })
+  @ArrayMaxSize(30, { message: 'Trop de signes cliniques (30 au plus).' })
+  @IsString({
+    each: true,
+    message: 'Chaque signe clinique doit être un code de la liste.',
+  })
+  @MaxLength(40, {
+    each: true,
+    message: 'Un code de signe clinique ne dépasse pas 40 caractères.',
+  })
+  clinicalSigns?: string[];
+
+  /** Declared as a suspicion of disease: opens an official sanitary alert. */
+  @IsOptional()
+  @IsBoolean({ message: 'Le champ « suspicion » doit être un booléen.' })
+  suspicion?: boolean;
 }
 
 export const HEALTH_KIND_MESSAGES = KIND_MESSAGES;
