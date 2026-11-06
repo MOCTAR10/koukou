@@ -1,5 +1,5 @@
 // Android release APK of Fermia: expo prebuild + Gradle, signed with the Fermia key,
-// published at https://fermia.greenleaves.ga/app/fermia.apk. Manual trigger only.
+// published at https://fermia.greenleaves.ga/apk/fermia.apk. Manual trigger only.
 // Runs on the shared Jenkins of the greenleaves server (low CPU priority).
 // Secrets: /var/jenkins_home/fermia-secrets/{release.keystore,keystore.pass} (not in git).
 pipeline {
@@ -53,7 +53,7 @@ pipeline {
             cp "$OUT" "$OUT_DIR/"
             ln -sfn "$OUT" "$OUT_DIR/fermia.apk"
             ls -1t "$OUT_DIR"/fermia-*.apk | tail -n +4 | xargs -r rm -f
-            echo "Publié : https://fermia.greenleaves.ga/app/fermia.apk ($OUT)"
+            echo "Publié : https://fermia.greenleaves.ga/apk/fermia.apk ($OUT)"
           '''
           archiveArtifacts artifacts: 'fermia-*.apk', fingerprint: true
         }
