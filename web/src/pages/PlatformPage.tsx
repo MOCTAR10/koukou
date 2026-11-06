@@ -6,6 +6,8 @@ import {
   Building2,
   Coffee,
   KeyRound,
+  LayoutDashboard,
+  MapPin,
   Stethoscope,
   Users,
   Wrench,
@@ -16,7 +18,20 @@ import type { PlatformFarmRow, PlatformMetrics, PublicUser, ReferenceConstant } 
 import { useFarm } from '../app/FarmContext';
 import { statusLabelOf, useFarmStatusItems } from '../components/programme/FarmStatusModal';
 import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../components/programme/farmStatus';
-import { Card, DataTable, EmptyState, LevelBadge, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
+import {
+  Card,
+  DataTable,
+  EmptyState,
+  LevelBadge,
+  PageHeader,
+  SkeletonRows,
+  SkeletonTiles,
+  StatTile,
+  StatusBadge,
+  Td,
+  Th,
+  type StatusTone,
+} from '../components/ui';
 import { classNames, fcfa, num, plural } from '../lib/format';
 
 const tabs = [
@@ -35,6 +50,7 @@ export function PlatformPage() {
   const { farms: sheets } = useFarm();
   const sheetById = new Map(sheets.map((f) => [f.id, f]));
   const statusItems = useFarmStatusItems();
+  const provinceRows = provinceRowsOf(sheets);
 
   const metrics = useQuery({
     queryKey: ['admin-metrics'],
@@ -89,12 +105,8 @@ export function PlatformPage() {
     <div className="space-y-6">
       <PageHeader
         title="Pilotage plateforme"
-        subtitle="Toutes fermes, utilisateurs, configuration globale — Administrateur plateforme."
-        actions={
-          <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
-            Administrateur plateforme
-          </span>
-        }
+        icon={<LayoutDashboard />}
+        subtitle="Toutes fermes, utilisateurs et configuration globale du programme."
       />
 
       <div className="flex flex-wrap gap-2">
@@ -116,32 +128,51 @@ export function PlatformPage() {
 
       {tab === 'overview' ? (
         metrics.isLoading ? (
-          <Loading label="Chargement des métriques…" />
+          <SkeletonTiles label="Chargement des métriques…" />
         ) : metrics.data ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
-              <Kpi label="Fermes" value={`${metrics.data.farms.total}`} hint={`${metrics.data.farms.active} actives`} />
-              <Kpi label="Utilisateurs" value={`${metrics.data.users.total}`} hint={`${metrics.data.users.suspended} suspendus`} />
-              <Kpi label="Lots actifs" value={`${metrics.data.lots.active}`} hint={`${num(metrics.data.lots.cheptel)} têtes`} />
-              <Kpi label="Ventes" value={`${metrics.data.sales.count}`} hint={fcfa(metrics.data.sales.revenueFcfa)} />
-              <Kpi label="Encaissé" value={fcfa(metrics.data.paidFcfa)} hint="paiements confirmés" />
-              <Kpi label="Clients" value={`${metrics.data.customersCount}`} />
+              <StatTile label="Fermes" value={`${metrics.data.farms.total}`} hint={`${metrics.data.farms.active} actives`} trend={registeredTrend(farms.data)} to="/app/registre" actionLabel="Ouvrir le registre des fermes" />
+              <StatTile label="Utilisateurs" value={`${metrics.data.users.total}`} hint={`${metrics.data.users.suspended} suspendus`} onClick={() => setTab('users')} actionLabel="Voir les utilisateurs" />
+              <StatTile label="Lots actifs" value={`${metrics.data.lots.active}`} hint={`${num(metrics.data.lots.cheptel)} têtes`} />
+              <StatTile label="Ventes" value={`${metrics.data.sales.count}`} hint={fcfa(metrics.data.sales.revenueFcfa)} />
+              <StatTile label="Encaissé" value={fcfa(metrics.data.paidFcfa)} hint="paiements confirmés" />
+              <StatTile label="Clients" value={`${metrics.data.customersCount}`} />
             </div>
-            <Card className="p-4">
-              <h2 className="mb-3 text-sm font-semibold text-slate-700">Alertes actives par niveau</h2>
-              {metrics.data.alerts.byLevel.length ? (
-                <div className="flex flex-wrap gap-3">
-                  {metrics.data.alerts.byLevel.map((l) => (
-                    <span key={l.level} className="flex items-center gap-2">
-                      <LevelBadge level={l.level} />
-                      <b>{l.count}</b>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState message="Aucune alerte active." />
-              )}
-            </Card>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card className="p-4">
+                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <MapPin className="h-4 w-4 text-slate-400" /> Fermes par province
+                </h2>
+                <ProvinceBreakdown rows={provinceRows} />
+              </Card>
+              <div className="space-y-4">
+                <Card className="p-4">
+                  <h2 className="mb-3 text-sm font-semibold text-slate-700">Alertes actives par niveau</h2>
+                  {metrics.data.alerts.byLevel.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {metrics.data.alerts.byLevel.map((l) => (
+                        <Link
+                          key={l.level}
+                          to="/app/alerts"
+                          title="Ouvrir les alertes"
+                          className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:border-slate-300 hover:bg-slate-50"
+                        >
+                          <LevelBadge level={l.level} />
+                          <b className="tabular-nums">{l.count}</b>
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyState message="Aucune alerte active." />
+                  )}
+                </Card>
+                <Card className="p-4">
+                  <h2 className="mb-3 text-sm font-semibold text-slate-700">Fermes enregistrées, 6 derniers mois</h2>
+                  <MonthlyBars data={farms.data} />
+                </Card>
+              </div>
+            </div>
           </div>
         ) : null
       ) : null}
@@ -203,13 +234,9 @@ export function PlatformPage() {
                               body: { isVerified: !r.farm.isVerified },
                             })
                           }
-                          className="rounded-full px-2 py-0.5 text-xs font-medium"
-                          style={{
-                            background: r.farm.isVerified ? '#d1fae5' : '#fee2e2',
-                            color: r.farm.isVerified ? '#065f46' : '#991b1b',
-                          }}
+                          title="Basculer la vérification"
                         >
-                          {r.farm.isVerified ? 'Vérifiée' : 'Non vérifiée'}
+                          <StatusBadge tone={r.farm.isVerified ? 'ok' : 'danger'} label={r.farm.isVerified ? 'Vérifiée' : 'Non vérifiée'} />
                         </button>
                       </Td>
                       <Td label="Statut">
@@ -217,12 +244,11 @@ export function PlatformPage() {
                           <Link
                             to={`/app/registre?ferme=${r.farm.id}`}
                             title="Ouvrir la fiche au registre (statut, compte, GPS)"
-                            className={classNames(
-                              'rounded-full px-2 py-0.5 text-xs font-medium hover:underline',
-                              statusTone(r.farm.active, statusItems.data?.find((i) => i.code === sheet.statusCode)?.family),
-                            )}
                           >
-                            {statusLabelOf(statusItems.data, sheet.statusCode)}
+                            <StatusBadge
+                              tone={statusTone(r.farm.active, statusItems.data?.find((i) => i.code === sheet.statusCode)?.family)}
+                              label={statusLabelOf(statusItems.data, sheet.statusCode)}
+                            />
                           </Link>
                         ) : (
                           <span className="text-xs text-slate-400">{r.farm.active ? 'Active' : 'Suspendue'}</span>
@@ -233,8 +259,16 @@ export function PlatformPage() {
                   })}
                   {!farms.data?.length ? (
                     <tr>
-                      <Td className="py-8 text-center text-slate-400">
-                        <EmptyState message="Aucune ferme." />
+                      <Td className="py-8">
+                        {farms.isLoading ? (
+                          <SkeletonRows rows={4} label="Chargement des fermes…" />
+                        ) : (
+                          <EmptyState
+                            icon={<Building2 />}
+                            message="Aucune ferme n’est enregistrée pour l’instant."
+                            action={{ label: 'Ouvrir le registre', to: '/app/registre' }}
+                          />
+                        )}
                       </Td>
                     </tr>
                   ) : null}
@@ -289,7 +323,7 @@ export function PlatformPage() {
                 ))}
                 {!users.data?.length ? (
                   <tr>
-                    <Td className="py-8 text-center text-slate-400">
+                    <Td className="py-8">
                       <EmptyState message="Aucun utilisateur." />
                     </Td>
                   </tr>
@@ -323,7 +357,7 @@ export function PlatformPage() {
                 ))}
                 {!rules.data?.length ? (
                   <tr>
-                    <Td className="py-8 text-center text-slate-400">
+                    <Td className="py-8">
                       <EmptyState message="Aucune règle." />
                     </Td>
                   </tr>
@@ -388,7 +422,7 @@ export function PlatformPage() {
                 ))}
                 {!constants.data?.length ? (
                   <tr>
-                    <Td className="py-8 text-center text-slate-400">
+                    <Td className="py-8">
                       <EmptyState message="Aucune constante." />
                     </Td>
                   </tr>
@@ -401,19 +435,83 @@ export function PlatformPage() {
   );
 }
 
-function statusTone(active: boolean, family: string | null | undefined): string {
-  if (!active || family === SUSPENDED_FAMILY) return 'bg-red-100 text-red-700';
-  if (family === PREPARATION_FAMILY) return 'bg-amber-100 text-amber-800';
-  return 'bg-emerald-100 text-emerald-700';
+function statusTone(active: boolean, family: string | null | undefined): StatusTone {
+  if (!active || family === SUSPENDED_FAMILY) return 'danger';
+  if (family === PREPARATION_FAMILY) return 'warning';
+  return 'ok';
 }
 
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
+const PROVINCE_NONE = 'Sans province';
+
+/** Farms and active farms per province, most farms first. */
+function provinceRowsOf(sheets: Array<{ provinceCode?: string | null; provinceName?: string | null; active?: boolean }>) {
+  const map = new Map<string, { label: string; total: number; active: number }>();
+  for (const f of sheets) {
+    const key = f.provinceCode ?? '';
+    const row = map.get(key) ?? { label: key ? `${key} · ${f.provinceName ?? ''}` : PROVINCE_NONE, total: 0, active: 0 };
+    row.total += 1;
+    if (f.active !== false) row.active += 1;
+    map.set(key, row);
+  }
+  return [...map.values()].sort((x, y) => y.total - x.total);
+}
+
+function ProvinceBreakdown({ rows }: { rows: Array<{ label: string; total: number; active: number }> }) {
+  const max = Math.max(1, ...rows.map((r) => r.total));
+  if (!rows.length) return <EmptyState message="Aucune ferme à répartir." />;
   return (
-    <Card className="p-3">
-      <p className="text-[11px] uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-lg font-bold text-slate-900">{value}</p>
-      {hint ? <p className="text-xs text-slate-400">{hint}</p> : null}
-    </Card>
+    <ul className="space-y-2.5">
+      {rows.map((r) => (
+        <li key={r.label} className="grid grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-3 text-sm">
+          <span className="truncate text-slate-700">{r.label}</span>
+          <span className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <span className="block h-full rounded-full bg-brand-500" style={{ width: `${(r.total / max) * 100}%` }} />
+          </span>
+          <span className="tabular-nums text-slate-700">
+            <b>{r.total}</b> <span className="text-xs text-slate-500">({r.active} actives)</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Farms created per month over the last six months (including the current one). */
+function monthlyCounts(rows: PlatformFarmRow[] | undefined) {
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString('fr-FR', { month: 'short' }), count: 0 };
+  });
+  for (const r of rows ?? []) {
+    const d = new Date(r.farm.createdAt);
+    const m = months.find((x) => x.key === `${d.getFullYear()}-${d.getMonth()}`);
+    if (m) m.count += 1;
+  }
+  return months;
+}
+
+function registeredTrend(rows: PlatformFarmRow[] | undefined) {
+  if (!rows) return undefined;
+  const m = monthlyCounts(rows);
+  const last = m[m.length - 1].count;
+  const delta = last - m[m.length - 2].count;
+  return `${last} ce mois-ci (${delta >= 0 ? '+' : ''}${delta} vs mois précédent)`;
+}
+
+function MonthlyBars({ data }: { data: PlatformFarmRow[] | undefined }) {
+  const months = monthlyCounts(data);
+  const max = Math.max(1, ...months.map((m) => m.count));
+  return (
+    <div className="flex h-28 items-end gap-3" role="img" aria-label={`Fermes enregistrées par mois : ${months.map((m) => `${m.label} ${m.count}`).join(', ')}`}>
+      {months.map((m) => (
+        <div key={m.key} className="flex flex-1 flex-col items-center justify-end gap-1">
+          <span className="text-xs font-medium tabular-nums text-slate-700">{m.count}</span>
+          <span className="w-full rounded-t bg-brand-500/80" style={{ height: `${Math.max(4, (m.count / max) * 64)}px` }} />
+          <span className="text-xs text-slate-500">{m.label}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 

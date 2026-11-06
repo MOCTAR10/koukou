@@ -9,7 +9,7 @@ import { dateFr } from '../../lib/format';
 import { Button, ErrorNote, inlineInputCls, inputCls, Modal } from '../form';
 import { ConfirmModal, Pill, SuccessNote } from '../org/shared';
 import { ONE_TIME_CODE_MUTATION, OneTimeCodeModal, useOneTimeCode } from '../login-code/OneTimeCodeModal';
-import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
+import { Card, DataTable, EmptyState, SkeletonRows, Td, Th } from '../ui';
 import { farmLabel } from './FarmMultiPicker';
 import { membershipManageRefusal, type Granter } from './grantRules';
 import {
@@ -173,14 +173,19 @@ export function MembershipsView({
         </div>
 
         {loading ? (
-          <div className="p-4">
-            <Loading label="Chargement des comptes…" />
-          </div>
+          <SkeletonRows label="Chargement des comptes…" />
         ) : rows.length === 0 ? (
           <div className="p-4">
             <EmptyState
               message={memberships.length === 0 ? 'Aucun compte institutionnel pour l’instant.' : 'Aucun compte ne correspond aux filtres.'}
               icon={<Users className="h-6 w-6" />}
+              action={
+                memberships.length === 0 && canWrite && profiles.data ? (
+                  <Button onClick={() => { setSuccess(null); setForm({ membership: null }); }}>
+                    <UserPlus className="h-4 w-4" /> Nouveau compte
+                  </Button>
+                ) : undefined
+              }
             />
           </div>
         ) : (

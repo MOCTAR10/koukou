@@ -89,6 +89,25 @@
   --color-red-800: #7a271a;
   --color-red-900: #5c1e14;
 
+  /* Status palette: one meaning, one colour (StatusBadge in components/ui.tsx).
+     ok = active/valid (green), warning = preparation/watch (amber), danger = suspended/failed/red alert (red),
+     info = in progress/sent (blue), neutral = closed/inactive (grey). */
+  --color-status-ok-bg: var(--color-emerald-50);
+  --color-status-ok-fg: var(--color-emerald-800);
+  --color-status-ok-ring: var(--color-emerald-200);
+  --color-status-warning-bg: var(--color-amber-50);
+  --color-status-warning-fg: var(--color-amber-800);
+  --color-status-warning-ring: var(--color-amber-200);
+  --color-status-danger-bg: var(--color-red-50);
+  --color-status-danger-fg: var(--color-red-700);
+  --color-status-danger-ring: var(--color-red-200);
+  --color-status-info-bg: var(--color-brand-50);
+  --color-status-info-fg: var(--color-brand-700);
+  --color-status-info-ring: var(--color-brand-200);
+  --color-status-neutral-bg: var(--color-slate-100);
+  --color-status-neutral-fg: var(--color-slate-600);
+  --color-status-neutral-ring: var(--color-slate-200);
+
   --container-page: 105rem;
   --text-display: clamp(2rem, 1.1rem + 1.7vw, 3rem);
   --shadow-card: 0 1px 2px rgb(16 34 47 / 0.04), 0 1px 3px rgb(16 34 47 / 0.03);
@@ -224,4 +243,9 @@ td,
 :focus-visible {
   outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
+}
+
+/* Sober basemap: desaturate the OSM tiles (markers and overlays keep their colours). */
+.leaflet-tile-pane {
+  filter: saturate(0.3) brightness(1.04) contrast(0.95);
 }

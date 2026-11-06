@@ -283,11 +283,11 @@ function HealthPanel({
         </SectionCard>
         <div className="grid gap-4 md:grid-cols-2">
           <SectionCard title="Mortalité sur 7 jours" icon={<TrendingDown />} iconTone="red">
-            <BarChart data={health.trends.mortality} labels={health.trends.dates.map((d) => d.slice(8, 10))} height={140} color="#dc2626" />
+            <BarChart data={health.trends.mortality} labels={health.trends.dates.map((d) => d.slice(8, 10))} height={140} color="#64748b" peakColor="#dc2626" unit="têtes / jour" />
           </SectionCard>
           {isLayer ? (
             <SectionCard title="Œufs sur 7 jours" icon={<Egg />} iconTone="accent">
-              <BarChart data={health.trends.eggs} labels={health.trends.dates.map((d) => d.slice(8, 10))} height={140} color="#d97706" />
+              <BarChart data={health.trends.eggs} labels={health.trends.dates.map((d) => d.slice(8, 10))} height={140} color="#0f766e" unit="œufs / jour" />
             </SectionCard>
           ) : null}
         </div>

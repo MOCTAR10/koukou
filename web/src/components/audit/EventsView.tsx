@@ -7,7 +7,7 @@ import type { AuditEvent, AuditPage } from '../../api/types-admin';
 import { dateTimeFr, num } from '../../lib/format';
 import { Note, Pill } from '../flock/shared';
 import { Button, ErrorNote, Field, inputCls, DateInput } from '../form';
-import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
+import { Card, DataTable, EmptyState, SkeletonRows, Td, Th } from '../ui';
 import {
   ACTION_LABELS,
   AUDIT_ACTIONS,
@@ -141,9 +141,7 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
 
       <Card className="overflow-hidden">
         {events.isLoading ? (
-          <div className="p-4">
-            <Loading label="Chargement du journal…" />
-          </div>
+          <SkeletonRows label="Chargement du journal…" />
         ) : !rows.length ? (
           <div className="p-4">
             <EmptyState icon={<ListOrdered />} message="Aucune action ne correspond à ces critères." />

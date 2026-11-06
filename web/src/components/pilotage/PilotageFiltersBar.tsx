@@ -4,7 +4,7 @@ import { classNames } from '../../lib/format';
 import { Field, inputCls, DateInput } from '../form';
 import { useFarmStatusItems } from '../programme/FarmStatusModal';
 import { useProgrammeList, useProvinces } from '../registry/queries';
-import { Card } from '../ui';
+import { FiltersPanel } from '../FiltersPanel';
 import { defaultPeriod, periodError, type PilotageFilters } from './filters';
 
 /**
@@ -37,8 +37,20 @@ export function PilotageFiltersBar({
   const isDefault =
     filters.from === def.from && filters.to === def.to && filters.provinces.length === 0 && !filters.cohort && !filters.status;
 
+  const periodChanged = withPeriod && (filters.from !== def.from || filters.to !== def.to);
+  const activeCount = (periodChanged ? 1 : 0) + (filters.provinces.length > 0 ? 1 : 0) + (filters.cohort ? 1 : 0) + (filters.status ? 1 : 0);
+  const summary = [
+    withPeriod ? `${filters.from} au ${filters.to}` : null,
+    filters.provinces.length > 0 ? filters.provinces.join(', ') : 'toutes provinces',
+    filters.cohort || null,
+    filters.status || null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <Card className="space-y-3 p-4">
+    <FiltersPanel storageKey="pilotage" count={activeCount} summary={summary} forceOpen={Boolean(error)}>
+    <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {withPeriod ? (
           <>
@@ -97,7 +109,8 @@ export function PilotageFiltersBar({
         ) : null}
       </div>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
-    </Card>
+    </div>
+    </FiltersPanel>
   );
 }
 

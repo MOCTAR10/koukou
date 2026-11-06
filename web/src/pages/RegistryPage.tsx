@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Navigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, BookMarked, ChevronLeft, ChevronRight, FileUp, Plus, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, BookMarked, ChevronLeft, ChevronRight, FileUp, MapPin, Plus, Search } from 'lucide-react';
 import { api } from '../api/client';
-import type { RegistryFarmPage } from '../api/types-programme';
+import type { RegistryFarmPage, RegistryFarmRow } from '../api/types-programme';
 import { useMenuAccess } from '../app/useMenuAccess';
 import { Button, ErrorNote, inputCls } from '../components/form';
 import { useFarmStatusItems } from '../components/programme/FarmStatusModal';
@@ -24,11 +24,51 @@ import {
 } from '../components/registry/registryQuery';
 import { RegistrySheetPanel } from '../components/registry/RegistrySheetPanel';
 import { RegistryStatusPill } from '../components/registry/shared';
-import { Card, DataTable, EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
-import { num } from '../lib/format';
+import { Card, DataTable, EmptyState, Loading, PageHeader, SkeletonRows, StatusBadge, Td, Th } from '../components/ui';
+import { classNames, num } from '../lib/format';
 
 /** URL parameter of the open sheet: `/app/registre?ferme=<id>` (linked from the platform). */
 const SHEET_PARAM = 'ferme';
+
+type SortKey = 'name' | 'province' | 'exploitant' | 'status' | 'account';
+const SORT_VALUE: Record<SortKey, (f: RegistryFarmRow) => string> = {
+  name: (f) => f.name,
+  province: (f) => f.province?.code ?? '~',
+  exploitant: (f) => f.exploitantName ?? '~',
+  status: (f) => f.status?.label ?? '~',
+  account: (f) => (f.hasOwnerAccount ? '0' : '1'),
+};
+
+/** Header cell that sorts the rows of the page on screen (the server has no sort option). */
+function SortTh({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: { key: SortKey; dir: 'asc' | 'desc' } | null;
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort?.key === sortKey;
+  const Icon = !active ? ArrowUpDown : sort.dir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <Th className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        aria-label={`Trier par ${label.toLowerCase()}`}
+        className={classNames('inline-flex items-center gap-1 uppercase tracking-wide hover:text-slate-800', active && 'text-slate-900')}
+      >
+        {label}
+        <Icon className={classNames('h-3 w-3', !active && 'text-slate-300')} />
+      </button>
+    </Th>
+  );
+}
 
 /**
  * Farm registry of the programme (POUFA §5.1): every farm is created here (or
@@ -45,6 +85,7 @@ export function RegistryPage() {
   const [importing, setImporting] = useState(false);
   const [q, setQ] = useState(filters.q);
   const writtenQ = useRef(filters.q);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' } | null>(null);
 
   const provinces = useProvinces(canOpenRegistry);
   const cohorts = useProgrammeList('COHORTE', canOpenRegistry);
@@ -92,6 +133,15 @@ export function RegistryPage() {
   if (!canOpenRegistry) return accessLoading ? <Loading /> : <Navigate to="/app" replace />;
 
   const data = list.data;
+  const onSort = (key: SortKey) =>
+    setSort((prev) => (prev?.key !== key ? { key, dir: 'asc' } : prev.dir === 'asc' ? { key, dir: 'desc' } : null));
+  const rows = useMemo(() => {
+    const items = data?.items ?? [];
+    if (!sort) return items;
+    const value = SORT_VALUE[sort.key];
+    const sign = sort.dir === 'asc' ? 1 : -1;
+    return [...items].sort((a, b) => sign * value(a).localeCompare(value(b), 'fr', { sensitivity: 'base', numeric: true }));
+  }, [data, sort]);
   const pages = data ? pageCount(data.total, data.pageSize) : 1;
   const localites = localitesOf(provinces.data ?? [], filters.province).filter((l) => l.active || l.id === filters.localiteId);
   const provinceOfLocalite = new Map((provinces.data ?? []).flatMap((p) => p.localites.map((l) => [l.id, p.code] as const)));
@@ -184,17 +234,34 @@ export function RegistryPage() {
 
       <Card className="overflow-hidden">
         {list.isLoading ? (
-          <div className="p-4">
-            <Loading label="Chargement du registre…" />
-          </div>
+          <SkeletonRows rows={8} label="Chargement du registre…" />
         ) : !data?.items.length ? (
           <div className="p-4">
             <EmptyState
               icon={<BookMarked />}
+              title={hasActiveFilter(filters) ? 'Aucun résultat' : 'Registre vide'}
               message={
                 hasActiveFilter(filters)
                   ? 'Aucune ferme ne correspond à ces critères.'
-                  : 'Le registre est vide. Enregistrez une ferme ou importez la liste du programme.'
+                  : 'Enregistrez une ferme ou importez la liste du programme.'
+              }
+              action={
+                hasActiveFilter(filters) ? (
+                  <Button
+                    tone="secondary"
+                    onClick={() => {
+                      setQ('');
+                      writtenQ.current = '';
+                      update({ province: '', localiteId: '', cohort: '', status: '', q: '', page: 1 });
+                    }}
+                  >
+                    Effacer les filtres
+                  </Button>
+                ) : rights.create ? (
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="h-4 w-4" /> Nouvelle ferme
+                  </Button>
+                ) : undefined
               }
             />
           </div>
@@ -202,18 +269,18 @@ export function RegistryPage() {
           <DataTable>
             <thead className="bg-slate-50">
               <tr>
-                <Th>Ferme</Th>
-                <Th>Province</Th>
+                <SortTh label="Ferme" sortKey="name" sort={sort} onSort={onSort} className="min-w-52" />
+                <SortTh label="Province" sortKey="province" sort={sort} onSort={onSort} />
                 <Th className="hidden lg:table-cell">Localité</Th>
-                <Th>Exploitant</Th>
-                <Th>Statut</Th>
-                <Th className="hidden lg:table-cell">Compte</Th>
-                <Th className="hidden lg:table-cell">GPS</Th>
+                <SortTh label="Exploitant" sortKey="exploitant" sort={sort} onSort={onSort} className="min-w-44" />
+                <SortTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
+                <SortTh label="Compte" sortKey="account" sort={sort} onSort={onSort} className="hidden lg:table-cell" />
+                <Th className="hidden text-center lg:table-cell">GPS</Th>
                 <Th></Th>
               </tr>
             </thead>
             <tbody>
-              {data.items.map((f) => (
+              {rows.map((f) => (
                 <tr
                   key={f.id}
                   className="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
@@ -228,11 +295,13 @@ export function RegistryPage() {
                         openSheet(f.id);
                       }}
                     >
-                      <span className="block font-mono text-xs font-semibold text-slate-500">{f.code ?? 'Sans code'}</span>
+                      <span className="block font-mono text-xs font-semibold text-slate-600">{f.code ?? 'Sans code'}</span>
                       <span className="font-medium text-slate-900 hover:underline">{f.name}</span>
                     </button>
                   </Td>
-                  <Td label="Province">{f.province ? `${f.province.code} · ${f.province.name}` : '—'}</Td>
+                  <Td label="Province" className="whitespace-nowrap">
+                    {f.province ? `${f.province.code} · ${f.province.name}` : '—'}
+                  </Td>
                   <Td label="Localité" className="md:max-lg:hidden">
                     {f.localite?.name ?? '—'}
                   </Td>
@@ -246,19 +315,15 @@ export function RegistryPage() {
                     <RegistryStatusPill status={f.status} active={f.active} />
                   </Td>
                   <Td label="Compte" className="md:max-lg:hidden">
-                    {f.hasOwnerAccount ? (
-                      <span className="text-emerald-700">Activé</span>
-                    ) : (
-                      <span className="text-slate-500">Non activé</span>
-                    )}
+                    <StatusBadge tone={f.hasOwnerAccount ? 'ok' : 'neutral'} label={f.hasOwnerAccount ? 'Activé' : 'Non activé'} />
                   </Td>
-                  <Td label="GPS" className="md:max-lg:hidden">
+                  <Td label="GPS" className="text-center md:max-lg:hidden">
                     {f.gpsProvinceWarning ? (
-                      <span className="inline-flex items-center gap-1 text-amber-700" title={f.gpsProvinceWarning}>
-                        <AlertTriangle className="h-4 w-4" /> Hors province
+                      <span title={f.gpsProvinceWarning} aria-label={f.gpsProvinceWarning} className="inline-flex text-amber-700">
+                        <MapPin className="h-4 w-4" />
                       </span>
                     ) : (
-                      ''
+                      <span className="text-slate-300">—</span>
                     )}
                   </Td>
                   <Td className="row-chevron w-8">
@@ -272,7 +337,9 @@ export function RegistryPage() {
         {data && data.total > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600">
             <span>
-              {pageRangeLabel(data.total, data.page, data.pageSize)} {list.isFetching ? <span className="text-slate-400">· mise à jour…</span> : null}
+              <b className="tabular-nums text-slate-900">{pageRangeLabel(data.total, data.page, data.pageSize)}</b> fermes
+              {sort ? <span className="text-slate-500"> · tri appliqué à la page affichée</span> : null}
+              {list.isFetching ? <span className="text-slate-500"> · mise à jour…</span> : null}
             </span>
             {pages > 1 ? (
               <div className="flex items-center gap-2">

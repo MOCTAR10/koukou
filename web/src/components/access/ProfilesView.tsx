@@ -5,7 +5,7 @@ import type { AccessCatalog, AccessProfile, Membership } from '../../api/types-a
 import { SCOPE_KIND_LABELS } from '../../api/types-access';
 import { Button, ErrorNote } from '../form';
 import { Pill, SuccessNote } from '../org/shared';
-import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
+import { Card, DataTable, EmptyState, SkeletonRows, Td, Th } from '../ui';
 import { grantRefusal, type Granter } from './grantRules';
 import { grantCount } from './matrix';
 import { ProfileFormModal } from './ProfileFormModal';
@@ -53,9 +53,7 @@ export function ProfilesView({
           ) : null}
         </div>
         {profiles.isLoading ? (
-          <div className="p-4">
-            <Loading label="Chargement des profils…" />
-          </div>
+          <SkeletonRows label="Chargement des profils…" />
         ) : rows.length === 0 ? (
           <div className="p-4">
             <EmptyState message="Aucun profil d’accès." icon={<ShieldCheck className="h-6 w-6" />} />

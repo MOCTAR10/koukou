@@ -402,6 +402,7 @@ export function EggStockPanel({
             data={rows}
             labels={series.map((d) => new Date(`${d.date}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }))}
             height={130}
+            unit={inTrays ? 'alvéoles / jour' : 'œufs / jour'}
           />
         </div>
       </div>
