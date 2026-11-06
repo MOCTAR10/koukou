@@ -18,6 +18,7 @@ export const UNIT_LABEL: Record<string, string> = {
   KG: 'kg',
   ALVEOLES: 'alvéole(s)',
   SAC: 'sac(s)',
+  UNITE: 'unité(s)',
 };
 
 export const PRODUCT_LABEL: Record<string, string> = {

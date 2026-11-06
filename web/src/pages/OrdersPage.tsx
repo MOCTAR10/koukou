@@ -9,7 +9,7 @@ import { Button, ErrorNote, inputCls } from '../components/form';
 import { CreateOrderModal } from '../components/orders/CreateOrderModal';
 import { ORDER_CANAL_LABEL, ORDER_STATUS_LABEL } from '../components/orders/helpers';
 import { OrderDetailModal } from '../components/orders/OrderDetailModal';
-import { CanalIcon, OrderStatusBadge, Segmented } from '../components/orders/shared';
+import { CanalIcon, OrderStatusBadge, Pill, Segmented } from '../components/orders/shared';
 import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { dateFr, fcfa, num } from '../lib/format';
 
@@ -187,6 +187,7 @@ export function OrdersPage() {
                           <CanalIcon canal={o.canal} className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                           {ORDER_CANAL_LABEL[o.canal] ?? o.canal}
                         </span>
+                        {o.source === 'MARKET' ? <span className="ml-2"><Pill tone="bg-sky-50 text-sky-700 ring-sky-200">Marché</Pill></span> : null}
                       </Td>
                       <Td>
                         {o.batch?.batchName ?? 'Œufs'}

@@ -92,7 +92,7 @@ function SyncCentre({ onClose, onSync, syncing }: { onClose: () => void; onSync:
 }
 
 /** Connection state, writes waiting to go out, and new versions of the app. */
-export function OfflineBar() {
+export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partiront au retour de la connexion.' }: { note?: string }) {
   const online = useOnline();
   const { farmId } = useFarm();
   const queryClient = useQueryClient();
@@ -160,7 +160,7 @@ export function OfflineBar() {
             {savedAt
               ? `Données enregistrées du ${new Date(savedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`
               : 'Dernières données enregistrées.'}{' '}
-            Vos saisies, ventes et encaissements partiront au retour de la connexion.
+            {note}
           </span>
         </div>
       ) : null}

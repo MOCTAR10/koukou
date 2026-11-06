@@ -104,6 +104,7 @@ export const STATUS_LABEL: Record<string, string> = {
   QR_CODE: 'QR Code',
   PROPRIETAIRE: 'Propriétaire',
   ELEVEUR: 'Éleveur',
+  ACHETEUR: 'Acheteur',
   PLATFORM_ADMIN: 'Admin plateforme',
   active: 'Active',
   inactive: 'Inactive',

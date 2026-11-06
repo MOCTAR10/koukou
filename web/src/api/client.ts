@@ -10,7 +10,7 @@ const WRITE_TIMEOUT_MS = 45_000;
 const TOKEN_KEY = 'koukou.token';
 const USER_KEY = 'koukou.user';
 
-export type Role = 'PLATFORM_ADMIN' | 'PROPRIETAIRE' | 'ELEVEUR';
+export type Role = 'PLATFORM_ADMIN' | 'PROPRIETAIRE' | 'ELEVEUR' | 'ACHETEUR';
 
 export interface AuthUser {
   id: string;
@@ -151,6 +151,7 @@ export const api = {
   getFresh: <T>(path: string): Promise<T> => request<T>('GET', path, undefined, { fresh: true }),
   post: <T>(path: string, body?: unknown): Promise<T> => request<T>('POST', path, body),
   patch: <T>(path: string, body?: unknown): Promise<T> => request<T>('PATCH', path, body),
+  put: <T>(path: string, body?: unknown): Promise<T> => request<T>('PUT', path, body),
   del: <T>(path: string): Promise<T> => request<T>('DELETE', path),
   /** Télécharge un PDF/binaire et déclenche le téléchargement navigateur. */
   async download(path: string, filename: string): Promise<void> {

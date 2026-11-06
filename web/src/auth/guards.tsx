@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { Loading } from '../components/ui';
@@ -6,7 +6,18 @@ import { useAuth } from './AuthContext';
 
 export function RequiresAuth() {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const { pathname } = useLocation();
+  if (!user) return <Navigate to="/login" replace state={{ from: pathname }} />;
+  return <Outlet />;
+}
+
+/**
+ * The farm space. useFarmProfile is permissive without a farm, so without this
+ * a buyer could open every farm page and only meet errors.
+ */
+export function RequiresFarmAccount() {
+  const { user } = useAuth();
+  if (user?.role === 'ACHETEUR') return <Navigate to="/marche" replace />;
   return <Outlet />;
 }
 

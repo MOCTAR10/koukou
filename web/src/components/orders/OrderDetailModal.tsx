@@ -215,7 +215,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
 
         <dl className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 md:grid-cols-3">
           <Info label="Canal" icon={<Ticket />}>{ORDER_CANAL_LABEL[order.canal] ?? order.canal}</Info>
-          <Info label={order.canal === 'LIVRAISON' ? 'Livraison' : 'Retrait'} icon={<Truck />}>{place}</Info>
+          <Info label={order.canal === 'LIVRAISON' || (order.source === 'MARKET' && order.address) ? 'Livraison' : 'Retrait'} icon={<Truck />}>{place}</Info>
           <Info label="Lot" icon={<Layers />}>{order.batch?.batchName ?? 'Œufs (stock)'}</Info>
           <Info label="Prévu le" icon={<CalendarDays />}>{order.expectedDate ? dateFr(order.expectedDate) : 'À convenir'}</Info>
           <Info label="Créée le" icon={<CalendarDays />}>{dateFr(order.createdAt)}</Info>
