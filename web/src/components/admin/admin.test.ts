@@ -73,6 +73,8 @@ describe('adminRights', () => {
     expect(mayPropose(adminRights('INSTITUTION', VETERINAIRE).parameters, 'VETERINAIRE')).toBe(true);
     expect(mayPropose(adminRights('INSTITUTION', MAEDR).parameters, 'DGE')).toBe(false);
     expect(mayPropose(adminRights('PLATFORM_ADMIN').parameters, 'ADMIN')).toBe(true);
+    // CDC n° 25: the veterinary thresholds are the vets' alone (POUFA lot A sante).
+    expect(mayPropose(adminRights('PLATFORM_ADMIN').parameters, 'VETERINAIRE')).toBe(false);
   });
 });
 

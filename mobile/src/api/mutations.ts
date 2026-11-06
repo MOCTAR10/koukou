@@ -413,11 +413,22 @@ export function generateProphylaxis(farmId: string, batchId: string, protocolId?
   });
 }
 
+export interface CompleteProphylaxisInput {
+  completedAt?: string;
+  notes?: string;
+  /** Birds vaccinated or treated (CDC n° 22). */
+  animalCount?: number;
+  /** Route actually used, when it differs from the planned one. */
+  route?: string;
+  /** Offline replay key: the same completion is applied once. */
+  idempotencyKey?: string;
+}
+
 export function completeProphylaxis(
   farmId: string,
   batchId: string,
   eventId: string,
-  extra?: { completedAt?: string; notes?: string },
+  extra?: CompleteProphylaxisInput,
 ): Promise<unknown> {
   return apiFetch(`/farms/${farmId}/batches/${batchId}/prophylaxis/${eventId}/complete`, {
     method: 'POST',
@@ -441,12 +452,23 @@ export function rescheduleProphylaxis(farmId: string, batchId: string, eventId: 
 
 export interface CreateTreatmentInput {
   careType: CareType;
-  productName: string;
+  /** Free text, accepted only while the PRODUIT_TRAITEMENT list is empty. */
+  productName?: string;
+  /** PRODUIT_TRAITEMENT code, required once the list has an active item. */
+  productCode?: string;
+  /** A programme step given before the band was opened: the product is the step's. */
+  protocolStepId?: string;
   dosage?: string;
   route?: string;
   administeredAt?: string;
+  /** Last day of the treatment (`YYYY-MM-DD`): the withdrawal period counts from it. */
+  endDate?: string;
+  reason?: string;
+  animalCount?: number;
   withdrawalDays?: number;
   notes?: string;
+  /** Offline replay key: the server stores the treatment once. */
+  idempotencyKey?: string;
 }
 
 export function createTreatment(farmId: string, batchId: string, input: CreateTreatmentInput): Promise<unknown> {

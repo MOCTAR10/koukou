@@ -319,6 +319,10 @@ describe('Surveillance sanitaire et notifications — lot L5 (e2e)', () => {
       expect(skip.body.message).toContain('EN_ANALYSE');
       await move({ statusCode: 'EN_ANALYSE' }, reader.token).expect(403);
       await move({ statusCode: 'EN_ANALYSE' }, ownerToken).expect(403);
+      // POUFA lot A sante: the platform admin reads, never decides (CDC n° 26).
+      const byAdmin = await move({ statusCode: 'EN_ANALYSE' }, adminToken).expect(403);
+      expect(byAdmin.body.message).toContain('autorité vétérinaire');
+      await get(`/surveillance/alerts/${alertId}`, adminToken).expect(200);
       await move({ statusCode: 'EN_ANALYSE', comment: 'Prélèvements' }).expect(201);
       const noComment = await move({ statusCode: 'CONFIRMEE' }).expect(400);
       expect(noComment.body.message).toContain('commentaire');
@@ -330,6 +334,8 @@ describe('Surveillance sanitaire et notifications — lot L5 (e2e)', () => {
       expect(confirmed.body).toMatchObject({ statusFamily: 'CONFIRMEE', outcome: 'CONFIRMEE' });
 
       await post(`/surveillance/alerts/${alertId}/publish`, {}, reader.token).expect(403);
+      const adminPublish = await post(`/surveillance/alerts/${alertId}/publish`, {}, adminToken).expect(403);
+      expect(adminPublish.body.message).toContain('autorité vétérinaire');
       const published = await post(
         `/surveillance/alerts/${alertId}/publish`,
         { comment: 'Publication officielle' },
@@ -408,6 +414,19 @@ describe('Surveillance sanitaire et notifications — lot L5 (e2e)', () => {
         value: number;
       }>;
       const threshold = params.find((p) => p.key === 'SEUIL_ALERTE_MORTALITE_JOUR_PCT')!.value;
+      // POUFA lot A sante: the threshold is the veterinary services' alone
+      // (CDC n° 25); same value again, so the threshold in force is unchanged.
+      const byAdmin = await post(
+        '/programme/parameters/SEUIL_ALERTE_MORTALITE_JOUR_PCT',
+        { value: threshold, reason: `E2E admin ${stamp}` },
+        adminToken,
+      ).expect(403);
+      expect(byAdmin.body.message).toContain('VETERINAIRE');
+      await post(
+        '/programme/parameters/SEUIL_ALERTE_MORTALITE_JOUR_PCT',
+        { value: threshold, reason: `E2E vétérinaire ${stamp}` },
+        vet.token,
+      ).expect(201);
       const band = await post(
         `/farms/${farmId}/batches`,
         {

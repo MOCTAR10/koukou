@@ -439,16 +439,29 @@ export function scopeExcess(
   return { provinceIds, farmIds };
 }
 
+// POUFA lot A sante: CDC §5.2 n° 25 « seuils réglés par les seuls services
+// vétérinaires ». À valider DGE / vétérinaires.
 /**
- * `ProgramParameter.ownerProfile`: the platform admin changes any parameter;
- * an institutional account only those owned by its profile; nobody else.
+ * Owner profiles whose parameters the platform admin may read but not change:
+ * only an account of that profile records a new version.
+ */
+export const OWNER_PROFILES_CLOSED_TO_PLATFORM: readonly string[] = [
+  'VETERINAIRE',
+];
+
+/**
+ * `ProgramParameter.ownerProfile`: the platform admin changes any parameter
+ * but the veterinary services' (`OWNER_PROFILES_CLOSED_TO_PLATFORM`); an
+ * institutional account only those owned by its profile; nobody else.
  */
 export function mayChangeParameter(
   role: string,
   profileCode: string | null,
   ownerProfile: string,
 ): boolean {
-  if (role === UserRole.PLATFORM_ADMIN) return true;
+  if (role === UserRole.PLATFORM_ADMIN) {
+    return !OWNER_PROFILES_CLOSED_TO_PLATFORM.includes(ownerProfile);
+  }
   if (role !== UserRole.INSTITUTION) return false;
   return profileCode !== null && profileCode === ownerProfile;
 }

@@ -14,6 +14,7 @@ import {
   VERSION_STATE_LABELS,
   type VersionState,
 } from './parameters';
+import { OWNER_PROFILES_CLOSED_TO_PLATFORM } from './adminRights';
 import { useParameterHistory } from './queries';
 
 const STATE_TONE: Record<VersionState, Tone> = { FUTURE: 'brand', IN_FORCE: 'emerald', PAST: 'slate' };
@@ -60,7 +61,9 @@ export function ParameterHistoryPanel({
           </Button>
         ) : (
           <p className="text-xs text-slate-500">
-            Seul le profil « {ownerLabel(param.ownerProfile)} » (ou l’administrateur plateforme) peut proposer une nouvelle valeur.
+            {OWNER_PROFILES_CLOSED_TO_PLATFORM.includes(param.ownerProfile)
+              ? `Seul le profil « ${ownerLabel(param.ownerProfile)} » peut proposer une nouvelle valeur.`
+              : `Seul le profil « ${ownerLabel(param.ownerProfile)} » (ou l’administrateur plateforme) peut proposer une nouvelle valeur.`}
           </p>
         )}
 

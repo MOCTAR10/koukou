@@ -18,7 +18,10 @@ export type OfflineKind =
   | 'health-event'
   // POUFA: the farmer's input-delivery confirmation and a band sortie (both keyed).
   | 'delivery-confirm'
-  | 'band-sortie';
+  | 'band-sortie'
+  // POUFA lot A sante: a treatment (CDC n° 23) and a care completion (n° 22), both keyed.
+  | 'treatment'
+  | 'prophylaxis-complete';
 
 export interface OfflineOp {
   /** Unique across devices; also the idempotency key of the creations. */

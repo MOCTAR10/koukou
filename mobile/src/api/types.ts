@@ -809,6 +809,8 @@ export interface ProphylaxisEvent {
   completedAt: string | null;
   performedById: string | null;
   performedNotes: string | null;
+  /** Birds vaccinated or treated, given at completion (CDC n° 22). */
+  animalCount?: number | null;
   notes: string | null;
   medicationLotId: string | null;
   medicationQty: number | null;
@@ -826,9 +828,15 @@ export interface TreatmentRecord {
   batchId: string;
   careType: CareType;
   productName: string;
+  /** PRODUIT_TRAITEMENT code; null for free text (list empty). */
+  productCode?: string | null;
   dosage: string | null;
   route: string | null;
   administeredAt: string;
+  /** Last day of the treatment (CDC n° 23); null = one day. */
+  endDate?: string | null;
+  reason?: string | null;
+  animalCount?: number | null;
   withdrawalDays: number;
   withdrawalEndDate: string | null;
   performedById: string | null;

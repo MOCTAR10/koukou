@@ -2,6 +2,11 @@ import { ApiError } from '@/api/client';
 import {
   cancelOrder,
   cancelStockTransfer,
+  // POUFA lot A sante
+  completeProphylaxis,
+  createTreatment,
+  type CompleteProphylaxisInput,
+  type CreateTreatmentInput,
   createStockTransfer,
   createDailyEntry,
   createInput,
@@ -187,7 +192,12 @@ function isCreation(op: OfflineOp): boolean {
     op.kind === 'health-event' ||
     op.kind === 'delivery-confirm' ||
     op.kind === 'sortie' ||
-    op.kind === 'farm-gps'
+    op.kind === 'farm-gps' ||
+    // POUFA lot A sante: a sanitary record refused on replay is kept for the
+    // user (a completion refused because the care was cancelled meanwhile
+    // carries the animal count and route actually given).
+    op.kind === 'treatment' ||
+    op.kind === 'prophylaxis-complete'
   );
 }
 
@@ -662,6 +672,55 @@ export function setFarmGpsQueued(farmId: string, gps: FarmGpsPayload): Promise<S
   return sendOrQueueWith({ id: opId, kind: 'farm-gps', farmId, payload: { payload } }, () => setFarmGps(farmId, payload));
 }
 
+// ── POUFA lot A sante: sanitary registers (CDC n° 22-23) ──────────────
+// Both are keyed: the server stores a treatment once per (farm, key) and
+// answers a replayed completion with the care it already completed.
+
+export interface TreatmentOpPayload {
+  batchId: string;
+  payload: CreateTreatmentInput;
+}
+
+/** Treatment register entry (CDC n° 23), queued offline. */
+export function createTreatmentQueued(
+  farmId: string,
+  batchId: string,
+  treatment: CreateTreatmentInput,
+): Promise<SendResult> {
+  const opId = nextId('treatment');
+  const payload: TreatmentOpPayload = {
+    batchId,
+    payload: { ...treatment, idempotencyKey: treatment.idempotencyKey ?? opId },
+  };
+  return sendOrQueue({ id: opId, kind: 'treatment', farmId, batchId, payload }, async () => {
+    await createTreatment(farmId, batchId, payload.payload);
+  });
+}
+
+export interface CareCompletionOpPayload {
+  batchId: string;
+  eventId: string;
+  payload: CompleteProphylaxisInput;
+}
+
+/** Completion of a planned care (CDC n° 22: date, route, animals), queued offline. */
+export function completeProphylaxisQueued(
+  farmId: string,
+  batchId: string,
+  eventId: string,
+  completion: CompleteProphylaxisInput,
+): Promise<SendResult> {
+  const opId = nextId('prophylaxis-complete');
+  const payload: CareCompletionOpPayload = {
+    batchId,
+    eventId,
+    payload: { ...completion, idempotencyKey: completion.idempotencyKey ?? opId },
+  };
+  return sendOrQueue({ id: opId, kind: 'prophylaxis-complete', farmId, batchId, payload }, async () => {
+    await completeProphylaxis(farmId, batchId, eventId, payload.payload);
+  });
+}
+
 /** `failed` = server error (5xx): counted, unlike network or 401 retries. */
 type ProcessResult = 'ok' | 'retry' | 'failed' | 'dropped' | 'rejected' | 'skip';
 
@@ -721,6 +780,15 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       // Ops queued before the key existed fall back to op.id.
       const gps = (op.payload as { payload: FarmGpsPayload }).payload;
       await setFarmGps(op.farmId, { ...gps, idempotencyKey: gps.idempotencyKey ?? op.id });
+    } else if (op.kind === 'treatment') {
+      const p = op.payload as TreatmentOpPayload;
+      await createTreatment(op.farmId, p.batchId, { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id });
+    } else if (op.kind === 'prophylaxis-complete') {
+      const p = op.payload as CareCompletionOpPayload;
+      await completeProphylaxis(op.farmId, p.batchId, p.eventId, {
+        ...p.payload,
+        idempotencyKey: p.payload.idempotencyKey ?? op.id,
+      });
     } else {
       // Credit sale (no payment): no caisse needed, same as the live path.
       if (isCashOp(op)) await ensureCashOpenOrRetry(op);

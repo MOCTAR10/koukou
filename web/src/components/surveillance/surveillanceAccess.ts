@@ -42,10 +42,15 @@ const NONE: SurveillanceRights = {
   settings: false,
 };
 
-/** Rights from the matrix (`GET /programme/access/me`); the platform admin has them all. */
+/**
+ * Rights from the matrix (`GET /programme/access/me`). The platform admin reads
+ * every alert and keeps the settings, but never qualifies nor publishes one:
+ * CDC n° 25-26 reserve these to the veterinary authority (server
+ * `surveillance/veterinary-authority.ts`, POUFA lot A sante).
+ */
 export function surveillanceRights(role: Role | null | undefined, profile: Profile | null | undefined): SurveillanceRights {
   if (role === 'PLATFORM_ADMIN') {
-    return { view: true, seesUnpublished: true, qualify: true, publish: true, editLists: true, createCalendars: true, editCalendars: true, settings: true };
+    return { view: true, seesUnpublished: true, qualify: false, publish: false, editLists: true, createCalendars: true, editCalendars: true, settings: true };
   }
   if (role !== 'INSTITUTION' || !profile) return NONE;
   const has = (action: Parameters<typeof grantsAccess>[2]) => grantsAccess(profile, 'SANITAIRE', action);

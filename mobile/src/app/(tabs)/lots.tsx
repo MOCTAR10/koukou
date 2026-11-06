@@ -57,7 +57,8 @@ import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
-import { completeProphylaxis } from '@/api/mutations';
+// POUFA lot A sante: a care completion goes through the offline queue (CDC n° 22).
+import { completeProphylaxisQueued } from '@/offline';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import type { BatchHealth, BatchPnl, BatchStatus, BatchType, BatchWithMetrics, Expense, OrderCanal, OrderFull, OrderStatus, OverviewPnl, ProphylaxisEvent, ProtocolStep, ReadyReason, SaleSummary, SanitaryProtocol, SanitaryProtocolWithSteps, Species, TreatmentRecord } from '@/api/types';
 import { speciesLabel } from '@/api/format';
@@ -1114,7 +1115,10 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
   const queryClient = useQueryClient();
   const canRapports = useFarmProfile().hasPermission('compta:rapports');
   const completeCare = useCallback((eventId: string) => {
-    void completeProphylaxis(farmId, batch.id, eventId)
+    // The quick « fait » counts the live birds; the sanitary screen lets the farmer correct it.
+    void completeProphylaxisQueued(farmId, batch.id, eventId, {
+      ...(batch.quantityAlive > 0 ? { animalCount: batch.quantityAlive } : {}),
+    })
       .then(() => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         return invalidateFarmQueries(queryClient, { farmId, batchId: batch.id });
@@ -1122,7 +1126,7 @@ function LotCardWithHealth({ batch, farmId, buildingName, onPress, detailOpen, o
       .catch((e: unknown) => {
         toast.error('Soin non enregistré', e instanceof ApiError ? e.message : 'Vérifiez la connexion puis réessayez.');
       });
-  }, [farmId, batch.id, queryClient]);
+  }, [farmId, batch.id, batch.quantityAlive, queryClient]);
   const healthQ = useQuery({
     queryKey: ['batch-health', farmId, batch.id],
     queryFn: () => fetchBatchHealth(farmId, batch.id),

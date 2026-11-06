@@ -26,6 +26,9 @@ import {
   createDeclarationQueued,
   createSortieQueued,
   setFarmGpsQueued,
+  // POUFA lot A sante
+  completeProphylaxisQueued,
+  createTreatmentQueued,
   type DeclarationSent,
   type FlushSummary,
   type SendResult,
@@ -48,6 +51,9 @@ export type { DeclarationSent, FlushSummary, OfflineOp, RejectedOp, SendResult, 
 
 // POUFA field work (mobile M2).
 export { confirmDeliveryQueued, createDeclarationQueued, createSortieQueued, setFarmGpsQueued };
+
+// POUFA lot A sante: treatments and care completions (CDC n° 22-23).
+export { completeProphylaxisQueued, createTreatmentQueued };
 
 export {
   cancelOrderQueued,

@@ -19,7 +19,10 @@ export type OfflineKind =
   | 'health-event'
   | 'delivery-confirm'
   | 'sortie'
-  | 'farm-gps';
+  | 'farm-gps'
+  // POUFA lot A sante: a treatment (CDC n° 23) and a care completion (n° 22), both keyed.
+  | 'treatment'
+  | 'prophylaxis-complete';
 
 export interface OfflineOp {
   id: string;

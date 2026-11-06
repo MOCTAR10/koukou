@@ -91,6 +91,13 @@ export function AlertDetailPanel({
         <div className="space-y-6">
           <AlertFacts alert={alert} statuses={statuses} signs={signs} />
 
+          {/* POUFA lot A sante: CDC n° 25-26, the platform admin reads only. */}
+          {!rights.qualify && !rights.publish && !closed ? (
+            <Note tone="slate">
+              Qualification et publication réservées à l’autorité vétérinaire (droits Sanitaire : Modifier et Valider).
+            </Note>
+          ) : null}
+
           {rights.qualify && !closed ? (
             <section className="space-y-3 rounded-xl border border-slate-200 p-4">
               <h3 className="text-sm font-semibold text-slate-700">Qualifier l’alerte</h3>

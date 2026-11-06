@@ -6,8 +6,14 @@ const profile = (code: string, matrix: AccessMatrix, scopeKind: 'ALL' | 'AUDIT' 
 const VET = profile('VETERINAIRE', { SANITAIRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'], REGISTRE: ['CONSULTER'] });
 
 describe('surveillanceRights', () => {
-  it('gives the platform admin everything', () => {
-    expect(surveillanceRights('PLATFORM_ADMIN', null)).toMatchObject({ view: true, qualify: true, publish: true, settings: true });
+  it('lets the platform admin read and set up, never qualify nor publish (CDC n° 25-26)', () => {
+    expect(surveillanceRights('PLATFORM_ADMIN', null)).toMatchObject({
+      view: true,
+      seesUnpublished: true,
+      qualify: false,
+      publish: false,
+      settings: true,
+    });
   });
 
   it('gives the seeded veterinary profile the circuit, the publication and the settings', () => {

@@ -363,9 +363,10 @@ describe('permission codes of an institutional profile', () => {
 
 describe('parameter owner profile', () => {
   it('lets the owner profile and the platform admin change a parameter', () => {
-    expect(
-      mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'VETERINAIRE'),
-    ).toBe(true);
+    expect(mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'DGE')).toBe(true);
+    expect(mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'ADMIN')).toBe(
+      true,
+    );
     expect(
       mayChangeParameter(UserRole.INSTITUTION, 'VETERINAIRE', 'VETERINAIRE'),
     ).toBe(true);
@@ -374,6 +375,16 @@ describe('parameter owner profile', () => {
     );
     expect(mayChangeParameter(UserRole.INSTITUTION, null, 'DGE')).toBe(false);
     expect(mayChangeParameter(UserRole.PROPRIETAIRE, null, 'DGE')).toBe(false);
+  });
+
+  // POUFA lot A sante: CDC §5.2 n° 25.
+  it('keeps the veterinary thresholds to the veterinary services only', () => {
+    expect(
+      mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'VETERINAIRE'),
+    ).toBe(false);
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, 'VETERINAIRE', 'VETERINAIRE'),
+    ).toBe(true);
   });
 });
 

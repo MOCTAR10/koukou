@@ -48,6 +48,16 @@ import { useFarmProfile } from '../app/useFarmProfile';
 import { useCanRead } from '../app/useMenuAccess';
 import { BarChart } from '../components/Charts';
 import { ConfirmModal, EditScheduleModal, HealthEventModal, PlanCareModal } from '../components/flock/SanitaryModals';
+import { CompleteCareModal } from '../components/flock/CompleteCareModal';
+import {
+  EMPTY_PRODUCT_LIST_NOTE,
+  UNKNOWN_PRODUCT_LIST_NOTE,
+  treatmentBody,
+  treatmentPeriodLabel,
+  withdrawalEndPreview,
+} from '../components/flock/sanitaryRecords';
+import { useIdempotencyKey } from '../lib/idempotency';
+import { sendOrQueue, showQueuedNotice } from '../offline';
 import {
   CARE_STATUS_LABEL,
   CARE_TYPES,
@@ -83,6 +93,8 @@ type TabKey = 'sante' | 'check' | 'maladies' | 'calendrier' | 'traitements';
 const TAB_KEYS: readonly TabKey[] = ['sante', 'check', 'maladies', 'calendrier', 'traitements'];
 
 const STATUS_RANK: Record<string, number> = { EN_RETARD: 0, PLANIFIE: 1, FAIT: 2, ANNULE: 3 };
+
+const QUEUED_TREATMENT_MESSAGE = 'Traitement enregistré hors ligne : il sera envoyé au retour de la connexion.';
 
 export function SanitaryPage() {
   const { farmId } = useFarm();
@@ -496,6 +508,7 @@ function CalendarPanel({
   const invalidate = useInvalidateFarm();
   const action = useAsyncAction();
   const [editing, setEditing] = useState<ProphylaxisEvent | null>(null);
+  const [completing, setCompleting] = useState<ProphylaxisEvent | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'cancel' | 'delete'; event: ProphylaxisEvent } | null>(null);
   const [protocolId, setProtocolId] = useState('');
 
@@ -583,7 +596,12 @@ function CalendarPanel({
                   <tr key={e.id} className="border-t border-slate-100 align-top">
                     <Td>
                       {dateFr(e.scheduledDate)}
-                      {e.completedAt ? <span className="block text-xs text-slate-500">fait le {dateFr(e.completedAt)}</span> : null}
+                      {e.completedAt ? (
+                        <span className="block text-xs text-slate-500">
+                          fait le {dateFr(e.completedAt)}
+                          {e.animalCount != null ? ` · ${num(e.animalCount)} animaux` : ''}
+                        </span>
+                      ) : null}
                     </Td>
                     <Td label="Soin" className="font-medium">{e.name}</Td>
                     <Td label="Type">{CARE_TYPE_LABEL[e.careType]}</Td>
@@ -605,12 +623,7 @@ function CalendarPanel({
                       {open ? (
                         <div className="flex justify-end gap-1">
                           {canReport ? (
-                            <Button
-                              busy={action.busy === `c-${e.id}`}
-                              onClick={() =>
-                                run(`c-${e.id}`, () => api.post(`${base}/prophylaxis/${e.id}/complete`, { completedAt: utcYmd() }))
-                              }
-                            >
+                            <Button onClick={() => setCompleting(e)}>
                               <Check className="h-4 w-4" /> Fait
                             </Button>
                           ) : null}
@@ -648,6 +661,7 @@ function CalendarPanel({
           </DataTable>
       )}
       {editing ? <EditScheduleModal lot={lot} event={editing} onClose={() => setEditing(null)} /> : null}
+      {completing ? <CompleteCareModal lot={lot} event={completing} onClose={() => setCompleting(null)} /> : null}
       {confirm ? (
         <ConfirmModal
           title={confirm.kind === 'cancel' ? 'Annuler ce soin ?' : 'Supprimer ce soin ?'}
@@ -683,51 +697,81 @@ function TreatmentsPanel({ lot, period }: { lot: SanitaryLotRef; period: Period 
   const { hasPermission } = useFarmProfile();
   const canRecord = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
   const invalidate = useInvalidateFarm();
+  const idempotency = useIdempotencyKey('treatment');
   const [careFilter, setCareFilter] = useState<'all' | CareType>('all');
   const [careType, setCareType] = useState<CareType>('ANTIBIOTIQUE');
+  const [productCode, setProductCode] = useState('');
   const [productName, setProductName] = useState('');
   const [dosage, setDosage] = useState('');
   const [route, setRoute] = useState('');
   const [administeredAt, setAdministeredAt] = useState(localYmd());
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [animalCount, setAnimalCount] = useState(lot.liveCount > 0 ? String(lot.liveCount) : '');
   const [withdrawal, setWithdrawal] = useState('');
   const [notes, setNotes] = useState('');
-  // CDC 23: the products the veterinary services list (free text still accepted).
+  const [formError, setFormError] = useState<string | null>(null);
+  // CDC 23: the products of the veterinary services' list; free text only while it is empty.
   const products = useSanitaryList('PRODUIT_TRAITEMENT', canRecord);
+  const productList = products.data ?? (products.isError ? null : undefined);
 
   const treatments = useQuery({
     queryKey: ['treatments', farmId, lot.id],
     queryFn: () => api.get<TreatmentRecord[]>(`/farms/${farmId}/batches/${lot.id}/treatments`),
     enabled: !!farmId,
   });
+  const form = {
+    careType,
+    productCode,
+    productName,
+    dosage,
+    route,
+    administeredAt,
+    endDate,
+    reason,
+    animalCount,
+    withdrawalDays: withdrawal,
+    notes,
+  };
   const add = useMutation({
-    mutationFn: () =>
-      api.post(`/farms/${farmId}/batches/${lot.id}/treatments`, {
-        careType,
-        productName: productName.trim(),
-        dosage: dosage.trim() || undefined,
-        route: route.trim() || undefined,
-        administeredAt,
-        withdrawalDays: parseInt(withdrawal, 10) || 0,
-        notes: notes.trim() || undefined,
-      }),
-    onSuccess: async () => {
-      await invalidate();
+    mutationFn: async () => {
+      const built = treatmentBody(form, productList ?? null);
+      if (!built.ok) throw new Error(built.error);
+      const body = { ...built.body, idempotencyKey: idempotency.keyFor({ ...built.body, lot: lot.id }) };
+      return sendOrQueue<TreatmentRecord>({
+        kind: 'treatment',
+        farmId: farmId!,
+        path: `/farms/${farmId}/batches/${lot.id}/treatments`,
+        body,
+        label: `Traitement · ${lot.batchName ?? lot.code ?? 'Lot'}`,
+      });
+    },
+    onSuccess: async (res) => {
+      idempotency.settle();
+      if (res.status === 'queued') showQueuedNotice(QUEUED_TREATMENT_MESSAGE);
+      else await invalidate();
+      setProductCode('');
       setProductName('');
       setDosage('');
       setRoute('');
+      setEndDate('');
+      setReason('');
       setWithdrawal('');
       setNotes('');
     },
   });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (productName.trim()) add.mutate();
+    const built = treatmentBody(form, productList ?? null);
+    setFormError(built.ok ? null : built.error);
+    if (built.ok) add.mutate();
   };
 
   const rows = (treatments.data ?? []).filter(
     (t) => inPeriod(period, t.administeredAt) && (careFilter === 'all' || t.careType === careFilter),
   );
   const today = localYmd();
+  const holdUntil = withdrawalEndPreview(administeredAt, endDate, withdrawal);
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -766,10 +810,11 @@ function TreatmentsPanel({ lot, period }: { lot: SanitaryLotRef; period: Period 
             <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
-                    <Th>Date</Th>
-                    <Th>Produit</Th>
+                    <Th>Dates</Th>
+                    <Th>Produit et motif</Th>
                     <Th>Type</Th>
-                    <Th>Voie et dosage</Th>
+                    <Th className="hidden lg:table-cell">Animaux</Th>
+                    <Th className="hidden lg:table-cell">Voie et dosage</Th>
                     <Th>Fin d'attente</Th>
                   </tr>
                 </thead>
@@ -778,13 +823,19 @@ function TreatmentsPanel({ lot, period }: { lot: SanitaryLotRef; period: Period 
                     const holding = t.withdrawalEndDate != null && t.withdrawalEndDate.slice(0, 10) >= today;
                     return (
                       <tr key={t.id} className="border-t border-slate-100 align-top">
-                        <Td>{dateFr(t.administeredAt)}</Td>
-                        <Td label="Produit" className="font-medium">
+                        <Td>{treatmentPeriodLabel(t.administeredAt, t.endDate ?? null, dateFr)}</Td>
+                        <Td label="Produit et motif" className="font-medium">
                           {t.productName}
+                          {t.reason ? <span className="block text-xs font-normal text-slate-600">Motif : {t.reason}</span> : null}
                           {t.notes ? <span className="block text-xs font-normal text-slate-500">{t.notes}</span> : null}
                         </Td>
                         <Td label="Type">{CARE_TYPE_LABEL[t.careType]}</Td>
-                        <Td label="Voie et dosage">{[t.route, t.dosage].filter(Boolean).join(' · ') || '—'}</Td>
+                        <Td label="Animaux" className="md:max-lg:hidden">
+                          {t.animalCount != null ? num(t.animalCount) : '—'}
+                        </Td>
+                        <Td label="Voie et dosage" className="md:max-lg:hidden">
+                          {[t.route, t.dosage].filter(Boolean).join(' · ') || '—'}
+                        </Td>
                         <Td label="Fin d'attente">
                           {t.withdrawalEndDate && t.withdrawalDays > 0 ? (
                             <Pill tone={holding ? 'amber' : 'slate'}>{dateFr(t.withdrawalEndDate)}</Pill>
@@ -812,33 +863,66 @@ function TreatmentsPanel({ lot, period }: { lot: SanitaryLotRef; period: Period 
               ))}
             </select>
           </Field>
-          <IconField label="Produit *" icon={<PillIcon />}>
-            <input className={inputCls} list="sanitary-products" value={productName} onChange={(e) => setProductName(e.target.value)} required />
-            <datalist id="sanitary-products">
-              {(products.data ?? []).map((p) => (
-                <option key={p.code} value={p.label} />
-              ))}
-            </datalist>
-          </IconField>
+          {productList && productList.length > 0 ? (
+            <IconField label="Produit *" icon={<PillIcon />}>
+              <select className={inputCls} value={productCode} onChange={(e) => setProductCode(e.target.value)} required>
+                <option value="">Choisir dans la liste des vétérinaires</option>
+                {productList.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </IconField>
+          ) : (
+            <>
+              <IconField label="Produit *" icon={<PillIcon />}>
+                <input
+                  className={inputCls}
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  disabled={productList === undefined && products.isLoading}
+                  required
+                />
+              </IconField>
+              {productList === undefined && products.isLoading ? null : (
+                <Note tone="amber" icon={<AlertTriangle />}>
+                  {productList === null ? UNKNOWN_PRODUCT_LIST_NOTE : EMPTY_PRODUCT_LIST_NOTE}
+                </Note>
+              )}
+            </>
+          )}
+          <Field label="Motif *">
+            <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. : diarrhée, prévention" required />
+          </Field>
           <div className="grid grid-cols-2 gap-3">
+            <IconField label="Début *" icon={<Calendar />}>
+              <input className={inputCls} type="date" max={today} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} required />
+            </IconField>
+            <IconField label="Fin" icon={<Calendar />}>
+              <input className={inputCls} type="date" min={administeredAt} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </IconField>
+            <IconField label="Animaux traités *" icon={<Bird />}>
+              <input className={inputCls} inputMode="numeric" value={animalCount} onChange={(e) => setAnimalCount(e.target.value.replace(/\D/g, ''))} required />
+            </IconField>
+            <Field label="Délai d'attente (j)">
+              <input className={inputCls} inputMode="numeric" value={withdrawal} onChange={(e) => setWithdrawal(e.target.value.replace(/\D/g, ''))} />
+            </Field>
             <Field label="Dosage">
               <input className={inputCls} value={dosage} onChange={(e) => setDosage(e.target.value)} />
             </Field>
             <Field label="Voie">
               <input className={inputCls} value={route} onChange={(e) => setRoute(e.target.value)} />
             </Field>
-            <IconField label="Date *" icon={<Calendar />}>
-              <input className={inputCls} type="date" max={today} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} required />
-            </IconField>
-            <Field label="Délai d'attente (j)">
-              <input className={inputCls} inputMode="numeric" value={withdrawal} onChange={(e) => setWithdrawal(e.target.value.replace(/\D/g, ''))} />
-            </Field>
           </div>
+          {holdUntil ? (
+            <p className="text-xs text-amber-700">Vente suspendue jusqu'au {dateFr(holdUntil)} (délai compté depuis le dernier jour du traitement).</p>
+          ) : null}
           <Field label="Notes">
             <textarea className={inputCls} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
-          <ErrorNote error={add.error} />
-          <Button type="submit" busy={add.isPending} disabled={!productName.trim()}>
+          <ErrorNote error={formError ?? add.error} />
+          <Button type="submit" busy={add.isPending}>
             <Check className="h-4 w-4" /> Enregistrer
           </Button>
         </form>

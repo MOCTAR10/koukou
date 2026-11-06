@@ -303,3 +303,68 @@ describe('daily entry sync metadata', () => {
     expect(s.deviceSentAt).toBeUndefined();
   });
 });
+
+// POUFA lot A sante: CDC n° 22-23 on the web, offline and idempotent.
+describe('sanitary registers (treatment, care completion)', () => {
+  const treatment = {
+    kind: 'treatment' as const,
+    farmId: FARM,
+    path: `/farms/${FARM}/batches/b/treatments`,
+    body: { careType: 'ANTIBIOTIQUE', productName: 'Oxytétracycline', administeredAt: '2026-11-04', endDate: '2026-11-06', reason: 'Coryza', animalCount: 480, withdrawalDays: 5 },
+    label: 'Traitement · Bande 1',
+  };
+  const completion = {
+    kind: 'prophylaxis-complete' as const,
+    farmId: FARM,
+    path: `/farms/${FARM}/batches/b/prophylaxis/e1/complete`,
+    body: { completedAt: '2026-11-06', animalCount: 495, route: 'Nébulisation' },
+    label: 'Soin réalisé : Newcastle',
+  };
+
+  it('queues a treatment with its CDC fields and replays it under the same key', async () => {
+    route('POST', /treatments/, 'network');
+    expect((await sendOrQueue(treatment)).status).toBe('queued');
+    const op = loadOps()[0]!;
+    expect(op.body).toMatchObject({ endDate: '2026-11-06', reason: 'Coryza', animalCount: 480, idempotencyKey: op.id });
+    route('POST', /treatments/, { status: 201, body: { id: 't1' } });
+    expect((await flushQueue()).synced).toBe(1);
+    expect(calls.at(-1)).toMatchObject({ path: treatment.path, body: { idempotencyKey: op.id, animalCount: 480 } });
+    expect(calls.some((c) => c.path.includes('caisse/open'))).toBe(false);
+  });
+
+  it('keeps the form key: a retry after a lost answer is the same treatment', async () => {
+    route('POST', /treatments/, { status: 502 });
+    await sendOrQueue({ ...treatment, body: { ...treatment.body, idempotencyKey: 'treatment-web-1' } });
+    routes.shift();
+    await flushQueue();
+    const keys = calls.filter((c) => c.method === 'POST').map((c) => (c.body as { idempotencyKey: string }).idempotencyKey);
+    expect(keys).toEqual(['treatment-web-1', 'treatment-web-1']);
+  });
+
+  it('keeps a treatment refused on replay (the vets filled the product list since)', async () => {
+    route('POST', /treatments/, 'network');
+    await sendOrQueue(treatment);
+    route('POST', /treatments/, { status: 400, body: { message: 'Choisissez le produit dans la liste des produits de traitement (PRODUIT_TRAITEMENT) fixée par les services vétérinaires.' } });
+    expect((await flushQueue()).rejected).toBe(1);
+    expect(loadRejected()[0]).toMatchObject({ kind: 'treatment', reason: expect.stringContaining('PRODUIT_TRAITEMENT') });
+  });
+
+  it('replays a care completion with its animal count, once', async () => {
+    route('POST', /complete/, 'network');
+    expect((await sendOrQueue(completion)).status).toBe('queued');
+    const op = loadOps()[0]!;
+    expect(op.body).toMatchObject({ animalCount: 495, idempotencyKey: op.id });
+    route('POST', /complete/, { status: 201, body: { id: 'e1', status: 'FAIT' } });
+    expect((await flushQueue()).synced).toBe(1);
+    expect(loadOps()).toHaveLength(0);
+    expect(calls.filter((c) => c.method === 'POST' && c.path === completion.path)).toHaveLength(2);
+  });
+
+  it('keeps a completion refused on replay (care cancelled meanwhile) for the user', async () => {
+    route('POST', /complete/, 'network');
+    await sendOrQueue(completion);
+    route('POST', /complete/, { status: 400, body: { message: 'Ce soin a été annulé : planifiez un nouveau soin plutôt que de le compléter.' } });
+    expect((await flushQueue()).rejected).toBe(1);
+    expect(loadRejected()[0]?.reason).toContain('annulé');
+  });
+});

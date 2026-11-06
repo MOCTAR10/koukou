@@ -14,7 +14,9 @@ export type ProgramListType =
   | 'TYPE_OPERATEUR'
   | 'STATUT_ALERTE'
   | 'INTRANT'
-  | 'UNITE';
+  | 'UNITE'
+  // POUFA lot A sante: the treatment products of the veterinary services (CDC n° 23).
+  | 'PRODUIT_TRAITEMENT';
 
 export interface RefItem {
   id: string;
