@@ -667,4 +667,43 @@ describe('Surveillance sanitaire et notifications — lot L5 (e2e)', () => {
       ).expect(403);
     });
   });
+
+  describe('accès des vétérinaires aux bandes et à leur session', () => {
+    it('liste minimale des bandes sous le domaine SANITAIRE', async () => {
+      await get(`/farms/${farmId}/batches`, vet.token).expect(403);
+      const lots = await get(`/farms/${farmId}/sanitary/lots`, vet.token).expect(200);
+      const lot = lots.body.find((l: { id: string }) => l.id === batchId);
+      expect(lot).toMatchObject({
+        code: expect.stringMatching(/-B\d+$/),
+        type: 'CHAIR',
+        species: 'POULET',
+        integrationDate: day(-5),
+        ageDays: 5,
+        quantityAtStart: 1000,
+        building: null,
+        closedAt: null,
+      });
+      expect(Object.keys(lot).sort()).toEqual(
+        [
+          'ageDays',
+          'building',
+          'closedAt',
+          'code',
+          'id',
+          'integrationDate',
+          'name',
+          'quantityAlive',
+          'quantityAtStart',
+          'species',
+          'status',
+          'type',
+        ].sort(),
+      );
+      const open = await get(`/farms/${farmId}/sanitary/lots?open=true`, ownerToken).expect(200);
+      expect(open.body.map((l: { id: string }) => l.id)).toContain(batchId);
+      await get(`/farms/${farmId}/sanitary/lots`, dge.token).expect(403);
+      // reader: SANITAIRE, province G5 only.
+      await get(`/farms/${otherFarmId}/sanitary/lots`, reader.token).expect(403);
+    });
+  });
 });

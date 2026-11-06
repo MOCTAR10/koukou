@@ -23,6 +23,8 @@ import { ProgrammeModule } from '../programme/programme.module.js';
 import { SurveillanceModule } from '../surveillance/surveillance.module.js';
 import { VaccinationCalendarsController } from './vaccination-calendars.controller.js';
 import { VaccinationCalendarsService } from './vaccination-calendars.service.js';
+import { SanitaryLotsController } from './sanitary-lots.controller.js';
+import { SanitaryLotsService } from './sanitary-lots.service.js';
 
 @Module({
   imports: [
@@ -50,11 +52,13 @@ import { VaccinationCalendarsService } from './vaccination-calendars.service.js'
     HealthController,
     VaccineSchedulesController,
     VaccinationCalendarsController,
+    SanitaryLotsController,
   ],
   providers: [
     SanitaryService,
     HealthService,
     VaccinationCalendarsService,
+    SanitaryLotsService,
   ],
   exports: [SanitaryService],
 })
