@@ -224,7 +224,7 @@ function ProgrammeAside() {
           </p>
           <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 xl:grid-cols-4 xl:gap-x-4 [@media(max-height:780px)]:gap-y-1.5">
             {PROGRAMME_MODULES.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-2.5 text-[13px] font-medium leading-snug text-white drop-shadow-[0_1px_3px_rgb(0_0_0/0.8)]">
+              <li key={label} className="flex items-center gap-2.5 text-[13px] font-bold leading-snug text-white drop-shadow-[0_1px_3px_rgb(0_0_0/0.8)]">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-300/10 ring-1 ring-amber-200/25">
                   <Icon className="h-4 w-4 text-amber-200" aria-hidden />
                 </span>
