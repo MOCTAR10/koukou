@@ -35,6 +35,8 @@ export interface ParameterDefinition {
   readonly defaultValue: unknown;
   /** Appended to the seed reason (e.g. who must still decide the value). */
   readonly defaultNote?: string;
+  /** Extra check of a `json` value: French error, or null when valid. */
+  readonly check?: (value: unknown) => string | null;
 }
 
 /** Prefix of the parameters holding an indicator formula. */
@@ -184,6 +186,142 @@ const PILOTAGE_PARAMETERS: readonly ParameterDefinition[] = [
   },
 ];
 
+// POUFA lot A pilot: steering perimeter (F2) and conduct alerts (F1).
+/**
+ * Bands counted in the programme's aggregates (pilotage, map, objective,
+ * reports): POUFA = broiler chicken. Other species and laying flocks stay
+ * on the farm, marked « hors programme ».
+ */
+export const DEFAULT_ELIGIBLE_BAND_TYPES = [
+  { species: 'POULET', type: 'CHAIR' },
+] as const;
+
+/**
+ * Advisory alert kinds that would read as a sanitary or economic verdict:
+ * never shown in the steering, whatever the list says (CDC §5.2, §8: only
+ * the veterinary authority publishes a sanitary alert).
+ */
+export const NON_CONDUCT_ALERT_KINDS: readonly string[] = [
+  'MALADIE',
+  'MORTALITE',
+  'PROPHYLAXIE',
+  'DELAI_ATTENTE',
+  'RENTABILITE',
+];
+
+/** Fermia advisory kinds shown apart as « alertes de conduite ». */
+export const DEFAULT_CONDUCT_ALERT_KINDS: readonly string[] = [
+  'EAU',
+  'ALIMENT',
+  'SURDENSITE',
+  'DENSITE',
+  'DENSITE_BATIMENT',
+  'COHABITATION',
+  'VIDE_SANITAIRE',
+  'IPE',
+  'GMQ',
+  'PEREMPTION',
+  'TRACABILITE',
+  'SAISIE_MANQUEE',
+  'HEAT',
+  'STOCK_NEGATIF',
+];
+
+const SPECIES_CODES = [
+  'POULET',
+  'DINDE',
+  'PINTADE',
+  'CAILLE',
+  'CANARD',
+  'OIE',
+  'FAISAN',
+  'AUTRE',
+];
+const BATCH_TYPE_CODES = ['CHAIR', 'PONDEUSE'];
+const ALERT_KIND_CODES = [
+  ...DEFAULT_CONDUCT_ALERT_KINDS,
+  ...NON_CONDUCT_ALERT_KINDS,
+  'VENTE',
+  'TACHE',
+  'STOCK_OEUF',
+];
+
+/** `[{ species, type }]`, at least one, known codes, no duplicate. */
+export function checkEligibleBandTypes(value: unknown): string | null {
+  const shape =
+    'attendu une liste de { "species": …, "type": … }, par exemple [{ "species": "POULET", "type": "CHAIR" }]';
+  if (!Array.isArray(value) || value.length === 0) {
+    return `Types de bandes éligibles : ${shape}.`;
+  }
+  const seen = new Set<string>();
+  for (const item of value as unknown[]) {
+    const o = item as { species?: unknown; type?: unknown } | null;
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      return `Types de bandes éligibles : ${shape}.`;
+    }
+    if (typeof o.species !== 'string' || !SPECIES_CODES.includes(o.species)) {
+      return `Espèce inconnue : ${String(o.species)} (${SPECIES_CODES.join(', ')}).`;
+    }
+    if (typeof o.type !== 'string' || !BATCH_TYPE_CODES.includes(o.type)) {
+      return `Type de bande inconnu : ${String(o.type)} (${BATCH_TYPE_CODES.join(', ')}).`;
+    }
+    const key = `${o.species}:${o.type}`;
+    if (seen.has(key)) return `Type de bande en double : ${key}.`;
+    seen.add(key);
+  }
+  return null;
+}
+
+/** A list of advisory alert kinds, none of the sanitary or economic ones. */
+export function checkConductAlertKinds(value: unknown): string | null {
+  if (!Array.isArray(value) || value.some((k) => typeof k !== 'string')) {
+    return 'Alertes de conduite : attendu une liste de types d’alerte, par exemple ["EAU", "ALIMENT"].';
+  }
+  const unknown = (value as string[]).filter(
+    (k) => !ALERT_KIND_CODES.includes(k),
+  );
+  if (unknown.length > 0) {
+    return `Type(s) d’alerte inconnu(s) : ${unknown.join(', ')}.`;
+  }
+  const refused = (value as string[]).filter((k) =>
+    NON_CONDUCT_ALERT_KINDS.includes(k),
+  );
+  if (refused.length > 0) {
+    return `Ces alertes ne sont pas des alertes de conduite (sanitaires ou économiques) et ne vont jamais au pilotage : ${refused.join(', ')}.`;
+  }
+  if (new Set(value).size !== value.length) {
+    return 'Type d’alerte en double dans la liste.';
+  }
+  return null;
+}
+
+const PILOT_LOT_A_PARAMETERS: readonly ParameterDefinition[] = [
+  {
+    key: 'BANDE_TYPES_ELIGIBLES',
+    label:
+      'Bandes comptées dans le programme (pilotage, carte, objectif, rapports) : espèce et type',
+    type: 'json',
+    unit: null,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: DEFAULT_ELIGIBLE_BAND_TYPES,
+    defaultNote:
+      'POUFA = poulet de chair ; les autres bandes restent sur la ferme, marquées « hors programme »',
+    check: checkEligibleBandTypes,
+  },
+  {
+    key: 'PILOTAGE_ALERTES_CONDUITE_TYPES',
+    label:
+      'Alertes de conduite (conseil Fermia, non sanitaires) montrées à part dans le pilotage',
+    type: 'json',
+    unit: null,
+    ownerProfile: OWNER_PROFILE.DGE,
+    defaultValue: DEFAULT_CONDUCT_ALERT_KINDS,
+    defaultNote: FERMIA_PROPOSAL,
+    check: checkConductAlertKinds,
+  },
+];
+// End POUFA lot A pilot.
+
 export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
   {
     key: 'BANDE_DUREE_REFERENCE_J',
@@ -273,6 +411,8 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     defaultValue: 5,
   },
   ...PILOTAGE_PARAMETERS,
+  // POUFA lot A pilot: programme perimeter and conduct alerts of the steering.
+  ...PILOT_LOT_A_PARAMETERS,
   ...POUFA_DEFAULT_FORMULAS.map((f): ParameterDefinition => ({
     key: formulaParameterKey(f.key),
     label: `Formule : ${f.label}`,
@@ -280,6 +420,7 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     unit: f.unit,
     ownerProfile: OWNER_PROFILE.DGE,
     defaultValue: f.expression,
+    defaultNote: f.defaultNote,
   })),
 ];
 
@@ -331,10 +472,13 @@ export function checkParameterValue(
       }
       return { ok: true, value: value.trim() };
     }
-    case 'json':
-      return value === undefined
-        ? fail(`« ${def.label} » : valeur manquante.`)
-        : { ok: true, value };
+    case 'json': {
+      if (value === undefined) {
+        return fail(`« ${def.label} » : valeur manquante.`);
+      }
+      const problem = def.check?.(value) ?? null;
+      return problem ? fail(problem) : { ok: true, value };
+    }
   }
 }
 

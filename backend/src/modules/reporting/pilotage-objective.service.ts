@@ -6,6 +6,11 @@ import { ParametersService } from '../programme/parameters.service.js';
 import { ProgrammeService } from '../programme/programme.service.js';
 import { DAY_EXIT_KG, weighedSortiesCte } from './pilotage-data.service.js';
 import {
+  bandMortalityPct,
+  eligibleBandSql,
+  pilotageRulesAt,
+} from './pilotage-programme.js';
+import {
   pct,
   projectProduction,
   round,
@@ -106,18 +111,23 @@ export class PilotageObjectiveService {
     const k = value('PILOTAGE_GROUPE_MIN_FERMES');
     const objectiveTonnes = value('OBJECTIF_NATIONAL_T');
     const farms = this.scope.scopedFarms(view, filters);
+    // POUFA lot A (F2): only the programme's bands count towards the objective.
+    const rules = pilotageRulesAt(resolver, today);
 
     const p = new SqlParams(farms.params);
     const yearStart = p.add(`${today.slice(0, 4)}-01-01`);
     const since12 = p.add(addDays(today, -364));
     const origin = p.add('1900-01-01');
     const todayP = p.add(today);
+    const eligibleP = p.add(rules.eligibleBandKeys);
     const [volumes]: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql}),
        ${weighedSortiesCte(origin, todayP)},
        st AS (
          SELECT s.farm_id, s.day, s.removals, ${DAY_EXIT_KG} AS exit_kg
            FROM bande_daily_stats s JOIN sf ON sf.id = s.farm_id
+           JOIN production_batches eb ON eb.id = s.batch_id
+                AND ${eligibleBandSql('eb', eligibleP)}
            LEFT JOIN ws ON ws.batch_id = s.batch_id AND ws.day = s.day
        )
        SELECT COALESCE(SUM(removals), 0) AS heads,
@@ -133,6 +143,7 @@ export class PilotageObjectiveService {
 
     const q = new SqlParams(farms.params);
     const since = q.add(`${addDays(today, -364)}T00:00:00.000Z`);
+    const eligibleQ = q.add(rules.eligibleBandKeys);
     const [closed]: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql})
        SELECT COUNT(*) AS bands, COUNT(DISTINCT b.farm_id) AS farms,
@@ -144,10 +155,13 @@ export class PilotageObjectiveService {
            SELECT s.deaths_cumulative FROM bande_daily_stats s
             WHERE s.batch_id = b.id ORDER BY s.day DESC LIMIT 1
          ) l ON TRUE
-        WHERE b.status = 'CLOTURE' AND b.closed_at >= ${since}::timestamptz`,
+        WHERE b.status = 'CLOTURE' AND b.closed_at >= ${since}::timestamptz
+          AND ${eligibleBandSql('b', eligibleQ)}`,
       q.values,
     );
 
+    const c = new SqlParams(farms.params);
+    const eligibleC = c.add(rules.eligibleBandKeys);
     const [capacity]: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql})
        SELECT COUNT(*) AS farms,
@@ -155,11 +169,13 @@ export class PilotageObjectiveService {
               COALESCE(SUM(COALESCE(sf.capacity_places, mb.max_start, 0)), 0) AS places
          FROM sf
          LEFT JOIN (
-           SELECT farm_id, MAX(quantity_at_start) AS max_start
-             FROM production_batches GROUP BY farm_id
+           SELECT b.farm_id, MAX(b.quantity_at_start) AS max_start
+             FROM production_batches b
+            WHERE ${eligibleBandSql('b', eligibleC)}
+            GROUP BY b.farm_id
          ) mb ON mb.farm_id = sf.id
         WHERE sf.active = true`,
-      farms.params,
+      c.values,
     );
 
     // Aggregate-only view: hidden when the volumes or the capacity come from
@@ -199,8 +215,18 @@ export class PilotageObjectiveService {
 
     let mortalityPct: number;
     const closedFarms = n(closed.farms);
-    if (closedFarms >= k && n(closed.placed) > 0) {
-      mortalityPct = round((n(closed.deaths) / n(closed.placed)) * 100, 2);
+    // The band mortality formula in force, on the closed bands summed.
+    const observedMortality =
+      n(closed.placed) > 0
+        ? bandMortalityPct(
+            rules.formulas,
+            n(closed.deaths),
+            n(closed.placed),
+            2,
+          )
+        : null;
+    if (closedFarms >= k && observedMortality != null) {
+      mortalityPct = observedMortality;
       inputs.push({
         key: 'PROJECTION_MORTALITE_PCT',
         label: 'Mortalité par bande',

@@ -29,6 +29,14 @@ describe('webTargetFor', () => {
     expect(webTargetFor({ route: `/batches/${B}`, farmId: F }, { programmeAlerts: false })).toEqual({ path: `/app/batches?lot=${B}`, farmId: F });
   });
 
+  it('opens a programme report on the reports screen (POUFA lot A)', () => {
+    expect(webTargetFor({ route: `/reports/${A}`, farmId: null }, { programmeAlerts: false })).toEqual({
+      path: `/app/pilotage/rapports?rapport=${A}`,
+      farmId: null,
+    });
+    expect(webTargetFor({ route: '/reports/not-a-uuid', farmId: null }, { programmeAlerts: false })).toBeNull();
+  });
+
   it('has no web page for the rest', () => {
     for (const route of ['', '/sync', `/notifications/${A}`, '/sanitary-alerts/not-a-uuid', 'https://evil.example/x']) {
       expect(webTargetFor({ route, farmId: F }, { programmeAlerts: true })).toBeNull();

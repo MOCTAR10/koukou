@@ -8,7 +8,8 @@ import { Note, SectionCard, Tabs } from '../flock/shared';
 import { DataTable, Loading, Td, Th } from '../ui';
 import { periodError, pilotageQueryString, type PilotageFilters } from './filters';
 import { countLabel, headsLabel, pctLabel, suppressedLabel } from './format';
-import { COLOUR_KEYS, COLOUR_KEY_LABELS, colourOf, legendFor, levelOn, parseColourKey, type ColourKey } from './mapKeys';
+import { alertCell, alertText, COLOUR_KEYS, COLOUR_KEY_LABELS, colourOf, legendFor, levelOn, parseColourKey, type ColourKey } from './mapKeys';
+import { PILOTAGE_REFRESH_MS } from './perimeter';
 import type { PilotageMapCanvasProps } from './MapCanvas';
 import { ScopeBanner } from './shared';
 
@@ -39,6 +40,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
     queryFn: () => api.get<PilotageMap>(`/pilotage/map${qs}`),
     enabled: !invalid,
     retry: false,
+    refetchInterval: PILOTAGE_REFRESH_MS,
   });
   const [tilesFailed, setTilesFailed] = useState(false);
   const [showClusters, setShowClusters] = useState(true);
@@ -58,7 +60,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
     return [
       `${p.code ? `${p.code} · ` : ''}${p.name}`,
       `${headsLabel(p.headcount)} · ${countLabel(p.activeBands, 'bande active', 'bandes actives')}`,
-      valueOn(p) ?? `Alertes actives ${p.alerts.activeNow} (rouges ${p.alerts.activeRedNow}), publiées ${p.alerts.published}`,
+      valueOn(p) ?? alertText(p.alerts),
       level ? `Niveau ${LEVEL_TEXT[level]}` : 'Pas de donnée sur la période',
     ];
   };
@@ -69,7 +71,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
       head,
       `Effectif ${headsLabel(c.headcount)}`,
       `Mortalité ${pctLabel(c.mortalityPct)} · complétude ${pctLabel(c.completenessPct)}`,
-      `Alertes actives ${c.alerts?.activeNow ?? 0}, publiées ${c.alerts?.published ?? 0}`,
+      alertText(c.alerts),
     ];
   };
 
@@ -117,6 +119,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
             <p className="mt-2 text-xs text-slate-500">
               {key === 'mortality' ? d.legend.mortality.description : key === 'completeness' ? d.legend.completeness.description : d.legend.alert.description}
             </p>
+            {key === 'alert' && d.legend.alert.conduct ? <p className="mt-2 text-xs text-slate-500">{d.legend.alert.conduct}</p> : null}
             <p className="mt-2 text-xs text-slate-500">Cercles larges : une province (centre de sa limite, sinon moyenne de ses fermes) ; en pointillé, ses chiffres sont masqués.</p>
           </SectionCard>
           <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
@@ -142,7 +145,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
               <Th>Effectif</Th>
               <Th>Mortalité</Th>
               <Th>Complétude</Th>
-              <Th>Alertes</Th>
+              <Th>Alertes sanitaires · conduite</Th>
               <Th>Niveau</Th>
             </tr>
           </thead>
@@ -164,9 +167,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
                     <Td label="Effectif">{headsLabel(c.headcount)}</Td>
                     <Td label="Mortalité">{pctLabel(c.mortalityPct)}</Td>
                     <Td label="Complétude">{pctLabel(c.completenessPct)}</Td>
-                    <Td label="Alertes">
-                      {c.alerts?.activeNow ?? 0} actives · {c.alerts?.published ?? 0} publiées
-                    </Td>
+                    <Td label="Alertes sanitaires · conduite">{alertCell(c.alerts)}</Td>
                     <Td label="Niveau">
                       <LevelDot level={levelOn(c.colours, key)} />
                     </Td>
@@ -189,7 +190,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
                 <Th>Effectif</Th>
                 <Th>Mortalité</Th>
                 <Th>Complétude</Th>
-                <Th>Alertes</Th>
+                <Th>Alertes sanitaires · conduite</Th>
                 <Th>Niveau</Th>
               </tr>
             </thead>
@@ -203,9 +204,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
                   <Td label="Effectif">{headsLabel(p.headcount)}</Td>
                   <Td label="Mortalité">{pctLabel(p.mortalityPct)}</Td>
                   <Td label="Complétude">{pctLabel(p.completenessPct)}</Td>
-                  <Td label="Alertes">
-                    {p.alerts.activeNow} actives · {p.alerts.published} publiées
-                  </Td>
+                  <Td label="Alertes sanitaires · conduite">{alertCell(p.alerts)}</Td>
                   <Td label="Niveau">
                     <LevelDot level={levelOn(p.colours, key)} />
                   </Td>

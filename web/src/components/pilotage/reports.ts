@@ -7,6 +7,7 @@
  */
 import type { ScopeKind } from '../../api/types-access';
 import type {
+  CreateReportTemplateBody,
   GenerateReportBody,
   ReportLevel,
   ReportPeriodicity,
@@ -33,17 +34,18 @@ export const SECTION_LABELS: Record<ReportSection, string> = {
   PROVINCES: 'Par province',
   PRODUCTION: 'Production et ventes',
   FERMES: 'Fermes par statut et cohorte',
-  ALERTES: 'Alertes',
+  ALERTES: 'Alertes sanitaires publiées et alertes de conduite',
   COMPLETUDE: 'Complétude des saisies',
   OBJECTIF: 'Objectif national de 100 000 t',
   FERMES_A_SUIVRE: 'Fermes à suivre',
   BILAN: 'Bilan de la bande',
   COMPARAISON: 'Comparaison avec la moyenne du programme',
+  INTRANTS: 'Intrants et ressources',
 };
 
 export const SECTIONS_BY_LEVEL: Record<ReportLevel, readonly ReportSection[]> = {
-  NATIONAL: ['SYNTHESE', 'PROVINCES', 'PRODUCTION', 'FERMES', 'ALERTES', 'COMPLETUDE', 'OBJECTIF', 'FERMES_A_SUIVRE'],
-  PROVINCE: ['SYNTHESE', 'PRODUCTION', 'FERMES', 'ALERTES', 'COMPLETUDE', 'FERMES_A_SUIVRE'],
+  NATIONAL: ['SYNTHESE', 'PROVINCES', 'PRODUCTION', 'FERMES', 'ALERTES', 'COMPLETUDE', 'INTRANTS', 'OBJECTIF', 'FERMES_A_SUIVRE'],
+  PROVINCE: ['SYNTHESE', 'PRODUCTION', 'FERMES', 'ALERTES', 'COMPLETUDE', 'INTRANTS', 'FERMES_A_SUIVRE'],
   BANDE: ['BILAN', 'COMPARAISON'],
 };
 
@@ -129,6 +131,55 @@ export function templatePatch(t: ReportTemplate, form: TemplateForm): UpdateRepo
   return body;
 }
 
+// POUFA lot A pilot: create and duplicate templates (`POST /pilotage/reports/templates`).
+
+/** Same rule as the server's `TEMPLATE_CODE_RE`. */
+export const TEMPLATE_CODE_RE = /^[A-Z][A-Z0-9_]{1,39}$/;
+
+export function normaliseTemplateCode(raw: string): string {
+  return raw.trim().toUpperCase().replace(/[\s-]+/g, '_');
+}
+
+export function templateCodeError(code: string): string | null {
+  if (!TEMPLATE_CODE_RE.test(code)) return 'Code invalide : 2 à 40 caractères, majuscules, chiffres et _ (commence par une lettre).';
+  return null;
+}
+
+/** A blank form for a new template of that level (its default periodicity and sections). */
+export function newTemplateForm(level: ReportLevel): TemplateForm {
+  return {
+    label: '',
+    periodicity: PERIODICITIES_BY_LEVEL[level][0],
+    sections: [...SECTIONS_BY_LEVEL[level]],
+    scopeKinds: level === 'NATIONAL' ? ['ALL'] : level === 'PROVINCE' ? ['PROVINCES'] : [],
+    profileCodes: '',
+    farmOwners: level === 'BANDE',
+    active: true,
+  };
+}
+
+/** French reason a new template can't be sent, or null (the server checks again). */
+export function createTemplateError(code: string, level: ReportLevel, form: TemplateForm): string | null {
+  return templateCodeError(code) ?? templateFormError(level, form);
+}
+
+export function createTemplateBody(code: string, level: ReportLevel, form: TemplateForm): CreateReportTemplateBody {
+  return {
+    code,
+    label: form.label.trim(),
+    level,
+    periodicity: form.periodicity,
+    sections: SECTIONS_BY_LEVEL[level].filter((s) => form.sections.includes(s)),
+    audience: {
+      scopeKinds: AUDIENCE_SCOPE_KINDS.filter((k) => form.scopeKinds.includes(k)),
+      profileCodes: parseProfileCodes(form.profileCodes),
+      farmOwners: level === 'BANDE' && form.farmOwners,
+    },
+    active: form.active,
+  };
+}
+// End POUFA lot A pilot.
+
 export interface GenerateForm {
   /** A day of the period ('' = the last closed one). */
   periodStart: string;
@@ -179,9 +230,10 @@ export function runFilename(run: Pick<ReportRun, 'templateCode' | 'periodStart'>
   return `rapport-${run.templateCode.toLowerCase()}-${run.periodStart}.pdf`;
 }
 
-/** `GET /pilotage/reports/runs` query (template, level, period). */
-export function runsQueryString(q: { template?: string; level?: string; from?: string; to?: string }): string {
+/** `GET /pilotage/reports/runs` query (template, level, period; `batchId` for a band's runs). */
+export function runsQueryString(q: { template?: string; level?: string; from?: string; to?: string; batchId?: string }): string {
   const p = new URLSearchParams();
+  if (q.batchId) p.set('batchId', q.batchId);
   if (q.template) p.set('template', q.template);
   if (q.level) p.set('level', q.level);
   if (q.from) p.set('from', q.from);

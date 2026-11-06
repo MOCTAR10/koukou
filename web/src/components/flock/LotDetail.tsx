@@ -68,6 +68,7 @@ import { BarChart, LineChart } from '../Charts';
 import { Button, ErrorNote, Modal } from '../form';
 import { DataTable, EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
 import { BandSummaryTab } from '../bandes/BandSummaryTab';
+import { ProgrammeBadge } from '../bandes/ProgrammeBadge';
 import { DailyEntryModal } from './DailyEntryModal';
 // POUFA W6: band sorties and traceability tabs.
 import { SortiesTab } from '../bandes/SortiesTab';
@@ -171,6 +172,8 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <Pill tone={stage.tone}>{stage.label}</Pill>
+                {/* POUFA lot A pilot: band type outside BANDE_TYPES_ELIGIBLES. */}
+                <ProgrammeBadge farmId={farmId} band={lot} />
                 {pill ? <Pill tone={pill.tone}>{pill.label}</Pill> : null}
                 {care && isActive ? (
                   <Pill tone={care.tone}>

@@ -19,6 +19,7 @@ export const EVENT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   [NotificationEvent.DECLARATION_RECEIVED]: 'Déclaration sanitaire reçue',
   [NotificationEvent.WEIGHING_LATE]: 'Pesée en retard',
   [NotificationEvent.SYNC_CONFLICT]: 'Conflit de saisie hors ligne',
+  [NotificationEvent.REPORT_READY]: 'Rapport du programme disponible',
 };
 
 /**
@@ -77,6 +78,13 @@ export function ruleProblem(rule: RuleShape, vetProfile: boolean): string | null
   }
   if (!channels.has(NotificationChannel.IN_APP)) {
     return "Une règle inclut toujours la notification dans l'application : c'est sa lecture qui arrête l'escalade.";
+  }
+  // POUFA lot A: the report's own recipients only make sense for a report.
+  if (
+    rule.audience === NotificationAudience.REPORT_RECIPIENTS &&
+    rule.event !== NotificationEvent.REPORT_READY
+  ) {
+    return 'Le destinataire « destinataires du rapport » ne sert qu’à l’événement « rapport disponible ».';
   }
   if (rule.audience === NotificationAudience.PROFILE) {
     if (!rule.profileCode) {
@@ -140,6 +148,7 @@ export function smsText(
       ? `pesée en retard, bande ${code}`
       : 'pesée en retard',
     [NotificationEvent.SYNC_CONFLICT]: `conflit de saisie${ref}`,
+    [NotificationEvent.REPORT_READY]: 'nouveau rapport disponible',
   };
   return `${programCode} : ${what[event]}. Ouvrez l'application.`;
 }

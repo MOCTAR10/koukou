@@ -21,6 +21,7 @@ export const AUDIENCE_LABELS: Readonly<Record<NotificationAudience, string>> = {
   PROFILE: 'Un profil institutionnel',
   FARM_MANAGERS: 'Propriétaire et administrateurs de la ferme',
   FARM_TEAM: 'Toute l’équipe de la ferme',
+  REPORT_RECIPIENTS: 'Les destinataires du rapport',
 };
 
 export const CHANNEL_LABELS: Readonly<Record<NotificationChannel, string>> = {
@@ -81,6 +82,10 @@ export function ruleFormProblem(form: RuleForm, opts: { creating: boolean; confi
     if (!form.event) return 'Choisissez l’événement.';
   }
   if (!form.label.trim()) return 'Le libellé est obligatoire.';
+  // POUFA lot A pilot: same rule as the server's ruleProblem.
+  if (form.audience === 'REPORT_RECIPIENTS' && form.event && form.event !== 'REPORT_READY') {
+    return 'Le destinataire « destinataires du rapport » ne sert qu’à l’événement « rapport disponible ».';
+  }
   if (form.label.trim().length > 200) return 'Le libellé ne doit pas dépasser 200 caractères.';
   if (form.audience === 'PROFILE') {
     if (!form.profileCode) return 'Précisez le profil destinataire.';

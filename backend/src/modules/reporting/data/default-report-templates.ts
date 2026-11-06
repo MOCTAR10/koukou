@@ -4,6 +4,10 @@ import {
   ReportPeriodicity,
   ReportSection,
 } from '../../../common/enums/report.enum.js';
+import {
+  grants,
+  type InstitutionAccess,
+} from '../../access/access-rules.js';
 import type { ReportAudience } from '../entities/report-template.entity.js';
 
 /**
@@ -38,16 +42,19 @@ export const DEFAULT_REPORT_TEMPLATES: readonly DefaultReportTemplate[] = [
       ReportSection.PRODUCTION,
       ReportSection.ALERTES,
       ReportSection.COMPLETUDE,
+      ReportSection.INTRANTS,
       ReportSection.FERMES_A_SUIVRE,
     ],
+    // ALL: the DGE gets it too (no provincial profile is seeded).
     audience: {
-      scopeKinds: [AccessScopeKind.PROVINCES],
+      scopeKinds: [AccessScopeKind.PROVINCES, AccessScopeKind.ALL],
       profileCodes: [],
       farmOwners: false,
     },
   },
   {
-    // The frozen bilan of each closed band, for its farm.
+    // The frozen bilan of each closed band, for its farm and the
+    // technical agents of that farm (FARMS scope with TECHNIQUE:CONSULTER).
     code: REPORT_TEMPLATE_CODES.FIN_DE_BANDE,
     label: 'Rapport de fin de bande',
     periodicity: ReportPeriodicity.FIN_DE_BANDE,
@@ -72,6 +79,7 @@ export const DEFAULT_REPORT_TEMPLATES: readonly DefaultReportTemplate[] = [
       ReportSection.FERMES,
       ReportSection.ALERTES,
       ReportSection.COMPLETUDE,
+      ReportSection.INTRANTS,
       ReportSection.OBJECTIF,
     ],
     audience: {
@@ -93,6 +101,7 @@ export const SECTIONS_BY_LEVEL: Readonly<
     ReportSection.FERMES,
     ReportSection.ALERTES,
     ReportSection.COMPLETUDE,
+    ReportSection.INTRANTS,
     ReportSection.OBJECTIF,
     ReportSection.FERMES_A_SUIVRE,
   ],
@@ -102,6 +111,7 @@ export const SECTIONS_BY_LEVEL: Readonly<
     ReportSection.FERMES,
     ReportSection.ALERTES,
     ReportSection.COMPLETUDE,
+    ReportSection.INTRANTS,
     ReportSection.FERMES_A_SUIVRE,
   ],
   [ReportLevel.BANDE]: [ReportSection.BILAN, ReportSection.COMPARAISON],
@@ -127,12 +137,13 @@ export const SECTION_LABELS: Readonly<Record<ReportSection, string>> = {
   [ReportSection.PROVINCES]: 'Par province',
   [ReportSection.PRODUCTION]: 'Production et ventes',
   [ReportSection.FERMES]: 'Fermes par statut et cohorte',
-  [ReportSection.ALERTES]: 'Alertes',
+  [ReportSection.ALERTES]: 'Alertes sanitaires publiées et alertes de conduite',
   [ReportSection.COMPLETUDE]: 'Complétude des saisies',
   [ReportSection.OBJECTIF]: 'Objectif national de 100 000 t',
   [ReportSection.FERMES_A_SUIVRE]: 'Fermes à suivre',
   [ReportSection.BILAN]: 'Bilan de la bande',
   [ReportSection.COMPARAISON]: 'Comparaison avec la moyenne du programme',
+  [ReportSection.INTRANTS]: 'Intrants et ressources',
 };
 
 /** Whether a template's PDF names farms (never sent to an aggregate-only account). */
@@ -145,6 +156,26 @@ export function hasFarmRows(
     sections.includes(ReportSection.FERMES_A_SUIVRE)
   );
 }
+
+/**
+ * Whether a profile's matrix reads (and so receives) a run of `level`:
+ * PILOTAGE:CONSULTER for any report, or TECHNIQUE:CONSULTER for an
+ * end-of-band one — the band's frozen bilan, the same data as the band
+ * sheet. The scope still decides which runs (POUFA lot A: technical
+ * agents get their farms' end-of-band reports through the matrix).
+ */
+export function matrixReadsRun(
+  matrix: InstitutionAccess['matrix'],
+  level: ReportLevel,
+): boolean {
+  return (
+    grants(matrix, 'PILOTAGE', 'CONSULTER') ||
+    (level === ReportLevel.BANDE && grants(matrix, 'TECHNIQUE', 'CONSULTER'))
+  );
+}
+
+/** Template code: capitals, digits and underscores (it never changes). */
+export const TEMPLATE_CODE_RE = /^[A-Z][A-Z0-9_]{1,39}$/;
 
 export type TemplateCheck = { ok: true } | { ok: false; error: string };
 

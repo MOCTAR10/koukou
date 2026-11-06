@@ -40,4 +40,9 @@ export enum ReportSection {
   BILAN = 'BILAN',
   /** Band vs programme average at the same age week (band level). */
   COMPARAISON = 'COMPARAISON',
+  /**
+   * Inputs and resources of the period: deliveries, quantities, value,
+   * subsidy, gaps over `SEUIL_ECART_INTRANTS_PCT` (POUFA lot A).
+   */
+  INTRANTS = 'INTRANTS',
 }

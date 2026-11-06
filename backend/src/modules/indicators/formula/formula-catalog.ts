@@ -15,6 +15,8 @@ export interface IndicatorFormulaDefinition {
   readonly label: string;
   readonly unit: string;
   readonly expression: string;
+  /** Appended to the seed reason of its `FORMULE_*` parameter. */
+  readonly defaultNote?: string;
 }
 
 /** Raw values of a band (lot) that formulas may reference. */
@@ -62,6 +64,19 @@ export const POUFA_BASE_VARIABLES: readonly FormulaVariable[] = [
     name: 'capacite_places',
     label: 'Capacité du bâtiment',
     unit: 'places',
+  },
+  // POUFA lot A pilot: inputs of the steering's per-period aggregates (pilotage,
+  // map, reports). Not known for a band alone: null in its own indicators.
+  {
+    name: 'morts_periode',
+    label: 'Morts de la période (agrégats du pilotage)',
+    unit: 'têtes',
+  },
+  {
+    name: 'effectif_expose',
+    label:
+      'Effectif exposé : présents au premier jour de la période, ou mis en place pendant la période',
+    unit: 'têtes',
   },
 ];
 
@@ -142,4 +157,26 @@ export const POUFA_DEFAULT_FORMULAS: readonly IndicatorFormulaDefinition[] = [
     unit: '%',
     expression: 'morts_jour / presents_veille * 100',
   },
+  // POUFA lot A pilot: the steering's mortality of a period (dashboards, map,
+  // reports), summed over the bands before dividing.
+  {
+    key: 'mortalite_periode_pct',
+    label: 'Mortalité de la période (pilotage)',
+    unit: '%',
+    expression: 'morts_periode / effectif_expose * 100',
+    defaultNote:
+      'formule par période du pilotage, le cahier des charges ne la fixe pas : proposition de Fermia, à valider par la DGE',
+  },
 ];
+
+/**
+ * Indicators of the steering's aggregates over a period (POUFA lot A pilot):
+ * computed from summed facts, never shown in a band's own indicators.
+ */
+export const PERIOD_INDICATOR_KEYS: readonly string[] = [
+  'mortalite_periode_pct',
+];
+
+export function isPeriodIndicator(key: string): boolean {
+  return PERIOD_INDICATOR_KEYS.includes(key);
+}

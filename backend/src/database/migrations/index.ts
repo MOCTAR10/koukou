@@ -14,6 +14,8 @@ import { Traceability1793958553940 } from './1793958553940-Traceability.js';
 import { PilotageReports1793958852697 } from './1793958852697-PilotageReports.js';
 import { SanitarySurveillanceNotify1793958965095 } from './1793958965095-SanitarySurveillanceNotify.js';
 import { DataRecovery1793959230932 } from './1793959230932-DataRecovery.js';
+// POUFA lot A pilot: report notifications and default recipients.
+import { PilotReportsSent1794000100000 } from './1794000100000-PilotReportsSent.js';
 // POUFA lot A bande: weighing reminder to the whole farm team.
 import { WeighingReminderTeam1794000400000 } from './1794000400000-WeighingReminderTeam.js';
 
@@ -40,6 +42,8 @@ export const MIGRATIONS = [
   PilotageReports1793958852697,
   SanitarySurveillanceNotify1793958965095,
   DataRecovery1793959230932,
+  // POUFA lot A pilot.
+  PilotReportsSent1794000100000,
   // POUFA lot A bande
   WeighingReminderTeam1794000400000,
 ];

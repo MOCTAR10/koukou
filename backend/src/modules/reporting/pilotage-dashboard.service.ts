@@ -12,8 +12,14 @@ import {
   metricsOf,
   sumFacts,
   type Facts,
+  type PeriodMortality,
   type PilotageMetrics,
 } from './pilotage-metrics.js';
+import {
+  CONDUCT_ALERTS_LABEL,
+  mortalityOf,
+  type PilotageRules,
+} from './pilotage-programme.js';
 import {
   pct,
   resolvePeriod,
@@ -102,6 +108,15 @@ export interface PilotageDashboard {
     /** Published in the period, national and province alerts included. */
     count: number;
   };
+  /**
+   * What the steering counts (POUFA lot A): the programme's band types, the
+   * conduct alert kinds shown apart, the period mortality formula in force.
+   */
+  perimeter: {
+    eligibleBandTypes: { species: string; type: string }[];
+    conductAlerts: { label: string; kinds: string[] };
+    mortalityFormula: { expression: string; parameterKey: string } | null;
+  };
   /** Input delivery and stock gaps (L4 intrants). */
   inputs: {
     /** False while no intrants module provides summaries (L4). */
@@ -122,6 +137,10 @@ export interface DashboardContext {
   minGroupSize: number;
   rows: FarmFacts[];
   provinces: ProvinceRow[];
+  /** Perimeter, conduct alert kinds and formulas in force at the period's end. */
+  rules: PilotageRules;
+  /** `FORMULE_MORTALITE_PERIODE_PCT` in force. */
+  mortality: PeriodMortality;
 }
 
 const SUPPRESSION_NOTE = (k: number) =>
@@ -161,6 +180,11 @@ export class PilotageDashboardService {
     };
   }
 
+  /** Perimeter, conduct kinds and formulas in force at the period's end. */
+  rules(view: PilotageView, period: Period): Promise<PilotageRules> {
+    return this.data.rules(view.programId, period.to);
+  }
+
   /** Parses the query, reads the farms' facts. */
   async context(
     view: PilotageView,
@@ -168,8 +192,9 @@ export class PilotageDashboardService {
     today: string = utcDay(),
   ): Promise<DashboardContext> {
     const { period, filters } = await this.parse(view, query, today);
+    const rules = await this.data.rules(view.programId, period.to);
     const [rows, provinces, minGroupSize] = await Promise.all([
-      this.data.farmFacts(view, filters, period, today),
+      this.data.farmFacts(view, filters, period, today, rules),
       this.data.provinces(view.programId),
       this.scope.minGroupSize(view.programId),
     ]);
@@ -180,6 +205,8 @@ export class PilotageDashboardService {
       minGroupSize,
       rows,
       provinces,
+      rules,
+      mortality: mortalityOf(rules.formulas),
     };
   }
 
@@ -196,9 +223,9 @@ export class PilotageDashboardService {
     ctx: DashboardContext,
     today: string = utcDay(),
   ): Promise<PilotageDashboard> {
-    const { view, filters, period, minGroupSize: k, rows } = ctx;
+    const { view, filters, period, minGroupSize: k, rows, mortality } = ctx;
     const [weeks, statuses, cohorts, published, inputs] = await Promise.all([
-      this.data.weeklyFacts(view, filters, period, today),
+      this.data.weeklyFacts(view, filters, period, today, ctx.rules),
       this.data.listLabels(view.programId, 'STATUT_FERME'),
       this.data.listLabels(view.programId, 'COHORTE'),
       this.data.publishedCounts(
@@ -251,7 +278,7 @@ export class PilotageDashboardService {
       totals: {
         farms: totalFacts.farms,
         suppressed: totalsHidden,
-        metrics: totalsHidden ? null : metricsOf(totalFacts),
+        metrics: totalsHidden ? null : metricsOf(totalFacts, mortality),
       },
       provinces,
       farms: {
@@ -267,7 +294,7 @@ export class PilotageDashboardService {
           suppressed: hidden,
           farms: w.farms,
           deaths: hidden ? null : w.deaths,
-          mortalityPct: hidden ? null : pct(w.deaths, w.exposed),
+          mortalityPct: hidden ? null : mortality(w.deaths, w.exposed),
           producedHeads: hidden ? null : w.exits,
           producedTonnes: hidden ? null : round(w.exitKg / 1000, 3),
           completenessPct: hidden ? null : pct(w.daysEntered, w.daysElapsed),
@@ -277,6 +304,7 @@ export class PilotageDashboardService {
         available: this.data.publishedAlertsAvailable,
         count: published.length,
       },
+      perimeter: perimeterOf(ctx.rules),
       inputs: {
         ...inputs,
         suppressed: inputs.suppressed || totalsHidden,
@@ -353,7 +381,7 @@ export class PilotageDashboardService {
           sort: province?.sort ?? Number.MAX_SAFE_INTEGER,
           farms: facts.farms,
           suppressed,
-          metrics: suppressed ? null : metricsOf(facts),
+          metrics: suppressed ? null : metricsOf(facts, ctx.mortality),
         };
       })
       .sort((a, b) => a.sort - b.sort || a.code.localeCompare(b.code))
@@ -387,4 +415,21 @@ export class PilotageDashboardService {
       ...(none ? [{ code: null, label: 'Non renseigné', count: none }] : []),
     ];
   }
+}
+
+/** The perimeter block served with the dashboards (POUFA lot A). */
+export function perimeterOf(
+  rules: PilotageRules,
+): PilotageDashboard['perimeter'] {
+  const formula = rules.formulas.find((f) => f.key === 'mortalite_periode_pct');
+  return {
+    eligibleBandTypes: rules.eligibleBandKeys.map((k) => {
+      const [species, type] = k.split(':');
+      return { species, type };
+    }),
+    conductAlerts: { label: CONDUCT_ALERTS_LABEL, kinds: rules.conductAlertKinds },
+    mortalityFormula: formula
+      ? { expression: formula.expression, parameterKey: formula.parameterKey }
+      : null,
+  };
 }

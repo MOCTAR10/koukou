@@ -39,6 +39,10 @@ export function webTargetFor(item: Pick<InboxItem, 'route' | 'farmId'>, ctx: Rou
   const band = new RegExp(`^/batches/(${UUID})$`).exec(route);
   if (band) return { path: `/app/batches?lot=${band[1]}`, farmId: item.farmId };
 
+  // POUFA lot A pilot: a programme report (REPORT_READY).
+  const report = new RegExp(`^/reports/(${UUID})$`).exec(route);
+  if (report) return { path: `/app/pilotage/rapports?rapport=${report[1]}`, farmId: null };
+
   return null;
 }
 
@@ -50,6 +54,7 @@ export const EVENT_SHORT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   DECLARATION_RECEIVED: 'Déclaration sanitaire',
   WEIGHING_LATE: 'Pesée',
   SYNC_CONFLICT: 'Synchronisation',
+  REPORT_READY: 'Rapport',
 };
 
 export function severityTone(level: AlertLevel): 'red' | 'amber' | 'emerald' {
