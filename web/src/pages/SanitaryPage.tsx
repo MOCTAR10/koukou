@@ -48,6 +48,7 @@ import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { useCanRead } from '../app/useMenuAccess';
 import { BarChart } from '../components/Charts';
+import { vetDecision } from '../components/flock/vetDecision';
 import { ConfirmModal, EditScheduleModal, HealthEventModal, PlanCareModal } from '../components/flock/SanitaryModals';
 import { CompleteCareModal } from '../components/flock/CompleteCareModal';
 import {
@@ -432,6 +433,10 @@ function EventsPanel({ lot, period, onAdd }: { lot: SanitaryLotRef; period: Peri
                   </Td>
                   <Td label="État">
                     <Pill tone={e.status === 'RESOLU' ? 'emerald' : 'amber'}>{e.status === 'RESOLU' ? 'Résolu' : 'En cours'}</Pill>
+                    <span className="mt-1 block" title={e.vetReviewComment ?? undefined}>
+                      <Pill tone={vetDecision(e.vetReviewStatus).tone}>{vetDecision(e.vetReviewStatus).label}</Pill>
+                    </span>
+                    {e.vetReviewComment ? <span className="block text-xs text-slate-500">{e.vetReviewComment}</span> : null}
                   </Td>
                   <Td className="whitespace-nowrap text-right">
                     <Button tone="secondary" className="mr-1" onClick={() => setPhotosOf(e)}>

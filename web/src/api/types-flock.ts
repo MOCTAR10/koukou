@@ -256,6 +256,10 @@ export interface HealthEvent {
   /** POUFA L5 declaration: SIGNE_CLINIQUE codes, suspicion (opens an official alert), photos. */
   clinicalSigns?: string[];
   suspicion?: boolean;
+  /** Veterinary decision (CDC n° 26): null/absent = still to be examined. */
+  vetReviewStatus?: 'VALIDEE' | 'INFIRMEE' | 'ALERTE' | null;
+  vetReviewComment?: string | null;
+  vetReviewedAt?: string | null;
   photos?: import('./types-surveillance').HealthEventPhoto[];
 }
 
