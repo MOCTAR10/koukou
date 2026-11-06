@@ -196,14 +196,14 @@ function ProgrammeAside() {
       <div aria-hidden className="absolute inset-x-0 top-0 h-[20rem] bg-gradient-to-b from-black/45 to-transparent" />
       <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
         <div className="flex items-center gap-4">
-          <div className="rounded-2xl bg-white p-2 shadow-xl shadow-black/40">
+          <div className="rounded-xl bg-white p-1 shadow-xl shadow-black/40">
             <img
               src="/maedr-logo-full.webp"
               alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
               className="h-28 w-28 object-contain xl:h-32 xl:w-32 [@media(max-height:780px)]:h-24 [@media(max-height:780px)]:w-24"
             />
           </div>
-          <div className="rounded-2xl bg-white p-2 shadow-xl shadow-black/40">
+          <div className="rounded-xl bg-white p-1 shadow-xl shadow-black/40">
             <img
               src="/men-logo.webp"
               alt="Ministère de l’Économie numérique, de la Digitalisation et de l’Innovation"
