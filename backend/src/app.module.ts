@@ -35,6 +35,7 @@ import { ProgrammeModule } from './modules/programme/programme.module.js';
 import { AccessModule } from './modules/access/access.module.js';
 import { BandesModule } from './modules/bandes/bandes.module.js';
 import { SyncModule } from './modules/sync/sync.module.js';
+import { ReportingModule } from './modules/reporting/reporting.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import {
   dbConnection,
@@ -112,6 +113,7 @@ import {
     AccessModule,
     BandesModule,
     SyncModule,
+    ReportingModule,
     DatabaseModule,
   ],
   controllers: [AppController],
