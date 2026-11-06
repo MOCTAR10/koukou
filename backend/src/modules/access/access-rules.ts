@@ -5,7 +5,7 @@ import {
   ACTION_LABELS,
   DOMAIN_LABELS,
   FERMIA_DOMAINS,
-  SESSION_DOMAIN,
+  MEMBER_DOMAINS,
   isAccessAction,
   isProgrammeDomain,
   type AccessAction,
@@ -65,8 +65,8 @@ export function grants(
 
 /**
  * Decision for one route: default deny without a domain or a membership; the
- * AUDIT scope reaches the journal only; SESSION is open to any member;
- * otherwise the matrix decides. Fermia-only domains are never in a matrix.
+ * AUDIT scope reaches the journal only; SESSION and REFERENCE are open to
+ * any member; otherwise the matrix decides. Fermia-only domains are never in a matrix.
  */
 export function decideRoute(
   access: InstitutionAccess | null,
@@ -75,7 +75,7 @@ export function decideRoute(
 ): AccessDecision {
   if (!domain) return { allowed: false, reason: NO_DOMAIN_MESSAGE };
   if (!access) return { allowed: false, reason: NO_MEMBERSHIP_MESSAGE };
-  if (domain === SESSION_DOMAIN) return { allowed: true };
+  if (MEMBER_DOMAINS.includes(domain)) return { allowed: true };
   if (access.scopeKind === AccessScopeKind.AUDIT && domain !== 'AUDIT') {
     return {
       allowed: false,

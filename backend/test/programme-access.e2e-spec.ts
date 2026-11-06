@@ -276,6 +276,46 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
     });
   });
 
+  describe('reference data (REFERENCE)', () => {
+    it('opens provinces and list items to every member, whatever its matrix', async () => {
+      for (const p of DEFAULT_PROFILES) {
+        const token = accounts[p.code].token;
+        const provinces = await get('/programme/provinces', token).expect(200);
+        expect(provinces.body.map((x: { code: string }) => x.code)).toContain(
+          'G1',
+        );
+        expect(provinces.body[0].localites.length).toBeGreaterThan(0);
+        await get('/programme/lists/STATUT_FERME', token).expect(200);
+        // Inactive items stay administrator-only.
+        await get('/programme/provinces?all=true', token).expect(403);
+      }
+      // Writes keep their domain: an institution without ADMINISTRATION.
+      await post(
+        '/programme/localites',
+        { provinceCode: 'G1', name: 'X' },
+        accounts.MAEDR.token,
+      ).expect(403);
+      // An account without membership is still refused.
+      await patch(
+        `/programme/access/memberships/${accounts.BCEG.id}`,
+        { active: false },
+        adminToken,
+      ).expect(200);
+      await get('/programme/provinces', accounts.BCEG.token).expect(403);
+      await patch(
+        `/programme/access/memberships/${accounts.BCEG.id}`,
+        { active: true },
+        adminToken,
+      ).expect(200);
+    });
+
+    it('opens the provinces to Market buyers, not the lists', async () => {
+      const buyer = await registerBuyer(server);
+      await get('/programme/provinces', buyer.token).expect(200);
+      await get('/programme/lists/STATUT_FERME', buyer.token).expect(403);
+    });
+  });
+
   describe('matrix: profile × domain × action', () => {
     const probes: Probe[] = [
       {
@@ -512,9 +552,14 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
           (f: { province: { code: string } }) => f.province.code === 'G1',
         ),
       ).toBe(true);
-      const mine = (await get('/farms', provToken).expect(200)).body.map(
-        (f: { id: string }) => f.id,
-      );
+      const mineRows = (await get('/farms', provToken).expect(200)).body;
+      expect(
+        mineRows.every(
+          (f: { provinceCode: string; provinceName: string }) =>
+            f.provinceCode === 'G1' && f.provinceName === 'Estuaire',
+        ),
+      ).toBe(true);
+      const mine = mineRows.map((f: { id: string }) => f.id);
       expect(mine).toContain(farmA);
       expect(mine).not.toContain(farmB);
       expect(mine).not.toContain(farmC);

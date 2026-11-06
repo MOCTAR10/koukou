@@ -44,7 +44,8 @@ const listTypePipe = new ParseEnumPipe(ProgramListType, {
  *
  * Platform admin, or an institutional account whose profile grants the
  * route's domain (PARAMETRES; lists, localités and boundaries:
- * ADMINISTRATION; GPS check: REGISTRE). A parameter is changed by its owner
+ * ADMINISTRATION; GPS check: REGISTRE). Provinces with their localités and
+ * active list items are reference data (REFERENCE): any member reads them. A parameter is changed by its owner
  * profile only (`ParametersService.set`).
  */
 @ApiTags('Programme (POUFA)')
@@ -77,7 +78,15 @@ export class ProgrammeController {
   }
 
   @Get('provinces')
-  @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  // Reference data for display (registry filters, farm sheets): any
+  // institutional account, whatever its matrix; Market buyers too.
+  @Domain('REFERENCE')
+  @Roles(
+    UserRole.PLATFORM_ADMIN,
+    UserRole.PROPRIETAIRE,
+    UserRole.ELEVEUR,
+    UserRole.ACHETEUR,
+  )
   @ApiOperation({
     summary:
       'Provinces et localités du programme (sans les contours ; ?all=true : localités désactivées incluses, administrateur)',
@@ -88,6 +97,8 @@ export class ProgrammeController {
   }
 
   @Get('lists/:listType')
+  // Active items (labels of statuses, exit reasons…): reference data.
+  @Domain('REFERENCE')
   @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:
