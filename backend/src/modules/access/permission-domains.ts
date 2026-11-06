@@ -67,6 +67,21 @@ export const PERMISSION_DOMAINS: Readonly<
   },
 };
 
+// POUFA lot A2 droits (begin): bonus write codes never reach an institution.
+/**
+ * Write codes of the Fermia bonus features stored under a programme domain
+ * (expenses, FEFO stock and receptions, slaughter): an institution never
+ * holds them, whatever its matrix grants on ECONOMIQUE, INTRANTS or
+ * TRACABILITE (second rampart of `@InstitutionReadOnly`; the apps hide the
+ * write buttons on these codes).
+ */
+export const INSTITUTION_EXCLUDED_CODES: ReadonlySet<PermissionCode> = new Set<PermissionCode>([
+  'compta:depense',
+  'stock:gerer',
+  'production:abattage',
+]);
+// POUFA lot A2 droits (end)
+
 /** Farm permission codes an institutional profile holds on an in-scope farm. */
 export function institutionPermissions(
   matrix: AccessMatrix,
@@ -74,6 +89,7 @@ export function institutionPermissions(
   const codes = new Set<PermissionCode>();
   for (const [code, rule] of Object.entries(PERMISSION_DOMAINS)) {
     if (!isPermissionCode(code)) continue;
+    if (INSTITUTION_EXCLUDED_CODES.has(code)) continue;
     const options = [[rule.domain, rule.action] as const, ...(rule.also ?? [])];
     if (
       options.some(

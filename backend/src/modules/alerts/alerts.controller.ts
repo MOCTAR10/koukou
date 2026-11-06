@@ -1,3 +1,4 @@
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import {
   BadRequestException,
   Controller,
@@ -15,10 +16,11 @@ import { AlertStatus } from '../../common/enums/alert-level.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { AlertsService } from './alerts.service.js';
 import { visibleAlerts } from './economic-alerts.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Alertes (Assistant)')
 @Domain('TECHNIQUE')
+@InstitutionReadOnly('Conseils d’élevage')
 @Controller('farms/:farmId/alerts')
 export class AlertsController {
   constructor(
@@ -27,6 +29,7 @@ export class AlertsController {
   ) {}
 
   @Get()
+  @AuditThirdPartyRead('Alertes d’une ferme (contexte économique)')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Lister les alertes d’une ferme' })
   @ApiParam({ name: 'farmId' })
@@ -52,6 +55,7 @@ export class AlertsController {
   }
 
   @Get('history')
+  @AuditThirdPartyRead('Historique des alertes d’une ferme')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({
     summary:

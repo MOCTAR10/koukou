@@ -1,3 +1,4 @@
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -35,6 +36,7 @@ export class ProgrammeDeliveriesController {
   }
 
   @Get()
+  @AuditThirdPartyRead('Livraisons d’intrants du programme (coûts, subventions)')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:
@@ -48,6 +50,7 @@ export class ProgrammeDeliveriesController {
   }
 
   @Get(':id')
+  @AuditThirdPartyRead('Détail d’une livraison d’intrants du programme')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({ summary: 'Détail d’une livraison' })
   get(@CurrentUser() user: AuthUser, @Param('id') id: string) {

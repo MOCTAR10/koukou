@@ -24,10 +24,11 @@ import {
   UpdateSlaughterOrderDto,
 } from './dto/slaughter.dto.js';
 import { SlaughterService } from './slaughter.service.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Abattage & traçabilité')
 @Domain('TRACABILITE')
+@InstitutionReadOnly('Abattage')
 @Controller('farms/:farmId/slaughter-orders')
 export class SlaughterController {
   constructor(private readonly slaughterService: SlaughterService) {}
@@ -164,6 +165,7 @@ export class SlaughterController {
 
 @ApiTags('Abattage & traçabilité')
 @Domain('TRACABILITE')
+@InstitutionReadOnly('Abattage')
 @Controller('farms/:farmId/batches')
 export class BatchPasseportController {
   constructor(private readonly slaughterService: SlaughterService) {}

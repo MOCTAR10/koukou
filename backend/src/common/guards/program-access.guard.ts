@@ -11,13 +11,17 @@ import {
   type AccessAction,
   type AccessDomain,
 } from '../../modules/access/access-domains.js';
-import { decideRouteAny } from '../../modules/access/access-rules.js';
+import {
+  decideRouteAny,
+  readOnlyRefusal,
+} from '../../modules/access/access-rules.js';
 import { ScopeResolver } from '../../modules/access/scope-resolver.service.js';
 import { AuthUser } from '../decorators/current-user.decorator.js';
 import {
   ACTION_KEY,
   ALSO_GRANTED_BY_KEY,
   DOMAIN_KEY,
+  INSTITUTION_READ_ONLY_KEY,
 } from '../decorators/domain.decorator.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { UserRole } from '../enums/role.enum.js';
@@ -28,7 +32,9 @@ import { UserRole } from '../enums/role.enum.js';
  * PermissionsGuard rules apply as before). An INSTITUTION account needs:
  * a `@Domain` on the route or its controller (default deny), an effective
  * membership whose profile grants the route's action on that domain, and,
- * on a `:farmId` route, that farm in its scope. OPERATEUR accounts are
+ * on a `:farmId` route, that farm in its scope. A Fermia bonus feature
+ * (Fermia bonus domain, or `@InstitutionReadOnly`) is read-only for it,
+ * whatever the matrix (POUFA lot A2 droits). OPERATEUR accounts are
  * reserved and refused everywhere for now.
  */
 @Injectable()
@@ -63,6 +69,16 @@ export class ProgramAccessGuard implements CanActivate {
         ACTION_KEY,
         targets,
       ) ?? actionForMethod(String(request.method ?? 'GET'));
+    // POUFA lot A2 droits: a bonus feature never writes for an institution.
+    const readOnly = readOnlyRefusal(
+      domain,
+      action,
+      this.reflector.getAllAndOverride<string | undefined>(
+        INSTITUTION_READ_ONLY_KEY,
+        targets,
+      ),
+    );
+    if (readOnly) throw new ForbiddenException(readOnly);
     const access = domain ? await this.scope.accessOf(user.id) : null;
     const alternatives =
       this.reflector.get<

@@ -21,10 +21,11 @@ import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { SalesService } from './sales.service.js';
 import { CreateSaleDto } from './dto/sale.dto.js';
 import { CreatePaymentDto } from './dto/payment.dto.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Finance — Ventes (POS)')
 @Domain('ECONOMIQUE')
+@InstitutionReadOnly('Ventes')
 @Controller('farms/:farmId/sales')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}

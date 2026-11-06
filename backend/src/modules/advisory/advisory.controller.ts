@@ -5,11 +5,12 @@ import type { AuthUser } from '../../common/decorators/current-user.decorator.js
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { AdvisoryService } from './advisory.service.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
 import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
 @ApiTags('Assistant de ferme (actions prioritaires)')
 @Domain('TECHNIQUE')
+@InstitutionReadOnly('Conseils d’élevage')
 @Controller('farms/:farmId/advisory')
 export class AdvisoryController {
   constructor(private readonly advisoryService: AdvisoryService) {}

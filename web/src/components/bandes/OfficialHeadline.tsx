@@ -17,6 +17,7 @@ import {
   findIndicator,
   officialText,
   officialTooltip,
+  showsBandEconomics,
 } from './headline';
 
 /**
@@ -104,6 +105,8 @@ export function BandHistoryCard({ onOpen }: { onOpen?: (batchId: string) => void
   const history = useBandHistory('CLOTURE');
   const rows = history.data ?? [];
   const best = bestBands(rows);
+  // POUFA lot A2 droits (F6): no money columns for a reader without ECONOMIQUE.
+  const money = showsBandEconomics(rows.map((r) => r.summary));
   return (
     <SectionCard
       title="Historique des bandes"
@@ -129,8 +132,8 @@ export function BandHistoryCard({ onOpen }: { onOpen?: (batchId: string) => void
               {HEADLINE_KEYS.map((k) => (
                 <Th key={k}>{HEADLINE_SHORT[k]}</Th>
               ))}
-              <Th className="hidden lg:table-cell">Chiffre d’affaires</Th>
-              <Th>Marge</Th>
+              {money ? <Th className="hidden lg:table-cell">Chiffre d’affaires</Th> : null}
+              {money ? <Th>Marge</Th> : null}
             </tr>
           </thead>
           <tbody>
@@ -165,14 +168,18 @@ export function BandHistoryCard({ onOpen }: { onOpen?: (batchId: string) => void
                       </span>
                     </Td>
                   ))}
-                  <Td label="Chiffre d’affaires" className="md:max-lg:hidden">
-                    {s?.revenueFcfa != null ? fcfa(s.revenueFcfa) : '—'}
-                  </Td>
-                  <Td label="Marge">
-                    <span className={s?.marginFcfa != null && s.marginFcfa < 0 ? 'text-red-600' : undefined} title={findIndicator(s?.indicators, 'marge_fcfa') ? officialTooltip(findIndicator(s?.indicators, 'marge_fcfa')) : undefined}>
-                      {s?.marginFcfa != null ? fcfa(s.marginFcfa) : '—'}
-                    </span>
-                  </Td>
+                  {money ? (
+                    <Td label="Chiffre d’affaires" className="md:max-lg:hidden">
+                      {s?.revenueFcfa != null ? fcfa(s.revenueFcfa) : '—'}
+                    </Td>
+                  ) : null}
+                  {money ? (
+                    <Td label="Marge">
+                      <span className={s?.marginFcfa != null && s.marginFcfa < 0 ? 'text-red-600' : undefined} title={findIndicator(s?.indicators, 'marge_fcfa') ? officialTooltip(findIndicator(s?.indicators, 'marge_fcfa')) : undefined}>
+                        {s?.marginFcfa != null ? fcfa(s.marginFcfa) : '—'}
+                      </span>
+                    </Td>
+                  ) : null}
                 </tr>
               );
             })}

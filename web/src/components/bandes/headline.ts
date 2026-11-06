@@ -130,3 +130,14 @@ export const COST_PER_KG_SOLD_LABEL = 'Coût par kg vendu';
 export function marginLabel(indicators: readonly { key: string; label: string }[] | null | undefined, key: 'marge_fcfa' | 'taux_marge'): string {
   return findIndicator(indicators, key)?.label ?? (key === 'marge_fcfa' ? 'Marge' : 'Taux de marge');
 }
+
+// POUFA lot A2 droits (F6): the server masks the band economics for a reader
+// without ECONOMIQUE (`economicMasked`); the screens then hide the money
+// block instead of showing empty figures.
+/** Whether every band answer of the list carries its money figures. */
+export function showsBandEconomics(list: readonly ({ economicMasked?: boolean } | null | undefined)[]): boolean {
+  return !list.some((item) => item?.economicMasked === true);
+}
+
+/** Note shown where the money block is hidden. */
+export const ECONOMICS_MASKED_NOTE = 'Chiffre d’affaires, coût et marge : réservés aux profils disposant du droit Économique.';

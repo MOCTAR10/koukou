@@ -401,6 +401,8 @@ export interface BandeIndicators {
   variables: Record<string, number | null>;
   indicators: OfficialIndicator[];
   completenessPct: number | null;
+  /** POUFA lot A2 droits (F6): true for a reader without ECONOMIQUE (money nulled, money indicators absent). */
+  economicMasked?: boolean;
 }
 
 export function fetchBandIndicators(farmId: string, batchId: string): Promise<BandeIndicators> {
@@ -422,6 +424,8 @@ export interface BandeSnapshot {
   marginFcfa: number | null;
   completenessPct: number | null;
   createdAt: string;
+  /** POUFA lot A2 droits (F6): true for a reader without ECONOMIQUE (money nulled, money indicators absent). */
+  economicMasked?: boolean;
 }
 
 export function fetchBandSnapshots(farmId: string, batchId: string): Promise<BandeSnapshot[]> {
@@ -480,6 +484,8 @@ export interface BandSummary {
   chargesFcfa: number | null;
   marginFcfa: number | null;
   completenessPct: number | null;
+  /** POUFA lot A2 droits (F6): true for a reader without ECONOMIQUE (money nulled, money indicators absent). */
+  economicMasked?: boolean;
 }
 
 /** `GET /farms/:farmId/bandes[?status=]`: one band sheet with its summary, newest first. */

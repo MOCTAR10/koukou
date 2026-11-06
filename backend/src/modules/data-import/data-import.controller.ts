@@ -17,7 +17,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuditExport } from '../../common/decorators/audit.decorator.js';
+import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import {
   CurrentUser,
   type AuthUser,
@@ -138,6 +138,7 @@ export class DataImportController {
   }
 
   @Get(':id/rows')
+  @AuditThirdPartyRead('Lignes d’une reprise de données (exploitants, téléphones)')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:

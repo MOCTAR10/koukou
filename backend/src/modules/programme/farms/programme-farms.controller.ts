@@ -64,6 +64,7 @@ export class ProgrammeFarmsController {
   ) {}
 
   @Get()
+  @AuditThirdPartyRead('Registre des fermes (exploitants, téléphones)')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({
     summary:

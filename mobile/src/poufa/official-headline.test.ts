@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { BandComparison, BandHistoryRow } from '@/api/poufa';
-import { CONDUITE_LABEL, bestBands, conduiteLine, currentBand, latestComparison, marginLabel, officialText } from './official-headline';
+import { CONDUITE_LABEL, bestBands, conduiteLine, currentBand, latestComparison, marginLabel, officialText, showsBandEconomics } from './official-headline';
 
 function row(id: string, status: string, values: Record<string, number | null>): BandHistoryRow {
   return {
@@ -68,5 +68,14 @@ describe('official headline', () => {
     };
     expect(latestComparison(c)?.week).toBe(2);
     expect(latestComparison(null)).toBeNull();
+  });
+});
+
+// POUFA lot A2 droits (F6).
+describe('showsBandEconomics', () => {
+  it('hides the money line once the server masked it', () => {
+    expect(showsBandEconomics([])).toBe(true);
+    expect(showsBandEconomics([null, { economicMasked: false }, {}])).toBe(true);
+    expect(showsBandEconomics([{ economicMasked: true }])).toBe(false);
   });
 });

@@ -20,6 +20,7 @@ import {
   isNationalAdministrator,
   matrixExcessRefusal,
   mayChangeParameter,
+  readOnlyRefusal,
   scopeExcess,
   scopeKindRefusal,
   validateMatrix,
@@ -358,6 +359,41 @@ describe('permission codes of an institutional profile', () => {
       [...institutionPermissions(access('VETERINAIRE').matrix)].sort(),
     ).toEqual(['sanitaire:gerer', 'sanitaire:lecture', 'sanitaire:signaler']);
     expect(institutionPermissions(access('ANINF').matrix).size).toBe(0);
+  });
+});
+
+// POUFA lot A2 droits: the Fermia bonus features stay read-only.
+describe('Fermia bonus features in read-only', () => {
+  it('never maps the bonus write codes, whatever the matrix', () => {
+    const codes = institutionPermissions({
+      ECONOMIQUE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
+      INTRANTS: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
+      TRACABILITE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
+      TECHNIQUE: ['CONSULTER', 'CREER', 'MODIFIER'],
+    });
+    for (const code of [
+      'compta:depense',
+      'stock:gerer',
+      'production:abattage',
+    ] as const) {
+      expect(codes.has(code), code).toBe(false);
+    }
+    expect(codes.has('compta:rapports')).toBe(true);
+    expect(codes.has('saisie:creer')).toBe(true);
+  });
+
+  it('refuses every action but CONSULTER on a marked or a Fermia bonus route', () => {
+    expect(readOnlyRefusal('ECONOMIQUE', 'CONSULTER', 'Dépenses')).toBeNull();
+    expect(readOnlyRefusal('ECONOMIQUE', 'CREER', undefined)).toBeNull();
+    for (const action of ['CREER', 'MODIFIER', 'VALIDER', 'ADMINISTRER'] as const) {
+      expect(readOnlyRefusal('INTRANTS', action, 'Stock d’aliment')).toMatch(
+        /« Stock d’aliment ».*consultation seule/,
+      );
+    }
+    expect(readOnlyRefusal('COMPTABILITE', 'MODIFIER', undefined)).toMatch(
+      /« Comptabilité »/,
+    );
+    expect(readOnlyRefusal(undefined, 'CREER', undefined)).toBeNull();
   });
 });
 

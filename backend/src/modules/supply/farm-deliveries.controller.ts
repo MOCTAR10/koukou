@@ -1,3 +1,4 @@
+import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -30,6 +31,7 @@ export class FarmDeliveriesController {
   ) {}
 
   @Get('input-deliveries')
+  @AuditThirdPartyRead('Livraisons d’intrants d’une ferme (coûts, subventions)')
   @Permissions('intrants:lire', 'stock:gerer')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Livraisons d’intrants de la ferme' })
@@ -42,6 +44,7 @@ export class FarmDeliveriesController {
   }
 
   @Get('input-deliveries/:id')
+  @AuditThirdPartyRead('Détail d’une livraison d’intrants (coûts, subventions)')
   @Permissions('intrants:lire', 'stock:gerer')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Détail d’une livraison de la ferme' })

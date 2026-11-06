@@ -407,6 +407,8 @@ export interface BandSummary {
   chargesFcfa: number | null;
   marginFcfa: number | null;
   completenessPct: number | null;
+  /** POUFA lot A2 droits (F6): true for a reader without ECONOMIQUE (money nulled, money indicators absent). */
+  economicMasked?: boolean;
 }
 
 /** `GET /farms/:farmId/bandes[?status=CLOTURE|EN_COURS]`: the farm's band history. */
@@ -435,6 +437,8 @@ export interface BandeIndicators {
   variables: Record<string, number | null>;
   indicators: OfficialIndicator[];
   completenessPct: number | null;
+  /** POUFA lot A2 droits (F6): true for a reader without ECONOMIQUE. */
+  economicMasked?: boolean;
 }
 
 export type BandeSnapshotTrigger = 'CLOTURE_AUTO' | 'CLOTURE_MANUELLE' | 'CORRECTION';
@@ -458,6 +462,8 @@ export interface BandeSnapshot {
   completenessPct: number | null;
   createdById: string | null;
   createdAt: string;
+  /** POUFA lot A2 droits (F6): true for a reader without ECONOMIQUE. */
+  economicMasked?: boolean;
 }
 
 export interface ComparisonValues {
