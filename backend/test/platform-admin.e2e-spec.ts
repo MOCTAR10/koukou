@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { FARM_NAME_IN_REGISTRY } from './../src/modules/farms/farms.service.js';
 import {
   createPlatformAdmin,
   createProgrammeFarm,
@@ -318,6 +319,23 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
       defaultSacKg: 25,
     }).expect(200);
     expect(res.body.defaultSacKg).toBe(25);
+  });
+
+  it('ne renomme pas une ferme hors du registre (400, rien n’est écrit)', async () => {
+    for (const body of [
+      { name: `Ferme Plateforme renommée ${stamp}` },
+      { name: `Ferme Plateforme renommée ${stamp}`, defaultSacKg: 40 },
+    ]) {
+      const res = await patch(`/admin/farms/${farmId}`, body).expect(400);
+      expect(res.body.message).toBe(FARM_NAME_IN_REGISTRY);
+    }
+    const farm = (await get('/admin/farms').expect(200)).body.find(
+      (f: any) => f.id === farmId,
+    );
+    expect(farm).toMatchObject({
+      name: `Ferme Plateforme ${stamp}`,
+      defaultSacKg: 25,
+    });
   });
 
   it('réserve la modification des constantes à l’administrateur plateforme', async () => {

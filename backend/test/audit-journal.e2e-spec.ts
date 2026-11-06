@@ -33,6 +33,7 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
   let ownerToken: string;
   let ownerId: string;
   let adminToken: string;
+  let adminId: string;
   let farmId: string;
 
   async function eventsOf(requestId: string) {
@@ -57,7 +58,7 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
     server = app.getHttpServer();
     ds = app.get(DataSource);
 
-    ({ token: adminToken } = await createPlatformAdmin(server, ds, {
+    ({ token: adminToken, userId: adminId } = await createPlatformAdmin(server, ds, {
       fullName: 'Admin Audit',
     }));
     const owner = await createProgrammeFarm(server, adminToken, {
@@ -455,12 +456,13 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
 
   it('l’historique des données est filtrable par requête', async () => {
     const requestId = randomUUID();
+    // A farm is renamed in the registry (earlier runs left resembling names).
     await request(server)
-      .patch(`/farms/${farmId}`)
-      .set('Authorization', `Bearer ${ownerToken}`)
+      .patch(`/programme/farms/${farmId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .set('X-Request-Id', requestId)
-      .send({ name: `Ferme Audit renommée ${stamp}` })
-      .expect((r) => expect(r.status).toBeLessThan(300));
+      .send({ name: `Ferme Audit renommée ${stamp}`, confirmDuplicate: true })
+      .expect(200);
     const res = await request(server)
       .get('/audit/row-changes')
       .query({ table: 'farms', rowId: farmId })
@@ -472,19 +474,22 @@ describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => 
       .query({ requestId })
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    // `farmRepo.save()` opens its own transaction: the subscriber tags it.
+    // The registry writes inside `dataSource.transaction`: the subscriber tags it.
     const update = byRequest.body.items.find(
       (c: any) => c.tableName === 'farms',
     );
     expect(update).toMatchObject({
       op: 'U',
       rowId: farmId,
-      actorUserId: ownerId,
+      actorUserId: adminId,
     });
     expect(update.after.name).toBe(`Ferme Audit renommée ${stamp}`);
     expect(update.before.name).toBe(`Ferme Audit ${stamp}`);
     const [event] = await eventsOf(requestId);
-    expect(event).toMatchObject({ action: 'WRITE', route: '/farms/:farmId' });
+    expect(event).toMatchObject({
+      action: 'WRITE',
+      route: '/programme/farms/:farmId',
+    });
   });
 
   it('une écriture hors transaction (query builder) garde une trace de niveau 1, request_id nul au niveau 2', async () => {

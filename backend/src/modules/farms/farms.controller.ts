@@ -51,7 +51,7 @@ export class FarmsController {
   @Permissions('reglages:ferme')
   @ApiOperation({
     summary:
-      "Modifier les paramètres de la ferme (nom, ville, poids du sac). Propriétaire ou membre avec « reglages:ferme ».",
+      "Modifier les paramètres de la ferme (ville, poids du sac ; le nom se change dans le registre). Propriétaire ou membre avec « reglages:ferme ».",
   })
   updateSettings(
     @CurrentUser() user: AuthUser,

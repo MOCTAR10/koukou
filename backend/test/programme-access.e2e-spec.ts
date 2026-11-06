@@ -413,7 +413,7 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         name: 'COMPTE (réglages de la ferme)',
         farm: true,
         needs: [],
-        call: (f) => patch(`/farms/${f}`, { name: 'x' }, ''),
+        call: (f) => patch(`/farms/${f}`, { administrativeCity: 'x' }, ''),
       },
       {
         name: 'PLATEFORME',
