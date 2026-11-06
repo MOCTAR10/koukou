@@ -86,6 +86,17 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    key: 'market',
+    label: 'Market',
+    items: [
+      {
+        code: 'market:publier',
+        label: 'Publier sur le Market',
+        description: 'Créer, publier, suspendre et clôturer les annonces de la ferme.',
+      },
+    ],
+  },
+  {
     key: 'compta',
     label: 'Comptabilité',
     items: [
@@ -281,6 +292,7 @@ export const STAFF_PROFILES: StaffProfile[] = [
       'vente:annuler',
       'vente:commande',
       'vente:promotion',
+      'market:publier',
       'compta:depense',
       'compta:client',
       'compta:rapports',
