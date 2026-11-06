@@ -49,7 +49,8 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
     matrix: {
       REGISTRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
       TECHNIQUE: ['CONSULTER'],
-      INTRANTS: ['CONSULTER', 'VALIDER'],
+      // CREER: records the State's input deliveries (POUFA L4).
+      INTRANTS: ['CONSULTER', 'CREER', 'VALIDER'],
       ECONOMIQUE: ['CONSULTER'],
       TRACABILITE: ['CONSULTER'],
       PILOTAGE: ['CONSULTER'],
