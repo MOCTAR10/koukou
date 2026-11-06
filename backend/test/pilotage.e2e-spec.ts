@@ -5,6 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { readXlsx, XLSX_MIME } from './../src/common/utils/spreadsheet.js';
 import {
   KOUKOU_EVENTS,
   koukouBus,
@@ -260,8 +261,15 @@ describe('Pilotage POUFA — tableaux de bord, carte, objectif, rapports (e2e)',
       expect(m.completeness).toMatchObject({ daysEntered: 5, daysElapsed: 22 });
       expect(m.completeness.pct).toBeCloseTo(22.7, 1);
       expect(d.farms.total).toBe(2);
-      expect(d.publishedAlerts).toEqual({ available: false, count: 0 });
-      expect(d.inputs).toMatchObject({ available: false, figures: null });
+      // L5 and L4 are wired: no published alert, no delivery for these farms.
+      expect(d.publishedAlerts).toEqual({ available: true, count: 0 });
+      expect(d.inputs).toMatchObject({ available: true });
+      expect(d.inputs.figures.deliveries).toEqual({
+        pending: 0,
+        confirmed: 0,
+        cancelled: 0,
+        withGap: 0,
+      });
       expect(d.provinces.map((p: { code: string }) => p.code)).toEqual(['G1']);
       expect(d.series.length).toBeGreaterThanOrEqual(2);
     });
@@ -432,6 +440,33 @@ describe('Pilotage POUFA — tableaux de bord, carte, objectif, rapports (e2e)',
         accounts.agent.token,
       ).expect(200);
       expect(res.text.split('\r\n').length).toBe(4); // header + 3 bands
+    });
+
+    it('exporte aussi en Excel .xlsx, mêmes lignes, et le journalise', async () => {
+      const res = await request(server)
+        .get('/pilotage/exports/bandes.xlsx')
+        .set(auth(accounts.agent.token))
+        .buffer(true)
+        .parse((response, done) => {
+          const chunks: Buffer[] = [];
+          response.on('data', (c: Buffer) => chunks.push(c));
+          response.on('end', () => done(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+      expect(res.headers['content-type']).toContain(XLSX_MIME);
+      expect(res.headers['content-disposition']).toMatch(/\.xlsx"/);
+      const rows = await readXlsx(res.body as Buffer);
+      expect(rows).toHaveLength(4); // header + 3 bands
+      const [{ n }] = await ds.query(
+        `SELECT COUNT(*)::int AS n FROM audit_events
+          WHERE actor_user_id = $1 AND action = 'EXPORT'
+            AND route LIKE '%exports/bandes.xlsx%'`,
+        [accounts.agent.userId],
+      );
+      expect(n).toBeGreaterThanOrEqual(1);
+      await get('/pilotage/exports/farms.xlsx', accounts.maedr.token).expect(
+        403,
+      );
     });
 
     it('refuse les lignes par ferme au MAEDR', async () => {

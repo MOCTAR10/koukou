@@ -1,12 +1,13 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { CsvService } from '../../common/services/csv.service.js';
+import { toXlsx, XLSX_MIME } from '../../common/utils/spreadsheet.js';
 
 /**
  * Export seam: a service builds a table (columns + rows), a serializer turns
- * it into a file. CSV is the only format today; an Excel writer (`exceljs`,
- * approved, added on the integration branch) implements `TableSerializer`
- * with `format: 'xlsx'` and joins the `TABLE_SERIALIZERS` list in
- * `ReportingModule` — no export service changes.
+ * it into a file: CSV (`CsvTableSerializer`) or Excel (`XlsxTableSerializer`,
+ * `common/utils/spreadsheet.ts`), both in the `TABLE_SERIALIZERS` list of
+ * `ReportingModule`. Another format = another serializer, no export service
+ * changes.
  */
 
 /** Rows keyed by column key; `columns` maps each key to its French header. */
@@ -26,7 +27,7 @@ export interface ExportFile {
 }
 
 export interface TableSerializer {
-  /** Format code asked by the caller (`csv`, later `xlsx`). */
+  /** Format code asked by the caller (`csv`, `xlsx`). */
   readonly format: string;
   readonly extension: string;
   readonly contentType: string;
@@ -56,6 +57,26 @@ export class CsvTableSerializer implements TableSerializer {
     return this.csv.toCsv(
       [...headers],
       rows.map((r) => [...r]),
+    );
+  }
+}
+
+/** Excel: one typed sheet (numbers stay numbers, text never a formula). */
+@Injectable()
+export class XlsxTableSerializer implements TableSerializer {
+  readonly format = 'xlsx';
+  readonly extension = 'xlsx';
+  readonly contentType = XLSX_MIME;
+
+  serialize(
+    headers: readonly string[],
+    rows: readonly (readonly unknown[])[],
+    sheetName: string,
+  ): Promise<Buffer> {
+    return toXlsx(
+      [...headers],
+      rows.map((r) => [...r]),
+      { sheetName },
     );
   }
 }

@@ -130,6 +130,10 @@ export interface PublishedAlertsFilter {
   from?: string;
   /** Fact day to (inclusive). */
   to?: string;
+  /** Published at or after this instant (the steering's window). */
+  publishedFrom?: Date;
+  /** Published strictly before this instant. */
+  publishedBefore?: Date;
   provinceIds?: readonly string[];
   /** Restrict to an institutional scope (farm-level scopes only). */
   access?: InstitutionAccess;
@@ -624,6 +628,16 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
     const qb = this.selectQuery().where('a.published_at IS NOT NULL');
     if (filter.from) qb.andWhere('a.fact_day >= :from', { from: filter.from });
     if (filter.to) qb.andWhere('a.fact_day <= :to', { to: filter.to });
+    if (filter.publishedFrom) {
+      qb.andWhere('a.published_at >= :publishedFrom', {
+        publishedFrom: filter.publishedFrom,
+      });
+    }
+    if (filter.publishedBefore) {
+      qb.andWhere('a.published_at < :publishedBefore', {
+        publishedBefore: filter.publishedBefore,
+      });
+    }
     if (filter.provinceIds) {
       if (filter.provinceIds.length === 0) qb.andWhere('1 = 0');
       else {

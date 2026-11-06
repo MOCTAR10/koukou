@@ -2,12 +2,14 @@ import {
   CsvTableSerializer,
   ExportWriter,
   TABLE_SERIALIZERS,
+  XlsxTableSerializer,
   type TableSerializer,
 } from './export-table.js';
+import { INPUT_RECONCILIATION_SOURCE } from './input-reconciliation.js';
 import {
-  INPUT_RECONCILIATION_SOURCE,
-  NoInputReconciliationSource,
-} from './input-reconciliation.js';
+  SupplyInputReconciliationSource,
+  SurveillancePublishedAlertSource,
+} from './integration-sources.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommonModule } from '../../common/services/common.module.js';
@@ -30,10 +32,9 @@ import { PilotageMapService } from './pilotage-map.service.js';
 import { PilotageObjectiveService } from './pilotage-objective.service.js';
 import { PilotageScopeService } from './pilotage-scope.service.js';
 import { PilotageController } from './pilotage.controller.js';
-import {
-  NoPublishedAlertSource,
-  PUBLISHED_ALERT_SOURCE,
-} from './published-alerts.js';
+import { PUBLISHED_ALERT_SOURCE } from './published-alerts.js';
+import { SupplyModule } from '../supply/supply.module.js';
+import { SurveillanceModule } from '../surveillance/surveillance.module.js';
 import { ReportSweepService } from './report-sweep.service.js';
 import { ReportsController } from './reports.controller.js';
 import { ReportsService } from './reports.service.js';
@@ -58,6 +59,8 @@ import { ReportsService } from './reports.service.js';
     FarmsModule,
     ProgrammeModule,
     CommonModule,
+    SurveillanceModule,
+    SupplyModule,
   ],
   controllers: [
     PilotageController,
@@ -74,19 +77,25 @@ import { ReportsService } from './reports.service.js';
     BandComparisonService,
     ReportsService,
     ReportSweepService,
-    // L5 seam: replace with the sanitary module's published alerts.
-    { provide: PUBLISHED_ALERT_SOURCE, useClass: NoPublishedAlertSource },
-    // L4 seam: replace with an adapter over DeclarativeStockService.farmSummaries.
+    // L5: published official sanitary alerts (SanitaryAlertsService).
+    {
+      provide: PUBLISHED_ALERT_SOURCE,
+      useClass: SurveillancePublishedAlertSource,
+    },
+    // L4: declarative stock summaries (DeclarativeStockService).
     {
       provide: INPUT_RECONCILIATION_SOURCE,
-      useClass: NoInputReconciliationSource,
+      useClass: SupplyInputReconciliationSource,
     },
-    // Export formats: add the xlsx serializer (exceljs) to this list.
     CsvTableSerializer,
+    XlsxTableSerializer,
     {
       provide: TABLE_SERIALIZERS,
-      useFactory: (csv: CsvTableSerializer): TableSerializer[] => [csv],
-      inject: [CsvTableSerializer],
+      useFactory: (
+        csv: CsvTableSerializer,
+        xlsx: XlsxTableSerializer,
+      ): TableSerializer[] => [csv, xlsx],
+      inject: [CsvTableSerializer, XlsxTableSerializer],
     },
     ExportWriter,
   ],

@@ -17,7 +17,7 @@ import { PilotageScopeService } from './pilotage-scope.service.js';
 
 /**
  * Programme steering (POUFA plan §13, CDC 5.4): province and national
- * dashboards, map data, the 100 000 t objective and CSV exports. Platform
+ * dashboards, map data, the 100 000 t objective and CSV / Excel exports. Platform
  * admin, or an institutional profile granted PILOTAGE:CONSULTER (DGE, MAEDR
  * by default), within its scope: PROVINCES its provinces, FARMS its farms,
  * ALL everything, AGGREGATE (MAEDR) aggregates only. Farm owners and members
@@ -90,6 +90,24 @@ export class PilotageController {
     return this.send(res, table, 'csv');
   }
 
+  @Get('exports/provinces.xlsx')
+  @AuditExport('Export Excel du pilotage par province')
+  @ApiOperation({
+    summary:
+      'Export Excel par province (agrégats ; petits groupes masqués pour un profil agrégé)',
+  })
+  async exportProvincesXlsx(
+    @CurrentUser() user: AuthUser,
+    @Query() query: PilotageQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const table = await this.exportsService.provinces(
+      await this.scope.viewOf(user),
+      query,
+    );
+    return this.send(res, table, 'xlsx');
+  }
+
   @Get('exports/farms.csv')
   @AuditExport('Export CSV du pilotage par ferme')
   @ApiOperation({
@@ -106,6 +124,24 @@ export class PilotageController {
       query,
     );
     return this.send(res, table, 'csv');
+  }
+
+  @Get('exports/farms.xlsx')
+  @AuditExport('Export Excel du pilotage par ferme')
+  @ApiOperation({
+    summary:
+      'Export Excel par ferme du périmètre (refusé à un profil « données agrégées »)',
+  })
+  async exportFarmsXlsx(
+    @CurrentUser() user: AuthUser,
+    @Query() query: PilotageQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const table = await this.exportsService.farms(
+      await this.scope.viewOf(user),
+      query,
+    );
+    return this.send(res, table, 'xlsx');
   }
 
   @Get('exports/bandes.csv')
@@ -126,7 +162,25 @@ export class PilotageController {
     return this.send(res, table, 'csv');
   }
 
-  /** Format seam: an `xlsx` route only passes another format code. */
+  @Get('exports/bandes.xlsx')
+  @AuditExport('Export Excel du pilotage par bande')
+  @ApiOperation({
+    summary:
+      'Export Excel des bandes suivies sur la période (refusé à un profil « données agrégées »)',
+  })
+  async exportBandsXlsx(
+    @CurrentUser() user: AuthUser,
+    @Query() query: PilotageQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const table = await this.exportsService.bands(
+      await this.scope.viewOf(user),
+      query,
+    );
+    return this.send(res, table, 'xlsx');
+  }
+
+  /** Serializes the table in `format` (`csv` or `xlsx`, see `ExportWriter`). */
   private async send(
     res: Response,
     table: ExportTable,
