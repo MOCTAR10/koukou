@@ -50,9 +50,20 @@ import {
   resolveTreatmentProduct,
   treatmentPeriodError,
 } from './treatment-rules.js';
-
-/** Reason of the treatment record a completed calendar care opens. */
-const CALENDAR_TREATMENT_REASON = 'Soin du calendrier sanitaire';
+// POUFA lot A2 sante: reference calendar, postponement and completion rules.
+import {
+  ANIMAL_COUNT_REQUIRED_MESSAGE,
+  PROGRAMME_STEP_TREATMENT_REASON,
+  TREATMENT_ANIMALS_REQUIRED_MESSAGE,
+  TREATMENT_REASON_REQUIRED_MESSAGE,
+  completionOpensTreatment,
+  completionTreatmentError,
+  lateFrom,
+  originalDateAfterMove,
+  referenceContentRefusal,
+  referenceStepRemovalRefusal,
+} from './care-reference-rules.js';
+import { isReferenceProtocol } from './reference-calendar.js';
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -266,6 +277,7 @@ export class SanitaryService {
           withdrawalDays: step.withdrawalDays,
           scheduledDate,
           status: ProphylaxisStatus.PLANIFIE,
+          isReference: isReferenceProtocol(protocol),
         }),
       );
       calendar.push(event);
@@ -329,7 +341,11 @@ export class SanitaryService {
    * Marks a care done (CDC n° 22: date, vaccine, route, number of animals).
    * One transaction with the care row locked: a care is completed once, and a
    * replay of the same completion (same `idempotencyKey`, offline queue)
-   * returns it instead of « déjà réalisé ».
+   * returns it instead of « déjà réalisé ». POUFA lot A2 sante: the number of
+   * animals is required for a new completion (the replay of one already
+   * stored passes, whatever it carried), and a care with a withdrawal period
+   * opens a treatment like the register: a manual care takes its product from
+   * PRODUIT_TRAITEMENT, its real reason and end day (no fixed reason).
    */
   async completeEvent(
     user: AuthUser,
@@ -340,13 +356,36 @@ export class SanitaryService {
   ): Promise<ProphylaxisEvent> {
     await this.farmsService.assertAccessible(user, farmId);
     const batch = await this.assertBatchInFarm(farmId, batchId);
-    await this.assertEvent(farmId, batchId, eventId);
+    const current = await this.assertEvent(farmId, batchId, eventId);
+    const key = dto.idempotencyKey?.trim() || null;
+    if (
+      current.status === ProphylaxisStatus.FAIT &&
+      key &&
+      current.idempotencyKey === key
+    ) {
+      return current;
+    }
+    // Same refusals as under the lock below, before asking for missing fields.
+    if (current.status === ProphylaxisStatus.FAIT) {
+      throw new BadRequestException('Ce soin a déjà été réalisé.');
+    }
+    if (current.status === ProphylaxisStatus.ANNULE) {
+      throw new BadRequestException(
+        'Ce soin a été annulé : planifiez un nouveau soin plutôt que de le compléter.',
+      );
+    }
     if (dto.medicationLotId) {
       await this.assertMedicationLot(farmId, dto.medicationLotId);
     }
+    if (dto.animalCount == null) {
+      throw new BadRequestException(ANIMAL_COUNT_REQUIRED_MESSAGE);
+    }
     const countError = animalCountError(dto.animalCount, batch.quantityAtStart);
     if (countError) throw new BadRequestException(countError);
-    const key = dto.idempotencyKey?.trim() || null;
+    const completedAt = dto.completedAt ? new Date(dto.completedAt) : new Date();
+    const treatment = completionOpensTreatment(current)
+      ? await this.completionTreatment(current, dto, completedAt)
+      : null;
 
     const { event, replay } = await this.dataSource.transaction(async (em) => {
       const repo = em.getRepository(ProphylaxisEvent);
@@ -373,37 +412,38 @@ export class SanitaryService {
       }
 
       locked.status = ProphylaxisStatus.FAIT;
-      const completedAt = dto.completedAt
-        ? new Date(dto.completedAt)
-        : new Date();
       locked.completedAt = completedAt;
       locked.performedById = user.id;
       locked.performedNotes = dto.notes ?? null;
       locked.animalCount = dto.animalCount ?? null;
       if (dto.route?.trim()) locked.route = dto.route.trim();
       if (dto.medicationLotId) locked.medicationLotId = dto.medicationLotId;
+      if (treatment?.productCode) locked.productCode = treatment.productCode;
       locked.idempotencyKey = key;
       await repo.save(locked);
 
       // Tout soin avec délai d'attente (antibiotique, médicament…) ouvre un
       // suivi HACCP : c'est le délai qui protège le consommateur, pas le type.
-      if (locked.withdrawalDays > 0) {
+      if (treatment) {
         const treatments = em.getRepository(TreatmentRecord);
         await treatments.save(
           treatments.create({
             farmId,
             batchId,
             careType: locked.careType,
-            productName: locked.name,
+            productCode: treatment.productCode,
+            productName: treatment.productName,
             dosage: locked.dosage,
             route: locked.route,
             administeredAt: completedAt,
+            endDate: treatment.endDate,
             withdrawalDays: locked.withdrawalDays,
             withdrawalEndDate: computeWithdrawalEndDate(
               completedAt,
               locked.withdrawalDays,
+              treatment.endDate,
             ),
-            reason: CALENDAR_TREATMENT_REASON,
+            reason: treatment.reason,
             animalCount: locked.animalCount,
             performedById: user.id,
             medicationLotId: locked.medicationLotId,
@@ -416,6 +456,56 @@ export class SanitaryService {
 
     if (!replay) await this.refreshProphylaxis(batchId);
     return event;
+  }
+
+  /**
+   * Treatment a completion opens (CDC n° 23). A step of a vets' programme
+   * keeps its own name and defaults its reason to the calendar; a manual care
+   * resolves its product in PRODUIT_TRAITEMENT (the code picked at planning or
+   * now; free text only while the list is empty, as in the register) and
+   * needs its real reason and end day.
+   */
+  private async completionTreatment(
+    care: ProphylaxisEvent,
+    dto: CompleteProphylaxisDto,
+    completedAt: Date,
+  ): Promise<{
+    productCode: string | null;
+    productName: string;
+    reason: string;
+    endDate: string | null;
+  }> {
+    const missing = completionTreatmentError(care, dto);
+    if (missing) throw new BadRequestException(missing);
+    const endDate = dto.endDate ? dto.endDate.slice(0, 10) : null;
+    const periodError = treatmentPeriodError(
+      completedAt.toISOString().slice(0, 10),
+      endDate,
+    );
+    if (periodError) throw new BadRequestException(periodError);
+    const reason = dto.reason?.trim() || null;
+    if (care.protocolStepId) {
+      return {
+        productCode: null,
+        productName: care.name,
+        reason: reason ?? PROGRAMME_STEP_TREATMENT_REASON,
+        endDate,
+      };
+    }
+    const product = resolveTreatmentProduct(
+      {
+        productCode: dto.productCode?.trim() || care.productCode,
+        productName: care.name,
+      },
+      await this.lists.list(ProgramListType.PRODUIT_TRAITEMENT),
+    );
+    if (!product.ok) throw new BadRequestException(product.error);
+    return {
+      productCode: product.productCode,
+      productName: product.productName,
+      reason: reason ?? '',
+      endDate,
+    };
   }
 
   async cancelEvent(
@@ -432,6 +522,8 @@ export class SanitaryService {
         'Impossible d’annuler un soin déjà réalisé.',
       );
     }
+    const locked = referenceStepRemovalRefusal(event, user.role);
+    if (locked) throw new BadRequestException(locked);
     // A cancelled care gives its medication back (once: stockConsumedAt is
     // cleared, so a later delete does not restore it again).
     if (
@@ -474,6 +566,8 @@ export class SanitaryService {
         'Impossible de reporter un soin annulé : planifiez un nouveau soin.',
       );
     }
+    // A postponement keeps the first planned date: a reference step stays late from it.
+    event.originalDate = originalDateAfterMove(event, scheduledDate);
     event.scheduledDate = scheduledDate;
     event.status = ProphylaxisStatus.PLANIFIE;
     await this.eventRepo.save(event);
@@ -527,6 +621,14 @@ export class SanitaryService {
     if (periodError) throw new BadRequestException(periodError);
     const countError = animalCountError(dto.animalCount, batch.quantityAtStart);
     if (countError) throw new BadRequestException(countError);
+    // POUFA lot A2 sante: reason and animals required for a new record (the
+    // replay of one already stored was returned above).
+    if (!dto.reason?.trim()) {
+      throw new BadRequestException(TREATMENT_REASON_REQUIRED_MESSAGE);
+    }
+    if (dto.animalCount == null) {
+      throw new BadRequestException(TREATMENT_ANIMALS_REQUIRED_MESSAGE);
+    }
     const withdrawalDays = dto.withdrawalDays ?? 0;
 
     const treatment = await createOnce(this.treatmentRepo, farmId, key, () =>
@@ -702,6 +804,7 @@ export class SanitaryService {
             withdrawalDays: step.withdrawalDays,
             scheduledDate,
             status: ProphylaxisStatus.PLANIFIE,
+            isReference: isReferenceProtocol(protocol),
           }),
         );
         events.push(event);
@@ -764,6 +867,21 @@ export class SanitaryService {
       }
     }
 
+    // POUFA lot A2 sante (CDC n° 23): a medication comes from the vets'
+    // PRODUIT_TRAITEMENT list (free text only while it is empty, as in the
+    // treatment register); a vaccine keeps its free name.
+    let productCode: string | null = null;
+    let name = dto.name;
+    if (dto.careType === CareType.MEDICAMENT) {
+      const product = resolveTreatmentProduct(
+        { productCode: dto.productCode, productName: dto.name },
+        await this.lists.list(ProgramListType.PRODUIT_TRAITEMENT),
+      );
+      if (!product.ok) throw new BadRequestException(product.error);
+      productCode = product.productCode;
+      name = product.productName;
+    }
+
     // Validate every lot before taking anything out of stock: a 404 on the
     // second lot must not leave doses consumed with no care to give them back.
     const lots = [];
@@ -789,7 +907,8 @@ export class SanitaryService {
           protocolStepId: null,
           source: ScheduleSource.MANUEL,
           careType: dto.careType,
-          name: dto.name,
+          name,
+          productCode,
           dosage: dto.dosage ?? null,
           route: dto.route ?? null,
           withdrawalDays: dto.withdrawalDays ?? 0,
@@ -829,6 +948,8 @@ export class SanitaryService {
         'Un soin déjà réalisé est immuable (histoire HACCP).',
       );
     }
+    const locked = referenceContentRefusal(event, dto, user.role);
+    if (locked) throw new BadRequestException(locked);
     if (dto.careType) {
       if (
         dto.careType !== CareType.VACCIN &&
@@ -854,6 +975,7 @@ export class SanitaryService {
           'Impossible de replanifier un soin annulé : planifiez un nouveau soin.',
         );
       }
+      event.originalDate = originalDateAfterMove(event, dto.scheduledDate);
       event.scheduledDate = dto.scheduledDate;
       event.status = ProphylaxisStatus.PLANIFIE;
     }
@@ -880,6 +1002,8 @@ export class SanitaryService {
         'Impossible de supprimer un soin déjà réalisé (historique HACCP) : annulez-le plutôt.',
       );
     }
+    const locked = referenceStepRemovalRefusal(event, user.role);
+    if (locked) throw new BadRequestException(locked);
     if (
       event.decrementStock &&
       event.stockConsumedAt &&
@@ -1017,7 +1141,8 @@ export class SanitaryService {
     const events = await this.eventRepo.find({
       where: { batchId, status: ProphylaxisStatus.PLANIFIE },
     });
-    const toFlag = events.filter((e) => e.scheduledDate < limit);
+    // A reference step is late from its first planned date (postponed or not).
+    const toFlag = events.filter((e) => lateFrom(e) < limit);
     if (toFlag.length > 0) {
       for (const e of toFlag) e.status = ProphylaxisStatus.EN_RETARD;
       await this.eventRepo.save(toFlag);

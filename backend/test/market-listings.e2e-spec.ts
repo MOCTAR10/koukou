@@ -376,6 +376,8 @@ describe('Market : annonces et catalogue public (e2e)', () => {
           careType: 'ANTIBIOTIQUE',
           productName: 'Amoxicilline',
           withdrawalDays: 10,
+          reason: 'Infection respiratoire',
+          animalCount: 10,
         })
         .expect(201);
 
@@ -405,6 +407,8 @@ describe('Market : annonces et catalogue public (e2e)', () => {
           careType: 'ANTIBIOTIQUE',
           productName: 'Amoxicilline',
           withdrawalDays: 10,
+          reason: 'Infection respiratoire',
+          animalCount: 10,
         })
         .expect(201);
       expect(await catalogueIds()).not.toContain(id);

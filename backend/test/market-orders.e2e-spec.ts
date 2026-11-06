@@ -479,6 +479,8 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
           careType: 'ANTIBIOTIQUE',
           productName: 'Amoxicilline',
           withdrawalDays: 10,
+          reason: 'Infection respiratoire',
+          animalCount: 10,
         })
         .expect(201);
       const res = await accept(asked.body.id).expect(400);
@@ -621,6 +623,8 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
           careType: 'ANTIBIOTIQUE',
           productName: 'Amoxicilline',
           withdrawalDays: 3,
+          reason: 'Infection respiratoire',
+          animalCount: 10,
         })
         .expect(201);
       const refused = await request(server)

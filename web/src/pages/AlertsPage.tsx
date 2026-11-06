@@ -21,7 +21,9 @@ import type { Alert } from '../api/types';
 import type { AdvisoryNextActions, NextAction, OwnerDashboard } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
-import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../components/form';
+import { Button, ErrorNote, todayIso } from '../components/form';
+// POUFA lot A2 sante: « Fait » through the shared completion form and the offline queue (CDC n° 22).
+import { CompleteCareModal, type CareLotRef, type CompletableCare } from '../components/flock/CompleteCareModal';
 import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Th, Td } from '../components/ui';
 import { ActionTile } from '../components/sales/DashboardPanels';
 import { HEALTH_LABEL, kindLabel } from '../components/sales/labels';
@@ -40,54 +42,37 @@ function kindOf(a: NextAction): string {
   return a.kind ?? a.category;
 }
 
-/** A care event done: the date and notes end up in the lot's sanitary record. */
-function CareModal({
-  action,
-  busy,
-  error,
-  onSubmit,
-  onClose,
-}: {
-  action: NextAction;
-  busy: boolean;
-  error: unknown;
-  onSubmit: (completedAt: string, notes: string) => void;
-  onClose: () => void;
-}) {
-  const [date, setDate] = useState(todayIso());
-  const [notes, setNotes] = useState('');
-  return (
-    <Modal title="Marquer le soin comme fait" onClose={onClose}>
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(date, notes.trim());
-        }}
-      >
-        <p className="text-sm text-slate-600">
-          {action.title}
-          {action.batchName ? ` · ${action.batchName}` : ''}
-        </p>
-        <Field label="Date du soin">
-          <input type="date" className={inputCls} value={date} max={todayIso()} onChange={(e) => setDate(e.target.value)} required />
-        </Field>
-        <Field label="Notes (facultatif)">
-          <input className={inputCls} value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </Field>
-        <ErrorNote error={error} />
-        <div className="flex justify-end gap-2">
-          <Button tone="secondary" onClick={onClose} disabled={busy}>
-            Annuler
-          </Button>
-          <Button type="submit" busy={busy}>
-            {busy ? null : <Check className="h-4 w-4" />}
-            Enregistrer
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
+/**
+ * POUFA lot A2 sante: the care behind a SOIN action, as the completion form
+ * needs it (the server sends `care`; the fallback only keeps the id).
+ */
+function careOf(action: NextAction): { lot: CareLotRef; event: CompletableCare } {
+  const info = action.care;
+  return {
+    lot: { id: action.batchId ?? '', liveCount: info?.liveCount ?? 0, batchName: action.batchName, code: null },
+    event: info
+      ? {
+          id: info.eventId,
+          name: info.name,
+          careType: info.careType,
+          scheduledDate: info.scheduledDate,
+          route: info.route,
+          withdrawalDays: info.withdrawalDays,
+          protocolStepId: info.protocolStepId,
+          productCode: info.productCode,
+          isReference: info.isReference,
+          originalDate: info.originalDate,
+        }
+      : {
+          id: action.id.replace(/^care:/, ''),
+          name: action.title,
+          careType: 'VACCIN',
+          scheduledDate: action.dueDate ?? todayIso(),
+          route: null,
+          withdrawalDays: 0,
+          protocolStepId: null,
+        },
+  };
 }
 
 function ActionRow({
@@ -243,18 +228,6 @@ export function AlertsPage() {
     onSuccess: invalidate,
   });
 
-  const completeCare = useMutation({
-    mutationFn: ({ action, completedAt, notes }: { action: NextAction; completedAt: string; notes: string }) =>
-      api.post(`/farms/${farmId}/batches/${action.batchId}/prophylaxis/${action.id.replace(/^care:/, '')}/complete`, {
-        completedAt,
-        ...(notes ? { notes } : {}),
-      }),
-    onSuccess: () => {
-      setCare(null);
-      invalidate();
-    },
-  });
-
   const actions = useMemo(() => advisory.data?.actions ?? [], [advisory.data]);
   const recommendations = useMemo(() => {
     const map = new Map<string, string>();
@@ -293,10 +266,7 @@ export function AlertsPage() {
       recommendation={a.alertId ? (recommendations.get(a.alertId) ?? null) : null}
       acking={ack.isPending && ack.variables === a.alertId}
       onAck={() => a.alertId && ack.mutate(a.alertId)}
-      onCare={() => {
-        completeCare.reset();
-        setCare(a);
-      }}
+      onCare={() => setCare(a)}
     />
   );
 
@@ -446,15 +416,7 @@ export function AlertsPage() {
       </div>
       </div>
 
-      {care ? (
-        <CareModal
-          action={care}
-          busy={completeCare.isPending}
-          error={completeCare.error}
-          onSubmit={(completedAt, notes) => completeCare.mutate({ action: care, completedAt, notes })}
-          onClose={() => setCare(null)}
-        />
-      ) : null}
+      {care ? <CompleteCareModal {...careOf(care)} onClose={() => setCare(null)} /> : null}
     </div>
   );
 }

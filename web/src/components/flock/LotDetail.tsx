@@ -74,6 +74,10 @@ import { OfficialMetric } from '../bandes/OfficialHeadline';
 import { COST_PER_KG_SOLD_LABEL, CONDUITE_LABEL, FERMIA_FORMULAS, findIndicator, marginLabel } from '../bandes/headline';
 import type { BandeIndicators } from '../../api/types-pilotage';
 import { DailyEntryModal } from './DailyEntryModal';
+// POUFA lot A2 sante: « Fait » through the completion form and the offline queue (CDC n° 22).
+import { CompleteCareModal } from './CompleteCareModal';
+import { refFromLot } from '../surveillance/sanitaryLot';
+import { REFERENCE_STEP_LABEL, postponedLabel } from './sanitaryRecords';
 // POUFA W6: band sorties and traceability tabs.
 import { SortiesTab } from '../bandes/SortiesTab';
 import { LotTraceTab } from '../trace/LotTraceTab';
@@ -1109,10 +1113,9 @@ function careAlerts(lot: Lot, steps: ProtocolStep[], events: ProphylaxisEvent[],
 
 function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
   const { farmId } = useFarm();
-  const invalidate = useInvalidateFarm();
   const { hasPermission } = useFarmProfile();
   const canComplete = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
-  const care = useAsyncAction();
+  const [completing, setCompleting] = useState<ProphylaxisEvent | null>(null);
   const health = useHealth(lot.id);
   const { treatments, events: healthEvents } = useLotCare(lot.id);
   const protocols = useQuery({
@@ -1225,7 +1228,6 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
               <EmptyState message="Aucun soin planifié pour ce lot." icon={<Syringe />} />
             ) : (
               <>
-              <ErrorNote error={care.error} />
               <ul className="divide-y divide-slate-100">
                 {sorted.map((e) => (
                   <li key={e.id} className="flex items-start justify-between gap-3 py-2">
@@ -1234,6 +1236,8 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                       <p className="text-xs text-slate-500">
                         {CARE_TYPE_LABEL[e.careType]} · {dateFr(e.scheduledDate)}
                         {e.status === 'PLANIFIE' && e.scheduledDate.slice(0, 10) === today ? " · aujourd'hui" : ''}
+                        {e.isReference ? ` · ${REFERENCE_STEP_LABEL}` : ''}
+                        {postponedLabel(e, dateFr) ? ` · ${postponedLabel(e, dateFr)}` : ''}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -1241,19 +1245,7 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                         {CARE_STATUS_LABEL[e.status]}
                       </Pill>
                       {canComplete && (e.status === 'PLANIFIE' || e.status === 'EN_RETARD') ? (
-                        <Button
-                          tone="secondary"
-                          busy={care.busy === e.id}
-                          aria-label={`Marquer ${e.name} comme fait`}
-                          onClick={() =>
-                            void care.run(e.id, async () => {
-                              await api.post(`/farms/${farmId}/batches/${lot.id}/prophylaxis/${e.id}/complete`, {
-                                completedAt: utcYmd(),
-                              });
-                              await invalidate();
-                            })
-                          }
-                        >
+                        <Button tone="secondary" aria-label={`Marquer ${e.name} comme fait`} onClick={() => setCompleting(e)}>
                           <Check className="h-4 w-4" /> Fait
                         </Button>
                       ) : null}
@@ -1285,6 +1277,13 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
           )}
         </SectionCard>
       </div>
+      {completing ? (
+        <CompleteCareModal
+          lot={refFromLot(lot)}
+          event={completing}
+          onClose={() => setCompleting(null)}
+        />
+      ) : null}
     </div>
   );
 }

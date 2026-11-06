@@ -10,7 +10,7 @@ export interface ProductOption {
 
 /** Shown while the vets have not filled PRODUIT_TRAITEMENT yet (initial setup, CDC §9). */
 export const EMPTY_PRODUCT_LIST_NOTE =
-  'La liste des produits de traitement est vide : son paramétrage initial revient aux services vétérinaires. En attendant, saisissez le nom du produit.';
+  'Liste des produits non paramétrée par les services vétérinaires (paramétrage initial). En attendant, saisissez le nom du produit.';
 
 /** The list could not be read (offline, never opened on this device). */
 export const UNKNOWN_PRODUCT_LIST_NOTE =
@@ -139,4 +139,99 @@ export function completionBody(form: CompletionForm, plannedRoute: string | null
 export function treatmentPeriodLabel(start: string, end: string | null, fmt: (d: string) => string): string {
   if (!end || end.slice(0, 10) === start.slice(0, 10)) return fmt(start);
   return `du ${fmt(start)} au ${fmt(end)}`;
+}
+
+// POUFA lot A2 sante (CDC n° 22-23): the « Fait » of a care, wherever it is
+// pressed (band sheet, advice list, sanitary page), and the reference calendar.
+// Same rules as the server (`backend/src/modules/sanitary/care-reference-rules.ts`).
+
+/** What a completion form needs to know about the care it closes. */
+export interface CareRef {
+  name: string;
+  withdrawalDays: number;
+  protocolStepId: string | null;
+  productCode: string | null;
+  isReference?: boolean;
+  originalDate?: string | null;
+}
+
+/** A care with a withdrawal period opens a treatment record when done. */
+export function careOpensTreatment(care: Pick<CareRef, 'withdrawalDays'>): boolean {
+  return care.withdrawalDays > 0;
+}
+
+/**
+ * A manual care (no programme step) that opens a treatment needs the
+ * treatment register's data: product from the vets' list, end day, reason.
+ */
+export function careNeedsTreatmentDetails(care: Pick<CareRef, 'withdrawalDays' | 'protocolStepId'>): boolean {
+  return careOpensTreatment(care) && !care.protocolStepId;
+}
+
+export interface CareTreatmentForm {
+  /** Code picked in PRODUIT_TRAITEMENT (list filled). */
+  productCode: string;
+  /** `YYYY-MM-DD` or empty. */
+  endDate: string;
+  reason: string;
+}
+
+export interface CareTreatmentBody {
+  productCode?: string;
+  endDate?: string;
+  reason?: string;
+}
+
+/**
+ * Treatment fields of a completion (empty when the care opens none).
+ * `products`: active PRODUIT_TRAITEMENT items, `null` when unknown (offline):
+ * the server then checks the care's own name against its list.
+ */
+export function careTreatmentBody(
+  care: CareRef,
+  form: CareTreatmentForm,
+  completedAt: string,
+  products: readonly ProductOption[] | null,
+): Built<CareTreatmentBody> {
+  if (!careOpensTreatment(care)) return { ok: true, body: {} };
+  const end = form.endDate.trim();
+  if (end && completedAt && end < completedAt) {
+    return { ok: false, error: 'La date de fin ne peut pas précéder la date de réalisation.' };
+  }
+  const reason = form.reason.trim();
+  const body: CareTreatmentBody = {};
+  if (end) body.endDate = end;
+  if (reason) body.reason = reason;
+  if (care.protocolStepId) return { ok: true, body };
+  if (products !== null && products.length > 0) {
+    const code = form.productCode.trim() || care.productCode || '';
+    if (!products.some((p) => p.code === code)) {
+      return { ok: false, error: 'Choisissez le produit dans la liste des services vétérinaires.' };
+    }
+    body.productCode = code;
+  }
+  if (!reason) return { ok: false, error: 'Indiquez le motif du traitement.' };
+  if (!end) return { ok: false, error: 'Indiquez la date de fin du traitement.' };
+  return { ok: true, body };
+}
+
+/** Badge of a step of the vets' reference calendar. */
+export const REFERENCE_STEP_LABEL = 'Calendrier de référence';
+
+/** Why the cancel and delete actions are missing on a reference step. */
+export const REFERENCE_STEP_HINT =
+  'Étape du calendrier de référence des services vétérinaires : la ferme peut la reporter, pas l’annuler ni la supprimer. Un report reste compté en retard à partir de la date de référence.';
+
+/** « Reporté · référence le … » for a postponed care, else null. */
+export function postponedLabel(
+  care: Pick<CareRef, 'originalDate' | 'isReference'>,
+  fmt: (d: string) => string,
+): string | null {
+  if (!care.originalDate) return null;
+  return care.isReference ? `Reporté · date de référence ${fmt(care.originalDate)}` : `Reporté · prévu le ${fmt(care.originalDate)}`;
+}
+
+/** Only an institutional account (vets, through the matrix) withdraws a reference step. */
+export function canRemoveCare(care: Pick<CareRef, 'isReference'>, isInstitution: boolean): boolean {
+  return !care.isReference || isInstitution;
 }

@@ -279,6 +279,8 @@ describe('Market : carcasses (e2e)', () => {
           careType: 'ANTIBIOTIQUE',
           productName: 'Amoxicilline',
           withdrawalDays: 10,
+          reason: 'Infection respiratoire',
+          animalCount: 10,
         })
         .expect(201);
       await dataSource.query(
@@ -463,6 +465,8 @@ describe('Market : carcasses (e2e)', () => {
           careType: 'ANTIBIOTIQUE',
           productName: 'Amoxicilline',
           withdrawalDays: 10,
+          reason: 'Infection respiratoire',
+          animalCount: 10,
         })
         .expect(201);
       await request(server)

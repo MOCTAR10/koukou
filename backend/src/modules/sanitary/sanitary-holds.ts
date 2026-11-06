@@ -71,6 +71,15 @@ export async function sanitaryHolds(
           status: ProphylaxisStatus.PLANIFIE,
           scheduledDate: LessThan(overdueBefore),
         },
+        // POUFA lot A2 sante: a postponed reference step is late from its
+        // first planned date (`lateFrom`).
+        {
+          farmId,
+          batchId,
+          status: ProphylaxisStatus.PLANIFIE,
+          isReference: true,
+          originalDate: LessThan(overdueBefore),
+        },
       ],
     }),
   ]);

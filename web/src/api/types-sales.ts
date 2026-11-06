@@ -156,6 +156,23 @@ export interface NextAction {
   alertId: string | null;
   kind?: string | null;
   status: AlertStatus;
+  /** POUFA lot A2 sante: the planned care behind a SOIN action. */
+  care?: CareActionInfo;
+}
+
+/** What the « Fait » form of a SOIN action needs (backend `CareActionInfo`). */
+export interface CareActionInfo {
+  eventId: string;
+  careType: string;
+  name: string;
+  route: string | null;
+  withdrawalDays: number;
+  protocolStepId: string | null;
+  productCode: string | null;
+  isReference: boolean;
+  scheduledDate: string;
+  originalDate: string | null;
+  liveCount: number;
 }
 
 export interface AdvisoryNextActions {

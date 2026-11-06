@@ -106,6 +106,8 @@ describe('Revue de bugs : élevage, caisse, droits (e2e)', () => {
         careType: 'ANTIBIOTIQUE',
         productName: 'Amoxicilline',
         withdrawalDays: 7,
+        reason: 'Infection respiratoire',
+        animalCount: 10,
       })
       .expect(201);
     const alerts = (await owner().get(`/farms/${farmId}/alerts`).expect(200))

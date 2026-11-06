@@ -228,6 +228,8 @@ export function CreateLotModal({
             // POUFA lot A sante: a step of the vets' calendar, accepted outside the PRODUIT_TRAITEMENT list.
             protocolStepId: step.id,
             reason: 'Soin du calendrier sanitaire',
+            // POUFA lot A2 sante: animals required; the care was given to the birds placed.
+            animalCount: qty,
             dosage: step.dosage ?? undefined,
             route: step.route ?? undefined,
             // Step of day N = J0 + N (may precede the opening: care given before arrival).
@@ -579,7 +581,7 @@ export function CreateLotModal({
             {upcomingSteps.length > 0 ? (
               <div>
                 <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                  <Syringe className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Prochains soins à planifier
+                  <Syringe className="h-3.5 w-3.5 shrink-0 text-brand-600" /> Prochains soins (planifiés d'office : calendrier de référence)
                 </p>
                 <ul className="space-y-0.5 text-sm text-slate-600">
                   {upcomingSteps.slice(0, 3).map((s) => (

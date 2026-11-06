@@ -547,6 +547,23 @@ export interface Alert {
   resolvedAt?: string | null;
   /** Id de l'alerte backend (POST acknowledge) — null si action advisoriale sans alerte. */
   alertId?: string | null;
+  /** POUFA lot A2 sante: the planned care behind a SOIN action (« Fait » form). */
+  care?: CareActionInfo;
+}
+
+/** Backend `CareActionInfo` (advisory SOIN action). */
+export interface CareActionInfo {
+  eventId: string;
+  careType: string;
+  name: string;
+  route: string | null;
+  withdrawalDays: number;
+  protocolStepId: string | null;
+  productCode: string | null;
+  isReference: boolean;
+  scheduledDate: string;
+  originalDate: string | null;
+  liveCount: number;
 }
 
 export interface NextAction {
@@ -817,6 +834,10 @@ export interface ProphylaxisEvent {
   medicationUnit: string | null;
   decrementStock: boolean;
   stockConsumedAt: string | null;
+  // POUFA lot A2 sante: reference calendar step, first date once postponed, product code.
+  isReference?: boolean;
+  originalDate?: string | null;
+  productCode?: string | null;
   cancelledReason: string | null;
   createdAt: string;
   updatedAt: string;

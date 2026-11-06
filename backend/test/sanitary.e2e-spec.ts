@@ -142,7 +142,7 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
         `/farms/${farmId}/batches/${batchId}/prophylaxis/${marek.id}/complete`,
       )
       .set('Authorization', `Bearer ${token}`)
-      .send({ notes: 'Vaccin réalisé avec succès' })
+      .send({ notes: 'Vaccin réalisé avec succès', animalCount: 500 })
       .expect(201);
     expect(done.body.status).toBe('FAIT');
     expect(done.body.performedNotes).toBe('Vaccin réalisé avec succès');
@@ -194,7 +194,7 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
           `/farms/${farmId}/batches/${batchId}/prophylaxis/${e.id}/complete`,
         )
         .set('Authorization', `Bearer ${token}`)
-        .send({})
+        .send({ animalCount: 500 })
         .expect(201);
     }
     const after = await request(server)
@@ -222,6 +222,8 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
         dosage: '1 g/L d’eau',
         route: 'Eau de boisson',
         withdrawalDays: 30,
+        reason: 'Coryza',
+        animalCount: 500,
       })
       .expect(201);
     expect(treatment.body.withdrawalEndDate).toBeTruthy();
@@ -252,6 +254,8 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
         productName: 'Tylosine',
         administeredAt: new Date(Date.now() - 10 * 86400000).toISOString(),
         withdrawalDays: 1,
+        reason: 'Diarrhée',
+        animalCount: 500,
       })
       .expect(201);
     const alerts = await request(server)
@@ -299,14 +303,18 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ protocolId: protocol.body.id })
       .expect(201);
-    const event = generated.body[0];
+    // The reference calendar is planned at opening too: pick the farm step.
+    const event = generated.body.find(
+      (e: any) => e.name === 'Antibiotique préventif',
+    );
+    expect(event.isReference).toBe(false);
 
     await request(server)
       .post(
         `/farms/${farmId}/batches/${batchId}/prophylaxis/${event.id}/complete`,
       )
       .set('Authorization', `Bearer ${token}`)
-      .send({})
+      .send({ animalCount: 500 })
       .expect(201);
 
     const treatments = await request(server)
@@ -318,6 +326,9 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
     );
     expect(auto).toBeTruthy();
     expect(auto.withdrawalDays).toBe(3);
+    // POUFA lot A2 sante: a programme step keeps a calendar reason, never empty.
+    expect(auto.reason).toBe('Étape du calendrier sanitaire (prévention)');
+    expect(auto.animalCount).toBe(500);
   });
 
   afterAll(async () => {

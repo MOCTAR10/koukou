@@ -577,6 +577,8 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
               // POUFA lot A sante: a step of the vets' calendar, accepted outside the PRODUIT_TRAITEMENT list.
               protocolStepId: step.id,
               reason: 'Soin du calendrier sanitaire',
+              // POUFA lot A2 sante: animals required; the care was given to the birds placed.
+              animalCount: input.quantityAtStart,
               dosage: step.dosage ?? undefined,
               route: step.route ?? undefined,
               // Step of day N = J0 + N (may precede the opening: care given before arrival).
