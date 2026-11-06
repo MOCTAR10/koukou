@@ -2,7 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -86,46 +91,21 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24190${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Finance',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+    const platformToken = (
+      await createPlatformAdmin(server, app.get(DataSource))
+    ).token;
+    const owner = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Finance ${Date.now()}`,
+      exploitantName: 'Proprio Finance',
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
 
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Finance ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
+    otherToken = (
+      await createProgrammeFarm(server, platformToken, {
+        exploitantName: 'Autre Proprio',
       })
-      .expect(201);
-    farmId = farm.body.id;
-
-    const otherPhone = `+24191${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
+    ).ownerToken;
   });
 
   it('méthodes de paiement : CASH activé, Mobile Money / QR « Bientôt disponible »', async () => {

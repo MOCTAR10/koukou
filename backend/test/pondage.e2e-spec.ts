@@ -2,7 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 function dateStr(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -54,46 +60,15 @@ describe('Pondage — indicateurs de ponte par lot (e2e)', () => {
     dayCurr1 = dateStr(ws);
     dayCurr2 = dateStr(addDays(ws, 1));
 
-    const phone = `+24162${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Ponte',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const owner = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Ponte ${uniquePhone('')}`,
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
 
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Ponte ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
-
-    const otherPhone = `+24163${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
+    // Another owner (his own farm), for the cross-farm checks.
+    otherToken = (await createProgrammeFarm(server, admin.token)).ownerToken;
 
     const batch = await request(server)
       .post(`/farms/${farmId}/batches`)
@@ -177,9 +152,9 @@ describe('Pondage — indicateurs de ponte par lot (e2e)', () => {
       [dayCurr2, 65],
     ].filter(([d]) => (d as string) >= since);
     const eggs = recent.reduce((s, [, n]) => s + (n as number), 0);
-    const expected = Math.round(
-      Math.min(100, (eggs / (96 * recent.length)) * 100) * 100,
-    ) / 100;
+    const expected =
+      Math.round(Math.min(100, (eggs / (96 * recent.length)) * 100) * 100) /
+      100;
     expect(body.layRatePercent).toBe(recent.length > 0 ? expected : null);
     expect(body.layRatePercent ?? 0).toBeLessThanOrEqual(100);
     expect(body.weekly).toHaveLength(2);

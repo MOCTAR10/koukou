@@ -3,6 +3,13 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  addProgrammeFarm,
+  auth,
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -78,54 +85,30 @@ describe('Météo & heat-stress (THI) (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24167${Date.now()}`;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const owner = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Météo A ${Date.now()}`,
+    });
+    token = owner.ownerToken;
+    farmNoCoords = owner.farmId;
+    // No GPS: the forecast geocodes the farm's city.
     await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Météo',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
+      .patch(`/farms/${farmNoCoords}`)
+      .set(auth(token))
+      .send({ administrativeCity: 'Libreville' })
+      .expect(200);
 
-    const otherPhone = `+24168${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: otherPhone,
-        fullName: 'Autre Proprio Météo',
-        code: 'secret123',
-      })
-      .expect(201);
-    const otherLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: otherPhone, code: 'secret123' })
-      .expect(201);
-    otherToken = otherLogin.body.accessToken;
+    otherToken = (await createProgrammeFarm(server, admin.token)).ownerToken;
 
-    const create = (name: string, extra: Record<string, unknown> = {}) =>
-      request(server)
-        .post('/farms')
-        .set('Authorization', `Bearer ${token}`)
-        .send({
+    const create = async (name: string, latitude: number) =>
+      (
+        await addProgrammeFarm(server, admin.token, owner.ownerPhone, {
           name: `${name} ${Date.now()}`,
-          administrativeCity: 'Libreville',
-          capacityPerBuilding: 3000,
-          ...extra,
+          extra: { gps: { latitude, longitude: 9.7 } },
         })
-        .expect(201);
-    farmNoCoords = (await create('Ferme Météo A')).body.id;
-    farmModerate = (
-      await create('Ferme Météo B', { latitude: 1, longitude: 9.7 })
-    ).body.id;
-    farmConfort = (
-      await create('Ferme Météo C', { latitude: 2, longitude: 9.7 })
-    ).body.id;
+      ).farmId;
+    farmModerate = await create('Ferme Météo B', 1);
+    farmConfort = await create('Ferme Météo C', 2);
 
     installWeatherMock();
   });

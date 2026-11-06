@@ -4,6 +4,10 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 import { Breed } from './../src/modules/breeds/entities/breed.entity.js';
 
 function today(): string {
@@ -40,31 +44,12 @@ describe('Référentiel souches & aperçu santé (Breed Intelligence) (e2e)', ()
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24166${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone,
-        fullName: 'Proprio Souches',
-        code: 'secret123',
-      })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Souches ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 3000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Souches ${Date.now()}`,
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
     const breeds = await request(server)
       .get('/breeds')

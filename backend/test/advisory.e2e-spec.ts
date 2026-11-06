@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function daysFromNow(n: number): string {
   const d = new Date();
@@ -17,9 +22,7 @@ describe('Assistant — next-actions (e2e)', () => {
   let foreignToken: string;
   let farmId: string;
   let batchId: string;
-
-  const ownerPhone = `+24170${Date.now()}`;
-  const foreignPhone = `+24171${Date.now()}`;
+  let adminToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -35,48 +38,17 @@ describe('Assistant — next-actions (e2e)', () => {
   });
 
   beforeAll(async () => {
-    // Propriétaire de la ferme.
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: ownerPhone,
-        fullName: 'Proprio E2E',
-        code: 'secret123',
-      })
-      .expect(201);
-    const owner = await request(server)
-      .post('/auth/login')
-      .send({ phone: ownerPhone, code: 'secret123' })
-      .expect(201);
-    ownerToken = owner.body.accessToken;
-
-    // Utilisateur étranger (hors ferme) → doit recevoir un 403.
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: foreignPhone,
-        fullName: 'Étranger E2E',
-        code: 'secret123',
-      })
-      .expect(201);
-    const foreign = await request(server)
-      .post('/auth/login')
-      .send({ phone: foreignPhone, code: 'secret123' })
-      .expect(201);
-    foreignToken = foreign.body.accessToken;
+    adminToken = (await createPlatformAdmin(server, app.get(DataSource))).token;
+    // Utilisateur étranger (propriétaire d'une autre ferme) → doit recevoir un 403.
+    foreignToken = (await createProgrammeFarm(server, adminToken)).ownerToken;
   });
 
   it('crée une ferme, un lot surdensitaire et un intrant proche de péremption', async () => {
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${ownerToken}`)
-      .send({
-        name: `Ferme E2E ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1500,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const farm = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme E2E ${Date.now()}`,
+    });
+    ownerToken = farm.ownerToken;
+    farmId = farm.farmId;
 
     // 2400 poussins / 40 m² → grille de surface par lot > critique (alerte SURDENSITE).
     const batch = await request(server)
@@ -127,7 +99,10 @@ describe('Assistant — next-actions (e2e)', () => {
     // Tri : ROUGE d'abord, puis JAUNE (respecter la priorité).
     const levels: string[] = body.actions.map((a: any) => a.level);
     const firstJaune = levels.indexOf('JAUNE');
-    const rouges = levels.slice(0, firstJaune === -1 ? levels.length : firstJaune);
+    const rouges = levels.slice(
+      0,
+      firstJaune === -1 ? levels.length : firstJaune,
+    );
     const jaunes = levels.slice(firstJaune === -1 ? 0 : firstJaune);
     expect(rouges.every((l) => l === 'ROUGE')).toBe(true);
     expect(jaunes.every((l) => l === 'JAUNE')).toBe(true);
@@ -197,8 +172,7 @@ describe('Assistant — next-actions (e2e)', () => {
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
     const action = res.body.actions.find(
-      (a: any) =>
-        a.category === 'ALERTE' && a.title.includes('péremption'),
+      (a: any) => a.category === 'ALERTE' && a.title.includes('péremption'),
     );
     expect(action).toBeTruthy();
     expect(action.level).toBe('ROUGE');
@@ -233,7 +207,9 @@ describe('Assistant — next-actions (e2e)', () => {
 
     // 3) Marquer « Fait » → FAIT + clearedAt renseigné.
     const completed = await request(server)
-      .post(`/farms/${farmId}/batches/${batchId}/prophylaxis/${eventId}/complete`)
+      .post(
+        `/farms/${farmId}/batches/${batchId}/prophylaxis/${eventId}/complete`,
+      )
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ completedAt: daysFromNow(0) })
       .expect(201);
@@ -251,8 +227,7 @@ describe('Assistant — next-actions (e2e)', () => {
     ).toBeUndefined();
     expect(
       actions.find(
-        (a: any) =>
-          a.category === 'ALERTE' && a.title.includes('Soin à venir'),
+        (a: any) => a.category === 'ALERTE' && a.title.includes('Soin à venir'),
       ),
     ).toBeUndefined();
   });

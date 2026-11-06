@@ -2,7 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  addProgrammeFarm,
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -23,27 +29,6 @@ describe('M11b — Synchronisation comptable (commandes, dépenses, caisse) (e2e
   let noInitFarmId: string;
   let batchId: string;
   let noInitBatchId: string;
-
-  async function login(phone: string, code: string) {
-    const res = await request(server)
-      .post('/auth/login')
-      .send({ phone, code })
-      .expect(201);
-    return res.body.accessToken as string;
-  }
-
-  async function createFarm(name: string) {
-    const res = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    return res.body.id as string;
-  }
 
   async function createBatch(fid: string, name: string, stamp: number) {
     const res = await request(server)
@@ -82,20 +67,27 @@ describe('M11b — Synchronisation comptable (commandes, dépenses, caisse) (e2e
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     server = app.getHttpServer();
 
     const stamp = Date.now();
-    const phone = (n: number) => `+24171${stamp}${n}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(1), fullName: 'Proprio Sync', code: 'secret123' })
-      .expect(201);
-    token = await login(phone(1), 'secret123');
-
-    farmId = await createFarm(`Ferme Sync ${stamp}`);
-    noInitFarmId = await createFarm(`Ferme Sync Sans-init ${stamp}`);
+    const platformToken = (
+      await createPlatformAdmin(server, app.get(DataSource))
+    ).token;
+    const owner = await createProgrammeFarm(server, platformToken, {
+      name: `Ferme Sync ${stamp}`,
+      exploitantName: 'Proprio Sync',
+    });
+    token = owner.ownerToken;
+    farmId = owner.farmId;
+    noInitFarmId = (
+      await addProgrammeFarm(server, platformToken, owner.ownerPhone, {
+        name: `Ferme Sync Sans-init ${stamp}`,
+      })
+    ).farmId;
     batchId = await createBatch(farmId, 'Lot Sync', stamp);
     noInitBatchId = await createBatch(noInitFarmId, 'Lot Sync 2', stamp + 1);
 
@@ -263,7 +255,11 @@ describe('M11b — Synchronisation comptable (commandes, dépenses, caisse) (e2e
     const expRes = await request(server)
       .post(`/farms/${farmId}/expenses`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ category: 'TRANSPORT', amountFcfa: 5000, label: 'Transport test' })
+      .send({
+        category: 'TRANSPORT',
+        amountFcfa: 5000,
+        label: 'Transport test',
+      })
       .expect(201);
     const expenseId = expRes.body.id;
 

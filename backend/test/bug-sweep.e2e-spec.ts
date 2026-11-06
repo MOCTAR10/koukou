@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -64,21 +69,12 @@ describe('Revue de bugs : élevage, caisse, droits (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: phone(1), fullName: 'Proprio Revue', code: 'secret123' })
-      .expect(201);
-    token = await login(phone(1), 'secret123');
-    farmId = (
-      await owner()
-        .post('/farms')
-        .send({
-          name: `Ferme Revue ${stamp}`,
-          administrativeCity: 'Libreville',
-          capacityPerBuilding: 1000,
-        })
-        .expect(201)
-    ).body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const created = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Revue ${stamp}`,
+    });
+    token = created.ownerToken;
+    farmId = created.farmId;
 
     await owner()
       .post(`/farms/${farmId}/eleveurs`)

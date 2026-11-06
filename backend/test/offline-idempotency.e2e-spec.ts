@@ -4,6 +4,11 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  addProgrammeFarm,
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 /**
  * Offline replay: the mobile queue resends a creation with the same
@@ -16,6 +21,8 @@ describe('Idempotence des rejeux hors-ligne (e2e)', () => {
   let db: DataSource;
   let token: string;
   let farmId: string;
+  let adminToken: string;
+  let ownerPhone: string;
 
   const auth = () => ({ Authorization: `Bearer ${token}` });
 
@@ -39,26 +46,13 @@ describe('Idempotence des rejeux hors-ligne (e2e)', () => {
     server = app.getHttpServer();
     db = app.get(DataSource);
 
-    const phone = `+2418${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Idem', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-    const farm = await request(server)
-      .post('/farms')
-      .set(auth())
-      .send({
-        name: `Ferme Idem ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 2000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    adminToken = (await createPlatformAdmin(server, db)).token;
+    const created = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme Idem ${Date.now()}`,
+    });
+    token = created.ownerToken;
+    farmId = created.farmId;
+    ownerPhone = created.ownerPhone;
   });
 
   afterAll(async () => {
@@ -196,17 +190,13 @@ describe('Idempotence des rejeux hors-ligne (e2e)', () => {
   it('même clé sur une autre ferme : pas de collision', async () => {
     const key = `off-feed-input-shared-${Date.now()}`;
     const mine = await receiveFeed(key);
-    const other = await request(server)
-      .post('/farms')
-      .set(auth())
-      .send({
-        name: `Ferme Idem B ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 2000,
-      })
-      .expect(201);
+    // A second farm of the same owner.
+    const other = await addProgrammeFarm(server, adminToken, ownerPhone, {
+      name: `Ferme Idem B ${Date.now()}`,
+    });
     const theirs = await request(server)
-      .post(`/farms/${other.body.id}/inputs`)
+      .post(`/farms/${other.farmId}/inputs`)
+
       .set(auth())
       .send({
         kind: 'ALIMENT',

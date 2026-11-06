@@ -3,6 +3,11 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { DataSource } from 'typeorm';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -37,27 +42,12 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
 
-    const phone = `+24180${Date.now()}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Proprio Vaccin', code: 'secret123' })
-      .expect(201);
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    token = login.body.accessToken;
-
-    const farm = await request(server)
-      .post('/farms')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: `Ferme Vaccin ${Date.now()}`,
-        administrativeCity: 'Libreville',
-        capacityPerBuilding: 1000,
-      })
-      .expect(201);
-    farmId = farm.body.id;
+    const admin = await createPlatformAdmin(server, app.get(DataSource));
+    const farm = await createProgrammeFarm(server, admin.token, {
+      name: `Ferme Vaccin ${Date.now()}`,
+    });
+    token = farm.ownerToken;
+    farmId = farm.farmId;
 
     const eleveurPhone = `+24181${Date.now()}`;
     await request(server)
@@ -105,11 +95,7 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
       'CHAIR',
       addDays(today(), -40),
     );
-    batchLayerId = await makeBatch(
-      'Lot pondeuse vaccin',
-      'PONDEUSE',
-      today(),
-    );
+    batchLayerId = await makeBatch('Lot pondeuse vaccin', 'PONDEUSE', today());
     batchPintadeId = await makeBatch(
       'Lot pintade vaccin',
       'CHAIR',
@@ -136,7 +122,9 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     const chair = (await programs('CHAIR')).body as { code: string }[];
     const layer = (await programs('PONDEUSE')).body as { code: string }[];
     expect(chair.some((p) => p.code === 'vacc-poulet-chair-gabon')).toBe(true);
-    expect(layer.some((p) => p.code === 'vacc-poule-pondeuse-gabon')).toBe(true);
+    expect(layer.some((p) => p.code === 'vacc-poule-pondeuse-gabon')).toBe(
+      true,
+    );
   });
 
   it('générer un programme sur un lot au jour J → tout est planifié, non bloquant', async () => {
@@ -165,7 +153,11 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
       .expect(201);
     expect(res.body.planned).toBe(0);
     expect(res.body.skipped).toBe(6);
-    expect(res.body.perLot[0].skippedSteps.every((s: { reason: string }) => s.reason.includes('déjà'))).toBe(true);
+    expect(
+      res.body.perLot[0].skippedSteps.every((s: { reason: string }) =>
+        s.reason.includes('déjà'),
+      ),
+    ).toBe(true);
   });
 
   it('programme sur un lot âgé → les étapes dont la date est passée sont sautées (jamais bloquant)', async () => {
@@ -235,7 +227,11 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
       .send({ protocolId: program.id, lotIds: [batchPintadeId] })
       .expect(201);
     expect(res.body.planned).toBeGreaterThan(0);
-    expect(res.body.events.every((e: { batchId: string }) => e.batchId === batchPintadeId)).toBe(true);
+    expect(
+      res.body.events.every(
+        (e: { batchId: string }) => e.batchId === batchPintadeId,
+      ),
+    ).toBe(true);
   });
 
   it('soin manuel vaccin multi-lots → un événement par lot (source MANUEL)', async () => {
@@ -254,8 +250,12 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
       })
       .expect(201);
     expect(res.body).toHaveLength(2);
-    expect(res.body.every((e: { source: string }) => e.source === 'MANUEL')).toBe(true);
-    expect(res.body.every((e: { careType: string }) => e.careType === 'VACCIN')).toBe(true);
+    expect(
+      res.body.every((e: { source: string }) => e.source === 'MANUEL'),
+    ).toBe(true);
+    expect(
+      res.body.every((e: { careType: string }) => e.careType === 'VACCIN'),
+    ).toBe(true);
     expect(res.body.map((e: { batchId: string }) => e.batchId).sort()).toEqual(
       [batchFreshId, batchOldId].sort(),
     );
@@ -347,7 +347,9 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     const eventId = res.body[0].id as string;
 
     await request(server)
-      .delete(`/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${eventId}`)
+      .delete(
+        `/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${eventId}`,
+      )
       .set('Authorization', `Bearer ${eleveurToken}`)
       .expect(403);
   });
@@ -362,7 +364,9 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     ) as { id: string };
 
     const edited = await request(server)
-      .patch(`/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`)
+      .patch(
+        `/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`,
+      )
       .set('Authorization', `Bearer ${token}`)
       .send({
         careType: 'MEDICAMENT',
@@ -376,19 +380,25 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     expect(edited.body.status).toBe('PLANIFIE');
 
     await request(server)
-      .post(`/farms/${farmId}/batches/${batchFreshId}/prophylaxis/${event.id}/complete`)
+      .post(
+        `/farms/${farmId}/batches/${batchFreshId}/prophylaxis/${event.id}/complete`,
+      )
       .set('Authorization', `Bearer ${token}`)
       .send({ notes: 'Réalisé sur le terrain' })
       .expect(201);
 
     await request(server)
-      .patch(`/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`)
+      .patch(
+        `/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`,
+      )
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Immutable' })
       .expect(400);
 
     await request(server)
-      .delete(`/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`)
+      .delete(
+        `/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`,
+      )
       .set('Authorization', `Bearer ${token}`)
       .expect(400);
   });
@@ -403,7 +413,9 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     ) as { id: string; medicationLotId: string; medicationQty: number };
 
     const del = await request(server)
-      .delete(`/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`)
+      .delete(
+        `/farms/${farmId}/batches/${batchFreshId}/vaccine-schedules/${event.id}`,
+      )
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     expect(del.body.deleted).toBe(true);

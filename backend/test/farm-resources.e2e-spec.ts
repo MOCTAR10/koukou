@@ -4,6 +4,10 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 import { DatabaseSeedService } from './../src/database/database-seed.service.js';
 
 function today(): string {
@@ -17,31 +21,15 @@ describe('Souches, cultures et programmes personnalisés : propres à la ferme (
   const owner = { token: '', farmId: '' };
   const other = { token: '', farmId: '' };
 
-  async function signUp(prefix: string, target: typeof owner) {
-    const phone = `+2417${prefix}${stamp}`;
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: `Proprio ${prefix}`, code: 'secret123' })
-      .expect(201);
-    target.token = (
-      await request(server)
-        .post('/auth/login')
-        .send({ phone, code: 'secret123' })
-        .expect(201)
-    ).body.accessToken;
-    target.farmId = (
-      await request(server)
-        .post('/farms')
-        .set('Authorization', `Bearer ${target.token}`)
-        .send({
-          name: `Ferme ${prefix} ${stamp}`,
-          administrativeCity: 'Libreville',
-          capacityPerBuilding: 1000,
-        })
-        .expect(201)
-    ).body.id;
-  }
+  let adminToken = '';
 
+  async function signUp(prefix: string, target: typeof owner) {
+    const created = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme ${prefix} ${stamp}`,
+    });
+    target.token = created.ownerToken;
+    target.farmId = created.farmId;
+  }
   const as = (who: typeof owner) => ({
     get: (url: string) =>
       request(server).get(url).set('Authorization', `Bearer ${who.token}`),
@@ -59,7 +47,9 @@ describe('Souches, cultures et programmes personnalisés : propres à la ferme (
     );
     await app.init();
     server = app.getHttpServer();
+    adminToken = (await createPlatformAdmin(server, app.get(DataSource))).token;
     await signUp('7', owner);
+
     await signUp('8', other);
   });
 
