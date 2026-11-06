@@ -262,6 +262,8 @@ export class SortiesService {
               plannedDate: day,
               birdCount: dto.count,
               totalWeightKg: dto.weightKg,
+              // POUFA lot A2 divers: the order shows the operator ceded at the sortie.
+              operatorId: dto.operatorId,
               abattoirNotes: sortie.recipientName
                 ? `Sortie POUFA vers ${sortie.recipientName}`
                 : 'Sortie POUFA',

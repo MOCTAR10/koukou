@@ -22,6 +22,8 @@ import { WeighingReminderTeam1794000400000 } from './1794000400000-WeighingRemin
 import { InstitutionFermiaGrants1794000500000 } from './1794000500000-InstitutionFermiaGrants.js';
 import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalaries.js';
 // POUFA lot A droits (end)
+// POUFA lot A2 divers
+import { SlaughterOrderOperator1794100500000 } from './1794100500000-SlaughterOrderOperator.js';
 // POUFA lot A sante: CDC n° 22-23 (treatments, vaccinations, offline keys).
 import { SanitaryConformity1794000300000 } from './1794000300000-SanitaryConformity.js';
 
@@ -58,4 +60,7 @@ export const MIGRATIONS = [
   InstitutionFermiaGrants1794000500000,
   AuditMaskSalaries1794000500100,
   // POUFA lot A droits (end)
+  // POUFA lot A2 divers (begin)
+  SlaughterOrderOperator1794100500000,
+  // POUFA lot A2 divers (end)
 ];

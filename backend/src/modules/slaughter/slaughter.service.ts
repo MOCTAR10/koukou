@@ -35,6 +35,8 @@ import {
   UpdateSlaughterOrderDto,
 } from './dto/slaughter.dto.js';
 import { SlaughterOrder } from './entities/slaughter-order.entity.js';
+// POUFA lot A2 divers (F4): a processed order to an abattoir cedes the lot.
+import { SaleCessionService } from '../trace/sale-cession.service.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import { FlockReconciliationService } from '../batches/flock-reconciliation.service.js';
 import { passportIndicatorRows } from '../indicators/indicator-headline.js';
@@ -100,6 +102,7 @@ export class SlaughterService {
     private readonly bandeStats: BandeStatsService,
     private readonly reconciliation: FlockReconciliationService,
     private readonly moduleRef: ModuleRef,
+    private readonly cessions: SaleCessionService,
   ) {}
 
   private readonly logger = new Logger(SlaughterService.name);
@@ -148,9 +151,19 @@ export class SlaughterService {
       );
     }
 
+    // A POUFA sortie (opts.em) already checked its operator (cession hook).
+    if (dto.operatorId && !opts?.em) {
+      await this.cessions.assertAbattoir(
+        this.dataSource.manager,
+        farmId,
+        dto.operatorId,
+        dto.destination,
+      );
+    }
     const order = orderRepo.create({
       farmId,
       batchId: batch.id,
+      operatorId: dto.operatorId ?? null,
       referenceNumber: await this.nextReference(),
       slaughterType: dto.slaughterType,
       destination: dto.destination,
@@ -241,6 +254,22 @@ export class SlaughterService {
         throw new BadRequestException(
           'Ordre issu d’une sortie de bande : le nombre d’oiseaux suit la sortie (annulez l’ordre puis enregistrez une nouvelle sortie).',
         );
+      }
+      if (dto.operatorId !== undefined && dto.operatorId !== order.operatorId) {
+        if (order.status === SlaughterStatus.PROCESSED) {
+          throw new BadRequestException(
+            'Ordre déjà traité : la cession à l’abattoir est faite, l’abattoir ne change plus.',
+          );
+        }
+        if (dto.operatorId) {
+          await this.cessions.assertAbattoir(
+            em,
+            farmId,
+            dto.operatorId,
+            order.destination,
+          );
+        }
+        order.operatorId = dto.operatorId;
       }
       if (dto.slaughterType !== undefined)
         order.slaughterType = dto.slaughterType;
@@ -422,6 +451,15 @@ export class SlaughterService {
         order.carcassesAvailable = order.birdCount;
       }
       await em.getRepository(SlaughterOrder).save(order);
+      // F4: the birds handed to an abattoir are ceded (sub-lot + QR), once.
+      if (!sortieBirds) {
+        await this.cessions.cedeSlaughterOrder(
+          em,
+          order,
+          user.id,
+          new Date().toISOString().slice(0, 10),
+        );
+      }
       // POUFA band projection, same transaction.
       if (batch.status !== BatchStatus.CLOTURE) {
         await this.bandeStats.refresh(em, batch.id);

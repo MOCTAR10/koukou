@@ -75,6 +75,7 @@ import { SalesService } from '../finance/sales.service.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import { SaleCessionService } from '../trace/sale-cession.service.js';
 import { SyncService } from '../sync/sync.service.js';
+import { TraceLotsService } from '../trace/trace-lots.service.js';
 import { utcDay } from './delivery-day.js';
 import {
   CreateOrderDto,
@@ -216,6 +217,7 @@ export class OrdersService {
     private readonly bandeStats: BandeStatsService,
     private readonly saleCessions: SaleCessionService,
     private readonly sync: SyncService,
+    private readonly traceLots: TraceLotsService,
   ) {}
 
   // ---------- Création (bon de commande) ----------
@@ -1173,6 +1175,8 @@ export class OrdersService {
       depositFcfa: paid,
       remainingFcfa: Math.max(0, order.totalAmountFcfa - paid),
       method: confirmed[0]?.method ?? 'ESPECES',
+      // POUFA lot A2 divers (F10): traced lots of the order, signed QR.
+      traceLots: await this.traceLots.saleTraceLots(farmId, order.saleId),
     });
   }
 

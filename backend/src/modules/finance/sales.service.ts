@@ -67,6 +67,7 @@ import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 import { SaleCessionService } from '../trace/sale-cession.service.js';
+import { TraceLotsService } from '../trace/trace-lots.service.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 
 const SALE_PREFIX = 'VTE';
@@ -127,6 +128,8 @@ export class SalesService {
     private readonly accountingService: AccountingService,
     private readonly bandeStats: BandeStatsService,
     private readonly saleCessions: SaleCessionService,
+    // POUFA lot A2 divers (F10): traced lots on the receipt.
+    private readonly traceLots: TraceLotsService,
   ) {}
 
   // ---------- Création (transaction POS) ----------
@@ -1675,6 +1678,7 @@ export class SalesService {
       paidAmountFcfa: paid,
       remainingFcfa: Math.max(0, info.totalAmountFcfa - paid),
       method: confirmed[0]?.method ?? 'ESPECES',
+      traceLots: await this.traceLots.saleTraceLots(farmId, saleId),
     });
   }
 

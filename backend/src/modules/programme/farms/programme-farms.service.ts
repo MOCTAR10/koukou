@@ -34,6 +34,7 @@ import {
   parseFormula,
 } from '../../indicators/formula/formula.js';
 import { User } from '../../users/entities/user.entity.js';
+import { FarmEmployee } from '../../farms/entities/farm-employee.entity.js';
 import type {
   ActivateOwnerDto,
   CreateProgrammeFarmDto,
@@ -1447,5 +1448,54 @@ export class ProgrammeFarmsService {
       family: item?.family ?? null,
       since: farm.statusSince,
     };
+  }
+  // POUFA lot A2 divers (F13) ----------------------------------------------
+
+  /**
+   * Team accounts the exploitant created on a farm (`farm_employees`): what
+   * the programme administrator sees (ADMINISTRATION:CONSULTER, farm in
+   * scope). No salary or HR field, only the account and its access.
+   */
+  async teamOf(farmId: string) {
+    const program = await this.programme.current();
+    await this.programmeFarm(program.id, farmId);
+    const rows: Record<string, unknown>[] = await this.dataSource.query(
+      `SELECT e.id AS "employmentId", u.id AS "userId", u."fullName" AS "fullName",
+              u.phone, e.role, e.permissions, e.active AS "linkActive",
+              u.active AS "accountActive", e."createdAt" AS "createdAt"
+         FROM farm_employees e JOIN users u ON u.id = e.user_id
+        WHERE e.farm_id = $1
+        ORDER BY u."fullName"`,
+      [farmId],
+    );
+    return rows;
+  }
+
+  /**
+   * Suspends (or restores) one team member's access to this farm
+   * (ADMINISTRATION:ADMINISTRER): the farm link goes inactive, so every farm
+   * route answers 403 to that account, as when the owner deactivates it.
+   * The account itself and its other farms are untouched.
+   */
+  async setTeamMemberActive(
+    user: AuthUser,
+    farmId: string,
+    employmentId: string,
+    active: boolean,
+  ) {
+    const program = await this.programme.current();
+    await this.programmeFarm(program.id, farmId);
+    const link = await this.dataSource
+      .getRepository(FarmEmployee)
+      .findOne({ where: { id: employmentId, farmId } });
+    if (!link) {
+      throw new NotFoundException('Membre de l’équipe introuvable sur cette ferme.');
+    }
+    if (link.userId === user.id) {
+      throw new ForbiddenException('Vous ne pouvez pas suspendre votre propre accès.');
+    }
+    link.active = active;
+    await this.dataSource.getRepository(FarmEmployee).save(link);
+    return { employmentId: link.id, userId: link.userId, active: link.active };
   }
 }

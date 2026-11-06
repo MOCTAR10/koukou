@@ -146,6 +146,50 @@ export class TraceLotsService
   }
 
   /**
+   * POUFA lot A2 divers (F10): the traced lots a sale's receipt names. A sub-
+   * lot ceded by this sale (customer linked to an operator) is the most
+   * precise; the other bands of the sale give their root lot. Each comes with
+   * its signed public address `/l/<code>?s=…`, the one printed on labels.
+   */
+  async saleTraceLots(
+    farmId: string,
+    saleId: string,
+  ): Promise<{ code: string; url: string; ceded: boolean }[]> {
+    const batches: { batchId: string }[] = await this.dataSource.query(
+      `SELECT DISTINCT i.batch_id AS "batchId"
+         FROM sale_items i JOIN sales s ON s.id = i.sale_id
+        WHERE i.sale_id = $1 AND s.farm_id = $2 AND i.batch_id IS NOT NULL`,
+      [saleId, farmId],
+    );
+    if (batches.length === 0) return [];
+    for (const { batchId } of batches) await this.ensureRootLots(farmId, batchId);
+    const rows: {
+      batchId: string;
+      code: string;
+      qrToken: string;
+      ceded: boolean;
+    }[] = await this.dataSource.query(
+      `SELECT l.batch_id AS "batchId", l.code, l.qr_token AS "qrToken", true AS ceded
+         FROM trace_lots l JOIN sorties so ON so.id = l.sortie_id
+        WHERE so.sale_id = $1 AND l.kind = 'SOUS_LOT'
+       UNION ALL
+       SELECT l.batch_id, l.code, l.qr_token, false
+         FROM trace_lots l
+        WHERE l.kind = 'LOT' AND l.batch_id = ANY($2::uuid[])
+        ORDER BY 2`,
+      [saleId, batches.map((b) => b.batchId)],
+    );
+    const cededBands = new Set(rows.filter((r) => r.ceded).map((r) => r.batchId));
+    return rows
+      .filter((r) => r.ceded || !cededBands.has(r.batchId))
+      .map((r) => ({
+        code: r.code,
+        url: this.config.qrUrl(r.code, r.qrToken),
+        ceded: r.ceded,
+      }));
+  }
+
+  /**
    * Root lots of a farm's bands opened before traceability (lazy creation,
    * one transaction per band, under its row lock).
    */
