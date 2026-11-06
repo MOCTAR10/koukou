@@ -1,6 +1,7 @@
 import { markOffline, markOnline } from '../offline/connectivity';
 import { readCached, writeCached } from '../offline/readCache';
 import { ApiError, apiErrorFrom } from './errors';
+import { markSessionExpired } from './session-expiry';
 
 export { ApiError, errorBody } from './errors';
 
@@ -69,6 +70,8 @@ function buildUrl(path: string): string {
 function handleUnauthorized(res: Response): void {
   if (res.status === 401 && getToken()) {
     clearSession();
+    // The sign-in page says the session expired (8 h for an institution).
+    markSessionExpired();
     if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
       window.location.replace('/login');
     }
