@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, ClipboardCheck, Eraser, Settings2, ShieldAle
 import { api } from '../api/client';
 import { ALERT_FAMILIES, type SanitaryAlertPage } from '../api/types-surveillance';
 import { PageNotOpen } from '../components/access/PageNotOpen';
-import { Button, ErrorNote, Field, inputCls } from '../components/form';
+import { Button, ErrorNote, Field, inputCls, DateInput } from '../components/form';
 import { LEVEL_LABEL, Note, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { useProvinces } from '../components/registry/queries';
 import { AlertDetailPanel } from '../components/surveillance/AlertDetailPanel';
@@ -169,10 +169,10 @@ export function SurveillancePage() {
             </Field>
           ) : null}
           <Field label="Jour du fait, du">
-            <input className={inputCls} type="date" value={filters.from} onChange={(e) => setFilter('from', e.target.value)} />
+            <DateInput className={inputCls} value={filters.from} onChange={(e) => setFilter('from', e.target.value)} />
           </Field>
           <Field label="au">
-            <input className={inputCls} type="date" value={filters.to} onChange={(e) => setFilter('to', e.target.value)} />
+            <DateInput className={inputCls} value={filters.to} onChange={(e) => setFilter('to', e.target.value)} />
           </Field>
           <div className="flex items-end">
             <Button tone="secondary" onClick={() => setParams(filtersToParams(EMPTY_ALERT_FILTERS, params), { replace: true })}>

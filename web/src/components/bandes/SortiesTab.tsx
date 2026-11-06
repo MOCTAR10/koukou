@@ -9,7 +9,7 @@ import { useFarmProfile } from '../../app/useFarmProfile';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { Note, SectionCard, useInvalidateFarm } from '../flock/shared';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, todayIso } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, todayIso, DateInput } from '../form';
 import { useListItems } from '../supply/queries';
 import { useOperators } from '../trace/queries';
 import { DataTable, EmptyState, Loading, Td, Th } from '../ui';
@@ -182,7 +182,7 @@ function SortieModal({ farmId, lot, onClose }: { farmId: string; lot: Lot; onClo
                 </select>
               </Field>
               <Field label="Date *">
-                <input className={inputCls} type="date" value={draft.sortieDate} min={lot.integrationDate.slice(0, 10)} max={todayIso()} onChange={(e) => set('sortieDate', e.target.value)} />
+                <DateInput className={inputCls} value={draft.sortieDate} min={lot.integrationDate.slice(0, 10)} max={todayIso()} onChange={(e) => set('sortieDate', e.target.value)} />
               </Field>
               <Field label="Nombre de sujets *" hint={`${num(lot.quantityAlive, 0)} présents`}>
                 <input className={inputCls} inputMode="numeric" value={draft.count} onChange={(e) => set('count', e.target.value.replace(/[^\d]/g, ''))} />

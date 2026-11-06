@@ -48,7 +48,7 @@ import {
   useBuildings,
   useLots,
 } from '../components/flock/shared';
-import { Button, ErrorNote, inputCls } from '../components/form';
+import { Button, ErrorNote, inputCls, DateInput } from '../components/form';
 // POUFA lot A indic: official headline per band, Fermia's figure second, band history.
 import { BandHistoryCard, ConduiteValue, OfficialMetric, OfficialValue, useBandHistory } from '../components/bandes/OfficialHeadline';
 import { FERMIA_FORMULAS, currentBand, findIndicator, openBandsHeadline, summariesById, type HeadlineKey } from '../components/bandes/headline';
@@ -232,8 +232,8 @@ export function BatchesPage() {
             actions={
               <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-500">
                 Situation au
-                <input
-                  type="date"
+                <DateInput
+                  
                   max={to}
                   value={asOf}
                   onChange={(e) => setAsOf(e.target.value)}

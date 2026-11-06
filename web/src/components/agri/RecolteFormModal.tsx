@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
 import type { Parcelle, Recolte, RecolteInput, RecolteUnit } from '../../api/types-agri';
 import { useFarm } from '../../app/FarmContext';
-import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../form';
 import { invalidateAgri, localYmd, parseDecimal, RECOLTE_UNIT_LABELS, RECOLTE_UNITS } from './agri';
 
 export function RecolteFormModal({ parcelles, onClose }: { parcelles: Parcelle[]; onClose: () => void }) {
@@ -68,8 +68,8 @@ export function RecolteFormModal({ parcelles, onClose }: { parcelles: Parcelle[]
           </select>
         </Field>
         <Field label="Date de récolte *">
-          <input
-            type="date"
+          <DateInput
+            
             className={inputCls}
             value={harvestDate}
             max={today}

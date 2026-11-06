@@ -91,7 +91,7 @@ import {
   useLots,
   utcYmd,
 } from '../components/flock/shared';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../components/form';
+import { Button, ErrorNote, Field, Modal, inputCls, DateInput } from '../components/form';
 import { DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { lotImage } from '../lib/animalImages';
 import { dateFr, num } from '../lib/format';
@@ -932,10 +932,10 @@ function TreatmentsPanel({ lot, period }: { lot: SanitaryLotRef; period: Period 
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <IconField label="Début *" icon={<Calendar />}>
-              <input className={inputCls} type="date" max={today} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} required />
+              <DateInput className={inputCls} max={today} value={administeredAt} onChange={(e) => setAdministeredAt(e.target.value)} required />
             </IconField>
             <IconField label="Fin" icon={<Calendar />}>
-              <input className={inputCls} type="date" min={administeredAt} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <DateInput className={inputCls} min={administeredAt} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </IconField>
             <IconField label="Animaux traités *" icon={<Bird />}>
               <input className={inputCls} inputMode="numeric" value={animalCount} onChange={(e) => setAnimalCount(e.target.value.replace(/\D/g, ''))} required />

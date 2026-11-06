@@ -5,7 +5,7 @@ import { api } from '../../api/client';
 import type { AuditSeal, SealVerification } from '../../api/types-admin';
 import { dateFr, dateTimeFr, num } from '../../lib/format';
 import { Note } from '../flock/shared';
-import { Button, ErrorNote, Field, inputCls } from '../form';
+import { Button, ErrorNote, Field, inputCls, DateInput } from '../form';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { sealVerdict, shortHash, verifyBody } from './audit';
 
@@ -46,10 +46,10 @@ export function SealsView() {
       <Card className="space-y-3 p-4">
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Du">
-            <input type="date" className={inputCls} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DateInput className={inputCls} value={from} onChange={(e) => setFrom(e.target.value)} />
           </Field>
           <Field label="Au (inclus)">
-            <input type="date" className={inputCls} value={to} onChange={(e) => setTo(e.target.value)} />
+            <DateInput className={inputCls} value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
           <Button busy={verify.isPending} onClick={run}>
             <ShieldQuestion className="h-4 w-4" /> Vérifier

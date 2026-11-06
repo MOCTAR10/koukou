@@ -6,7 +6,7 @@ import { api } from '../api/client';
 import type { FarmMarketListing, FarmMarketOrder, MarketOrderState } from '../api/types-market';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
-import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../components/form';
+import { Button, ErrorNote, Field, inputCls, Modal, todayIso, DateInput } from '../components/form';
 import { ListingFormModal } from '../components/market/ListingFormModal';
 import { timeLeft, unitName } from '../components/market/rules';
 import { buyerTypeLabel, HIDDEN_REASON, listingPhoto, listingTitle, MarketStatusBadge, useNow } from '../components/market/shared';
@@ -48,7 +48,7 @@ function MoveDateModal({ farmId, listing, onClose }: { farmId: string; listing: 
           Les commandes en cours passent à la nouvelle date. Chaque acheteur le voit et peut annuler s’il ne peut plus attendre.
         </p>
         <Field label="Nouvelle date de disponibilité">
-          <input type="date" min={addDaysIso(todayIso(), 1)} className={inputCls} value={readyDate} onChange={(e) => setReadyDate(e.target.value)} required />
+          <DateInput min={addDaysIso(todayIso(), 1)} className={inputCls} value={readyDate} onChange={(e) => setReadyDate(e.target.value)} required />
         </Field>
         <ErrorNote error={move.error} />
         <div className="flex justify-end gap-2">

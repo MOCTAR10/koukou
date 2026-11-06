@@ -27,7 +27,7 @@ import {
   type EconomieFilters,
   type EconomieView,
 } from '../components/economie/economie';
-import { Button, ErrorNote, Field, inputCls } from '../components/form';
+import { Button, ErrorNote, Field, inputCls, DateInput } from '../components/form';
 import { Card, DataTable, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { classNames, fcfa, num, pct } from '../lib/format';
 
@@ -222,10 +222,10 @@ export function EconomiePage() {
       <Card className="p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Du">
-            <input type="date" className={inputCls} value={filters.from} max={filters.to || undefined} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
+            <DateInput className={inputCls} value={filters.from} max={filters.to || undefined} onChange={(e) => setFilters((f) => ({ ...f, from: e.target.value }))} />
           </Field>
           <Field label="Au">
-            <input type="date" className={inputCls} value={filters.to} min={filters.from || undefined} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
+            <DateInput className={inputCls} value={filters.to} min={filters.from || undefined} onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))} />
           </Field>
           <Field label="Province">
             <select className={inputCls} value={filters.provinceId} onChange={(e) => setFilters((f) => ({ ...f, provinceId: e.target.value }))}>

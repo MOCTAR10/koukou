@@ -4,7 +4,7 @@ import type { ParameterView } from '../../api/types-admin';
 import { dateTimeFr } from '../../lib/format';
 import { FilterChip } from '../sales/shared';
 import { Note, Pill } from '../flock/shared';
-import { ErrorNote, Field, inputCls } from '../form';
+import { ErrorNote, Field, inputCls, DateInput } from '../form';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import type { AdminRights } from './adminRights';
 import { mayPropose } from './adminRights';
@@ -69,7 +69,7 @@ export function ParametersView({ rights }: { rights: AdminRights['parameters'] }
             />
           </div>
           <Field label="Valeurs en vigueur le" hint={atDate ? 'Consultation d’une date : lecture seule.' : 'Vide : maintenant.'}>
-            <input type="date" className={inputCls} value={atDate} onChange={(e) => setAtDate(e.target.value)} />
+            <DateInput className={inputCls} value={atDate} onChange={(e) => setAtDate(e.target.value)} />
           </Field>
         </div>
         <div className="flex flex-wrap gap-1.5">

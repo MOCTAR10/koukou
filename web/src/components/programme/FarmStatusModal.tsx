@@ -4,7 +4,7 @@ import { api } from '../../api/client';
 import type { Farm } from '../../api/types';
 import type { RefItem } from '../../api/types-programme';
 import { dateFr } from '../../lib/format';
-import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../form';
+import { Button, ErrorNote, Field, inputCls, Modal, todayIso, DateInput } from '../form';
 import { buildStatusPayload, needsReason, statusChoices } from './farmStatus';
 
 /** Farm statuses of the programme (STATUT_FERME), shared by every status screen. */
@@ -97,7 +97,7 @@ export function FarmStatusModal({
           </select>
         </Field>
         <Field label="Date d’effet" hint="Vide : maintenant. Jamais dans le futur.">
-          <input type="date" className={inputCls} value={from} max={today} onChange={(e) => setFrom(e.target.value)} />
+          <DateInput className={inputCls} value={from} max={today} onChange={(e) => setFrom(e.target.value)} />
         </Field>
         <Field
           label={needsReason(chosen) ? 'Motif (obligatoire)' : 'Motif'}

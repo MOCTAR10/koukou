@@ -7,7 +7,7 @@ import { useIdempotencyKey } from '../../lib/idempotency';
 import { dateFr } from '../../lib/format';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { useSanitaryList } from '../surveillance/queries';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, Modal, inputCls, DateInput } from '../form';
 import { CARE_TYPE_LABEL, IconField, Note, localYmd, useInvalidateFarm } from './shared';
 import {
   EMPTY_PRODUCT_LIST_NOTE,
@@ -130,7 +130,7 @@ export function CompleteCareModal({ lot, event, onClose }: { lot: CareLotRef; ev
         ) : null}
         <div className="grid grid-cols-2 gap-3">
           <IconField label="Date de réalisation *" icon={<Calendar />}>
-            <input className={inputCls} type="date" max={today} value={completedAt} onChange={(e) => setCompletedAt(e.target.value)} required />
+            <DateInput className={inputCls} max={today} value={completedAt} onChange={(e) => setCompletedAt(e.target.value)} required />
           </IconField>
           <IconField label="Nombre d'animaux *" icon={<Bird />}>
             <input
@@ -170,7 +170,7 @@ export function CompleteCareModal({ lot, event, onClose }: { lot: CareLotRef; ev
             ) : null}
             <div className="grid grid-cols-2 gap-3">
               <IconField label={details ? 'Fin du traitement *' : 'Fin du traitement'} icon={<Calendar />}>
-                <input className={inputCls} type="date" min={completedAt} value={endDate} onChange={(e) => setEndDate(e.target.value)} required={details} />
+                <DateInput className={inputCls} min={completedAt} value={endDate} onChange={(e) => setEndDate(e.target.value)} required={details} />
               </IconField>
               <Field label={details ? 'Motif *' : 'Motif'}>
                 <input

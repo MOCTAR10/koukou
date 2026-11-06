@@ -34,7 +34,7 @@ import { showsCollectedToday } from '../app/economicVisibility';
 import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, StatCard, StatusBadge, Td, Th } from '../components/ui';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { Donut, LineChart } from '../components/Charts';
-import { ErrorNote } from '../components/form';
+import { ErrorNote, DateInput } from '../components/form';
 import { ActionQueue, EggStockPanel, OwnerStats, PerformanceTiles, Ranking, WeatherCard } from '../components/sales/DashboardPanels';
 // POUFA lot A indic: official headline of the open bands, Fermia's figure second.
 import { ConduiteValue, OfficialValue, useBandHistory } from '../components/bandes/OfficialHeadline';
@@ -486,8 +486,8 @@ function LivestockDashboard() {
         actions={
           <>
             <Calendar className="h-4 w-4 text-slate-400" />
-            <input
-              type="date"
+            <DateInput
+              
               value={selectedDate}
               max={localToday()}
               onChange={(e) => setSelectedDate(e.target.value)}

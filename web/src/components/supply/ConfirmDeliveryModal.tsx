@@ -4,7 +4,7 @@ import { PackageCheck } from 'lucide-react';
 import type { ConfirmResult, DeliveryView, OpenBandHint } from '../../api/types-supply';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { Note } from '../flock/shared';
-import { Button, ErrorNote, Field, inlineInputCls, inputCls, Modal, todayIso } from '../form';
+import { Button, ErrorNote, Field, inlineInputCls, inputCls, Modal, todayIso, DateInput } from '../form';
 import { DataTable, Td, Th } from '../ui';
 import { buildConfirmPayload, draftDiffers, initialConfirmDrafts, type ConfirmLineDraft } from './confirmRules';
 import { lineQuantityLabel } from './deliveryRules';
@@ -70,7 +70,7 @@ export function ConfirmDeliveryModal({
           transport…). Chaque ligne reçue entre dans votre stock ; seul le coût après subvention devient une dépense.
         </p>
         <Field label="Date de réception *" className="max-w-xs">
-          <input className={inputCls} type="date" value={receivedDate} min={delivery.shippedAt.slice(0, 10)} max={todayIso()} onChange={(e) => setReceivedDate(e.target.value)} />
+          <DateInput className={inputCls} value={receivedDate} min={delivery.shippedAt.slice(0, 10)} max={todayIso()} onChange={(e) => setReceivedDate(e.target.value)} />
         </Field>
         <DataTable>
           <thead>
@@ -124,10 +124,10 @@ export function ConfirmDeliveryModal({
                     />
                   </Td>
                   <Td label="Péremption">
-                    <input
+                    <DateInput
                       aria-label={`Péremption : ${l.intrantLabel ?? l.intrantCode}`}
                       className={inputCls}
-                      type="date"
+                      
                       value={d.expirationDate}
                       onChange={(e) => setDraft(l.id, { expirationDate: e.target.value })}
                     />

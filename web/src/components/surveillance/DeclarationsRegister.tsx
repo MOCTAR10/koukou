@@ -4,7 +4,7 @@ import { ChevronRight, ClipboardCheck } from 'lucide-react';
 import { api } from '../../api/client';
 import type { DeclarationReviewDecision, SanitaryDeclaration, SanitaryDeclarationPage } from '../../api/types-surveillance';
 import { dateFr, dateTimeFr } from '../../lib/format';
-import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
+import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../form';
 import { LEVEL_LABEL, Note, Pill, levelTone } from '../flock/shared';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { DeclarationPhotos } from './DeclarationPhotos';
@@ -50,10 +50,10 @@ export function DeclarationsRegister({ canReview }: { canReview: boolean }) {
             </select>
           </Field>
           <Field label="Déclarée du">
-            <input className={inputCls} type="date" value={filters.from} onChange={(e) => set('from', e.target.value)} />
+            <DateInput className={inputCls} value={filters.from} onChange={(e) => set('from', e.target.value)} />
           </Field>
           <Field label="au">
-            <input className={inputCls} type="date" value={filters.to} onChange={(e) => set('to', e.target.value)} />
+            <DateInput className={inputCls} value={filters.to} onChange={(e) => set('to', e.target.value)} />
           </Field>
         </div>
       </Card>
