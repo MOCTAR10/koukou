@@ -13,7 +13,7 @@ import { ORDER_CANAL_LABEL, ORDER_STATUS_LABEL } from '../components/orders/help
 import { OrderDetailModal } from '../components/orders/OrderDetailModal';
 import { CanalIcon, OrderStatusBadge, Pill, Segmented } from '../components/orders/shared';
 import { Card, DataTable, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
-import { dateFr, fcfa, num } from '../lib/format';
+import { dateFr, fcfa, num, plural } from '../lib/format';
 
 type Filter = OrderStatus | 'ALL';
 
@@ -108,7 +108,7 @@ export function OrdersPage() {
           label="Livré"
           icon={<CircleCheck />}
           value={`${Math.round(stats.rate * 100)} %`}
-          hint={`${num(stats.delivered, 0)} livrée(s), ${num(stats.cancelled, 0)} annulée(s) sur ${num(orders.length, 0)}`}
+          hint={`${plural(stats.delivered, 'livrée')}, ${plural(stats.cancelled, 'annulée')} sur ${num(orders.length, 0)}`}
         />
       </div>
 

@@ -105,7 +105,7 @@ function TemplatesSection({ rights, onRun }: { rights: PilotageRights; onRun: (i
                 {t.hasFarmRows ? <Pill tone="amber">Nomme des fermes</Pill> : null}
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                {t.code} · {LEVEL_LABELS[t.level]} · {PERIODICITY_LABELS[t.periodicity]}
+                {LEVEL_LABELS[t.level]} · {PERIODICITY_LABELS[t.periodicity]}
               </p>
               <p className="mt-2 text-sm text-slate-600">{t.sections.map((s) => s.label).join(' · ')}</p>
               <p className="mt-2 flex items-start gap-1.5 text-xs text-slate-500">

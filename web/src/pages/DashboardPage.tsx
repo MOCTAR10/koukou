@@ -44,7 +44,7 @@ import { HEALTH_LABEL } from '../components/sales/labels';
 import { batchPhoto } from '../components/sales/pos';
 import { AlertLevelBadge } from '../components/sales/shared';
 import { EGG_IMAGES } from '../lib/animalImages';
-import { classNames, dateFr, fcfa, num, pct, statusLabel } from '../lib/format';
+import { classNames, dateFr, fcfa, num, pct, statusLabel, plural } from '../lib/format';
 import { stagger, staggerItem } from '../lib/motion';
 import { useMediaQuery } from '../lib/useMediaQuery';
 
@@ -198,7 +198,7 @@ function LivestockDashboard() {
           <StatCard
             label="Cheptel vivant"
             value={<AnimatedNumber value={d.liveStock} format={num} />}
-            hint={`${d.batches.actif} lot(s) actif(s) · Voir le détail`}
+            hint={`${plural(d.batches.actif, 'lot actif', 'lots actifs')} · Voir le détail`}
             image={mainSpeciesImage(liveLots)}
             onClick={() => setCheptelOpen(true)}
             actionLabel={`${num(d.liveStock)} oiseaux vivants, voir le cheptel`}
@@ -224,7 +224,7 @@ function LivestockDashboard() {
             />
           ) : (
             <StatCard
-              label="Mortalité (Fermia)"
+              label="Mortalité"
               value={<span title={FERMIA_FORMULAS.mortality}>{pct(d.mortalityPercent)}</span>}
               hint={`Viabilité ${d.viabilityPercent != null ? pct(d.viabilityPercent) : '—'} · ${CONDUITE_LABEL}`}
               icon={<Activity className="h-5 w-5" />}
@@ -281,14 +281,14 @@ function LivestockDashboard() {
             />
             <ul className="space-y-1.5 text-sm">
               <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> {d.health.breakdown.rouge} alerte(s) rouge(s)
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> {plural(d.health.breakdown.rouge, 'alerte rouge', 'alertes rouges')}
               </li>
               <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> {d.health.breakdown.jaune} alerte(s) jaune(s)
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> {plural(d.health.breakdown.jaune, 'alerte jaune', 'alertes jaunes')}
               </li>
               <li className="flex items-center gap-2">
                 <CalendarClock className="h-3.5 w-3.5 text-slate-400" />
-                {d.health.breakdown.saisiesManquantes} saisie(s) manquante(s)
+                {plural(d.health.breakdown.saisiesManquantes, 'saisie manquante', 'saisies manquantes')}
               </li>
             </ul>
           </div>
@@ -468,7 +468,7 @@ function LivestockDashboard() {
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
           <div>
             <p className="font-semibold text-red-700">
-              {d.alerts.rouge} alerte(s) rouge(s) à traiter en priorité
+              {plural(d.alerts.rouge, 'alerte rouge', 'alertes rouges')} à traiter en priorité
             </p>
             <Link to="/app/alerts" className="text-sm font-medium text-red-600 underline">
               Consulter les alertes et leurs recommandations

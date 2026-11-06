@@ -7,6 +7,7 @@ import { Loading } from '../ui';
 import {
   classifyVersions,
   formatParameterValue,
+  isDefaultSince,
   isProposedVersion,
   ownerLabel,
   rangeLabel,
@@ -94,7 +95,7 @@ export function ParameterHistoryPanel({
                 <div className="flex flex-wrap items-center gap-2">
                   <Pill tone={STATE_TONE[v.state]}>{VERSION_STATE_LABELS[v.state]}</Pill>
                   {isProposedVersion(v) ? <Pill tone="amber">Proposé (cahier des charges)</Pill> : null}
-                  <span className="text-xs text-slate-500">à partir du {dateTimeFr(v.validFrom)}</span>
+                  <span className="text-xs text-slate-500">{isDefaultSince(v.validFrom) ? 'valeur par défaut' : `à partir du ${dateTimeFr(v.validFrom)}`}</span>
                 </div>
                 <p className={param.type === 'formula' ? 'break-words font-mono text-xs text-slate-900' : 'font-semibold text-slate-900'}>
                   {formatParameterValue(param.type, v.value, param.unit)}

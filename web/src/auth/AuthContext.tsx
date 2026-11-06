@@ -1,3 +1,4 @@
+import { plural } from '../lib/format';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -99,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (
           pending > 0 &&
           !window.confirm(
-            `${pending} opération(s) (ventes, saisies…) n’ont pas encore été envoyées au serveur. Elles seront perdues si vous vous déconnectez maintenant.
+            `${plural(pending, 'opération')} (ventes, saisies…) ${pending < 2 ? 'n’a' : 'n’ont'} pas encore été envoyée${pending < 2 ? '' : 's'} au serveur. Elles seront perdues si vous vous déconnectez maintenant.
 
 Se déconnecter quand même ?`,
           )

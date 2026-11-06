@@ -20,6 +20,7 @@ import {
   sameValue,
   unknownNames,
   validFromOf,
+  isDefaultSince,
   valueToInput,
   type FormulaName,
   type ValidFromMode,
@@ -170,7 +171,7 @@ export function ParameterValueModal({ param, catalog, onClose }: { param: Parame
         <span className="font-mono">{param.key}</span> · responsable : {ownerLabel(param.ownerProfile)}
       </p>
       <p className="mt-1 text-slate-700">
-        En vigueur{param.validFrom ? ` depuis le ${dateTimeFr(param.validFrom)}` : ''} :{' '}
+        En vigueur{param.validFrom ? (isDefaultSince(param.validFrom) ? ' (valeur par défaut)' : ` depuis le ${dateTimeFr(param.validFrom)}`) : ''} :{' '}
         <span className={isFormula ? 'break-words font-mono text-xs' : 'font-semibold'}>{formatParameterValue(param.type, param.value, param.unit)}</span>
       </p>
     </div>

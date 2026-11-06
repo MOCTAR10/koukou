@@ -138,7 +138,7 @@ export function SettingsPage() {
         </h2>
         <p className="text-sm text-slate-500">
           Saisie journalière, ventes (POS espèces), soins prophylactiques, stock de provende, abattage et caisse :
-          l’advisory s’appuie sur les seuils ci-dessus pour prioriser vos prochaines actions.
+          les conseils s’appuient sur les seuils ci-dessus pour prioriser vos prochaines actions.
         </p>
         <div className="flex flex-wrap gap-1.5">
           {['Saisie', 'POS', 'Sanitaire', 'Provende', 'Abattage', 'Caisse'].map((s) => (

@@ -12,6 +12,7 @@ import { ParameterHistoryPanel } from './ParameterHistoryPanel';
 import { ParameterValueModal } from './ParameterValueModal';
 import {
   formatParameterValue,
+  isDefaultSince,
   groupByTheme,
   isProposedVersion,
   matchesSearch,
@@ -119,8 +120,8 @@ export function ParametersView({ rights }: { rights: AdminRights['parameters'] }
                           setHistoryKey(p.key);
                         }}
                       >
-                        <span className="block font-medium text-slate-900 hover:underline">{p.label}</span>
-                        <span className="block font-mono text-[11px] text-slate-500">{p.key}</span>
+                        <span className="block font-medium text-slate-900 hover:underline" title={`Clé technique : ${p.key}`}>{p.label}</span>
+                        
                       </button>
                     </Td>
                     <Td label="Valeur">
@@ -142,7 +143,7 @@ export function ParametersView({ rights }: { rights: AdminRights['parameters'] }
                       {p.defaultNote ? <span className="mt-0.5 block text-xs text-amber-700">{p.defaultNote}</span> : null}
                     </Td>
                     <Td label="Depuis" className="md:max-lg:hidden">
-                      {p.validFrom ? dateTimeFr(p.validFrom) : '—'}
+                      {p.validFrom ? (isDefaultSince(p.validFrom) ? 'Valeur par défaut' : dateTimeFr(p.validFrom)) : '—'}
                       {p.createdByName ? <span className="block text-xs text-slate-500">par {p.createdByName}</span> : null}
                     </Td>
                     <Td label="Type et bornes" className="md:max-lg:hidden">

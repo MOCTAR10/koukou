@@ -17,7 +17,7 @@ import { useFarm } from '../app/FarmContext';
 import { statusLabelOf, useFarmStatusItems } from '../components/programme/FarmStatusModal';
 import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../components/programme/farmStatus';
 import { Card, DataTable, EmptyState, LevelBadge, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
-import { classNames, fcfa, num } from '../lib/format';
+import { classNames, fcfa, num, plural } from '../lib/format';
 
 const tabs = [
   { id: 'overview', label: "Vue d'ensemble", icon: Building2 },
@@ -191,7 +191,7 @@ export function PlatformPage() {
                         {!r.owner && !sheet?.ownerId ? <p className="text-xs text-slate-400">Compte non activé</p> : null}
                       </Td>
                       <Td label="Lots / cheptel">
-                        {r.lots.active} lot(s) · {num(r.lots.cheptel)} têtes
+                        {plural(r.lots.active, 'lot')} · {plural(r.lots.cheptel, 'tête')}
                       </Td>
                       <Td label="CA">{fcfa(r.sales.revenueFcfa)}</Td>
                       <Td label="Alertes">{r.alertsActive}</Td>

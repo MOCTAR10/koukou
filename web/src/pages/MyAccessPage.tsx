@@ -17,7 +17,7 @@ import { dateFromValidUntil, scopeKindNote } from '../components/access/matrix';
 import { Button, ErrorNote } from '../components/form';
 import { Pill } from '../components/org/shared';
 import { Card, IconTile, Loading, PageHeader } from '../components/ui';
-import { dateFr } from '../lib/format';
+import { dateFr, plural } from '../lib/format';
 
 /** Pages of the web app a domain opens (existing routes only), with their menu label. */
 const PAGE_LABELS: Record<string, string> = {
@@ -133,7 +133,7 @@ export function MyAccessPage() {
             <p className="text-sm text-slate-600">
               {SCOPE_KIND_LABELS[profile.scopeKind]}
               {profile.scopeKind === 'PROVINCES' && access.provinceCodes.length ? ` : ${access.provinceCodes.join(', ')}` : ''}
-              {profile.scopeKind === 'FARMS' ? ` : ${access.farmIds.length} ferme(s)` : ''}
+              {profile.scopeKind === 'FARMS' ? ` : ${plural(access.farmIds.length, 'ferme')}` : ''}
             </p>
             <p className="text-sm text-slate-500">{scopeKindNote(profile.scopeKind)}</p>
           </div>

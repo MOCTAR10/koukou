@@ -3,7 +3,7 @@ import { Search, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import type { FarmSearchItem, FarmSearchPage } from '../../api/types-access';
-import { classNames } from '../../lib/format';
+import { classNames, plural } from '../../lib/format';
 import { ErrorNote, inputCls } from '../form';
 import { Loading } from '../ui';
 
@@ -63,7 +63,7 @@ export function FarmMultiPicker({
     <div className="space-y-3">
       {value.length > 0 ? (
         <div>
-          <p className="mb-1.5 text-xs font-medium text-slate-600">{value.length} ferme(s) dans le périmètre</p>
+          <p className="mb-1.5 text-xs font-medium text-slate-600">{plural(value.length, 'ferme')} dans le périmètre</p>
           <div className="flex flex-wrap gap-1.5">
             {value.map((id) => (
               <span key={id} className="inline-flex max-w-full items-center gap-1 rounded-full bg-brand-50 py-0.5 pl-2.5 pr-1 text-xs font-medium text-brand-800 ring-1 ring-brand-200">
