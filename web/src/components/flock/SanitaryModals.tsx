@@ -41,6 +41,8 @@ import {
   useInvalidateFarm,
   utcYmd,
 } from './shared';
+// POUFA lot A2 sante: reference steps and the vets' product list (CDC n° 22-23).
+import { EMPTY_PRODUCT_LIST_NOTE, REFERENCE_STEP_HINT, UNKNOWN_PRODUCT_LIST_NOTE } from './sanitaryRecords';
 
 const KIND_ICON = { MALADIE: <Stethoscope />, MORTALITE: <HeartPulse />, REFORME: <Trash2 /> };
 
@@ -419,6 +421,8 @@ export function EditScheduleModal({
   const [dosage, setDosage] = useState(event.dosage ?? '');
   const [withdrawal, setWithdrawal] = useState(String(event.withdrawalDays ?? 0));
   const [notes, setNotes] = useState(event.notes ?? '');
+  // POUFA lot A2 sante: the content of a reference step is the vets'; the farm moves its date only.
+  const locked = !!event.isReference;
 
   const save = useMutation({
     mutationFn: () =>
@@ -446,9 +450,14 @@ export function EditScheduleModal({
           if (name.trim().length >= 2) save.mutate();
         }}
       >
+        {locked ? (
+          <Note tone="brand" icon={<ShieldCheck />}>
+            {REFERENCE_STEP_HINT}
+          </Note>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Type">
-            <select className={inputCls} value={careType} onChange={(e) => setCareType(e.target.value as CareType)}>
+            <select className={inputCls} value={careType} disabled={locked} onChange={(e) => setCareType(e.target.value as CareType)}>
               {CARE_TYPES.map((c) => (
                 <option key={c} value={c}>
                   {CARE_TYPE_LABEL[c]}
@@ -461,11 +470,11 @@ export function EditScheduleModal({
           </IconField>
         </div>
         <Field label="Nom *">
-          <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
+          <input className={inputCls} value={name} disabled={locked} onChange={(e) => setName(e.target.value)} required />
         </Field>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Voie">
-            <input className={inputCls} list="flock-routes" value={route} onChange={(e) => setRoute(e.target.value)} />
+            <input className={inputCls} list="flock-routes" value={route} disabled={locked} onChange={(e) => setRoute(e.target.value)} />
             <datalist id="flock-routes">
               {ROUTES.map((r) => (
                 <option key={r} value={r} />
@@ -473,10 +482,16 @@ export function EditScheduleModal({
             </datalist>
           </Field>
           <Field label="Dosage">
-            <input className={inputCls} value={dosage} onChange={(e) => setDosage(e.target.value)} />
+            <input className={inputCls} value={dosage} disabled={locked} onChange={(e) => setDosage(e.target.value)} />
           </Field>
           <Field label="Délai d'attente (j)">
-            <input className={inputCls} inputMode="numeric" value={withdrawal} onChange={(e) => setWithdrawal(e.target.value.replace(/\D/g, ''))} />
+            <input
+              className={inputCls}
+              inputMode="numeric"
+              value={withdrawal}
+              disabled={locked}
+              onChange={(e) => setWithdrawal(e.target.value.replace(/\D/g, ''))}
+            />
           </Field>
         </div>
         <Field label="Notes">
@@ -523,6 +538,13 @@ export function PlanCareModal({
   const [notes, setNotes] = useState('');
   const [protocolId, setProtocolId] = useState('');
   const [result, setResult] = useState<GenerateProgramResult | null>(null);
+  // POUFA lot A2 sante (CDC n° 23): a medication comes from the vets' PRODUIT_TRAITEMENT list.
+  const [productCode, setProductCode] = useState('');
+  const products = useSanitaryList('PRODUIT_TRAITEMENT', careType === 'MEDICAMENT');
+  const productList = products.data ?? (products.isError ? null : undefined);
+  const listedProducts = careType === 'MEDICAMENT' && productList && productList.length > 0 ? productList : null;
+  const pickedProduct = listedProducts?.find((p) => p.code === productCode) ?? null;
+  const careName = listedProducts ? (pickedProduct?.label ?? '') : name.trim();
 
   const selected = lots.filter((l) => lotIds.includes(l.id));
   const first = selected[0];
@@ -575,7 +597,8 @@ export function PlanCareModal({
       return api.post(`/farms/${farmId}/vaccine-schedules/manual`, {
         lotIds,
         careType,
-        name: name.trim(),
+        name: careName,
+        productCode: listedProducts ? productCode : undefined,
         scheduledDate: date,
         route: route || undefined,
         dosage: dosage.trim() || undefined,
@@ -595,7 +618,7 @@ export function PlanCareModal({
 
   const canManual =
     lotIds.length > 0 &&
-    name.trim().length >= 2 &&
+    careName.length >= 2 &&
     !!date &&
     (careType !== 'MEDICAMENT' || provenance === 'externe' || (!!medLot && qtyN > 0 && !qtyExceeds));
 
@@ -648,9 +671,22 @@ export function PlanCareModal({
                   <option value="MEDICAMENT">Médicament</option>
                 </select>
               </Field>
-              <Field label="Nom du produit *" className="sm:col-span-2">
-                <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex : Newcastle HB1" required />
-              </Field>
+              {listedProducts ? (
+                <Field label="Produit (liste des vétérinaires) *" className="sm:col-span-2">
+                  <select className={inputCls} value={productCode} onChange={(e) => setProductCode(e.target.value)} required>
+                    <option value="">Choisir dans la liste des vétérinaires</option>
+                    {listedProducts.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : (
+                <Field label="Nom du produit *" className="sm:col-span-2">
+                  <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex : Newcastle HB1" required />
+                </Field>
+              )}
               <IconField label="Date prévue *" icon={<Calendar />}>
                 <input className={inputCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
               </IconField>
@@ -696,6 +732,9 @@ export function PlanCareModal({
                 </>
               ) : null}
             </div>
+            {careType === 'MEDICAMENT' && !listedProducts && !(productList === undefined && products.isLoading) ? (
+              <Note tone="amber">{productList === null ? UNKNOWN_PRODUCT_LIST_NOTE : EMPTY_PRODUCT_LIST_NOTE}</Note>
+            ) : null}
             {careType === 'MEDICAMENT' && provenance === 'stock' && qtyExceeds ? <Note tone="red">Quantité supérieure au stock de ce lot ({num(medLot?.quantity ?? 0)}).</Note> : null}
             <Field label="Notes">
               <textarea className={inputCls} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />

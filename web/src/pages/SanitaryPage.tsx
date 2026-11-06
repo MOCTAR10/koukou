@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Scale,
   ScrollText,
+  ShieldCheck,
   ShieldPlus,
   Stethoscope,
   Syringe,
@@ -51,11 +52,16 @@ import { ConfirmModal, EditScheduleModal, HealthEventModal, PlanCareModal } from
 import { CompleteCareModal } from '../components/flock/CompleteCareModal';
 import {
   EMPTY_PRODUCT_LIST_NOTE,
+  REFERENCE_STEP_HINT,
+  REFERENCE_STEP_LABEL,
   UNKNOWN_PRODUCT_LIST_NOTE,
+  canRemoveCare,
+  postponedLabel,
   treatmentBody,
   treatmentPeriodLabel,
   withdrawalEndPreview,
 } from '../components/flock/sanitaryRecords';
+import { useAuth } from '../auth/AuthContext';
 import { useIdempotencyKey } from '../lib/idempotency';
 import { sendOrQueue, showQueuedNotice } from '../offline';
 import {
@@ -514,6 +520,8 @@ function CalendarPanel({
   const { hasPermission } = useFarmProfile();
   const canManage = hasPermission('sanitaire:gerer');
   const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  // POUFA lot A2 sante: a reference step is withdrawn by the vets (matrix), never by the farm.
+  const isInstitution = useAuth().user?.role === 'INSTITUTION';
   const invalidate = useInvalidateFarm();
   const action = useAsyncAction();
   const [editing, setEditing] = useState<ProphylaxisEvent | null>(null);
@@ -605,6 +613,9 @@ function CalendarPanel({
                   <tr key={e.id} className="border-t border-slate-100 align-top">
                     <Td>
                       {dateFr(e.scheduledDate)}
+                      {postponedLabel(e, dateFr) ? (
+                        <span className="block text-xs text-amber-700">{postponedLabel(e, dateFr)}</span>
+                      ) : null}
                       {e.completedAt ? (
                         <span className="block text-xs text-slate-500">
                           fait le {dateFr(e.completedAt)}
@@ -616,7 +627,9 @@ function CalendarPanel({
                     <Td label="Type">{CARE_TYPE_LABEL[e.careType]}</Td>
                     <Td label="Voie et dosage">{[e.route, e.dosage].filter(Boolean).join(' · ') || '—'}</Td>
                     <Td label="Origine">
-                      <Pill>{e.protocolId ? 'Programme' : 'Manuel'}</Pill>
+                      <Pill tone={e.isReference ? 'brand' : undefined}>
+                        {e.isReference ? REFERENCE_STEP_LABEL : e.protocolId ? 'Programme' : 'Manuel'}
+                      </Pill>
                       {e.decrementStock ? (
                         <span className="ml-1">
                           <Pill tone="brand">Stock</Pill>
@@ -652,12 +665,20 @@ function CalendarPanel({
                           <Button tone="secondary" onClick={() => setEditing(e)}>
                             <Pencil className="h-4 w-4" /> Modifier
                           </Button>
-                          <Button tone="secondary" onClick={() => setConfirm({ kind: 'cancel', event: e })}>
-                            <CalendarX className="h-4 w-4" /> Annuler
-                          </Button>
-                          <Button tone="secondary" onClick={() => setConfirm({ kind: 'delete', event: e })}>
-                            <Trash2 className="h-4 w-4" /> Supprimer
-                          </Button>
+                          {canRemoveCare(e, isInstitution) ? (
+                            <>
+                              <Button tone="secondary" onClick={() => setConfirm({ kind: 'cancel', event: e })}>
+                                <CalendarX className="h-4 w-4" /> Annuler
+                              </Button>
+                              <Button tone="secondary" onClick={() => setConfirm({ kind: 'delete', event: e })}>
+                                <Trash2 className="h-4 w-4" /> Supprimer
+                              </Button>
+                            </>
+                          ) : (
+                            <span title={REFERENCE_STEP_HINT} className="inline-flex items-center">
+                              <ShieldCheck className="h-4 w-4 text-brand-600" aria-label={REFERENCE_STEP_HINT} />
+                            </span>
+                          )}
                             </>
                           ) : null}
                         </div>

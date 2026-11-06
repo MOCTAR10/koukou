@@ -208,6 +208,11 @@ export interface ProphylaxisEvent {
   medicationQty: number | null;
   medicationUnit: string | null;
   decrementStock: boolean;
+  // POUFA lot A2 sante: step of the vets' reference calendar (no cancel nor
+  // delete by the farm), first planned date once postponed, product code.
+  isReference?: boolean;
+  originalDate?: string | null;
+  productCode?: string | null;
 }
 
 export interface TreatmentRecord {
