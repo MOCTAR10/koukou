@@ -233,10 +233,44 @@ export function Th({ children, className }: { children?: ReactNode; className?: 
   );
 }
 
-export function Td({ children, className }: { children?: ReactNode; className?: string }) {
+/** `label`: the column name, shown beside the value when a `DataTable` stacks on a phone. */
+export function Td({ children, className, label }: { children?: ReactNode; className?: string; label?: string }) {
   return (
-    <td className={classNames('px-3 py-2.5 text-sm text-slate-700', className)}>
-      {children}
+    <td data-label={label} className={classNames('px-3 py-2.5 text-sm text-slate-700', className)}>
+      {label ? <div className="min-w-0 md:contents">{children}</div> : children}
     </td>
+  );
+}
+
+/** A table on a computer, with its header kept in view; stacked rows on a phone. Give each `Td` its `label`. */
+export function DataTable({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-x-auto md:max-h-[calc(100vh-9rem)] md:overflow-y-auto">
+      <table className="data-table w-full">{children}</table>
+    </div>
+  );
+}
+
+export function IconButton({
+  label,
+  danger = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  danger?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={onClick}
+      className={classNames('rounded-lg p-1.5 hover:bg-slate-100', danger ? 'text-red-500' : 'text-slate-500')}
+    >
+      {children}
+    </button>
   );
 }

@@ -10,7 +10,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
 import { MemberFormModal } from '../components/org/MemberFormModal';
 import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL, SuccessNote } from '../components/org/shared';
-import { Card, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
 
 const linkCls =
@@ -88,15 +88,14 @@ export function TeamPage() {
             <h2 className="text-sm font-semibold text-slate-700">Membres ({members.length + (ownerName ? 1 : 0)})</h2>
             <span className="text-xs text-slate-400">Propriétaire, administrateurs et éleveurs</span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Nom</Th>
                   <Th>Téléphone</Th>
                   <Th>Rôle</Th>
                   <Th>Bâtiment</Th>
-                  <Th>Dossier RH</Th>
+                  <Th className="hidden lg:table-cell">Dossier RH</Th>
                   <Th>Statut</Th>
                   <Th />
                 </tr>
@@ -110,13 +109,13 @@ export function TeamPage() {
                         {ownerName}
                       </div>
                     </Td>
-                    <Td>{ownerPhone ?? '—'}</Td>
-                    <Td>
+                    <Td label="Téléphone">{ownerPhone ?? '—'}</Td>
+                    <Td label="Rôle">
                       <Pill tone="emerald">Propriétaire</Pill>
                     </Td>
-                    <Td>—</Td>
-                    <Td>—</Td>
-                    <Td>
+                    <Td label="Bâtiment">—</Td>
+                    <Td label="Dossier RH" className="md:max-lg:hidden">—</Td>
+                    <Td label="Statut">
                       <Pill tone="emerald">Actif</Pill>
                     </Td>
                     <Td />
@@ -133,15 +132,15 @@ export function TeamPage() {
                         </div>
                       </div>
                     </Td>
-                    <Td className="whitespace-nowrap">{m.user.phone}</Td>
-                    <Td>
+                    <Td label="Téléphone" className="whitespace-nowrap">{m.user.phone}</Td>
+                    <Td label="Rôle">
                       <Pill tone={m.role === 'ADMIN' ? 'amber' : 'brand'}>{STAFF_ROLE_LABEL[m.role]}</Pill>
                     </Td>
-                    <Td>{m.buildingAssignment ?? '—'}</Td>
-                    <Td>
+                    <Td label="Bâtiment">{m.buildingAssignment ?? '—'}</Td>
+                    <Td label="Dossier RH" className="md:max-lg:hidden">
                       <HrSummary member={m} />
                     </Td>
-                    <Td>{m.active ? <Pill tone="emerald">Actif</Pill> : <Pill tone="red">Suspendu</Pill>}</Td>
+                    <Td label="Statut">{m.active ? <Pill tone="emerald">Actif</Pill> : <Pill tone="red">Suspendu</Pill>}</Td>
                     <Td className="text-right">
                       {canEdit(m) ? (
                         <Button tone="secondary" className="!px-2.5 !py-1 !text-xs" onClick={() => open(m)}>
@@ -152,8 +151,7 @@ export function TeamPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </DataTable>
           {members.length === 0 ? (
             <div className="border-t border-slate-100 p-4">
               <EmptyState

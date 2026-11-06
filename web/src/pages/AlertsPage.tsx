@@ -22,7 +22,7 @@ import type { AdvisoryNextActions, NextAction, OwnerDashboard } from '../api/typ
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../components/form';
-import { Card, EmptyState, IconTile, Loading, PageHeader, Th, Td } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Th, Td } from '../components/ui';
 import { ActionTile } from '../components/sales/DashboardPanels';
 import { HEALTH_LABEL, kindLabel } from '../components/sales/labels';
 import { AlertLevelBadge, FilterChip } from '../components/sales/shared';
@@ -303,6 +303,8 @@ export function AlertsPage() {
 
       <ErrorNote error={advisory.error ?? history.error ?? ack.error} />
 
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-6 xl:sticky xl:top-24 xl:order-2">
       <Card className="flex flex-wrap items-center gap-6 p-4">
         <div className="flex items-center gap-3">
           <IconTile icon={<Stethoscope className="h-6 w-6" />} size="lg" />
@@ -320,7 +322,7 @@ export function AlertsPage() {
             <p className="text-xs text-slate-500">{health ? (HEALTH_LABEL[health.grade] ?? '—') : '—'}</p>
           </div>
         </div>
-        <div className="grid flex-1 grid-cols-3 gap-3 text-center">
+        <div className="grid min-w-52 flex-1 grid-cols-3 gap-3 text-center">
           <div className="rounded-xl bg-red-50 p-3">
             <p className="text-lg font-bold text-red-700">{num(summary?.rouge ?? 0)}</p>
             <p className="text-xs text-red-700">Rouges</p>
@@ -361,7 +363,9 @@ export function AlertsPage() {
           </div>
         ) : null}
       </Card>
+      </div>
 
+      <div className="min-w-0 space-y-6">
       {status !== 'RESOLVED' ? (
         advisory.isLoading ? (
           <Loading label="Chargement des alertes…" />
@@ -405,8 +409,7 @@ export function AlertsPage() {
         ) : resolved.length === 0 ? (
           <p className="px-4 py-6 text-center text-sm text-slate-500">Aucun historique.</p>
         ) : (
-          <div className="max-h-[420px] overflow-y-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Niveau</Th>
@@ -422,17 +425,18 @@ export function AlertsPage() {
                     <Td>
                       <AlertLevelBadge level={a.level} />
                     </Td>
-                    <Td>{kindLabel(a.kind)}</Td>
+                    <Td label="Type">{kindLabel(a.kind)}</Td>
                     <Td className="max-w-[420px] text-slate-600">{a.message}</Td>
-                    <Td className="whitespace-nowrap">{dateFr(a.createdAt)}</Td>
-                    <Td className="whitespace-nowrap">{a.resolvedAt ? dateFr(a.resolvedAt) : '—'}</Td>
+                    <Td label="Créée" className="whitespace-nowrap">{dateFr(a.createdAt)}</Td>
+                    <Td label="Résolue" className="whitespace-nowrap">{a.resolvedAt ? dateFr(a.resolvedAt) : '—'}</Td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </DataTable>
         )}
       </Card>
+      </div>
+      </div>
 
       {care ? (
         <CareModal

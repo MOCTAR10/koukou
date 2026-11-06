@@ -186,7 +186,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
 
   if (!order) {
     return (
-      <Modal title="Commande" onClose={onClose} wide>
+      <Modal title="Commande" onClose={onClose} wide side>
         {orderQuery.isError ? <ErrorNote error={orderQuery.error} /> : <Loading label="Chargement de la commande…" />}
       </Modal>
     );
@@ -200,7 +200,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
   const place = pdv ? `${pdv.name} (point de vente)` : (order.address ?? 'À la ferme');
 
   return (
-    <Modal title={`Commande ${order.referenceNumber}`} onClose={closeSelf} wide>
+    <Modal title={`Commande ${order.referenceNumber}`} onClose={closeSelf} wide side>
       <div className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">

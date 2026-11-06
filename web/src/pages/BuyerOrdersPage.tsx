@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, CalendarClock, ChevronRight, ClipboardList, Phone, Store } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { BuyerMarketOrder } from '../api/types-market';
 import { Button, ErrorNote } from '../components/form';
 import { timeLeft, unitName } from '../components/market/rules';
 import { invalidateBuyerQueries, listingPhoto, listingTitle, MarketStatusBadge, TIMELINE_LABEL, useNow } from '../components/market/shared';
 import { ConfirmDialog } from '../components/orders/shared';
-import { Card, EmptyState, Loading, PageHeader, PhotoThumb } from '../components/ui';
+import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { dateFr, dateTimeFr, fcfa } from '../lib/format';
 
 export function BuyerOrdersPage() {
@@ -17,6 +17,7 @@ export function BuyerOrdersPage() {
     queryFn: () => api.get<BuyerMarketOrder[]>('/market/orders'),
   });
   const now = useNow();
+  const navigate = useNavigate();
   const orders = query.data ?? [];
 
   return (
@@ -32,29 +33,51 @@ export function BuyerOrdersPage() {
           </Link>
         </div>
       ) : null}
-      <div className="space-y-3">
-        {orders.map((o) => {
-          const left = o.status === 'AWAITING_DEPOSIT' && o.depositDueAt ? timeLeft(o.depositDueAt, now) : null;
-          return (
-            <Link key={o.id} to={`/marche/commandes/${o.id}`} className="block rounded-xl transition hover:shadow-md">
-              <Card className="p-4 flex items-center gap-3">
-                <PhotoThumb src={listingPhoto(o)} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-slate-900">{listingTitle(o)}</p>
-                  <p className="truncate text-sm text-slate-500">
-                    {o.farm.name} · {o.quantity} {unitName(o.product, o.quantity)} · {fcfa(o.totalFcfa)}
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <MarketStatusBadge status={o.status} />
-                    {left ? <span className="text-xs font-semibold text-orange-700">Reste {left} pour l’acompte</span> : null}
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+      {orders.length > 0 ? (
+        <Card className="overflow-hidden">
+          <DataTable>
+            <thead className="bg-slate-50">
+              <tr>
+                <Th>Annonce</Th>
+                <Th>Ferme</Th>
+                <Th>Quantité</Th>
+                <Th className="text-right">Total</Th>
+                <Th>Prêts le</Th>
+                <Th>Statut</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => {
+                const left = o.status === 'AWAITING_DEPOSIT' && o.depositDueAt ? timeLeft(o.depositDueAt, now) : null;
+                return (
+                  <tr key={o.id} onClick={() => navigate(`/marche/commandes/${o.id}`)} className="cursor-pointer border-t border-slate-100">
+                    <Td className="font-medium">
+                      <span className="flex items-center gap-2.5">
+                        <PhotoThumb src={listingPhoto(o)} size="sm" />
+                        <Link to={`/marche/commandes/${o.id}`} onClick={(e) => e.stopPropagation()} className="text-slate-900 hover:underline">
+                          {listingTitle(o)}
+                        </Link>
+                      </span>
+                    </Td>
+                    <Td label="Ferme">{o.farm.name}</Td>
+                    <Td label="Quantité" className="whitespace-nowrap">{o.quantity} {unitName(o.product, o.quantity)}</Td>
+                    <Td label="Total" className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(o.totalFcfa)}</Td>
+                    <Td label="Prêts le" className="whitespace-nowrap">{o.readyDate ? dateFr(o.readyDate) : '—'}</Td>
+                    <Td label="Statut">
+                      <MarketStatusBadge status={o.status} />
+                      {left ? <span className="mt-1 block text-xs font-semibold text-orange-700">Reste {left} pour l’acompte</span> : null}
+                    </Td>
+                    <Td className="row-chevron w-8">
+                      <ChevronRight className="h-4 w-4 text-slate-300" />
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </DataTable>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -119,9 +142,10 @@ export function BuyerOrderPage() {
   const canCancel = order.status === 'AWAITING_DEPOSIT' || order.status === 'CONFIRMED';
   const unit = unitName(order.product, order.quantity);
   return (
-    <div className="mx-auto max-w-2xl">
+    <div>
       {back}
-      <div className="space-y-4">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="min-w-0 space-y-4">
         <Card className="p-5">
           <div className="flex items-start gap-3">
             <PhotoThumb src={listingPhoto(order)} size="lg" />
@@ -136,7 +160,7 @@ export function BuyerOrderPage() {
               </div>
             </div>
           </div>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm xl:grid-cols-3">
             <div>
               <dt className="text-xs text-slate-500">Quantité</dt>
               <dd className="font-medium text-slate-900">{order.quantity} {unit}</dd>
@@ -202,7 +226,9 @@ export function BuyerOrderPage() {
             </span>
           </p>
         ) : null}
+      </div>
 
+      <div className="space-y-4 lg:sticky lg:top-20">
         <Card className="p-5">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Historique</h2>
           <ol className="space-y-2">
@@ -216,12 +242,13 @@ export function BuyerOrderPage() {
         </Card>
 
         {pending || canCancel ? (
-          <div className="flex justify-end">
-            <Button tone="secondary" onClick={() => setConfirming(true)}>
+          <div className="flex justify-end lg:block">
+            <Button tone="secondary" className="lg:w-full" onClick={() => setConfirming(true)}>
               {pending ? 'Retirer ma demande' : order.depositPaidFcfa > 0 ? 'Demander l’annulation' : 'Annuler la commande'}
             </Button>
           </div>
         ) : null}
+      </div>
       </div>
 
       {action.error && !confirming ? <ErrorNote error={action.error} /> : null}

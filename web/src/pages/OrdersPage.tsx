@@ -10,7 +10,7 @@ import { CreateOrderModal } from '../components/orders/CreateOrderModal';
 import { ORDER_CANAL_LABEL, ORDER_STATUS_LABEL } from '../components/orders/helpers';
 import { OrderDetailModal } from '../components/orders/OrderDetailModal';
 import { CanalIcon, OrderStatusBadge, Pill, Segmented } from '../components/orders/shared';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { dateFr, fcfa, num } from '../lib/format';
 
 type Filter = OrderStatus | 'ALL';
@@ -141,18 +141,17 @@ export function OrdersPage() {
         />
       ) : rows.length > 0 ? (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+            <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Référence</Th>
                   <Th>Client</Th>
-                  <Th>Canal</Th>
-                  <Th>Lot et articles</Th>
-                  <Th>Prévu le</Th>
+                  <Th className="hidden 2xl:table-cell">Canal</Th>
+                  <Th className="hidden lg:table-cell">Lot et articles</Th>
+                  <Th className="hidden xl:table-cell">Prévu le</Th>
                   <Th className="text-right">Total</Th>
-                  <Th className="text-right">Acompte</Th>
-                  <Th className="text-right">Reste dû</Th>
+                  <Th className="hidden text-right 2xl:table-cell">Acompte</Th>
+                  <Th className="hidden lg:table-cell text-right">Reste dû</Th>
                   <Th>Statut</Th>
                 </tr>
               </thead>
@@ -177,38 +176,43 @@ export function OrdersPage() {
                         >
                           {o.referenceNumber}
                         </button>
+                        {/* The canal column only fits on large screens; here it stays visible under the reference. */}
+                        <span className="mt-1 hidden items-center gap-1.5 whitespace-nowrap text-xs text-slate-500 md:flex 2xl:hidden">
+                          <CanalIcon canal={o.canal} className="h-3 w-3 shrink-0 text-slate-400" />
+                          {ORDER_CANAL_LABEL[o.canal] ?? o.canal}
+                          {o.source === 'MARKET' ? <Pill tone="bg-sky-50 text-sky-700 ring-sky-200">Marché</Pill> : null}
+                        </span>
                       </Td>
-                      <Td className="font-medium">
+                      <Td label="Client" className="font-medium md:min-w-36">
                         {o.customer?.fullName ?? <span className="font-normal text-slate-400">Client non renseigné</span>}
                         {o.customer?.phone ? <span className="block text-xs font-normal text-slate-500">{o.customer.phone}</span> : null}
                       </Td>
-                      <Td className="whitespace-nowrap">
+                      <Td label="Canal" className="whitespace-nowrap md:max-2xl:hidden">
                         <span className="inline-flex items-center gap-1.5">
                           <CanalIcon canal={o.canal} className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                           {ORDER_CANAL_LABEL[o.canal] ?? o.canal}
                         </span>
                         {o.source === 'MARKET' ? <span className="ml-2"><Pill tone="bg-sky-50 text-sky-700 ring-sky-200">Marché</Pill></span> : null}
                       </Td>
-                      <Td>
+                      <Td label="Lot et articles" className="md:max-lg:hidden">
                         {o.batch?.batchName ?? 'Œufs'}
                         <span className="block text-xs text-slate-500">
                           {o.items.length} article{o.items.length > 1 ? 's' : ''}
                           {birds > 0 ? ` · ${num(birds, 0)} volailles` : ''}
                         </span>
                       </Td>
-                      <Td className="whitespace-nowrap">{o.expectedDate ? dateFr(o.expectedDate) : 'À convenir'}</Td>
-                      <Td className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(o.totalAmountFcfa)}</Td>
-                      <Td className="whitespace-nowrap text-right tabular-nums">{fcfa(o.depositFcfa)}</Td>
-                      <Td className="whitespace-nowrap text-right tabular-nums">{terminal ? '—' : fcfa(dueOf(o))}</Td>
-                      <Td>
+                      <Td label="Prévu le" className="whitespace-nowrap md:max-xl:hidden">{o.expectedDate ? dateFr(o.expectedDate) : 'À convenir'}</Td>
+                      <Td label="Total" className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(o.totalAmountFcfa)}</Td>
+                      <Td label="Acompte" className="whitespace-nowrap text-right tabular-nums md:max-2xl:hidden">{fcfa(o.depositFcfa)}</Td>
+                      <Td label="Reste dû" className="whitespace-nowrap text-right tabular-nums md:max-lg:hidden">{terminal ? '—' : fcfa(dueOf(o))}</Td>
+                      <Td label="Statut">
                         <OrderStatusBadge status={o.status} />
                       </Td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         </Card>
       ) : null}
 

@@ -1,4 +1,4 @@
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { classNames } from '../lib/format';
@@ -74,39 +74,96 @@ export function ErrorNote({ error }: { error: unknown }) {
   );
 }
 
+const openDialogs: object[] = [];
+
 export function Modal({
   title,
   onClose,
   children,
   wide = false,
+  side = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  /** A detail panel on the right edge; full screen on a phone. */
+  side?: boolean;
 }) {
+  const dialog = useRef<HTMLDivElement>(null);
+  const self = useRef({});
+  // Keyboard users start inside the dialog, unless a field already took the focus.
+  // On closing, they go back to what opened it.
+  useEffect(() => {
+    const opener = document.activeElement;
+    if (dialog.current && !dialog.current.contains(opener)) dialog.current.focus();
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) opener.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const me = self.current;
+    openDialogs.push(me);
+    return () => {
+      openDialogs.splice(openDialogs.indexOf(me), 1);
+    };
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      // Escape closes only the dialog on top: a confirmation opened from a panel must leave the panel open.
+      if (e.key !== 'Escape' || e.defaultPrevented || openDialogs[openDialogs.length - 1] !== self.current) return;
+      e.preventDefault();
+      onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const header = (
+    <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+      <h2 className="min-w-0 truncate text-base font-semibold text-slate-900">{title}</h2>
+      <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-700" aria-label="Fermer">
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  );
+
+  if (side) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex justify-end bg-brand-950/50"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div
+          ref={dialog}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className={classNames('side-panel flex w-full flex-col bg-white shadow-2xl outline-none', wide ? 'sm:max-w-2xl xl:max-w-3xl' : 'sm:max-w-lg xl:max-w-xl')}
+        >
+          {header}
+          <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-brand-950/50 p-4 sm:py-10">
       <div
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={classNames('w-full rounded-2xl bg-white shadow-2xl', wide ? 'max-w-3xl' : 'max-w-lg')}
+        className={classNames('w-full rounded-2xl bg-white shadow-2xl outline-none', wide ? 'max-w-3xl' : 'max-w-lg')}
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-700" aria-label="Fermer">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        {header}
         <div className="p-5">{children}</div>
       </div>
     </div>

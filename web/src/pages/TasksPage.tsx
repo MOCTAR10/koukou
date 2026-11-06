@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, CircleCheck, ClipboardList, ListTodo, Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { api } from '../api/client';
 import type { BatchWithMetrics } from '../api/types';
 import type { AssignableMember, FarmMember, FarmTask, TaskStatus } from '../api/types-org';
@@ -10,7 +10,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote, todayIso } from '../components/form';
 import { ConfirmModal, invalidateFarm, TaskStatusBadge } from '../components/org/shared';
 import { TaskFormModal } from '../components/org/TaskFormModal';
-import { Card, EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconButton, Loading, PageHeader, Td, Th } from '../components/ui';
 import { classNames, dateFr } from '../lib/format';
 
 type Filter = 'OPEN' | 'DONE' | 'ALL';
@@ -149,13 +149,12 @@ export function TasksPage() {
         />
       ) : (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Tâche</Th>
                   <Th>Assignée à</Th>
-                  <Th>Lot</Th>
+                  <Th className="hidden lg:table-cell">Lot</Th>
                   <Th>Échéance</Th>
                   <Th>Statut</Th>
                   <Th className="text-right">Actions</Th>
@@ -173,13 +172,13 @@ export function TasksPage() {
                         <div className="font-medium text-slate-900">{t.title}</div>
                         {t.notes ? <div className="mt-0.5 whitespace-pre-line text-xs text-slate-500">{t.notes}</div> : null}
                       </Td>
-                      <Td>{memberName(t.assigneeId) ?? (t.assigneeId ? '—' : <span className="text-slate-400">Tâche libre</span>)}</Td>
-                      <Td>{batchName(t.batchId) ?? <span className="text-slate-400">—</span>}</Td>
-                      <Td className="whitespace-nowrap">
+                      <Td label="Assignée à">{memberName(t.assigneeId) ?? (t.assigneeId ? '—' : <span className="text-slate-400">Tâche libre</span>)}</Td>
+                      <Td label="Lot" className="md:max-lg:hidden">{batchName(t.batchId) ?? <span className="text-slate-400">—</span>}</Td>
+                      <Td label="Échéance" className="whitespace-nowrap">
                         <div>{dateFr(t.dueDate)}</div>
                         {due ? <div className={classNames('text-xs', due.cls)}>{due.text}</div> : null}
                       </Td>
-                      <Td>
+                      <Td label="Statut">
                         <TaskStatusBadge status={t.status} />
                       </Td>
                       <Td>
@@ -229,8 +228,7 @@ export function TasksPage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+          </DataTable>
         </Card>
       )}
 
@@ -269,29 +267,5 @@ export function TasksPage() {
         />
       ) : null}
     </div>
-  );
-}
-
-function IconButton({
-  label,
-  danger = false,
-  onClick,
-  children,
-}: {
-  label: string;
-  danger?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      className={classNames('rounded-lg p-1.5 hover:bg-slate-100', danger ? 'text-red-500' : 'text-slate-500')}
-    >
-      {children}
-    </button>
   );
 }
