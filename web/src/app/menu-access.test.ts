@@ -14,6 +14,7 @@ import {
   menuRuleFor,
   MY_ACCESS_PATH,
   pagesOfDomain,
+  PILOTAGE_PATH,
   scopeReachesFarms,
 } from './menu-access';
 
@@ -162,11 +163,18 @@ describe('institutionLanding', () => {
   });
 
   it('sends scopes without farms, and an empty scope, to the access page', () => {
-    expect(institutionLanding(MAEDR, 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(ANINF, 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(p('FINANCED', { TECHNIQUE: ['CONSULTER'] }), 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(AGENT_TECHNIQUE, 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(null, 5)).toBe(MY_ACCESS_PATH);
+  });
+
+  it('sends a steering profile without a farm to the programme steering', () => {
+    expect(institutionLanding(MAEDR, 0)).toBe(PILOTAGE_PATH);
+    expect(institutionLanding(DGE, 0)).toBe(PILOTAGE_PATH);
+    expect(institutionShowsEntry(PILOTAGE_PATH, MAEDR)).toBe(true);
+    expect(institutionShowsEntry(PILOTAGE_PATH, AGENT_TECHNIQUE)).toBe(false);
+    expect(institutionOpensPath('/app/pilotage/rapports', VETERINAIRE)).toBe(false);
   });
 
   it('only lands on pages of the table (a missing route would loop on /app)', () => {

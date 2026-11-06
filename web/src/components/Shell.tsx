@@ -23,6 +23,7 @@ import {
   NotebookPen,
   ReceiptText,
   ScrollText,
+  Gauge,
   Settings,
   Shield,
   ShoppingCart,
@@ -128,9 +129,10 @@ export function Shell() {
   const onPlatform = pathname.startsWith('/app/platform');
   const onRegistry = pathname.startsWith('/app/registre');
   const onAccess = pathname.startsWith('/app/acces') || pathname.startsWith('/app/mon-acces');
-  const onProgramme = onPlatform || onRegistry || onAccess;
+  const onPilotage = pathname.startsWith('/app/pilotage');
+  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage;
   const reduced = useReducedMotion();
-  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry } =
+  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage } =
     useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
@@ -138,6 +140,8 @@ export function Shell() {
   // Programme-wide entries: the registry, the platform console, the institutional access administration, an institution's own access.
   const adminItems = [
     ...(registry.view ? [{ to: '/app/registre', label: 'Registre des fermes', icon: BookMarked }] : []),
+    // POUFA L6: programme steering (PILOTAGE:CONSULTER or the platform admin).
+    ...(pilotage.view ? [{ to: '/app/pilotage', label: 'Pilotage du programme', icon: Gauge }] : []),
     ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
     ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
     ...(showMyAccess ? [{ to: '/app/mon-acces', label: 'Mon accès', icon: BadgeCheck }] : []),
@@ -312,6 +316,8 @@ export function Shell() {
               'Registre des fermes du programme'
             ) : onAccess ? (
               'Accès institutionnels du programme'
+            ) : onPilotage ? (
+              pilotage.view ? 'Pilotage du programme' : 'Rapports de fin de bande'
             ) : null}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">

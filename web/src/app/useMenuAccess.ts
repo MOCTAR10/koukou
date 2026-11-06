@@ -1,5 +1,6 @@
 import { useAuth } from '../auth/AuthContext';
 import { registryRights, type RegistryRights } from '../components/registry/registryAccess';
+import { pilotageRights, type PilotageRights } from '../components/pilotage/pilotageAccess';
 import {
   alwaysOpen,
   canAdministerAccess,
@@ -35,6 +36,8 @@ export interface MenuAccess {
   showMyAccess: boolean;
   /** What the farm registry offers (`components/registry/registryAccess.ts`). */
   registry: RegistryRights;
+  /** Programme steering (`components/pilotage/pilotageAccess.ts`). */
+  pilotage: PilotageRights;
 }
 
 /**
@@ -66,6 +69,7 @@ export function useMenuAccess(): MenuAccess {
       showAccessAdmin: isAdmin,
       showMyAccess: false,
       registry: registryRights(user?.role),
+      pilotage: pilotageRights(user?.role),
     };
   }
 
@@ -91,6 +95,7 @@ export function useMenuAccess(): MenuAccess {
     showAccessAdmin: canAdministerAccess(user?.role, access?.profile),
     showMyAccess: true,
     registry: registryRights(user?.role, inst.revoked ? null : access?.profile),
+    pilotage: pilotageRights(user?.role, inst.revoked ? null : access?.profile),
   };
 }
 

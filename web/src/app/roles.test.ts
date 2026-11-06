@@ -86,6 +86,8 @@ describe('worksWithoutFarm', () => {
   it('keeps the registry open, where the first farm is created', () => {
     expect(worksWithoutFarm('/app/registre')).toBe(true);
     expect(worksWithoutFarm('/app/registre?ferme=abc')).toBe(true);
+    expect(worksWithoutFarm('/app/pilotage')).toBe(true);
+    expect(worksWithoutFarm('/app/pilotage/rapports')).toBe(true);
   });
 });
 

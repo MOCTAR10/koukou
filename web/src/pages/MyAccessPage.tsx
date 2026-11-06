@@ -9,6 +9,7 @@ import {
   type AccessDomain,
 } from '../api/types-access';
 import { useFarm } from '../app/FarmContext';
+import { worksWithoutFarm } from '../app/roles';
 import { grantsAccess, institutionShowsEntry, pagesOfDomain, scopeReachesFarms } from '../app/menu-access';
 import { useInstitutionAccess } from '../app/useInstitutionAccess';
 import { useAuth } from '../auth/AuthContext';
@@ -32,11 +33,11 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/expenses': 'Dépenses',
   '/app/registre': 'Registre des fermes',
   '/app/acces': 'Accès institutionnels',
+  '/app/pilotage': 'Pilotage du programme',
 };
 
 /** Domains without a screen in the web app yet: what the account can expect. */
 const NO_SCREEN_YET: Partial<Record<AccessDomain, string>> = {
-  PILOTAGE: 'Les tableaux de pilotage du programme (données agrégées) arrivent dans une prochaine version.',
   PARAMETRES: 'Les paramètres et listes du programme en vigueur : écran de consultation à venir.',
   AUDIT: 'Le journal d’audit du programme (consultation, export, vérification des scellés quotidiens) : écran à venir. En attendant, l’équipe technique peut l’extraire pour vous.',
   REGISTRE: 'Les fiches des fermes de votre périmètre, au registre du programme.',
@@ -135,7 +136,7 @@ export function MyAccessPage() {
               const actions = ACCESS_ACTIONS.filter((a) => grantsAccess(profile, d, a));
               // Farm pages need a farm in scope; the access screens don't.
               const pages = pagesOfDomain(d).filter(
-                (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (p === '/app/acces' || p === '/app/registre' || (reaches && farms.length > 0)),
+                (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (worksWithoutFarm(p) || (reaches && farms.length > 0)),
               );
               const note = NO_SCREEN_YET[d];
               return (

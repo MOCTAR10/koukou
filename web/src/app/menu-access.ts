@@ -24,6 +24,7 @@ import type { AccessAction, AccessDomain, AccessMatrix, MyAccess, ScopeKind } fr
  * | /app/expenses           | ECONOMIQUE:CONSULTER     | farms/:id/expenses (ECONOMIQUE)                           |
  * | /app/registre           | REGISTRE:CONSULTER       | programme/farms (REGISTRE)                                |
  * | /app/acces              | ADMINISTRATION:CONSULTER | programme/access/{catalog,profiles,memberships}           |
+ * | /app/pilotage           | PILOTAGE:CONSULTER       | pilotage/dashboard, map, objective, exports, reports      |
  * | /app/mon-acces, /app/help | always                 | programme/access/me (SESSION), none                       |
  * | /app/finance…, orders, market, points-of-sale | never | VENTES, MARCHE (Fermia-only)                         |
  * | /app/accounting         | never                    | COMPTABILITE (Fermia-only)                                |
@@ -57,6 +58,7 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/expenses': consult('ECONOMIQUE'),
   '/app/registre': consult('REGISTRE'),
   '/app/acces': consult('ADMINISTRATION'),
+  '/app/pilotage': consult('PILOTAGE'),
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   '/app/finance': fermia('VENTES'),
@@ -89,6 +91,7 @@ export const INSTITUTION_LANDING_ORDER = [
 
 export const MY_ACCESS_PATH = '/app/mon-acces';
 export const ACCESS_ADMIN_PATH = '/app/acces';
+export const PILOTAGE_PATH = '/app/pilotage';
 
 /** The table key of a path: the entry itself or the closest parent entry. */
 export function menuRuleFor(pathname: string): MenuRule | null {
@@ -166,6 +169,8 @@ export function institutionLanding(access: Pick<MyAccess['profile'], 'matrix' | 
     const page = INSTITUTION_LANDING_ORDER.find((p) => institutionShowsEntry(p, access));
     if (page) return page;
   }
+  // Programme steering works without a farm (aggregate scope included).
+  if (institutionShowsEntry(PILOTAGE_PATH, access)) return PILOTAGE_PATH;
   if (institutionShowsEntry(ACCESS_ADMIN_PATH, access)) return ACCESS_ADMIN_PATH;
   return MY_ACCESS_PATH;
 }

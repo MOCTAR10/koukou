@@ -64,11 +64,11 @@ export function farmSpaceState(input: { farmsLoading: boolean; farmsFailed: bool
 
 /**
  * Pages that make sense without a farm (the rest show the no-farm screen): the
- * platform console, the help, the institutional access screens and the registry
- * (where the first farm gets created).
+ * platform console, the help, the institutional access screens, the registry
+ * (where the first farm gets created) and the programme steering.
  */
 export function worksWithoutFarm(pathname: string): boolean {
-  return ['/app/platform', '/app/help', '/app/acces', '/app/mon-acces', '/app/registre'].some((root) => isUnder(pathname, root));
+  return ['/app/platform', '/app/help', '/app/acces', '/app/mon-acces', '/app/registre', '/app/pilotage'].some((root) => isUnder(pathname, root));
 }
 
 /** French text of the no-farm screen, per kind of account. */
@@ -91,7 +91,7 @@ export function noFarmMessage(role: Role | null | undefined): { title: string; b
         title: 'Aucune ferme dans votre périmètre',
         body:
           'Votre accès institutionnel ne porte sur aucune ferme en particulier (données agrégées ou journal d’audit), ' +
-          'ou les fermes de votre périmètre ne sont pas encore enregistrées. Les écrans de pilotage du programme arrivent bientôt.',
+          'ou les fermes de votre périmètre ne sont pas encore enregistrées. Les données agrégées du programme sont dans « Pilotage du programme » si votre profil y donne accès.',
       };
     case 'PLATFORM_ADMIN':
       return {

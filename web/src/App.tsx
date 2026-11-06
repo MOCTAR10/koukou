@@ -39,6 +39,7 @@ import { BuyerAccountPage } from './pages/BuyerAccountPage';
 import { BuyerOrderPage, BuyerOrdersPage } from './pages/BuyerOrdersPage';
 import { AccessPage } from './pages/AccessPage';
 import { MyAccessPage } from './pages/MyAccessPage';
+import { PilotagePage } from './pages/PilotagePage';
 import { InstitutionHomeRedirect } from './components/access/InstitutionHomeRedirect';
 
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
@@ -107,6 +108,8 @@ export function App() {
           <Route path="help" element={<HelpPage />} />
           {/* Programme farm registry: the page checks its own access (useMenuAccess). */}
           <Route path="registre" element={<RegistryPage />} />
+          {/* POUFA L6: steering screens and reports (rights in components/pilotage/pilotageAccess.ts). */}
+          <Route path="pilotage/*" element={<PilotagePage />} />
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>
