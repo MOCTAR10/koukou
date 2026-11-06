@@ -191,38 +191,35 @@ function ProgrammeAside() {
   return (
     <aside className="relative hidden h-screen overflow-hidden bg-brand-950 text-white lg:block">
       <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_30%]" />
+      <div aria-hidden className="absolute inset-0 bg-brand-950/25" />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950/90 via-brand-950/35 via-35% to-transparent" />
       <div aria-hidden className="absolute inset-x-0 top-0 h-[20rem] bg-gradient-to-b from-black/45 to-transparent" />
       <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
         <div className="flex items-center gap-4">
-          <img
-            src="/republique-gabonaise.webp"
-            alt="Sceau de la République gabonaise"
-            className="h-14 w-auto rounded-lg shadow-xl shadow-black/40 ring-1 ring-white/40 xl:h-16 [@media(max-height:780px)]:h-12"
-          />
+          <div className="rounded-2xl bg-white p-1.5 shadow-xl shadow-black/40">
+            <img
+              src="/maedr-logo-full.webp"
+              alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
+              className="h-20 w-20 object-contain xl:h-24 xl:w-24 [@media(max-height:780px)]:h-16 [@media(max-height:780px)]:w-16"
+            />
+          </div>
           <div className="border-l border-white/30 pl-5 text-white">
-            <p className="whitespace-nowrap text-[clamp(0.95rem,1.25vw,1.35rem)] font-semibold leading-snug drop-shadow">
-              Ministère de l’Agriculture, de l’Élevage et du Développement Rural
-            </p>
+            <p className="text-2xl font-bold uppercase tracking-[0.2em] drop-shadow xl:text-3xl">Programme POUFA</p>
           </div>
         </div>
 
         <div className="mt-10 [@media(max-height:780px)]:mt-6">
-            <div className="flex items-center gap-3">
-              <span className="h-px w-8 bg-amber-300" />
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200">Programme POUFA</p>
-            </div>
-            <h2 className="mt-3 whitespace-nowrap text-[clamp(1.1rem,1.85vw,2.4rem)] font-bold leading-tight tracking-tight drop-shadow-[0_2px_8px_rgb(0_0_0/0.45)]">
-              Suivi technico-économique et traçabilité{' '}
-              <span className="bg-gradient-to-r from-amber-200 to-emerald-200 bg-clip-text text-transparent">de la filière avicole</span>
+            <h2 className="text-[clamp(1.1rem,1.95vw,2.5rem)] font-bold leading-[1.15] tracking-tight drop-shadow-[0_2px_10px_rgb(0_0_0/0.6)]">
+              <span className="block whitespace-nowrap">Système d’information de suivi technico-économique</span>
+              <span className="block whitespace-nowrap">
+                et de traçabilité{' '}
+                <span className="bg-gradient-to-r from-amber-200 to-emerald-200 bg-clip-text text-transparent">de la filière avicole</span>
+              </span>
             </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/85 drop-shadow xl:text-base">
-              Une plateforme unique pour l’État, les services techniques et les éleveurs, de la ferme au consommateur.
-            </p>
         </div>
 
         <div className="mt-auto mb-24 [@media(max-height:780px)]:mb-10">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200/90">
+          <p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.25em] text-amber-200 drop-shadow"><span className="h-px w-8 bg-amber-300" />
             Modules de la plateforme
           </p>
           <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 xl:grid-cols-4 xl:gap-x-4 [@media(max-height:780px)]:gap-y-1.5">
@@ -237,8 +234,8 @@ function ProgrammeAside() {
           </ul>
         </div>
 
-        <p className="mt-5 flex items-center gap-2 text-xs text-white/55 [@media(max-height:780px)]:mt-3">
-          <img src="/logo.png" alt="" className="h-4 w-auto opacity-80" />
+        <p className="mt-5 flex items-center gap-3 text-sm font-medium text-white/85 drop-shadow [@media(max-height:780px)]:mt-3">
+          <img src="/logo.png" alt="" className="h-8 w-auto" />
           Plateforme propulsée par Fermia
         </p>
       </div>
