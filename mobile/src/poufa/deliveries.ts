@@ -152,6 +152,17 @@ export function openBandHintOf(view: DeliveryView): OpenBandHint | null {
   };
 }
 
+/** Deliveries whose confirmation waits in the offline queue. */
+export function queuedDeliveryIds(ops: readonly { kind: string; farmId: string; payload: unknown }[], farmId: string): Set<string> {
+  const ids = new Set<string>();
+  for (const op of ops) {
+    if (op.kind !== 'delivery-confirm' || op.farmId !== farmId) continue;
+    const id = (op.payload as { deliveryId?: unknown } | null)?.deliveryId;
+    if (typeof id === 'string') ids.add(id);
+  }
+  return ids;
+}
+
 /** Quantity for display: up to 3 decimals, French format. */
 export function fmtQty(n: number | null | undefined, unit?: string | null): string {
   if (n == null) return '—';
