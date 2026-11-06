@@ -4,7 +4,7 @@ import type { DuplicateCandidate, HiddenDuplicate, RegistryStatus } from '../../
 import { Pill, type Tone } from '../flock/shared';
 import { Button, Modal } from '../form';
 import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../programme/farmStatus';
-import { candidateTitle, reasonsLabel, scoreLabel, type DuplicateConflict } from './duplicates';
+import { candidateProvince, candidateTitle, reasonsLabel, scoreLabel, type DuplicateConflict } from './duplicates';
 import { dismissNeedsConfirm, formatLoginCode, NO_CODE, oneTimeCodeReducer, type OneTimeCodeAction, type OneTimeCodeState } from './oneTimeCode';
 
 export function statusTone(status: Pick<RegistryStatus, 'family'> | null | undefined, active = true): Tone {
@@ -46,7 +46,9 @@ export function DuplicateNotice({
               </span>
               <span className="text-xs font-semibold tabular-nums text-amber-800">Ressemblance {scoreLabel(d.score)}</span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-600">{reasonsLabel(d.reasons)}</p>
+            <p className="mt-0.5 text-xs text-slate-600">
+              {[candidateProvince(d) ? `Province : ${candidateProvince(d)}` : null, reasonsLabel(d.reasons)].filter(Boolean).join(' · ')}
+            </p>
           </li>
         ))}
       </ul>

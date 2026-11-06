@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiError } from '../../api/errors';
 import type { MyAccess } from '../../api/types-access';
 import type { ImportReport, RegistrySheet } from '../../api/types-programme';
-import { candidateTitle, readDuplicateConflict, scoreLabel } from './duplicates';
+import { candidateProvince, candidateTitle, readDuplicateConflict, scoreLabel } from './duplicates';
 import { checkImportFile, importFormData, linesOf, outcomeCounts, summarizeImport } from './importReport';
 import {
   activationBlocker,
@@ -23,12 +23,13 @@ describe('readDuplicateConflict', () => {
       conflict({
         message: 'x',
         duplicates: [
-          { farmId: 'a', code: 'G1-0003', name: 'Ferme Ngoma', score: 0.9, reasons: ['même nom'] },
-          { farmId: 'b', code: 'G1-0007', name: 'Ngoma', score: 1, reasons: ['même nom', 'même téléphone'] },
+          { farmId: 'a', code: 'G1-0003', name: 'Ferme Ngoma', provinceCode: 'G1', provinceName: 'Estuaire', score: 0.9, reasons: ['même nom'] },
+          { farmId: 'b', code: 'G1-0007', name: 'Ngoma', provinceCode: 'G1', provinceName: 'Estuaire', score: 1, reasons: ['même nom', 'même téléphone'] },
         ],
       }),
     );
     expect(c?.visible.map((d) => d.code)).toEqual(['G1-0007', 'G1-0003']);
+    expect(candidateProvince(c!.visible[0]!)).toBe('Estuaire (G1)');
     expect(c?.hidden).toEqual([]);
     expect(c?.canConfirm).toBe(true);
   });
@@ -38,6 +39,7 @@ describe('readDuplicateConflict', () => {
     expect(c?.hidden).toHaveLength(1);
     expect(c?.canConfirm).toBe(false);
     expect(candidateTitle(c!.hidden[0]!)).toBe('Ferme hors de votre périmètre');
+    expect(candidateProvince(c!.hidden[0]!)).toBeNull();
   });
 
   it('is null for other refusals', () => {
@@ -49,7 +51,10 @@ describe('readDuplicateConflict', () => {
   it('words candidates and scores', () => {
     expect(scoreLabel(0.854)).toBe('85 %');
     expect(scoreLabel(1.3)).toBe('100 %');
-    expect(candidateTitle({ farmId: null, code: null, name: 'Agri Vert', score: 1, reasons: [], line: 12 })).toBe('Ligne 12 · Agri Vert');
+    const line = { farmId: null, code: null, name: 'Agri Vert', provinceCode: 'G2', provinceName: null, score: 1, reasons: [], line: 12 };
+    expect(candidateTitle(line)).toBe('Ligne 12 · Agri Vert');
+    expect(candidateProvince(line)).toBe('G2');
+    expect(candidateProvince({ ...line, provinceCode: null })).toBeNull();
   });
 });
 
@@ -65,7 +70,7 @@ const report = (over: Partial<ImportReport> = {}): ImportReport => ({
     { line: 2, name: 'A', outcome: 'A_CREER' },
     { line: 3, name: 'B', outcome: 'DEJA_PRESENTE', code: 'G1-0001' },
     { line: 4, name: 'C', outcome: 'REJETEE', reason: 'Province inconnue' },
-    { line: 5, name: 'D', outcome: 'REJETEE', reason: 'Doublon', duplicates: [{ farmId: 'x', code: 'G1-0002', name: 'DD', score: 0.9, reasons: [] }] },
+    { line: 5, name: 'D', outcome: 'REJETEE', reason: 'Doublon', duplicates: [{ farmId: 'x', code: 'G1-0002', name: 'DD', provinceCode: 'G1', provinceName: 'Estuaire', score: 0.9, reasons: [] }] },
   ],
   ...over,
 });

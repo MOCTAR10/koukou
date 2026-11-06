@@ -45,6 +45,17 @@ export function candidateTitle(d: DuplicateCandidate | HiddenDuplicate): string 
   return where ? `${where} · ${d.name}` : d.name;
 }
 
+/**
+ * Province of a visible candidate (« Estuaire (G1) »), null for a masked one
+ * or a farm without a province: a same name in another province is often a
+ * farm entered in the wrong one.
+ */
+export function candidateProvince(d: DuplicateCandidate | HiddenDuplicate): string | null {
+  if (isHidden(d)) return null;
+  if (d.provinceName) return d.provinceCode ? `${d.provinceName} (${d.provinceCode})` : d.provinceName;
+  return d.provinceCode ?? null;
+}
+
 export function reasonsLabel(reasons: readonly string[]): string {
   return reasons.length ? reasons.join(', ') : '—';
 }

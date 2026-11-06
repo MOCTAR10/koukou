@@ -210,6 +210,9 @@ export interface DuplicateCandidate {
   farmId: string | null;
   code: string | null;
   name: string;
+  /** Province of the candidate (null when it has none). */
+  provinceCode: string | null;
+  provinceName: string | null;
   score: number;
   reasons: string[];
   /** Import only: the line of the file that resembles. */

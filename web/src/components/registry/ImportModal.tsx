@@ -7,7 +7,7 @@ import { Pill } from '../flock/shared';
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
 import { FilterChip } from '../sales/shared';
 import { DataTable, Td, Th } from '../ui';
-import { candidateTitle, scoreLabel } from './duplicates';
+import { candidateProvince, candidateTitle, scoreLabel } from './duplicates';
 import {
   checkImportFile,
   FORMAT_LABEL,
@@ -165,7 +165,8 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
                           <ul className="space-y-0.5">
                             {l.duplicates.map((d, i) => (
                               <li key={i}>
-                                Ressemble à {candidateTitle(d)} ({scoreLabel(d.score)} : {d.reasons.join(', ')})
+                                Ressemble à {candidateTitle(d)}
+                                {candidateProvince(d) ? `, ${candidateProvince(d)}` : ''} ({scoreLabel(d.score)} : {d.reasons.join(', ')})
                               </li>
                             ))}
                           </ul>
