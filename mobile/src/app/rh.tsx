@@ -13,6 +13,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { fetchFarmMembers } from '@/api';
 import { canManageFarm } from '@/api/roles';
 import type { FarmMember } from '@/api/types';
@@ -79,7 +80,8 @@ export default function RhScreen() {
   const profileHook = useFarmProfile();
   const canView =
     canManageFarm(user.role) || profileHook.isOwner || profileHook.hasPermission('equipe:gerer') || profileHook.hasPermission('rh:lire');
-  const canEdit = canManageFarm(user.role) || profileHook.isOwner || profileHook.hasPermission('equipe:gerer');
+  // POUFA lot A droits: an institution (EQUIPE) reads the files, never edits them.
+  const canEdit = !profileHook.fermiaReadOnly && (canManageFarm(user.role) || profileHook.isOwner || profileHook.hasPermission('equipe:gerer'));
 
   const members = useQuery({
     queryKey: ['farm-members', farmId],
@@ -106,6 +108,7 @@ export default function RhScreen() {
         <Spinner label="Chargement des dossiers…" />
       ) : (
         <>
+          <ReadOnlyNotice what="Dossiers RH" />
           <View style={styles.statsRow}>
             <Card tone="brand" style={styles.stat}>
               <Users size={18} color={color.brand[700]} />

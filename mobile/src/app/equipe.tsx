@@ -21,6 +21,7 @@ import type { ContractType, FarmMember, PermissionCatalog, PermissionCode, Staff
 import { CREATE_ADMIN_DEFAULT_PERMISSIONS, LOCAL_PERMISSION_GROUPS, STAFF_PROFILES_LOCAL } from '@/constants/permissions';
 import { CONTRACT_TYPES, contractTypeLabel } from '@/constants/hr';
 import { color, fmt, palette, fontFamily, semantic } from '@/constants/theme';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 
 /** Clé du profil « sur mesure » (non fourni par le serveur) : rôle Admin, droits à cocher. */
 const CUSTOM_PROFILE_KEY = '__custom__';
@@ -233,12 +234,12 @@ function BuildingPicker({
   );
 }
 
-function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName?: string; onPress: () => void }) {
+function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName?: string; onPress?: () => void }) {
   const isAdmin = member.role === 'ADMIN';
   const label = member.jobTitle?.trim() || farmRoleLabel(member.role, farmName);
   const hasDossier = Boolean(member.contractType || member.department || member.hireDate || member.salaryFcfa != null);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]} accessibilityRole="button">
+    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]} accessibilityRole="button">
       <View style={styles.memberHead}>
         <View style={[styles.avatar, isAdmin && { backgroundColor: color.accent[600] }]}>
           <Image source={require('@/assets/images/logo-white.png')} style={styles.avatarLogo} accessibilityLabel="Logo Fermia" />
@@ -281,16 +282,19 @@ export default function EquipeScreen() {
   const { farms, user, farmId } = useAuth();
   const farmName = (farms.find((f) => f.id === farmId) ?? farms[0])?.name;
   const profileHook = useFarmProfile();
-  const canManageAccount = canManageFarm(user.role) || profileHook.isOwner || profileHook.hasPermission('equipe:gerer');
+  // POUFA lot A droits: an institution granted EQUIPE reads the team, never manages it.
+  const readOnly = profileHook.fermiaReadOnly;
+  const canManageAccount = !readOnly && (canManageFarm(user.role) || profileHook.isOwner || profileHook.hasPermission('equipe:gerer'));
+  const canReadTeam = canManageAccount || (readOnly && profileHook.readsFermia('EQUIPE'));
   // The server refuses HR fields without rh:gerer: don't offer them.
-  const canEditHr = profileHook.hasPermission('rh:gerer');
+  const canEditHr = !readOnly && profileHook.hasPermission('rh:gerer');
   const queryClient = useQueryClient();
   const router = useRouter();
 
   const members = useQuery({
     queryKey: ['farm-members', farmId],
     queryFn: () => fetchFarmMembers(farmId),
-    enabled: Boolean(farmId) && canManageAccount,
+    enabled: Boolean(farmId) && canReadTeam,
   });
 
   const permissionCatalog = useQuery({
@@ -539,7 +543,9 @@ export default function EquipeScreen() {
 
   return (
     <Screen header={<ScreenHeader title="Équipe" subtitle={farmName ?? 'Ferme'} back right={<Users size={18} color={color.ink[300]} />} />}>
+      <ReadOnlyNotice what="Équipe de la ferme" />
 
+      {readOnly ? null : (
       <Pressable
         onPress={() => router.push('/tasks')}
         style={({ pressed }) => [styles.tasksLink, pressed && { opacity: 0.8 }]}
@@ -558,8 +564,9 @@ export default function EquipeScreen() {
         </View>
         <ListTodo size={16} color={color.ink[300]} />
       </Pressable>
+      )}
 
-      {canManageAccount ? (
+      {canReadTeam ? (
         <Pressable
           onPress={() => router.push('/rh')}
           style={({ pressed }) => [styles.tasksLink, pressed && { opacity: 0.8 }]}
@@ -588,9 +595,9 @@ export default function EquipeScreen() {
         </Card>
       ) : null}
 
-      {canManageAccount ? (
+      {canReadTeam ? (
         <>
-          {!showCreate ? (
+          {canManageAccount && !showCreate ? (
             <Button label="Ajouter un membre" tone="brand" icon={UserPlus} onPress={openCreate} />
           ) : null}
 
@@ -624,7 +631,7 @@ export default function EquipeScreen() {
               ) : null}
 
               {(members.data ?? []).map((m) => (
-                <MemberRow key={m.id} member={m} farmName={farmName} onPress={() => openEdit(m)} />
+                <MemberRow key={m.id} member={m} farmName={farmName} onPress={canManageAccount ? () => openEdit(m) : undefined} />
               ))}
             </View>
           )}

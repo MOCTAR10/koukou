@@ -53,8 +53,9 @@ export default function ActivitesScreen() {
   const router = useRouter();
   const { farmId } = useAuth();
   const [panel, setPanel] = useState<PanelKey>('TACHES');
-  // The caisse is a Fermia-only domain: an institution never reads it.
-  const { fermiaData } = useFarmProfile();
+  // POUFA lot A droits: the caisse (VENTES) opens to an institution granted it, read-only.
+  const { readsFermia } = useFarmProfile();
+  const fermiaData = readsFermia('VENTES');
   const panelOptions = fermiaData ? PANEL_OPTIONS : PANEL_OPTIONS.filter((o) => o.key !== 'CAISSE');
   const [span, setSpan] = useState<JournalSpan>(7);
 

@@ -486,7 +486,9 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
 export default function LotsScreen() {
   const router = useRouter();
   const { farmId } = useAuth();
-  const { hasPermission, fermiaData, isInstitution } = useFarmProfile();
+  const { hasPermission, readsFermia, isInstitution } = useFarmProfile();
+  // POUFA lot A droits: orders (VENTES) open to an institution granted it.
+  const fermiaData = readsFermia('VENTES');
   const canRapports = hasPermission('compta:rapports');
   // Sales and expenses sit in the programme ÉCONOMIQUE domain: an institution
   // reads them only with it (compta:rapports); orders are Fermia-only.

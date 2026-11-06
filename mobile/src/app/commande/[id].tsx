@@ -40,6 +40,7 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { cancelOrderQueued, deliverOrderQueued, recordOrderPaymentQueued } from '@/offline/engine';
 import type { OrderFull, OrderPassport } from '@/api/types';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 
 function OrderItems({ order }: { order: OrderFull }) {
@@ -391,10 +392,11 @@ export default function CommandeDetailScreen() {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { hasPermission } = useFarmProfile();
-  const canManage = hasPermission('vente:commande');
+  // POUFA lot A droits: read-only for an institution (fermiaWrites is never true for it).
+  const { fermiaWrites } = useFarmProfile();
+  const canManage = fermiaWrites('vente:commande');
   // Deposit and delivery: `vente:commande` or `vente:creer` on the server.
-  const canSell = canManage || hasPermission('vente:creer');
+  const canSell = canManage || fermiaWrites('vente:creer');
 
   const orderQuery = useQuery({ queryKey: ['order', farmId, id], queryFn: () => fetchOrder(farmId, id) });
   const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId), enabled: !!orderQuery.data?.pointOfSaleId });
@@ -475,6 +477,7 @@ Livrer ?`
   return (
     <Screen header={<ScreenHeader title="Commande" subtitle={order.referenceNumber} back />} bottomPad={128} refreshing={orderQuery.isFetching} onRefresh={() => void pulldown()}>
       <View style={{ gap: spacing.lg }}>
+        <ReadOnlyNotice what="Commande" />
         <Card>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={styles.avatar}>

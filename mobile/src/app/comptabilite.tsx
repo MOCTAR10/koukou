@@ -16,6 +16,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import {
   closeAccountExercice,
   createRegularisation,
@@ -89,10 +90,10 @@ function SoldesRow({ account }: { account: AccountSoldes }) {
 }
 
 export default function ComptabiliteScreen() {
-  const { fermiaData } = useFarmProfile();
-  // SYSCOHADA accounting is a Fermia-only domain (COMPTABILITE): the backend
-  // refuses it to every institutional profile, so the screen asks nothing.
-  return fermiaData ? <ComptabiliteContent /> : <ComptabiliteUnavailable />;
+  const { readsFermia } = useFarmProfile();
+  // POUFA lot A droits: SYSCOHADA accounting (COMPTABILITE) opens to an
+  // institution granted it in its matrix, read-only; otherwise the screen asks nothing.
+  return readsFermia('COMPTABILITE') ? <ComptabiliteContent /> : <ComptabiliteUnavailable />;
 }
 
 function ComptabiliteUnavailable() {
@@ -100,7 +101,7 @@ function ComptabiliteUnavailable() {
     <Screen header={<ScreenHeader title="Comptabilité SYSCOHADA" back />}>
       <Card>
         <AppText size="body" color="muted">
-          La comptabilité de la ferme n’est pas ouverte aux comptes institutionnels. Les indicateurs économiques du programme restent dans Rentabilité.
+          La comptabilité de la ferme n’est pas ouverte à votre profil institutionnel. Les indicateurs économiques du programme restent dans Rentabilité.
         </AppText>
       </Card>
     </Screen>
@@ -109,13 +110,13 @@ function ComptabiliteUnavailable() {
 
 function ComptabiliteContent() {
   const { farms, farmId } = useAuth();
-  const { hasPermission } = useFarmProfile();
+  const { fermiaWrites } = useFarmProfile();
   const queryClient = useQueryClient();
 
   const [tab, setTab] = useState<Tab>('journal');
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const canEcritures = hasPermission('compta:ecritures');
+  const canEcritures = fermiaWrites('compta:ecritures');
 
   const journalQuery = useQuery({
     queryKey: ['accounting-journal', farmId],
@@ -216,6 +217,7 @@ function ComptabiliteContent() {
           back
         />
       }>
+      <ReadOnlyNotice what="Comptabilité de la ferme" />
       <Segmented
         options={TABS}
         value={tab}
