@@ -52,6 +52,34 @@ export function parseArrivalAgeDays(text: string): number | null {
   return days <= MAX_ARRIVAL_AGE_DAYS ? days : null;
 }
 
+export interface BandOpening {
+  /** Sent as `integrationDate`: the arrival (opening) day, never back-dated to the hatch. */
+  integrationDate: string;
+  /** Sent as `initialAgeDays`: age of the birds on arrival (J+x). */
+  initialAgeDays: number;
+  /** J0 of the birds: a protocol step of day N falls on `addIsoDays(ageZeroDay, N)`. */
+  ageZeroDay: string;
+  /** Age of the birds on `today` (what the lot screens will show once created). */
+  ageToday: number;
+}
+
+/**
+ * Opening of a band in the lot creation form (pure, POUFA rule):
+ * `integrationDate` = the arrival day, `initialAgeDays` = the birds' age on
+ * that day. Used for a new lot (age 0 for day-old chicks) and for a « lot en
+ * cours » alike, so the age, the feed phase and the care already due are
+ * computed from the same J+x the backend will store.
+ */
+export function bandOpening(input: { arrivalDay: string; arrivalAgeDays: number; today: string }): BandOpening {
+  const initialAgeDays = Math.max(0, Math.trunc(input.arrivalAgeDays));
+  return {
+    integrationDate: input.arrivalDay.slice(0, 10),
+    initialAgeDays,
+    ageZeroDay: ageZeroDay(input.arrivalDay, initialAgeDays),
+    ageToday: Math.max(initialAgeDays, ageOnDay(input.arrivalDay, initialAgeDays, input.today)),
+  };
+}
+
 export interface BandCycle {
   /** Age of the birds (the served `metrics.ageDays`, J+x included). */
   ageDays: number;

@@ -849,6 +849,7 @@ export function createFeedProduct(farmId: string, input: CreateFeedProductInput)
 
 export interface CreateBatchInput {
   batchName: string;
+  /** POUFA band opening: the arrival day (not the hatch day). */
   integrationDate: string;
   quantityAtStart: number;
   type: 'CHAIR' | 'PONDEUSE';
@@ -864,8 +865,10 @@ export interface CreateBatchInput {
   chickLotNumber?: string;
   hatchDate?: string;
   chickUnitPriceFcfa?: number;
-  /** Effectif vivant actuel (lot en cours) — sinon quantityAtStart */
-  quantityAlive?: number;
+  /** Age of the birds on arrival (J+x), 0..365; 0 / absent = day-old chicks. A « lot
+   *  en cours » opens at its current age with its live birds as `quantityAtStart`
+   *  (the backend refuses a `quantityAlive` different from it). */
+  initialAgeDays?: number;
 }
 
 export function createBatch(farmId: string, input: CreateBatchInput): Promise<{ id: string }> {

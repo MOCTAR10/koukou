@@ -5,6 +5,7 @@ import {
   ageOnDay,
   ageZeroDay,
   bandCycle,
+  bandOpening,
   lotSearchText,
   MAX_ARRIVAL_AGE_DAYS,
   parseArrivalAgeDays,
@@ -74,6 +75,36 @@ describe('parseArrivalAgeDays', () => {
     expect(parseArrivalAgeDays('2.5')).toBeNull();
     expect(parseArrivalAgeDays('abc')).toBeNull();
     expect(parseArrivalAgeDays(String(MAX_ARRIVAL_AGE_DAYS + 1))).toBeNull();
+  });
+});
+
+describe('bandOpening', () => {
+  it('nouveau lot de poussins d’un jour : J0 = arrivée', () => {
+    expect(bandOpening({ arrivalDay: '2026-11-06', arrivalAgeDays: 0, today: '2026-11-06' })).toEqual({
+      integrationDate: '2026-11-06',
+      initialAgeDays: 0,
+      ageZeroDay: '2026-11-06',
+      ageToday: 0,
+    });
+  });
+
+  it('lot en cours ouvert aujourd’hui à J+21 : la date reste l’arrivée, l’âge passe en initialAgeDays', () => {
+    const o = bandOpening({ arrivalDay: '2026-11-06', arrivalAgeDays: 21, today: '2026-11-06' });
+    expect(o.integrationDate).toBe('2026-11-06');
+    expect(o.initialAgeDays).toBe(21);
+    expect(o.ageToday).toBe(21);
+    // A care of day 14 was due before the opening: it is dated J0 + 14.
+    expect(addIsoDays(o.ageZeroDay, 14)).toBe('2026-10-30');
+  });
+
+  it('arrivée il y a 3 jours à J+10 : âge du jour 13', () => {
+    const o = bandOpening({ arrivalDay: '2026-11-03', arrivalAgeDays: 10, today: '2026-11-06' });
+    expect(o.ageToday).toBe(13);
+    expect(o.ageZeroDay).toBe('2026-10-24');
+  });
+
+  it('date d’arrivée future (fuseau) : l’âge du jour ne descend pas sous l’âge à l’arrivée', () => {
+    expect(bandOpening({ arrivalDay: '2026-11-07', arrivalAgeDays: 5, today: '2026-11-06' }).ageToday).toBe(5);
   });
 });
 
