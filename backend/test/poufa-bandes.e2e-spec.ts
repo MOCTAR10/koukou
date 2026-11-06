@@ -123,6 +123,38 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
       );
     });
 
+    it('âge J+x partout : métriques du lot, calendrier sanitaire', async () => {
+      // Received today at 20 days old.
+      const band = await openBand({ integrationDate: day(0), initialAgeDays: 20 });
+      const lot = await get(`/farms/${farmId}/batches/${band.id}`).expect(200);
+      expect(lot.body.metrics.ageDays).toBe(20);
+      const sheet = await get(`/farms/${farmId}/bandes/${band.id}`).expect(200);
+      expect(sheet.body.ageDays).toBe(20);
+      // A care step at age N falls on J0 + N (J0 = 20 days ago); steps of an
+      // age already passed are not planned.
+      const events = (
+        await post(
+          `/farms/${farmId}/batches/${band.id}/prophylaxis/generate`,
+          {},
+        ).expect(201)
+      ).body as Array<{ protocolStepId: string; scheduledDate: string }>;
+      expect(events.length).toBeGreaterThan(0);
+      for (const e of events) {
+        const [{ dayFrom }] = await ds.query(
+          `SELECT day_from AS "dayFrom" FROM protocol_steps WHERE id = $1`,
+          [e.protocolStepId],
+        );
+        expect(dayFrom).toBeGreaterThanOrEqual(20);
+        expect(e.scheduledDate.slice(0, 10)).toBe(day(dayFrom - 20));
+      }
+      // A lot placed as chicks (no J+x) keeps counting from integration.
+      const chicks = await openBand({});
+      const plain = await get(`/farms/${farmId}/batches/${chicks.id}`).expect(
+        200,
+      );
+      expect(plain.body.metrics.ageDays).toBe(10);
+    });
+
     it('le numéro de bande ne peut pas être modifié', async () => {
       const band = await openBand({});
       await expect(

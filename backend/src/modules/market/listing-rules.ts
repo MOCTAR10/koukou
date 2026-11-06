@@ -88,6 +88,8 @@ export type ReadyDateSource = 'BREED_CURVE' | 'MIN_AGE';
 export function suggestReadyDate(input: {
   batchType: BatchType;
   integrationDate: string;
+  /** Age of the birds at integration (POUFA J+x opening); 0 by default. */
+  initialAgeDays?: number | null;
   minAgeDays: number;
   standards: { week: number; targetAvgWeightKg: number | null }[];
   targetWeightKg?: number;
@@ -111,7 +113,11 @@ export function suggestReadyDate(input: {
     source = 'BREED_CURVE';
   }
 
-  let readyDate = addDays(input.integrationDate, ageDays);
+  // An age N is reached N days after J0 (integration minus the J+x offset).
+  let readyDate = addDays(
+    input.integrationDate,
+    ageDays - (input.initialAgeDays ?? 0),
+  );
   if (input.withdrawalEndDate != null) {
     const afterWithdrawal = addDays(input.withdrawalEndDate, 1);
     if (afterWithdrawal > readyDate) readyDate = afterWithdrawal;
