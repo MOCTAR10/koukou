@@ -5,7 +5,8 @@ import { loadSession } from './token';
 
 // URL de l'API NestJS. Auto-détectée depuis `hostUri` d'Expo (démo sur
 // appareil/émulateur) ; surcharge: remplacer `null` par une URL fixe.
-const API_URL_OVERRIDE: string | null = null;
+// Release builds (APK) set EXPO_PUBLIC_API_URL, e.g. https://fermia.greenleaves.ga/api.
+const API_URL_OVERRIDE: string | null = process.env.EXPO_PUBLIC_API_URL || null;
 
 export function resolveApiBaseUrl(hostUri: string | null | undefined, platformOs: string): string {
   if (API_URL_OVERRIDE) return API_URL_OVERRIDE;

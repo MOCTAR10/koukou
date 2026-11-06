@@ -1,0 +1,64 @@
+// Android release APK of Fermia: expo prebuild + Gradle, signed with the Fermia key,
+// published at https://fermia.greenleaves.ga/app/fermia.apk. Manual trigger only.
+// Runs on the shared Jenkins of the greenleaves server (low CPU priority).
+// Secrets: /var/jenkins_home/fermia-secrets/{release.keystore,keystore.pass} (not in git).
+pipeline {
+  agent any
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '3'))
+    timeout(time: 120, unit: 'MINUTES')
+  }
+  environment {
+    CI = 'true'
+    // Overrides the value the shared Jenkins container sets for another project.
+    EXPO_PUBLIC_API_URL = 'https://fermia.greenleaves.ga/api'
+    EXPO_PUBLIC_API_KEY = ''
+    SECRETS = '/var/jenkins_home/fermia-secrets'
+    OUT_DIR = '/var/www/trees-apk/fermia'
+    NODE_OPTIONS = '--max-old-space-size=2048'
+    GRADLE_OPTS = '-Dorg.gradle.jvmargs=-Xmx2560m -Dorg.gradle.workers.max=2 -Dorg.gradle.daemon=false'
+    ORG_GRADLE_PROJECT_reactNativeArchitectures = 'arm64-v8a'
+    ORG_GRADLE_PROJECT_kotlin_compiler_execution_strategy = 'in-process'
+  }
+  stages {
+    stage('Dépendances') {
+      steps { dir('mobile') { sh 'npm ci --no-audit --no-fund' ; sh 'npx tsc --noEmit' } }
+    }
+    stage('Projet Android') {
+      steps {
+        dir('mobile') {
+          sh 'npx expo prebuild --platform android --clean --no-install'
+          sh 'sed -i -E "s/versionCode [0-9]+/versionCode ${BUILD_NUMBER}/" android/app/build.gradle'
+        }
+      }
+    }
+    stage('APK release') {
+      steps { dir('mobile/android') { sh 'nice -n 15 ./gradlew assembleRelease --no-daemon --console=plain' } }
+    }
+    stage('Signature et publication') {
+      steps {
+        dir('mobile') {
+          sh '''
+            set -e
+            BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+            VERSION=$(node -p "require('./app.json').expo.version")
+            OUT="fermia-${VERSION}-${BUILD_NUMBER}.apk"
+            "$BT/zipalign" -f -p 4 android/app/build/outputs/apk/release/app-release.apk "$OUT"
+            "$BT/apksigner" sign --ks "$SECRETS/release.keystore" --ks-key-alias fermia \
+              --ks-pass file:"$SECRETS/keystore.pass" --key-pass file:"$SECRETS/keystore.pass" "$OUT"
+            "$BT/apksigner" verify "$OUT"
+            mkdir -p "$OUT_DIR"
+            cp "$OUT" "$OUT_DIR/"
+            ln -sfn "$OUT" "$OUT_DIR/fermia.apk"
+            ls -1t "$OUT_DIR"/fermia-*.apk | tail -n +4 | xargs -r rm -f
+            echo "Publié : https://fermia.greenleaves.ga/app/fermia.apk ($OUT)"
+          '''
+          archiveArtifacts artifacts: 'fermia-*.apk', fingerprint: true
+        }
+      }
+    }
+  }
+  post { always { cleanWs(deleteDirs: true, notFailBuild: true) } }
+}
