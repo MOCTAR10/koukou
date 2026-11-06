@@ -293,7 +293,7 @@ export function Shell() {
             ) : null}
           </div>
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
-            {!onPlatform && farm?.capacityPerBuilding ? <span>Capacité {farm.capacityPerBuilding} ois./bât.</span> : null}
+            {!onPlatform && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
           </div>
           <div className="ml-auto lg:ml-0">{!onPlatform && farmId ? <QuickCreate /> : null}</div>
           {isAdmin ? (

@@ -10,10 +10,13 @@ const items = [
 const today = '2026-11-06';
 
 describe('statusChoices', () => {
-  it('never suspends a farm still in preparation', () => {
-    expect(statusChoices(items, 'EN_PREPARATION').map((i) => i.code)).toEqual(['OPERATIONNELLE']);
-    // No status yet counts as preparation: it may get its first one, not a suspension.
-    expect(statusChoices(items, null).map((i) => i.code)).toEqual(['EN_PREPARATION', 'OPERATIONNELLE']);
+  it('may suspend a farm still in preparation (no transition rule on the server)', () => {
+    expect(statusChoices(items, 'EN_PREPARATION').map((i) => i.code)).toEqual(['OPERATIONNELLE', 'SUSPENDUE']);
+    expect(statusChoices(items, null).map((i) => i.code)).toEqual([
+      'EN_PREPARATION',
+      'OPERATIONNELLE',
+      'SUSPENDUE',
+    ]);
   });
 
   it('offers the other active statuses otherwise', () => {
@@ -67,13 +70,13 @@ describe('buildStatusPayload', () => {
     });
   });
 
-  it('refuses the current status, an inactive one and a suspension from preparation', () => {
+  it('refuses the current status and an inactive one, accepts a suspension from preparation', () => {
     expect(buildStatusPayload({ statusCode: '', from: '', reason: '' }, ctx)).toEqual({ error: 'Choisissez le nouveau statut.' });
     expect('error' in buildStatusPayload({ statusCode: 'OPERATIONNELLE', from: '', reason: '' }, ctx)).toBe(true);
     expect('error' in buildStatusPayload({ statusCode: 'ANCIEN', from: '', reason: '' }, ctx)).toBe(true);
     expect(
-      buildStatusPayload({ statusCode: 'SUSPENDUE', from: '', reason: 'x' }, { ...ctx, statusCode: 'EN_PREPARATION' }),
-    ).toEqual({ error: 'Une ferme en préparation ne peut pas être suspendue.' });
+      'body' in buildStatusPayload({ statusCode: 'SUSPENDUE', from: '', reason: 'x' }, { ...ctx, statusCode: 'EN_PREPARATION' }),
+    ).toBe(true);
   });
 
   it('caps the reason like the server', () => {

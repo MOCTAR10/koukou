@@ -24,7 +24,7 @@ export function statusLabelOf(items: RefItem[] | undefined, code: string | null 
 /**
  * Changes a programme farm's status (`POST /programme/farms/:id/status`,
  * history kept by the server). A suspension needs a reason and blocks the
- * farm's sales; it never comes straight from « en préparation ».
+ * farm's sales (possible from any status, as on the server).
  * Reusable by the registry sheet (W2).
  */
 export function FarmStatusModal({

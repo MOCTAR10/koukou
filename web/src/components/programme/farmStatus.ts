@@ -15,14 +15,11 @@ export function currentFamily(items: StatusItem[], statusCode: string | null | u
 }
 
 /**
- * Statuses the farm may move to: active ones other than the current one. A
- * farm still in preparation can't be suspended (nothing runs yet to suspend).
+ * Statuses the farm may move to: active ones other than the current one (the
+ * server has no transition rule, a farm in preparation may be suspended too).
  */
 export function statusChoices<T extends StatusItem>(items: T[], statusCode: string | null | undefined): T[] {
-  const family = currentFamily(items, statusCode);
-  return items.filter(
-    (i) => i.active && i.code !== statusCode && !(family === PREPARATION_FAMILY && i.family === SUSPENDED_FAMILY),
-  );
+  return items.filter((i) => i.active && i.code !== statusCode);
 }
 
 export function needsReason(item: Pick<RefItem, 'family'> | null | undefined): boolean {
@@ -46,15 +43,7 @@ export function buildStatusPayload(
 ): { body: SetFarmStatusBody } | { error: string } {
   if (!draft.statusCode) return { error: 'Choisissez le nouveau statut.' };
   const item = statusChoices(context.items, context.statusCode).find((i) => i.code === draft.statusCode);
-  if (!item) {
-    return {
-      error:
-        currentFamily(context.items, context.statusCode) === PREPARATION_FAMILY &&
-        context.items.find((i) => i.code === draft.statusCode)?.family === SUSPENDED_FAMILY
-          ? 'Une ferme en préparation ne peut pas être suspendue.'
-          : 'Ce statut n’est pas possible depuis le statut actuel.',
-    };
-  }
+  if (!item) return { error: 'Ce statut n’est pas possible depuis le statut actuel.' };
   const from = draft.from.trim();
   if (from && from > context.today) return { error: 'La date d’effet ne peut pas être future.' };
   const since = context.statusSince?.slice(0, 10);
