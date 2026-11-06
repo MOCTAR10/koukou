@@ -132,6 +132,18 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     max: 86_400,
     defaultValue: 300,
   },
+  {
+    // Notify (architecture §12): SMS guard-rail, an SMS costs money and
+    // travels in clear. Beyond it, the SMS is not sent (ECHEC).
+    key: 'NOTIF_SMS_PLAFOND_JOUR',
+    label: 'Plafond de SMS de notification par jour et par utilisateur',
+    type: 'integer',
+    unit: 'SMS',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 0,
+    max: 100,
+    defaultValue: 5,
+  },
   ...POUFA_DEFAULT_FORMULAS.map((f): ParameterDefinition => ({
     key: formulaParameterKey(f.key),
     label: `Formule : ${f.label}`,
