@@ -5,6 +5,7 @@ import { SCOPE_KIND_LABELS } from '../../api/types-access';
 import { Button, ErrorNote } from '../form';
 import { Pill, SuccessNote } from '../org/shared';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
+import { grantRefusal, type Granter } from './grantRules';
 import { grantCount } from './matrix';
 import { ProfileFormModal } from './ProfileFormModal';
 import { useAccessCatalog, useAccessProfiles } from './queries';
@@ -12,10 +13,13 @@ import { useAccessCatalog, useAccessProfiles } from './queries';
 /** List of access profiles; a row opens its form (read-only without ADMINISTRER, or on one's own profile). */
 export function ProfilesView({
   canWrite,
+  granter,
   ownProfileId,
   memberships,
 }: {
   canWrite: boolean;
+  /** An institutional admin edits only a profile it could grant (server `grantRefusal`). */
+  granter: Granter;
   /** The caller's own profile (institutional admin): no self-edit. */
   ownProfileId: string | null;
   memberships: Membership[] | undefined;
@@ -109,13 +113,15 @@ export function ProfilesView({
           catalog={catalog.data}
           profile={form.profile}
           memberCount={form.profile ? countOf(form.profile) : null}
-          readOnly={!canWrite || (!!form.profile && form.profile.id === ownProfileId)}
+          readOnly={!canWrite || (!!form.profile && (form.profile.id === ownProfileId || !!grantRefusal(granter, form.profile)))}
           readOnlyReason={
             !canWrite
               ? 'Lecture seule : votre profil ne permet pas d’administrer les accès.'
               : form.profile?.id === ownProfileId
                 ? 'C’est votre propre profil : un autre administrateur le modifie.'
-                : undefined
+                : form.profile && grantRefusal(granter, form.profile)
+                  ? `Lecture seule. ${grantRefusal(granter, form.profile)}`
+                  : undefined
           }
           onClose={() => setForm(null)}
           onSaved={(message) => {

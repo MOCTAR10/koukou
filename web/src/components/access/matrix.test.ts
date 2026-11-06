@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ApiError } from '../../api/errors';
 import {
   cellsOf,
   dateFromValidUntil,
@@ -9,6 +10,8 @@ import {
   matrixOf,
   membershipMatches,
   membershipPhone,
+  accountChanges,
+  isBuyerPhoneConflict,
   membershipScopeError,
   membershipStatus,
   NO_FILTERS,
@@ -186,5 +189,38 @@ describe('membershipPhone', () => {
     expect(membershipPhone('')).toEqual({ error: 'Le téléphone est obligatoire.' });
     expect('error' in membershipPhone('12')).toBe(true);
     expect('error' in membershipPhone('+12')).toBe(true);
+  });
+});
+
+describe('accountChanges', () => {
+  const initial = { fullName: 'Agent DGE', phone: '074123456', email: 'agent@dge.ga' };
+  const typed = { ...initial };
+
+  it('sends only what changed', () => {
+    expect(accountChanges(typed, initial)).toEqual({ changes: {} });
+    expect(accountChanges({ ...typed, fullName: '  Agent DGE Estuaire ' }, initial)).toEqual({ changes: { fullName: 'Agent DGE Estuaire' } });
+    expect(accountChanges({ ...typed, phone: '+241 66 00 00 01' }, initial)).toEqual({ changes: { phone: '066000001' } });
+    // Retyped in another spelling: same number, nothing sent.
+    expect(accountChanges({ ...typed, phone: '74 12 34 56' }, initial)).toEqual({ changes: {} });
+    expect(accountChanges({ ...typed, email: ' Agent@DGE.ga ' }, initial)).toEqual({ changes: {} });
+    expect(accountChanges({ ...typed, email: 'autre@dge.ga' }, initial)).toEqual({ changes: { email: 'autre@dge.ga' } });
+  });
+
+  it('clears the e-mail with null and leaves an untouched stored phone alone', () => {
+    expect(accountChanges({ ...typed, email: '  ' }, initial)).toEqual({ changes: { email: null } });
+    expect(accountChanges({ ...typed, email: '' }, { ...initial, email: null })).toEqual({ changes: {} });
+    const intl = { ...initial, phone: '+24174123456' };
+    expect(accountChanges({ ...typed, phone: '+24174123456' }, intl)).toEqual({ changes: {} });
+  });
+
+  it('refuses an empty name or a wrong phone in French', () => {
+    expect(accountChanges({ ...typed, fullName: ' ' }, initial)).toEqual({ error: 'Le nom complet est obligatoire.' });
+    expect('error' in accountChanges({ ...typed, phone: '12' }, initial)).toBe(true);
+  });
+
+  it('spots a Market buyer’s phone', () => {
+    expect(isBuyerPhoneConflict(new ApiError(409, 'Acheteur', { buyerAccount: true }))).toBe(true);
+    expect(isBuyerPhoneConflict(new ApiError(409, 'Pris', { message: 'Pris' }))).toBe(false);
+    expect(isBuyerPhoneConflict(new Error('réseau'))).toBe(false);
   });
 });

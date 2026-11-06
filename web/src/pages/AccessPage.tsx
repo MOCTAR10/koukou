@@ -5,6 +5,7 @@ import { useInstitutionAccess } from '../app/useInstitutionAccess';
 import { useAuth } from '../auth/AuthContext';
 import { MembershipsView } from '../components/access/MembershipsView';
 import { ProfilesView } from '../components/access/ProfilesView';
+import type { Granter } from '../components/access/grantRules';
 import { useMemberships } from '../components/access/queries';
 import { PageHeader } from '../components/ui';
 import { classNames } from '../lib/format';
@@ -26,6 +27,7 @@ export function AccessPage() {
   const { access } = useInstitutionAccess();
   const memberships = useMemberships();
   const canWrite = canAdministerAccess(user?.role, access?.profile, 'ADMINISTRER');
+  const granter: Granter = { role: user?.role, access };
 
   return (
     <div className="space-y-6">
@@ -55,12 +57,12 @@ export function AccessPage() {
               loading={memberships.isLoading}
               error={memberships.error}
               canWrite={canWrite}
-              canResetCode={user?.role === 'PLATFORM_ADMIN'}
+              granter={granter}
               selfUserId={user?.role === 'INSTITUTION' ? user.id : null}
             />
           }
         />
-        <Route path="profils" element={<ProfilesView canWrite={canWrite} ownProfileId={access?.profile.id ?? null} memberships={memberships.data} />} />
+        <Route path="profils" element={<ProfilesView canWrite={canWrite} granter={granter} ownProfileId={access?.profile.id ?? null} memberships={memberships.data} />} />
         <Route path="*" element={<Navigate to="comptes" replace />} />
       </Routes>
     </div>

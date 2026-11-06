@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, KeyRound, Pencil, PlayCircle, PauseCircle, UserPlus, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { api } from '../../api/client';
-import type { AccessProfile, CreatedMembership, LoginCodeReset, Membership, ProvinceOption } from '../../api/types-access';
+import type { AccessProfile, CreatedMembership, Membership, ProvinceOption } from '../../api/types-access';
 import { SCOPE_KIND_LABELS } from '../../api/types-access';
 import { useFarm } from '../../app/FarmContext';
 import { dateFr } from '../../lib/format';
@@ -11,6 +11,7 @@ import { ConfirmModal, Pill, SuccessNote } from '../org/shared';
 import { ONE_TIME_CODE_MUTATION, OneTimeCodeModal, useOneTimeCode } from '../login-code/OneTimeCodeModal';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { farmLabel } from './FarmMultiPicker';
+import { membershipManageRefusal, type Granter } from './grantRules';
 import {
   dateFromValidUntil,
   MEMBERSHIP_STATUS_LABEL,
@@ -53,22 +54,24 @@ function scopeText(m: Membership, farmName: (id: string) => string): string {
 
 /**
  * Institutional accounts: filters, creation (login code shown once),
- * details, edit, suspension and, for the platform admin, a new login code.
+ * details, edit (account and access), suspension and a new login code. An
+ * institutional admin manages only the accounts it could have granted
+ * (`grantRules.ts`, same rule as the server).
  */
 export function MembershipsView({
   memberships,
   loading,
   error,
   canWrite,
-  canResetCode,
+  granter,
   selfUserId,
 }: {
   memberships: Membership[];
   loading: boolean;
   error: unknown;
+  /** ADMINISTRATION:ADMINISTRER (or the platform admin): edits, suspensions, new codes. */
   canWrite: boolean;
-  /** `POST /admin/users/:id/login-code` is the platform admin's. */
-  canResetCode: boolean;
+  granter: Granter;
   selfUserId: string | null;
 }) {
   const profiles = useAccessProfiles();
@@ -89,6 +92,9 @@ export function MembershipsView({
 
   const rows = memberships.filter((m) => membershipMatches(m, filters, (id) => farmProvince.get(id) ?? null));
   const detail = memberships.find((m) => m.id === detailId) ?? null;
+  const profileById = useMemo(() => new Map((profiles.data ?? []).map((p) => [p.id, p])), [profiles.data]);
+  const manageRefusal = (m: Membership): string | null =>
+    membershipManageRefusal(granter, m, m.profile ? profileById.get(m.profile.id) : null, (id) => farmProvince.get(id) ?? null);
   const filtered = rows.length !== memberships.length;
 
   const open = (m: Membership) => {
@@ -225,8 +231,8 @@ export function MembershipsView({
           provinces={provinces.data ?? []}
           farmName={farmName}
           canWrite={canWrite && detail.user?.id !== selfUserId}
+          manageRefusal={manageRefusal(detail)}
           isSelf={detail.user?.id === selfUserId}
-          canResetCode={canResetCode}
           onClose={() => setDetailId(null)}
           onEdit={() => setForm({ membership: detail })}
           onCode={(holder, loginCode) => revealCode('Nouveau code de connexion', holder, loginCode, true)}
@@ -240,6 +246,7 @@ export function MembershipsView({
           profiles={profiles.data ?? []}
           provinces={provinces.data ?? []}
           knownFarms={knownFarms}
+          granter={granter}
           onClose={() => setForm(null)}
           onCreated={(created: CreatedMembership) => {
             setForm(null);
@@ -272,8 +279,8 @@ function MembershipPanel({
   provinces,
   farmName,
   canWrite,
+  manageRefusal,
   isSelf,
-  canResetCode,
   onClose,
   onEdit,
   onCode,
@@ -282,9 +289,11 @@ function MembershipPanel({
   membership: Membership;
   provinces: ProvinceOption[];
   farmName: (id: string) => string;
+  /** Administers the access, and this isn't its own account. */
   canWrite: boolean;
+  /** Why this account is beyond the caller's own access (null: it may manage it). */
+  manageRefusal: string | null;
   isSelf: boolean;
-  canResetCode: boolean;
   onClose: () => void;
   onEdit: () => void;
   onCode: (holder: { fullName: string; phone: string }, loginCode: string) => void;
@@ -296,6 +305,7 @@ function MembershipPanel({
   const kind = m.profile?.scopeKind;
   const provinceName = new Map(provinces.map((p) => [p.code, p.name]));
   const name = m.user?.fullName ?? 'ce compte';
+  const canManage = canWrite && !manageRefusal;
 
   const setActive = useMutation({
     mutationFn: (active: boolean) => api.patch<Membership>(`/programme/access/memberships/${m.id}`, { active }),
@@ -308,10 +318,10 @@ function MembershipPanel({
 
   const resetCode = useMutation({
     ...ONE_TIME_CODE_MUTATION,
-    mutationFn: () => api.post<LoginCodeReset>(`/admin/users/${m.user?.id}/login-code`),
+    mutationFn: () => api.post<CreatedMembership>(`/programme/access/memberships/${m.id}/login-code`),
     onSuccess: (res) => {
       setConfirm(null);
-      onCode(res.user, res.loginCode);
+      onCode({ fullName: res.user?.fullName ?? name, phone: res.user?.phone ?? m.user?.phone ?? '' }, res.loginCode);
       // The code now lives in the dialog's state only.
       resetCode.reset();
     },
@@ -381,13 +391,17 @@ function MembershipPanel({
           </p>
         ) : null}
 
+        {canWrite && manageRefusal ? (
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 ring-1 ring-slate-200">{manageRefusal}</p>
+        ) : null}
+
         <ErrorNote error={setActive.error} />
 
         <div className="flex flex-wrap gap-2">
-          {canWrite ? (
+          {canManage ? (
             <>
               <Button tone="secondary" onClick={onEdit}>
-                <Pencil className="h-4 w-4" /> Modifier l’accès
+                <Pencil className="h-4 w-4" /> Modifier
               </Button>
               {m.active ? (
                 <Button tone="secondary" className="!text-red-600" onClick={() => setConfirm('suspend')}>
@@ -400,7 +414,7 @@ function MembershipPanel({
               )}
             </>
           ) : null}
-          {canResetCode && m.user && !isSelf ? (
+          {canManage && m.user ? (
             <Button tone="secondary" onClick={() => setConfirm('code')}>
               <KeyRound className="h-4 w-4" /> Nouveau code de connexion
             </Button>

@@ -110,20 +110,30 @@ export interface CreateMembershipBody extends MembershipScopeBody {
   profileCode: string;
 }
 
-/** `PATCH /programme/access/memberships/:id`. */
+/**
+ * `PATCH /programme/access/memberships/:id`: the membership and the account
+ * (name, phone = its login, e-mail; null clears the e-mail). 409 for another
+ * account's phone (`buyerAccount: true` when it is a Market buyer's) or e-mail.
+ */
 export interface UpdateMembershipBody extends MembershipScopeBody {
+  fullName?: string;
+  phone?: string;
+  email?: string | null;
   profileCode?: string;
   active?: boolean;
 }
 
-/** Answer of the creation: the view plus the login code, shown once. */
-export interface CreatedMembership extends Membership {
-  loginCode: string;
+/** 409 body of a membership edit whose phone is a Market buyer's. */
+export interface MembershipConflictBody {
+  message: string;
+  buyerAccount: true;
 }
 
-/** `POST /admin/users/:userId/login-code` (platform admin): the new code, shown once. */
-export interface LoginCodeReset {
-  user: { id: string; fullName: string; phone: string };
+/**
+ * Answer of the creation, and of `POST /programme/access/memberships/:id/login-code`
+ * (a new code): the view plus the login code, shown once.
+ */
+export interface CreatedMembership extends Membership {
   loginCode: string;
 }
 

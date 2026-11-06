@@ -1,11 +1,15 @@
+import { ApiError, errorBody } from '../../api/errors';
 import {
   ACCESS_ACTIONS,
   PROGRAMME_DOMAINS,
   type AccessAction,
   type AccessDomain,
   type AccessMatrix,
+  type MembershipConflictBody,
   type ScopeKind,
+  type UpdateMembershipBody,
 } from '../../api/types-access';
+import { isGabonPhoneValid } from '../../lib/phone';
 
 /**
  * Pure rules of the access administration screens: the matrix editor, the
@@ -269,9 +273,10 @@ export function membershipMatches(
 }
 
 /**
- * Phone of a new institutional account: a Gabon number is stored as
- * 0XXXXXXXX (sign-in normalizes the same way), an international one (`+…`)
- * as typed without separators (server rule `^\+?\d{8,15}$`).
+ * Phone of an institutional account (its login): a Gabon number is stored as
+ * 0XXXXXXXX (`lib/phone.ts`, the sign-in normalizes the same way), an
+ * international one (`+…`) as typed without separators (server rule
+ * `^\+?\d{8,15}$`). Unlike the sign-in, extra digits are an error, not cut.
  */
 export function membershipPhone(raw: string): { phone: string } | { error: string } {
   const typed = raw.trim();
@@ -284,5 +289,39 @@ export function membershipPhone(raw: string): { phone: string } | { error: strin
   let n = typed.replace(/\D/g, '');
   if (n.startsWith('241') && n.length >= 11) n = n.slice(3);
   if (n.length === 8 && n[0] !== '0') n = `0${n}`;
-  return /^0\d{8}$/.test(n) ? { phone: n } : { error: 'Numéro gabonais attendu : 9 chiffres commençant par 0 (ex. 074 12 34 56), ou un numéro international en +…' };
+  return isGabonPhoneValid(n) ? { phone: n } : { error: 'Numéro gabonais attendu : 9 chiffres commençant par 0 (ex. 074 12 34 56), ou un numéro international en +…' };
+}
+
+export interface AccountFields {
+  fullName: string;
+  phone: string;
+  email: string;
+}
+
+/**
+ * The account part of a membership edit: only the fields that changed. The
+ * phone is checked and normalized only when it was retyped (a stored number
+ * in another spelling is left alone); an emptied e-mail is sent as null.
+ */
+export function accountChanges(
+  typed: AccountFields,
+  initial: { fullName: string; phone: string; email: string | null },
+): { changes: Pick<UpdateMembershipBody, 'fullName' | 'phone' | 'email'> } | { error: string } {
+  const changes: Pick<UpdateMembershipBody, 'fullName' | 'phone' | 'email'> = {};
+  const fullName = typed.fullName.trim();
+  if (!fullName) return { error: 'Le nom complet est obligatoire.' };
+  if (fullName !== initial.fullName) changes.fullName = fullName;
+  if (typed.phone.trim() !== initial.phone) {
+    const tel = membershipPhone(typed.phone);
+    if ('error' in tel) return tel;
+    if (tel.phone !== initial.phone) changes.phone = tel.phone;
+  }
+  const email = typed.email.trim().toLowerCase();
+  if (email !== (initial.email ?? '').trim().toLowerCase()) changes.email = email || null;
+  return { changes };
+}
+
+/** A 409 of a membership edit because the phone is a Market buyer's (`buyerAccount: true`). */
+export function isBuyerPhoneConflict(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409 && errorBody<MembershipConflictBody>(err)?.buyerAccount === true;
 }
