@@ -5,8 +5,7 @@ import type { Parcelle } from '../../api/types-agri';
 import type { Farm } from '../../api/types';
 import { PARCELLE_STATUS_STROKE } from './agri';
 
-const OSM_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+import { GABON_BOUNDS, GABON_MIN_ZOOM, MAP_TILE_ATTRIBUTION, MAP_TILE_MAX_ZOOM, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '../../lib/mapTiles';
 /** Same fallback point as the mobile map when the farm has no position. */
 const DEFAULT_CENTER: L.LatLngTuple = [-0.6, 9.45];
 const COUNTRY_ZOOM = 7;
@@ -47,10 +46,10 @@ export default function ParcelleMapCanvas({
 
   useEffect(() => {
     if (!container.current) return;
-    const instance = L.map(container.current, { scrollWheelZoom: false }).setView(DEFAULT_CENTER, COUNTRY_ZOOM);
+    const instance = L.map(container.current, { scrollWheelZoom: false, minZoom: GABON_MIN_ZOOM, maxBounds: GABON_BOUNDS, maxBoundsViscosity: 1 }).setView(DEFAULT_CENTER, COUNTRY_ZOOM);
     let loaded = false;
     let errors = 0;
-    L.tileLayer(OSM_URL, { maxZoom: 19, attribution: OSM_ATTRIBUTION })
+    L.tileLayer(MAP_TILE_URL, { maxZoom: MAP_TILE_MAX_ZOOM, subdomains: MAP_TILE_SUBDOMAINS, attribution: MAP_TILE_ATTRIBUTION })
       .on('tileload', () => {
         loaded = true;
       })

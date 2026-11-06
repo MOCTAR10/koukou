@@ -168,7 +168,7 @@ function SeriesCard({ d }: { d: PilotageDashboard }) {
       ) : (
         <>
           <div className="grid gap-4 lg:grid-cols-3">
-            <MiniChart title="Mortalité (%)" data={d.series.map((w) => w.mortalityPct)} labels={labels} fmt={(v) => pctLabel(v)} color="#dc2626" />
+            <MiniChart title="Mortalité (%)" data={d.series.map((w) => w.mortalityPct)} labels={labels} fmt={(v) => pctLabel(v)} color="#b45309" />
             <MiniChart title="Volumes produits (t)" data={d.series.map((w) => w.producedTonnes)} labels={labels} fmt={(v) => tonnesLabel(v)} color="#0284c7" />
             <MiniChart title="Complétude (%)" data={d.series.map((w) => w.completenessPct)} labels={labels} fmt={(v) => pctLabel(v)} color="#059669" />
           </div>
@@ -226,7 +226,7 @@ function MiniChart({ title, data, labels, fmt, color }: { title: string; data: (
   return (
     <div>
       <p className="mb-1 text-xs font-medium text-slate-600">{title}</p>
-      <LineChart data={data} labels={labels} height={150} valueFmt={fmt} color={color} />
+      <LineChart data={data} labels={labels} height={150} valueFmt={fmt} color={color} unit={title.match(/\(([^)]+)\)/)?.[1]} />
     </div>
   );
 }
