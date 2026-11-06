@@ -159,3 +159,50 @@ describe('flushQueue', () => {
     expect(loadOps()).toHaveLength(0);
   });
 });
+
+describe('POUFA writes (delivery confirmation, band sortie)', () => {
+  const confirm = {
+    kind: 'delivery-confirm' as const,
+    farmId: FARM,
+    path: `/farms/${FARM}/input-deliveries/d1/confirm`,
+    body: { receivedDate: '2026-11-06', lines: [] },
+    label: 'Réception · G1-0001-L01',
+  };
+  const sortie = {
+    kind: 'band-sortie' as const,
+    farmId: FARM,
+    path: `/farms/${FARM}/bandes/b1/sorties`,
+    body: { sortieDate: '2026-11-06', count: 10, reasonCode: 'REFORME' },
+    label: 'Sortie · 10 sujets',
+  };
+
+  it('keys a confirmation with the op id live and on replay, no cash involved', async () => {
+    route('POST', /confirm/, 'network');
+    expect((await sendOrQueue(confirm)).status).toBe('queued');
+    const op = loadOps()[0]!;
+    expect(op.body).toMatchObject({ idempotencyKey: op.id, receivedDate: '2026-11-06' });
+    route('POST', /confirm/, { status: 201, body: { replay: true } });
+    const summary = await flushQueue();
+    expect(summary.synced).toBe(1);
+    expect(calls.at(-1)?.body).toMatchObject({ idempotencyKey: op.id });
+    expect(calls.some((c) => c.path.includes('caisse'))).toBe(false);
+  });
+
+  it('keeps a refused confirmation for the farmer to re-enter', async () => {
+    route('POST', /confirm/, 'network');
+    await sendOrQueue(confirm);
+    route('POST', /confirm/, { status: 409, body: { message: 'Cette livraison a été annulée : elle ne peut plus être confirmée.' } });
+    expect((await flushQueue()).rejected).toBe(1);
+    expect(loadRejected()[0]?.reason).toContain('annulée');
+  });
+
+  it('keys a sortie and keeps a refused one (more birds than present)', async () => {
+    route('POST', /sorties/, 'network');
+    await sendOrQueue(sortie);
+    const op = loadOps()[0]!;
+    expect(op.body).toMatchObject({ idempotencyKey: op.id, count: 10 });
+    route('POST', /sorties/, { status: 400, body: { message: 'Sortie impossible : 10 sujet(s) pour 4 présent(s).' } });
+    expect((await flushQueue()).rejected).toBe(1);
+    expect(loadOps()).toHaveLength(0);
+  });
+});

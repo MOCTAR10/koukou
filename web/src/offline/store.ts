@@ -13,7 +13,10 @@ export type OfflineKind =
   | 'pdv-update'
   | 'pdv-delete'
   | 'stock-transfer-create'
-  | 'stock-transfer-cancel';
+  | 'stock-transfer-cancel'
+  // POUFA: the farmer's input-delivery confirmation and a band sortie (both keyed).
+  | 'delivery-confirm'
+  | 'band-sortie';
 
 export interface OfflineOp {
   /** Unique across devices; also the idempotency key of the creations. */

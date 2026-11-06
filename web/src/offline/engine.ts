@@ -25,6 +25,10 @@ const KEYED_KINDS: ReadonlySet<OfflineKind> = new Set<OfflineKind>([
   'customer-payment',
   'pdv-create',
   'stock-transfer-create',
+  // POUFA (web only for now): a replayed confirmation answers `replay: true`,
+  // a replayed sortie returns the existing one (unique farm + key).
+  'delivery-confirm',
+  'band-sortie',
 ]);
 
 /** A refusal of these is kept for the user to re-enter, never silently deleted. */
