@@ -9,6 +9,7 @@ import { SanitaryAlert } from './entities/sanitary-alert.entity.js';
 import { FarmSanitaryAlertsController } from './farm-sanitary-alerts.controller.js';
 import { SanitaryAlertsService } from './sanitary-alerts.service.js';
 import { SanitaryListsService } from './sanitary-lists.service.js';
+import { SanitaryDeclarationsService } from './sanitary-declarations.service.js';
 import { SurveillanceController } from './surveillance.controller.js';
 
 /**
@@ -29,7 +30,12 @@ import { SurveillanceController } from './surveillance.controller.js';
     ProgrammeModule,
   ],
   controllers: [SurveillanceController, FarmSanitaryAlertsController],
-  providers: [SanitaryAlertsService, SanitaryListsService],
+  providers: [
+    SanitaryAlertsService,
+    SanitaryListsService,
+    // POUFA lot A2 vet: register and validation of the declarations.
+    SanitaryDeclarationsService,
+  ],
   exports: [SanitaryAlertsService],
 })
 export class SurveillanceModule {}

@@ -34,6 +34,12 @@ import {
   SanitaryListsService,
 } from './sanitary-lists.service.js';
 import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
+import {
+  ListSanitaryDeclarationsDto,
+  ReviewSanitaryDeclarationDto,
+} from './dto/sanitary-declaration.dto.js';
+import { SanitaryDeclarationsService } from './sanitary-declarations.service.js';
+import { assertSanitarySettings } from './veterinary-authority.js';
 
 const sanitaryListPipe = new ParseEnumPipe(ProgramListType, {
   exceptionFactory: () =>
@@ -51,7 +57,9 @@ const sanitaryListPipe = new ParseEnumPipe(ProgramListType, {
  * between the farm and the veterinary services, whatever the matrix
  * (`SanitaryDeclarationPolicy`). Qualifying and publishing are the veterinary
  * authority's alone (`veterinary-authority.ts`, CDC n° 25-26): the platform
- * admin reads the alerts and keeps the lists, never decides an alert.
+ * admin reads the alerts and the lists, never decides an alert nor changes a
+ * list (POUFA lot A2 vet). The register of declarations and their
+ * validation (CDC n° 26) are the veterinary authority's too.
  */
 @ApiTags('Surveillance sanitaire (programme)')
 @Domain('SANITAIRE')
@@ -61,6 +69,7 @@ export class SurveillanceController {
   constructor(
     private readonly alerts: SanitaryAlertsService,
     private readonly lists: SanitaryListsService,
+    private readonly declarations: SanitaryDeclarationsService,
   ) {}
 
   @Get('alerts')
@@ -114,6 +123,48 @@ export class SurveillanceController {
     return this.alerts.publish(user, alertId, dto);
   }
 
+  // POUFA lot A2 vet (begin): register and validation of the declarations
+  // (CDC n° 26 « valident les événements »).
+  @Get('declarations')
+  @AuditThirdPartyRead('Registre des déclarations sanitaires')
+  @ApiOperation({
+    summary:
+      'Registre des déclarations sanitaires du périmètre, avec leur examen vétérinaire (services vétérinaires seulement)',
+  })
+  listDeclarations(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListSanitaryDeclarationsDto,
+  ) {
+    return this.declarations.list(user, query);
+  }
+
+  @Get('declarations/:declarationId')
+  @AuditThirdPartyRead('Détail d’une déclaration sanitaire')
+  @ApiOperation({ summary: 'Détail d’une déclaration sanitaire et de son examen' })
+  @ApiParam({ name: 'declarationId' })
+  declarationDetail(
+    @CurrentUser() user: AuthUser,
+    @Param('declarationId', ParseUUIDPipe) declarationId: string,
+  ) {
+    return this.declarations.detail(user, declarationId);
+  }
+
+  @Post('declarations/:declarationId/review')
+  @Action('VALIDER')
+  @ApiOperation({
+    summary:
+      'Examiner une déclaration sans alerte : VALIDEE, INFIRMEE (commentaire obligatoire) ou ALERTE (ouvre une alerte officielle) ; une seule fois, la ferme est notifiée',
+  })
+  @ApiParam({ name: 'declarationId' })
+  reviewDeclaration(
+    @CurrentUser() user: AuthUser,
+    @Param('declarationId', ParseUUIDPipe) declarationId: string,
+    @Body() dto: ReviewSanitaryDeclarationDto,
+  ) {
+    return this.declarations.review(user, declarationId, dto);
+  }
+  // POUFA lot A2 vet (end)
+
   @Post('lists/:listType')
   @Action('MODIFIER')
   @ApiOperation({
@@ -121,9 +172,11 @@ export class SurveillanceController {
   })
   @ApiParam({ name: 'listType', enum: SANITARY_LIST_TYPES })
   createItem(
+    @CurrentUser() user: AuthUser,
     @Param('listType', sanitaryListPipe) listType: ProgramListType,
     @Body() dto: CreateRefItemDto,
   ) {
+    assertSanitarySettings(user.role, 'lists');
     return this.lists.create(listType, dto);
   }
 
@@ -134,10 +187,12 @@ export class SurveillanceController {
   })
   @ApiParam({ name: 'listType', enum: SANITARY_LIST_TYPES })
   updateItem(
+    @CurrentUser() user: AuthUser,
     @Param('listType', sanitaryListPipe) listType: ProgramListType,
     @Param('code') code: string,
     @Body() dto: UpdateRefItemDto,
   ) {
+    assertSanitarySettings(user.role, 'lists');
     return this.lists.update(listType, code, dto);
   }
 }

@@ -125,6 +125,14 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
     profileCode: PROFILE_CODES.AGENT_TECHNIQUE,
     channels: [IN_APP],
   },
+  // POUFA lot A2 vet: CDC n° 26, the farm hears the vets' decision.
+  {
+    code: 'FERME_DECLARATION_EXAMINEE',
+    label: 'Ferme : déclaration sanitaire examinée par les services vétérinaires',
+    event: NotificationEvent.DECLARATION_REVIEWED,
+    audience: NotificationAudience.FARM_MANAGERS,
+    channels: [IN_APP, PUSH],
+  },
   // POUFA lot A pilot: reports are sent, not only stored (CDC §5.4, §7.7).
   {
     code: 'RAPPORT_DISPONIBLE',

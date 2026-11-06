@@ -8,7 +8,10 @@ import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { userNames } from '../../common/utils/user-names.js';
-import { mayChangeParameter } from '../access/access-rules.js';
+import {
+  parameterChangeRefusal,
+  parameterOwnerRight,
+} from '../access/access-rules.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { ProgramParameter } from './entities/program-parameter.entity.js';
 import {
@@ -21,6 +24,13 @@ import {
 import { versionInForce, versionsInForce } from './parameter-resolution.js';
 import { ProgrammeService } from './programme.service.js';
 
+function ownerRightOf(
+  ownerProfile: string,
+): { domain: string; action: string } | null {
+  const right = parameterOwnerRight(ownerProfile);
+  return right ? { domain: right.domain, action: right.action } : null;
+}
+
 /** Clock skew tolerated on a `validFrom` sent by a client. */
 const PAST_TOLERANCE_MS = 60_000;
 
@@ -30,6 +40,8 @@ export interface ParameterView {
   readonly type: ParameterDefinition['type'];
   readonly unit: string | null;
   readonly ownerProfile: string;
+  /** POUFA lot A2 vet: the matrix right owning the value (`PARAMETER_OWNER_RIGHTS`). */
+  readonly ownerRight: { domain: string; action: string } | null;
   readonly min: number | null;
   readonly max: number | null;
   /** Null when no version is in force at the date asked. */
@@ -224,10 +236,11 @@ export class ParametersService {
   }
 
   /**
-   * A parameter is changed by its owner profile only (a VETERINAIRE threshold
-   * by the veterinary services); the platform admin may change any but the
-   * veterinary services' (`OWNER_PROFILES_CLOSED_TO_PLATFORM`). A null
-   * actor is the server itself (seed).
+   * A parameter is changed by the holders of its owner right
+   * (`PARAMETER_OWNER_RIGHTS`: a VETERINAIRE threshold needs SANITAIRE:MODIFIER
+   * in the caller's matrix, whatever its profile code); the platform admin
+   * may change any but the veterinary services' ones. A null actor is the
+   * server itself (seed).
    * @throws ForbiddenException
    */
   private async assertOwner(
@@ -235,15 +248,17 @@ export class ParametersService {
     actor: AuthUser | null,
   ): Promise<void> {
     if (!actor) return;
-    const profileCode =
+    const matrix =
       actor.role === UserRole.INSTITUTION
-        ? ((await this.scope.accessOf(actor.id))?.profileCode ?? null)
+        ? ((await this.scope.accessOf(actor.id))?.matrix ?? null)
         : null;
-    if (!mayChangeParameter(actor.role, profileCode, def.ownerProfile)) {
-      throw new ForbiddenException(
-        `Accès refusé : le paramètre « ${def.label} » relève du profil « ${def.ownerProfile} ».`,
-      );
-    }
+    const refusal = parameterChangeRefusal(
+      actor.role,
+      matrix,
+      def.ownerProfile,
+      `le paramètre « ${def.label} »`,
+    );
+    if (refusal) throw new ForbiddenException(refusal);
   }
 
   private async assertFormulaSet(
@@ -301,6 +316,7 @@ export class ParametersService {
       type: def.type,
       unit: def.unit,
       ownerProfile: def.ownerProfile,
+      ownerRight: ownerRightOf(def.ownerProfile),
       min: def.min ?? null,
       max: def.max ?? null,
       value: row ? row.value : null,

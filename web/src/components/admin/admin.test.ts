@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AccessMatrix, ScopeKind } from '../../api/types-access';
 import type { ParameterVersion, ParameterView } from '../../api/types-admin';
-import { adminRights, mayPropose, showsAdminArea } from './adminRights';
+import { adminRights, mayPropose, ownerRightLabel, showsAdminArea } from './adminRights';
 import { boundaryFromGeoJson, boundaryFromText, MAX_GEOMETRY_BYTES } from './geojson';
 import { codeFromLabel, createItemBody, familiesOf, isVetList, LIST_TYPES, newItemErrors, sortItems, updateItemBody } from './lists';
 import {
@@ -26,9 +26,13 @@ const profile = (code: string, scopeKind: ScopeKind, matrix: AccessMatrix) => ({
 const DGE = profile('DGE', 'ALL', {
   REGISTRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
   TECHNIQUE: ['CONSULTER'],
+  PARAMETRES: ['CONSULTER', 'MODIFIER', 'VALIDER'],
+});
+const VETERINAIRE = profile('VETERINAIRE', 'ALL', {
+  REGISTRE: ['CONSULTER'],
+  SANITAIRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
   PARAMETRES: ['CONSULTER', 'MODIFIER'],
 });
-const VETERINAIRE = profile('VETERINAIRE', 'ALL', { REGISTRE: ['CONSULTER'], SANITAIRE: ['CONSULTER'], PARAMETRES: ['CONSULTER', 'MODIFIER'] });
 const ADMIN = profile('ADMIN', 'ALL', { REGISTRE: ['CONSULTER'], PARAMETRES: ['CONSULTER', 'MODIFIER'], ADMINISTRATION: ['CONSULTER', 'CREER', 'MODIFIER', 'ADMINISTRER'] });
 const ANINF = profile('ANINF', 'AUDIT', { AUDIT: ['CONSULTER'] });
 const MAEDR = profile('MAEDR', 'AGGREGATE', { PILOTAGE: ['CONSULTER', 'VALIDER'], PARAMETRES: ['CONSULTER'] });
@@ -44,7 +48,7 @@ describe('adminRights', () => {
 
   it('reads the matrix of an institution', () => {
     const dge = adminRights('INSTITUTION', DGE);
-    expect(dge.parameters).toMatchObject({ view: true, write: true, profileCode: 'DGE' });
+    expect(dge.parameters).toMatchObject({ view: true, write: true, matrix: DGE.matrix });
     expect(dge.lists.write).toBe(false);
     expect(dge.recovery).toEqual({ view: true, deposit: true, edit: true, validate: true, integrate: true, reject: true });
     expect(dge.audit.view).toBe(false);
@@ -83,6 +87,20 @@ describe('adminRights', () => {
     expect(mayPropose(adminRights('PLATFORM_ADMIN').parameters, 'ADMIN')).toBe(true);
     // CDC n° 25: the veterinary thresholds are the vets' alone (POUFA lot A sante).
     expect(mayPropose(adminRights('PLATFORM_ADMIN').parameters, 'VETERINAIRE')).toBe(false);
+    expect(mayPropose(adminRights('INSTITUTION', ADMIN).parameters, 'ADMIN')).toBe(true);
+    expect(mayPropose(adminRights('INSTITUTION', ADMIN).parameters, 'DGE')).toBe(false);
+    expect(mayPropose(adminRights('INSTITUTION', DGE).parameters, 'INCONNU')).toBe(false);
+  });
+
+  // POUFA lot A2 vet: the owner right comes from the matrix, never the profile code.
+  it('reads the owner right in the matrix, whatever the profile code', () => {
+    const custom = profile('VETO_PROVINCE', 'PROVINCES', VETERINAIRE.matrix);
+    expect(mayPropose(adminRights('INSTITUTION', custom).parameters, 'VETERINAIRE')).toBe(true);
+    const stripped = profile('VETERINAIRE', 'ALL', { ...VETERINAIRE.matrix, SANITAIRE: ['CONSULTER'] });
+    expect(mayPropose(adminRights('INSTITUTION', stripped).parameters, 'VETERINAIRE')).toBe(false);
+    expect(ownerRightLabel('VETERINAIRE')).toBe('Sanitaire : Modifier');
+    expect(ownerRightLabel('DGE')).toBe('Paramètres : Valider');
+    expect(ownerRightLabel('X')).toBeNull();
   });
 });
 

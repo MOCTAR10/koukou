@@ -98,6 +98,23 @@ export interface DeclarationReceivedEvent {
   suspicion: boolean;
 }
 
+// POUFA lot A2 vet (begin): veterinary review of a declaration (CDC n° 26).
+/** The veterinary services examined a declaration (after commit). */
+export interface DeclarationReviewedEvent {
+  farmId: string;
+  batchId: string;
+  healthEventId: string;
+  /** `DeclarationReviewStatus`. */
+  status: string;
+  /** Declaration date (`YYYY-MM-DD`) and title, for the farm's text. */
+  occurredAt: string;
+  title: string;
+  /** The alert it was converted into (status ALERTE). */
+  alertId: string | null;
+  alertCode: string | null;
+}
+// POUFA lot A2 vet (end).
+
 /**
  * A scheduled report was generated (L6 reporting): « rapport disponible » for
  * its recipients, delivered in-app by the notification module (L5).
@@ -146,6 +163,8 @@ export const KOUKOU_EVENTS = {
   SANITARY_ALERT_PUBLISHED: 'sanitary.alert.published',
   DECLARATION_RECEIVED: 'sanitary.declaration.received',
   REPORT_READY: 'report.ready',
+  // POUFA lot A2 vet.
+  DECLARATION_REVIEWED: 'sanitary.declaration.reviewed',
 } as const;
 
 class FermiaBus extends EventEmitter {}

@@ -55,6 +55,7 @@ export const EVENT_SHORT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   WEIGHING_LATE: 'Pesée',
   SYNC_CONFLICT: 'Synchronisation',
   REPORT_READY: 'Rapport',
+  DECLARATION_REVIEWED: 'Déclaration examinée',
 };
 
 export function severityTone(level: AlertLevel): 'red' | 'amber' | 'emerald' {

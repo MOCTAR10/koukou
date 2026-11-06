@@ -439,32 +439,106 @@ export function scopeExcess(
   return { provinceIds, farmIds };
 }
 
-// POUFA lot A sante: CDC §5.2 n° 25 « seuils réglés par les seuls services
-// vétérinaires ». À valider DGE / vétérinaires.
+// POUFA lot A2 vet: parameter ownership is a matrix right, never a profile
+// code (CDC §5.2 n° 25 « seuils réglés par les seuls services vétérinaires »;
+// user decision: rights are admin-configurable). À valider DGE / vétérinaires.
 /**
- * Owner profiles whose parameters the platform admin may read but not change:
- * only an account of that profile records a new version.
+ * Right owning the parameters of an owner key (`ProgramParameter.ownerProfile`,
+ * `reference-owners.ts`). The keys stay the seeded profile codes (DGE,
+ * VETERINAIRE, ADMIN), so the catalogs and the stored rows keep working, but
+ * who may change a value is resolved through the caller's matrix: any
+ * profile the administration grants that right (with PARAMETRES:MODIFIER)
+ * owns them. `closedToPlatform`: the platform admin reads, never changes.
  */
-export const OWNER_PROFILES_CLOSED_TO_PLATFORM: readonly string[] = [
-  'VETERINAIRE',
-];
+export interface ParameterOwnerRight {
+  domain: GrantableDomain;
+  action: AccessAction;
+  closedToPlatform: boolean;
+}
+
+export const PARAMETER_OWNER_RIGHTS: Readonly<
+  Record<string, ParameterOwnerRight>
+> = {
+  // Alert thresholds, the day mortality formula, sanitary conduct thresholds.
+  VETERINAIRE: {
+    domain: 'SANITAIRE',
+    action: 'MODIFIER',
+    closedToPlatform: true,
+  },
+  // Follow-up parameters (« la DGE fixe les paramètres de suivi »).
+  DGE: { domain: 'PARAMETRES', action: 'VALIDER', closedToPlatform: false },
+  // Technical settings of the programme administration (clock skew, SMS cap).
+  ADMIN: {
+    domain: 'ADMINISTRATION',
+    action: 'ADMINISTRER',
+    closedToPlatform: false,
+  },
+};
+
+/** Owner keys whose parameters the platform admin may read but not change. */
+export const OWNER_PROFILES_CLOSED_TO_PLATFORM: readonly string[] =
+  Object.entries(PARAMETER_OWNER_RIGHTS)
+    .filter(([, right]) => right.closedToPlatform)
+    .map(([key]) => key);
+
+/** The right owning `ownerProfile`'s parameters, null for an unknown key. */
+export function parameterOwnerRight(
+  ownerProfile: string,
+): ParameterOwnerRight | null {
+  return PARAMETER_OWNER_RIGHTS[ownerProfile] ?? null;
+}
+
+/** « Sanitaire : Modifier »: the owner right as the screens name it. */
+export function ownerRightLabel(ownerProfile: string): string | null {
+  const right = parameterOwnerRight(ownerProfile);
+  return right
+    ? `${DOMAIN_LABELS[right.domain]} : ${ACTION_LABELS[right.action]}`
+    : null;
+}
 
 /**
- * `ProgramParameter.ownerProfile`: the platform admin changes any parameter
- * but the veterinary services' (`OWNER_PROFILES_CLOSED_TO_PLATFORM`); an
- * institutional account only those owned by its profile; nobody else.
+ * Who records a new version of a parameter owned by `ownerProfile`: the
+ * platform admin, for any owner not closed to it; an institutional account
+ * whose matrix grants PARAMETRES:MODIFIER and the owner right; nobody else.
  */
 export function mayChangeParameter(
   role: string,
-  profileCode: string | null,
+  matrix: AccessMatrix | null,
   ownerProfile: string,
 ): boolean {
+  const right = parameterOwnerRight(ownerProfile);
   if (role === UserRole.PLATFORM_ADMIN) {
-    return !OWNER_PROFILES_CLOSED_TO_PLATFORM.includes(ownerProfile);
+    return right === null || !right.closedToPlatform;
   }
-  if (role !== UserRole.INSTITUTION) return false;
-  return profileCode !== null && profileCode === ownerProfile;
+  if (role !== UserRole.INSTITUTION || !matrix || !right) return false;
+  return (
+    grants(matrix, 'PARAMETRES', 'MODIFIER') &&
+    grants(matrix, right.domain, right.action)
+  );
 }
+
+/**
+ * French refusal of a parameter change (`what`: « le paramètre « X » »), or
+ * null when the caller may change it.
+ */
+export function parameterChangeRefusal(
+  role: string,
+  matrix: AccessMatrix | null,
+  ownerProfile: string,
+  what: string,
+): string | null {
+  if (mayChangeParameter(role, matrix, ownerProfile)) return null;
+  const right = ownerRightLabel(ownerProfile);
+  const owner = right
+    ? `relève du profil « ${ownerProfile} » (droits ${DOMAIN_LABELS.PARAMETRES} : ${ACTION_LABELS.MODIFIER} et ${right})`
+    : `relève du profil « ${ownerProfile} »`;
+  const platform =
+    role === UserRole.PLATFORM_ADMIN
+      ? ' ; l’administrateur de la plateforme le consulte seulement'
+      : '';
+  return `Accès refusé : ${what} ${owner}${platform}.`;
+}
+// End POUFA lot A2 vet.
 
 /**
  * Who reads deactivated list items and localités (`?all=true`): the profiles

@@ -304,6 +304,9 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
     em: EntityManager,
     event: HealthEvent,
     farm: Farm,
+    // POUFA lot A2 vet: a declaration the vets convert into an alert (CDC
+    // n° 26): opened by them, with their comment.
+    conversion?: { byUserId: string; comment: string | null },
   ): Promise<SanitaryAlert> {
     const existing = await em
       .getRepository(SanitaryAlert)
@@ -332,11 +335,18 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
       presentStart: null,
       clinicalSigns: event.clinicalSigns ?? [],
       healthEventId: event.id,
-      summary: `Suspicion déclarée : ${event.title}`,
-      createdById: event.createdById,
-      comment: band[0]?.code
-        ? `Déclaration de suspicion sur la bande ${band[0].code}.`
-        : 'Déclaration de suspicion.',
+      summary: conversion
+        ? `Déclaration convertie en alerte : ${event.title}`
+        : `Suspicion déclarée : ${event.title}`,
+      createdById: conversion ? conversion.byUserId : event.createdById,
+      comment: conversion
+        ? conversion.comment ||
+          (band[0]?.code
+            ? `Déclaration de la bande ${band[0].code} convertie en alerte par les services vétérinaires.`
+            : 'Déclaration convertie en alerte par les services vétérinaires.')
+        : band[0]?.code
+          ? `Déclaration de suspicion sur la bande ${band[0].code}.`
+          : 'Déclaration de suspicion.',
     });
   }
 

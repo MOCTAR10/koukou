@@ -20,6 +20,9 @@ export const EVENT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   [NotificationEvent.WEIGHING_LATE]: 'Pesée en retard',
   [NotificationEvent.SYNC_CONFLICT]: 'Conflit de saisie hors ligne',
   [NotificationEvent.REPORT_READY]: 'Rapport du programme disponible',
+  // POUFA lot A2 vet.
+  [NotificationEvent.DECLARATION_REVIEWED]:
+    'Déclaration sanitaire examinée par les services vétérinaires',
 };
 
 /**
@@ -31,6 +34,8 @@ export const CONFIDENTIAL_EVENTS: readonly NotificationEvent[] = [
   NotificationEvent.SANITARY_ALERT_CREATED,
   NotificationEvent.SANITARY_ALERT_STATUS_CHANGED,
   NotificationEvent.DECLARATION_RECEIVED,
+  // POUFA lot A2 vet: the decision on an unpublished declaration.
+  NotificationEvent.DECLARATION_REVIEWED,
 ];
 
 export function isConfidential(event: NotificationEvent): boolean {
@@ -149,6 +154,7 @@ export function smsText(
       : 'pesée en retard',
     [NotificationEvent.SYNC_CONFLICT]: `conflit de saisie${ref}`,
     [NotificationEvent.REPORT_READY]: 'nouveau rapport disponible',
+    [NotificationEvent.DECLARATION_REVIEWED]: `déclaration sanitaire examinée${ref}`,
   };
   return `${programCode} : ${what[event]}. Ouvrez l'application.`;
 }

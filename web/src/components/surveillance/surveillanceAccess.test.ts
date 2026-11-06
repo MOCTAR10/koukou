@@ -12,7 +12,11 @@ describe('surveillanceRights', () => {
       seesUnpublished: true,
       qualify: false,
       publish: false,
+      editLists: false,
+      createCalendars: false,
       settings: true,
+      declarations: true,
+      reviewDeclarations: false,
     });
   });
 
@@ -26,18 +30,21 @@ describe('surveillanceRights', () => {
       createCalendars: true,
       editCalendars: true,
       settings: true,
+      declarations: true,
+      reviewDeclarations: true,
     });
   });
 
-  it('follows the matrix: a vet profile without VALIDER does not publish', () => {
+  it('follows the matrix: the VETERINAIRE profile without VALIDER loses the authority', () => {
     const r = surveillanceRights('INSTITUTION', profile('VETERINAIRE', { SANITAIRE: ['CONSULTER', 'MODIFIER'] }));
-    expect(r.qualify).toBe(true);
-    expect(r.publish).toBe(false);
+    expect(r).toMatchObject({ seesUnpublished: false, qualify: false, publish: false, declarations: false, editLists: true });
   });
 
-  it('a non-veterinary profile with SANITAIRE reads published alerts only, without the circuit', () => {
-    const r = surveillanceRights('INSTITUTION', profile('DGE', { SANITAIRE: ['CONSULTER', 'MODIFIER', 'VALIDER'] }));
-    expect(r).toMatchObject({ view: true, seesUnpublished: false, qualify: false, publish: false, editLists: true });
+  it('any profile granted the vets rights acts as the vets (lot A2 vet)', () => {
+    const r = surveillanceRights('INSTITUTION', profile('VETO_PROV', { SANITAIRE: ['CONSULTER', 'MODIFIER', 'VALIDER'] }));
+    expect(r).toMatchObject({ view: true, seesUnpublished: true, qualify: true, publish: true, reviewDeclarations: true });
+    const reader = surveillanceRights('INSTITUTION', profile('DGE', { SANITAIRE: ['CONSULTER'] }));
+    expect(reader).toMatchObject({ view: true, seesUnpublished: false, declarations: false });
   });
 
   it('nothing without SANITAIRE, for farm accounts, or for an audit scope', () => {

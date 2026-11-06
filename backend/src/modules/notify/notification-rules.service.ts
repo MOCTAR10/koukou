@@ -207,10 +207,11 @@ export class NotificationRulesService implements OnApplicationBootstrap {
           `Profil « ${shape.profileCode} » inconnu dans le programme.`,
         );
       }
-      // Same rule as the declarations themselves.
+      // Same rule as the declarations themselves: the profile's matrix
+      // (SANITAIRE:VALIDER), never its code (POUFA lot A2 vet).
       vet = mayHandleSanitaryDeclarations(
         { role: UserRole.INSTITUTION },
-        { profileCode: profile.code },
+        { matrix: profile.matrix },
       );
     }
     const problem = ruleProblem(shape, vet);

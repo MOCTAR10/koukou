@@ -33,6 +33,7 @@ import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 import { mayReadInactiveItems } from '../access/access-rules.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { SANITARY_LIST_TYPES } from '../surveillance/sanitary-lists.service.js';
+import { SANITARY_SETTINGS_MESSAGE } from '../surveillance/veterinary-authority.js';
 
 const listTypePipe = new ParseEnumPipe(ProgramListType, {
   exceptionFactory: () =>
@@ -51,6 +52,16 @@ const listTypePipe = new ParseEnumPipe(ProgramListType, {
  * active list items are reference data (REFERENCE): any member reads them. A parameter is changed by its owner
  * profile only (`ParametersService.set`).
  */
+// POUFA lot A2 vet: the sanitary lists are the vets' (CDC « signes
+// paramétrables par les services vétérinaires », « liste des produits
+// paramétrable »): written through /surveillance/lists with SANITAIRE rights
+// only, never by the programme administration nor the platform admin.
+function assertNotSanitaryList(listType: ProgramListType): void {
+  if (SANITARY_LIST_TYPES.includes(listType)) {
+    throw new ForbiddenException(SANITARY_SETTINGS_MESSAGE.lists);
+  }
+}
+
 @ApiTags('Programme (POUFA)')
 @Domain('PARAMETRES')
 @Controller('programme')
@@ -170,6 +181,7 @@ export class ProgrammeController {
     @Param('listType', listTypePipe) listType: ProgramListType,
     @Body() dto: CreateRefItemDto,
   ) {
+    assertNotSanitaryList(listType);
     return this.lists.create(listType, dto);
   }
 
@@ -187,6 +199,7 @@ export class ProgrammeController {
     @Param('code') code: string,
     @Body() dto: UpdateRefItemDto,
   ) {
+    assertNotSanitaryList(listType);
     return this.lists.update(listType, code, dto);
   }
 

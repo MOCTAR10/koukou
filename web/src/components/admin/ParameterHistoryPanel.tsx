@@ -14,8 +14,17 @@ import {
   VERSION_STATE_LABELS,
   type VersionState,
 } from './parameters';
-import { OWNER_PROFILES_CLOSED_TO_PLATFORM } from './adminRights';
+import { OWNER_PROFILES_CLOSED_TO_PLATFORM, ownerRightLabel } from './adminRights';
 import { useParameterHistory } from './queries';
+
+/** Who may propose a value: the owner right from the matrix (POUFA lot A2 vet). */
+function ownerProposalNote(owner: string): string {
+  const right = ownerRightLabel(owner);
+  const who = right ? `les profils qui ont le droit « ${right} » (par défaut « ${ownerLabel(owner)} »)` : `le profil « ${ownerLabel(owner)} »`;
+  return OWNER_PROFILES_CLOSED_TO_PLATFORM.includes(owner)
+    ? `Seuls ${who} peuvent proposer une nouvelle valeur ; l’administrateur plateforme la consulte.`
+    : `Seuls ${who}, ou l’administrateur plateforme, peuvent proposer une nouvelle valeur.`;
+}
 
 const STATE_TONE: Record<VersionState, Tone> = { FUTURE: 'brand', IN_FORCE: 'emerald', PAST: 'slate' };
 
@@ -70,9 +79,7 @@ export function ParameterHistoryPanel({
           </Button>
         ) : (
           <p className="text-xs text-slate-500">
-            {OWNER_PROFILES_CLOSED_TO_PLATFORM.includes(param.ownerProfile)
-              ? `Seul le profil « ${ownerLabel(param.ownerProfile)} » peut proposer une nouvelle valeur.`
-              : `Seul le profil « ${ownerLabel(param.ownerProfile)} » (ou l’administrateur plateforme) peut proposer une nouvelle valeur.`}
+            {ownerProposalNote(param.ownerProfile)}
           </p>
         )}
 

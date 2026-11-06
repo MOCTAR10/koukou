@@ -56,7 +56,9 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
       ECONOMIQUE: ['CONSULTER'],
       TRACABILITE: ['CONSULTER'],
       PILOTAGE: ['CONSULTER'],
-      PARAMETRES: ['CONSULTER', 'MODIFIER'],
+      // POUFA lot A2 vet: VALIDER = owns the follow-up parameters (owner key
+      // DGE, `PARAMETER_OWNER_RIGHTS`); migration VeterinaryAuthorityMatrix.
+      PARAMETRES: ['CONSULTER', 'MODIFIER', 'VALIDER'],
       // POUFA lot A droits: the Fermia bonus domains, in consultation (user
       // decision 2026-11-06; migration InstitutionFermiaGrants for existing
       // programmes).
@@ -68,6 +70,9 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
   },
   {
     // Sanitary side only: thresholds, vaccination calendar, alerts.
+    // POUFA lot A2 vet: the rights, not this code, make the veterinary
+    // authority (SANITAIRE:VALIDER = declarations, validation, publication;
+    // SANITAIRE:MODIFIER = qualification, sanitary parameters and lists).
     code: PROFILE_CODES.VETERINAIRE,
     label: 'Services vétérinaires',
     scopeKind: AccessScopeKind.ALL,
