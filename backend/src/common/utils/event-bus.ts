@@ -99,6 +99,26 @@ export interface DeclarationReceivedEvent {
 }
 
 /**
+ * A scheduled report was generated (L6 reporting): « rapport disponible » for
+ * its recipients, delivered in-app by the notification module (L5).
+ */
+export interface ReportReadyEvent {
+  runId: string;
+  templateCode: string;
+  title: string;
+  level: string;
+  periodStart: string;
+  periodEnd: string;
+  provinceId: string | null;
+  farmId: string | null;
+  batchId: string | null;
+  /** Accounts told the report is available (owner, institutional members). */
+  recipientUserIds: string[];
+  /** In-app route of the PDF. */
+  downloadPath: string;
+}
+
+/**
  * Bus d'événements in-process minimal : permet aux modules de s'abonner à des
  * moments clés sans créer de dépendances circulaires (ex. clôture d'un lot →
  * évaluation du P&L / alertes de rentabilité).
@@ -117,6 +137,7 @@ export const KOUKOU_EVENTS = {
   SANITARY_ALERT_STATUS_CHANGED: 'sanitary.alert.status.changed',
   SANITARY_ALERT_PUBLISHED: 'sanitary.alert.published',
   DECLARATION_RECEIVED: 'sanitary.declaration.received',
+  REPORT_READY: 'report.ready',
 } as const;
 
 class FermiaBus extends EventEmitter {}

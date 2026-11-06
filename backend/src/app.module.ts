@@ -40,6 +40,7 @@ import { TraceModule } from './modules/trace/trace.module.js';
 import { DataImportModule } from './modules/data-import/data-import.module.js';
 import { SurveillanceModule } from './modules/surveillance/surveillance.module.js';
 import { NotifyModule } from './modules/notify/notify.module.js';
+import { ReportingModule } from './modules/reporting/reporting.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import {
   dbConnection,
@@ -122,6 +123,7 @@ import {
     DataImportModule,
     SurveillanceModule,
     NotifyModule,
+    ReportingModule,
     DatabaseModule,
   ],
   controllers: [AppController],
