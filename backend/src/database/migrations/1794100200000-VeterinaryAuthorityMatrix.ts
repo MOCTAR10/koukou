@@ -49,19 +49,27 @@ export class VeterinaryAuthorityMatrix1794100200000 implements MigrationInterfac
                    "updated_at" = now()
              WHERE "code" = 'DGE' AND "system" = true
         `);
+    // Ownership is metadata, not a parameter value: bypass the immutability
+    // trigger for this one-off reassignment (a no-op on an empty database).
+    await queryRunner.query(`ALTER TABLE "program_parameters" DISABLE TRIGGER "program_parameters_immutable"`);
     await queryRunner.query(`
             UPDATE "program_parameters"
                SET "owner_profile" = 'VETERINAIRE'
              WHERE "key" = 'FORMULE_MORTALITE_JOUR_PCT'
         `);
+    await queryRunner.query(`ALTER TABLE "program_parameters" ENABLE TRIGGER "program_parameters_immutable"`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    // Ownership is metadata, not a parameter value: bypass the immutability
+    // trigger for this one-off reassignment (a no-op on an empty database).
+    await queryRunner.query(`ALTER TABLE "program_parameters" DISABLE TRIGGER "program_parameters_immutable"`);
     await queryRunner.query(`
             UPDATE "program_parameters"
                SET "owner_profile" = 'DGE'
              WHERE "key" = 'FORMULE_MORTALITE_JOUR_PCT'
         `);
+    await queryRunner.query(`ALTER TABLE "program_parameters" ENABLE TRIGGER "program_parameters_immutable"`);
     // The VETERINAIRE grants are what its code gave it before: kept.
     await queryRunner.query(`
             UPDATE "access_profiles"
