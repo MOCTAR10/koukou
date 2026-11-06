@@ -31,6 +31,11 @@ import { AgricultureModule } from './modules/agriculture/agriculture.module.js';
 import { SpatialModule } from './modules/spatial/spatial.module.js';
 import { PushModule } from './modules/push/push.module.js';
 import { DatabaseModule } from './database/database.module.js';
+import {
+  dbConnection,
+  schemaOptions,
+  type EnvReader,
+} from './database/typeorm-options.js';
 
 @Module({
   imports: [
@@ -53,21 +58,21 @@ import { DatabaseModule } from './database/database.module.js';
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => {
-        const host = config.get('DB_HOST', 'localhost');
-        const port = config.get<number>('DB_PORT', 5432);
-        const username = config.get('DB_USERNAME', 'postgres');
-        const password = config.get('DB_PASSWORD', 'postgres');
-        const database = config.get('DB_DATABASE', 'koukou_ferme');
-        await ensurePostgis(host, port, username, password, database);
+        const env: EnvReader = (key, fallback) =>
+          String(config.get(key, fallback));
+        const db = dbConnection(env);
+        await ensurePostgis(
+          db.host,
+          db.port,
+          db.username,
+          db.password,
+          db.database,
+        );
         return {
           type: 'postgres',
-          host,
-          port,
-          username,
-          password,
-          database,
+          ...db,
           autoLoadEntities: true,
-          synchronize: config.get('DB_SYNCHRONIZE', 'true') === 'true',
+          ...schemaOptions(env),
         };
       },
     }),
@@ -110,7 +115,7 @@ export class AppModule {}
 
 /**
  * Tente d'activer l'extension PostGIS (idempotent) AVANT la connexion TypeORM
- * afin que `synchronize` et les calculs ST_* fonctionnent dès le démarrage.
+ * afin que les migrations et les calculs ST_* fonctionnent dès le démarrage.
  * PostGIS est optionnel : sans lui, le spatial se replie sur le calcul JS
  * (`SpatialService.areaHa`) et l'API reste fonctionnelle.
  */

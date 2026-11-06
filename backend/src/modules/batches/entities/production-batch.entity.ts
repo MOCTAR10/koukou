@@ -21,7 +21,8 @@ export class ProductionBatch {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => Farm, { onDelete: 'CASCADE' })
+  // RESTRICT: a band is never deleted (POUFA spec), not even with its farm.
+  @ManyToOne(() => Farm, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'farm_id' })
   farm: Farm;
 
