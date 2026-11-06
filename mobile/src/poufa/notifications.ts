@@ -18,6 +18,7 @@ export function mobileRouteOf(serverRoute: string | null | undefined): string {
   const route = (serverRoute ?? '').trim();
   if (!route.startsWith('/') || route.startsWith('//')) return '/notifications';
   let m: RegExpMatchArray | null;
+  if (route === '/' || route === '/(tabs)') return '/';
   if (route === '/alerts' || route === '/(tabs)/alerts') return '/alerts';
   if (route === '/tasks') return '/tasks';
   if (route === '/sync') return '/menu';
@@ -29,7 +30,8 @@ export function mobileRouteOf(serverRoute: string | null | undefined): string {
   }
   if ((m = route.match(new RegExp(`^/batches/(${UUID})$`)))) return `/lot/${m[1]}`;
   // Already a mobile route (local reminders build their own).
-  if (/^\/(lot|sanitary|livraisons|tasks|alerts|menu)(\/|\?|$)/.test(route)) return route;
+  if (/^\/(lot|lots|sanitary|livraisons|tasks|alerts|menu|activites|provende)(\/|\?|$)/.test(route)) return route;
+  if ((m = route.match(/^\/\(tabs\)(\/(lots|menu|activites|provende)(\?.*)?)$/))) return m[1];
   return '/notifications';
 }
 
