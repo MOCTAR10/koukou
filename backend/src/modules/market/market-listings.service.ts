@@ -32,6 +32,7 @@ import {
   hiddenReason,
   suggestReadyDate,
 } from './listing-rules.js';
+import { acceptedQuantity } from './market-order-rules.js';
 
 const DEFAULT_PAGE = 20;
 /** Listings looked at per catalogue read: each one costs stock and sanitary queries. */
@@ -377,10 +378,19 @@ export class MarketListingsService {
   }
 
   private async assertStockCovers(listing: MarketListing) {
-    const free = await this.freeStock(this.dataSource.manager, listing);
-    if (listing.quantityPublished > free) {
+    const em = this.dataSource.manager;
+    const accepted = await acceptedQuantity(em, listing.id);
+    if (listing.quantityPublished < accepted) {
       throw new BadRequestException(
-        `Stock insuffisant : ${free} ${listing.product === MarketProduct.EGGS ? 'alvéole(s)' : 'oiseau(x)'} libre(s) sur ce lot, ${listing.quantityPublished} à publier.`,
+        `${accepted} déjà accepté(s) sur cette annonce : la quantité publiée ne peut pas être inférieure.`,
+      );
+    }
+    // Accepted orders are already reserved, so they aren't in the free stock.
+    const free = await this.freeStock(em, listing);
+    const toCover = listing.quantityPublished - accepted;
+    if (toCover > free) {
+      throw new BadRequestException(
+        `Stock insuffisant : ${free} ${listing.product === MarketProduct.EGGS ? 'alvéole(s)' : 'oiseau(x)'} libre(s) sur ce lot, ${toCover} à publier.`,
       );
     }
   }
@@ -399,15 +409,19 @@ export class MarketListingsService {
     return this.ordersService.freeBirds(em, batch);
   }
 
-  private async stateOf(
+  async stateOf(
     em: EntityManager,
     listing: MarketListing,
   ): Promise<ListingState> {
-    const [free, holds] = await Promise.all([
+    const [free, holds, accepted] = await Promise.all([
       this.freeStock(em, listing),
       sanitaryHolds(em, listing.farmId, listing.batchId),
+      acceptedQuantity(em, listing.id),
     ]);
-    const availableQuantity = Math.min(listing.quantityPublished, free);
+    const availableQuantity = Math.max(
+      0,
+      Math.min(listing.quantityPublished - accepted, free),
+    );
     return {
       availableQuantity,
       hiddenReason: hiddenReason({

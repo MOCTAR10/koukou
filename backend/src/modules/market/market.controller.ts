@@ -21,7 +21,13 @@ import {
   ReadyDateSuggestionQueryDto,
   UpdateMarketListingDto,
 } from './dto/market-listing.dto.js';
+import {
+  CreateMarketOrderDto,
+  FarmMarketOrdersQueryDto,
+  RejectMarketOrderDto,
+} from './dto/market-order.dto.js';
 import { MarketListingsService } from './market-listings.service.js';
+import { MarketOrdersService } from './market-orders.service.js';
 
 /** Read by anyone, signed in or not. */
 @ApiTags('Market')
@@ -127,5 +133,96 @@ export class FarmMarketController {
     @Param('listingId', ParseUUIDPipe) listingId: string,
   ) {
     return this.listings.close(user, farmId, listingId);
+  }
+}
+
+/** A buyer's own orders. Every signed-in role can buy. */
+@ApiTags('Market')
+@Controller('market/orders')
+@Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.ACHETEUR)
+export class BuyerMarketOrdersController {
+  constructor(private readonly orders: MarketOrdersService) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Demander une commande ou une précommande' })
+  request(@CurrentUser() user: AuthUser, @Body() dto: CreateMarketOrderDto) {
+    return this.orders.request(user, dto);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Mes commandes Market' })
+  mine(@CurrentUser() user: AuthUser) {
+    return this.orders.listForBuyer(user);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Détail de ma commande Market' })
+  one(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.getForBuyer(user, id);
+  }
+
+  @Post(':id/withdraw')
+  @ApiOperation({ summary: 'Retirer une demande pas encore acceptée' })
+  withdraw(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.withdraw(user, id);
+  }
+}
+
+/**
+ * Accepting creates an order, so it takes the same right as creating one
+ * through the order screens, without vente:creer (which every Éleveur has).
+ */
+@ApiTags('Market')
+@Controller('farms/:farmId/market/orders')
+@Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+@Permissions('vente:commande')
+export class FarmMarketOrdersController {
+  constructor(private readonly orders: MarketOrdersService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Demandes et commandes Market de la ferme' })
+  list(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Query() query: FarmMarketOrdersQueryDto,
+  ) {
+    return this.orders.listForFarm(user, farmId, query);
+  }
+
+  @Post(':id/accept')
+  @ApiOperation({ summary: 'Accepter : crée la commande et réserve le stock' })
+  accept(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.accept(user, farmId, id);
+  }
+
+  @Post(':id/reject')
+  @ApiOperation({ summary: 'Refuser une demande' })
+  reject(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectMarketOrderDto,
+  ) {
+    return this.orders.reject(user, farmId, id, dto);
+  }
+
+  @Post(':id/extend-deposit')
+  @ApiOperation({ summary: 'Prolonger une fois de 24 h le délai d’acompte' })
+  extend(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.extendDeposit(user, farmId, id);
   }
 }

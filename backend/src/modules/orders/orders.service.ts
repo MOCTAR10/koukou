@@ -89,6 +89,7 @@ import {
   sentSlaughterBirds,
 } from './order-reservations.js';
 import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
+import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
 
 const ORDER_PREFIX = 'CMD';
 const ORDERABLE_TYPES = [
@@ -654,6 +655,20 @@ export class OrdersService {
 
       const items = await itemRepo.find({ where: { saleId: sale.id } });
       const byId = new Map(items.map((i) => [i.id, i]));
+
+      // Sanitary rules are advisory for a farm's own sales, but a Market buyer
+      // can't judge them: the platform doesn't deliver during a withdrawal.
+      if (order.source === OrderSource.MARKET) {
+        const batchIds = new Set(items.flatMap((i) => i.batchId ?? []));
+        for (const batchId of batchIds) {
+          const holds = await sanitaryHolds(em, farmId, batchId);
+          if (holds.withdrawalEndDate) {
+            throw new BadRequestException(
+              `Livraison impossible : délai d’attente en cours sur ce lot jusqu’au ${holds.withdrawalEndDate}.`,
+            );
+          }
+        }
+      }
 
       const overrides = dto.items ?? [];
       const seen = new Set<string>();

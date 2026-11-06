@@ -3,6 +3,7 @@ process.env.THROTTLE_DISABLED = 'true';
 // Specs boot the app many times on a shared DB: no background overdue-task
 // sweep (tests call TasksService.sweepOverdue() directly when needed).
 process.env.TASK_SWEEP_DISABLED = 'true';
+process.env.MARKET_SWEEP_DISABLED = 'true';
 // Never call the real Expo Push service (the push spec swaps the transport).
 process.env.PUSH_DISABLED = 'true';
 

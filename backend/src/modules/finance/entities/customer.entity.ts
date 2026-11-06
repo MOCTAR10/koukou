@@ -14,6 +14,7 @@ import { CustomerType } from '../../../common/enums/customer-type.enum.js';
 
 @Entity('customers')
 @Index('IDX_customers_farm_phone', ['farmId', 'phone'])
+@Index('IDX_customers_farm_buyer', ['farmId', 'buyerUserId'])
 @Index('IDX_customers_farm_code', ['farmId', 'code'], { unique: true })
 export class Customer {
   @PrimaryGeneratedColumn('uuid')
@@ -33,6 +34,14 @@ export class Customer {
 
   @Column({ name: 'full_name' })
   fullName: string;
+
+  /**
+   * The Market account this customer record was created for. Market orders
+   * match on this, never on the phone: sign-up doesn't verify phones, so a
+   * matching number proves nothing and mustn't reach another customer's account.
+   */
+  @Column({ name: 'buyer_user_id', type: 'uuid', nullable: true })
+  buyerUserId: string | null;
 
   /** Nature du client (particulier, restaurant, hôtel…). Sépare le segment (valeur calculée). */
   @Column({ name: 'type', type: 'varchar', default: CustomerType.PARTICULIER })
