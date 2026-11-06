@@ -7,8 +7,8 @@ import type {
   DiseaseSeverity,
   GenerateProgramResult,
   HealthEventKind,
+  HealthEvent,
   InputLot,
-  Lot,
   ProphylaxisEvent,
   SanitaryProtocol,
   SanitaryProtocolWithSteps,
@@ -16,8 +16,13 @@ import type {
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { useCanRead } from '../../app/useMenuAccess';
-import { ageZeroDay } from './band';
 import { lotImage } from '../../lib/animalImages';
+import { useIdempotencyKey } from '../../lib/idempotency';
+import { sendOrQueue, showQueuedNotice } from '../../offline';
+import { DeclarationPhotos } from '../surveillance/DeclarationPhotos';
+import { QUEUED_DECLARATION_MESSAGE, toggleSign, withDeclaration } from '../surveillance/declaration';
+import { useSanitaryList } from '../surveillance/queries';
+import type { SanitaryLotRef } from '../surveillance/sanitaryLot';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import { PhotoThumb } from '../ui';
@@ -96,9 +101,17 @@ const GABON_DIRECTIVES = [
   'Pas d’antibiotiques 3 jours avant et 7 jours après un vaccin vivant.',
 ];
 
-export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => void }) {
+export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClose: () => void }) {
   const { farmId } = useFarm();
+  const { hasPermission } = useFarmProfile();
   const invalidate = useInvalidateFarm();
+  // POUFA L5 declaration: clinical signs of the vets' list, suspicion, replay-safe key.
+  const signList = useSanitaryList('SIGNE_CLINIQUE');
+  const signItems = signList.data ?? [];
+  const [signs, setSigns] = useState<string[]>([]);
+  const [suspicion, setSuspicion] = useState(false);
+  const idempotency = useIdempotencyKey('health');
+  const [created, setCreated] = useState<(HealthEvent & { suspicion?: boolean }) | null>(null);
   const [kind, setKind] = useState<'MALADIE' | 'MORTALITE' | 'REFORME'>('MALADIE');
   const [occurredAt, setOccurredAt] = useState(localYmd());
   const [disease, setDisease] = useState(DISEASES[0].value);
@@ -147,13 +160,62 @@ export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => vo
         body.severity = 'JAUNE';
         if (reason.trim()) body.description = reason.trim();
       }
-      return api.post(`/farms/${farmId}/batches/${lot.id}/health-events`, body);
+      const content = withDeclaration(body, {
+        clinicalSigns: signs,
+        suspicion,
+        idempotencyKey: '',
+        activeCodes: signItems.map((s) => s.code),
+      });
+      // Same content, same key: a retry after a lost answer returns the same event.
+      const payload = { ...content, idempotencyKey: idempotency.keyFor({ ...content, idempotencyKey: undefined, lot: lot.id }) };
+      return sendOrQueue<HealthEvent>({
+        kind: 'health-event',
+        farmId: farmId!,
+        path: `/farms/${farmId}/batches/${lot.id}/health-events`,
+        body: payload,
+        label: `Déclaration sanitaire${suspicion ? ' (suspicion)' : ''} · ${lot.batchName ?? lot.code ?? 'Lot'}`,
+      });
     },
-    onSuccess: async () => {
+    onSuccess: async (res) => {
+      idempotency.settle();
+      if (res.status === 'queued') {
+        showQueuedNotice(QUEUED_DECLARATION_MESSAGE);
+        onClose();
+        return;
+      }
       await invalidate();
-      onClose();
+      // Photos go after the text: offer them on the stored declaration.
+      setCreated(res.data);
     },
   });
+
+  if (created && farmId) {
+    return (
+      <Modal title="Déclaration enregistrée" onClose={onClose} wide>
+        <div className="space-y-4">
+          <Note tone="emerald" icon={<Check />}>
+            « {created.title} » est enregistrée.
+            {created.suspicion
+              ? ' Une alerte sanitaire officielle est ouverte : les services vétérinaires sont prévenus.'
+              : ''}
+          </Note>
+          <DeclarationPhotos
+            farmId={farmId}
+            batchId={lot.id}
+            eventId={created.id}
+            photos={[]}
+            canAdd={hasPermission('sanitaire:gerer', 'sanitaire:signaler')}
+            canDelete={hasPermission('sanitaire:gerer')}
+          />
+          <div className="flex justify-end">
+            <Button onClick={onClose}>
+              <Check className="h-4 w-4" /> Terminer
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -166,7 +228,7 @@ export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => vo
         <div className="flex items-center gap-2.5">
           <PhotoThumb src={lotImage(lot.breedName, lot.species)} />
           <p className="text-sm text-slate-500">
-            {lotName(lot)} · {kindLabel(lot)} · {num(lot.metrics.liveCount)} vivants
+            {lot.batchName ?? lot.code ?? lotName(lot)} · {kindLabel(lot)} · {num(lot.liveCount)} vivants
           </p>
         </div>
         <Tabs
@@ -241,9 +303,42 @@ export function HealthEventModal({ lot, onClose }: { lot: Lot; onClose: () => vo
             </Field>
           ) : null}
         </div>
+        {signItems.length > 0 ? (
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-600">Signes cliniques</p>
+            <div className="flex flex-wrap gap-1.5">
+              {signItems.map((s) => {
+                const on = signs.includes(s.code);
+                return (
+                  <button
+                    key={s.code}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setSigns((cur) => toggleSign(cur, s.code, signItems))}
+                    className={classNames(
+                      'rounded-full px-2.5 py-1 text-xs font-medium ring-1',
+                      on ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50',
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+        <label className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+          <input type="checkbox" className="mt-0.5" checked={suspicion} onChange={(e) => setSuspicion(e.target.checked)} />
+          <span>
+            <span className="font-semibold">Suspicion de maladie</span>
+            <span className="block text-xs text-amber-800">
+              Ouvre une alerte sanitaire officielle : les services vétérinaires sont prévenus immédiatement.
+            </span>
+          </span>
+        </label>
         {kind === 'MALADIE' ? (
           <>
-            <div>
+            <div className={signItems.length > 0 ? 'hidden' : undefined}>
               <p className="mb-1 text-xs font-medium text-slate-600">Symptômes</p>
               <div className="flex flex-wrap gap-1.5">
                 {SYMPTOMS.map((s) => {
@@ -311,7 +406,7 @@ export function EditScheduleModal({
   event,
   onClose,
 }: {
-  lot: Lot;
+  lot: Pick<SanitaryLotRef, 'id'>;
   event: ProphylaxisEvent;
   onClose: () => void;
 }) {
@@ -407,7 +502,7 @@ export function PlanCareModal({
   initialLotId,
   onClose,
 }: {
-  lots: Lot[];
+  lots: SanitaryLotRef[];
   initialLotId?: string;
   onClose: () => void;
 }) {
@@ -531,7 +626,7 @@ export function PlanCareModal({
                 />
                 <PhotoThumb src={lotImage(l.breedName, l.species)} size="sm" />
                 <span className="truncate">
-                  {lotName(l)} · {kindLabel(l)}
+                  {l.batchName ?? l.code ?? lotName(l)} · {kindLabel(l)}
                 </span>
               </label>
             ))}
@@ -638,20 +733,20 @@ export function PlanCareModal({
             {uniform && program.data && first ? (
               <div>
                 <p className="mb-1 text-xs font-semibold text-slate-600">
-                  Aperçu pour {lotName(first)} (J{first.metrics.ageDays})
+                  Aperçu pour {first.batchName ?? first.code ?? lotName(first)} (J{first.ageDays})
                 </p>
                 <ul className="max-h-48 space-y-0.5 overflow-y-auto text-sm text-slate-700">
                   {program.data.steps
                     .filter((s) => s.active)
                     .sort((a, b) => a.dayFrom - b.dayFrom)
                     .map((s) => {
-                      const passed = s.dayFrom < first.metrics.ageDays;
+                      const passed = s.dayFrom < first.ageDays;
                       return (
                         <li key={s.id} className={passed ? 'text-slate-400 line-through' : undefined}>
                           J{s.dayFrom} : {s.name}
                           {s.route ? ` · ${s.route}` : ''}
                           {/* Day N of the protocol = the birds' J0 + N (J0 = opening − age at opening). */}
-                          {passed ? '' : ` · ${dateFr(addUtcDays(ageZeroDay(first.integrationDate, first.initialAgeDays), s.dayFrom))}`}
+                          {passed ? '' : ` · ${dateFr(addUtcDays(first.ageZeroDay, s.dayFrom))}`}
                         </li>
                       );
                     })}
