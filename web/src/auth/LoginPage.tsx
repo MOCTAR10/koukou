@@ -170,7 +170,7 @@ export function LoginPage() {
         )
       }
     >
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-4 [@media(max-height:760px)]:space-y-3">
         {expired && !error ? (
           <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
             {SESSION_EXPIRED_MESSAGE}
@@ -181,7 +181,7 @@ export function LoginPage() {
           <span className="relative block">
             <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-11 text-[15px]`}
+              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-11 text-[15px] [@media(max-height:760px)]:!h-10`}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+241 74 12 34 56"
@@ -196,7 +196,7 @@ export function LoginPage() {
             <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="password"
-              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-11 text-[15px]`}
+              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-11 text-[15px] [@media(max-height:760px)]:!h-10`}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="••••••"
@@ -208,7 +208,7 @@ export function LoginPage() {
         <Button
           type="submit"
           busy={submitting}
-          className="!mt-6 w-full !h-12 !rounded-xl bg-gradient-to-r from-brand-700 to-brand-900 text-[15px] shadow-lg shadow-brand-900/25 transition hover:shadow-xl"
+          className="!mt-6 w-full !h-12 [@media(max-height:760px)]:!mt-4 [@media(max-height:760px)]:!h-11 !rounded-xl bg-gradient-to-r from-brand-700 to-brand-900 text-[15px] shadow-lg shadow-brand-900/25 transition hover:shadow-xl"
         >
           {submitting ? 'Connexion…' : 'Se connecter'}
         </Button>

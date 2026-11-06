@@ -127,14 +127,14 @@ export function AuthLayout({
             </Link>
           </div>
         ) : null}
-        <div className="relative flex flex-1 items-start justify-center px-5 py-8 sm:px-10 lg:items-center lg:py-10">
+        <div className="relative flex flex-1 items-start justify-center px-5 py-8 sm:px-10 lg:items-center lg:py-10 [@media(max-height:760px)]:lg:py-4">
           <motion.div
             className={wide ? 'w-full max-w-xl' : 'w-full max-w-md'}
             initial={reduced ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: durations.base, ease: EASE }}
           >
-            <div className={programme ? 'rounded-3xl bg-white p-7 shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 sm:p-9' : ''}>
+            <div className={programme ? 'rounded-3xl bg-white p-7 shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 sm:p-9 [@media(max-height:760px)]:p-6' : ''}>
               {eyebrow ? (
                 <p
                   className={
@@ -148,20 +148,20 @@ export function AuthLayout({
                 </p>
               ) : null}
               <h1
-                className={`${programme ? 'mt-4 lg:text-[2.25rem]' : 'mt-1 lg:text-[2rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
+                className={`${programme ? 'mt-4 lg:text-[2.25rem] [@media(max-height:760px)]:mt-2 [@media(max-height:760px)]:lg:text-[1.75rem]' : 'mt-1 lg:text-[2rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
               >
                 {title}
               </h1>
               {subtitle ? <p className="mt-2 text-sm text-slate-500 lg:text-base">{subtitle}</p> : null}
-              <div className="mt-6 lg:mt-8">{children}</div>
+              <div className={`mt-6 lg:mt-8 ${programme ? '[@media(max-height:760px)]:lg:mt-4' : ''}`}>{children}</div>
               {footer ? (
-                <div className={`mt-6 space-y-2 text-center text-sm text-slate-500 ${programme ? 'border-t border-slate-100 pt-5' : ''}`}>
+                <div className={`mt-6 space-y-2 text-center text-sm text-slate-500 ${programme ? 'border-t border-slate-100 pt-5 [@media(max-height:760px)]:mt-4 [@media(max-height:760px)]:pt-4' : ''}`}>
                   {footer}
                 </div>
               ) : null}
             </div>
             {programme ? (
-              <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+              <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400 [@media(max-height:760px)]:mt-3">
                 <LifeBuoy className="h-3.5 w-3.5" /> Code oublié ou compte bloqué : contactez l’administrateur du programme
               </p>
             ) : null}
