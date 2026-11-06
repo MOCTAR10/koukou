@@ -34,6 +34,7 @@ import { PushModule } from './modules/push/push.module.js';
 import { ProgrammeModule } from './modules/programme/programme.module.js';
 import { AccessModule } from './modules/access/access.module.js';
 import { BandesModule } from './modules/bandes/bandes.module.js';
+import { SupplyModule } from './modules/supply/supply.module.js';
 import { SyncModule } from './modules/sync/sync.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import {
@@ -111,6 +112,7 @@ import {
     ProgrammeModule,
     AccessModule,
     BandesModule,
+    SupplyModule,
     SyncModule,
     DatabaseModule,
   ],
