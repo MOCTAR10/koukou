@@ -1,5 +1,5 @@
 import type { Role } from '../../api/client';
-import type { EconomieFormat, EconomieRow } from '../../api/types-economie';
+import type { EconomieColumns, EconomieFormat, EconomieRow } from '../../api/types-economie';
 import type { MyAccess } from '../../api/types-access';
 import { grantsAccess, scopeReachesFarms } from '../../app/menu-access';
 
@@ -94,4 +94,55 @@ export function matchesSearch(row: Pick<EconomieRow, 'name' | 'code' | 'province
   const needle = fold(q.trim());
   if (!needle) return true;
   return [row.name, row.code, row.provinceName].some((v) => !!v && fold(v).includes(needle));
+}
+
+// POUFA lot A2 dge: the synthesis is read by column group, each following
+// the caller's matrix (the server nulls a group it does not grant).
+
+/** Column groups of the synthesis tables. */
+export type EconomieView = 'ventes' | 'comptabilite' | 'market' | 'production';
+
+export const ECONOMIE_VIEWS: ReadonlyArray<{ key: EconomieView; label: string }> = [
+  { key: 'ventes', label: 'Ventes et charges' },
+  { key: 'comptabilite', label: 'Comptabilité SYSCOHADA' },
+  { key: 'market', label: 'Market' },
+  { key: 'production', label: 'Complétude et volumes' },
+];
+
+/** Whether a view's group is granted (`ventes` needs the sales; the route always gives them). */
+export function viewGranted(view: EconomieView, cols: EconomieColumns): boolean {
+  switch (view) {
+    case 'ventes':
+      return cols.sales;
+    case 'comptabilite':
+      return !!cols.accounting;
+    case 'market':
+      return !!cols.market;
+    case 'production':
+      return !!cols.production;
+  }
+}
+
+/** The views the caller may pick, in order. */
+export function availableViews(cols: EconomieColumns): EconomieView[] {
+  return ECONOMIE_VIEWS.map((v) => v.key).filter((k) => viewGranted(k, cols));
+}
+
+/** The view shown: the one picked when granted, else the first granted one. */
+export function effectiveView(picked: EconomieView, cols: EconomieColumns): EconomieView | null {
+  if (viewGranted(picked, cols)) return picked;
+  return availableViews(cols)[0] ?? null;
+}
+
+/** French names of the areas the profile does not open (for the note under the cards). */
+export function missingAreas(cols: EconomieColumns): string[] {
+  return [
+    !cols.sales && 'les ventes',
+    !cols.collected && 'la caisse',
+    !cols.payroll && 'les salaires (Équipe et RH)',
+    !cols.stock && 'le stock (Intrants)',
+    !cols.accounting && 'la comptabilité SYSCOHADA',
+    !cols.market && 'le Market',
+    !cols.production && 'les saisies techniques (complétude et volumes)',
+  ].filter((x): x is string => !!x);
 }

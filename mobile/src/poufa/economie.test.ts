@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { SynthesisRow } from '@/api/economie';
 
-import { farmsOfProvince, synthesisWindow, visibleFigures } from './economie';
+import { farmsOfProvince, shownGroup, synthesisGroups, synthesisWindow, visibleFigures } from './economie';
 
 const row = (over: Partial<SynthesisRow> = {}): SynthesisRow => ({
   provinceCode: 'G1',
@@ -60,5 +60,43 @@ describe('farmsOfProvince', () => {
     const farms = [row({ name: 'Mba' }), row({ name: 'Bidzi' }), row({ name: 'Autre', provinceCode: 'G2' })];
     expect(farmsOfProvince(farms, 'G1').map((f) => f.name)).toEqual(['Bidzi', 'Mba']);
     expect(farmsOfProvince(farms, null)).toEqual([]);
+  });
+});
+
+// POUFA lot A2 dge: SYSCOHADA, Market and production groups.
+describe('synthesis groups', () => {
+  const base = { sales: true, collected: true, payroll: true, stock: true };
+  const all = { ...base, accounting: true, market: true, production: true };
+
+  it('offers the groups the matrix grants, sales always', () => {
+    expect(synthesisGroups(base)).toEqual(['VENTES']);
+    expect(synthesisGroups(all)).toEqual(['VENTES', 'COMPTA', 'MARKET', 'PRODUCTION']);
+    expect(synthesisGroups({ ...base, production: true })).toEqual(['VENTES', 'PRODUCTION']);
+    expect(shownGroup('MARKET', base)).toBe('VENTES');
+    expect(shownGroup('MARKET', all)).toBe('MARKET');
+  });
+
+  it('shows each group with its figures, never a refused one', () => {
+    const r = row({
+      accountingProductsFcfa: 200_000,
+      accountingChargesFcfa: 150_000,
+      accountingResultFcfa: 50_000,
+      marketRequests: 3,
+      marketSalesFcfa: 30_000,
+      completenessPct: 85.5,
+      producedHeads: 120,
+      producedKg: 264.1,
+    });
+    expect(visibleFigures(r, all, 'COMPTA').map((f) => [f.key, f.value])).toContainEqual(['result', 50_000]);
+    expect(visibleFigures(r, all, 'MARKET').map((f) => f.key)).toEqual(['requests', 'accepted', 'delivered', 'marketSales', 'birds', 'carcasses']);
+    expect(visibleFigures(r, all, 'PRODUCTION').map((f) => [f.key, f.value])).toEqual([
+      ['completeness', 85.5],
+      ['producedHeads', 120],
+      ['producedKg', 264.1],
+    ]);
+    // A group the server did not grant falls back to the sales figures.
+    expect(visibleFigures(r, base, 'COMPTA')[0].key).toBe('sales');
+    // A field an older server does not send reads as null, never zero.
+    expect(visibleFigures(row(), all, 'MARKET')[0].value).toBeNull();
   });
 });

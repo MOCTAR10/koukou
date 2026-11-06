@@ -6,8 +6,10 @@
  * - the advisory alert kinds shown apart as « alertes de conduite »
  *   (`PILOTAGE_ALERTES_CONDUITE_TYPES`); only published sanitary alerts ever
  *   colour a farm;
- * - the `FORMULE_*` set in force, so the aggregates' mortality goes through
- *   the formula engine (`mortalite_periode_pct`) instead of fixed SQL.
+ * - the `FORMULE_*` set in force, so the aggregates' mortality, completeness
+ *   and produced volumes go through the formula engine
+ *   (`mortalite_periode_pct`, `completude_pct`, `volume_produit_*`) instead
+ *   of fixed SQL.
  * Pure, unit-tested; the services read the parameters and embed the SQL.
  */
 import { factInstant } from '../batches/poufa/bande-rules.js';
@@ -144,6 +146,79 @@ export function mortalityOf(
 ): (deaths: number, exposed: number) => number | null {
   return (deaths, exposed) => periodMortalityPct(formulas, deaths, exposed);
 }
+
+// POUFA lot A2 dge: completeness and produced volumes of a period go through
+// the formula engine too (CDC §7.3), like the period mortality.
+
+/** Volumes produced over a period (heads and live kg), null when undefined. */
+export interface ProducedVolumes {
+  heads: number | null;
+  kg: number | null;
+}
+
+/**
+ * The steering's per-period indicators bound to a formula set: every
+ * aggregate (dashboards, map, exports, reports, objective, programme
+ * synthesis) computes them from summed facts with the `FORMULE_*` in force.
+ */
+export interface PeriodFormulas {
+  /** `FORMULE_MORTALITE_PERIODE_PCT`, one decimal. */
+  mortality(deaths: number, exposed: number): number | null;
+  /** `FORMULE_COMPLETUDE_PCT` (days entered / days elapsed × 100), one decimal. */
+  completeness(entered: number, elapsed: number): number | null;
+  /** `FORMULE_VOLUME_PRODUIT_TETES` and `FORMULE_VOLUME_PRODUIT_KG` (kg, one decimal). */
+  produced(heads: number, kg: number): ProducedVolumes;
+}
+
+/** Completeness of a period with `FORMULE_COMPLETUDE_PCT`, one decimal. */
+export function periodCompletenessPct(
+  formulas: readonly FormulaInForce[],
+  entered: number,
+  elapsed: number,
+): number | null {
+  return formulaIndicator(
+    formulas,
+    'completude_pct',
+    { jours_saisis: entered, jours_ecoules: elapsed },
+    1,
+  );
+}
+
+/** Volumes produced over a period with the two `FORMULE_VOLUME_PRODUIT_*`. */
+export function periodProduced(
+  formulas: readonly FormulaInForce[],
+  heads: number,
+  kg: number,
+): ProducedVolumes {
+  const values = evaluateOfficialIndicators(formulas, {
+    sortis_periode_tetes: heads,
+    poids_sortis_periode_kg: kg,
+  });
+  const h = indicatorValue(values, 'volume_produit_tetes');
+  const k = indicatorValue(values, 'volume_produit_kg');
+  return {
+    heads: h == null ? null : round(h, 0),
+    kg: k == null ? null : round(k, 1),
+  };
+}
+
+/** The period indicators bound to a formula set. */
+export function periodFormulasOf(
+  formulas: readonly FormulaInForce[],
+): PeriodFormulas {
+  return {
+    mortality: mortalityOf(formulas),
+    completeness: (entered, elapsed) =>
+      periodCompletenessPct(formulas, entered, elapsed),
+    produced: (heads, kg) => periodProduced(formulas, heads, kg),
+  };
+}
+
+/** Tonnes of a kg volume (3 decimals), null when undefined. */
+export function tonnesOf(kg: number | null): number | null {
+  return kg == null ? null : round(kg / 1000, 3);
+}
+// End POUFA lot A2 dge.
 
 /** Labels of the conduct alerts, as the screens and PDFs show them. */
 export const CONDUCT_ALERTS_LABEL =

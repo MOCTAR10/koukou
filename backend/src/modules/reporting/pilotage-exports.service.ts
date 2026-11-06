@@ -4,8 +4,12 @@ import { DataSource } from 'typeorm';
 import { utcDay } from '../batches/poufa/bande-rules.js';
 import type { ExportTable } from './export-table.js';
 import { metricsOf } from './pilotage-metrics.js';
-import { bandMortalityPct, eligibleBandSql } from './pilotage-programme.js';
-import { pct, round } from './pilotage-rules.js';
+import {
+  bandMortalityPct,
+  eligibleBandSql,
+  periodCompletenessPct,
+} from './pilotage-programme.js';
+import { round } from './pilotage-rules.js';
 import {
   PilotageDashboardService,
   type PilotageQuery,
@@ -128,7 +132,7 @@ export class PilotageExportsService {
     const ctx = await this.dashboards.context(view, query);
     const provinces = new Map(ctx.provinces.map((p) => [p.id, p]));
     const rows = ctx.rows.map(({ farm, facts }) => {
-      const m = metricsOf(facts, ctx.mortality);
+      const m = metricsOf(facts, ctx.indicators);
       return {
         code: farm.code,
         name: farm.name,
@@ -284,7 +288,12 @@ export class PilotageExportsService {
             : round(Number(r.feed_cumulative_kg), 1),
         weight:
           r.last_weight_g == null ? null : round(Number(r.last_weight_g), 0),
-        completeness: pct(Number(r.entered ?? 0), Number(r.elapsed ?? 0)),
+        // POUFA lot A2 dge: FORMULE_COMPLETUDE_PCT, like the aggregates.
+        completeness: periodCompletenessPct(
+          rules.formulas,
+          Number(r.entered ?? 0),
+          Number(r.elapsed ?? 0),
+        ),
       })),
     };
   }

@@ -19,6 +19,10 @@ import { fetchBatches, fetchSlaughterOrders } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { downloadPdf } from '@/api/pdf';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+// POUFA lot A2 dge: an institution reads the slaughter orders with TRACABILITE:CONSULTER, read-only.
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
+import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { readsProgrammeDomain } from '@/poufa/access';
 import { speciesLabel } from '@/api/format';
 import { breedImageForLot } from '@/constants/breedImages';
 import {
@@ -76,13 +80,15 @@ function DestOption({
 }
 
 export default function SlaughterScreen() {
-  const { farms, farmId } = useAuth();
+  const { farms, farmId, user } = useAuth();
   const farmName = farms.find((f) => f.id === farmId)?.name ?? 'Ferme';
-  const canManage = useFarmProfile().hasPermission('production:abattage');
+  const { fermiaWrites, fermiaReadOnly } = useFarmProfile();
+  const canManage = fermiaWrites('production:abattage');
+  const readsOrders = readsProgrammeDomain(user.role, useProgrammeAccess().matrix, 'TRACABILITE');
   const queryClient = useQueryClient();
 
-  const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
-  const ordersQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId) });
+  const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId), enabled: canManage });
+  const ordersQuery = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), enabled: Boolean(farmId) && readsOrders });
   const orders = useMemo(() => ordersQuery.data ?? [], [ordersQuery.data]);
   const lots = (batchesQuery.data ?? []).filter((b) => b.status === 'ACTIF' || b.status === 'EN_VENTE');
 
@@ -521,7 +527,8 @@ export default function SlaughterScreen() {
         </>
       ) : (
         <>
-          {!canManage ? (
+          <ReadOnlyNotice what="Abattage" />
+          {!canManage && !fermiaReadOnly ? (
             <Card tone="default" style={styles.card}>
               <AppText size="label" color="muted" style={{ marginBottom: 6 }}>
                 ORDRES D’ABATTAGE

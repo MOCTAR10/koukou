@@ -17,6 +17,7 @@ import type { ProductionBatch } from '../api/types';
 import type { BatchPnl, ChannelPointOfSale, ChannelSale, OverviewPnl } from '../api/types-finance';
 import { useFarm } from '../app/FarmContext';
 import { useCanRead } from '../app/useMenuAccess';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import { Donut } from '../components/Charts';
 import { BatchPnlPanel } from '../components/finance/BatchPnlPanel';
 import { PeriodActivity } from '../components/finance/PeriodActivity';
@@ -157,6 +158,7 @@ export function ReportsPage() {
           </Button>
         }
       />
+      <ReadOnlyNotice what="rentabilité" />
 
       <PeriodFilter value={period} onChange={setPeriod} />
       <ErrorNote error={exportOverview.error} />

@@ -34,12 +34,66 @@ export interface Figure {
   kind: FigureKind;
 }
 
+/** POUFA lot A2 dge: column groups of the synthesis, each from its own matrix domain. */
+export type SynthesisGroup = 'VENTES' | 'COMPTA' | 'MARKET' | 'PRODUCTION';
+
+export const SYNTHESIS_GROUPS: readonly { key: SynthesisGroup; label: string }[] = [
+  { key: 'VENTES', label: 'Ventes' },
+  { key: 'COMPTA', label: 'Compta' },
+  { key: 'MARKET', label: 'Market' },
+  { key: 'PRODUCTION', label: 'Saisies' },
+];
+
+/** The groups the server granted, in order (the sales group always: it is the route's domain). */
+export function synthesisGroups(columns: SynthesisColumns): SynthesisGroup[] {
+  return SYNTHESIS_GROUPS.map((g) => g.key).filter(
+    (g) =>
+      g === 'VENTES' ||
+      (g === 'COMPTA' && !!columns.accounting) ||
+      (g === 'MARKET' && !!columns.market) ||
+      (g === 'PRODUCTION' && !!columns.production),
+  );
+}
+
+/** The group shown: the one picked when granted, else the sales. */
+export function shownGroup(picked: SynthesisGroup, columns: SynthesisColumns): SynthesisGroup {
+  return synthesisGroups(columns).includes(picked) ? picked : 'VENTES';
+}
+
 /**
  * Figures shown for one row, in order, keeping only the columns the server
  * granted (a refused column is null everywhere and never shown as zero).
  */
-export function visibleFigures(row: SynthesisRow, columns: SynthesisColumns): Figure[] {
+export function visibleFigures(row: SynthesisRow, columns: SynthesisColumns, group: SynthesisGroup = 'VENTES'): Figure[] {
   const out: Figure[] = [];
+  const v = (x: number | null | undefined) => x ?? null;
+  const g = shownGroup(group, columns);
+  if (g === 'COMPTA') {
+    return [
+      { key: 'products', label: 'Produits (classe 7)', value: v(row.accountingProductsFcfa), kind: 'fcfa' },
+      { key: 'charges', label: 'Charges (classe 6)', value: v(row.accountingChargesFcfa), kind: 'fcfa' },
+      { key: 'result', label: 'Résultat SYSCOHADA', value: v(row.accountingResultFcfa), kind: 'fcfa' },
+      { key: 'treasury', label: 'Trésorerie', value: v(row.treasuryFcfa), kind: 'fcfa' },
+      { key: 'receivables', label: 'Créances clients', value: v(row.receivablesFcfa), kind: 'fcfa' },
+    ];
+  }
+  if (g === 'MARKET') {
+    return [
+      { key: 'requests', label: 'Demandes reçues', value: v(row.marketRequests), kind: 'count' },
+      { key: 'accepted', label: 'Acceptées', value: v(row.marketAccepted), kind: 'count' },
+      { key: 'delivered', label: 'Commandes livrées', value: v(row.marketDelivered), kind: 'count' },
+      { key: 'marketSales', label: 'Ventes livrées', value: v(row.marketSalesFcfa), kind: 'fcfa' },
+      { key: 'birds', label: 'Poulets vifs livrés', value: v(row.marketBirds), kind: 'count' },
+      { key: 'carcasses', label: 'Carcasses livrées', value: v(row.marketCarcasses), kind: 'count' },
+    ];
+  }
+  if (g === 'PRODUCTION') {
+    return [
+      { key: 'completeness', label: 'Complétude des saisies', value: v(row.completenessPct), kind: 'pct' },
+      { key: 'producedHeads', label: 'Volumes produits (têtes)', value: v(row.producedHeads), kind: 'count' },
+      { key: 'producedKg', label: 'Poids vif produit', value: v(row.producedKg), kind: 'kg' },
+    ];
+  }
   if (columns.sales) {
     out.push(
       { key: 'sales', label: 'Chiffre d’affaires', value: row.salesFcfa, kind: 'fcfa' },

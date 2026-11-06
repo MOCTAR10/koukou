@@ -39,7 +39,7 @@ import {
   eligibleBandKeys,
   eligibleBandSql,
   isEligibleBand,
-  mortalityOf,
+  periodFormulasOf,
   periodMortalityPct,
   pilotageRulesAt,
   type ParameterValueSource,
@@ -136,7 +136,7 @@ describe('POUFA lot A — formulas on the aggregates (n° 44)', () => {
     expect(periodMortalityPct(custom, 23, 1600)).toBe(14.4);
     // metricsOf takes the formula, sums before dividing.
     const f = { ...emptyFacts(), exposed: 1000, deaths: 19 };
-    expect(metricsOf(f, mortalityOf(custom)).mortalityPct).toBe(19);
+    expect(metricsOf(f, periodFormulasOf(custom)).mortalityPct).toBe(19);
     expect(metricsOf(f).mortalityPct).toBe(1.9);
   });
 

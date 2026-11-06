@@ -50,6 +50,9 @@ import { PeriodBar, periodWindow, type PeriodWindow } from '@/components/ui/Peri
 import { LineChart } from '@/components/ui/LineChart';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+// POUFA lot A2 dge: read-only banner; declarations refused by the server show its message.
+import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
+import { ApiError } from '@/api/client';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import {
   fetchBatches,
@@ -734,7 +737,10 @@ export default function SanitaryScreen() {
     queryKey: ['health-events', farmId, batchId],
     queryFn: () => fetchHealthEvents(farmId, batchId),
     enabled: batchId !== '',
+    retry: (n, e) => !(e instanceof ApiError && e.status === 403) && n < 2,
   });
+  const declarationsRefused = events.error instanceof ApiError && events.error.status === 403 ? events.error.message : null;
+  const sanitaryReadOnly = isInstitution && !canDeclare && !isProprietaire;
   const calendar = useQuery({
     queryKey: ['sanitary', farmId, batchId],
     queryFn: () => fetchProphylaxis(farmId, batchId),
@@ -1084,6 +1090,7 @@ export default function SanitaryScreen() {
         </>
       }
     >
+      {sanitaryReadOnly ? <ReadOnlyNotice what="Sanitaire" /> : null}
       {lotsLoading ? (
         <Spinner label="Chargement du calendrier…" />
       ) : (
@@ -1196,7 +1203,10 @@ export default function SanitaryScreen() {
             <CheckTab health={health.data as BatchHealth | undefined} loading={health.isLoading} lotName={lot?.batchName ?? ''} />
           ) : null}
 
-          {tab === 'maladies' ? (
+          {tab === 'maladies' && declarationsRefused ? (
+            <AppText size="small" color="muted">{declarationsRefused}</AppText>
+          ) : null}
+          {tab === 'maladies' && !declarationsRefused ? (
             <MaladiesTab
               events={filteredEvents}
               loading={events.isLoading}

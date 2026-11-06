@@ -458,7 +458,7 @@ describe('POUFA lot A droits — modules Fermia, confidentialité, GPS (e2e)', (
   describe('programme-wide economic synthesis', () => {
     it('gives the DGE every column per farm and per province, and exports it', async () => {
       const res = await get('/programme/economie/synthese', tokens.DGE).expect(200);
-      expect(res.body.columns).toEqual({ sales: true, collected: true, payroll: true, stock: true });
+      expect(res.body.columns).toMatchObject({ sales: true, collected: true, payroll: true, stock: true });
       const row = (res.body.farms as Array<{ farmId: string; payrollMonthlyFcfa: number; employeeCount: number }>).find((f) => f.farmId === farmId);
       expect(row).toBeDefined();
       expect(row!.payrollMonthlyFcfa).toBeGreaterThanOrEqual(175000 + 98765);
@@ -473,7 +473,7 @@ describe('POUFA lot A droits — modules Fermia, confidentialité, GPS (e2e)', (
 
     it('nulls the columns a profile is not granted, refuses one without ECONOMIQUE', async () => {
       const res = await get('/programme/economie/synthese', tokens.ECO).expect(200);
-      expect(res.body.columns).toEqual({ sales: true, collected: true, payroll: false, stock: false });
+      expect(res.body.columns).toMatchObject({ sales: true, collected: true, payroll: false, stock: false });
       expect(res.body.total.payrollMonthlyFcfa).toBeNull();
       await get('/programme/economie/synthese', tokens.AGENT_TECHNIQUE).expect(403);
       await get('/programme/economie/synthese', ownerToken).expect(403);

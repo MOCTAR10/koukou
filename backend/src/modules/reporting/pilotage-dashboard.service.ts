@@ -12,18 +12,17 @@ import {
   metricsOf,
   sumFacts,
   type Facts,
-  type PeriodMortality,
   type PilotageMetrics,
 } from './pilotage-metrics.js';
 import {
   CONDUCT_ALERTS_LABEL,
-  mortalityOf,
+  periodFormulasOf,
+  tonnesOf,
+  type PeriodFormulas,
   type PilotageRules,
 } from './pilotage-programme.js';
 import {
-  pct,
   resolvePeriod,
-  round,
   suppressedKeys,
   type Period,
 } from './pilotage-rules.js';
@@ -116,6 +115,12 @@ export interface PilotageDashboard {
     eligibleBandTypes: { species: string; type: string }[];
     conductAlerts: { label: string; kinds: string[] };
     mortalityFormula: { expression: string; parameterKey: string } | null;
+    /** POUFA lot A2 dge: the completeness and produced-volume formulas in force. */
+    completenessFormula: { expression: string; parameterKey: string } | null;
+    producedFormulas: {
+      heads: { expression: string; parameterKey: string } | null;
+      kg: { expression: string; parameterKey: string } | null;
+    };
   };
   /** Input delivery and stock gaps (L4 intrants). */
   inputs: {
@@ -139,8 +144,11 @@ export interface DashboardContext {
   provinces: ProvinceRow[];
   /** Perimeter, conduct alert kinds and formulas in force at the period's end. */
   rules: PilotageRules;
-  /** `FORMULE_MORTALITE_PERIODE_PCT` in force. */
-  mortality: PeriodMortality;
+  /**
+   * Period formulas in force (mortality, completeness, produced volumes;
+   * POUFA lot A2 dge).
+   */
+  indicators: PeriodFormulas;
 }
 
 const SUPPRESSION_NOTE = (k: number) =>
@@ -206,7 +214,7 @@ export class PilotageDashboardService {
       rows,
       provinces,
       rules,
-      mortality: mortalityOf(rules.formulas),
+      indicators: periodFormulasOf(rules.formulas),
     };
   }
 
@@ -223,7 +231,7 @@ export class PilotageDashboardService {
     ctx: DashboardContext,
     today: string = utcDay(),
   ): Promise<PilotageDashboard> {
-    const { view, filters, period, minGroupSize: k, rows, mortality } = ctx;
+    const { view, filters, period, minGroupSize: k, rows, indicators } = ctx;
     const [weeks, statuses, cohorts, published, inputs] = await Promise.all([
       this.data.weeklyFacts(view, filters, period, today, ctx.rules),
       this.data.listLabels(view.programId, 'STATUT_FERME'),
@@ -278,7 +286,7 @@ export class PilotageDashboardService {
       totals: {
         farms: totalFacts.farms,
         suppressed: totalsHidden,
-        metrics: totalsHidden ? null : metricsOf(totalFacts, mortality),
+        metrics: totalsHidden ? null : metricsOf(totalFacts, indicators),
       },
       provinces,
       farms: {
@@ -289,15 +297,18 @@ export class PilotageDashboardService {
       },
       series: weeks.map((w) => {
         const hidden = totalsHidden || weekHidden.has(w.weekStart);
+        const produced = indicators.produced(w.exits, w.exitKg);
         return {
           weekStart: w.weekStart,
           suppressed: hidden,
           farms: w.farms,
           deaths: hidden ? null : w.deaths,
-          mortalityPct: hidden ? null : mortality(w.deaths, w.exposed),
-          producedHeads: hidden ? null : w.exits,
-          producedTonnes: hidden ? null : round(w.exitKg / 1000, 3),
-          completenessPct: hidden ? null : pct(w.daysEntered, w.daysElapsed),
+          mortalityPct: hidden ? null : indicators.mortality(w.deaths, w.exposed),
+          producedHeads: hidden ? null : produced.heads,
+          producedTonnes: hidden ? null : tonnesOf(produced.kg),
+          completenessPct: hidden
+            ? null
+            : indicators.completeness(w.daysEntered, w.daysElapsed),
         };
       }),
       publishedAlerts: {
@@ -381,7 +392,7 @@ export class PilotageDashboardService {
           sort: province?.sort ?? Number.MAX_SAFE_INTEGER,
           farms: facts.farms,
           suppressed,
-          metrics: suppressed ? null : metricsOf(facts, ctx.mortality),
+          metrics: suppressed ? null : metricsOf(facts, ctx.indicators),
         };
       })
       .sort((a, b) => a.sort - b.sort || a.code.localeCompare(b.code))
@@ -421,15 +432,21 @@ export class PilotageDashboardService {
 export function perimeterOf(
   rules: PilotageRules,
 ): PilotageDashboard['perimeter'] {
-  const formula = rules.formulas.find((f) => f.key === 'mortalite_periode_pct');
+  const formulaOf = (key: string) => {
+    const f = rules.formulas.find((x) => x.key === key);
+    return f ? { expression: f.expression, parameterKey: f.parameterKey } : null;
+  };
   return {
     eligibleBandTypes: rules.eligibleBandKeys.map((k) => {
       const [species, type] = k.split(':');
       return { species, type };
     }),
     conductAlerts: { label: CONDUCT_ALERTS_LABEL, kinds: rules.conductAlertKinds },
-    mortalityFormula: formula
-      ? { expression: formula.expression, parameterKey: formula.parameterKey }
-      : null,
+    mortalityFormula: formulaOf('mortalite_periode_pct'),
+    completenessFormula: formulaOf('completude_pct'),
+    producedFormulas: {
+      heads: formulaOf('volume_produit_tetes'),
+      kg: formulaOf('volume_produit_kg'),
+    },
   };
 }

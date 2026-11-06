@@ -13,7 +13,6 @@ import {
   boundaryCentre,
   completenessLevel,
   mortalityLevel,
-  pct,
   suppressedKeys,
   type ColourLevel,
   type Period,
@@ -137,8 +136,14 @@ export class PilotageMapService {
     const points: MapPoint[] = view.aggregateOnly
       ? []
       : located.map(({ farm, facts }) => {
-          const mortalityPct = ctx.mortality(facts.deaths, facts.exposed);
-          const completenessPct = pct(facts.daysEntered, facts.daysElapsed);
+          const mortalityPct = ctx.indicators.mortality(
+            facts.deaths,
+            facts.exposed,
+          );
+          const completenessPct = ctx.indicators.completeness(
+            facts.daysEntered,
+            facts.daysElapsed,
+          );
           return {
             farmId: farm.id,
             code: farm.code,
@@ -193,7 +198,7 @@ export class PilotageMapService {
           (r) => r.farm.latitude != null && r.farm.longitude != null,
         );
         const suppressed = hidden.has(key);
-        const m = metricsOf(facts, ctx.mortality);
+        const m = metricsOf(facts, ctx.indicators);
         const centroid =
           boundaryCentre(geometries.get(key)) ??
           (!view.aggregateOnly || withGps.length >= k

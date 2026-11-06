@@ -43,7 +43,7 @@ import type { PermissionCode } from '@/api/types';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { hasInbox, readsProgrammeDomain } from '@/poufa/access';
 // POUFA lot A droits: Fermia tiles follow the matrix grants; the DGE synthesis tile.
-import { menuItemVisible, readsEconomieSynthesis, type FermiaArea } from '@/poufa/fermia-access';
+import { menuItemVisible, readsEconomieSynthesis, type FermiaArea, type ProgrammeBonusArea } from '@/poufa/fermia-access';
 
 /** Deliveries tile: farm accounts, or an institution whose matrix reads INTRANTS. */
 function usePoufaMenuItems(): { deliveries: MenuItem[]; inbox: MenuItem[]; synthesis: MenuItem[] } {
@@ -71,6 +71,8 @@ interface MenuItem {
   perms?: PermissionCode[];
   /** Fermia area: an institution sees the tile with the area's read code (POUFA lot A droits). */
   fermiaArea?: FermiaArea;
+  /** Programme domain of a bonus screen: an institution sees it with `<domain>:CONSULTER` (POUFA lot A2 dge). */
+  programmeArea?: ProgrammeBonusArea;
 }
 
 interface MenuGroup {
@@ -169,6 +171,8 @@ export default function MenuScreen() {
   const { user } = useAuth();
   const { isGroundEleveur, hasPermission } = useFarmProfile();
   const poufa = usePoufaMenuItems();
+  // POUFA lot A2 dge: the institution's matrix opens the stock, slaughter and sanitary tiles.
+  const programmeMatrix = useProgrammeAccess().matrix;
 
   if (isGroundEleveur) {
     return <GroundHome />;
@@ -184,9 +188,9 @@ export default function MenuScreen() {
       iconBg: semantic.primarySoft,
       items: [
         { key: 'activites', label: 'Activités', icon: Activity, href: '/activites' },
-        { key: 'sanitaire', label: 'Sanitaire', icon: Stethoscope, href: '/sanitary', perms: ['sanitaire:lecture'] },
-        { key: 'stock', label: 'Stock & provendes', icon: Wheat, href: '/provende', perms: ['stock:gerer'] },
-        { key: 'abattage', label: 'Abattage', icon: Drumstick, href: '/slaughter', perms: ['production:abattage'] },
+        { key: 'sanitaire', label: 'Sanitaire', icon: Stethoscope, href: '/sanitary', perms: ['sanitaire:lecture'], programmeArea: 'SANITAIRE' },
+        { key: 'stock', label: 'Stock & provendes', icon: Wheat, href: '/provende', perms: ['stock:gerer'], programmeArea: 'INTRANTS' },
+        { key: 'abattage', label: 'Abattage', icon: Drumstick, href: '/slaughter', perms: ['production:abattage'], programmeArea: 'TRACABILITE' },
         ...poufa.deliveries,
       ],
     },
@@ -239,7 +243,7 @@ export default function MenuScreen() {
     .map((group) => ({
       ...group,
       items: group.items.filter(
-        (item) => menuItemVisible(user.role, item, (code) => hasPermission(code as PermissionCode)),
+        (item) => menuItemVisible(user.role, item, (code) => hasPermission(code as PermissionCode), programmeMatrix),
       ),
     }))
     .filter((group) => group.items.length > 0);

@@ -10,7 +10,7 @@
 import type { AccessMatrix } from '@/api/poufa';
 import type { UserRole } from '@/api/types';
 
-import { matrixGrants } from './access';
+import { matrixGrants, readsProgrammeDomain } from './access';
 
 /** Fermia areas an institution may be granted (ECONOMIQUE = sales list, expenses, rentabilité). */
 export type FermiaArea = 'VENTES' | 'MARCHE' | 'COMPTABILITE' | 'EQUIPE' | 'ECONOMIQUE';
@@ -60,14 +60,30 @@ export function readsEconomieSynthesis(role: UserRole | undefined, matrix: Acces
   return false;
 }
 
+/**
+ * POUFA lot A2 dge: bonus screens filed under a programme domain (stock FEFO
+ * in INTRANTS, slaughter in TRACABILITE, care calendars in SANITAIRE). An
+ * institution opens them, read-only, when its matrix grants the domain in
+ * CONSULTER; the write buttons need farm codes it never holds there.
+ */
+export type ProgrammeBonusArea = 'INTRANTS' | 'TRACABILITE' | 'SANITAIRE';
+
 /** A menu tile: permission codes for farm accounts, a Fermia area for institutions. */
 export interface MenuGate {
   perms?: readonly string[];
   /** Set on Fermia tiles: an institution sees it with the area's read code (and its perms are ignored). */
   fermiaArea?: FermiaArea;
+  /** Set on programme bonus tiles: an institution sees it with `<area>:CONSULTER` (its perms are ignored). */
+  programmeArea?: ProgrammeBonusArea;
 }
 
-export function menuItemVisible(role: UserRole | undefined, item: MenuGate, has: HasCode): boolean {
+export function menuItemVisible(
+  role: UserRole | undefined,
+  item: MenuGate,
+  has: HasCode,
+  matrix?: AccessMatrix | null,
+): boolean {
+  if (item.programmeArea && role === 'INSTITUTION') return readsProgrammeDomain(role, matrix, item.programmeArea);
   if (item.fermiaArea && !readsFermiaArea(role, item.fermiaArea, has)) return false;
   if (item.fermiaArea && role === 'INSTITUTION') return true;
   return !item.perms || item.perms.some((code) => has(code));
