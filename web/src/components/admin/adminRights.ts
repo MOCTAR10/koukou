@@ -14,8 +14,10 @@ type Profile = Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> & { code?: stri
  *   CONSULTER; a new version needs MODIFIER **and** the parameter's owner
  *   profile (`ParametersService.set` → `mayChangeParameter`).
  * - Lists, localités, boundaries: reads are reference data, writes need
- *   ADMINISTRATION:ADMINISTRER; inactive items (`?all=true`) are the platform
- *   admin's only.
+ *   ADMINISTRATION:ADMINISTRER; inactive items and the list history
+ *   (`?all=true`, `…/history`) go to the profiles that manage the lists
+ *   (server `mayReadInactiveItems`): any ADMINISTRATION right or
+ *   PARAMETRES:MODIFIER, and SANITAIRE:MODIFIER for the sanitary lists.
  * - Journal (`audit.controller.ts`, domain AUDIT): CONSULTER.
  * - Recovery (`data-import.controller.ts`, domain REGISTRE, national scope):
  *   GET CONSULTER, deposit / dry run / integrate CREER, settings / corrections
@@ -35,8 +37,10 @@ export interface AdminRights {
     /** The page opens (reads are reference data for every member). */
     view: boolean;
     write: boolean;
-    /** `?all=true`: inactive items and localités. */
+    /** `?all=true`: inactive items and localités, and the list history. */
     readInactive: boolean;
+    /** Same for the sanitary lists the vets maintain (adds SANITAIRE:MODIFIER). */
+    readInactiveSanitary: boolean;
   };
   audit: { view: boolean };
   recovery: {
@@ -51,14 +55,14 @@ export interface AdminRights {
 
 const NONE: AdminRights = {
   parameters: { view: false, write: false, profileCode: null, anyOwner: false },
-  lists: { view: false, write: false, readInactive: false },
+  lists: { view: false, write: false, readInactive: false, readInactiveSanitary: false },
   audit: { view: false },
   recovery: { view: false, deposit: false, edit: false, validate: false, integrate: false, reject: false },
 };
 
 const ALL: AdminRights = {
   parameters: { view: true, write: true, profileCode: null, anyOwner: true },
-  lists: { view: true, write: true, readInactive: true },
+  lists: { view: true, write: true, readInactive: true, readInactiveSanitary: true },
   audit: { view: true },
   recovery: { view: true, deposit: true, edit: true, validate: true, integrate: true, reject: true },
 };
@@ -70,6 +74,8 @@ export function adminRights(role: Role | null | undefined, access?: Profile | nu
   const national = access.scopeKind === 'ALL';
   const registre = (action: Parameters<typeof grantsAccess>[2]) => national && g('REGISTRE', action);
   const parametersView = g('PARAMETRES', 'CONSULTER');
+  const anyAdministration = (['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER', 'ADMINISTRER'] as const).some((a) => g('ADMINISTRATION', a));
+  const readInactive = anyAdministration || g('PARAMETRES', 'MODIFIER');
   return {
     parameters: {
       view: parametersView,
@@ -80,7 +86,8 @@ export function adminRights(role: Role | null | undefined, access?: Profile | nu
     lists: {
       view: parametersView || g('ADMINISTRATION', 'CONSULTER'),
       write: g('ADMINISTRATION', 'ADMINISTRER'),
-      readInactive: false,
+      readInactive,
+      readInactiveSanitary: readInactive || g('SANITAIRE', 'MODIFIER'),
     },
     audit: { view: g('AUDIT', 'CONSULTER') },
     recovery: {

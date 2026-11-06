@@ -30,7 +30,7 @@ export const ROLE_LABELS: Readonly<Record<string, string>> = {
   INSTITUTION: 'Institution',
 };
 
-/** Filters the server applies (`AuditEventsQueryDto`). */
+/** Filters the server applies (`AuditEventsQueryDto`), the CSV export too. */
 export interface EventFilters {
   from: string;
   to: string;
@@ -38,18 +38,22 @@ export interface EventFilters {
   farmId: string;
   action: AuditAction | '';
   route: string;
+  /** Status class, sent as `?status=SUCCES|4xx|5xx`. */
+  status: StatusClass | '';
+  /** Exact request id (UUID). */
+  requestId: string;
 }
 
 /**
- * Filters the server has no parameter for (status, request id): applied to
- * the page shown only, and said so on screen.
+ * Status and request id on the page shown only. Kept for older callers: the
+ * server now filters both (`EventFilters.status`, `EventFilters.requestId`).
  */
 export interface PageFilters {
   status: StatusClass | '';
   requestId: string;
 }
 
-export const EMPTY_EVENT_FILTERS: EventFilters = { from: '', to: '', actorUserId: '', farmId: '', action: '', route: '' };
+export const EMPTY_EVENT_FILTERS: EventFilters = { from: '', to: '', actorUserId: '', farmId: '', action: '', route: '', status: '', requestId: '' };
 export const EMPTY_PAGE_FILTERS: PageFilters = { status: '', requestId: '' };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -63,6 +67,7 @@ export function eventFilterError(f: EventFilters): string | null {
   if (f.from && f.to && f.from > f.to) return 'Période invalide : la date de début suit la date de fin.';
   if (f.actorUserId.trim() && !isUuid(f.actorUserId)) return 'Identifiant d’utilisateur invalide (UUID attendu).';
   if (f.farmId.trim() && !isUuid(f.farmId)) return 'Identifiant de ferme invalide (UUID attendu).';
+  if (f.requestId.trim() && !isUuid(f.requestId)) return 'Identifiant de requête invalide (UUID attendu).';
   if (f.route.length > 200) return 'La route est limitée à 200 caractères.';
   return null;
 }
@@ -76,6 +81,8 @@ export function eventsQueryString(f: EventFilters, page?: number, limit = AUDIT_
   if (f.farmId.trim()) q.set('farmId', f.farmId.trim());
   if (f.action) q.set('action', f.action);
   if (f.route.trim()) q.set('route', f.route.trim());
+  if (f.status) q.set('status', STATUS_PARAM[f.status]);
+  if (f.requestId.trim()) q.set('requestId', f.requestId.trim());
   if (page !== undefined) {
     q.set('page', String(page));
     q.set('limit', String(limit));
@@ -125,6 +132,17 @@ export const STATUS_CLASS_LABELS: Readonly<Record<StatusClass, string>> = {
   REFUS: 'Refus (4xx)',
   ERREUR: 'Erreur serveur (5xx)',
 };
+
+/** `?status=` of each class (server `statusRange`: SUCCES is below 400). */
+export const STATUS_PARAM: Readonly<Record<StatusClass, string>> = { OK: 'SUCCES', REFUS: '4xx', ERREUR: '5xx' };
+
+/** Author shown in the journal: name, else role and short id. */
+export function actorText(e: { actorUserId: string | null; actorName?: string | null; actorRole?: string | null }): string {
+  if (e.actorName) return e.actorName;
+  if (!e.actorUserId) return '—';
+  const role = e.actorRole ? (ROLE_LABELS[e.actorRole] ?? e.actorRole) : 'Utilisateur';
+  return `${role} ${e.actorUserId.slice(0, 8)}…`;
+}
 
 export function statusClassOf(code: number | null): StatusClass | null {
   if (code === null) return null;

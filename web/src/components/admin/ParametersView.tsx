@@ -23,6 +23,11 @@ import {
 } from './parameters';
 import { useParameters } from './queries';
 
+/** Stored value equal to the catalog default (numbers, strings and JSON alike). */
+function sameValue(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 /**
  * The parameter catalog grouped by theme, with the value in force (now or at
  * a chosen date), its history and « Nouvelle valeur » for the owner profile.
@@ -129,9 +134,16 @@ export function ParametersView({ rights }: { rights: AdminRights['parameters'] }
                           <Pill tone="amber">Proposé, à valider</Pill>
                         </span>
                       ) : null}
+                      {p.defaultValue !== undefined && (p.versionId === null || !sameValue(p.value, p.defaultValue)) ? (
+                        <span className="mt-1 block text-xs text-slate-500">
+                          Par défaut : <span className={p.type === 'formula' ? 'break-words font-mono' : undefined}>{formatParameterValue(p.type, p.defaultValue, p.unit)}</span>
+                        </span>
+                      ) : null}
+                      {p.defaultNote ? <span className="mt-0.5 block text-xs text-amber-700">{p.defaultNote}</span> : null}
                     </Td>
                     <Td label="Depuis" className="md:max-lg:hidden">
                       {p.validFrom ? dateTimeFr(p.validFrom) : '—'}
+                      {p.createdByName ? <span className="block text-xs text-slate-500">par {p.createdByName}</span> : null}
                     </Td>
                     <Td label="Type et bornes" className="md:max-lg:hidden">
                       <span className="block text-xs text-slate-600">

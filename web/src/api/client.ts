@@ -172,8 +172,12 @@ export const api = {
     if (!res.ok) throw await apiErrorFrom(res);
     return res.blob();
   },
-  /** Télécharge un PDF/binaire et déclenche le téléchargement navigateur. */
-  async download(path: string, filename: string): Promise<void> {
+  /**
+   * Télécharge un PDF/binaire et déclenche le téléchargement navigateur.
+   * Resolves with the response headers (CORS-exposed ones: X-Audit-Truncated,
+   * X-Report-Fingerprint, X-Report-Sha256, Content-Disposition, X-Request-Id).
+   */
+  async download(path: string, filename: string): Promise<Headers> {
     const headers: Record<string, string> = { Accept: 'application/pdf' };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -193,5 +197,6 @@ export const api = {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+    return res.headers;
   },
 };

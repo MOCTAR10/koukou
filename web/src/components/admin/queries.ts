@@ -1,6 +1,6 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import type { ListItem, ParameterVersion, ParameterView, ProgramListType } from '../../api/types-admin';
+import type { ListHistoryEntry, ListItem, ParameterVersion, ParameterView, ProgramListType } from '../../api/types-admin';
 import type { ProvinceView } from '../../api/types-programme';
 
 /** Parameters in force now, or at `at` (ISO): `GET /programme/parameters[?at=]`. */
@@ -25,7 +25,15 @@ export function invalidateParameters(queryClient: QueryClient, key: string): voi
   void queryClient.invalidateQueries({ queryKey: ['programme-parameter-history', key] });
 }
 
-/** A list's items; `all`: inactive ones too (platform admin only, `?all=true`). */
+/** Who changed a list's items, and when (profiles that manage the list). */
+export function useListHistory(listType: ProgramListType) {
+  return useQuery({
+    queryKey: ['programme-list-history', listType],
+    queryFn: () => api.get<ListHistoryEntry[]>(`/programme/lists/${listType}/history`),
+  });
+}
+
+/** A list's items; `all`: inactive ones too (`?all=true`, profiles that manage the list). */
 export function useListItems(listType: ProgramListType, all: boolean) {
   return useQuery({
     queryKey: ['programme-list-admin', listType, all],
@@ -37,6 +45,7 @@ export function useListItems(listType: ProgramListType, all: boolean) {
 export function invalidateList(queryClient: QueryClient, listType: ProgramListType): void {
   void queryClient.invalidateQueries({ queryKey: ['programme-list-admin', listType] });
   void queryClient.invalidateQueries({ queryKey: ['programme-list', listType] });
+  void queryClient.invalidateQueries({ queryKey: ['programme-list-history', listType] });
 }
 
 /** Provinces with their localités; `all`: inactive localités too (platform admin only). */

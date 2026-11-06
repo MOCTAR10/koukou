@@ -27,6 +27,10 @@ describe('journal filters', () => {
       '?from=2026-11-01&action=WRITE&route=%2Fbatches&page=2&limit=50',
     );
     expect(eventsQueryString({ ...EMPTY_EVENT_FILTERS, actorUserId: UUID })).toBe(`?actorUserId=${UUID}`);
+    // Status and request id are server filters now (`/audit/events` and its export).
+    expect(eventsQueryString({ ...EMPTY_EVENT_FILTERS, status: 'REFUS', requestId: ` ${UUID} ` })).toBe(`?status=4xx&requestId=${UUID}`);
+    expect(eventsQueryString({ ...EMPTY_EVENT_FILTERS, status: 'OK' })).toBe('?status=SUCCES');
+    expect(eventFilterError({ ...EMPTY_EVENT_FILTERS, requestId: 'abc' })).toMatch(/requête/);
     expect(rowChangesQueryString({ ...EMPTY_ROW_FILTERS, requestId: UUID, table: 'farms' }, 1)).toBe(`?table=farms&requestId=${UUID}&page=1&limit=50`);
     expect(exportFileName({ from: '', to: '2026-11-05' })).toBe('journal-audit-debut-2026-11-05.csv');
   });
