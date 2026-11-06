@@ -266,20 +266,19 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         { profileCode: 'DGE' },
         admin,
       ).expect(403);
-      // It grants only rights it holds itself: the seeded agent profile
-      // carries TECHNIQUE and INTRANTS, which the admin profile does not.
-      const beyond = await post(
+      // The national administrator (ALL scope + ADMINISTRATION:ADMINISTRER)
+      // assigns a profile whose rights it doesn't hold itself: the seeded
+      // agent profile carries TECHNIQUE and INTRANTS, the admin profile not.
+      await post(
         '/programme/access/memberships',
         {
-          fullName: `Agent refusé ${digits}`,
+          fullName: `Agent technique par admin ${digits}`,
           phone: phone(),
           profileCode: 'AGENT_TECHNIQUE',
           farmIds: [farmA],
         },
         admin,
-      ).expect(403);
-      expect(beyond.body.message).toContain("droits que vous n'avez pas");
-      expect(beyond.body.message).toContain('Suivi technique : Consulter');
+      ).expect(201);
       const created = await post(
         '/programme/access/memberships',
         {
@@ -308,7 +307,9 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         { fullName: 'Auditeur', phone: phone(), profileCode: 'ANINF' },
         admin,
       ).expect(403);
-      expect(audit.body.message).toContain("Journal d'audit");
+      expect(audit.body.message).toBe(
+        "Accès refusé : seul l'administrateur de la plateforme attribue un profil d'audit.",
+      );
     });
   });
 
@@ -1186,14 +1187,24 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       await login(agent.phone, first.body.loginCode).expect(201);
       const second = await post(url, {}, accounts.ADMIN.token).expect(201);
       await login(agent.phone, second.body.loginCode).expect(201);
-      // Never one's own, never a broader account, never without the rights.
+      // Never one's own, never an account it could not grant (the audit
+      // account is the platform admin's alone; the national administrator may
+      // reset the others, e.g. a technical agent), never without the rights.
+      const tech = await createInstitution('AGENT_TECHNIQUE', {
+        farmIds: [farmA],
+      });
+      await post(
+        `/programme/access/memberships/${tech.id}/login-code`,
+        {},
+        accounts.ADMIN.token,
+      ).expect(201);
       await post(
         `/programme/access/memberships/${accounts.ADMIN.id}/login-code`,
         {},
         accounts.ADMIN.token,
       ).expect(403);
       const broader = await post(
-        `/programme/access/memberships/${accounts.DGE.id}/login-code`,
+        `/programme/access/memberships/${accounts.ANINF.id}/login-code`,
         {},
         accounts.ADMIN.token,
       ).expect(403);

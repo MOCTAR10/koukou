@@ -24,9 +24,8 @@ import {
 } from './access-domains.js';
 import {
   SCOPE_KIND_LABELS,
-  matrixExcessRefusal,
+  grantRefusal,
   scopeExcess,
-  scopeKindRefusal,
   validateMatrix,
   type InstitutionAccess,
 } from './access-rules.js';
@@ -487,9 +486,11 @@ export class AccessAdminService {
   }
 
   /**
-   * No escalation through a profile: an institutional admin grants (or
-   * creates) only a scope kind within its own (ALL > PROVINCES > FARMS; the
-   * other kinds by an ALL scope only) and only rights its own matrix holds.
+   * No escalation through a profile (`grantRefusal`): an institutional admin
+   * grants (or creates) only a scope kind within its own (ALL > PROVINCES >
+   * FARMS; the other kinds by an ALL scope only), never an audit profile, and
+   * only rights its own matrix holds, unless it is the national administrator
+   * (ALL scope + ADMINISTRATION:ADMINISTRER).
    * @throws ForbiddenException
    */
   private assertMayGrantProfile(
@@ -497,9 +498,7 @@ export class AccessAdminService {
     profile: Pick<AccessProfile, 'scopeKind' | 'matrix' | 'label'>,
   ): void {
     if (!granter) return;
-    const refusal =
-      scopeKindRefusal(granter.scopeKind, profile.scopeKind) ??
-      matrixExcessRefusal(granter.matrix, profile.matrix ?? {}, profile.label);
+    const refusal = grantRefusal(granter, profile);
     if (refusal) throw new ForbiddenException(refusal);
   }
 

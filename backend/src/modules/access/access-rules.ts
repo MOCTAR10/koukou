@@ -312,6 +312,50 @@ export function matrixExcessRefusal(
 }
 
 /**
+ * Whether an institutional administrator is the programme's national
+ * administrator: ALL scope and ADMINISTRATION:ADMINISTRER. It assigns any
+ * profile without holding its rights (it manages accounts, it doesn't read
+ * the farms' data): the matrix subset rule doesn't bind it.
+ */
+export function isNationalAdministrator(
+  granter: Pick<InstitutionAccess, 'scopeKind' | 'matrix'>,
+): boolean {
+  return (
+    granter.scopeKind === AccessScopeKind.ALL &&
+    grants(granter.matrix, 'ADMINISTRATION', 'ADMINISTRER')
+  );
+}
+
+/**
+ * Whether an institutional administrator may grant (or create, edit) a
+ * profile; null when allowed, else the French refusal:
+ * - a profile reaching the journal (AUDIT domain or scope) is the platform
+ *   admin's alone, so audit stays apart from administration;
+ * - the scope kind within its own ({@link scopeKindRefusal});
+ * - only rights its own matrix holds, except for the national administrator
+ *   ({@link isNationalAdministrator}).
+ */
+export function grantRefusal(
+  granter: Pick<InstitutionAccess, 'scopeKind' | 'matrix'>,
+  profile: {
+    scopeKind: AccessScopeKind;
+    matrix: AccessMatrix | null;
+    label: string;
+  },
+): string | null {
+  const matrix = profile.matrix ?? {};
+  if (profile.scopeKind === AccessScopeKind.AUDIT || matrix.AUDIT) {
+    return "Accès refusé : seul l'administrateur de la plateforme attribue un profil d'audit.";
+  }
+  return (
+    scopeKindRefusal(granter.scopeKind, profile.scopeKind) ??
+    (isNationalAdministrator(granter)
+      ? null
+      : matrixExcessRefusal(granter.matrix, matrix, profile.label))
+  );
+}
+
+/**
  * The parts of a membership scope outside the granter's own: provinces of a
  * PROVINCES scope, farms of a FARMS scope (by their province for a PROVINCES
  * granter, by id for a FARMS granter). An ALL granter has no excess.
