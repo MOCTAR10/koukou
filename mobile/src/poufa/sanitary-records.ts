@@ -235,3 +235,41 @@ export function postponedLabel(
 export function canRemoveCare(care: Pick<CareRef, 'isReference'>, isInstitution: boolean): boolean {
   return !care.isReference || isInstitution;
 }
+
+/**
+ * Band history line of a treatment (CDC n° 23): type, dosage, period, number
+ * of animals and the reason. Same wording as the server rearing timeline.
+ */
+export function treatmentHistoryDetail(
+  t: {
+    careType: string;
+    dosage?: string | null;
+    administeredAt?: string | null;
+    endDate?: string | null;
+    animalCount?: number | null;
+    reason?: string | null;
+  },
+  careLabel: (type: string) => string,
+  fmt: (d: string) => string = (d) => d.slice(0, 10),
+): string {
+  const start = t.administeredAt ?? '';
+  return [
+    careLabel(t.careType),
+    t.dosage || '',
+    start ? treatmentPeriodLabel(start, t.endDate ?? null, fmt) : '',
+    t.animalCount != null ? `${t.animalCount} sujets` : '',
+    t.reason ? `Motif : ${t.reason}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** Band history line of a completed care: type, date, number of animals. */
+export function careHistoryDetail(
+  p: { careType: string; scheduledDate: string; animalCount?: number | null },
+  careLabel: (type: string) => string,
+): string {
+  return [careLabel(p.careType), p.scheduledDate, p.animalCount != null ? `${p.animalCount} sujets` : '']
+    .filter(Boolean)
+    .join(' · ');
+}

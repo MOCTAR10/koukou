@@ -59,6 +59,7 @@ function RootNavigator() {
         <Stack.Screen name="rapports" />
         <Stack.Screen name="reglages" />
         <Stack.Screen name="rh" />
+        <Stack.Screen name="declarations" />
         <Stack.Screen name="sanitary" />
         <Stack.Screen name="slaughter" />
         {/* POUFA lot A droits: programme economic synthesis (DGE / platform admin). */}

@@ -897,6 +897,10 @@ export interface HealthEvent {
   treatmentGiven?: string | null;
   vetConsulted?: boolean;
   vetName?: string | null;
+  /** Veterinary review (CDC n° 26): null = awaiting the vets. */
+  vetReviewStatus?: 'VALIDEE' | 'INFIRMEE' | 'ALERTE' | null;
+  vetReviewComment?: string | null;
+  vetReviewedAt?: string | null;
   resolvedAt: string | null;
   createdById: string | null;
   createdAt: string;
@@ -961,6 +965,8 @@ export interface SlaughterOrder {
   internalBatchCode: string | null;
   abattoirLotCode: string | null;
   status: SlaughterStatus;
+  /** F4: abattoir operator of the programme register, when chosen. */
+  operatorId?: string | null;
   processedAt: string | null;
   abattoirNotes: string | null;
   createdById: string | null;

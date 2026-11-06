@@ -8,6 +8,7 @@ import {
   Bird,
   BookOpen,
   Briefcase,
+  ClipboardCheck,
   ClipboardList,
   ChevronRight,
   Coins,
@@ -73,6 +74,8 @@ interface MenuItem {
   fermiaArea?: FermiaArea;
   /** Programme domain of a bonus screen: an institution sees it with `<domain>:CONSULTER` (POUFA lot A2 dge). */
   programmeArea?: ProgrammeBonusArea;
+  /** Veterinary tile: an institution sees it with SANITAIRE:VALIDER (declaration review). */
+  vetReview?: boolean;
 }
 
 interface MenuGroup {
@@ -189,6 +192,7 @@ export default function MenuScreen() {
       items: [
         { key: 'activites', label: 'Activités', icon: Activity, href: '/activites' },
         { key: 'sanitaire', label: 'Sanitaire', icon: Stethoscope, href: '/sanitary', perms: ['sanitaire:lecture'], programmeArea: 'SANITAIRE' },
+        { key: 'declarations', label: 'Déclarations', icon: ClipboardCheck, href: '/declarations', vetReview: true },
         { key: 'stock', label: 'Stock & provendes', icon: Wheat, href: '/provende', perms: ['stock:gerer'], programmeArea: 'INTRANTS' },
         { key: 'abattage', label: 'Abattage', icon: Drumstick, href: '/slaughter', perms: ['production:abattage'], programmeArea: 'TRACABILITE' },
         ...poufa.deliveries,

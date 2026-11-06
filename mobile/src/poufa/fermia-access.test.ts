@@ -103,3 +103,12 @@ describe('menuItemVisible', () => {
     expect(menuItemVisible('ELEVEUR', slaughter, none, dge)).toBe(false);
   });
 });
+
+describe('menuItemVisible: veterinary review tile', () => {
+  const tile = { vetReview: true };
+  it('needs an institution with SANITAIRE:VALIDER', () => {
+    expect(menuItemVisible('INSTITUTION', tile, codes(), { SANITAIRE: ['CONSULTER', 'VALIDER'] })).toBe(true);
+    expect(menuItemVisible('INSTITUTION', tile, codes(), { SANITAIRE: ['CONSULTER'] })).toBe(false);
+    expect(menuItemVisible('PROPRIETAIRE', tile, codes('sanitaire:lecture'), null)).toBe(false);
+  });
+});

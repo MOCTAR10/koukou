@@ -511,6 +511,7 @@ export interface TraceOperator {
   code: string;
   name: string;
   typeCode: string;
+  typeFamily?: string | null;
   active: boolean;
 }
 
@@ -582,4 +583,42 @@ export interface FarmGpsResult {
 
 export function setFarmGps(farmId: string, payload: FarmGpsPayload): Promise<FarmGpsResult> {
   return apiFetch<FarmGpsResult>(`/programme/farms/${farmId}/gps`, { method: 'PUT', body: payload });
+}
+
+// ── Veterinary review of the declarations (SANITAIRE:VALIDER, CDC n° 26) ──
+
+export interface SanitaryDeclaration {
+  id: string;
+  farmId: string;
+  farmCode: string | null;
+  farmName: string | null;
+  batchId: string;
+  batchCode: string | null;
+  provinceName: string | null;
+  kind: HealthEventKind;
+  occurredAt: string;
+  severity: AlertLevel;
+  quantity: number;
+  title: string;
+  description: string | null;
+  symptoms: string | null;
+  clinicalSigns: string[];
+  suspicion: boolean;
+  createdByName: string | null;
+  alertCode: string | null;
+  reviewStatus: 'VALIDEE' | 'INFIRMEE' | 'ALERTE' | null;
+  reviewComment: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  reviewState: 'A_EXAMINER' | 'VALIDEE' | 'INFIRMEE' | 'ALERTE';
+}
+
+/** `GET /surveillance/declarations`: the register, veterinary authority only. */
+export function fetchDeclarations(state?: SanitaryDeclaration['reviewState']): Promise<{ items: SanitaryDeclaration[]; total: number }> {
+  return apiFetch(`/surveillance/declarations${state ? `?state=${state}` : ''}`);
+}
+
+/** `POST /surveillance/declarations/:id/review`: once, final. */
+export function reviewDeclaration(id: string, body: { decision: 'VALIDEE' | 'INFIRMEE' | 'ALERTE'; comment?: string }): Promise<SanitaryDeclaration> {
+  return apiFetch(`/surveillance/declarations/${id}/review`, { method: 'POST', body });
 }

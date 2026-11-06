@@ -110,6 +110,8 @@ import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 // POUFA lot A sante: treatment register and care completion (CDC n° 22-23), offline.
 import { CompleteCareSheet, TreatmentSheet } from '@/components/sanitary/SanitaryRecordSheets';
 import { treatmentPeriodLabel } from '@/poufa/sanitary-records';
+import { reviewBadge } from '@/poufa/declaration-review';
+import { librevilleDay } from '@/utils/libreville';
 
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements' | 'alertes';
 
@@ -125,7 +127,7 @@ const TAB_KEYS: readonly TabKey[] = ['sante', 'check', 'maladies', 'traitements'
 
 /** Clock of the band picker, kept out of render (purity convention). */
 function todayIsoUtc(): string {
-  return new Date().toISOString().slice(0, 10);
+  return librevilleDay();
 }
 
 const CARE_TYPE_LABEL: Record<CareType, string> = {
@@ -592,6 +594,22 @@ function DiseaseFields({
   );
 }
 
+/** Decision of the veterinary services on a declaration (CDC n° 26), farm side. */
+function VetReviewBadge({ e }: { e: HealthEvent }) {
+  const b = reviewBadge(e);
+  const tone = b.tone === 'success' ? 'green' : b.tone === 'danger' ? 'red' : b.tone === 'warn' ? 'amber' : 'neutral';
+  return (
+    <>
+      <Chip label={b.label} tone={tone} dot />
+      {b.comment ? (
+        <AppText size="caption" color="muted">
+          « {b.comment} »
+        </AppText>
+      ) : null}
+    </>
+  );
+}
+
 function HealthEventRow({
   e,
   canDelete,
@@ -640,6 +658,7 @@ function HealthEventRow({
             </AppText>
           ) : null}
           <Chip label={resolved ? 'Résolu' : 'En cours'} tone={levelTone(resolved ? 'VERT' : 'ROUGE')} dot />
+          <VetReviewBadge e={e} />
         </View>
       </View>
       <View style={styles.actions}>

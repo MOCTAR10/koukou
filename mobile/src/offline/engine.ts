@@ -53,6 +53,7 @@ import { withCapture, withSendTime } from '@/poufa/entry-sync';
 
 import { deviceId } from './device-id';
 import { discardPhoto, photoExists } from './photo-files';
+import { librevilleIso } from '@/utils/libreville';
 
 import {
   bumpAttempts,
@@ -422,7 +423,8 @@ export async function recordCustomerPaymentQueued(
 export async function deliverOrderQueued(farmId: string, orderId: string): Promise<SendResult> {
   // POUFA lot A2 divers: the delivery time is fixed now; a replay sends it
   // so the cession and the delivery keep this day (backend delivery-day.ts).
-  const capturedAt = new Date().toISOString();
+  // The cession keeps the Gabon day (Africa/Libreville, +01:00), not the UTC one.
+  const capturedAt = librevilleIso();
   const device = deviceId();
   return sendOrQueue(
     {
@@ -659,7 +661,7 @@ export function createSortieQueued(
     payload: {
       ...sortie,
       idempotencyKey: sortie.idempotencyKey ?? opId,
-      capturedAt: sortie.capturedAt ?? new Date().toISOString(),
+      capturedAt: sortie.capturedAt ?? librevilleIso(),
     },
   };
   return sendOrQueueWith({ id: opId, kind: 'sortie', farmId, batchId, payload }, () => sendSortie(farmId, payload));
