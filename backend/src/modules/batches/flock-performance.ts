@@ -23,6 +23,17 @@ export interface FlockTimeline {
   integrationDate: string;
   quantityAtStart: number;
   day1WeightKg: number;
+  /**
+   * Age of the birds at `integrationDate` (POUFA band opened at J+x; 0 or
+   * absent: chicks placed at J0). The age on a day is this offset plus the
+   * days since integration.
+   */
+  initialAgeDays?: number | null;
+  /**
+   * Average weight measured at the opening (kg). Growth then counts from the
+   * opening; without it, from hatching at `day1WeightKg` (age 0).
+   */
+  initialWeightKg?: number | null;
   /** Entries in any order; dates are YYYY-MM-DD. */
   entries: FlockEntry[];
   /** Birds removed per date (sales, slaughter, sanitary culls). */
@@ -36,7 +47,7 @@ export interface FlockTimeline {
 
 export interface PerformanceAtWeighing {
   weighingDate: string;
-  /** Age at the weighing (days since integration). */
+  /** Age of the birds at the weighing (initialAgeDays + days since integration). */
   ageDays: number;
   avgWeightKg: number;
   population: number;
@@ -72,6 +83,33 @@ export function daysBetween(from: string, to: string): number {
   return Math.max(0, Math.floor((b - a) / 86400000));
 }
 
+/**
+ * Starting point of the growth curve: the weight measured at the opening
+ * when there is one, else the chick weight at age 0 (the integration date
+ * moved back by `initialAgeDays`). For a lot placed at J0 without a measured
+ * weight: (integrationDate, day1WeightKg), as before.
+ */
+export function growthOrigin(
+  t: Pick<
+    FlockTimeline,
+    'integrationDate' | 'day1WeightKg' | 'initialAgeDays' | 'initialWeightKg'
+  >,
+): { date: string; kg: number } {
+  if (t.initialWeightKg != null && t.initialWeightKg > 0) {
+    return { date: t.integrationDate, kg: t.initialWeightKg };
+  }
+  const offset = t.initialAgeDays ?? 0;
+  const date =
+    offset > 0
+      ? new Date(
+          Date.parse(`${t.integrationDate}T00:00:00Z`) - offset * 86400000,
+        )
+          .toISOString()
+          .slice(0, 10)
+      : t.integrationDate;
+  return { date, kg: t.day1WeightKg };
+}
+
 /** Headcount at the end of `date`. */
 export function populationOn(t: FlockTimeline, date: string): number {
   let out = 0;
@@ -92,12 +130,13 @@ function weighings(t: FlockTimeline, upTo?: string) {
 }
 
 /**
- * Average weight on `date`, linearly interpolated between day 1 and the
- * weighings (held flat after the last one).
+ * Average weight on `date`, linearly interpolated between the growth origin
+ * (day 1, or the weight at a J+x opening) and the weighings (held flat
+ * after the last one).
  */
 export function weightOn(t: FlockTimeline, date: string): number {
   const points = [
-    { date: t.integrationDate, kg: t.day1WeightKg },
+    growthOrigin(t),
     ...weighings(t).map((e) => ({ date: e.entryDate, kg: e.avgWeightKg! })),
   ];
   let prev = points[0];
@@ -123,7 +162,10 @@ export function performanceAtLastWeighing(
   if (!last) return null;
   const date = last.entryDate;
   const kg = last.avgWeightKg!;
-  const ageDays = daysBetween(t.integrationDate, date);
+  const ageDays =
+    (t.initialAgeDays ?? 0) + daysBetween(t.integrationDate, date);
+  const origin = growthOrigin(t);
+  const growthDays = daysBetween(origin.date, date);
   const population = populationOn(t, date);
 
   let feedKg = 0;
@@ -134,22 +176,22 @@ export function performanceAtLastWeighing(
     feedKg += e.feedQuantity;
     deaths += e.deaths;
     if (e.deaths > 0) {
-      removedGainKg += e.deaths * (weightOn(t, e.entryDate) - t.day1WeightKg);
+      removedGainKg += e.deaths * (weightOn(t, e.entryDate) - origin.kg);
     }
   }
   for (const [d, n] of t.removalsByDate) {
     if (d > date || n <= 0) continue;
-    removedGainKg += n * (weightOn(t, d) - t.day1WeightKg);
+    removedGainKg += n * (weightOn(t, d) - origin.kg);
   }
   for (const [d, n] of t.deathEventsByDate ?? []) {
     if (d <= date) deaths += n;
   }
   const biomassGainKg =
-    population * (kg - t.day1WeightKg) + Math.max(0, removedGainKg);
+    population * (kg - origin.kg) + Math.max(0, removedGainKg);
 
   const fcr = biomassGainKg > 0 && feedKg > 0 ? feedKg / biomassGainKg : null;
   const gmqGramsPerDay =
-    ageDays > 0 ? ((kg - t.day1WeightKg) * 1000) / ageDays : null;
+    growthDays > 0 ? ((kg - origin.kg) * 1000) / growthDays : null;
   const viabilityPercent =
     t.quantityAtStart > 0
       ? Math.max(0, 100 - (deaths / t.quantityAtStart) * 100)

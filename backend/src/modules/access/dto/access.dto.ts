@@ -139,6 +139,38 @@ export class CreateMembershipDto extends MembershipScopeDto {
 }
 
 export class UpdateMembershipDto extends MembershipScopeDto {
+  @ApiPropertyOptional({ example: 'Agent DGE Estuaire' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @IsNotEmpty({ message: 'Le nom complet est obligatoire.' })
+  @MaxLength(120)
+  fullName?: string;
+
+  @ApiPropertyOptional({
+    example: '+24174123456',
+    description: 'Nouveau numéro (identifiant de connexion du compte)',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizePhone(value) : value,
+  )
+  @IsString()
+  @Matches(/^\+?\d{8,15}$/, { message: 'Numéro de téléphone invalide.' })
+  phone?: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Adresse e-mail ; null : retirée',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() || null : value,
+  )
+  @ValidateIf((_, v) => v !== null)
+  @IsEmail({}, { message: 'Adresse e-mail invalide.' })
+  email?: string | null;
+
   @ApiPropertyOptional({ description: "Nouveau profil d'accès (code)" })
   @IsOptional()
   @Transform(({ value }) =>

@@ -3,6 +3,7 @@ import {
   avgDailyWaterPerBird,
   FlockEntry,
   FlockTimeline,
+  growthOrigin,
   performanceAtLastWeighing,
   populationOn,
   waterPerBirdOn,
@@ -70,6 +71,27 @@ describe('flock-performance', () => {
     expect(p.gmqGramsPerDay).toBeCloseTo(50, 6);
     expect(p.viabilityPercent).toBe(100);
     expect(p.ipe).toBeCloseTo((1.445 * 100 * 100) / (28 * (2000 / 1120)), 6);
+  });
+
+  it('bande reçue à J+x : âge = âge à l’ouverture + jours depuis l’intégration', () => {
+    // Same lot received at 10 days old, no weight measured at opening: the
+    // chick weight is at age 0, ten days before integration.
+    const t = timeline({ initialAgeDays: 10 });
+    expect(growthOrigin(t)).toEqual({ date: '2025-12-22', kg: 0.045 });
+    const p = performanceAtLastWeighing(t)!;
+    expect(p.ageDays).toBe(38);
+    expect(p.gmqGramsPerDay).toBeCloseTo(((1.445 - 0.045) * 1000) / 38, 6);
+    // With a weight measured at opening, growth counts from the opening.
+    const measured = timeline({ initialAgeDays: 10, initialWeightKg: 0.3 });
+    expect(growthOrigin(measured)).toEqual({ date: '2026-01-01', kg: 0.3 });
+    const m = performanceAtLastWeighing(measured)!;
+    expect(m.ageDays).toBe(38);
+    expect(m.gmqGramsPerDay).toBeCloseTo(((1.445 - 0.3) * 1000) / 28, 6);
+    expect(weightOn(measured, '2026-01-01')).toBeCloseTo(0.3, 6);
+    // A lot placed at J0 is unchanged.
+    expect(performanceAtLastWeighing(timeline({ initialAgeDays: 0 }))).toEqual(
+      performanceAtLastWeighing(timeline()),
+    );
   });
 
   it('les morts comptent dans la biomasse au poids du jour de leur mort', () => {

@@ -211,4 +211,19 @@ export class ProgrammeFarmsController {
   ) {
     return this.registry.activateOwner(farmId, dto);
   }
+
+  @Post(':farmId/owner-login-code')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @ApiOperation({
+    summary:
+      'Nouveau code de connexion du compte Propriétaire de la ferme (renvoyé une seule fois)',
+  })
+  ownerLoginCode(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId', uuid) farmId: string,
+  ) {
+    return this.registry.regenerateOwnerLoginCode(user, farmId);
+  }
 }
