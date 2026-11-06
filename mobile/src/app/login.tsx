@@ -31,7 +31,10 @@ export default function LoginScreen() {
     const back = safeReturnPath(from);
     // dismissTo pops back to the screen they came from, instead of stacking a second copy of it.
     if (back) router.dismissTo(back as Href);
-    else router.replace(homeRouteFor(loadSession()?.user.role) as Href);
+    else {
+      const session = loadSession();
+      router.replace(homeRouteFor(session?.user.role, session?.farms.length ?? 0) as Href);
+    }
   };
 
   const submit = async () => {
@@ -97,7 +100,7 @@ export default function LoginScreen() {
                 </AppText>
               ) : null}
               <View style={{ gap: 8, marginTop: 4 }}>
-                <Button label="Continuer" tone="primary" icon={ArrowRight} onPress={() => router.replace(homeRouteFor(user.role) as Href)} />
+                <Button label="Continuer" tone="primary" icon={ArrowRight} onPress={() => router.replace(homeRouteFor(user.role, farms.length) as Href)} />
                 <Button label="Se déconnecter" tone="ghost" icon={LogOut} onPress={() => signOut()} />
               </View>
             </View>

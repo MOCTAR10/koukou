@@ -20,6 +20,7 @@ import { OfflineAutoSync } from '@/components/OfflineAutoSync';
 import { FeedbackHost } from '@/components/ui/Feedback';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { semantic } from '@/constants/theme';
+import { accountArea } from '@/api/roles';
 
 // Keep the native splash up until the brand typeface is ready, so the first
 // frame never flashes in the system font.
@@ -30,9 +31,11 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
-  const { signedIn, user } = useAuth();
-  // By role, not by farms.length: staff without a farm keep the farm screens.
-  const isBuyer = user.role === 'ACHETEUR';
+  const { signedIn, user, farms } = useAuth();
+  // A buyer only ever reaches the Market area (by role, whatever farms says);
+  // any other account without a farm gets the « no farm » screen. A denied
+  // route (deep link) falls back to the first screen its guard allows.
+  const area = accountArea(user.role, farms.length);
 
   return (
     <Stack
@@ -40,7 +43,7 @@ function RootNavigator() {
         headerShown: false,
         contentStyle: { backgroundColor: semantic.bg },
       }}>
-      <Stack.Protected guard={signedIn && !isBuyer}>
+      <Stack.Protected guard={signedIn && area === 'farm'}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="lot/[id]" />
         <Stack.Screen name="commande/[id]" />
@@ -60,8 +63,11 @@ function RootNavigator() {
         <Stack.Screen name="slaughter" />
         <Stack.Screen name="tasks" />
       </Stack.Protected>
-      <Stack.Protected guard={signedIn && isBuyer}>
+      <Stack.Protected guard={signedIn && area === 'buyer'}>
         <Stack.Screen name="(acheteur)" />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn && area === 'no-farm'}>
+        <Stack.Screen name="sans-ferme" />
       </Stack.Protected>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="achat/[id]" />

@@ -319,7 +319,7 @@ export function fetchFarmMembers(farmId: string): Promise<FarmMember[]> {
   return live.fetchFarmMembers(farmId);
 }
 
-export function fetchFarmProfile(farmId: string): Promise<FarmMemberProfile> {
+export function fetchFarmProfile(farmId: string): Promise<FarmMemberProfile | null> {
   return live.fetchFarmProfile(farmId);
 }
 

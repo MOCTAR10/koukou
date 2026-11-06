@@ -7,7 +7,7 @@ import { clearQueue, clearRejected, loadOps } from '@/offline';
 import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
 import type { CustomerType, Farm, PublicUser } from '@/api/types';
-import { INVALID_LOGIN_ANSWER, readLoginAnswer, type OtpChallenge } from './session-rules';
+import { INVALID_LOGIN_ANSWER, readLoginAnswer, resolveActiveFarmId, type OtpChallenge } from './session-rules';
 
 export interface RegisterBuyerInput {
   phone: string;
@@ -218,22 +218,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const refreshFarms = useCallback(async () => {
-    setSession((prev) => {
-      if (!prev?.token) return prev;
-      void apiFetch<Farm[]>('/farms')
-        .then((farms) => {
-          const next: StoredSession = { ...prev, farms };
-          saveSession(next);
-          setSession((cur) => (cur?.token === prev.token ? next : cur));
-        })
-        .catch(() => undefined);
-      return prev;
-    });
+    const token = loadSession()?.token;
+    if (!token) return;
+    try {
+      const farms = await apiFetch<Farm[]>('/farms');
+      const current = loadSession();
+      // Signed out or another account meanwhile: drop the answer.
+      if (!current || current.token !== token) return;
+      const next: StoredSession = { ...current, farms };
+      saveSession(next);
+      setSession(next);
+    } catch {
+      // Keep the farms already known (offline).
+    }
   }, []);
 
   const value = useMemo<AuthContextValue>(() => {
     const signedIn = Boolean(session?.token);
-    const activeFarmId = session?.activeFarmId ?? session?.farms[0]?.id ?? '';
+    const activeFarmId = resolveActiveFarmId(session?.farms ?? [], session?.activeFarmId, session?.user.role);
     return {
       mode: 'live',
       farmMode: session?.mode ?? 'aviculture',

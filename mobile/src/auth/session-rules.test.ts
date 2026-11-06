@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { readLoginAnswer } from './session-rules';
+import { readLoginAnswer, resolveActiveFarmId } from './session-rules';
 
 const user = { id: 'u-1', fullName: 'M. Test', phone: '+24177000000', role: 'PROPRIETAIRE' };
 
@@ -44,5 +44,26 @@ describe('readLoginAnswer', () => {
     expect(readLoginAnswer({ accessToken: 'jwt', user: { fullName: 'X' } }).kind).toBe('invalid');
     expect(readLoginAnswer(null).kind).toBe('invalid');
     expect(readLoginAnswer('ok').kind).toBe('invalid');
+  });
+});
+
+describe('resolveActiveFarmId', () => {
+  const farms = [{ id: 'f-1' }, { id: 'f-2' }];
+
+  it('garde la ferme choisie si elle est toujours rattachée', () => {
+    expect(resolveActiveFarmId(farms, 'f-2', 'PROPRIETAIRE')).toBe('f-2');
+  });
+
+  it('retombe sur la première ferme quand le choix a disparu', () => {
+    expect(resolveActiveFarmId(farms, 'f-9', 'INSTITUTION')).toBe('f-1');
+    expect(resolveActiveFarmId(farms, undefined, 'ELEVEUR')).toBe('f-1');
+  });
+
+  it('aucune ferme : identifiant vide (aucun appel /farms//…)', () => {
+    expect(resolveActiveFarmId([], 'f-1', 'PROPRIETAIRE')).toBe('');
+  });
+
+  it('un acheteur n’a jamais de ferme active', () => {
+    expect(resolveActiveFarmId(farms, 'f-1', 'ACHETEUR')).toBe('');
   });
 });

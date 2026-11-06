@@ -716,8 +716,9 @@ export class LiveApi {
     return apiFetch<FarmMember[]>(`/farms/${farmId}/eleveurs`);
   }
 
-  async fetchFarmProfile(farmId: string): Promise<FarmMemberProfile> {
-    return apiFetch<FarmMemberProfile>(`/farms/${farmId}/me`);
+  /** null: the account has no profile on this farm (the server answers an empty body). */
+  async fetchFarmProfile(farmId: string): Promise<FarmMemberProfile | null> {
+    return apiFetch<FarmMemberProfile | null>(`/farms/${farmId}/me`);
   }
 
   async fetchPermissionCatalog(farmId: string): Promise<PermissionCatalog> {

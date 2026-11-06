@@ -69,7 +69,9 @@ export interface Farm {
   longitude: number | null;
 }
 
-export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN' | 'ACHETEUR';
+/** Mirror of the backend `UserRole`: INSTITUTION = programme institutions
+ *  (DGE, vétérinaires, agents…), OPERATEUR = reserved, refused at login. */
+export type UserRole = 'PROPRIETAIRE' | 'ELEVEUR' | 'PLATFORM_ADMIN' | 'ACHETEUR' | 'INSTITUTION' | 'OPERATEUR';
 
 /** Rôle de membre du staff ferme (Administrateur Fermia / Éleveur Fermia). */
 export type FarmStaffRole = 'ADMIN' | 'ELEVEUR';
@@ -180,7 +182,8 @@ export interface AssignableTeamMember {
 /** Profil « moi » sur une ferme (GET /farms/:id/me) : personnalité + poste + droits effectifs. */
 export interface FarmMemberProfile {
   farmId: string;
-  role: 'PROPRIETAIRE' | FarmStaffRole;
+  /** INSTITUTION: programme account within its scope (jobTitle = access profile label). */
+  role: 'PROPRIETAIRE' | FarmStaffRole | 'INSTITUTION';
   jobTitle: string | null;
   buildingAssignment: string | null;
   active: boolean;

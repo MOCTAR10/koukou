@@ -1,4 +1,4 @@
-import type { PublicUser } from '@/api/types';
+import type { Farm, PublicUser, UserRole } from '@/api/types';
 
 /** Second login step of an institutional account (INSTITUTION_OTP=sms). */
 export interface OtpChallenge {
@@ -49,3 +49,18 @@ export function readLoginAnswer(raw: unknown): LoginAnswer {
 
 /** French message shown when the server answer can't open a session. */
 export const INVALID_LOGIN_ANSWER = 'Réponse inattendue du serveur. Réessayez dans un instant.';
+
+/**
+ * Farm the screens work on: the one picked if it is still one of the
+ * account's farms, else the first. A buyer never has one, so no farm route
+ * (`/farms//…`) is ever called for him.
+ */
+export function resolveActiveFarmId(
+  farms: readonly Pick<Farm, 'id'>[],
+  picked: string | undefined,
+  role: UserRole | undefined,
+): string {
+  if (role === 'ACHETEUR') return '';
+  if (picked && farms.some((f) => f.id === picked)) return picked;
+  return farms[0]?.id ?? '';
+}
