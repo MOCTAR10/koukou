@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  careHistoryDetail,
+  treatmentHistoryDetail,
   canRemoveCare,
   careNeedsTreatmentDetails,
   careOpensTreatment,
@@ -153,5 +155,26 @@ describe('reference calendar steps', () => {
     expect(canRemoveCare({ isReference: true }, false)).toBe(false);
     expect(canRemoveCare({ isReference: true }, true)).toBe(true);
     expect(canRemoveCare({ isReference: false }, false)).toBe(true);
+  });
+});
+
+describe('band history details (CDC n° 23)', () => {
+  const label = (c: string) => (c === 'ANTIBIOTIQUE' ? 'Antibiotique' : c);
+  it('shows period, count and reason of a treatment', () => {
+    expect(
+      treatmentHistoryDetail(
+        { careType: 'ANTIBIOTIQUE', dosage: '1 g/L', administeredAt: '2026-10-01', endDate: '2026-10-05', animalCount: 480, reason: 'Coryza' },
+        label,
+      ),
+    ).toBe('Antibiotique · 1 g/L · du 2026-10-01 au 2026-10-05 · 480 sujets · Motif : Coryza');
+  });
+  it('omits the missing parts and a one-day period', () => {
+    expect(treatmentHistoryDetail({ careType: 'VITAMINE', administeredAt: '2026-10-01', endDate: '2026-10-01' }, label)).toBe(
+      'VITAMINE · 2026-10-01',
+    );
+  });
+  it('shows the animal count of a completed care', () => {
+    expect(careHistoryDetail({ careType: 'VACCIN', scheduledDate: '2026-10-02', animalCount: 500 }, label)).toBe('VACCIN · 2026-10-02 · 500 sujets');
+    expect(careHistoryDetail({ careType: 'VACCIN', scheduledDate: '2026-10-02' }, label)).toBe('VACCIN · 2026-10-02');
   });
 });

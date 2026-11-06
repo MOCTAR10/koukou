@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { toast } from '@/components/ui/Feedback';
+import { careHistoryDetail, treatmentHistoryDetail } from '@/poufa/sanitary-records';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
@@ -450,7 +451,7 @@ export default function LotDetailScreen() {
         date: t.administeredAt?.slice(0, 10) ?? '',
         kind: 'treatment',
         label: t.productName,
-        detail: `${CARE_LABEL[t.careType] ?? t.careType}${t.dosage ? ` · ${t.dosage}` : ''}`,
+        detail: treatmentHistoryDetail(t, (c) => CARE_LABEL[c] ?? c),
         icon: Syringe,
         tone: 'brand',
       });
@@ -463,7 +464,7 @@ export default function LotDetailScreen() {
           date: p.completedAt?.slice(0, 10) ?? p.scheduledDate,
           kind: 'prophylaxis',
           label: p.name,
-          detail: `${CARE_LABEL[p.careType] ?? p.careType} · ${p.scheduledDate}`,
+          detail: careHistoryDetail(p, (c) => CARE_LABEL[c] ?? c),
           icon: Pill,
           tone: 'green',
         });
