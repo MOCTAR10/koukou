@@ -21,6 +21,7 @@ import {
   findStaffProfile,
   isPermissionCode,
   type PermissionCode,
+  withDormantPermissions,
 } from '../../common/permissions/permission-catalog.js';
 import { CreateElevageDto } from './dto/create-eleveur.dto.js';
 import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
@@ -36,7 +37,8 @@ import { ScopeResolver } from '../access/scope-resolver.service.js';
  * is only created by the programme registry (`POST /programme/farms`).
  */
 export interface FarmDetailsInput {
-  name?: string;
+  /** Refused (400): the name belongs to the registry (duplicate check). */
+  name?: unknown;
   administrativeCity?: string;
   buildingCount?: number | null;
   capacityPerBuilding?: number | null;
@@ -101,6 +103,15 @@ export function uploadsRoot(): string {
 }
 
 /** Hides the HR record (salary, contract, notes) of a staff link. */
+/** French message of the 400 when a farm is renamed outside the registry. */
+export const FARM_NAME_IN_REGISTRY =
+  'Le nom d’une ferme du programme se modifie dans le registre (fiche de la ferme, PATCH /programme/farms/:farmId), qui contrôle les doublons.';
+
+/** A member's stored codes as the apps see them: dormant ones left out. */
+function servedPermissions(codes: readonly string[] | null | undefined): string[] {
+  return (codes ?? []).filter(isPermissionCode);
+}
+
 function withoutHr<T extends Partial<FarmEmployee>>(link: T): T {
   return {
     ...link,
@@ -422,7 +433,10 @@ export class FarmsService {
     input: FarmDetailsInput,
   ): Promise<Farm> {
     const farm = await this.assertAccessible(user, farmId);
-    if (input.name != null) farm.name = input.name;
+    if (input.name !== undefined) {
+      // Renaming here would bypass the registry's duplicate detection.
+      throw new BadRequestException(FARM_NAME_IN_REGISTRY);
+    }
     if (input.administrativeCity != null)
       farm.administrativeCity = input.administrativeCity;
     if (input.buildingCount !== undefined)
@@ -523,8 +537,10 @@ export class FarmsService {
     }
     // Only the owner may edit (suspend, demote, strip) a member holding a
     // right the caller lacks.
+    // Dormant (« Évolution ») codes grant nothing: they neither protect a
+    // member nor need to be held to be kept on a link.
     const stronger = (opts.targetPermissions ?? []).filter(
-      (c) => !eff.permissions.has(c as PermissionCode),
+      (c) => isPermissionCode(c) && !eff.permissions.has(c),
     );
     if (stronger.length > 0) {
       throw new ForbiddenException(
@@ -532,7 +548,7 @@ export class FarmsService {
       );
     }
     const missing = granted.filter(
-      (c) => !eff.permissions.has(c as PermissionCode),
+      (c) => isPermissionCode(c) && !eff.permissions.has(c),
     );
     if (missing.length > 0) {
       throw new ForbiddenException(
@@ -676,6 +692,7 @@ export class FarmsService {
     if (!link) {
       throw new NotFoundException('Membre introuvable dans cette ferme.');
     }
+    const storedPermissions = link.permissions ?? [];
     const touchesHr =
       dto.department !== undefined ||
       dto.contractType !== undefined ||
@@ -753,13 +770,20 @@ export class FarmsService {
       }
       link.permissions = dto.permissions;
     }
+    const replaced =
+      profile !== undefined ||
+      dto.role !== undefined ||
+      dto.permissions !== undefined;
+    if (replaced && link.role === FarmStaffRole.ADMIN) {
+      // A replaced list keeps the dormant codes the link held.
+      link.permissions = withDormantPermissions(
+        link.permissions ?? [],
+        storedPermissions,
+      );
+    }
     // Whatever path set them (profile, role switch, explicit list), the caller
     // must hold every permission the member ends up with.
-    if (
-      profile ||
-      dto.role !== undefined ||
-      dto.permissions !== undefined
-    ) {
+    if (replaced) {
       await this.assertCanDelegate(auth, farmId, link.permissions ?? [], {});
     }
 
@@ -772,7 +796,8 @@ export class FarmsService {
     }
 
     const saved = await this.employeeRepo.save(link);
-    return (await this.canReadHr(auth, farmId)) ? saved : withoutHr(saved);
+    const shown = { ...saved, permissions: servedPermissions(saved.permissions) };
+    return (await this.canReadHr(auth, farmId)) ? shown : withoutHr(shown);
   }
 
   /** Salary and contract data need rh:lire (owner and platform admin: always). */
@@ -800,7 +825,10 @@ export class FarmsService {
       return {
         ...(hr ? rest : withoutHr(rest)),
         role: this.staffRole(rest.role),
-        permissions: this.staffRole(rest.role) === FarmStaffRole.ADMIN ? e.permissions : [...ELEVEUR_DEFAULT_PERMISSIONS],
+        permissions:
+          this.staffRole(rest.role) === FarmStaffRole.ADMIN
+            ? servedPermissions(e.permissions)
+            : [...ELEVEUR_DEFAULT_PERMISSIONS],
         user: this.publicUser(user),
       };
     });

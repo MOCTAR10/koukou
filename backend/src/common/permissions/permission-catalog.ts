@@ -1,11 +1,11 @@
 import { FarmStaffRole } from '../enums/farm-staff-role.enum.js';
 
 /**
- * Catalogue des permissions accordables par le Propriétaire à un
- * « Administrateur Fermia ». C'est la source de vérité exposée via
- * GET /farms/:farmId/permissions (et utilisée par le PermissionsGuard).
+ * Every permission group the code knows, dormant « Évolution » groups
+ * included: `PermissionCode` derives from it so the dormant routes keep
+ * compiling. What the apps are offered is {@link PERMISSION_GROUPS}.
  */
-export const PERMISSION_GROUPS = [
+export const PERMISSION_CATALOG = [
   {
     key: 'team',
     label: 'Équipe & profils',
@@ -206,7 +206,29 @@ export const PERMISSION_GROUPS = [
   },
 ] as const;
 
-export type PermissionCode = (typeof PERMISSION_GROUPS)[number]['items'][number]['code'];
+export type PermissionGroupKey = (typeof PERMISSION_CATALOG)[number]['key'];
+
+export type PermissionCode = (typeof PERMISSION_CATALOG)[number]['items'][number]['code'];
+
+/**
+ * Switch for the groups whose module is hidden from the apps (« Évolution »,
+ * outside the POUFA spec): they are left out of the served catalogue, a
+ * payload naming one of their codes is refused like an unknown code, and a
+ * code of theirs already stored on a member link stays in the database but
+ * grants nothing. Remove a key to turn its group back on.
+ */
+export const EVOLUTION_PERMISSION_GROUPS: ReadonlySet<PermissionGroupKey> =
+  new Set<PermissionGroupKey>(['agriculture']);
+
+/**
+ * Catalogue des permissions accordables par le Propriétaire à un
+ * « Administrateur Fermia » : la source de vérité exposée via
+ * GET /farms/:farmId/permissions (et utilisée par le PermissionsGuard),
+ * sans les groupes « Évolution ».
+ */
+export const PERMISSION_GROUPS = PERMISSION_CATALOG.filter(
+  (g) => !EVOLUTION_PERMISSION_GROUPS.has(g.key),
+);
 
 export interface PermissionDefinition {
   code: PermissionCode;
@@ -222,8 +244,34 @@ export const ALL_PERMISSIONS: ReadonlySet<PermissionCode> = new Set(
   PERMISSIONS.map((p) => p.code),
 );
 
+/** A code of the served catalogue (dormant « Évolution » codes excluded). */
 export function isPermissionCode(value: unknown): value is PermissionCode {
   return typeof value === 'string' && ALL_PERMISSIONS.has(value as PermissionCode);
+}
+
+const DORMANT_PERMISSIONS: ReadonlySet<string> = new Set(
+  PERMISSION_CATALOG.filter((g) => EVOLUTION_PERMISSION_GROUPS.has(g.key))
+    .flatMap((g) => g.items.map((item) => item.code)),
+);
+
+/** A code of an « Évolution » group: known, kept when stored, never granted. */
+export function isDormantPermissionCode(value: unknown): boolean {
+  return typeof value === 'string' && DORMANT_PERMISSIONS.has(value);
+}
+
+/**
+ * The list to store when a member's permissions are replaced: the new
+ * (served) codes plus the dormant codes the link already held, so turning
+ * an « Évolution » group back on gives them back.
+ */
+export function withDormantPermissions(
+  next: readonly string[],
+  previous: readonly string[] | null | undefined,
+): string[] {
+  const kept = (previous ?? []).filter(
+    (c) => isDormantPermissionCode(c) && !next.includes(c),
+  );
+  return [...next, ...kept];
 }
 
 /** Droits FIXES de l'Éleveur Fermia (terrain) — jamais modifiables. */

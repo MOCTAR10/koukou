@@ -1,4 +1,7 @@
-import type { PermissionCode } from '../../common/permissions/permission-catalog.js';
+import {
+  isPermissionCode,
+  type PermissionCode,
+} from '../../common/permissions/permission-catalog.js';
 import {
   isProgrammeDomain,
   type AccessAction,
@@ -51,8 +54,12 @@ export function institutionPermissions(
 ): Set<PermissionCode> {
   const codes = new Set<PermissionCode>();
   for (const [code, { domain, action }] of Object.entries(PERMISSION_DOMAINS)) {
-    if (isProgrammeDomain(domain) && grants(matrix, domain, action)) {
-      codes.add(code as PermissionCode);
+    if (
+      isPermissionCode(code) &&
+      isProgrammeDomain(domain) &&
+      grants(matrix, domain, action)
+    ) {
+      codes.add(code);
     }
   }
   return codes;

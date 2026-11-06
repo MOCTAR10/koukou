@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
 import {
   ELEVEUR_DEFAULT_PERMISSIONS,
+  EVOLUTION_PERMISSION_GROUPS,
+  PERMISSIONS,
+  PERMISSION_CATALOG,
   PERMISSION_GROUPS,
   STAFF_PROFILES,
   findStaffProfile,
+  isDormantPermissionCode,
   isPermissionCode,
+  withDormantPermissions,
 } from './permission-catalog.js';
 
 describe('permission-catalog : profils métier', () => {
@@ -51,9 +56,41 @@ describe('permission-catalog : profils métier', () => {
     expect(codes).toContain('rh:gerer');
   });
 
-  it('le catalogue expose un groupe Agriculture avec la gestion des parcelles', () => {
-    const group = PERMISSION_GROUPS.find((g) => g.key === 'agriculture');
-    const codes = group?.items.map((i) => i.code) ?? [];
-    expect(codes).toContain('agri:gerer');
+  it('le groupe Agriculture reste connu mais n’est pas servi (Évolution)', () => {
+    expect(EVOLUTION_PERMISSION_GROUPS.has('agriculture')).toBe(true);
+    const known = PERMISSION_CATALOG.find((g) => g.key === 'agriculture');
+    expect(known?.items.map((i) => i.code)).toContain('agri:gerer');
+    expect(PERMISSION_GROUPS.some((g) => g.key === 'agriculture')).toBe(false);
+    expect(PERMISSIONS.some((p) => p.code === 'agri:gerer')).toBe(false);
+    expect(isPermissionCode('agri:gerer')).toBe(false);
+    expect(isDormantPermissionCode('agri:gerer')).toBe(true);
+  });
+
+  it('le catalogue servi = le catalogue complet moins les groupes Évolution', () => {
+    expect(PERMISSION_GROUPS.map((g) => g.key)).toEqual(
+      PERMISSION_CATALOG.map((g) => g.key).filter(
+        (k) => !EVOLUTION_PERMISSION_GROUPS.has(k),
+      ),
+    );
+    for (const p of PERMISSIONS) {
+      expect(isPermissionCode(p.code)).toBe(true);
+      expect(isDormantPermissionCode(p.code)).toBe(false);
+    }
+    expect(isDormantPermissionCode('truc:bidule')).toBe(false);
+  });
+
+  it('une liste remplacée garde les codes dormants déjà stockés, pas les inconnus', () => {
+    expect(
+      withDormantPermissions(
+        ['caisse:lire'],
+        ['agri:gerer', 'vente:creer', 'truc:bidule'],
+      ),
+    ).toEqual(['caisse:lire', 'agri:gerer']);
+    expect(withDormantPermissions(['agri:gerer'], ['agri:gerer'])).toEqual([
+      'agri:gerer',
+    ]);
+    expect(withDormantPermissions(['saisie:creer'], null)).toEqual([
+      'saisie:creer',
+    ]);
   });
 });

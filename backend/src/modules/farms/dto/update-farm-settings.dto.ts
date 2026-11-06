@@ -1,28 +1,27 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  Allow,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Min,
-  MinLength,
 } from 'class-validator';
 
 /** Paramètres de ferme modifiables par le Propriétaire (ou un membre
  *  disposant de « reglages:ferme »). Tous les champs sont optionnels :
- *  seuls ceux transmis sont mis à jour. */
+ *  seuls ceux transmis sont mis à jour. Le nom n'en fait pas partie. */
 export class UpdateFarmSettingsDto {
+  /** Refused (400) whatever its value: the name changes in the registry
+   *  (`PATCH /programme/farms/:farmId`), which checks for duplicates. Kept
+   *  in the DTO so the whitelist does not drop it silently. */
   @ApiPropertyOptional({
-    description: "Nom de l'exploitation",
-    example: 'Ferme de SunPark',
+    deprecated: true,
+    description:
+      'Refusé (400) : le nom se modifie dans le registre (PATCH /programme/farms/:farmId).',
   })
-  @IsOptional()
-  @IsString()
-  @MinLength(2, {
-    message: 'Le nom de la ferme doit contenir au moins 2 caractères.',
-  })
-  @IsNotEmpty({ message: 'Le nom de la ferme est obligatoire.' })
-  name?: string;
+  @Allow()
+  name?: unknown;
 
   @ApiPropertyOptional({ description: 'Ville administrative', example: 'Libreville' })
   @IsOptional()

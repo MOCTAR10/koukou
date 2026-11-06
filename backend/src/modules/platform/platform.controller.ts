@@ -24,6 +24,7 @@ import { Species } from '../../common/enums/species.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { MetricsPeriodQueryDto } from './dto/metrics-period.dto.js';
 import {
+  Allow,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -38,10 +39,9 @@ import { PlatformService } from './platform.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 
 class UpdateFarmDto {
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty({ message: 'Le nom de la ferme est requis.' })
-  name?: string;
+  /** Refused (400): the name changes in the registry (duplicate check). */
+  @Allow()
+  name?: unknown;
 
   @IsOptional()
   @IsString()
@@ -179,7 +179,7 @@ export class PlatformAdminController {
   @ApiParam({ name: 'farmId', description: 'Identifiant de la ferme' })
   @ApiOperation({
     summary:
-      'Modifier une ferme (détails). La suspension passe par le statut du programme.',
+      'Modifier une ferme (détails). Le nom passe par le registre, la suspension par le statut du programme.',
   })
   updateFarm(
     @CurrentUser() user: AuthUser,

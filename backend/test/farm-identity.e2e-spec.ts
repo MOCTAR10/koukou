@@ -6,7 +6,10 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
-import { uploadsRoot } from './../src/modules/farms/farms.service.js';
+import {
+  FARM_NAME_IN_REGISTRY,
+  uploadsRoot,
+} from './../src/modules/farms/farms.service.js';
 import {
   addProgrammeFarm,
   createPlatformAdmin,
@@ -81,18 +84,75 @@ describe('Identité de ferme — nom & logo (e2e)', () => {
     });
   });
 
-  it('le propriétaire renomme sa ferme (PATCH /farms/:farmId)', async () => {
-    const res = await request(server)
+  const myFarm = async () =>
+    (
+      await request(server)
+        .get('/farms')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+    ).body.find((f: any) => f.id === farmId);
+
+  it('le nom ne change pas par PATCH /farms/:farmId (400, rien n’est écrit)', async () => {
+    const before = await myFarm();
+    for (const body of [
+      { name: `Ferme de SunPark SARL ${stamp}` },
+      { name: '' },
+      { name: null },
+      { name: `Ferme de SunPark SARL ${stamp}`, administrativeCity: 'Oyem' },
+    ]) {
+      const res = await request(server)
+        .patch(`/farms/${farmId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(body)
+        .expect(400);
+      expect(res.body.message).toBe(FARM_NAME_IN_REGISTRY);
+    }
+    const after = await myFarm();
+    expect(after.name).toBe(`Ferme de SunPark ${stamp}`);
+    expect(after.administrativeCity).toBe(before.administrativeCity);
+
+    // The other settings stay editable by the owner.
+    const city = await request(server)
       .patch(`/farms/${farmId}`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: `Ferme de SunPark SARL ${stamp}` })
+      .send({ administrativeCity: 'Owendo' })
       .expect(200);
-    expect(res.body.name).toBe(`Ferme de SunPark SARL ${stamp}`);
-    // Le nom persiste et la ferme reste la même.
-    expect(res.body.id).toBe(farmId);
+    expect(city.body).toMatchObject({ id: farmId, administrativeCity: 'Owendo' });
   });
 
-  it('renommage refusé sans le droit « reglages:ferme » (403)', async () => {
+  it('le registre renomme la ferme, avec son contrôle des doublons', async () => {
+    // A second farm of the same exploitant: taking its name is a duplicate.
+    const twinId = await ownerFarm('Ferme Jumelle');
+    const twinName = `Ferme Jumelle ${stamp}`;
+    const dup = await request(server)
+      .patch(`/programme/farms/${farmId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: twinName })
+      .expect(409);
+    expect(dup.body.duplicates.map((d: any) => d.farmId)).toContain(twinId);
+    expect((await myFarm()).name).toBe(`Ferme de SunPark ${stamp}`);
+
+    // The owner has no access to the registry.
+    await request(server)
+      .patch(`/programme/farms/${farmId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: `Ferme de SunPark SARL ${stamp}` })
+      .expect(403);
+
+    // Earlier runs left « Ferme de SunPark SARL … » farms in G1: confirm.
+    const renamed = await request(server)
+      .patch(`/programme/farms/${farmId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: `Ferme de SunPark SARL ${stamp}`, confirmDuplicate: true })
+      .expect(200);
+    expect(renamed.body).toMatchObject({
+      id: farmId,
+      name: `Ferme de SunPark SARL ${stamp}`,
+    });
+    expect((await myFarm()).name).toBe(`Ferme de SunPark SARL ${stamp}`);
+  });
+
+  it('réglages refusés sans le droit « reglages:ferme » (403)', async () => {
     const phone = uniquePhone();
     const otherFarmId = await ownerFarm('Ferme Eleveur');
 
@@ -117,7 +177,7 @@ describe('Identité de ferme — nom & logo (e2e)', () => {
     await request(server)
       .patch(`/farms/${otherFarmId}`)
       .set('Authorization', `Bearer ${eleveurToken}`)
-      .send({ name: 'Ferme Eleveur renommee' })
+      .send({ administrativeCity: 'Franceville' })
       .expect(403);
   });
 
