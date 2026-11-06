@@ -77,13 +77,21 @@ export class CreateTreatmentDto extends IdempotentDto {
   @IsDateString({}, { message: 'La date de fin doit être une date valide.' })
   endDate?: string;
 
-  @ApiPropertyOptional({ description: 'Motif du traitement' })
+  // POUFA lot A2 sante: `reason` and `animalCount` are required for a new
+  // record, checked in the service after the replay check (a record already
+  // stored under the same key is returned as is).
+  @ApiPropertyOptional({
+    description: 'Motif du traitement (obligatoire pour un nouvel enregistrement)',
+  })
   @IsOptional()
   @IsString({ message: 'Le motif doit être une chaîne.' })
   @MaxLength(500, { message: 'Le motif dépasse 500 caractères.' })
   reason?: string;
 
-  @ApiPropertyOptional({ description: 'Nombre d’animaux traités' })
+  @ApiPropertyOptional({
+    description:
+      'Nombre d’animaux traités (obligatoire pour un nouvel enregistrement)',
+  })
   @IsOptional()
   @IsInt({ message: 'Le nombre d’animaux doit être un nombre entier.' })
   @Min(1, { message: 'Le nombre d’animaux doit être au moins 1.' })

@@ -43,6 +43,27 @@ export interface NextAction {
   kind?: AlertKind | null;
   /** Statut : celui de l'alerte stockée (ACTIVE/ACQUITTEE), ACTIVE pour les actions dérivées. */
   status: AlertStatus;
+  /**
+   * POUFA lot A2 sante: what the « Fait » form of a SOIN action needs to
+   * record the completion like the band's calendar (CDC n° 22-23).
+   */
+  care?: CareActionInfo;
+}
+
+/** The planned care behind a SOIN action. */
+export interface CareActionInfo {
+  eventId: string;
+  careType: string;
+  name: string;
+  route: string | null;
+  withdrawalDays: number;
+  protocolStepId: string | null;
+  productCode: string | null;
+  isReference: boolean;
+  scheduledDate: string;
+  originalDate: string | null;
+  /** Birds alive in the band now: the default number of animals. */
+  liveCount: number;
 }
 
 export interface AdvisoryNextActions {
@@ -137,6 +158,7 @@ export class AdvisoryService {
     ]);
 
     const batchName = new Map(batches.map((b) => [b.id, b.batchName]));
+    const liveCount = new Map(batches.map((b) => [b.id, b.quantityAlive]));
     const buildingName = new Map(buildings.map((b) => [b.id, b.name]));
 
     const actions: NextAction[] = [];
@@ -204,14 +226,16 @@ export class AdvisoryService {
       )) {
         continue;
       }
-      if (ev.scheduledDate > horizon) continue;
       const overdue = ev.status === ProphylaxisStatus.EN_RETARD;
+      // POUFA lot A2 sante: a late care shows whatever its new date (a
+      // postponed reference step stays late from its reference date).
+      if (!overdue && ev.scheduledDate > horizon) continue;
       actions.push({
         id: `care:${ev.id}`,
         category: 'SOIN',
         level: overdue ? AlertLevel.ROUGE : AlertLevel.JAUNE,
         title: `${overdue ? 'Soin en retard' : 'Soin à venir'} : ${ev.name}${ev.route ? ` (${ev.route})` : ''}`,
-        description: `Lot ${batchName.get(ev.batchId) ?? `#${ev.batchId.slice(0, 8)}`} — planifié le ${ev.scheduledDate}.`,
+        description: `Lot ${batchName.get(ev.batchId) ?? `#${ev.batchId.slice(0, 8)}`} — planifié le ${ev.scheduledDate}${ev.isReference && ev.originalDate ? ` (date de référence : ${ev.originalDate}, reporté)` : ''}.`,
         dueDate: ev.scheduledDate,
         batchId: ev.batchId,
         batchName: batchName.get(ev.batchId) ?? null,
@@ -219,6 +243,19 @@ export class AdvisoryService {
         acknowledged: false,
         alertId: null,
         status: AlertStatus.ACTIVE,
+        care: {
+          eventId: ev.id,
+          careType: ev.careType,
+          name: ev.name,
+          route: ev.route,
+          withdrawalDays: ev.withdrawalDays,
+          protocolStepId: ev.protocolStepId,
+          productCode: ev.productCode,
+          isReference: ev.isReference,
+          scheduledDate: ev.scheduledDate,
+          originalDate: ev.originalDate,
+          liveCount: liveCount.get(ev.batchId) ?? 0,
+        },
       });
     }
 
