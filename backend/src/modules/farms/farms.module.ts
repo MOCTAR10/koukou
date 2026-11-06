@@ -6,10 +6,11 @@ import { FarmsController } from './farms.controller.js';
 import { FarmsService } from './farms.service.js';
 import { FarmEmployee } from './entities/farm-employee.entity.js';
 import { Farm } from './entities/farm.entity.js';
+import { Province } from '../programme/entities/province.entity.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Farm, FarmEmployee, User]),
+    TypeOrmModule.forFeature([Farm, FarmEmployee, User, Province]),
     AccessCoreModule,
   ],
   controllers: [FarmsController],

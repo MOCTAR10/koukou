@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -28,6 +28,7 @@ import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
 import { User } from '../users/entities/user.entity.js';
 import { FarmEmployee } from './entities/farm-employee.entity.js';
 import { Farm } from './entities/farm.entity.js';
+import { Province } from '../programme/entities/province.entity.js';
 import type { InstitutionAccess } from '../access/access-rules.js';
 import { institutionPermissions } from '../access/permission-domains.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
@@ -117,6 +118,12 @@ export const FARM_GPS_IN_REGISTRY =
 export const FARM_CAPACITY_IN_REGISTRY =
   'Les bâtiments et la capacité d’une ferme du programme se modifient dans le registre (capacité en places : PATCH /programme/farms/:farmId ; infrastructures : PUT /programme/farms/:farmId/infrastructures).';
 
+/** A farm as `GET /farms` serves it: its province code and name added. */
+export type FarmWithProvince = Farm & {
+  provinceCode: string | null;
+  provinceName: string | null;
+};
+
 /** A member's stored codes as the apps see them: dormant ones left out. */
 function servedPermissions(codes: readonly string[] | null | undefined): string[] {
   return (codes ?? []).filter(isPermissionCode);
@@ -143,6 +150,8 @@ export class FarmsService {
     private readonly employeeRepo: Repository<FarmEmployee>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
     private readonly scope: ScopeResolver,
   ) {}
 
@@ -192,7 +201,12 @@ export class FarmsService {
     }
   }
 
-  async findMine(user: AuthUser): Promise<Farm[]> {
+  /** The caller's farms (`GET /farms`), each with its province code and name. */
+  async findMine(user: AuthUser): Promise<FarmWithProvince[]> {
+    return this.withProvince(await this.farmsOf(user));
+  }
+
+  private async farmsOf(user: AuthUser): Promise<Farm[]> {
     if (user.role === UserRole.PLATFORM_ADMIN) {
       return this.farmRepo.find({ order: { name: 'ASC' } });
     }
@@ -216,6 +230,32 @@ export class FarmsService {
       relations: { farm: true },
     });
     return employments.map((e) => e.farm);
+  }
+
+  /**
+   * Adds `provinceCode` / `provinceName` (null without a province) to farms,
+   * with one query for all of them.
+   */
+  async withProvince(farms: Farm[]): Promise<FarmWithProvince[]> {
+    const ids = [
+      ...new Set(
+        farms.map((f) => f.provinceId).filter((id): id is string => !!id),
+      ),
+    ];
+    const provinces = ids.length
+      ? await this.provinceRepo.find({
+          where: { id: In(ids) },
+          select: { id: true, code: true, name: true },
+        })
+      : [];
+    const byId = new Map(provinces.map((p) => [p.id, p]));
+    return farms.map((f) => {
+      const p = f.provinceId ? byId.get(f.provinceId) : undefined;
+      return Object.assign(f, {
+        provinceCode: p?.code ?? null,
+        provinceName: p?.name ?? null,
+      });
+    });
   }
 
   /**

@@ -43,10 +43,12 @@ import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.
 import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
 import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
+import { ageOn } from './poufa/bande-rules.js';
 import { BatchesService } from './batches.service.js';
 import { BreedStatus, MetricsService } from './metrics.service.js';
 import {
   FlockTimeline,
+  growthOrigin,
   performanceAtLastWeighing,
   waterPerBirdOn,
 } from './flock-performance.js';
@@ -646,7 +648,6 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     refDate: string,
   ): Promise<HealthOverviewRow[]> {
     const weekStart = isoWeekStart(refDate);
-    const refTime = new Date(`${refDate}T00:00:00`).getTime();
     const rows: HealthOverviewRow[] = [];
 
     for (const b of batches) {
@@ -660,13 +661,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       );
       const last = sorted[sorted.length - 1];
       const lastEntryDate = last ? last.entryDate : null;
-      const ageDays = Math.max(
-        0,
-        Math.floor(
-          (refTime - new Date(`${b.integrationDate}T00:00:00`).getTime()) /
-            86400000,
-        ),
-      );
+      // Age of the birds: J+x at opening + days since integration.
+      const ageDays = ageOn(b.integrationDate, b.initialAgeDays, refDate);
 
       let alertesRouges = 0;
       let alertesJaunes = 0;
@@ -898,6 +894,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       integrationDate: batch.integrationDate,
       quantityAtStart: batch.quantityAtStart,
       day1WeightKg: d1,
+      initialAgeDays: batch.initialAgeDays,
+      initialWeightKg:
+        batch.initialAvgWeightG != null ? batch.initialAvgWeightG / 1000 : null,
       entries,
       removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
       deathEventsByDate: new Map(deathEvents.map((d) => [d.date, d.quantity])),
@@ -937,7 +936,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     return {
       batchId,
       liveCount,
-      startWeightKg: d1,
+      // Weight the curve starts from: measured at a J+x opening, else day 1.
+      startWeightKg: growthOrigin(timeline).kg,
       weekly,
     };
   }

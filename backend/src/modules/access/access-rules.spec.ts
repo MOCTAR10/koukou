@@ -9,7 +9,13 @@ import {
   includesFarm,
   includesProvince,
   isMembershipEffective,
+  matrixExcess,
+  grantRefusal,
+  isNationalAdministrator,
+  matrixExcessRefusal,
   mayChangeParameter,
+  scopeExcess,
+  scopeKindRefusal,
   validateMatrix,
   type InstitutionAccess,
 } from './access-rules.js';
@@ -135,6 +141,20 @@ describe('decideRoute', () => {
       true,
     );
     expect(decideRoute(null, 'SESSION', 'CONSULTER').allowed).toBe(false);
+  });
+
+  it('opens REFERENCE to any member, the audit scope included, never in a matrix', () => {
+    for (const code of ['MAEDR', 'ANINF', 'BCEG', 'AGENT_TECHNIQUE']) {
+      expect(decideRoute(access(code), 'REFERENCE', 'CONSULTER').allowed).toBe(
+        true,
+      );
+    }
+    expect(decideRoute(null, 'REFERENCE', 'CONSULTER').allowed).toBe(false);
+    const refused = validateMatrix(
+      { REFERENCE: ['CONSULTER'] },
+      AccessScopeKind.ALL,
+    );
+    expect(refused.ok).toBe(false);
   });
 });
 
@@ -327,5 +347,157 @@ describe('sanitary declarations', () => {
     expect(
       mayHandleSanitaryDeclarations({ role: UserRole.OPERATEUR }, null),
     ).toBe(false);
+  });
+});
+
+describe('granting access (institutional administrator)', () => {
+  const K = AccessScopeKind;
+
+  it('orders the scope kinds ALL > PROVINCES > FARMS', () => {
+    for (const target of Object.values(K)) {
+      expect(scopeKindRefusal(K.ALL, target)).toBeNull();
+    }
+    expect(scopeKindRefusal(K.PROVINCES, K.PROVINCES)).toBeNull();
+    expect(scopeKindRefusal(K.PROVINCES, K.FARMS)).toBeNull();
+    expect(scopeKindRefusal(K.PROVINCES, K.ALL)).toContain('plus large');
+    expect(scopeKindRefusal(K.FARMS, K.FARMS)).toBeNull();
+    expect(scopeKindRefusal(K.FARMS, K.PROVINCES)).toContain('plus large');
+    for (const special of [K.FINANCED, K.OPERATOR, K.AGGREGATE, K.AUDIT]) {
+      expect(scopeKindRefusal(K.PROVINCES, special)).toContain(
+        'périmètre national',
+      );
+    }
+    // A scope that reaches no farm grants nothing.
+    expect(scopeKindRefusal(K.AGGREGATE, K.FARMS)).toContain('plus large');
+  });
+
+  it('refuses rights the granter does not hold', () => {
+    const admin = access('ADMIN').matrix;
+    expect(matrixExcess(admin, { REGISTRE: ['CONSULTER'] })).toEqual([]);
+    expect(
+      matrixExcess(admin, {
+        REGISTRE: ['CONSULTER', 'CREER'],
+        TECHNIQUE: ['CONSULTER'],
+      }),
+    ).toEqual([
+      ['REGISTRE', 'CREER'],
+      ['TECHNIQUE', 'CONSULTER'],
+    ]);
+    expect(matrixExcessRefusal(admin, { AUDIT: ['CONSULTER'] }, 'ANINF')).toBe(
+      "Accès refusé : le profil « ANINF » donne des droits que vous n'avez pas (Journal d'audit : Consulter).",
+    );
+    expect(matrixExcessRefusal(admin, admin, 'Admin')).toBeNull();
+  });
+
+  it('lets the national administrator assign any profile but an audit one', () => {
+    const national = access('ADMIN');
+    expect(isNationalAdministrator(national)).toBe(true);
+    const profile = (code: string) => {
+      const p = DEFAULT_PROFILES.find((d) => d.code === code)!;
+      return { scopeKind: p.scopeKind, matrix: p.matrix, label: p.label };
+    };
+    for (const code of [
+      'AGENT_TECHNIQUE',
+      'DGE',
+      'VETERINAIRE',
+      'BCEG',
+      'MAEDR',
+    ]) {
+      expect(grantRefusal(national, profile(code))).toBeNull();
+    }
+    const audit =
+      "Accès refusé : seul l'administrateur de la plateforme attribue un profil d'audit.";
+    expect(grantRefusal(national, profile('ANINF'))).toBe(audit);
+    // A journal right on a farm-scope profile is refused too.
+    expect(
+      grantRefusal(national, {
+        scopeKind: K.ALL,
+        matrix: { AUDIT: ['CONSULTER'] },
+        label: 'X',
+      }),
+    ).toBe(audit);
+  });
+
+  it('keeps the matrix subset rule for any other institutional admin', () => {
+    // A provincial administrator, even with ADMINISTRER.
+    const provincial = access('ADMIN', {
+      scopeKind: K.PROVINCES,
+      provinceIds: ['g1'],
+    });
+    expect(isNationalAdministrator(provincial)).toBe(false);
+    expect(
+      grantRefusal(provincial, {
+        scopeKind: K.FARMS,
+        matrix: { REGISTRE: ['CONSULTER'], TECHNIQUE: ['CONSULTER'] },
+        label: 'Agent',
+      }),
+    ).toContain('Suivi technique : Consulter');
+    expect(
+      grantRefusal(provincial, {
+        scopeKind: K.FARMS,
+        matrix: { REGISTRE: ['CONSULTER'] },
+        label: 'Lecteur',
+      }),
+    ).toBeNull();
+    // A national scope without ADMINISTRER is not the national administrator.
+    const creator = access('ADMIN', {
+      matrix: {
+        REGISTRE: ['CONSULTER'],
+        ADMINISTRATION: ['CONSULTER', 'CREER'],
+      },
+    });
+    expect(isNationalAdministrator(creator)).toBe(false);
+    expect(
+      grantRefusal(creator, {
+        scopeKind: K.FARMS,
+        matrix: { TECHNIQUE: ['CONSULTER'] },
+        label: 'Agent',
+      }),
+    ).toContain("droits que vous n'avez pas");
+  });
+
+  it('keeps provinces and farms within the granter scope', () => {
+    const prov = access('ADMIN', {
+      scopeKind: K.PROVINCES,
+      provinceIds: [G1],
+    });
+    expect(
+      scopeExcess(prov, {
+        scopeKind: K.PROVINCES,
+        provinceIds: [G1, G2],
+        farms: [],
+      }),
+    ).toEqual({ provinceIds: [G2], farmIds: [] });
+    expect(
+      scopeExcess(prov, {
+        scopeKind: K.FARMS,
+        provinceIds: [],
+        farms: [
+          { id: FARM_A, provinceId: G1 },
+          { id: FARM_B, provinceId: G2 },
+        ],
+      }),
+    ).toEqual({ provinceIds: [], farmIds: [FARM_B] });
+    const farmsOnly = access('ADMIN', {
+      scopeKind: K.FARMS,
+      farmIds: [FARM_A],
+    });
+    expect(
+      scopeExcess(farmsOnly, {
+        scopeKind: K.FARMS,
+        provinceIds: [],
+        farms: [
+          { id: FARM_A, provinceId: G1 },
+          { id: FARM_B, provinceId: G1 },
+        ],
+      }),
+    ).toEqual({ provinceIds: [], farmIds: [FARM_B] });
+    expect(
+      scopeExcess(access('ADMIN'), {
+        scopeKind: K.PROVINCES,
+        provinceIds: [G1, G2],
+        farms: [],
+      }),
+    ).toEqual({ provinceIds: [], farmIds: [] });
   });
 });

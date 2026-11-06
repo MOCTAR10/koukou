@@ -20,6 +20,7 @@ import {
   SMS_SENDER,
 } from './../src/modules/auth/sms/sms-sender.js';
 import {
+  addProgrammeFarm,
   createPlatformAdmin,
   createProgrammeFarm,
   registerBuyer,
@@ -59,6 +60,9 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
   const tag = Array.from(randomBytes(8), (b) =>
     String.fromCharCode(65 + (b % 26)),
   ).join('');
+
+  /** A FARMS profile reading the registry only (within the admin profile's rights). */
+  const readerProfile = `LECT${digits}`;
 
   /** Institutional accounts by profile code. */
   const accounts: Record<
@@ -173,6 +177,17 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       ).expect(201)
     ).body.id;
 
+    await post(
+      '/programme/access/profiles',
+      {
+        code: readerProfile,
+        label: `Lecteur registre ${digits}`,
+        scopeKind: 'FARMS',
+        matrix: { REGISTRE: ['CONSULTER'] },
+      },
+      adminToken,
+    ).expect(201);
+
     for (const p of DEFAULT_PROFILES) {
       accounts[p.code] = await createInstitution(
         p.code,
@@ -251,12 +266,25 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         { profileCode: 'DGE' },
         admin,
       ).expect(403);
+      // The national administrator (ALL scope + ADMINISTRATION:ADMINISTRER)
+      // assigns a profile whose rights it doesn't hold itself: the seeded
+      // agent profile carries TECHNIQUE and INTRANTS, the admin profile not.
+      await post(
+        '/programme/access/memberships',
+        {
+          fullName: `Agent technique par admin ${digits}`,
+          phone: phone(),
+          profileCode: 'AGENT_TECHNIQUE',
+          farmIds: [farmA],
+        },
+        admin,
+      ).expect(201);
       const created = await post(
         '/programme/access/memberships',
         {
           fullName: `Agent créé par admin ${digits}`,
           phone: phone(),
-          profileCode: 'AGENT_TECHNIQUE',
+          profileCode: readerProfile,
           farmIds: [farmA],
         },
         admin,
@@ -268,11 +296,126 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         {
           fullName: 'Agent hors programme',
           phone: phone(),
-          profileCode: 'AGENT_TECHNIQUE',
+          profileCode: readerProfile,
           farmIds: ['00000000-0000-4000-8000-0000000000c1'],
         },
         admin,
       ).expect(400);
+      // The audit profile (AUDIT domain) is granted by the platform only.
+      const audit = await post(
+        '/programme/access/memberships',
+        { fullName: 'Auditeur', phone: phone(), profileCode: 'ANINF' },
+        admin,
+      ).expect(403);
+      expect(audit.body.message).toBe(
+        "Accès refusé : seul l'administrateur de la plateforme attribue un profil d'audit.",
+      );
+    });
+  });
+
+  describe('membership: account details', () => {
+    it('edits the name, phone (normalized) and e-mail of an account', async () => {
+      const agent = await createInstitution(readerProfile, {
+        farmIds: [farmA],
+      });
+      const next = phone();
+      const spaced = `${next.slice(0, 4)} ${next.slice(4, 6)}.${next.slice(6, 9)}-${next.slice(9)}`;
+      const email = `agent.${digits}@E2E.ga`;
+      const res = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { fullName: '  Agent Renommé  ', phone: spaced, email },
+        adminToken,
+      ).expect(200);
+      expect(res.body.user).toMatchObject({
+        fullName: 'Agent Renommé',
+        phone: next,
+        email: email.toLowerCase(),
+      });
+      // The phone is the login.
+      await login(agent.phone, agent.code).expect(401);
+      await login(next, agent.code).expect(201);
+
+      // Another account's phone or e-mail: 409, a Market buyer's flagged.
+      const buyer = await registerBuyer(server, { phone: phone() });
+      const toBuyer = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { phone: buyer.phone },
+        adminToken,
+      ).expect(409);
+      expect(toBuyer.body).toMatchObject({ buyerAccount: true });
+      expect(toBuyer.body.message).toContain('acheteur du Market');
+      const toOther = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { phone: accounts.DGE.phone },
+        adminToken,
+      ).expect(409);
+      expect(toOther.body.message).toContain('autre compte');
+      const other = await createInstitution(readerProfile, {
+        farmIds: [farmA],
+      });
+      const sameEmail = await patch(
+        `/programme/access/memberships/${other.id}`,
+        { email },
+        adminToken,
+      ).expect(409);
+      expect(sameEmail.body.message).toContain('adresse e-mail');
+      await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { phone: 'abc' },
+        adminToken,
+      ).expect(400);
+      const cleared = await patch(
+        `/programme/access/memberships/${agent.id}`,
+        { email: null },
+        adminToken,
+      ).expect(200);
+      expect(cleared.body.user.email).toBeNull();
+      // Still no self-edit.
+      await patch(
+        `/programme/access/memberships/${accounts.ADMIN.id}`,
+        { fullName: 'Moi' },
+        accounts.ADMIN.token,
+      ).expect(403);
+    });
+  });
+
+  describe('reference data (REFERENCE)', () => {
+    it('opens provinces and list items to every member, whatever its matrix', async () => {
+      for (const p of DEFAULT_PROFILES) {
+        const token = accounts[p.code].token;
+        const provinces = await get('/programme/provinces', token).expect(200);
+        expect(provinces.body.map((x: { code: string }) => x.code)).toContain(
+          'G1',
+        );
+        expect(provinces.body[0].localites.length).toBeGreaterThan(0);
+        await get('/programme/lists/STATUT_FERME', token).expect(200);
+        // Inactive items stay administrator-only.
+        await get('/programme/provinces?all=true', token).expect(403);
+      }
+      // Writes keep their domain: an institution without ADMINISTRATION.
+      await post(
+        '/programme/localites',
+        { provinceCode: 'G1', name: 'X' },
+        accounts.MAEDR.token,
+      ).expect(403);
+      // An account without membership is still refused.
+      await patch(
+        `/programme/access/memberships/${accounts.BCEG.id}`,
+        { active: false },
+        adminToken,
+      ).expect(200);
+      await get('/programme/provinces', accounts.BCEG.token).expect(403);
+      await patch(
+        `/programme/access/memberships/${accounts.BCEG.id}`,
+        { active: true },
+        adminToken,
+      ).expect(200);
+    });
+
+    it('opens the provinces to Market buyers, not the lists', async () => {
+      const buyer = await registerBuyer(server);
+      await get('/programme/provinces', buyer.token).expect(200);
+      await get('/programme/lists/STATUT_FERME', buyer.token).expect(403);
     });
   });
 
@@ -512,9 +655,14 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
           (f: { province: { code: string } }) => f.province.code === 'G1',
         ),
       ).toBe(true);
-      const mine = (await get('/farms', provToken).expect(200)).body.map(
-        (f: { id: string }) => f.id,
-      );
+      const mineRows = (await get('/farms', provToken).expect(200)).body;
+      expect(
+        mineRows.every(
+          (f: { provinceCode: string; provinceName: string }) =>
+            f.provinceCode === 'G1' && f.provinceName === 'Estuaire',
+        ),
+      ).toBe(true);
+      const mine = mineRows.map((f: { id: string }) => f.id);
       expect(mine).toContain(farmA);
       expect(mine).not.toContain(farmB);
       expect(mine).not.toContain(farmC);
@@ -571,6 +719,8 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
           ],
         },
       ]);
+      // Nothing more than before about a hidden candidate: no province.
+      expect(dup.body.duplicates[0]).not.toHaveProperty('provinceCode');
       expect(dup.body.message).toContain('hors de votre périmètre');
       expect(dup.body.message).not.toContain('confirmDuplicate');
       const body = JSON.stringify(dup.body);
@@ -590,6 +740,8 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       expect(seen.body.duplicates[0]).toMatchObject({
         farmId: south.body.id,
         code: south.body.code,
+        provinceCode: 'G2',
+        provinceName: expect.any(String),
       });
       const created = await post(
         '/programme/farms',
@@ -695,6 +847,125 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         [agent.id],
       );
       await get('/programme/parameters', agent.token).expect(403);
+    });
+
+    it('a provincial administrator grants only within its own scope and rights', async () => {
+      const adminCode = `PADM${digits}`;
+      const provReader = `PLECT${digits}`;
+      await post(
+        '/programme/access/profiles',
+        {
+          code: adminCode,
+          label: `Admin provincial ${digits}`,
+          scopeKind: 'PROVINCES',
+          matrix: {
+            REGISTRE: ['CONSULTER'],
+            ADMINISTRATION: ['CONSULTER', 'CREER', 'MODIFIER', 'ADMINISTRER'],
+          },
+        },
+        adminToken,
+      ).expect(201);
+      await post(
+        '/programme/access/profiles',
+        {
+          code: provReader,
+          label: `Lecteur provincial ${digits}`,
+          scopeKind: 'PROVINCES',
+          matrix: { REGISTRE: ['CONSULTER'] },
+        },
+        adminToken,
+      ).expect(201);
+      const padm = (
+        await createInstitution(adminCode, { provinceCodes: ['G1'] })
+      ).token;
+      const grant = (body: object) =>
+        post(
+          '/programme/access/memberships',
+          { fullName: `Agent ${digits}`, phone: phone(), ...body },
+          padm,
+        );
+
+      // Farms: only those of its provinces (farm A in G1, farm B in G2).
+      const reader = await grant({
+        profileCode: readerProfile,
+        farmIds: [farmA],
+      }).expect(201);
+      const outFarm = await grant({
+        profileCode: readerProfile,
+        farmIds: [farmA, farmB],
+      }).expect(403);
+      expect(outFarm.body.message).toBe(
+        'Accès refusé : une ferme demandée est hors de votre périmètre.',
+      );
+      // Provinces: a subset of its own.
+      await grant({ profileCode: provReader, provinceCodes: ['G1'] }).expect(
+        201,
+      );
+      const outProvince = await grant({
+        profileCode: provReader,
+        provinceCodes: ['G1', 'G2'],
+      }).expect(403);
+      expect(outProvince.body.message).toBe(
+        'Accès refusé : province hors de votre périmètre (G2).',
+      );
+      // Scope kinds: nothing broader than PROVINCES, no special kind.
+      const national = await grant({ profileCode: 'DGE' }).expect(403);
+      expect(national.body.message).toContain('plus large que le vôtre');
+      const aggregate = await grant({ profileCode: 'MAEDR' }).expect(403);
+      expect(aggregate.body.message).toContain('périmètre national');
+
+      // Editing: never an account broader than itself, nor out of scope.
+      const broader = await patch(
+        `/programme/access/memberships/${accounts.DGE.id}`,
+        { active: false },
+        padm,
+      ).expect(403);
+      expect(broader.body.message).toContain('plus larges que les vôtres');
+      await patch(
+        `/programme/access/memberships/${reader.body.id}`,
+        { farmIds: [farmB] },
+        padm,
+      ).expect(403);
+      await patch(
+        `/programme/access/memberships/${reader.body.id}`,
+        { profileCode: 'AGENT_TECHNIQUE' },
+        padm,
+      ).expect(403);
+      await patch(
+        `/programme/access/memberships/${reader.body.id}`,
+        { active: false },
+        padm,
+      ).expect(200);
+
+      // Profiles: none broader than itself, nor with rights it lacks.
+      const profile = (body: object) =>
+        post(
+          '/programme/access/profiles',
+          { code: `P${digits}${seq++}`, label: 'Profil', ...body },
+          padm,
+        );
+      await profile({
+        scopeKind: 'ALL',
+        matrix: { REGISTRE: ['CONSULTER'] },
+      }).expect(403);
+      const rights = await profile({
+        scopeKind: 'FARMS',
+        matrix: { REGISTRE: ['CONSULTER'], TECHNIQUE: ['CONSULTER'] },
+      }).expect(403);
+      expect(rights.body.message).toContain('Suivi technique : Consulter');
+      await profile({
+        scopeKind: 'FARMS',
+        matrix: { REGISTRE: ['CONSULTER'] },
+      }).expect(201);
+      const profiles = (
+        await get('/programme/access/profiles', adminToken).expect(200)
+      ).body as Array<{ id: string; code: string }>;
+      const dge = profiles.find((p) => p.code === 'DGE')!;
+      await patch(
+        `/programme/access/profiles/${dge.id}`,
+        { label: 'POUFA / DGE' },
+        padm,
+      ).expect(403);
     });
 
     it('changes a scope through the administration', async () => {
@@ -827,6 +1098,124 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         {},
         accounts.ADMIN.token,
       ).expect(403);
+    });
+  });
+
+  describe('programme login codes (no platform admin needed)', () => {
+    it("regenerates a farm owner's code: matrix, scope, never one's own", async () => {
+      const url = `/programme/farms/${farmC}/owner-login-code`;
+      const first = await post(url, {}, adminToken).expect(201);
+      expect(first.body).toMatchObject({
+        farm: { id: farmC },
+        owner: { id: ownerId },
+      });
+      expect(first.body.loginCode).toMatch(/^\d{8}$/);
+      const ownerPhone: string = first.body.owner.phone;
+      // The programme admin profile (ADMINISTRATION:ADMINISTRER, ALL).
+      const second = await post(url, {}, accounts.ADMIN.token).expect(201);
+      await login(ownerPhone, first.body.loginCode).expect(401);
+      await login(ownerPhone, second.body.loginCode).expect(201);
+      const journal = await ds.query(
+        `SELECT summary::text AS s FROM audit_events WHERE route = '/programme/farms/:farmId/owner-login-code' AND params->>'farmId' = $1`,
+        [farmC],
+      );
+      expect(journal.length).toBeGreaterThanOrEqual(2);
+      for (const row of journal) {
+        expect(row.s ?? '').not.toContain(second.body.loginCode);
+      }
+      // Without ADMINISTRATION, or as the owner himself: refused.
+      await post(url, {}, accounts.DGE.token).expect(403);
+      await post(url, {}, ownerToken).expect(403);
+      // A farm without an owner account.
+      const none = await post(
+        `/programme/farms/${farmA}/owner-login-code`,
+        {},
+        adminToken,
+      ).expect(409);
+      expect(none.body).toMatchObject({ noOwnerAccount: true });
+
+      // A provincial admin: its farms only, and not for an owner who also
+      // holds a farm out of its scope.
+      const code = `LCADM${digits}`;
+      await post(
+        '/programme/access/profiles',
+        {
+          code,
+          label: `Admin codes ${digits}`,
+          scopeKind: 'PROVINCES',
+          matrix: { ADMINISTRATION: ['CONSULTER', 'ADMINISTRER'] },
+        },
+        adminToken,
+      ).expect(201);
+      const padm = (await createInstitution(code, { provinceCodes: ['G1'] }))
+        .token;
+      await post(url, {}, padm).expect(403); // farm C is in G3
+      const solo = await createProgrammeFarm(server, adminToken, {
+        provinceCode: 'G1',
+        name: `Ferme codes ${tag}`,
+      });
+      const res = await post(
+        `/programme/farms/${solo.farmId}/owner-login-code`,
+        {},
+        padm,
+      ).expect(201);
+      await login(solo.ownerPhone, res.body.loginCode).expect(201);
+      await addProgrammeFarm(server, adminToken, solo.ownerPhone, {
+        provinceCode: 'G2',
+        name: `Ferme codes sud ${tag}`,
+      });
+      const split = await post(
+        `/programme/farms/${solo.farmId}/owner-login-code`,
+        {},
+        padm,
+      ).expect(403);
+      expect(split.body.message).toContain('hors de votre périmètre');
+    });
+
+    it("regenerates an institutional account's code within the admin's own access", async () => {
+      const agent = await createInstitution(readerProfile, {
+        farmIds: [farmA],
+      });
+      const url = `/programme/access/memberships/${agent.id}/login-code`;
+      const first = await post(url, {}, adminToken).expect(201);
+      expect(first.body).toMatchObject({
+        id: agent.id,
+        user: { id: agent.userId },
+      });
+      expect(first.body.loginCode).toMatch(/^\d{8}$/);
+      await login(agent.phone, agent.code).expect(401);
+      await login(agent.phone, first.body.loginCode).expect(201);
+      const second = await post(url, {}, accounts.ADMIN.token).expect(201);
+      await login(agent.phone, second.body.loginCode).expect(201);
+      // Never one's own, never an account it could not grant (the audit
+      // account is the platform admin's alone; the national administrator may
+      // reset the others, e.g. a technical agent), never without the rights.
+      const tech = await createInstitution('AGENT_TECHNIQUE', {
+        farmIds: [farmA],
+      });
+      await post(
+        `/programme/access/memberships/${tech.id}/login-code`,
+        {},
+        accounts.ADMIN.token,
+      ).expect(201);
+      await post(
+        `/programme/access/memberships/${accounts.ADMIN.id}/login-code`,
+        {},
+        accounts.ADMIN.token,
+      ).expect(403);
+      const broader = await post(
+        `/programme/access/memberships/${accounts.ANINF.id}/login-code`,
+        {},
+        accounts.ADMIN.token,
+      ).expect(403);
+      expect(broader.body.message).toContain('plus larges que les vôtres');
+      await post(url, {}, accounts.DGE.token).expect(403);
+      await post(url, {}, ownerToken).expect(403);
+      await post(
+        '/programme/access/memberships/00000000-0000-4000-8000-0000000000d1/login-code',
+        {},
+        adminToken,
+      ).expect(404);
     });
   });
 

@@ -5,7 +5,7 @@ import {
   ACTION_LABELS,
   DOMAIN_LABELS,
   FERMIA_DOMAINS,
-  SESSION_DOMAIN,
+  MEMBER_DOMAINS,
   isAccessAction,
   isProgrammeDomain,
   type AccessAction,
@@ -65,8 +65,8 @@ export function grants(
 
 /**
  * Decision for one route: default deny without a domain or a membership; the
- * AUDIT scope reaches the journal only; SESSION is open to any member;
- * otherwise the matrix decides. Fermia-only domains are never in a matrix.
+ * AUDIT scope reaches the journal only; SESSION and REFERENCE are open to
+ * any member; otherwise the matrix decides. Fermia-only domains are never in a matrix.
  */
 export function decideRoute(
   access: InstitutionAccess | null,
@@ -75,7 +75,7 @@ export function decideRoute(
 ): AccessDecision {
   if (!domain) return { allowed: false, reason: NO_DOMAIN_MESSAGE };
   if (!access) return { allowed: false, reason: NO_MEMBERSHIP_MESSAGE };
-  if (domain === SESSION_DOMAIN) return { allowed: true };
+  if (MEMBER_DOMAINS.includes(domain)) return { allowed: true };
   if (access.scopeKind === AccessScopeKind.AUDIT && domain !== 'AUDIT') {
     return {
       allowed: false,
@@ -234,6 +234,165 @@ export function validateMatrix(
     };
   }
   return { ok: true, matrix };
+}
+
+export const SCOPE_KIND_LABELS: Readonly<Record<AccessScopeKind, string>> = {
+  ALL: 'Toutes les fermes du programme',
+  PROVINCES: 'Fermes de ses provinces',
+  FARMS: 'Ses fermes',
+  FINANCED: 'Fermes financées (avec consentement)',
+  OPERATOR: 'Lots qui le concernent (opérateur)',
+  AGGREGATE: 'Données agrégées seulement',
+  AUDIT: "Journal d'audit seulement",
+};
+
+/**
+ * Breadth of the farm-reaching scope kinds: ALL ⊃ PROVINCES ⊃ FARMS. The
+ * other kinds (FINANCED, OPERATOR, AGGREGATE, AUDIT) are not on this scale:
+ * only an ALL-scope administrator grants them.
+ */
+const FARM_SCOPE_RANK: Partial<Record<AccessScopeKind, number>> = {
+  [AccessScopeKind.ALL]: 3,
+  [AccessScopeKind.PROVINCES]: 2,
+  [AccessScopeKind.FARMS]: 1,
+};
+
+/**
+ * Whether an institutional administrator of scope kind `granter` may grant
+ * (or create a profile of) scope kind `target`: an ALL scope grants any kind;
+ * PROVINCES grants PROVINCES or FARMS; FARMS grants FARMS; any other kind
+ * grants nothing. Null when allowed, else the French refusal.
+ */
+export function scopeKindRefusal(
+  granter: AccessScopeKind,
+  target: AccessScopeKind,
+): string | null {
+  if (granter === AccessScopeKind.ALL) return null;
+  const label = SCOPE_KIND_LABELS[target];
+  const own = FARM_SCOPE_RANK[granter];
+  const wanted = FARM_SCOPE_RANK[target];
+  if (wanted === undefined) {
+    return `Accès refusé : seul un administrateur de périmètre national (toutes les fermes) peut accorder le périmètre « ${label} ».`;
+  }
+  if (own === undefined || wanted > own) {
+    return `Accès refusé : le périmètre « ${label} » est plus large que le vôtre (« ${SCOPE_KIND_LABELS[granter]} »).`;
+  }
+  return null;
+}
+
+/** Grants of `target` that `granter` does not hold (domain, action), in catalogue order. */
+export function matrixExcess(
+  granter: AccessMatrix,
+  target: AccessMatrix,
+): Array<[ProgrammeDomain, AccessAction]> {
+  const out: Array<[ProgrammeDomain, AccessAction]> = [];
+  for (const [domain, actions] of Object.entries(target)) {
+    if (!isProgrammeDomain(domain) || !Array.isArray(actions)) continue;
+    for (const action of ACCESS_ACTIONS) {
+      if (actions.includes(action) && !grants(granter, domain, action)) {
+        out.push([domain, action]);
+      }
+    }
+  }
+  return out;
+}
+
+/** French refusal for the rights a granter lacks, or null when there are none. */
+export function matrixExcessRefusal(
+  granter: AccessMatrix,
+  target: AccessMatrix,
+  profileLabel: string,
+): string | null {
+  const excess = matrixExcess(granter, target);
+  if (excess.length === 0) return null;
+  const list = excess
+    .map(([d, a]) => `${DOMAIN_LABELS[d]} : ${ACTION_LABELS[a]}`)
+    .join(', ');
+  return `Accès refusé : le profil « ${profileLabel} » donne des droits que vous n'avez pas (${list}).`;
+}
+
+/**
+ * Whether an institutional administrator is the programme's national
+ * administrator: ALL scope and ADMINISTRATION:ADMINISTRER. It assigns any
+ * profile without holding its rights (it manages accounts, it doesn't read
+ * the farms' data): the matrix subset rule doesn't bind it.
+ */
+export function isNationalAdministrator(
+  granter: Pick<InstitutionAccess, 'scopeKind' | 'matrix'>,
+): boolean {
+  return (
+    granter.scopeKind === AccessScopeKind.ALL &&
+    grants(granter.matrix, 'ADMINISTRATION', 'ADMINISTRER')
+  );
+}
+
+/**
+ * Whether an institutional administrator may grant (or create, edit) a
+ * profile; null when allowed, else the French refusal:
+ * - a profile reaching the journal (AUDIT domain or scope) is the platform
+ *   admin's alone, so audit stays apart from administration;
+ * - the scope kind within its own ({@link scopeKindRefusal});
+ * - only rights its own matrix holds, except for the national administrator
+ *   ({@link isNationalAdministrator}).
+ */
+export function grantRefusal(
+  granter: Pick<InstitutionAccess, 'scopeKind' | 'matrix'>,
+  profile: {
+    scopeKind: AccessScopeKind;
+    matrix: AccessMatrix | null;
+    label: string;
+  },
+): string | null {
+  const matrix = profile.matrix ?? {};
+  if (profile.scopeKind === AccessScopeKind.AUDIT || matrix.AUDIT) {
+    return "Accès refusé : seul l'administrateur de la plateforme attribue un profil d'audit.";
+  }
+  return (
+    scopeKindRefusal(granter.scopeKind, profile.scopeKind) ??
+    (isNationalAdministrator(granter)
+      ? null
+      : matrixExcessRefusal(granter.matrix, matrix, profile.label))
+  );
+}
+
+/**
+ * The parts of a membership scope outside the granter's own: provinces of a
+ * PROVINCES scope, farms of a FARMS scope (by their province for a PROVINCES
+ * granter, by id for a FARMS granter). An ALL granter has no excess.
+ */
+export function scopeExcess(
+  granter: InstitutionAccess,
+  target: {
+    scopeKind: AccessScopeKind;
+    provinceIds: readonly string[];
+    farms: readonly { id: string; provinceId: string | null }[];
+  },
+): { provinceIds: string[]; farmIds: string[] } {
+  if (granter.scopeKind === AccessScopeKind.ALL) {
+    return { provinceIds: [], farmIds: [] };
+  }
+  const provinceIds =
+    target.scopeKind === AccessScopeKind.PROVINCES
+      ? target.provinceIds.filter(
+          (id) =>
+            granter.scopeKind !== AccessScopeKind.PROVINCES ||
+            !granter.provinceIds.includes(id),
+        )
+      : [];
+  const farmIds =
+    target.scopeKind === AccessScopeKind.FARMS
+      ? target.farms
+          .filter((f) =>
+            granter.scopeKind === AccessScopeKind.PROVINCES
+              ? f.provinceId === null ||
+                !granter.provinceIds.includes(f.provinceId)
+              : granter.scopeKind === AccessScopeKind.FARMS
+                ? !granter.farmIds.includes(f.id)
+                : true,
+          )
+          .map((f) => f.id)
+      : [];
+  return { provinceIds, farmIds };
 }
 
 /**

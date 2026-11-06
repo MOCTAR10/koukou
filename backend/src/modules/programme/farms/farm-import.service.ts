@@ -208,6 +208,9 @@ export class FarmImportService {
       em,
       program.id,
     );
+    const provinces = new Map(
+      ctx.provinces.map((p) => [p.id, { code: p.code, name: p.name }]),
+    );
     const lines: ImportLine[] = [];
     for (const { line, values } of mapped.rows) {
       const name = values.name ?? null;
@@ -256,7 +259,7 @@ export class FarmImportService {
         });
         continue;
       }
-      const duplicates = this.registry.scoreAgainst(entry, pool);
+      const duplicates = this.registry.scoreAgainst(entry, pool, provinces);
       if (duplicates.length > 0 && !confirmDuplicate) {
         lines.push({
           line,

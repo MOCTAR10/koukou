@@ -163,6 +163,16 @@ describe('suggestReadyDate', () => {
     ).toBeNull();
   });
 
+  it('counts the age of a band received at J+x', () => {
+    // 35 days old = 15 days after a reception at 20 days.
+    expect(suggestReadyDate({ ...base, initialAgeDays: 20 })?.readyDate).toBe(
+      '2026-11-16',
+    );
+    expect(suggestReadyDate({ ...base, initialAgeDays: 0 })?.readyDate).toBe(
+      '2026-12-06',
+    );
+  });
+
   it('suggests nothing for layers', () => {
     expect(
       suggestReadyDate({ ...base, batchType: BatchType.PONDEUSE }),

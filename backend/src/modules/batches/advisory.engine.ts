@@ -11,7 +11,13 @@ import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
-import { FlockTimeline, waterPerBirdOn } from './flock-performance.js';
+import {
+  FlockTimeline,
+  daysBetween as flockDaysBetween,
+  growthOrigin,
+  waterPerBirdOn,
+} from './flock-performance.js';
+import { ageOn } from './poufa/bande-rules.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { BatchMetrics } from './models/batch-metrics.model.js';
 
@@ -215,9 +221,7 @@ export class AdvisoryEngine {
       ReferenceKey.AGE_GAP_MAX_WEEKS,
       4,
     );
-    const agesInWeeks = activeLots.map((l) =>
-      this.ageInWeeks(l.integrationDate),
-    );
+    const agesInWeeks = activeLots.map((l) => this.ageInWeeks(l));
     const minWeek = Math.min(...agesInWeeks);
     const maxWeek = Math.max(...agesInWeeks);
     const gapWeeks = maxWeek - minWeek;
@@ -335,16 +339,12 @@ export class AdvisoryEngine {
     }
   }
 
-  private ageInWeeks(integrationDate: string): number {
-    const start = new Date(integrationDate + 'T00:00:00Z').getTime();
-    const now = Date.now();
-    return Math.max(0, (now - start) / (7 * 86400000));
-  }
-
-  private ageDaysAt(entryDate: string, integrationDate: string): number {
-    const entry = new Date(entryDate + 'T00:00:00Z').getTime();
-    const start = new Date(integrationDate + 'T00:00:00Z').getTime();
-    return Math.max(0, Math.floor((entry - start) / 86400000));
+  /** Age of the birds today in weeks (J+x at opening included). */
+  private ageInWeeks(
+    lot: Pick<ProductionBatch, 'integrationDate' | 'initialAgeDays'>,
+  ): number {
+    const today = new Date().toISOString().slice(0, 10);
+    return ageOn(lot.integrationDate, lot.initialAgeDays, today) / 7;
   }
 
   private async evaluateMortality(
@@ -690,8 +690,17 @@ export class AdvisoryEngine {
       await this.alertsService.clearKind(farmId, batchId, AlertKind.GMQ);
       return;
     }
+    // Same growth origin as the metrics GMQ (weight measured at a J+x
+    // opening, else the chick weight at age 0).
+    const origin = growthOrigin({
+      integrationDate: batch.integrationDate,
+      day1WeightKg: day1WeightKg(batch.species),
+      initialAgeDays: batch.initialAgeDays,
+      initialWeightKg:
+        batch.initialAvgWeightG != null ? batch.initialAvgWeightG / 1000 : null,
+    });
     const sampleAgeDays = (entryDate: string) =>
-      this.ageDaysAt(entryDate, batch.integrationDate);
+      flockDaysBetween(origin.date, entryDate);
     const weighted = (
       await this.entriesRepo.find({
         where: { batchId: batch.id },
@@ -708,7 +717,7 @@ export class AdvisoryEngine {
       await this.alertsService.clearKind(farmId, batchId, AlertKind.GMQ);
       return;
     }
-    const prevGmq = ((prev.avgWeightKg! - day1WeightKg(batch.species)) * 1000) / prevAge;
+    const prevGmq = ((prev.avgWeightKg! - origin.kg) * 1000) / prevAge;
     if (prevGmq <= 0) {
       await this.alertsService.clearKind(farmId, batchId, AlertKind.GMQ);
       return;

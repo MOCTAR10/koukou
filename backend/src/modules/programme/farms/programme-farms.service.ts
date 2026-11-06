@@ -16,7 +16,10 @@ import { normalizePhone } from '../../../common/utils/phone.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { Farm } from '../../farms/entities/farm.entity.js';
 import { FarmsService } from '../../farms/farms.service.js';
-import { generateLoginCode } from '../../../common/utils/login-code.js';
+import {
+  generateLoginCode,
+  newLoginCode,
+} from '../../../common/utils/login-code.js';
 import {
   includesFarm,
   scopeReachesFarms,
@@ -94,6 +97,9 @@ export interface DuplicateCandidate {
   readonly farmId: string | null;
   readonly code: string | null;
   readonly name: string;
+  /** Province of the candidate (null when it has none). */
+  readonly provinceCode: string | null;
+  readonly provinceName: string | null;
   readonly score: number;
   readonly reasons: string[];
   readonly line?: number;
@@ -105,6 +111,12 @@ export interface HiddenDuplicate {
   readonly score: number;
   readonly reasons: string[];
 }
+
+/** Code and name of the provinces, by id (duplicate candidates). */
+export type ProvinceLabels = ReadonlyMap<
+  string,
+  { readonly code: string; readonly name: string }
+>;
 
 /** A database candidate with what the scope check needs. */
 interface ScopedDuplicate extends DuplicateCandidate {
@@ -287,10 +299,23 @@ export class ProgrammeFarmsService {
     return rows.map((f) => this.entryOf(f));
   }
 
+  /** Code and name of every province of the programme, by id. */
+  async provinceLabels(
+    em: EntityManager,
+    programId: string,
+  ): Promise<ProvinceLabels> {
+    const rows = await em.getRepository(Province).find({
+      where: { programId },
+      select: { id: true, code: true, name: true },
+    });
+    return new Map(rows.map((p) => [p.id, { code: p.code, name: p.name }]));
+  }
+
   /** Probable duplicates of `entry` among `pool`, best first (10 at most). */
   scoreAgainst(
     entry: RegistryEntry,
     pool: readonly RegistryEntry[],
+    provinces: ProvinceLabels,
   ): DuplicateCandidate[] {
     const found: { e: RegistryEntry; s: DuplicateScore }[] = [];
     for (const other of pool) {
@@ -305,6 +330,10 @@ export class ProgrammeFarmsService {
         farmId: e.id,
         code: e.code,
         name: e.name,
+        provinceCode:
+          (e.provinceId && provinces.get(e.provinceId)?.code) || null,
+        provinceName:
+          (e.provinceId && provinces.get(e.provinceId)?.name) || null,
         score: Math.round(s.score * 100) / 100,
         reasons: s.reasons.map((r) => DUPLICATE_REASON_LABELS[r]),
         ...(e.line !== undefined ? { line: e.line } : {}),
@@ -325,7 +354,8 @@ export class ProgrammeFarmsService {
       (e) => !entry.id || e.id !== entry.id,
     );
     const provinces = new Map(pool.map((e) => [e.id, e.provinceId]));
-    return this.scoreAgainst(entry, pool).map((c) => ({
+    const labels = await this.provinceLabels(em, programId);
+    return this.scoreAgainst(entry, pool, labels).map((c) => ({
       ...c,
       farmId: c.farmId as string,
       provinceId: provinces.get(c.farmId) ?? null,
@@ -366,6 +396,8 @@ export class ProgrammeFarmsService {
           farmId: d.farmId,
           code: d.code,
           name: d.name,
+          provinceCode: d.provinceCode,
+          provinceName: d.provinceName,
           score: d.score,
           reasons: d.reasons,
         });
@@ -979,6 +1011,69 @@ export class ProgrammeFarmsService {
         owner: { id: owner.id, fullName: owner.fullName, phone: owner.phone },
         linkedExistingAccount: existing !== null,
         /** Shown once; null when an existing account was linked. */
+        loginCode: code,
+      };
+    });
+  }
+
+  /**
+   * New login code for the farm's owner account (the same code service as
+   * `POST /admin/users/:userId/login-code`): returned once, the previous code
+   * stops working, open sessions stay valid until they expire. The farm must
+   * have an owner account; never the caller's own; an institutional caller
+   * needs every farm of that owner in its scope (the code opens them all).
+   */
+  async regenerateOwnerLoginCode(user: AuthUser, farmId: string) {
+    const program = await this.programme.current();
+    const access: InstitutionAccess | null = this.scope.isInstitution(user)
+      ? await this.scope.requireAccess(user)
+      : null;
+    const { code, hash } = await newLoginCode();
+    return this.dataSource.transaction(async (em) => {
+      const farm = await this.programmeFarm(program.id, farmId);
+      if (!farm.ownerId) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message:
+            "Cette ferme n'a pas encore de compte propriétaire : activez d'abord le compte de l'exploitant.",
+          noOwnerAccount: true,
+        });
+      }
+      if (farm.ownerId === user.id) {
+        throw new ForbiddenException(
+          'Vous ne pouvez pas régénérer votre propre code de connexion.',
+        );
+      }
+      const users = em.getRepository(User);
+      const owner = await users.findOne({
+        where: { id: farm.ownerId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!owner) {
+        throw new NotFoundException('Compte propriétaire introuvable.');
+      }
+      if (owner.role === UserRole.PLATFORM_ADMIN) {
+        throw new BadRequestException(
+          "Le code d'un administrateur plateforme ne se régénère pas ici.",
+        );
+      }
+      if (access) {
+        const owned = await em.getRepository(Farm).find({
+          where: { ownerId: owner.id },
+          select: { id: true, programId: true, provinceId: true },
+        });
+        if (owned.some((f) => !includesFarm(access, f))) {
+          throw new ForbiddenException(
+            'Accès refusé : cet exploitant a aussi des fermes hors de votre périmètre ; seul un administrateur qui les voit toutes peut régénérer son code.',
+          );
+        }
+      }
+      await users.save({ ...owner, passwordHash: hash });
+      return {
+        farm: { id: farm.id, code: farm.code, name: farm.name },
+        owner: { id: owner.id, fullName: owner.fullName, phone: owner.phone },
+        /** Shown once. */
         loginCode: code,
       };
     });
