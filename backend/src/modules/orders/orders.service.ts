@@ -76,7 +76,7 @@ import { AccountingService } from '../accounting/accounting.service.js';
 import { SaleCessionService } from '../trace/sale-cession.service.js';
 import { SyncService } from '../sync/sync.service.js';
 import { TraceLotsService } from '../trace/trace-lots.service.js';
-import { utcDay } from './delivery-day.js';
+import { gabonDay } from './delivery-day.js';
 import {
   CreateOrderDto,
   FinalizeOrderDto,
@@ -695,7 +695,7 @@ export class OrdersService {
         dto,
       );
       const deliveredAt = capture.capturedAt;
-      const deliveryDay = utcDay(deliveredAt);
+      const deliveryDay = gabonDay(deliveredAt);
 
       // Sanitary rules are advisory for a farm's own sales, but a Market buyer
       // can't judge them: the platform doesn't deliver during a withdrawal.

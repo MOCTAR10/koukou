@@ -111,6 +111,7 @@ describe('Module 1 — Gestion des Lots (e2e)', () => {
         feedType: 'DEMARRAGE',
         waterL: 200,
         avgWeightKg: 1.2,
+        sampleSize: 1,
       })
       .expect(201);
 

@@ -198,6 +198,8 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
         sampleSize: 20,
       }).expect(400);
       expect(noWeight.body.message).toContain('poids moyen');
+      const noSample = await entry(band.id, { entryDate: day(0), avgWeightKg: 0.5 }).expect(400);
+      expect(noSample.body.message).toContain('nombre de sujets pesés');
       await entry(band.id, {
         entryDate: day(0),
         avgWeightKg: 0.5,

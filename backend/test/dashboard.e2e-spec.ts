@@ -94,6 +94,7 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
           feedUnit: 'KG',
           feedType: 'DEMARRAGE',
           avgWeightKg: 0.5,
+          sampleSize: 1,
         })
         .expect(201);
     await postEntry(dateStr(addDays(new Date(), -1)));
