@@ -18,6 +18,8 @@ export enum NotificationEvent {
   WEIGHING_LATE = 'WEIGHING_LATE',
   /** Offline writes met changes from another device. */
   SYNC_CONFLICT = 'SYNC_CONFLICT',
+  /** A scheduled report (PDF) is available (L6, POUFA lot A). */
+  REPORT_READY = 'REPORT_READY',
 }
 
 /** Delivery channel of one notification. */
@@ -53,4 +55,9 @@ export enum NotificationAudience {
   PROFILE = 'PROFILE',
   FARM_MANAGERS = 'FARM_MANAGERS',
   FARM_TEAM = 'FARM_TEAM',
+  /**
+   * REPORT_READY only: the recipients the report template's audience gives
+   * (`report_runs.recipients`, POUFA lot A).
+   */
+  REPORT_RECIPIENTS = 'REPORT_RECIPIENTS',
 }

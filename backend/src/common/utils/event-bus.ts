@@ -116,6 +116,14 @@ export interface ReportReadyEvent {
   recipientUserIds: string[];
   /** In-app route of the PDF. */
   downloadPath: string;
+  // POUFA lot A pilot: what the notification rules of REPORT_READY need.
+  programId: string;
+  /** The same recipients, with their kind and profile (rule audiences). */
+  recipients: {
+    userId: string;
+    kind: 'OWNER' | 'MEMBER';
+    profileCode: string | null;
+  }[];
 }
 
 /**

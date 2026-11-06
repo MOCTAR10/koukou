@@ -124,4 +124,12 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
     profileCode: PROFILE_CODES.AGENT_TECHNIQUE,
     channels: [IN_APP],
   },
+  // POUFA lot A pilot: reports are sent, not only stored (CDC §5.4, §7.7).
+  {
+    code: 'RAPPORT_DISPONIBLE',
+    label: 'Destinataires du modèle : rapport du programme disponible',
+    event: NotificationEvent.REPORT_READY,
+    audience: NotificationAudience.REPORT_RECIPIENTS,
+    channels: [IN_APP, PUSH],
+  },
 ];

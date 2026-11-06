@@ -35,7 +35,8 @@ export class UpdateNotificationRuleDto {
   @ApiPropertyOptional({ enum: NotificationAudience })
   @IsOptional()
   @IsEnum(NotificationAudience, {
-    message: 'Le destinataire doit être PROFILE, FARM_MANAGERS ou FARM_TEAM.',
+    message:
+      'Le destinataire doit être PROFILE, FARM_MANAGERS, FARM_TEAM ou REPORT_RECIPIENTS.',
   })
   audience?: NotificationAudience;
 
@@ -104,7 +105,8 @@ export class CreateNotificationRuleDto {
 
   @ApiProperty({ enum: NotificationAudience })
   @IsEnum(NotificationAudience, {
-    message: 'Le destinataire doit être PROFILE, FARM_MANAGERS ou FARM_TEAM.',
+    message:
+      'Le destinataire doit être PROFILE, FARM_MANAGERS, FARM_TEAM ou REPORT_RECIPIENTS.',
   })
   audience: NotificationAudience;
 
