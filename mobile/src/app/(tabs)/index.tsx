@@ -32,6 +32,7 @@ import type { MetricKey } from '@/components/MetricInfoSheet';
 import { CheptelModal } from '@/components/CheptelModal';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
 import type { BatchWithMetrics, FarmWeather } from '@/api/types';
+import { ipeStatus } from '@/constants/flock';
 
 function weatherHint(w: FarmWeather): string {
   const t = w.temperatureC ?? 0;
@@ -183,6 +184,10 @@ export default function AccueilScreen() {
   const avgFcr = weightedAvg((b) => b.metrics.fcr);
   const avgGmq = weightedAvg((b) => b.metrics.gmqGramsPerDay);
   const avgIpe = weightedAvg((b) => b.metrics.ipe);
+  // Value and target over the same lots: a lot with no target must not skew the comparison.
+  const withTarget = (pick: (m: BatchWithMetrics['metrics']) => number | null) =>
+    weightedAvg((b) => (b.metrics.ipe != null && b.metrics.ipeTarget != null ? pick(b.metrics) : null));
+  const ipeState = ipeStatus(withTarget((m) => m.ipe) ?? avgIpe, withTarget((m) => m.ipeTarget));
   // Taux de ponte only for laying batches
   const layerBatches = activeBatches.filter((b) => b.type === 'PONDEUSE' && b.metrics.layRatePercent != null);
   const layerLive = layerBatches.reduce((s, b) => s + b.metrics.liveCount, 0);
@@ -328,7 +333,7 @@ export default function AccueilScreen() {
             }}
             stats={[
               {
-                label: isToday ? "Encaissé aujourd'hui" : `Encaissé le ${formatDayShort(window.to ? new Date(window.to) : liveNow)}`,
+                label: isToday ? "Encaissé aujourd'hui" : `Encaissé ${formatDayShort(window.to ? new Date(window.to) : liveNow)}${queryTimeStr === '23:59' ? '' : ` à ${queryTimeStr}`}`,
                 value: fmtFcfa(d.collectedTodayFcfa ?? 0),
                 onPress: canCaisse ? () => router.push('/caisse') : undefined,
               },
@@ -425,8 +430,8 @@ export default function AccueilScreen() {
             <MetricTile
               label='IPE'
               value={avgIpe != null && avgIpe > 0 ? fmt(Math.round(avgIpe)) : '—'}
-              sub={avgIpe != null && avgIpe > 350 ? 'Coût élevé' : avgIpe != null ? 'Coût maîtrisé' : undefined}
-              tone={avgIpe != null && avgIpe > 350 ? 'amber' : avgIpe != null ? 'green' : 'default'}
+              sub={ipeState?.label}
+              tone={ipeState?.tone ?? 'default'}
               icon={Scale}
               onPress={() => setMetricInfo('IPE')}
               threeCol

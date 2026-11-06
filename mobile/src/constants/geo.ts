@@ -86,6 +86,14 @@ export function ringApproxSizeM(ring: LatLng[]): number {
   return total;
 }
 
+/** Largest spread, north-south or east-west, across all the parcels' outlines (degrees). */
+export function parcellesSpanDelta(parcelles: Parcelle[]): number {
+  const points = parcelles.flatMap((p) => geoJsonOuterRing(p.boundaryGeoJson));
+  if (points.length === 0) return 0.001;
+  const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+  return Math.max(EPS, spread(points.map((p) => p.latitude)), spread(points.map((p) => p.longitude)));
+}
+
 /** Delta de latitude englobant l'anneau (dégrés), forcé ≥ EPS pour le zoom. */
 export function ringLatDelta(ring: LatLng[]): number {
   if (ring.length === 0) return 0.001;

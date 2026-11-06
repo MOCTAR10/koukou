@@ -17,6 +17,7 @@ import { createBatch, createTreatment, localYmd } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { fetchBuildings, fetchBreeds, fetchBreedStandards, fetchProtocols, fetchSanitaryProgram } from '@/api';
 import type { BatchType, Building, FeedPhase, Species } from '@/api/types';
+import { endOfLayStandard } from '@/constants/flock';
 
 type BatchInput = {
   batchName: string;
@@ -454,7 +455,7 @@ export function CreateLotSheet({ visible, onClose }: CreateLotSheetProps) {
         (s.targetLayRatePercent ?? 0) > (best.targetLayRatePercent ?? 0) ? s : best,
       );
       const startLaying = standards.find((s) => (s.targetLayRatePercent ?? 0) >= 10);
-      const endCycle = standards.find((s) => (s.targetLayRatePercent ?? 0) < 60);
+      const endCycle = endOfLayStandard(standards, peakWeek.week);
 
       const peakDate = addWeeks(integrationDate, peakWeek.week);
       const startLayingDate = addWeeks(integrationDate, startLaying?.week ?? 18);
