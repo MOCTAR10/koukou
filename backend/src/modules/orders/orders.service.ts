@@ -19,8 +19,11 @@ import { CareType } from '../../common/enums/care-type.enum.js';
 import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
 import { ProphylaxisStatus } from '../../common/enums/prophylaxis-status.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
+import { CustomerType } from '../../common/enums/customer-type.enum.js';
 import { OrderCanal } from '../../common/enums/order-canal.enum.js';
+import { OrderSource } from '../../common/enums/order-source.enum.js';
 import { OrderStatus } from '../../common/enums/order-status.enum.js';
+import { UserRole } from '../../common/enums/role.enum.js';
 import {
   PaymentMethod,
   PaymentStatus,
@@ -43,6 +46,7 @@ import { BatchMetrics } from '../batches/models/batch-metrics.model.js';
 import { BatchesService } from '../batches/batches.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
+import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { PointsOfSaleService } from '../points-of-sale/points-of-sale.service.js';
 import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.js';
@@ -139,6 +143,24 @@ const PASSPORT_ALERT_KINDS = [
   AlertKind.MALADIE,
 ];
 
+/** Order options only internal callers can set: none of them come from the API. */
+export interface OrderCreationExtras {
+  source?: OrderSource;
+  /** Added as its own line of the order, in FCFA. */
+  deliveryFeeFcfa?: number;
+  /** Type given to the customer when this order creates it. */
+  customerType?: CustomerType;
+}
+
+export enum BuyerCancelOutcome {
+  CANCELLED = 'CANCELLED',
+  ALREADY_CANCELLED = 'ALREADY_CANCELLED',
+  DELIVERED = 'DELIVERED',
+  /** Money was recorded: only the farm can cancel, as it has to refund. */
+  HAS_PAYMENT = 'HAS_PAYMENT',
+  NOT_FOUND = 'NOT_FOUND',
+}
+
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -190,11 +212,7 @@ export class OrdersService {
 
   async create(user: AuthUser, farmId: string, dto: CreateOrderDto) {
     const farm = await this.farmsService.assertAccessible(user, farmId);
-    if (farm.active === false) {
-      throw new BadRequestException(
-        'Ferme suspendue : aucune nouvelle commande ne peut être créée tant que la ferme est suspendue.',
-      );
-    }
+    this.assertFarmTakesOrders(farm);
     // Rejeu offline : une même clé d'idempotence renvoie la commande déjà créée.
     if (dto.idempotencyKey) {
       const existing = await this.orderRepo.findOne({
@@ -204,252 +222,10 @@ export class OrdersService {
         return this.getOne(user, farmId, existing.id);
       }
     }
-    if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Au moins un article est requis.');
-    }
 
-    const order = await this.dataSource.transaction(async (em) => {
-      const orderRepo = em.getRepository(Order);
-      const saleRepo = em.getRepository(Sale);
-      const itemRepo = em.getRepository(SaleItem);
-
-      const snapshots: OrderItemSnapshot[] = [];
-      let birdsRequested = 0;
-      let checkoutBatchId: string | null = null;
-      let eggsRequested = 0;
-      const eggsByBatch = new Map<string, number>();
-      let total = 0;
-      let passport: OrderPassportSnapshot | null = null;
-
-      for (const it of dto.items) {
-        if (!ORDERABLE_TYPES.includes(it.productType)) {
-          throw new BadRequestException(
-            'Les commandes concernent la volaille sur pied (pièce / au kilo) et les œufs. Vente d’abattu, provende ou article divers : passer par la vente directe (POS).',
-          );
-        }
-        const unit = it.unit ?? defaultUnit(it.productType);
-        let pieceCount: number | null = null;
-        let batchId: string | null = null;
-        // Egg lines keep their batch (per-batch egg stock, rentabilité) but
-        // don't take part in the "one batch per order" rule for birds.
-        let eggBatchId: string | null = null;
-
-        if (it.productType === SaleItemProductType.POULET_PIECE ||
-            it.productType === SaleItemProductType.ABATTU_PIECE) {
-          if (unit !== SaleItemUnit.PIECE) {
-            throw new BadRequestException(
-              it.productType === SaleItemProductType.ABATTU_PIECE
-                ? 'Pour un poulet abattu à la pièce, l’unité doit être PIECE.'
-                : 'Pour un poulet à la pièce, l’unité doit être PIECE.',
-            );
-          }
-          if (!Number.isInteger(it.quantity)) {
-            throw new BadRequestException(
-              'La quantité doit être un nombre entier de pièces.',
-            );
-          }
-          if (!it.batchId) {
-            throw new BadRequestException(
-              'Une commande de volaille doit être rattachée à un lot de production (batchId).',
-            );
-          }
-          batchId = it.batchId;
-          pieceCount = Math.ceil(it.quantity);
-          birdsRequested += pieceCount;
-        } else if (it.productType === SaleItemProductType.POULET_KG ||
-                   it.productType === SaleItemProductType.ABATTU_KG) {
-          if (unit !== SaleItemUnit.KG) {
-            throw new BadRequestException(
-              it.productType === SaleItemProductType.ABATTU_KG
-                ? 'Pour un poulet abattu au kilo, l’unité doit être KG.'
-                : 'Pour un poulet au kilo, l’unité doit être KG.',
-            );
-          }
-          if (!it.pieceCount || it.pieceCount <= 0) {
-            throw new BadRequestException(
-              'Commande au kilo : indiquer le nombre de pièces (nb de poulets).',
-            );
-          }
-          if (!it.batchId) {
-            throw new BadRequestException(
-              'Une commande de volaille doit être rattachée à un lot de production (batchId).',
-            );
-          }
-          batchId = it.batchId;
-          pieceCount = it.pieceCount;
-          birdsRequested += pieceCount;
-        } else {
-          if (unit !== SaleItemUnit.ALVEOLES) {
-            throw new BadRequestException(
-              'Pour une commande d’œufs, l’unité doit être ALVEOLES.',
-            );
-          }
-          if (it.batchId) {
-            const owned = await em
-              .getRepository(ProductionBatch)
-              .exists({ where: { id: it.batchId, farmId } });
-            if (!owned) {
-              throw new NotFoundException('Lot introuvable dans cette ferme.');
-            }
-            eggBatchId = it.batchId;
-          }
-          // Checked once for all egg lines after the loop.
-          eggsRequested += it.quantity;
-          if (eggBatchId) {
-            eggsByBatch.set(
-              eggBatchId,
-              (eggsByBatch.get(eggBatchId) ?? 0) + it.quantity,
-            );
-          }
-        }
-
-        if (batchId) {
-          if (checkoutBatchId && checkoutBatchId !== batchId) {
-            throw new BadRequestException(
-              'Une commande ne peut porter que sur un seul lot de production.',
-            );
-          }
-          checkoutBatchId = batchId;
-        }
-
-        const amount = Math.round(it.quantity * it.unitPriceFcfa);
-        total += amount;
-        snapshots.push({
-          saleItemId: '',
-          productType: it.productType,
-          label: it.label ?? ITEM_LABELS[it.productType],
-          quantity: it.quantity,
-          unit,
-          pieceCount,
-          unitPriceFcfa: it.unitPriceFcfa,
-          amountFcfa: amount,
-          batchId: batchId ?? eggBatchId,
-          inputLotId: it.inputLotId ?? null,
-        });
-      }
-
-      if (eggsRequested > 0) {
-        await lockFarmEggStock(em, farmId);
-        await this.assertEggsAvailable(em, farmId, eggsRequested);
-        for (const [eggBatch, alveoles] of eggsByBatch) {
-          const batchAlveoles = await this.availableBatchEggAlveoles(
-            em,
-            farmId,
-            eggBatch,
-          );
-          if (alveoles > batchAlveoles) {
-            throw new BadRequestException(
-              `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), commande demandée ${alveoles}.`,
-            );
-          }
-        }
-      }
-
-      if (checkoutBatchId && birdsRequested > 0) {
-        const batch = await this.assertBatchOrderable(
-          em,
-          farmId,
-          checkoutBatchId,
-        );
-        await this.assertBirdsAvailable(
-          em,
-          farmId,
-          checkoutBatchId,
-          batch,
-          birdsRequested,
-        );
-        // Passeport de traçabilité figé au bon de commande : transparence
-        // totale pour le client (zootechnie, vaccins, retraits, sanitaire,
-        // et l'auto-signal « prêt à vendre » — simple conseil, jamais bloquant).
-        const metrics = await this.metricsService.compute(batch);
-        passport = await this.buildLotPassport(em, batch, metrics);
-      }
-
-      const customerId = await this.resolveCustomer(em, farmId, user.id, dto);
-
-      const resolvedPointOfSaleId = await this.pointsOfSaleService.resolve(
-        farmId,
-        dto.pointOfSaleId,
-      );
-
-      const sale = await saleRepo.save(
-        saleRepo.create({
-          farmId,
-          referenceNumber: await this.nextReference(em, Sale, 'VTE'),
-          saleDate: dto.saleDate ?? todayStr(),
-          totalAmountFcfa: total,
-          status: SaleStatus.OUTSTANDING,
-          customerId,
-          pointOfSaleId: resolvedPointOfSaleId,
-          batchId: checkoutBatchId,
-          createdById: user.id,
-        }),
-      );
-
-      for (const snap of snapshots) {
-        const item = await itemRepo.save(
-          itemRepo.create({
-            saleId: sale.id,
-            productType: snap.productType,
-            label: snap.label,
-            quantity: snap.quantity,
-            unit: snap.unit,
-            pieceCount: snap.pieceCount,
-            unitPriceFcfa: snap.unitPriceFcfa,
-            amountFcfa: snap.amountFcfa,
-            batchId: snap.batchId,
-            inputLotId: snap.inputLotId,
-          }),
-        );
-        snap.saleItemId = item.id;
-      }
-
-      let depositFcfa = 0;
-      if (dto.deposit) {
-        await this.paymentsService.recordPayment(em, {
-          farm,
-          sale,
-          method: dto.deposit.method ?? PaymentMethod.CASH,
-          amountFcfa: dto.deposit.amountFcfa,
-          paymentDate: dto.deposit.paymentDate,
-          idempotencyKey: dto.deposit.idempotencyKey,
-          operatorId: user.id,
-        });
-        depositFcfa = await this.paidSum(em, sale.id);
-        if (depositFcfa >= total) {
-          sale.status = SaleStatus.SETTLED;
-          await saleRepo.save(sale);
-        }
-      }
-
-      return orderRepo.save(
-        orderRepo.create({
-          farmId,
-          referenceNumber: await this.nextReference(em, Order, ORDER_PREFIX),
-          canal: dto.canal,
-          saleId: sale.id,
-          status: depositFcfa > 0 ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
-          idempotencyKey: dto.idempotencyKey ?? null,
-          customerId,
-          expectedDate: dto.expectedDate ?? null,
-          pointOfSaleId: resolvedPointOfSaleId,
-          address:
-            dto.canal === OrderCanal.LIVRAISON ? (dto.address ?? null) : null,
-          deliveryProvince:
-            dto.canal === OrderCanal.LIVRAISON ? (dto.province ?? null) : null,
-          latitude:
-            dto.canal === OrderCanal.LIVRAISON ? (dto.latitude ?? null) : null,
-          longitude:
-            dto.canal === OrderCanal.LIVRAISON ? (dto.longitude ?? null) : null,
-          batchId: checkoutBatchId,
-          totalAmountFcfa: total,
-          depositFcfa,
-          items: snapshots,
-          passport,
-          createdById: user.id,
-        }),
-      );
-    }).catch(async (err: unknown) => {
+    const order = await this.dataSource.transaction((em) =>
+      this.createWithin(em, user, farm, dto),
+    ).catch(async (err: unknown) => {
       // Deux créations concurrentes avec la même clé : l'index unique
       // (ferme, clé) tranche → on renvoie la commande existante.
       if (!dto.idempotencyKey || !isUniqueViolation(err)) throw err;
@@ -462,6 +238,297 @@ export class OrdersService {
 
     await this.afterOrderChange(farmId, order.batchId ? [order.batchId] : []);
     return this.getOne(user, farmId, order.id);
+  }
+
+  /**
+   * Creates an order inside the caller's transaction, so the Market can accept
+   * a request and create its order as one unit of work. The caller authorizes
+   * the user, and calls afterOrderChange once the transaction has committed.
+   * `extras` is for internal callers only: nothing in it comes from the API.
+   */
+  async createWithin(
+    em: EntityManager,
+    user: AuthUser,
+    farm: Farm,
+    dto: CreateOrderDto,
+    extras: OrderCreationExtras = {},
+  ): Promise<Order> {
+    const farmId = farm.id;
+    this.assertFarmTakesOrders(farm);
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('Au moins un article est requis.');
+    }
+    const orderRepo = em.getRepository(Order);
+    const saleRepo = em.getRepository(Sale);
+    const itemRepo = em.getRepository(SaleItem);
+
+    const snapshots: OrderItemSnapshot[] = [];
+    let birdsRequested = 0;
+    let checkoutBatchId: string | null = null;
+    let eggsRequested = 0;
+    const eggsByBatch = new Map<string, number>();
+    let total = 0;
+    let passport: OrderPassportSnapshot | null = null;
+
+    for (const it of dto.items) {
+      if (!ORDERABLE_TYPES.includes(it.productType)) {
+        throw new BadRequestException(
+          'Les commandes concernent la volaille sur pied (pièce / au kilo) et les œufs. Vente d’abattu, provende ou article divers : passer par la vente directe (POS).',
+        );
+      }
+      const unit = it.unit ?? defaultUnit(it.productType);
+      let pieceCount: number | null = null;
+      let batchId: string | null = null;
+      // Egg lines keep their batch (per-batch egg stock, rentabilité) but
+      // don't take part in the "one batch per order" rule for birds.
+      let eggBatchId: string | null = null;
+
+      if (it.productType === SaleItemProductType.POULET_PIECE ||
+          it.productType === SaleItemProductType.ABATTU_PIECE) {
+        if (unit !== SaleItemUnit.PIECE) {
+          throw new BadRequestException(
+            it.productType === SaleItemProductType.ABATTU_PIECE
+              ? 'Pour un poulet abattu à la pièce, l’unité doit être PIECE.'
+              : 'Pour un poulet à la pièce, l’unité doit être PIECE.',
+          );
+        }
+        if (!Number.isInteger(it.quantity)) {
+          throw new BadRequestException(
+            'La quantité doit être un nombre entier de pièces.',
+          );
+        }
+        if (!it.batchId) {
+          throw new BadRequestException(
+            'Une commande de volaille doit être rattachée à un lot de production (batchId).',
+          );
+        }
+        batchId = it.batchId;
+        pieceCount = Math.ceil(it.quantity);
+        birdsRequested += pieceCount;
+      } else if (it.productType === SaleItemProductType.POULET_KG ||
+                 it.productType === SaleItemProductType.ABATTU_KG) {
+        if (unit !== SaleItemUnit.KG) {
+          throw new BadRequestException(
+            it.productType === SaleItemProductType.ABATTU_KG
+              ? 'Pour un poulet abattu au kilo, l’unité doit être KG.'
+              : 'Pour un poulet au kilo, l’unité doit être KG.',
+          );
+        }
+        if (!it.pieceCount || it.pieceCount <= 0) {
+          throw new BadRequestException(
+            'Commande au kilo : indiquer le nombre de pièces (nb de poulets).',
+          );
+        }
+        if (!it.batchId) {
+          throw new BadRequestException(
+            'Une commande de volaille doit être rattachée à un lot de production (batchId).',
+          );
+        }
+        batchId = it.batchId;
+        pieceCount = it.pieceCount;
+        birdsRequested += pieceCount;
+      } else {
+        if (unit !== SaleItemUnit.ALVEOLES) {
+          throw new BadRequestException(
+            'Pour une commande d’œufs, l’unité doit être ALVEOLES.',
+          );
+        }
+        if (it.batchId) {
+          const owned = await em
+            .getRepository(ProductionBatch)
+            .exists({ where: { id: it.batchId, farmId } });
+          if (!owned) {
+            throw new NotFoundException('Lot introuvable dans cette ferme.');
+          }
+          eggBatchId = it.batchId;
+        }
+        // Checked once for all egg lines after the loop.
+        eggsRequested += it.quantity;
+        if (eggBatchId) {
+          eggsByBatch.set(
+            eggBatchId,
+            (eggsByBatch.get(eggBatchId) ?? 0) + it.quantity,
+          );
+        }
+      }
+
+      if (batchId) {
+        if (checkoutBatchId && checkoutBatchId !== batchId) {
+          throw new BadRequestException(
+            'Une commande ne peut porter que sur un seul lot de production.',
+          );
+        }
+        checkoutBatchId = batchId;
+      }
+
+      const amount = Math.round(it.quantity * it.unitPriceFcfa);
+      total += amount;
+      snapshots.push({
+        saleItemId: '',
+        productType: it.productType,
+        label: it.label ?? ITEM_LABELS[it.productType],
+        quantity: it.quantity,
+        unit,
+        pieceCount,
+        unitPriceFcfa: it.unitPriceFcfa,
+        amountFcfa: amount,
+        batchId: batchId ?? eggBatchId,
+        inputLotId: it.inputLotId ?? null,
+      });
+    }
+
+    const deliveryFee = extras.deliveryFeeFcfa ?? 0;
+    if (!Number.isInteger(deliveryFee) || deliveryFee < 0) {
+      throw new BadRequestException('Frais de livraison invalides.');
+    }
+    if (deliveryFee > 0) {
+      // A line, not a separate field: delivery recomputes the total from the
+      // lines. No batch, so it never counts as a lot's revenue.
+      total += deliveryFee;
+      snapshots.push({
+        saleItemId: '',
+        productType: SaleItemProductType.AUTRE,
+        label: 'Frais de livraison',
+        quantity: 1,
+        unit: defaultUnit(SaleItemProductType.AUTRE),
+        pieceCount: null,
+        unitPriceFcfa: deliveryFee,
+        amountFcfa: deliveryFee,
+        batchId: null,
+        inputLotId: null,
+      });
+    }
+
+    if (eggsRequested > 0) {
+      await lockFarmEggStock(em, farmId);
+      await this.assertEggsAvailable(em, farmId, eggsRequested);
+      for (const [eggBatch, alveoles] of eggsByBatch) {
+        const batchAlveoles = await this.availableBatchEggAlveoles(
+          em,
+          farmId,
+          eggBatch,
+        );
+        if (alveoles > batchAlveoles) {
+          throw new BadRequestException(
+            `Stock d'œufs insuffisant sur ce lot : ${batchAlveoles} alvéole(s) disponible(s) (produit − vendu − déjà transféré), commande demandée ${alveoles}.`,
+          );
+        }
+      }
+    }
+
+    if (checkoutBatchId && birdsRequested > 0) {
+      const batch = await this.assertBatchOrderable(
+        em,
+        farmId,
+        checkoutBatchId,
+      );
+      await this.assertBirdsAvailable(
+        em,
+        farmId,
+        checkoutBatchId,
+        batch,
+        birdsRequested,
+      );
+      // Passeport de traçabilité figé au bon de commande : transparence
+      // totale pour le client (zootechnie, vaccins, retraits, sanitaire,
+      // et l'auto-signal « prêt à vendre » — simple conseil, jamais bloquant).
+      const metrics = await this.metricsService.compute(batch);
+      passport = await this.buildLotPassport(em, batch, metrics);
+    }
+
+    const customerId = await this.resolveCustomer(
+      em,
+      farmId,
+      user.id,
+      dto,
+      extras.customerType,
+    );
+
+    const resolvedPointOfSaleId = await this.pointsOfSaleService.resolve(
+      farmId,
+      dto.pointOfSaleId,
+    );
+
+    const sale = await saleRepo.save(
+      saleRepo.create({
+        farmId,
+        referenceNumber: await this.nextReference(em, Sale, 'VTE'),
+        saleDate: dto.saleDate ?? todayStr(),
+        totalAmountFcfa: total,
+        status: SaleStatus.OUTSTANDING,
+        customerId,
+        pointOfSaleId: resolvedPointOfSaleId,
+        batchId: checkoutBatchId,
+        createdById: user.id,
+      }),
+    );
+
+    for (const snap of snapshots) {
+      const item = await itemRepo.save(
+        itemRepo.create({
+          saleId: sale.id,
+          productType: snap.productType,
+          label: snap.label,
+          quantity: snap.quantity,
+          unit: snap.unit,
+          pieceCount: snap.pieceCount,
+          unitPriceFcfa: snap.unitPriceFcfa,
+          amountFcfa: snap.amountFcfa,
+          batchId: snap.batchId,
+          inputLotId: snap.inputLotId,
+        }),
+      );
+      snap.saleItemId = item.id;
+    }
+
+    let depositFcfa = 0;
+    if (dto.deposit) {
+      await this.paymentsService.recordPayment(em, {
+        farm,
+        sale,
+        method: dto.deposit.method ?? PaymentMethod.CASH,
+        amountFcfa: dto.deposit.amountFcfa,
+        paymentDate: dto.deposit.paymentDate,
+        idempotencyKey: dto.deposit.idempotencyKey,
+        operatorId: user.id,
+      });
+      depositFcfa = await this.paidSum(em, sale.id);
+      if (depositFcfa >= total) {
+        sale.status = SaleStatus.SETTLED;
+        await saleRepo.save(sale);
+      }
+    }
+
+    // A pre-order can be delivered too. Without an address it is a pickup:
+    // mobile can still send coordinates left over from an earlier choice.
+    const delivered =
+      dto.canal === OrderCanal.LIVRAISON ||
+      (dto.canal === OrderCanal.PRECOMMANDE && !!dto.address);
+
+    return orderRepo.save(
+      orderRepo.create({
+        farmId,
+        referenceNumber: await this.nextReference(em, Order, ORDER_PREFIX),
+        canal: dto.canal,
+        saleId: sale.id,
+        status: depositFcfa > 0 ? OrderStatus.CONFIRMED : OrderStatus.PENDING,
+        idempotencyKey: dto.idempotencyKey ?? null,
+        customerId,
+        expectedDate: dto.expectedDate ?? null,
+        pointOfSaleId: resolvedPointOfSaleId,
+        address: delivered ? (dto.address ?? null) : null,
+        deliveryProvince: delivered ? (dto.province ?? null) : null,
+        latitude: delivered ? (dto.latitude ?? null) : null,
+        longitude: delivered ? (dto.longitude ?? null) : null,
+        source: extras.source ?? null,
+        batchId: checkoutBatchId,
+        totalAmountFcfa: total,
+        depositFcfa,
+        items: snapshots,
+        passport,
+        createdById: user.id,
+      }),
+    );
   }
 
   // ---------- Acompte ----------
@@ -781,6 +848,57 @@ export class OrdersService {
     });
     await this.afterOrderChange(farmId, result.batchId ? [result.batchId] : []);
     return this.getOne(user, farmId, result.id);
+  }
+
+  /**
+   * Cancels an order on the buyer's behalf, or when its deposit deadline
+   * passes. The caller has no farm access, so the farm's owner is the operator
+   * in the books. It only ever cancels an unpaid order: money is checked under
+   * the order lock, which deposit() also takes, so a deposit recorded at the
+   * same moment wins. A paid order is left for the farm to refund.
+   */
+  async cancelForBuyer(
+    farmId: string,
+    orderId: string,
+    reason: string,
+  ): Promise<BuyerCancelOutcome> {
+    const result = await this.dataSource.transaction(async (em) => {
+      const orderRepo = em.getRepository(Order);
+      const order = await orderRepo.findOne({
+        where: { id: orderId, farmId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) return { outcome: BuyerCancelOutcome.NOT_FOUND };
+      if (order.status === OrderStatus.CANCELLED) {
+        return { outcome: BuyerCancelOutcome.ALREADY_CANCELLED };
+      }
+      if (order.status === OrderStatus.LIVRE) {
+        return { outcome: BuyerCancelOutcome.DELIVERED };
+      }
+      if ((await this.paidSum(em, order.saleId)) > 0) {
+        return { outcome: BuyerCancelOutcome.HAS_PAYMENT };
+      }
+      const farm = await em.getRepository(Farm).findOneOrFail({
+        where: { id: farmId },
+      });
+      await this.salesService.cancelInTransaction(
+        em,
+        { id: farm.ownerId, role: UserRole.PROPRIETAIRE },
+        farmId,
+        order.saleId,
+        reason,
+        { skipStockRestore: true },
+      );
+      order.status = OrderStatus.CANCELLED;
+      order.cancelledAt = new Date();
+      order.cancelledReason = reason;
+      await orderRepo.save(order);
+      return { outcome: BuyerCancelOutcome.CANCELLED, batchId: order.batchId };
+    });
+    if (result.outcome === BuyerCancelOutcome.CANCELLED) {
+      await this.afterOrderChange(farmId, result.batchId ? [result.batchId] : []);
+    }
+    return result.outcome;
   }
 
   /**
@@ -1132,7 +1250,15 @@ export class OrdersService {
     };
   }
 
-  private async afterOrderChange(farmId: string, batchIds: string[]) {
+  private assertFarmTakesOrders(farm: Farm): void {
+    if (farm.active === false) {
+      throw new BadRequestException(
+        'Ferme suspendue : aucune nouvelle commande ne peut être créée tant que la ferme est suspendue.',
+      );
+    }
+  }
+
+  async afterOrderChange(farmId: string, batchIds: string[]) {
     const unique = [...new Set(batchIds.filter(Boolean))];
     await Promise.all([
       this.rentabiliteService.evaluateInvendus(farmId),
@@ -1402,6 +1528,7 @@ export class OrdersService {
     farmId: string,
     operatorId: string,
     dto: CreateOrderDto,
+    type?: CustomerType,
   ): Promise<string | null> {
     const repo = em.getRepository(Customer);
     if (dto.customerId) {
@@ -1430,6 +1557,7 @@ export class OrdersService {
         farmId,
         fullName: (dto.customerName ?? '').trim() || `Client ${normalized}`,
         phone: normalized,
+        type,
         createdById: operatorId,
       });
       return created.id;
