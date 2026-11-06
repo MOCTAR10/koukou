@@ -37,11 +37,17 @@ import {
 /**
  * Traceability hook (lot L7): called inside the sortie's transaction, so a
  * sortie to an operator can create the cession and its sub-lot atomically.
- * Not provided yet: sorties work without it.
+ * Bound to `TraceLotsService` (`BandesModule`); sorties work without it.
  */
 export const SORTIE_CESSION_HOOK = Symbol('SORTIE_CESSION_HOOK');
 
 export interface SortieCessionHook {
+  /** Before the sortie is written: refuses an unusable operator (400). */
+  beforeSortie?(
+    em: EntityManager,
+    farmId: string,
+    operatorId: string | null,
+  ): Promise<void>;
   onSortie(em: EntityManager, sortie: Sortie, reason: RefItem): Promise<void>;
 }
 
@@ -162,6 +168,11 @@ export class SortiesService {
             `Sortie impossible : ${dto.count} sujet(s) pour ${locked.quantityAlive} présent(s).`,
           );
         }
+        await this.cessionHook?.beforeSortie?.(
+          em,
+          farmId,
+          dto.operatorId ?? null,
+        );
         const capture = await this.sync.capture(
           em,
           { programId: farm.programId, farmId, userId: user.id },

@@ -10,6 +10,7 @@ import { AuditInstitutionalAccessTables1793915100000 } from './1793915100000-Aud
 import { PoufaBandes1793916683635 } from './1793916683635-PoufaBandes.js';
 import { FarmsAlwaysProgramme1793922775025 } from './1793922775025-FarmsAlwaysProgramme.js';
 import { InputDeliveries1793958404106 } from './1793958404106-InputDeliveries.js';
+import { Traceability1793958553940 } from './1793958553940-Traceability.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -30,4 +31,5 @@ export const MIGRATIONS = [
   PoufaBandes1793916683635,
   FarmsAlwaysProgramme1793922775025,
   InputDeliveries1793958404106,
+  Traceability1793958553940,
 ];
