@@ -58,8 +58,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
 // POUFA lot A sante: a care completion goes through the offline queue (CDC n° 22).
-import { completeProphylaxisQueued } from '@/offline';
-import { invalidateFarmQueries } from '@/api/invalidate';
+import { CompleteCareSheet } from '@/components/sanitary/SanitaryRecordSheets';
 import type { BatchHealth, BatchPnl, BatchStatus, BatchType, BatchWithMetrics, Expense, OrderCanal, OrderFull, OrderStatus, OverviewPnl, ProphylaxisEvent, ProtocolStep, ReadyReason, SaleSummary, SanitaryProtocol, SanitaryProtocolWithSteps, Species, TreatmentRecord } from '@/api/types';
 import { speciesLabel } from '@/api/format';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
@@ -71,8 +70,6 @@ import { SlaughterBadge, SlaughterInfoCard } from '@/components/slaughter/Slaugh
 import { CreateLotSheet } from '@/components/CreateLotSheet';
 import { useCreateCenter } from '@/components/create/CreateCenter';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
-import { ApiError } from '@/api/client';
-import { toast } from '@/components/ui/Feedback';
 import { ageOnDay, bandCycle, lotSearchText } from '@/utils/band';
 // POUFA lot A2 divers: official values first on the Lots tab.
 import { fetchBandHistory, type BandSummaryIndicator } from '@/api/poufa';
@@ -1127,21 +1124,10 @@ function EmptyStep({ icon: Icon, label, desc, done }: { icon: typeof Clock; labe
 function LotCardWithHealth({ batch, farmId, official, buildingName, onPress, detailOpen, onOpenDetail, onCloseDetail, onOpenEggs, onPlanCare }: {
   batch: BatchWithMetrics; farmId: string; official?: BandSummaryIndicator[]; buildingName?: string | null; onPress: () => void; detailOpen: boolean; onOpenDetail: () => void; onCloseDetail: () => void; onOpenEggs: () => void; onPlanCare: () => void;
 }) {
-  const queryClient = useQueryClient();
   const canRapports = useFarmProfile().hasPermission('compta:rapports');
-  const completeCare = useCallback((eventId: string) => {
-    // The quick « fait » counts the live birds; the sanitary screen lets the farmer correct it.
-    void completeProphylaxisQueued(farmId, batch.id, eventId, {
-      ...(batch.quantityAlive > 0 ? { animalCount: batch.quantityAlive } : {}),
-    })
-      .then(() => {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        return invalidateFarmQueries(queryClient, { farmId, batchId: batch.id });
-      })
-      .catch((e: unknown) => {
-        toast.error('Soin non enregistré', e instanceof ApiError ? e.message : 'Vérifiez la connexion puis réessayez.');
-      });
-  }, [farmId, batch.id, batch.quantityAlive, queryClient]);
+  // Quick « fait » opens the completion sheet: the animal count is mandatory (CDC n° 22).
+  const [careEventId, setCareEventId] = useState<string | null>(null);
+  const completeCare = useCallback((eventId: string) => setCareEventId(eventId), []);
   const healthQ = useQuery({
     queryKey: ['batch-health', farmId, batch.id],
     queryFn: () => fetchBatchHealth(farmId, batch.id),
@@ -1193,9 +1179,13 @@ function LotCardWithHealth({ batch, farmId, official, buildingName, onPress, det
     staleTime: 60_000,
   });
   const slaughterSummary = useMemo(() => lotSlaughterSummary(slaughterQ.data ?? [], batch), [slaughterQ.data, batch]);
+  const careEvent = careEventId ? (prophylQ.data ?? []).find((e) => e.id === careEventId) ?? null : null;
   return (
     <>
       <LotCard batch={batch} official={official} buildingName={buildingName} health={healthQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onPress={onPress} onCompleteCare={completeCare} onOpenDetail={onOpenDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
+      {careEvent ? (
+        <CompleteCareSheet visible farmId={farmId} event={careEvent} defaultCount={batch.quantityAlive} onClose={() => setCareEventId(null)} />
+      ) : null}
       <LotDetailSheet visible={detailOpen} batch={batch} official={official} health={healthQ.data} pnl={pnlQ.data} prophylaxis={prophylQ.data} treatments={treatmentsQ.data} program={programQ.data} onClose={onCloseDetail} onOpenEggs={onOpenEggs} onPlanCare={onPlanCare} slaughterSummary={slaughterSummary} />
     </>
   );
