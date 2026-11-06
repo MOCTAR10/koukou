@@ -9,7 +9,7 @@ import {
   geoJsonOuterRing,
   parcelleCenter,
   parcellesCenter,
-  ringLatDelta,
+  parcellesSpanDelta,
   type LatLng,
 } from '@/constants/geo';
 import { palette, radii, shadow, semantic } from '@/constants/theme';
@@ -73,7 +73,7 @@ export function ParcelleMap({ farm, parcelles, height = 320, selectedId, onSelec
   const { default: MapView, Marker, Polygon, UrlTile } = MapComponent;
 
   const center = parcellesCenter(parcelles) ?? farmCenter(farm);
-  const delta = Math.max(ringLatDelta(parcelles[0]?.boundaryGeoJson ? geoJsonOuterRing(parcelles[0].boundaryGeoJson) : []), 0.008);
+  const delta = Math.max(parcellesSpanDelta(parcelles), 0.008);
 
   return (
     <View style={[styles.wrap, { height }]}>
