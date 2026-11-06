@@ -10,7 +10,7 @@ import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
 import { ReferenceConstant } from './entities/reference-constant.entity.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
-import { mayChangeParameter } from '../access/access-rules.js';
+import { parameterChangeRefusal } from '../access/access-rules.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import {
   referenceGroup,
@@ -57,8 +57,9 @@ export class ReferenceConstantsService {
 
   /**
    * Mise à jour « réglages » : clé existante + constante éditable uniquement,
-   * par son profil propriétaire (VETERINAIRE ou DGE) ou l'administrateur de
-   * la plateforme (POUFA lot A droits, F8).
+   * par les détenteurs du droit propriétaire (VETERINAIRE : Sanitaire
+   * Modifier ; DGE : Paramètres Valider) ou l'administrateur de la plateforme
+   * hors seuils vétérinaires (POUFA lot A droits F8, lot A2 vet).
    */
   async update(
     key: string,
@@ -72,16 +73,19 @@ export class ReferenceConstantsService {
       );
     }
     if (actor) {
+      // POUFA lot A2 vet: the owner right from the matrix, never the code.
       const owner = referenceOwner(key);
-      const profileCode =
+      const matrix =
         actor.role === UserRole.INSTITUTION
-          ? ((await this.scope.accessOf(actor.id))?.profileCode ?? null)
+          ? ((await this.scope.accessOf(actor.id))?.matrix ?? null)
           : null;
-      if (!mayChangeParameter(actor.role, profileCode, owner)) {
-        throw new ForbiddenException(
-          `Accès refusé : le seuil « ${row.description ?? key} » relève du profil « ${owner} ».`,
-        );
-      }
+      const refusal = parameterChangeRefusal(
+        actor.role,
+        matrix,
+        owner,
+        `le seuil « ${row.description ?? key} »`,
+      );
+      if (refusal) throw new ForbiddenException(refusal);
     }
     if (row.isEditable !== true) {
       throw new BadRequestException(

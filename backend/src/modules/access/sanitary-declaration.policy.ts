@@ -1,27 +1,60 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
-import type { InstitutionAccess } from './access-rules.js';
-import { PROFILE_CODES } from './data/default-profiles.js';
+import type {
+  AccessAction,
+  AccessMatrix,
+  GrantableDomain,
+} from './access-domains.js';
+import { grants, type InstitutionAccess } from './access-rules.js';
 import { ScopeResolver } from './scope-resolver.service.js';
 
 export const SANITARY_DECLARATION_MESSAGE =
-  'Accès refusé : les déclarations sanitaires sont réservées à la ferme et aux services vétérinaires.';
+  'Accès refusé : les déclarations sanitaires sont réservées à la ferme et aux services vétérinaires (droit Sanitaire : Valider).';
 
 /**
- * Legal rule (CDC §8, POUFA plan §5.3.5), not a matrix setting: sanitary
- * declarations are read and written by the farm itself and by the veterinary
- * services only. No other institutional profile reaches them, whatever its
- * matrix says. The farm side keeps Fermia's rules (`assertAccessible` and
- * permissions).
+ * POUFA lot A2 vet: the veterinary authority is a matrix right, not a profile
+ * code. An institutional profile granted SANITAIRE:VALIDER (seeded on the
+ * VETERINAIRE system profile) is « les services vétérinaires » of the CDC:
+ * it receives the declarations, validates them (« valident les événements »,
+ * n° 26) and publishes the alerts. The administration decides who holds it
+ * (matrix screen); a profile without it never reads a declaration, whatever
+ * its other SANITAIRE rights (the DGE granted SANITAIRE:CONSULTER for the
+ * care calendars sees no declaration). À valider vétérinaires.
+ */
+export const VETERINARY_AUTHORITY_RIGHT = {
+  domain: 'SANITAIRE',
+  action: 'VALIDER',
+} as const satisfies { domain: GrantableDomain; action: AccessAction };
+
+/** Whether an institutional matrix holds the veterinary authority. */
+export function isVeterinaryAuthority(
+  matrix: AccessMatrix | null | undefined,
+): boolean {
+  return (
+    !!matrix &&
+    grants(
+      matrix,
+      VETERINARY_AUTHORITY_RIGHT.domain,
+      VETERINARY_AUTHORITY_RIGHT.action,
+    )
+  );
+}
+
+/**
+ * Legal rule (CDC §8 « les déclarations sont transmises aux seuls services
+ * vétérinaires », POUFA plan §5.3.5): sanitary declarations are read and
+ * written by the farm itself and by the veterinary authority only
+ * ({@link isVeterinaryAuthority}). The farm side keeps Fermia's rules
+ * (`assertAccessible` and permissions).
  */
 export function mayHandleSanitaryDeclarations(
   user: Pick<AuthUser, 'role'>,
-  access: Pick<InstitutionAccess, 'profileCode'> | null,
+  access: Pick<InstitutionAccess, 'matrix'> | null,
 ): boolean {
   if (user.role === UserRole.OPERATEUR) return false;
   if (user.role !== UserRole.INSTITUTION) return true;
-  return access?.profileCode === PROFILE_CODES.VETERINAIRE;
+  return isVeterinaryAuthority(access?.matrix);
 }
 
 /**

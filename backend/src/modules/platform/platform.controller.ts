@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -36,6 +37,7 @@ import {
 import { FarmsService } from '../farms/farms.service.js';
 import { PlatformService } from './platform.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { SANITARY_SETTINGS_MESSAGE } from '../surveillance/veterinary-authority.js';
 
 class UpdateFarmDto {
   /** Refused (400): the name changes in the registry (duplicate check). */
@@ -251,8 +253,16 @@ export class PlatformAdminController {
 
   @Patch('protocols/:id')
   @ApiParam({ name: 'id', description: 'Identifiant du protocole sanitaire' })
-  @ApiOperation({ summary: 'Modifier un protocole sanitaire (nom, éditable).' })
+  @ApiOperation({
+    summary:
+      'Fermé (POUFA lot A2 vet) : les calendriers vaccinaux et programmes sanitaires sont tenus par les services vétérinaires (/surveillance/vaccination-calendars) ; l’administrateur plateforme les consulte seulement.',
+  })
   updateProtocol(@Param('id') id: string, @Body() dto: UpdateProtocolDto) {
-    return this.platformService.updateProtocol(id, dto);
+    // POUFA lot A2 vet: every protocol is a vets' calendar or a farm
+    // programme they set (CDC « calendrier vaccinal paramétrable par les
+    // services vétérinaires »): read-only for the platform admin.
+    void id;
+    void dto;
+    throw new ForbiddenException(SANITARY_SETTINGS_MESSAGE.calendars);
   }
 }

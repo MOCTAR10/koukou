@@ -10,6 +10,7 @@ import { AlertLevel } from '../../../common/enums/alert-level.enum.js';
 import { DiseaseSeverity } from '../../../common/enums/disease-severity.enum.js';
 import { HealthEventKind } from '../../../common/enums/health-event-kind.enum.js';
 import { HealthEventStatus } from '../../../common/enums/health-event-status.enum.js';
+import { DeclarationReviewStatus } from '../../../common/enums/declaration-review.enum.js';
 
 /**
  * Événement sanitaire enregistré sur un lot : maladie, pic de mortalité,
@@ -108,6 +109,27 @@ export class HealthEvent {
     nullable: true,
   })
   idempotencyKey: string | null;
+
+  // POUFA lot A2 vet: veterinary review of the declaration (CDC n° 26),
+  // set by `SanitaryDeclarationsService.review`, never by the farm.
+  /** Null = to be examined (or handled through the alert it opened). */
+  @Column({
+    name: 'vet_review_status',
+    type: 'enum',
+    enum: DeclarationReviewStatus,
+    nullable: true,
+  })
+  vetReviewStatus: DeclarationReviewStatus | null;
+
+  @Column({ name: 'vet_review_comment', type: 'text', nullable: true })
+  vetReviewComment: string | null;
+
+  @Column({ name: 'vet_reviewed_by_id', type: 'uuid', nullable: true })
+  vetReviewedById: string | null;
+
+  @Column({ name: 'vet_reviewed_at', type: 'timestamptz', nullable: true })
+  vetReviewedAt: Date | null;
+  // End POUFA lot A2 vet.
 
   @Column({ name: 'resolved_at', type: 'date', nullable: true })
   resolvedAt: string | null;

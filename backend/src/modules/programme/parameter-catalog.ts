@@ -17,12 +17,24 @@ import {
 export type ParameterType =
   'number' | 'integer' | 'string' | 'formula' | 'json';
 
-/** Owner profiles known today; the access module will turn these into data. */
+/**
+ * Owner keys of the parameters. Who changes a value is the matrix right of
+ * the key (`access-rules.ts` `PARAMETER_OWNER_RIGHTS`), never the profile code.
+ */
 export const OWNER_PROFILE = {
   DGE: 'DGE',
   VETERINAIRE: 'VETERINAIRE',
   ADMIN: 'ADMIN',
 } as const;
+
+/**
+ * POUFA lot A2 vet: indicator formulas owned by the veterinary services (the
+ * day mortality decides the sanitary alert against
+ * `SEUIL_ALERTE_MORTALITE_JOUR_PCT`); the others stay the DGE's.
+ */
+export const VETERINARY_FORMULAS: ReadonlySet<string> = new Set([
+  'mortalite_jour_pct',
+]);
 
 export interface ParameterDefinition {
   readonly key: string;
@@ -418,7 +430,11 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     label: `Formule : ${f.label}`,
     type: 'formula',
     unit: f.unit,
-    ownerProfile: OWNER_PROFILE.DGE,
+    // POUFA lot A2 vet: the day mortality ratio triggers the sanitary alert
+    // (CDC n° 25 « seuils réglés par les seuls services vétérinaires »).
+    ownerProfile: VETERINARY_FORMULAS.has(f.key)
+      ? OWNER_PROFILE.VETERINAIRE
+      : OWNER_PROFILE.DGE,
     defaultValue: f.expression,
     defaultNote: f.defaultNote,
   })),

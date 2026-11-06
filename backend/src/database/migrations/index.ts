@@ -24,6 +24,10 @@ import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalarie
 // POUFA lot A droits (end)
 // POUFA lot A sante: CDC n° 22-23 (treatments, vaccinations, offline keys).
 import { SanitaryConformity1794000300000 } from './1794000300000-SanitaryConformity.js';
+// POUFA lot A2 vet (begin): veterinary authority by the matrix, declaration review.
+import { VeterinaryAuthorityMatrix1794100200000 } from './1794100200000-VeterinaryAuthorityMatrix.js';
+import { DeclarationReview1794100200100 } from './1794100200100-DeclarationReview.js';
+// POUFA lot A2 vet (end)
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -58,4 +62,8 @@ export const MIGRATIONS = [
   InstitutionFermiaGrants1794000500000,
   AuditMaskSalaries1794000500100,
   // POUFA lot A droits (end)
+  // POUFA lot A2 vet (begin)
+  VeterinaryAuthorityMatrix1794100200000,
+  DeclarationReview1794100200100,
+  // POUFA lot A2 vet (end)
 ];

@@ -20,6 +20,9 @@ import {
   isNationalAdministrator,
   matrixExcessRefusal,
   mayChangeParameter,
+  OWNER_PROFILES_CLOSED_TO_PLATFORM,
+  parameterChangeRefusal,
+  parameterOwnerRight,
   scopeExcess,
   scopeKindRefusal,
   validateMatrix,
@@ -30,7 +33,10 @@ import {
   PERMISSION_DOMAINS,
   institutionPermissions,
 } from './permission-domains.js';
-import { mayHandleSanitaryDeclarations } from './sanitary-declaration.policy.js';
+import {
+  isVeterinaryAuthority,
+  mayHandleSanitaryDeclarations,
+} from './sanitary-declaration.policy.js';
 
 const PROGRAM = '11111111-1111-4111-8111-111111111111';
 const OTHER_PROGRAM = '22222222-2222-4222-8222-222222222222';
@@ -361,35 +367,74 @@ describe('permission codes of an institutional profile', () => {
   });
 });
 
-describe('parameter owner profile', () => {
-  it('lets the owner profile and the platform admin change a parameter', () => {
+describe('parameter owner right (POUFA lot A2 vet)', () => {
+  const matrixOf = (code: string) => access(code).matrix;
+
+  it('lets the holders of the owner right and the platform admin change a parameter', () => {
     expect(mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'DGE')).toBe(true);
     expect(mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'ADMIN')).toBe(
       true,
     );
     expect(
-      mayChangeParameter(UserRole.INSTITUTION, 'VETERINAIRE', 'VETERINAIRE'),
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('VETERINAIRE'), 'VETERINAIRE'),
     ).toBe(true);
-    expect(mayChangeParameter(UserRole.INSTITUTION, 'DGE', 'VETERINAIRE')).toBe(
-      false,
-    );
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('DGE'), 'VETERINAIRE'),
+    ).toBe(false);
+    expect(mayChangeParameter(UserRole.INSTITUTION, matrixOf('DGE'), 'DGE')).toBe(true);
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('VETERINAIRE'), 'DGE'),
+    ).toBe(false);
+    expect(mayChangeParameter(UserRole.INSTITUTION, matrixOf('ADMIN'), 'ADMIN')).toBe(true);
+    expect(mayChangeParameter(UserRole.INSTITUTION, matrixOf('ADMIN'), 'DGE')).toBe(false);
     expect(mayChangeParameter(UserRole.INSTITUTION, null, 'DGE')).toBe(false);
     expect(mayChangeParameter(UserRole.PROPRIETAIRE, null, 'DGE')).toBe(false);
+    expect(
+      mayChangeParameter(UserRole.INSTITUTION, matrixOf('DGE'), 'INCONNU'),
+    ).toBe(false);
   });
 
-  // POUFA lot A sante: CDC §5.2 n° 25.
-  it('keeps the veterinary thresholds to the veterinary services only', () => {
+  it('reads the matrix, never the profile code', () => {
+    // A custom profile with the vets' rights owns their parameters...
+    const custom = { ...matrixOf('VETERINAIRE') };
+    expect(mayChangeParameter(UserRole.INSTITUTION, custom, 'VETERINAIRE')).toBe(true);
+    // ...the VETERINAIRE profile stripped of SANITAIRE:MODIFIER does not.
+    const stripped = { ...matrixOf('VETERINAIRE'), SANITAIRE: ['CONSULTER' as const] };
+    expect(mayChangeParameter(UserRole.INSTITUTION, stripped, 'VETERINAIRE')).toBe(false);
+    // The owner right alone is not enough: PARAMETRES:MODIFIER too.
+    const noParam = { SANITAIRE: matrixOf('VETERINAIRE').SANITAIRE };
+    expect(mayChangeParameter(UserRole.INSTITUTION, noParam, 'VETERINAIRE')).toBe(false);
+  });
+
+  it('keeps the veterinary thresholds closed to the platform admin', () => {
+    expect(OWNER_PROFILES_CLOSED_TO_PLATFORM).toEqual(['VETERINAIRE']);
     expect(
       mayChangeParameter(UserRole.PLATFORM_ADMIN, null, 'VETERINAIRE'),
     ).toBe(false);
     expect(
-      mayChangeParameter(UserRole.INSTITUTION, 'VETERINAIRE', 'VETERINAIRE'),
-    ).toBe(true);
+      parameterChangeRefusal(UserRole.PLATFORM_ADMIN, null, 'VETERINAIRE', 'le seuil « x »'),
+    ).toBe(
+      'Accès refusé : le seuil « x » relève du profil « VETERINAIRE » (droits Paramètres du programme : Modifier et Sanitaire : Modifier) ; l’administrateur de la plateforme le consulte seulement.',
+    );
+    expect(
+      parameterChangeRefusal(UserRole.INSTITUTION, matrixOf('VETERINAIRE'), 'VETERINAIRE', 'x'),
+    ).toBeNull();
+  });
+
+  it('has an owner right for every owner key, held by its seeded profile only', () => {
+    for (const owner of Object.values(OWNER_PROFILE)) {
+      const right = parameterOwnerRight(owner)!;
+      expect(right, owner).not.toBeNull();
+      const holders = DEFAULT_PROFILES.filter((p) =>
+        mayChangeParameter(UserRole.INSTITUTION, p.matrix, owner),
+      ).map((p) => p.code);
+      expect(holders, owner).toEqual([owner]);
+    }
   });
 });
 
 describe('sanitary declarations', () => {
-  it('stay between the farm and the veterinary services', () => {
+  it('stay between the farm and the veterinary authority (SANITAIRE:VALIDER)', () => {
     expect(
       mayHandleSanitaryDeclarations({ role: UserRole.PROPRIETAIRE }, null),
     ).toBe(true);
@@ -399,15 +444,33 @@ describe('sanitary declarations', () => {
     expect(
       mayHandleSanitaryDeclarations(
         { role: UserRole.INSTITUTION },
-        { profileCode: 'VETERINAIRE' },
+        access('VETERINAIRE'),
       ),
     ).toBe(true);
     expect(
       mayHandleSanitaryDeclarations(
         { role: UserRole.INSTITUTION },
-        { profileCode: 'DGE' },
+        access('DGE'),
       ),
     ).toBe(false);
+    // The matrix decides: the DGE granted SANITAIRE:CONSULTER still sees no
+    // declaration; a custom profile granted VALIDER does.
+    expect(
+      mayHandleSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        { matrix: { SANITAIRE: ['CONSULTER'] } },
+      ),
+    ).toBe(false);
+    expect(
+      mayHandleSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        { matrix: { SANITAIRE: ['CONSULTER', 'VALIDER'] } },
+      ),
+    ).toBe(true);
+    expect(isVeterinaryAuthority(null)).toBe(false);
+    expect(
+      DEFAULT_PROFILES.filter((p) => isVeterinaryAuthority(p.matrix)).map((p) => p.code),
+    ).toEqual(['VETERINAIRE']);
     expect(
       mayHandleSanitaryDeclarations({ role: UserRole.INSTITUTION }, null),
     ).toBe(false);

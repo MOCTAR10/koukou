@@ -20,6 +20,9 @@ export enum NotificationEvent {
   SYNC_CONFLICT = 'SYNC_CONFLICT',
   /** A scheduled report (PDF) is available (L6, POUFA lot A). */
   REPORT_READY = 'REPORT_READY',
+  // POUFA lot A2 vet: CDC n° 26, the farm hears the vets' decision.
+  /** The veterinary services examined a declaration (validated, ruled out, alert). */
+  DECLARATION_REVIEWED = 'DECLARATION_REVIEWED',
 }
 
 /** Delivery channel of one notification. */

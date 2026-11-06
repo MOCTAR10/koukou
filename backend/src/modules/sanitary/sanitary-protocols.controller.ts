@@ -17,6 +17,7 @@ import { SanitaryService } from './sanitary.service.js';
 import { CreateSanitaryProtocolDto } from './dto/create-protocol.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 import { farmProtocolRefusal } from './treatment-rules.js';
+import { SANITARY_SETTINGS_MESSAGE } from '../surveillance/veterinary-authority.js';
 
 @ApiTags('Protocoles sanitaires')
 @Domain('SANITAIRE')
@@ -64,14 +65,18 @@ export class SanitaryProtocolsController {
   @Roles(UserRole.PROPRIETAIRE)
   @ApiOperation({
     summary:
-      'Créer un programme sanitaire propre à une ferme (services vétérinaires : Sanitaire Créer) ou partagé (administrateur plateforme, sans farmId)',
+      'Créer un programme sanitaire propre à une ferme (services vétérinaires : Sanitaire Créer). Les calendriers partagés se créent par /surveillance/vaccination-calendars.',
   })
   async create(
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateSanitaryProtocolDto,
   ) {
     // POUFA lot A sante: CDC n° 22, a farm programme is a veterinary decision.
-    const refusal = dto.farmId ? farmProtocolRefusal(user.role) : null;
+    // POUFA lot A2 vet: a shared protocol is a programme calendar, written by
+    // the vets through /surveillance/vaccination-calendars only.
+    const refusal = dto.farmId
+      ? farmProtocolRefusal(user.role)
+      : SANITARY_SETTINGS_MESSAGE.calendars;
     if (refusal) throw new ForbiddenException(refusal);
     const scope = await this.farmsService.resourceScope(
       user,
