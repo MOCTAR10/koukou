@@ -20,15 +20,17 @@ describe('conduct thresholds (F8)', () => {
     expect(ownerOf(row({}))).toBe('DGE');
   });
 
-  it('lets only the owner profile, or the platform admin, edit an editable threshold', () => {
+  it('lets only the owner profile edit an editable threshold; the platform admin all but the vets ones', () => {
     const vide = row({ key: 'vide_sanitaire_min_days', ownerProfile: 'VETERINAIRE' });
     const marge = row({ key: 'rentabilite_marge_min_pct', ownerProfile: 'DGE' });
     expect(mayEditThreshold(rights({ profileCode: 'VETERINAIRE' }), vide)).toBe(true);
     expect(mayEditThreshold(rights({ profileCode: 'VETERINAIRE' }), marge)).toBe(false);
     expect(mayEditThreshold(rights({ profileCode: 'DGE' }), marge)).toBe(true);
     expect(mayEditThreshold(rights({ profileCode: 'DGE', write: false }), marge)).toBe(false);
-    expect(mayEditThreshold(rights({ anyOwner: true }), vide)).toBe(true);
-    expect(mayEditThreshold(rights({ anyOwner: true }), { ...vide, isEditable: false })).toBe(false);
+    // CDC §5.2 n° 25 (lot A sante): a veterinary threshold is closed to the platform admin.
+    expect(mayEditThreshold(rights({ anyOwner: true }), vide)).toBe(false);
+    expect(mayEditThreshold(rights({ anyOwner: true }), marge)).toBe(true);
+    expect(mayEditThreshold(rights({ anyOwner: true }), { ...marge, isEditable: false })).toBe(false);
   });
 
   it('sorts sanitary first, then by key, with a search', () => {

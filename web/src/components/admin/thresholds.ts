@@ -29,7 +29,7 @@ export function ownerOf(row: Pick<ReferenceConstant, 'ownerProfile'>): 'DGE' | '
   return row.ownerProfile ?? 'DGE';
 }
 
-/** Whether the caller may change this threshold: editable, and the owner profile (or the platform admin). */
+/** Whether the caller may change this threshold: editable, and the owner profile (the platform admin: all but the vets' ones). */
 export function mayEditThreshold(rights: AdminRights['parameters'], row: Pick<ReferenceConstant, 'isEditable' | 'ownerProfile'>): boolean {
   return row.isEditable && mayPropose(rights, ownerOf(row));
 }
