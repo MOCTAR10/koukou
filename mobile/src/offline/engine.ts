@@ -518,7 +518,7 @@ export async function cancelStockTransferQueued(
 // Every op below is a creation the server deduplicates: `idempotencyKey =
 // op.id` on the live attempt and on replay (health events and sorties via
 // their unique (farmId, idempotencyKey), a delivery confirmation answers
-// `replay: true`). The GPS point has no key: see `setFarmGpsQueued`.
+// `replay: true`, the GPS point by its unique (farmId, idempotencyKey)).
 
 export interface HealthEventOpPayload {
   batchId: string;
@@ -640,13 +640,14 @@ export function createSortieQueued(
 }
 
 /**
- * GPS fix of the farm (CDC 2). The route takes no idempotency key: a replay
- * after a lost answer writes the same point (same `capturedAt`) once more in
- * the GPS history, never a different one.
+ * GPS fix of the farm (CDC 2), keyed by `idempotencyKey = op.id`: a replay
+ * after a lost answer adds no second point, and the server ignores a fix
+ * older than the current point (200, `applied: false` with its message).
  */
 export function setFarmGpsQueued(farmId: string, gps: FarmGpsPayload): Promise<SendResultOf<FarmGpsResult>> {
   const opId = nextId('farm-gps');
-  return sendOrQueueWith({ id: opId, kind: 'farm-gps', farmId, payload: { payload: gps } }, () => setFarmGps(farmId, gps));
+  const payload = { ...gps, idempotencyKey: gps.idempotencyKey ?? opId };
+  return sendOrQueueWith({ id: opId, kind: 'farm-gps', farmId, payload: { payload } }, () => setFarmGps(farmId, payload));
 }
 
 /** `failed` = server error (5xx): counted, unlike network or 401 retries. */
@@ -703,7 +704,9 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       const p = op.payload as SortieOpPayload;
       await sendSortie(op.farmId, { ...p, payload: { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id } });
     } else if (op.kind === 'farm-gps') {
-      await setFarmGps(op.farmId, (op.payload as { payload: FarmGpsPayload }).payload);
+      // Ops queued before the key existed fall back to op.id.
+      const gps = (op.payload as { payload: FarmGpsPayload }).payload;
+      await setFarmGps(op.farmId, { ...gps, idempotencyKey: gps.idempotencyKey ?? op.id });
     } else {
       // Credit sale (no payment): no caisse needed, same as the live path.
       if (isCashOp(op)) await ensureCashOpenOrRetry(op);

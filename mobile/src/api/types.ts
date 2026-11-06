@@ -111,7 +111,12 @@ export type PermissionCode =
   | 'reglages:ferme'
   | 'rh:lire'
   | 'rh:gerer'
-  | 'agri:gerer';
+  | 'agri:gerer'
+  // POUFA lot A droits: read codes of the Fermia bonus domains, the farm GPS point, the deliveries.
+  | 'market:lire'
+  | 'compta:lire'
+  | 'registre:gps'
+  | 'intrants:lire';
 
 /** Nature du contrat de travail (dossier RH). */
 export type ContractType =
@@ -478,7 +483,8 @@ export interface DashboardData {
    * `normalizeMortalityStatus(mortalityStatus, mortalityPercent)`. */
   mortalityStatus?: MortalityStatus;
   feedAutonomyDays: number | null;
-  collectedTodayFcfa: number;
+  /** Null for an institution without ECONOMIQUE or VENTES consultation (POUFA F6). */
+  collectedTodayFcfa: number | null;
   teamCount: number;
   alerts: { total: number; rouge: number; jaune: number; vert: number };
   health: DashboardHealth;

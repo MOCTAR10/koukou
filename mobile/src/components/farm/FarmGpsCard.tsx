@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { confirm, errorMessage, toast } from '@/components/ui/Feedback';
 import { useAuth } from '@/auth/AuthContext';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import type { Farm } from '@/api/types';
 import { setFarmGpsQueued } from '@/offline';
 import { getCurrentPosition } from '@/location/current-position';
@@ -28,7 +29,9 @@ export function FarmGpsCard({ farm }: { farm: Farm }) {
   const qc = useQueryClient();
   const { user, refreshFarms } = useAuth();
   const access = useProgrammeAccess();
-  const allowed = canSetFarmGps(user.role, access.matrix);
+  const { hasPermission } = useFarmProfile();
+  // POUFA lot A droits: the owner and the éleveur (registre:gps) record their own point.
+  const allowed = canSetFarmGps(user.role, access.matrix, hasPermission('registre:gps'));
   const [step, setStep] = useState<Step>({ kind: 'idle' });
   const [failure, setFailure] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);

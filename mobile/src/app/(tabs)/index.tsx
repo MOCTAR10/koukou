@@ -323,11 +323,12 @@ export default function AccueilScreen() {
               accessibilityLabel: `${fmt(d.liveStock)} oiseaux vivants, voir le cheptel`,
             }}
             stats={[
-              {
+              // POUFA lot A droits: no cash tile when the server withholds it (institution without ECONOMIQUE/VENTES).
+              ...(d.collectedTodayFcfa != null ? [{
                 label: isToday ? "Encaissé aujourd'hui" : `Encaissé ${formatDayShort(window.to ? new Date(window.to) : liveNow)}${queryTimeStr === '23:59' ? '' : ` à ${queryTimeStr}`}`,
-                value: fmtFcfa(d.collectedTodayFcfa ?? 0),
+                value: fmtFcfa(d.collectedTodayFcfa),
                 onPress: canCaisse ? () => router.push('/caisse') : undefined,
-              },
+              }] : []),
               {
                 label: 'Santé',
                 value: `${Math.max(0, Math.min(100, Math.round(d.health.score)))}%`,
