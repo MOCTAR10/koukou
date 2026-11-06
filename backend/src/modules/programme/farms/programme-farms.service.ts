@@ -67,6 +67,10 @@ export const SUSPENDED_FAMILY = 'SUSPENDUE';
 /** Family of the default status of a new programme farm. */
 export const DEFAULT_STATUS_FAMILY = 'PREPARATION';
 
+/** 409 of `activate-owner` when the exploitant's phone holds a buyer account. */
+export const BUYER_PHONE_MESSAGE =
+  "Ce numéro appartient à un compte acheteur du Market : un compte acheteur ne peut pas devenir exploitant. Renseignez un autre numéro de téléphone pour l'exploitant sur la fiche, puis activez son compte.";
+
 const FALLBACK_OCCUPATION_FORMULA = 'mis_en_place / capacite_places * 100';
 
 /** A registry farm, as compared by the duplicate detection. */
@@ -935,6 +939,21 @@ export class ProgrammeFarmsService {
       let owner: User;
       let code: string | null = null;
       if (existing) {
+        // Checked before `linkExistingUser`: no flag turns a buyer, a member
+        // or an institutional account into an exploitant.
+        if (existing.role === UserRole.ACHETEUR) {
+          throw new ConflictException({
+            statusCode: 409,
+            error: 'Conflict',
+            message: BUYER_PHONE_MESSAGE,
+            buyerAccount: true,
+          });
+        }
+        if (existing.role !== UserRole.PROPRIETAIRE) {
+          throw new ConflictException(
+            "Ce numéro appartient à un compte qui n'est pas un compte Propriétaire : la ferme ne peut pas y être rattachée. Renseignez un autre numéro pour l'exploitant sur la fiche.",
+          );
+        }
         if (!dto.linkExistingUser) {
           throw new ConflictException({
             statusCode: 409,
@@ -943,11 +962,6 @@ export class ProgrammeFarmsService {
               'Un compte existe déjà pour ce numéro de téléphone. Pour rattacher la ferme à ce compte, renvoyez la demande avec linkExistingUser: true.',
             existingAccount: true,
           });
-        }
-        if (existing.role !== UserRole.PROPRIETAIRE) {
-          throw new ConflictException(
-            "Ce numéro appartient à un compte qui n'est pas un compte Propriétaire : la ferme ne peut pas y être rattachée.",
-          );
         }
         owner = existing;
       } else {

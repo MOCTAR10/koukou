@@ -4,6 +4,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { BUYER_PHONE_MESSAGE } from './../src/modules/programme/farms/programme-farms.service.js';
 import {
   createPlatformAdmin,
   createProgrammeFarm,
@@ -209,7 +210,7 @@ describe('Comptes acheteurs du Market (e2e)', () => {
 
     it('le registre ne rattache pas une ferme au compte acheteur du même numéro', async () => {
       const number = phone();
-      await registerBuyer({ phone: number }).expect(201);
+      const buyer = await registerBuyer({ phone: number }).expect(201);
       const created = await request(server)
         .post('/programme/farms')
         .set(bearer(adminToken))
@@ -218,20 +219,57 @@ describe('Comptes acheteurs du Market (e2e)', () => {
           provinceCode: 'G1',
           capacityPlaces: 2000,
           exploitantName: 'Acheteur Exploitant',
-          exploitantPhone: number,
+          // Formatted differently: the registry normalizes the phone.
+          exploitantPhone: number.replace(/^(\+241)(\d{2})/, '$1 $2 '),
           confirmDuplicate: true,
         })
         .expect(201);
-      const activate = (linkExistingUser: boolean) =>
+      const farmId = created.body.id as string;
+      const activate = (body: Record<string, unknown>) =>
         request(server)
-          .post(`/programme/farms/${created.body.id}/activate-owner`)
+          .post(`/programme/farms/${farmId}/activate-owner`)
           .set(bearer(adminToken))
-          .send({ linkExistingUser });
-      expect((await activate(false)).body.existingAccount).toBe(true);
-      const refused = await activate(true).expect(409);
-      expect(String(refused.body.message)).toMatch(
-        /pas un compte Propriétaire/,
-      );
+          .send(body);
+      // Same refusal with or without linkExistingUser: no flag gets around it.
+      for (const body of [{}, { linkExistingUser: false }, { linkExistingUser: true }]) {
+        const refused = await activate(body).expect(409);
+        expect(refused.body).toMatchObject({
+          message: BUYER_PHONE_MESSAGE,
+          buyerAccount: true,
+        });
+        expect(refused.body.existingAccount).toBeUndefined();
+      }
+      expect(BUYER_PHONE_MESSAGE).toMatch(/compte acheteur du Market/);
+      expect(BUYER_PHONE_MESSAGE).toMatch(/autre numéro/);
+
+      // Nothing was linked: the farm has no owner, the buyer stays a buyer.
+      const sheet = await request(server)
+        .get(`/programme/farms/${farmId}`)
+        .set(bearer(adminToken))
+        .expect(200);
+      expect(sheet.body.hasOwnerAccount).toBe(false);
+      const login = await request(server)
+        .post('/auth/login')
+        .send({ phone: number, code: 'secret123' })
+        .expect(201);
+      expect(login.body.user.role).toBe('ACHETEUR');
+      expect(login.body.user.id).toBe(buyer.body.user.id);
+      const farms = await request(server)
+        .get('/farms')
+        .set(bearer(login.body.accessToken))
+        .expect(200);
+      expect(farms.body).toEqual([]);
+
+      // Another number on the sheet: the exploitant gets his own account.
+      const otherNumber = phone();
+      await request(server)
+        .patch(`/programme/farms/${farmId}`)
+        .set(bearer(adminToken))
+        .send({ exploitantPhone: otherNumber, confirmDuplicate: true })
+        .expect(200);
+      const activated = await activate({}).expect(201);
+      expect(activated.body.owner.phone).toBe(otherNumber);
+      expect(activated.body.owner.id).not.toBe(buyer.body.user.id);
     });
   });
 });
