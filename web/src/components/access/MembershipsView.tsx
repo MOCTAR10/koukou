@@ -80,13 +80,9 @@ export function MembershipsView({
   const [code, setCode] = useState<{ title: string; fullName: string; phone: string; code: string } | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const provinceById = useMemo(() => new Map((provinces.data ?? []).map((p) => [p.id, p])), [provinces.data]);
   // Farm names and provinces from the farm list (every farm for an admin of the whole programme).
   const knownFarms = useMemo(() => new Map(farms.map((f) => [f.id, farmLabel({ code: f.code, name: f.name })])), [farms]);
-  const farmProvince = useMemo(
-    () => new Map(farms.map((f) => [f.id, f.provinceId ? (provinceById.get(f.provinceId)?.code ?? null) : null])),
-    [farms, provinceById],
-  );
+  const farmProvince = useMemo(() => new Map(farms.map((f) => [f.id, f.provinceCode ?? null])), [farms]);
   const farmName = (id: string) => knownFarms.get(id) ?? 'Ferme du programme';
 
   const rows = memberships.filter((m) => membershipMatches(m, filters, (id) => farmProvince.get(id) ?? null));

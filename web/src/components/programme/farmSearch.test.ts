@@ -2,15 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { farmOptionLabel, foldText, searchFarms } from './farmSearch';
 
 const farms = [
-  { id: '1', name: 'Agri Vert', code: 'G2-0001', exploitantName: 'Paul Obame', administrativeCity: 'Franceville', provinceId: 'p2' },
-  { id: '2', name: 'Élevage de Ntoum', code: 'G1-0012', exploitantName: 'Jean Mba', administrativeCity: 'Ntoum', provinceId: 'p1' },
-  { id: '3', name: 'Ferme G1 Avenir', code: 'G3-0004', exploitantName: null, administrativeCity: 'Lambaréné', provinceId: 'p3' },
+  { id: '1', name: 'Agri Vert', code: 'G2-0001', exploitantName: 'Paul Obame', administrativeCity: 'Franceville', provinceName: 'Haut-Ogooué' },
+  { id: '2', name: 'Élevage de Ntoum', code: 'G1-0012', exploitantName: 'Jean Mba', administrativeCity: 'Ntoum', provinceName: 'Estuaire' },
+  { id: '3', name: 'Ferme G1 Avenir', code: 'G3-0004', exploitantName: null, administrativeCity: 'Lambaréné', provinceName: 'Moyen-Ogooué' },
 ];
-const provinces = new Map([
-  ['p1', 'Estuaire'],
-  ['p2', 'Haut-Ogooué'],
-  ['p3', 'Moyen-Ogooué'],
-]);
 
 describe('searchFarms', () => {
   it('ignores case and accents and needs every word', () => {
@@ -21,8 +16,8 @@ describe('searchFarms', () => {
 
   it('finds by exploitant and province name', () => {
     expect(searchFarms(farms, 'obame').map((f) => f.id)).toEqual(['1']);
-    expect(searchFarms(farms, 'estuaire', provinces).map((f) => f.id)).toEqual(['2']);
-    expect(searchFarms(farms, 'ogooue', provinces).map((f) => f.id)).toEqual(['1', '3']);
+    expect(searchFarms(farms, 'estuaire').map((f) => f.id)).toEqual(['2']);
+    expect(searchFarms(farms, 'ogooue').map((f) => f.id)).toEqual(['1', '3']);
   });
 
   it('puts the farm whose code starts with the query first', () => {

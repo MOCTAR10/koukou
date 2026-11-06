@@ -14,7 +14,6 @@ export function FarmPicker({
   farmId,
   onPick,
   label,
-  provinceNames,
   tone,
   className,
 }: {
@@ -22,8 +21,6 @@ export function FarmPicker({
   farmId: string | null;
   onPick: (id: string) => void;
   label: string;
-  /** Province id → name, for the search and the second line. */
-  provinceNames?: ReadonlyMap<string, string>;
   tone: 'dark' | 'light';
   className?: string;
 }) {
@@ -34,7 +31,7 @@ export function FarmPicker({
   const listId = useId();
   const current = farms.find((f) => f.id === farmId) ?? null;
   const withSearch = farms.length >= PICKER_SEARCH_FROM;
-  const matches = useMemo(() => searchFarms(farms, query, provinceNames), [farms, query, provinceNames]);
+  const matches = useMemo(() => searchFarms(farms, query), [farms, query]);
 
   useEffect(() => {
     if (!open) return;
@@ -115,7 +112,6 @@ export function FarmPicker({
           ) : null}
           <ul id={listId} role="listbox" aria-label={label} className="max-h-80 overflow-y-auto py-1">
             {matches.map((f, i) => {
-              const province = f.provinceId ? provinceNames?.get(f.provinceId) : undefined;
               const selected = f.id === farmId;
               return (
                 <li key={f.id} role="option" aria-selected={selected}>
@@ -132,7 +128,7 @@ export function FarmPicker({
                         {f.name}
                       </span>
                       <span className="block truncate text-xs text-slate-500">
-                        {[province, f.administrativeCity, f.active ? null : 'suspendue'].filter(Boolean).join(' · ')}
+                        {[f.provinceName, f.administrativeCity, f.active ? null : 'suspendue'].filter(Boolean).join(' · ')}
                       </span>
                     </span>
                   </button>

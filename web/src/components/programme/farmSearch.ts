@@ -6,7 +6,8 @@ export interface PickableFarm {
   code?: string | null;
   exploitantName?: string | null;
   administrativeCity?: string | null;
-  provinceId?: string | null;
+  /** From `GET /farms`. */
+  provinceName?: string | null;
 }
 
 /** Lower case, no accents, single spaces: « Élevage  N'Toum » → « elevage n'toum ». */
@@ -24,18 +25,13 @@ export function foldText(value: string | null | undefined): string {
  * or province name; codes that start with the query come first, then the
  * original order (by name from the server).
  */
-export function searchFarms<T extends PickableFarm>(
-  farms: readonly T[],
-  query: string,
-  provinceNames?: ReadonlyMap<string, string>,
-): T[] {
+export function searchFarms<T extends PickableFarm>(farms: readonly T[], query: string): T[] {
   const words = foldText(query).split(' ').filter(Boolean);
   if (words.length === 0) return [...farms];
   const scored: { farm: T; rank: number; index: number }[] = [];
   farms.forEach((farm, index) => {
-    const province = farm.provinceId ? provinceNames?.get(farm.provinceId) : undefined;
     const code = foldText(farm.code);
-    const haystack = [code, foldText(farm.name), foldText(farm.exploitantName), foldText(farm.administrativeCity), foldText(province)].join(' | ');
+    const haystack = [code, foldText(farm.name), foldText(farm.exploitantName), foldText(farm.administrativeCity), foldText(farm.provinceName)].join(' | ');
     if (!words.every((w) => haystack.includes(w))) return;
     const codeFirst = code && code.replace(/[^a-z0-9]/g, '').startsWith(words.join('').replace(/[^a-z0-9]/g, ''));
     scored.push({ farm, rank: codeFirst ? 0 : 1, index });

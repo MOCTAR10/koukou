@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -43,7 +43,6 @@ import { NoFarmScreen } from './NoFarmScreen';
 import { Loading } from './ui';
 import { OfflineBar } from './OfflineBar';
 import { FarmPicker } from './programme/FarmPicker';
-import { useProvinces } from './registry/queries';
 import { QuickCreate } from './QuickCreate';
 import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
@@ -134,10 +133,8 @@ export function Shell() {
   const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry } =
     useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
-  const provinces = useProvinces(farms.length > 0);
-  const provinceNames = useMemo(() => new Map((provinces.data ?? []).map((p) => [p.id, p.name])), [provinces.data]);
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
-  const farmProvince = farm?.provinceId ? provinceNames.get(farm.provinceId) : undefined;
+  const farmProvince = farm?.provinceName ?? undefined;
   // Programme-wide entries: the registry, the platform console, the institutional access administration, an institution's own access.
   const adminItems = [
     ...(registry.view ? [{ to: '/app/registre', label: 'Registre des fermes', icon: BookMarked }] : []),
@@ -193,7 +190,6 @@ export function Shell() {
                 setMobileOpen(false);
               }}
               label={pickerLabel}
-              provinceNames={provinceNames}
             />
           </div>
         ) : null}
@@ -295,7 +291,6 @@ export function Shell() {
                   farmId={farmId}
                   onPick={setFarm}
                   label={pickerLabel}
-                  provinceNames={provinceNames}
                 />
                 <span className="truncate md:max-xl:hidden">
                   {isAdmin ? <span className="text-slate-400">Ferme : </span> : null}

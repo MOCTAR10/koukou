@@ -38,6 +38,9 @@ export interface Farm {
   /** `G1-0012`: never changes once set. */
   code?: string | null;
   provinceId?: string | null;
+  /** Added by `GET /farms` (null without a province); absent from other farm answers. */
+  provinceCode?: string | null;
+  provinceName?: string | null;
   localiteId?: string | null;
   amiRef?: string | null;
   /** Code of a COHORTE list item. */
