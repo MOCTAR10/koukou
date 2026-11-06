@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowLeft, Building2, Calculator, Check, Map, QrCode, ScrollText, ShieldCheck, Stethoscope, Store } from 'lucide-react';
+import { Activity, LifeBuoy, ArrowLeft, Building2, Calculator, Check, Map, QrCode, ScrollText, ShieldCheck, Stethoscope, Store } from 'lucide-react';
 import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
@@ -148,7 +148,7 @@ export function AuthLayout({
                 </p>
               ) : null}
               <h1
-                className={`${programme ? 'mt-4 lg:text-[1.75rem]' : 'mt-1 lg:text-[2rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
+                className={`${programme ? 'mt-4 lg:text-[2.25rem]' : 'mt-1 lg:text-[2rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
               >
                 {title}
               </h1>
@@ -162,7 +162,7 @@ export function AuthLayout({
             </div>
             {programme ? (
               <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
-                <ShieldCheck className="h-3.5 w-3.5" /> Connexion sécurisée · Accès réservé aux comptes du programme
+                <LifeBuoy className="h-3.5 w-3.5" /> Code oublié ou compte bloqué : contactez l’administrateur du programme
               </p>
             ) : null}
           </motion.div>

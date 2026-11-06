@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Lock, MessageSquareText, User } from 'lucide-react';
+import { Lock, MessageSquareText, Store, User } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { ApiError, getStoredUser } from '../api/client';
 import { clearSessionExpired, sessionExpired, SESSION_EXPIRED_MESSAGE } from '../api/session-expiry';
@@ -147,9 +147,9 @@ export function LoginPage() {
   return (
     <AuthLayout
       audience={buying ? 'buyer' : 'programme'}
-      eyebrow={buying ? 'Marché Fermia' : 'Accès programme'}
-      title={buying ? 'Connexion' : 'Programme POUFA, console de pilotage'}
-      subtitle="Connectez-vous avec votre téléphone et votre code secret."
+      eyebrow={buying ? 'Marché Fermia' : 'Espace sécurisé'}
+      title={buying ? 'Connexion' : 'Bienvenue'}
+      subtitle={buying ? 'Connectez-vous avec votre téléphone et votre code secret.' : 'Saisissez votre numéro de téléphone et votre code secret.'}
       footer={
         buying ? (
           <p>
@@ -160,15 +160,15 @@ export function LoginPage() {
           </p>
         ) : (
           <>
-            <p>
-              Exploitant d’une ferme du programme : votre code de connexion vous est remis à l’activation de votre compte.
+            <p className="text-[13px] leading-relaxed">
+              Exploitant d’une ferme du programme : votre code vous est remis à l’activation de votre compte.
             </p>
-            <p>
-              Vous voulez acheter ?{' '}
-              <Link to="/marche" className={authLinkCls}>
-                Voir le marché
-              </Link>
-            </p>
+            <Link
+              to="/marche"
+              className="mt-1 inline-flex items-center gap-2 rounded-full bg-slate-50 px-4 py-2 text-[13px] font-semibold text-brand-700 ring-1 ring-slate-200 transition hover:bg-brand-50 hover:ring-brand-200"
+            >
+              <Store className="h-4 w-4" /> Acheter sur le Marché Fermia
+            </Link>
           </>
         )
       }
@@ -182,9 +182,9 @@ export function LoginPage() {
         <ErrorNote error={error} />
         <Field label="Téléphone">
           <span className="relative block">
-            <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              className={`${inputCls} !py-2.5 pl-9`}
+              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-11 text-[15px]`}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+241 74 12 34 56"
@@ -196,10 +196,10 @@ export function LoginPage() {
         </Field>
         <Field label="Code secret">
           <span className="relative block">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="password"
-              className={`${inputCls} !py-2.5 pl-9`}
+              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-11 text-[15px]`}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="••••••"
@@ -208,7 +208,11 @@ export function LoginPage() {
             />
           </span>
         </Field>
-        <Button type="submit" busy={submitting} className="w-full !py-2.5">
+        <Button
+          type="submit"
+          busy={submitting}
+          className="!mt-6 w-full !h-12 !rounded-xl bg-gradient-to-r from-brand-700 to-brand-900 text-[15px] shadow-lg shadow-brand-900/25 transition hover:shadow-xl"
+        >
           {submitting ? 'Connexion…' : 'Se connecter'}
         </Button>
       </form>
