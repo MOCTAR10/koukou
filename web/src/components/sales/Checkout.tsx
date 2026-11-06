@@ -11,6 +11,7 @@ import { customerTypeLabel } from './labels';
 import { useIdempotencyKey } from '../../lib/idempotency';
 import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
 import { buildSaleItem, discountFor, findPromotion, invalidateCash, subtotalOf, type PosLine } from './pos';
+import { saleCessionNotices } from './cession';
 import { ReceiptButton } from './shared';
 
 const QUICK_CASH = [1000, 2000, 5000, 10000, 20000, 50000];
@@ -140,6 +141,7 @@ export function Checkout({
   const received = Number(tendered) || 0;
   const change = received - total;
   const creditDue = customer?.balance?.outstandingFcfa ?? 0;
+  const notices = saleCessionNotices(customer, lines);
   const canSell = total > 0 && (isCredit ? customer !== null : received >= total);
 
   const saleKey = useIdempotencyKey('sale');
@@ -261,6 +263,10 @@ export function Checkout({
           {isCredit ? 'Client (requis pour une vente à crédit)' : 'Client (facultatif)'}
         </p>
         <CustomerPicker customers={customers.data ?? []} selected={customer} creditMode={isCredit} onSelect={setCustomer} />
+        {notices.cession ? (
+          <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800 ring-1 ring-brand-200">{notices.cession}</p>
+        ) : null}
+        {notices.noDoubleEntry ? <p className="text-xs text-slate-500">{notices.noDoubleEntry}</p> : null}
         {!isCredit && !customer ? (
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="Téléphone (trouvé ou créé)">

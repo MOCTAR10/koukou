@@ -27,7 +27,16 @@ import { EGG_IMAGES, SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
 import { PhotoThumb } from '../ui';
-import { bandOpening, feedAdviceFor, MAX_ARRIVAL_AGE_DAYS, parseArrivalAgeDays, splitStepsByAge, stepDate } from './band';
+import {
+  bandOpening,
+  feedAdviceFor,
+  MAX_ARRIVAL_AGE_DAYS,
+  MAX_ARRIVAL_WEIGHT_G,
+  parseArrivalAgeDays,
+  parseArrivalWeightG,
+  splitStepsByAge,
+  stepDate,
+} from './band';
 import { BREED_INFO } from './breedInfo';
 import { BuildingFormModal } from './Buildings';
 import {
@@ -112,6 +121,8 @@ export function CreateLotModal({
   const [integrationDate, setIntegrationDate] = useState(prefill?.integrationDate.slice(0, 10) ?? localYmd());
   /** « Âge à l'arrivée (jours) », sent as `initialAgeDays` (empty = 0, day-old chicks). */
   const [arrivalAge, setArrivalAge] = useState('');
+  /** « Poids moyen à l'arrivée (g) », sent as `initialAvgWeightG` (optional). */
+  const [arrivalWeight, setArrivalWeight] = useState('');
   const [buildingId, setBuildingId] = useState('');
   const [supplier, setSupplier] = useState(prefill?.couvoirSupplier ?? '');
   const [chickLot, setChickLot] = useState(prefill?.chickLotNumber ?? '');
@@ -123,6 +134,7 @@ export function CreateLotModal({
   const isAutre = species === 'AUTRE';
   // POUFA band opening (J+x): age, feed phase and care due count from the birds' J0.
   const arrivalAgeDays = parseArrivalAgeDays(arrivalAge);
+  const arrivalWeightG = parseArrivalWeightG(arrivalWeight);
   const opening = bandOpening({ arrivalDay: integrationDate, arrivalAgeDays: arrivalAgeDays ?? 0, today: localYmd() });
   const ageDays = opening.ageToday;
   const qty = parseInt(quantity, 10) || 0;
@@ -195,6 +207,7 @@ export function CreateLotModal({
       };
       // A running lot opens with the birds present that day: the server requires both counts equal.
       if (running) body.quantityAlive = qty;
+      if (arrivalWeightG != null) body.initialAvgWeightG = arrivalWeightG;
       if (isAutre) {
         body.customSpecies = customSpecies.trim();
         body.customBreed = customBreed.trim();
@@ -236,6 +249,7 @@ export function CreateLotModal({
     !!buildingId &&
     !buildingFull &&
     arrivalAgeDays != null &&
+    arrivalWeightG !== null &&
     // A lot already on the farm: its age at opening must be typed (no silent J0).
     (!running || arrivalAge.trim().length > 0);
 
@@ -421,6 +435,23 @@ export function CreateLotModal({
             />
             {arrivalAgeDays == null ? (
               <span className="mt-1 block text-xs text-red-600">Âge entre 0 et {MAX_ARRIVAL_AGE_DAYS} jours.</span>
+            ) : null}
+          </IconField>
+          <IconField
+            label={running ? 'Poids moyen à l’ouverture (g)' : 'Poids moyen à l’arrivée (g)'}
+            icon={<Scale />}
+            hint="Facultatif : un échantillon pesé à la mise en place sert de point de départ au GMQ."
+          >
+            <input
+              className={inputCls}
+              inputMode="decimal"
+              value={arrivalWeight}
+              onChange={(e) => setArrivalWeight(e.target.value.replace(/[^\d.,]/g, ''))}
+              placeholder={running ? 'Ex : 650' : 'Ex : 42'}
+              aria-invalid={arrivalWeightG === null}
+            />
+            {arrivalWeightG === null ? (
+              <span className="mt-1 block text-xs text-red-600">Poids entre 1 et {MAX_ARRIVAL_WEIGHT_G.toLocaleString('fr-FR')} g.</span>
             ) : null}
           </IconField>
           <IconField label="Bâtiment *" icon={<Warehouse />}>

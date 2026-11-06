@@ -3,7 +3,7 @@ import type { LotView, OperatorView } from '../../api/types-trace';
 import { createPayload, draftOf, filterOperators, patchPayload, validateOperator } from './operatorRules';
 import { fetchPublicLot, producerLine, publicLotStateFrom, publicLotUrl } from './publicLot';
 import { isProgrammeWidePath, programmeEntries, programmeWideLabel, traceRights, traceTabOf, traceTabs } from './traceAccess';
-import { codeFromInput, lotsTree, scanWarnings } from './traceLabels';
+import { codeFromInput, lotsTree, rearingDetail, rearingQuantityLabel, scanWarnings } from './traceLabels';
 
 const VIEW = {
   code: 'G1-0001-B01-L01',
@@ -166,5 +166,29 @@ describe('programme-wide header line', () => {
     expect(programmeWideLabel('/app/intrants')).toMatch(/Intrants/);
     expect(programmeWideLabel('/app/tracabilite/operateurs')).toMatch(/opérateurs/);
     expect(programmeWideLabel('/app/tracabilite')).toBeNull();
+  });
+});
+
+// POUFA T2: inputs received and feed eaten in the rearing history.
+describe('rearing inputs and feed', () => {
+  it('details a confirmed delivery', () => {
+    const details = {
+      deliveryId: 'd1',
+      code: 'LIV-0001',
+      source: 'ETAT_SMAG',
+      lines: [
+        { intrantCode: 'POUSSIN_CHAIR', intrantLabel: 'Poussins chair', unitCode: 'TETE', receivedQuantity: 500, feedPhase: null },
+        { intrantCode: 'ALIM_DEM', intrantLabel: null, unitCode: 'SAC', receivedQuantity: 20, feedPhase: 'DEMARRAGE' },
+      ],
+    };
+    expect(rearingDetail({ kind: 'INTRANT', details })).toBe('Livraison LIV-0001 · État / SMAG — Poussins chair : 500 tete, ALIM_DEM : 20 sac');
+  });
+
+  it('details a feed lot and shows its kg', () => {
+    const details = { inputLotId: 'i1', productName: 'Démarrage', supplierLotNumber: 'F-12', fromDay: 1, toDay: 10, kg: 250 };
+    expect(rearingDetail({ kind: 'ALIMENT', details })).toBe('Lot fournisseur F-12 · jours 1 à 10');
+    expect(rearingQuantityLabel({ kind: 'ALIMENT', quantity: 250 })).toBe('250 kg');
+    expect(rearingQuantityLabel({ kind: 'PESEE', quantity: null })).toBeNull();
+    expect(rearingDetail({ kind: 'PESEE', details: {} })).toBeNull();
   });
 });

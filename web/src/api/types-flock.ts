@@ -108,6 +108,10 @@ export interface DailyEntryRecord {
   eggsSmall: number;
   eggsDoubleYolk: number;
   eggsDirty: number;
+  /** Birds weighed with `avgWeightKg` (CDC « nombre pesé »). */
+  sampleSize?: number | null;
+  /** Last write: sent back as `baseUpdatedAt` by an edit (offline conflict rule). */
+  updatedAt?: string;
 }
 
 export interface PondageWeek {

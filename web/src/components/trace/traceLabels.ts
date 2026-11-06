@@ -1,4 +1,4 @@
-import type { LotView, RearingKind, ScanIndicators, TraceLotStatus } from '../../api/types-trace';
+import type { LotView, RearingItem, RearingKind, ScanIndicators, TraceLotStatus } from '../../api/types-trace';
 
 /** French labels and small pure helpers of the traceability screens. */
 
@@ -32,7 +32,60 @@ export const REARING_KIND_LABEL: Record<RearingKind, string> = {
   EVENEMENT_SANITAIRE: 'Événement sanitaire',
   SORTIE: 'Sortie',
   CLOTURE: 'Clôture',
+  INTRANT: 'Intrants reçus',
+  ALIMENT: 'Aliment consommé',
 };
+
+const SOURCE_LABEL: Record<string, string> = {
+  ETAT_SMAG: 'État / SMAG',
+  AUTRE: 'Autre fournisseur',
+};
+
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() !== '' ? v : null;
+}
+
+function fr(n: number): string {
+  return n.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+}
+
+/**
+ * The detail line of an INTRANT (delivery confirmed for the band) or ALIMENT
+ * (feed lot eaten from day X to day Y; its kg are the item quantity) rearing
+ * item; null for the other kinds.
+ */
+export function rearingDetail(r: Pick<RearingItem, 'kind' | 'details'>): string | null {
+  const d = r.details ?? {};
+  if (r.kind === 'INTRANT') {
+    const code = str(d.code);
+    const source = str(d.source);
+    const head = [code ? `Livraison ${code}` : 'Livraison', source ? (SOURCE_LABEL[source] ?? source) : null].filter(Boolean).join(' · ');
+    const lines = Array.isArray(d.lines) ? (d.lines as Array<Record<string, unknown>>) : [];
+    const parts = lines.map((l) => {
+      const name = str(l.intrantLabel) ?? str(l.intrantCode) ?? 'Intrant';
+      const unit = str(l.unitCode);
+      const qty = typeof l.receivedQuantity === 'number' ? ` : ${fr(l.receivedQuantity)}${unit ? ` ${unit.toLowerCase()}` : ''}` : '';
+      return `${name}${qty}`;
+    });
+    return parts.length > 0 ? `${head} — ${parts.join(', ')}` : head;
+  }
+  if (r.kind === 'ALIMENT') {
+    const out: string[] = [];
+    const lot = str(d.supplierLotNumber);
+    if (lot) out.push(`Lot fournisseur ${lot}`);
+    if (typeof d.fromDay === 'number' && typeof d.toDay === 'number') {
+      out.push(d.fromDay === d.toDay ? `jour ${d.fromDay}` : `jours ${d.fromDay} à ${d.toDay}`);
+    }
+    return out.length > 0 ? out.join(' · ') : null;
+  }
+  return null;
+}
+
+/** The quantity of a rearing item with its unit when known (ALIMENT: kg). */
+export function rearingQuantityLabel(r: Pick<RearingItem, 'kind' | 'quantity'>): string | null {
+  if (r.quantity == null) return null;
+  return r.kind === 'ALIMENT' ? `${fr(r.quantity)} kg` : fr(r.quantity);
+}
 
 export function lotStatusTone(status: TraceLotStatus): 'emerald' | 'brand' | 'slate' {
   if (status === 'OUVERT') return 'emerald';

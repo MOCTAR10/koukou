@@ -1,11 +1,26 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowDownRight, Box, Calendar, Check, Package, PackageOpen, PackageX, Pill, Scale, Truck, Wheat } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, Box, Calendar, Check, Package, PackageCheck, PackageOpen, PackageX, Pill, Scale, Truck, Wheat } from 'lucide-react';
 import type { FeedStockSummary } from '../../api/types';
 import type { FeedEntryType, FeedLossReason } from '../../api/types-flock';
+import type { OpenBandHint } from '../../api/types-supply';
+import { useAuth } from '../../auth/AuthContext';
 import { useFarm } from '../../app/FarmContext';
-import { num } from '../../lib/format';
+import { useFarmProfile } from '../../app/useFarmProfile';
+import { dateFr, num } from '../../lib/format';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
+import { ConfirmDeliveryModal } from '../supply/ConfirmDeliveryModal';
+import { supplierOf } from '../supply/DeliveryParts';
+import { OpenBandModal } from '../supply/OpenBandModal';
+import { useFarmDeliveries } from '../supply/queries';
+import {
+  MANUAL_DUPLICATE_WARNING,
+  STATE_DELIVERY_HINT,
+  STATE_DELIVERY_QUESTION,
+  matchStateDeliveries,
+  pendingStateDeliveries,
+} from '../supply/stateDeliveryMatch';
+import { farmDeliveryRights } from '../supply/supplyAccess';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 import {
   ENTRY_TYPE_LABEL,
@@ -135,6 +150,19 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
   const [notes, setNotes] = useState('');
 
   const isFeed = entryType === 'BULKER' || entryType === 'BAG';
+
+  // POUFA F5: programme deliveries still to confirm come first; a manual
+  // reception that looks like one of them is flagged (full price, subsidy lost).
+  const { user } = useAuth();
+  const { hasPermission } = useFarmProfile();
+  const rights = farmDeliveryRights(user?.role, hasPermission);
+  const deliveries = useFarmDeliveries(farmId, 'EXPEDIEE', hasPermission('stock:gerer'));
+  const pending = pendingStateDeliveries(deliveries.data ?? []);
+  const matches = matchStateDeliveries(entryType, isFeed ? phase : null, pending);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [bandHint, setBandHint] = useState<OpenBandHint | null>(null);
+  const toConfirm = pending.find((d) => d.id === confirmingId) ?? null;
+
   const phaseRow = stock?.byType.find((t) => t.feedPhase === phase);
   const autonomy = phaseRow?.autonomyDays ?? null;
   const expiryPast = !!expiration && expiration < received;
@@ -198,9 +226,47 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
     if (canSubmit) save.mutate();
   };
 
+  if (bandHint && farmId) {
+    return <OpenBandModal farmId={farmId} hint={bandHint} canOpen={rights.openBand} onClose={onClose} />;
+  }
+  if (toConfirm && farmId) {
+    return (
+      <ConfirmDeliveryModal
+        farmId={farmId}
+        delivery={toConfirm}
+        onClose={() => setConfirmingId(null)}
+        onConfirmed={(h) => {
+          if (h && rights.confirm) setBandHint(h);
+          else onClose();
+        }}
+      />
+    );
+  }
+
   return (
     <Modal title="Réception de stock" onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4">
+        {pending.length > 0 ? (
+          <Note tone="brand" icon={<Truck />}>
+            <p className="font-semibold">{STATE_DELIVERY_QUESTION}</p>
+            <p className="mt-1">{STATE_DELIVERY_HINT}</p>
+            <ul className="mt-2 space-y-1.5">
+              {pending.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <span className="font-medium">{d.code}</span> · {supplierOf(d)} · expédiée le {dateFr(d.shippedAt)} ·{' '}
+                    {d.lines.map((l) => l.intrantLabel ?? l.intrantCode).join(', ')}
+                  </span>
+                  {rights.confirm ? (
+                    <Button tone="secondary" onClick={() => setConfirmingId(d.id)}>
+                      <PackageCheck className="h-4 w-4" /> Confirmer cette livraison
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </Note>
+        ) : null}
         <Tabs
           value={entryType}
           onChange={setEntryType}
@@ -324,6 +390,12 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
           </Note>
         ) : null}
         {expiryPast ? <Note tone="amber">La date de péremption est antérieure à la réception.</Note> : null}
+        {matches.length > 0 ? (
+          <Note tone="amber" icon={<AlertTriangle />}>
+            {MANUAL_DUPLICATE_WARNING} (
+            {[...new Set(matches.map((m) => `${m.delivery.code} : ${m.line.intrantLabel ?? m.line.intrantCode}`))].join(' ; ')})
+          </Note>
+        ) : null}
         <ErrorNote error={save.error} />
         <div className="flex justify-end gap-2">
           <Button tone="secondary" onClick={onClose}>

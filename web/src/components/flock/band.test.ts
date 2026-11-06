@@ -7,7 +7,9 @@ import {
   feedAdviceFor,
   lotAgeOn,
   MAX_ARRIVAL_AGE_DAYS,
+  MAX_ARRIVAL_WEIGHT_G,
   parseArrivalAgeDays,
+  parseArrivalWeightG,
   splitStepsByAge,
   stepDate,
 } from './band';
@@ -97,5 +99,21 @@ describe('feed advice and care steps by age', () => {
     const { due, upcoming } = splitStepsByAge(steps, 21);
     expect(due.map((s) => s.id)).toEqual(['a', 'b']);
     expect(upcoming.map((s) => s.id)).toEqual(['c']);
+  });
+});
+
+// POUFA lot A bande: average weight of the chicks at arrival (initialAvgWeightG).
+describe('parseArrivalWeightG', () => {
+  it('is optional, in grams, a comma accepted', () => {
+    expect(parseArrivalWeightG('')).toBeUndefined();
+    expect(parseArrivalWeightG(' 42 ')).toBe(42);
+    expect(parseArrivalWeightG('42,5')).toBe(42.5);
+  });
+
+  it('refuses 0, text and more than the maximum', () => {
+    expect(parseArrivalWeightG('0')).toBeNull();
+    expect(parseArrivalWeightG('abc')).toBeNull();
+    expect(parseArrivalWeightG(String(MAX_ARRIVAL_WEIGHT_G))).toBe(MAX_ARRIVAL_WEIGHT_G);
+    expect(parseArrivalWeightG(String(MAX_ARRIVAL_WEIGHT_G + 1))).toBeNull();
   });
 });
