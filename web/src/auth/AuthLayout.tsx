@@ -203,6 +203,13 @@ function ProgrammeAside() {
               className="h-20 w-20 object-contain xl:h-24 xl:w-24 [@media(max-height:780px)]:h-16 [@media(max-height:780px)]:w-16"
             />
           </div>
+          <div className="rounded-2xl bg-white p-1.5 shadow-xl shadow-black/40">
+            <img
+              src="/men-logo.webp"
+              alt="Ministère de l’Économie numérique, de la Digitalisation et de l’Innovation"
+              className="h-20 w-20 object-contain xl:h-24 xl:w-24 [@media(max-height:780px)]:h-16 [@media(max-height:780px)]:w-16"
+            />
+          </div>
           <div className="border-l border-white/30 pl-5 text-white">
             <p className="text-2xl font-bold uppercase tracking-[0.2em] drop-shadow xl:text-3xl">Programme POUFA</p>
           </div>
