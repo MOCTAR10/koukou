@@ -10,6 +10,7 @@ import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { InputKind } from '../../common/enums/input-kind.enum.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
+import type { Farm } from '../farms/entities/farm.entity.js';
 import { FlockReconciliationService } from '../batches/flock-reconciliation.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
@@ -45,16 +46,26 @@ export class DailyEntriesService {
     private readonly sync: SyncService,
   ) {}
 
+  /**
+   * `within`: internal path of the data recovery, which authorizes the caller
+   * itself — the entry is written in `within.em` (a savepoint of the caller's
+   * transaction) and the DAILY_ENTRY_CREATED event is left to the caller.
+   */
   async create(
     user: AuthUser,
     farmId: string,
     batchId: string,
     dto: CreateDailyEntryDto,
+    within?: { em: EntityManager; farm: Farm },
   ) {
-    const farm = await this.farmsService.assertAccessible(user, farmId);
+    const farm =
+      within?.farm ?? (await this.farmsService.assertAccessible(user, farmId));
+    const batchRepo =
+      within?.em.getRepository(ProductionBatch) ?? this.batchRepo;
+    const inputRepo = within?.em.getRepository(InputLot) ?? this.inputRepo;
     // POUFA band: weighing sample, catch-up flag, offline conflicts.
     const programId = farm.programId;
-    const batch = await this.batchRepo.findOne({
+    const batch = await batchRepo.findOne({
       where: { id: batchId, farmId },
     });
     if (!batch)
@@ -79,7 +90,7 @@ export class DailyEntriesService {
     }
 
     if (dto.inputLotId != null) {
-      const lot = await this.inputRepo.findOne({
+      const lot = await inputRepo.findOne({
         where: { id: dto.inputLotId, farmId },
       });
       if (!lot || lot.kind !== InputKind.ALIMENT) {
@@ -95,8 +106,9 @@ export class DailyEntriesService {
       );
     }
 
-    return this.dataSource
-      .transaction(async (em) => {
+    const transaction = <T>(fn: (em: EntityManager) => Promise<T>) =>
+      within ? within.em.transaction(fn) : this.dataSource.transaction(fn);
+    return transaction(async (em) => {
         // Lock order batch → feed lot, same as POS sales (which pre-lock
         // batches first): avoids a lock-order inversion with the feed lot
         // lock taken in assertConsumptionAvailable. Query builder, not
@@ -273,6 +285,7 @@ export class DailyEntriesService {
         return entry;
       })
       .then((entry) => {
+        if (within) return entry;
         koukouBus.emit(KOUKOU_EVENTS.DAILY_ENTRY_CREATED, {
           farmId,
           batchId,

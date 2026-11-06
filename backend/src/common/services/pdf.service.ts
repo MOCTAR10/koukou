@@ -150,6 +150,17 @@ export class PdfService {
     return pdfmake;
   }
 
+  /**
+   * Renders a document definition built by a feature module (Roboto as the
+   * default font), so features never set up a pdfmake instance of their own.
+   */
+  async renderDocument(documentDefinition: Record<string, unknown>): Promise<Buffer> {
+    const pdfmake = await this.ensurePdfmake();
+    return pdfmake
+      .createPdf({ defaultStyle: { font: 'Roboto' }, ...documentDefinition })
+      .getBuffer();
+  }
+
   async createReceiptPdf(data: ReceiptData): Promise<Buffer> {
     const documentDefinition = {
       content: [

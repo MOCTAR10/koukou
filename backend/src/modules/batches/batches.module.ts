@@ -93,6 +93,7 @@ import { BandeStatsService } from './poufa/bande-stats.service.js';
     BatchesService,
     FlockReconciliationService,
     BandeStatsService,
+    BandeOpeningService,
   ],
 })
 export class BatchesModule {}
