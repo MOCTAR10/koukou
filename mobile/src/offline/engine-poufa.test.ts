@@ -3,8 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, readCall, stubFetch } from '@/api/test-utils';
 import { clearSession } from '@/api/token';
 
-import { confirmDeliveryQueued, createDeclarationQueued, createSortieQueued, flushQueue, setFarmGpsQueued } from './engine';
-import { clearQueue, dismissRejected, loadOps, loadRejected } from './store';
+import {
+  confirmDeliveryQueued,
+  createDailyEntryQueued,
+  createDeclarationQueued,
+  createSortieQueued,
+  flushQueue,
+  setFarmGpsQueued,
+} from './engine';
+import { DEVICE_ID_KEY } from './device-id';
+import { storage } from './storage';
+import { clearQueue, dismissRejected, enqueueOp, loadOps, loadRejected } from './store';
 
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: '192.168.1.10:8081' } },
@@ -158,5 +167,90 @@ describe('point GPS (farm-gps)', () => {
     expect(readCall(replay).url).toContain('/programme/farms/f-1/gps');
     expect(readCall(replay).init.method).toBe('PUT');
     expect(body(replay)).toEqual(gps);
+  });
+});
+
+// POUFA lot A bande: offline conflict rule of the daily entry (CDC §7.2).
+describe('saisie quotidienne (daily-entry) : règle de conflit hors ligne', () => {
+  const edited = {
+    entryDate: '2026-11-05',
+    deaths: 0,
+    waterL: 45,
+    baseUpdatedAt: '2026-11-05T09:00:00.000Z',
+    baseValues: { deaths: 0, waterL: 30 },
+  };
+
+  it('en ligne : capturedAt, deviceId stable et deviceSentAt envoyés avec la base', async () => {
+    storage.removeItem(DEVICE_ID_KEY);
+    const fetch = stubFetch(async () => jsonResponse(201, { id: 'e-1' }));
+    expect(await createDailyEntryQueued('f-1', 'b-1', edited)).toEqual({ status: 'sent' });
+    const sent = body(fetch);
+    expect(readCall(fetch).url).toContain('/farms/f-1/batches/b-1/daily-entries');
+    expect(sent).toMatchObject({ ...edited, source: 'MANUELLE' });
+    expect(Date.parse(sent.capturedAt)).not.toBeNaN();
+    expect(Date.parse(sent.deviceSentAt)).not.toBeNaN();
+    expect(sent.deviceId).toMatch(/^mob-[0-9a-f]{24}$/);
+    expect(storage.getItem(DEVICE_ID_KEY)).toBe(sent.deviceId);
+
+    const again = stubFetch(async () => jsonResponse(201, { id: 'e-1' }));
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-11-06', deaths: 1 });
+    expect(body(again).deviceId).toBe(sent.deviceId);
+    // A new entry carries no base.
+    expect(body(again).baseUpdatedAt).toBeUndefined();
+    expect(body(again).baseValues).toBeUndefined();
+  });
+
+  it('hors ligne : la saisie garde son heure et sa base au rejeu, l’heure d’envoi est renouvelée', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date('2026-11-05T10:00:00.000Z'));
+      const live = stubFetch(networkError);
+      expect(await createDailyEntryQueued('f-1', 'b-1', edited)).toEqual({ status: 'queued' });
+      const first = body(live);
+      expect(first.capturedAt).toBe('2026-11-05T10:00:00.000Z');
+      expect(first.deviceSentAt).toBe('2026-11-05T10:00:00.000Z');
+      const [op] = loadOps();
+      expect(op.payload).toMatchObject({ capturedAt: first.capturedAt, deviceId: first.deviceId, baseValues: edited.baseValues });
+      expect((op.payload as { deviceSentAt?: string }).deviceSentAt).toBeUndefined();
+
+      vi.setSystemTime(new Date('2026-11-05T14:30:00.000Z'));
+      const replay = stubFetch(async () => jsonResponse(201, { id: 'e-1' }));
+      expect((await flushQueue()).synced).toBe(1);
+      const sent = body(replay);
+      expect(sent).toMatchObject({
+        capturedAt: '2026-11-05T10:00:00.000Z',
+        deviceId: first.deviceId,
+        baseUpdatedAt: edited.baseUpdatedAt,
+        baseValues: edited.baseValues,
+        deviceSentAt: '2026-11-05T14:30:00.000Z',
+      });
+      expect(loadOps()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('une saisie mise en file avant la règle est datée de sa mise en file', async () => {
+    enqueueOp({
+      id: 'off-daily-entry-old',
+      kind: 'daily-entry',
+      farmId: 'f-1',
+      batchId: 'b-1',
+      payload: { entryDate: '2026-11-04', deaths: 2 },
+      createdAt: '2026-11-04T18:00:00.000Z',
+    });
+    const replay = stubFetch(async () => jsonResponse(201, { id: 'e-2' }));
+    await flushQueue();
+    expect(body(replay)).toMatchObject({ entryDate: '2026-11-04', deaths: 2, capturedAt: '2026-11-04T18:00:00.000Z' });
+    expect(Date.parse(body(replay).deviceSentAt)).not.toBeNaN();
+  });
+
+  it('refus (4xx) au rejeu : rangée dans les refus, jamais perdue', async () => {
+    stubFetch(networkError);
+    await createDailyEntryQueued('f-1', 'b-1', edited);
+    stubFetch(async () => jsonResponse(400, { message: 'Bande clôturée : lecture seule.' }));
+    await flushQueue();
+    expect(loadOps()).toEqual([]);
+    expect(loadRejected().map((r) => r.kind)).toEqual(['daily-entry']);
   });
 });

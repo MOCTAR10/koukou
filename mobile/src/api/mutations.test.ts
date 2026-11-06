@@ -93,6 +93,14 @@ describe('buildDailyEntryPayload', () => {
   it('convertit le poids en kg', () => {
     const p = buildDailyEntryPayload({ ...baseline, weightG: 1820 }, { isLayer: false, feedMode: 'kg' });
     expect(p.avgWeightKg).toBe(1.82);
+    expect(p.sampleSize).toBeUndefined();
+  });
+
+  it('envoie les sujets pesés avec le poids, jamais sans poids', () => {
+    const p = buildDailyEntryPayload({ ...baseline, weightG: 1820, sampleSize: 30 }, { isLayer: false, feedMode: 'kg' });
+    expect(p).toMatchObject({ avgWeightKg: 1.82, sampleSize: 30 });
+    const noWeight = buildDailyEntryPayload({ ...baseline, sampleSize: 30 }, { isLayer: false, feedMode: 'kg', editing: true });
+    expect(noWeight.sampleSize).toBeUndefined();
   });
 
   it('pondeuse : œufs collectés, vendables = collectés − fêlés, fêlés', () => {

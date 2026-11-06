@@ -18,7 +18,15 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { fetchBuildings, fetchBreeds, fetchBreedStandards, fetchProtocols, fetchSanitaryProgram } from '@/api';
 import type { BatchType, Building, FeedPhase, Species } from '@/api/types';
 import { endOfLayStandard } from '@/constants/flock';
-import { addIsoDays, bandOpening, MAX_ARRIVAL_AGE_DAYS, parseArrivalAgeDays } from '@/utils/band';
+// POUFA lot A bande: average weight on arrival (MAX_ARRIVAL_WEIGHT_G, parseArrivalWeightG).
+import {
+  addIsoDays,
+  bandOpening,
+  MAX_ARRIVAL_AGE_DAYS,
+  MAX_ARRIVAL_WEIGHT_G,
+  parseArrivalAgeDays,
+  parseArrivalWeightG,
+} from '@/utils/band';
 
 type BatchInput = {
   batchName: string;
@@ -37,6 +45,8 @@ type BatchInput = {
   chickUnitPriceFcfa?: number;
   /** Age of the birds on arrival (J+x, POUFA band opening); 0 = day-old chicks. */
   initialAgeDays?: number;
+  /** Average weight on arrival (g / bird), optional. */
+  initialAvgWeightG?: number;
 };
 
 /** Integer fields: drop spaces, dots and commas ("3 000" / "1.500" → "3000" / "1500"). */
@@ -224,6 +234,8 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
   const [isRunning, setIsRunning] = useState(false);
   /** « Âge à l'arrivée (jours) », sent as `initialAgeDays` (empty = 0). */
   const [arrivalAge, setArrivalAge] = useState('');
+  /** « Poids moyen à l'arrivée (g) », sent as `initialAvgWeightG` (empty = not sent). */
+  const [arrivalWeight, setArrivalWeight] = useState('');
   const [feedPhase, setFeedPhase] = useState<FeedPhase | ''>('');
   const [completedStepIds, setCompletedStepIds] = useState<Set<string>>(new Set());
   const [showFeedPhasePicker, setShowFeedPhasePicker] = useState(false);
@@ -290,11 +302,13 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
     setChickUnitPrice('');
     setIsRunning(false);
     setArrivalAge('');
+    setArrivalWeight('');
   }, [visible, prefill]);
 
   // Band opening (POUFA rule): integrationDate = arrival day, initialAgeDays =
   // age of the birds on arrival. Age, feed phase and care due follow J+x.
   const arrivalAgeDays = parseArrivalAgeDays(arrivalAge);
+  const arrivalWeightG = parseArrivalWeightG(arrivalWeight);
   const opening = useMemo(
     () => bandOpening({ arrivalDay: localYmd(integrationDate), arrivalAgeDays: arrivalAgeDays ?? 0, today: todayYmd() }),
     [integrationDate, arrivalAgeDays],
@@ -596,6 +610,7 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
     setChickUnitPrice('');
     setIsRunning(false);
     setArrivalAge('');
+    setArrivalWeight('');
     setFeedPhase('');
     setCompletedStepIds(new Set());
   };
@@ -612,6 +627,7 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
     selectedBuildingId != null &&
     !selectedBuildingFull &&
     arrivalAgeDays != null &&
+    arrivalWeightG !== null &&
     // A lot already on the farm: its age at opening must be typed (no silent J0).
     (!isRunning || arrivalAge.trim().length > 0);
 
@@ -640,6 +656,7 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
     if (chickLotNumber.trim()) payload.chickLotNumber = chickLotNumber.trim();
     if (hatchDate) payload.hatchDate = localYmd(hatchDate);
     if (chickUnitPrice.trim() && !noChickPrice) payload.chickUnitPriceFcfa = parseInt(chickUnitPrice, 10);
+    if (arrivalWeightG != null) payload.initialAvgWeightG = arrivalWeightG;
     createMutation.mutate(payload);
   };
 
@@ -908,6 +925,25 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
             {isRunning
               ? `Âge des sujets à la date d’ouverture${opening.initialAgeDays > 0 ? ` (${formatAge(opening.initialAgeDays)})` : ''} : la bande s’ouvre à J${opening.initialAgeDays}.`
               : `0 = poussins d’un jour. Des sujets démarrés arrivent à J+x${opening.initialAgeDays > 0 ? ` (ici J${opening.initialAgeDays})` : ''}.`}
+          </AppText>
+        )}
+      </Field>
+
+      {/* ── Poids moyen à l'arrivée (initialAvgWeightG, optional) ── */}
+      <Field label="Poids moyen à l'arrivée (g)">
+        <TextInput
+          value={arrivalWeight}
+          onChangeText={(t) => setArrivalWeight(digitsOnly(t))}
+          placeholder='Ex : 42'
+          keyboardType='numeric'
+        />
+        {arrivalWeightG === null ? (
+          <AppText size='small' color='danger' style={styles.fieldHint}>
+            {`Poids entre 1 et ${MAX_ARRIVAL_WEIGHT_G.toLocaleString('fr-FR')} g par sujet.`}
+          </AppText>
+        ) : (
+          <AppText size='small' color='faint' style={styles.fieldHint}>
+            Facultatif : poids moyen d’un sujet à la réception, point de départ du gain de poids.
           </AppText>
         )}
       </Field>
@@ -1379,6 +1415,7 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
             <ReviewRow label='Bâtiment' value={selectedBuilding?.name ?? '—'} />
             <ReviewRow label="Date d'ouverture" value={fmtDate(integrationDate)} />
             <ReviewRow label="Âge à l'ouverture" value={`J${opening.initialAgeDays}`} />
+            {arrivalWeightG != null && <ReviewRow label="Poids moyen à l'arrivée" value={`${arrivalWeightG.toLocaleString('fr-FR')} g`} />}
             <ReviewRow label="Âge aujourd'hui" value={`J${currentAgeDays}${currentAgeDays > 0 ? ` · ${formatAge(currentAgeDays)}` : ''}`} />
             <ReviewRow label="Effectif à l'ouverture" value={quantityAtStart ? `${parseInt(quantityAtStart, 10).toLocaleString('fr-FR')} oiseaux` : '—'} />
             {couvoirSupplier.trim() && <ReviewRow label='Couvoir' value={couvoirSupplier.trim()} />}

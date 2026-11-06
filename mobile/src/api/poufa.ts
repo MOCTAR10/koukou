@@ -326,6 +326,59 @@ export function createSortie(farmId: string, batchId: string, payload: SortiePay
   return apiFetch<SortieView>(`/farms/${farmId}/bandes/${batchId}/sorties`, { method: 'POST', body: payload });
 }
 
+// POUFA lot A bande: band sheet (weighing schedule) and offline conflicts.
+
+/** `weighing` of the band sheet (backend batches/poufa/bande-rules.ts `WeighingStatus`). */
+export interface WeighingStatus {
+  frequencyDays: number;
+  expectedSampleSize: number;
+  lastWeighingDate: string | null;
+  lastSampleSize: number | null;
+  lastSampleBelowExpected: boolean;
+  nextDueDate: string;
+  daysLate: number;
+  late: boolean;
+}
+
+/** `GET /farms/:farmId/bandes/:batchId` (backend bandes.service.ts `BandSheet`). */
+export interface BandSheet {
+  id: string;
+  code: string | null;
+  status: string;
+  integrationDate: string;
+  quantityAlive: number;
+  completenessPct: number | null;
+  weighing: WeighingStatus;
+}
+
+export function fetchBandSheet(farmId: string, batchId: string): Promise<BandSheet> {
+  return apiFetch<BandSheet>(`/farms/${farmId}/bandes/${batchId}`);
+}
+
+/** One recorded offline conflict (backend sync/entities/sync-conflict.entity.ts). */
+export interface SyncConflictView {
+  id: string;
+  batchId: string | null;
+  entityType: string;
+  entityLabel: string | null;
+  field: string;
+  /** SERVEUR: the value already recorded was kept; APPAREIL: the value sent won. */
+  winner: 'SERVEUR' | 'APPAREIL';
+  serverValue: unknown;
+  incomingValue: unknown;
+  serverCapturedAt: string | null;
+  serverDeviceId: string | null;
+  incomingCapturedAt: string;
+  incomingCapturedAtRaw: string | null;
+  incomingDeviceId: string | null;
+  clockCorrected: boolean;
+  createdAt: string;
+}
+
+export function fetchSyncConflicts(farmId: string, batchId: string): Promise<SyncConflictView[]> {
+  return apiFetch<SyncConflictView[]>(`/farms/${farmId}/sync-conflicts?batchId=${encodeURIComponent(batchId)}`);
+}
+
 export interface OfficialIndicator {
   key: string;
   label: string;

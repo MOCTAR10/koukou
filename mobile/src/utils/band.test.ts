@@ -8,7 +8,9 @@ import {
   bandOpening,
   lotSearchText,
   MAX_ARRIVAL_AGE_DAYS,
+  MAX_ARRIVAL_WEIGHT_G,
   parseArrivalAgeDays,
+  parseArrivalWeightG,
 } from './band';
 
 describe('bandCycle', () => {
@@ -55,6 +57,28 @@ describe('ageOnDay / ageZeroDay (règle J+x du backend)', () => {
     // A step of day N falls on J0 + N, i.e. at age N.
     const j0 = ageZeroDay('2026-11-06', 21);
     expect(ageOnDay('2026-11-06', 21, addIsoDays(j0, 28))).toBe(28);
+  });
+});
+
+describe('parseArrivalWeightG', () => {
+  it('vide = non envoyé', () => {
+    expect(parseArrivalWeightG('')).toBeUndefined();
+    expect(parseArrivalWeightG('  ')).toBeUndefined();
+  });
+
+  it('accepte un entier de grammes de 1 à 20 000', () => {
+    expect(parseArrivalWeightG('42')).toBe(42);
+    expect(parseArrivalWeightG('1')).toBe(1);
+    expect(parseArrivalWeightG('1 250')).toBe(1250);
+    expect(parseArrivalWeightG(String(MAX_ARRIVAL_WEIGHT_G))).toBe(MAX_ARRIVAL_WEIGHT_G);
+  });
+
+  it('refuse zéro, un décimal, un texte ou plus de 20 000 g', () => {
+    expect(parseArrivalWeightG('0')).toBeNull();
+    expect(parseArrivalWeightG('42.5')).toBeNull();
+    expect(parseArrivalWeightG('-5')).toBeNull();
+    expect(parseArrivalWeightG('abc')).toBeNull();
+    expect(parseArrivalWeightG(String(MAX_ARRIVAL_WEIGHT_G + 1))).toBeNull();
   });
 });
 

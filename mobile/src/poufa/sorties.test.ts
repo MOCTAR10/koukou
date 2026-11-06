@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import type { RefItem } from '@/api/poufa';
-import { allowedSortieReasons, buildSortiePayload, emptySortieDraft, sortieFamilyHint, sortieRefusal } from './sorties';
+import {
+  allowedSortieReasons,
+  buildSortiePayload,
+  emptySortieDraft,
+  SORTIE_RECIPIENT_REQUIRED,
+  SORTIE_SALE_WARNING,
+  sortieFamilyHint,
+  sortieRefusal,
+} from './sorties';
 
 const reason = (code: string, family: string | null, sort: number, active = true): RefItem => ({
   id: code,
@@ -34,10 +42,15 @@ describe('motifs autorisés', () => {
 });
 
 describe('sortieRefusal', () => {
-  const ok = { ...emptySortieDraft('2026-11-06'), reasonCode: 'DON', count: '10' };
+  const ok = { ...emptySortieDraft('2026-11-06'), reasonCode: 'DON', count: '10', recipientName: 'Paroisse' };
 
   it('valide une sortie simple', () => {
     expect(sortieRefusal(ok, ctx)).toBeNull();
+  });
+
+  it('destinataire obligatoire : un nom libre ou un opérateur', () => {
+    expect(sortieRefusal({ ...ok, recipientName: '  ' }, ctx)).toBe(SORTIE_RECIPIENT_REQUIRED);
+    expect(sortieRefusal({ ...ok, recipientName: '', operatorId: 'op-1' }, ctx)).toBeNull();
   });
 
   it('bande clôturée, motif, nombre, date', () => {
@@ -71,6 +84,8 @@ describe('buildSortiePayload', () => {
 
   it('explique chaque famille', () => {
     expect(sortieFamilyHint('ABATTOIR')).toMatch(/abattage/);
+    expect(sortieFamilyHint('ABATTOIR')).toMatch(/dès la sortie/);
+    expect(SORTIE_SALE_WARNING).toMatch(/ne la ressaisissez pas en caisse/);
     expect(sortieFamilyHint(null)).toBe('');
   });
 });

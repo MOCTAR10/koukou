@@ -65,6 +65,12 @@ function addDay(day: string): string {
   return new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 }
 
+/** Same wording as the server (CDC 9: every sortie names its recipient). */
+export const SORTIE_RECIPIENT_REQUIRED = 'Le destinataire est obligatoire : un nom ou un opérateur du registre.';
+
+/** Shown for a VENTE motif (F4: the same birds are never counted twice). */
+export const SORTIE_SALE_WARNING = 'Cette sortie crée la vente : ne la ressaisissez pas en caisse.';
+
 /** First French refusal of a sortie, or null (same checks as the server). */
 export function sortieRefusal(
   draft: SortieDraft,
@@ -83,6 +89,7 @@ export function sortieRefusal(
   }
   const weight = parseDecimal(draft.weightKg);
   if (weight != null && (Number.isNaN(weight) || weight <= 0)) return 'Le poids doit être un nombre positif (kg).';
+  if (!draft.recipientName.trim() && !draft.operatorId) return SORTIE_RECIPIENT_REQUIRED;
   if (ctx.family === 'VENTE') {
     const price = parseInteger(draft.unitPriceFcfa);
     if (price == null || Number.isNaN(price)) return 'Une sortie pour vente demande un prix unitaire (FCFA, entier).';
@@ -117,7 +124,7 @@ export function sortieFamilyHint(family: string | null): string {
     case 'VENTE':
       return 'Une vente est enregistrée avec la sortie, au prix indiqué.';
     case 'ABATTOIR':
-      return 'Un ordre d’abattage (brouillon) est créé : les sujets quittent la bande une fois l’abattage traité.';
+      return 'Un ordre d’abattage (brouillon) est créé et les sujets quittent la bande dès la sortie.';
     case 'REFORME':
     case 'AUTRE':
       return 'Les sujets sont retirés de la bande immédiatement.';

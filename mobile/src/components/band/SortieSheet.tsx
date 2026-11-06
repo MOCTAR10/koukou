@@ -15,7 +15,15 @@ import { localYmd } from '@/api/mutations';
 import { fetchOperators, fetchProgramList } from '@/api/poufa';
 import { cachedRead, isNetworkFailure } from '@/offline/ref-cache';
 import { createSortieQueued } from '@/offline';
-import { allowedSortieReasons, buildSortiePayload, emptySortieDraft, sortieFamilyHint, sortieRefusal, type SortieDraft } from '@/poufa/sorties';
+import {
+  allowedSortieReasons,
+  buildSortiePayload,
+  emptySortieDraft,
+  SORTIE_SALE_WARNING,
+  sortieFamilyHint,
+  sortieRefusal,
+  type SortieDraft,
+} from '@/poufa/sorties';
 import { color, radii, semantic } from '@/constants/theme';
 
 interface Props {
@@ -158,6 +166,11 @@ export function SortieSheet({ visible, onClose, farmId, batch, has }: Props) {
 
         {family === 'VENTE' ? (
           <View style={{ gap: 8 }}>
+            <View style={styles.warn}>
+              <AppText size="small" color="warn">
+                {SORTIE_SALE_WARNING}
+              </AppText>
+            </View>
             <PillRow
               options={[
                 { key: 'TETE', label: 'Prix par tête' },
@@ -172,8 +185,8 @@ export function SortieSheet({ visible, onClose, farmId, batch, has }: Props) {
           </View>
         ) : null}
 
-        <Labeled label="Destinataire">
-          <TextField value={draft.recipientName} onChangeText={(t) => set({ recipientName: t })} placeholder="Nom (optionnel)" accessibilityLabel="Nom du destinataire" />
+        <Labeled label="Destinataire (obligatoire)" hint="Un nom, ou un opérateur du programme ci-dessous.">
+          <TextField value={draft.recipientName} onChangeText={(t) => set({ recipientName: t })} placeholder="Nom du destinataire" accessibilityLabel="Nom du destinataire" />
         </Labeled>
         <TextField
           value={draft.recipientPhone}
@@ -183,7 +196,7 @@ export function SortieSheet({ visible, onClose, farmId, batch, has }: Props) {
           accessibilityLabel="Téléphone du destinataire"
         />
 
-        <Labeled label="Opérateur du programme (optionnel)" hint="Abattoir, collecteur ou acheteur enregistré dans le programme.">
+        <Labeled label="Opérateur du programme" hint="Abattoir, collecteur ou acheteur enregistré : la sortie devient une cession tracée (sous-lot et QR).">
           {operators.isLoading ? (
             <AppText size="caption" color="muted">
               Chargement des opérateurs…
@@ -245,4 +258,5 @@ const styles = StyleSheet.create({
     backgroundColor: semantic.surface,
   },
   operatorOn: { borderColor: color.brand[400], backgroundColor: semantic.primarySoft },
+  warn: { padding: 10, borderRadius: radii.md, backgroundColor: semantic.warnSoft },
 });
