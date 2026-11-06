@@ -52,6 +52,23 @@ export function parseArrivalAgeDays(text: string): number | null {
   return days <= MAX_ARRIVAL_AGE_DAYS ? days : null;
 }
 
+// POUFA lot A bande: average weight on arrival (CDC 8, `initialAvgWeightG`).
+/** Bounds the backend accepts for `CreateBatchDto.initialAvgWeightG` (g / bird). */
+export const MIN_ARRIVAL_WEIGHT_G = 1;
+export const MAX_ARRIVAL_WEIGHT_G = 20000;
+
+/**
+ * « Poids moyen à l'arrivée (g) », optional: empty = undefined (not sent);
+ * null when it is not a whole number of grams within 1..20000.
+ */
+export function parseArrivalWeightG(text: string): number | null | undefined {
+  const trimmed = text.trim().replace(/\s/g, '');
+  if (trimmed === '') return undefined;
+  if (!/^\d+$/.test(trimmed)) return null;
+  const g = Number(trimmed);
+  return g >= MIN_ARRIVAL_WEIGHT_G && g <= MAX_ARRIVAL_WEIGHT_G ? g : null;
+}
+
 export interface BandOpening {
   /** Sent as `integrationDate`: the arrival (opening) day, never back-dated to the hatch. */
   integrationDate: string;

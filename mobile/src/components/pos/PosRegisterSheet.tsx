@@ -16,6 +16,8 @@ import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } fr
 
 import { findPromotion, totalsFor } from './helpers';
 import type { PosLine } from './types';
+// POUFA lot A bande (F4): traced cession and no double entry of a band sale.
+import { posCessionHints } from '@/poufa/cession-hints';
 
 interface PosRegisterSheetProps {
   visible: boolean;
@@ -76,6 +78,7 @@ export function PosRegisterSheet({
   const change = tendered - totals.totalFcfa;
   const isCredit = paymentMode === 'CREDIT';
   const creditDue = customer?.balance?.outstandingFcfa ?? 0;
+  const cessionHints = posCessionHints(customer, lines.map((l) => l.product));
   const canSell = isCredit
     ? totals.totalFcfa > 0 && customer !== null
     : totals.totalFcfa > 0 && tendered >= totals.totalFcfa;
@@ -427,6 +430,19 @@ export function PosRegisterSheet({
           )}
         </Card>
 
+        {cessionHints.operator ? (
+          <View style={styles.cessionNotice}>
+            <AppText size="small" weight="semibold" color="brand">
+              {cessionHints.operator}
+            </AppText>
+          </View>
+        ) : null}
+        {cessionHints.noDoubleEntry ? (
+          <AppText size="caption" color="muted">
+            {cessionHints.noDoubleEntry}
+          </AppText>
+        ) : null}
+
         {error ? (
           <AppText size="small" color="danger">
             {error}
@@ -458,6 +474,11 @@ export function PosRegisterSheet({
 }
 
 const styles = StyleSheet.create({
+  cessionNotice: {
+    padding: 10,
+    borderRadius: radii.md,
+    backgroundColor: semantic.primarySoft,
+  },
   modeRow: {
     flexDirection: 'row',
     gap: 8,

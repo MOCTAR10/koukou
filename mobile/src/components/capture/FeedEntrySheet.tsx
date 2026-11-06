@@ -39,6 +39,17 @@ import { localYmd, todayStr, type CreateInputLotInput } from '@/api/mutations';
 import type { FeedEntryType, FeedPhase, FeedTypeStock } from '@/api/types';
 import { createFeedInputQueued } from '@/offline';
 import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
+// POUFA lot A bande (F5): pending state deliveries before a manual reception.
+import { useRouter } from 'expo-router';
+import { fetchFarmDeliveries } from '@/api/poufa';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
+import {
+  STATE_DELIVERY_QUESTION,
+  duplicateDeliveryWarning,
+  pendingDeliveryLabel,
+  pendingDeliveryMatch,
+} from '@/poufa/state-deliveries';
+import { pendingDeliveries } from '@/poufa/deliveries';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 
 interface FeedEntrySheetProps {
@@ -220,6 +231,23 @@ function SectionTitle({ icon: Icon, title }: { icon: LucideIcon; title: string }
 export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const farmProfile = useFarmProfile();
+
+  // Online only (no offline cache): when the network fails the prompt is skipped.
+  const canManageStock = farmProfile.hasPermission('stock:gerer');
+  const stateDeliveries = useQuery({
+    queryKey: ['input-deliveries', farmId, 'EXPEDIEE'],
+    queryFn: () => fetchFarmDeliveries(farmId, 'EXPEDIEE'),
+    enabled: !!farmId && canManageStock,
+    retry: false,
+    staleTime: 60_000,
+  });
+  const pendingState = stateDeliveries.isError ? [] : pendingDeliveries(stateDeliveries.data ?? []);
+  const openDelivery = (id: string) => {
+    onClose();
+    router.push(`/livraisons/${id}` as never);
+  };
 
   const feedStock = useQuery({
     queryKey: ['feed-stock', farmId],
@@ -284,6 +312,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
   const [error, setError] = useState<string | null>(null);
 
   const showPhase = entryType === 'BULKER' || entryType === 'BAG';
+  const duplicate = pendingDeliveryMatch(entryType, showPhase ? feedPhase : null, pendingState);
 
   const changeEntryType = (t: FeedEntryType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -441,6 +470,31 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
   return (
     <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
       <View style={{ gap: spacing.lg }}>
+        {pendingState.length > 0 ? (
+          <View style={styles.stateBanner}>
+            <View style={styles.stateHead}>
+              <Truck size={16} color={palette.amber[700]} />
+              <AppText size="body" weight="bold" color="text" style={{ flex: 1 }}>
+                {STATE_DELIVERY_QUESTION}
+              </AppText>
+            </View>
+            <AppText size="small" color="muted">
+              Une livraison du programme attend votre confirmation : confirmez-la plutôt que de saisir l’entrée à la main,
+              pour garder la subvention.
+            </AppText>
+            {pendingState.slice(0, 3).map((d) => (
+              <Button
+                key={d.id}
+                label={pendingDeliveryLabel(d)}
+                tone="brand"
+                size="sm"
+                icon={Truck}
+                onPress={() => openDelivery(d.id)}
+              />
+            ))}
+          </View>
+        ) : null}
+
         {/* Type d'entrée : onglets compacts avec icônes */}
         <View style={styles.typeTabs}>
           {ENTRY_TYPES.map((t) => {
@@ -846,6 +900,27 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
             : 'L’entrée est déduite du coût de revient et alimente l’autonomie de la phase.'}
         </AppText>
 
+        {duplicate ? (
+          <View style={styles.stateBanner}>
+            <View style={styles.stateHead}>
+              <AlertTriangle size={16} color={palette.amber[700]} />
+              <AppText size="small" weight="bold" color="warn" style={{ flex: 1 }}>
+                Livraison de l’État en attente
+              </AppText>
+            </View>
+            <AppText size="small" color="text">
+              {duplicateDeliveryWarning(duplicate)}
+            </AppText>
+            <Button
+              label={`Confirmer la livraison ${duplicate.delivery.code}`}
+              tone="brand"
+              size="sm"
+              icon={Truck}
+              onPress={() => openDelivery(duplicate.delivery.id)}
+            />
+          </View>
+        ) : null}
+
         {error ? (
           <View style={styles.errorBanner}>
             <AppText size="small" color="danger">
@@ -1195,6 +1270,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  stateBanner: {
+    gap: 8,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: color.amber[200],
+    backgroundColor: color.amber[50],
+    padding: 12,
+  },
+  stateHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   errorBanner: {
     backgroundColor: color.red[50],

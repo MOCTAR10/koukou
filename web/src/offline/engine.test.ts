@@ -254,3 +254,52 @@ describe('POUFA writes (delivery confirmation, band sortie)', () => {
     expect(loadOps()).toHaveLength(0);
   });
 });
+
+// POUFA lot A bande: conflict metadata of the daily entries (CDC §7.2).
+describe('daily entry sync metadata', () => {
+  const entry = {
+    kind: 'daily-entry' as const,
+    farmId: FARM,
+    path: `/farms/${FARM}/batches/b/daily-entries`,
+    body: { date: '2026-11-05', deaths: 3, baseUpdatedAt: '2026-11-05T07:00:00.000Z', baseValues: { deaths: 1 } },
+    label: 'Saisie',
+  };
+  const tick = () => new Promise((r) => setTimeout(r, 5));
+
+  it('keeps the capture time, device and base on replay, and refreshes the send time', async () => {
+    route('POST', /daily-entries/, 'network');
+    await sendOrQueue(entry);
+    const op = loadOps()[0]!;
+    const stored = op.body as Record<string, unknown>;
+    expect(stored.capturedAt).toBe(op.createdAt);
+    expect(String(stored.deviceId)).toMatch(/^web-/);
+    expect(stored.deviceSentAt).toBeUndefined();
+    const first = calls.at(-1)!.body as Record<string, unknown>;
+    expect(first.deviceSentAt).toEqual(expect.any(String));
+
+    await tick();
+    route('POST', /daily-entries/, { status: 201, body: {} });
+    await flushQueue();
+    const replay = calls.at(-1)!.body as Record<string, unknown>;
+    expect(replay).toMatchObject({
+      capturedAt: op.createdAt,
+      deviceId: stored.deviceId,
+      baseUpdatedAt: '2026-11-05T07:00:00.000Z',
+      baseValues: { deaths: 1 },
+      deaths: 3,
+    });
+    expect(Date.parse(String(replay.deviceSentAt))).toBeGreaterThan(Date.parse(String(first.deviceSentAt)));
+    expect(loadOps()).toHaveLength(0);
+  });
+
+  it('reuses the device id of this browser and adds nothing to other kinds', async () => {
+    await sendOrQueue(entry);
+    await sendOrQueue(entry);
+    const [a, b] = calls.filter((c) => c.path.endsWith('/daily-entries')).map((c) => c.body as Record<string, unknown>);
+    expect(a?.deviceId).toBe(b?.deviceId);
+    await sendOrQueue(sale);
+    const s = calls.at(-1)!.body as Record<string, unknown>;
+    expect(s.capturedAt).toBeUndefined();
+    expect(s.deviceSentAt).toBeUndefined();
+  });
+});

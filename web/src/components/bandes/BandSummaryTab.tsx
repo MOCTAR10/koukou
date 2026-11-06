@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, ClipboardCheck, FileText, History, PenLine, Play, Scale, Sigma, Users } from 'lucide-react';
+import { BarChart3, ClipboardCheck, FileText, GitMerge, History, PenLine, Play, Scale, Sigma, Users } from 'lucide-react';
 import { api } from '../../api/client';
 import type { Lot } from '../../api/types-flock';
 import type {
@@ -41,6 +41,7 @@ import {
   splitIndicators,
   type CorrectionForm,
 } from './bandSummary';
+import { conflictExplanation, type SyncConflictRow } from './syncConflicts';
 
 /**
  * « Bilan POUFA » of a band (CDC rows 10-15, 36): the band sheet, the
@@ -71,6 +72,7 @@ export function BandSummaryTab({ lot }: { lot: Lot }) {
   return (
     <div className="space-y-4">
       <SheetCard sheet={sheet.data} error={sheet.error} loading={sheet.isLoading} />
+      <SyncConflictsCard lot={lot} />
       <ComparisonSummary comparison={comparison.data} />
       <SectionCard
         title="Indicateurs officiels"
@@ -130,6 +132,53 @@ function SheetCard({ sheet, error, loading }: { sheet: BandSheet | undefined; er
       {w.lastSampleBelowExpected ? (
         <p className="mt-2 text-xs text-amber-700">La dernière pesée compte moins de sujets que les {w.expectedSampleSize} demandés par le programme.</p>
       ) : null}
+    </SectionCard>
+  );
+}
+
+/**
+ * Offline conflicts recorded on this band (CDC §7.2): which value was kept,
+ * which one was set aside and why. Shown only when there is one.
+ */
+function SyncConflictsCard({ lot }: { lot: Lot }) {
+  const { farmId } = useFarm();
+  const canRead = useMenuAccess().canRead('TECHNIQUE');
+  const conflicts = useQuery({
+    queryKey: ['sync-conflicts', farmId, lot.id],
+    queryFn: () => api.get<SyncConflictRow[]>(`/farms/${farmId}/sync-conflicts?batchId=${lot.id}`),
+    enabled: !!farmId && canRead,
+    retry: false,
+  });
+  const rows = conflicts.data ?? [];
+  if (conflicts.error) return <ErrorNote error={conflicts.error} />;
+  if (rows.length === 0) return null;
+  return (
+    <SectionCard
+      title="Conflits de saisie hors ligne"
+      subtitle="Deux appareils ont modifié la même saisie : la plus récente est retenue, l’autre valeur est gardée ici."
+      icon={<GitMerge />}
+    >
+      <ul className="divide-y divide-slate-100 text-sm">
+        {rows.map((c) => {
+          const e = conflictExplanation(c);
+          return (
+            <li key={c.id} className="space-y-0.5 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium text-slate-800">{e.title}</span>
+                <Pill tone={c.winner === 'APPAREIL' ? 'brand' : 'slate'}>
+                  {c.winner === 'APPAREIL' ? 'Valeur envoyée retenue' : 'Valeur enregistrée gardée'}
+                </Pill>
+              </div>
+              <p className="text-slate-700">{e.kept}</p>
+              <p className="text-slate-500">{e.lost}</p>
+              <p className="text-xs text-slate-500">
+                {e.reason} Signalé le {dateTimeFr(c.createdAt)}.
+              </p>
+              {e.clockNote ? <p className="text-xs text-amber-700">{e.clockNote}</p> : null}
+            </li>
+          );
+        })}
+      </ul>
     </SectionCard>
   );
 }

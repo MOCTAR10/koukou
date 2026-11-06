@@ -130,7 +130,8 @@ export class BandeIndicatorsService {
 
   /**
    * Sorties with a measured weight whose animals did leave: removals always,
-   * a sale not cancelled, a slaughter order processed.
+   * a sale not cancelled, a slaughter order not cancelled (its birds leave at
+   * the sortie).
    */
   private async weighedSorties(sorties: Sortie[]) {
     const weighed = sorties.filter((s) => s.weightKg != null && s.weightKg > 0);
@@ -151,7 +152,7 @@ export class BandeIndicatorsService {
     );
     const processed = new Set(
       orders
-        .filter((o) => o.status === SlaughterStatus.PROCESSED)
+        .filter((o) => o.status !== SlaughterStatus.CANCELLED)
         .map((o) => o.id),
     );
     return weighed

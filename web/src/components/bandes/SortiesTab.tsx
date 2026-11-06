@@ -13,13 +13,23 @@ import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, todayIso } from
 import { useListItems } from '../supply/queries';
 import { useOperators } from '../trace/queries';
 import { DataTable, EmptyState, Loading, Td, Th } from '../ui';
-import { emptySortie, reasonChoices, sortieEffect, sortieOutcome, validateSortie, type SortieDraft } from './sortieRules';
+import {
+  SALE_ALREADY_BOOKED,
+  emptySortie,
+  reasonChoices,
+  sortieEffect,
+  sortieOutcome,
+  validateSortie,
+  type SortieDraft,
+} from './sortieRules';
 
 /**
  * Sorties of a band (CDC 9 « Sorties d'animaux »,
  * `GET/POST /farms/:farmId/bandes/:batchId/sorties`). A sale sortie books the
- * sale, an abattoir sortie the draft slaughter order, so the farmer never
- * types them twice; an operator makes it a cession (traceability sub-lot).
+ * sale, an abattoir sortie the draft slaughter order (its birds leave the
+ * headcount at the sortie), so the farmer never types them twice; the
+ * recipient is required (a name or an operator); an operator makes it a
+ * cession (traceability sub-lot).
  */
 export function SortiesTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
@@ -181,6 +191,7 @@ function SortieModal({ farmId, lot, onClose }: { farmId: string; lot: Lot; onClo
                 <input className={inputCls} inputMode="decimal" value={draft.weightKg} onChange={(e) => set('weightKg', e.target.value)} />
               </Field>
             </div>
+            {family === 'VENTE' ? <Note tone="amber">{SALE_ALREADY_BOOKED}</Note> : null}
             {family === 'VENTE' ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Prix unitaire (FCFA) *">
@@ -225,7 +236,7 @@ function SortieModal({ farmId, lot, onClose }: { farmId: string; lot: Lot; onClo
                 ))}
               </select>
             </Field>
-            <Field label="Destinataire (nom)">
+            <Field label={draft.operatorId ? 'Destinataire (nom)' : 'Destinataire (nom) *'} hint="Obligatoire : un nom, ou un opérateur du registre ci-dessus.">
               <input className={inputCls} value={draft.recipientName} onChange={(e) => set('recipientName', e.target.value)} />
             </Field>
             <Field label="Destinataire (téléphone)">

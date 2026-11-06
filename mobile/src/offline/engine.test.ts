@@ -141,7 +141,7 @@ describe('capture hors-ligne — enfile et rejette', () => {
     expect(op.kind).toBe('daily-entry');
     expect(op.farmId).toBe('f-1');
     expect(op.batchId).toBe('b-1');
-    expect(op.payload).toEqual({ entryDate: '2026-08-28', deaths: 3 });
+    expect(op.payload).toMatchObject({ entryDate: '2026-08-28', deaths: 3 });
   });
 
   it('createDailyEntryQueued : erreur serveur (5xx) → mis en attente', async () => {

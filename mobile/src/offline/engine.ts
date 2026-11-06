@@ -43,6 +43,10 @@ import {
   type SortieView,
 } from '@/api/poufa';
 
+// POUFA lot A bande: offline conflict metadata of the daily entry.
+import { withCapture, withSendTime } from '@/poufa/entry-sync';
+
+import { deviceId } from './device-id';
 import { discardPhoto, photoExists } from './photo-files';
 
 import {
@@ -207,11 +211,19 @@ async function sendOrQueueWith<T>(op: NewOp, live: () => Promise<T>): Promise<Se
   return result.status === 'sent' ? { status: 'sent', data: data as T } : { status: 'queued' };
 }
 
+// POUFA lot A bande: offline conflict rule (CDC §7.2). The capture time and
+// the device are fixed when the user saves; the phone clock goes with each
+// attempt, live and replay (backend sync.service.ts).
+function sendDailyEntry(farmId: string, batchId: string, payload: DailyEntryPayload): Promise<unknown> {
+  return createDailyEntry(farmId, batchId, withSendTime(payload, new Date().toISOString()));
+}
+
 export async function createDailyEntryQueued(
   farmId: string,
   batchId: string,
-  payload: DailyEntryPayload,
+  entry: DailyEntryPayload,
 ): Promise<SendResult> {
+  const payload = withCapture(entry, new Date().toISOString(), deviceId());
   return sendOrQueue(
     {
       id: nextId('daily-entry'),
@@ -221,7 +233,7 @@ export async function createDailyEntryQueued(
       payload,
     },
     async () => {
-      await createDailyEntry(farmId, batchId, payload);
+      await sendDailyEntry(farmId, batchId, payload);
     },
   );
 }
@@ -661,7 +673,9 @@ function keyed<T extends { idempotencyKey?: string }>(op: OfflineOp): T {
 async function processOne(op: OfflineOp): Promise<ProcessResult> {
   try {
     if (op.kind === 'daily-entry') {
-      await createDailyEntry(op.farmId, op.batchId ?? '', op.payload as DailyEntryPayload);
+      // POUFA lot A bande: an op queued before the rule is dated when queued.
+      const entry = op.payload as DailyEntryPayload;
+      await sendDailyEntry(op.farmId, op.batchId ?? '', { ...entry, capturedAt: entry.capturedAt ?? op.createdAt });
     } else if (op.kind === 'feed-input') {
       await createInput(op.farmId, keyed<CreateInputLotInput>(op));
     } else if (op.kind === 'stock-loss') {

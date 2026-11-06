@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, CloudUpload, FileLock2, Gauge, LogOut } from 'lucide-react-native';
+import { BarChart3, CloudUpload, FileLock2, Gauge, GitMerge, LogOut, Scale } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
@@ -15,7 +15,11 @@ import { fetchBandComparison, fetchBandIndicators, fetchBandSnapshots, fetchSort
 import { cachedRead } from '@/offline/ref-cache';
 import { useOfflineQueue } from '@/offline';
 import { COMPARISON_METRICS, comparisonRows, fmtIndicator, suppressionNote, type CellTone } from '@/poufa/comparison';
-import { color, palette, semantic } from '@/constants/theme';
+// POUFA lot A bande: weighing schedule and recorded offline conflicts.
+import { fetchBandSheet, fetchSyncConflicts } from '@/api/poufa';
+import { sampleWarning, weighingLine } from '@/poufa/weighing';
+import { conflictExplanation } from '@/poufa/conflicts';
+import { color, palette, radii, semantic } from '@/constants/theme';
 
 const TRIGGER_LABEL: Record<string, string> = {
   CLOTURE_AUTO: 'Clôture automatique',
@@ -81,9 +85,20 @@ export function BandPanel({ farmId, batch, canExit, has }: Props) {
     queryFn: () => cachedRead(`band-sorties.${farmId}.${batchId}`, () => fetchSorties(farmId, batchId)),
   });
 
+  const sheet = useQuery({
+    queryKey: ['band-sheet', farmId, batchId],
+    queryFn: () => cachedRead(`band-sheet.${farmId}.${batchId}`, () => fetchBandSheet(farmId, batchId)),
+  });
+  const conflicts = useQuery({
+    queryKey: ['sync-conflicts', farmId, batchId],
+    queryFn: () => cachedRead(`sync-conflicts.${farmId}.${batchId}`, () => fetchSyncConflicts(farmId, batchId)),
+  });
+
   const rows = comparison.data ? comparisonRows(comparison.data) : [];
   const note = comparison.data ? suppressionNote(comparison.data) : null;
   const closed = batch.status === 'CLOTURE';
+  const weighing = sheet.data ? weighingLine(sheet.data.weighing, closed) : null;
+  const weighingWarning = sheet.data ? sampleWarning(sheet.data.weighing) : null;
 
   return (
     <View style={{ gap: 14 }}>
@@ -123,6 +138,41 @@ export function BandPanel({ farmId, batch, canExit, has }: Props) {
             ) : null}
           </>
         )}
+      </Card>
+
+      {/* Weighings (CDC 8): next due date, delay, sample size */}
+      <SectionHeader
+        title="Pesées"
+        subtitle="Échéance et échantillon fixés par le programme"
+        icon={Scale}
+        iconColor={color.brand[700]}
+        iconBg={semantic.primarySoft}
+      />
+      <Card style={{ gap: 0, paddingVertical: 4 }}>
+        {sheet.isLoading ? (
+          <Spinner label="Lecture des pesées…" />
+        ) : sheet.isError ? (
+          <Failure error={sheet.error} />
+        ) : weighing ? (
+          <View style={styles.week}>
+            <View style={styles.head}>
+              <AppText size="body" weight="bold" color={weighing.tone === 'late' ? 'danger' : 'text'} style={{ flex: 1 }}>
+                {weighing.label}
+              </AppText>
+              {weighing.tone === 'late' ? <Chip label="En retard" tone="red" /> : null}
+            </View>
+            <AppText size="small" color="muted">
+              {weighing.detail}
+            </AppText>
+            {weighingWarning ? (
+              <View style={styles.warn}>
+                <AppText size="small" color="warn">
+                  {weighingWarning}
+                </AppText>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </Card>
 
       {/* Comparison with the programme average */}
@@ -242,6 +292,43 @@ export function BandPanel({ farmId, batch, canExit, has }: Props) {
         </AppText>
       ) : null}
 
+      {/* Offline conflicts (CDC §7.2): which value was kept, and why */}
+      <SectionHeader
+        title="Conflits de saisie hors ligne"
+        subtitle="La saisie la plus récente est retenue"
+        icon={GitMerge}
+        iconColor={palette.amber[700]}
+        iconBg={semantic.warnSoft}
+      />
+      <Card style={{ gap: 0, paddingVertical: 4 }}>
+        {conflicts.isLoading ? (
+          <Spinner label="Lecture des conflits…" />
+        ) : conflicts.isError ? (
+          <Failure error={conflicts.error} />
+        ) : (conflicts.data ?? []).length === 0 ? (
+          <AppText size="caption" color="muted" style={styles.pad}>
+            Aucun conflit : les saisies hors ligne de cette bande ont été appliquées sans écraser d’autre valeur.
+          </AppText>
+        ) : (
+          (conflicts.data ?? []).map((c, i) => {
+            const e = conflictExplanation(c);
+            return (
+              <View key={c.id} style={[styles.week, i > 0 && styles.sep]}>
+                <View style={styles.head}>
+                  <AppText size="body" weight="semibold" color="text" style={{ flex: 1 }}>
+                    {e.title}
+                  </AppText>
+                  <Chip label={`Retenu : ${e.kept}`} tone={c.winner === 'APPAREIL' ? 'brand' : 'neutral'} />
+                </View>
+                <AppText size="small" color="muted">
+                  {e.text}
+                </AppText>
+              </View>
+            );
+          })
+        )}
+      </Card>
+
       {/* Frozen snapshots */}
       <SectionHeader
         title="Bilans figés"
@@ -316,4 +403,5 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   metric: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   queued: { backgroundColor: semantic.warnSoft },
+  warn: { marginTop: 6, padding: 10, borderRadius: radii.md, backgroundColor: semantic.warnSoft },
 });

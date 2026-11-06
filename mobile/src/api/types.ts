@@ -353,6 +353,8 @@ export interface DailyEntryRecord {
   skipStockDeduction: boolean;
   waterL: number;
   avgWeightKg: number | null;
+  /** Sujets pesés with the weight (CDC 8). */
+  sampleSize?: number | null;
   eggsCollected: number;
   eggsSellable: number;
   eggsCracked: number;
@@ -974,6 +976,9 @@ export interface Customer {
   code: string | null;
   /** Type commercial (défaut PARTICULIER) — purement descriptif. */
   type: CustomerType;
+  /** POUFA lot A bande: operator of the programme register this customer is linked to
+   *  (a poultry sale to it creates the traced cession). */
+  operatorId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

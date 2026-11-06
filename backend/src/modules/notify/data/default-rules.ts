@@ -96,9 +96,10 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
   },
   {
     code: 'FERME_PESEE_RETARD',
-    label: 'Ferme : rappel de pesée en retard',
+    // The ELEVEUR members weigh the birds: the whole team is reminded.
+    label: "Ferme (toute l'équipe) : rappel de pesée en retard",
     event: NotificationEvent.WEIGHING_LATE,
-    audience: NotificationAudience.FARM_MANAGERS,
+    audience: NotificationAudience.FARM_TEAM,
     channels: [IN_APP, PUSH],
   },
   {

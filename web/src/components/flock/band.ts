@@ -46,6 +46,22 @@ export function parseArrivalAgeDays(text: string): number | null {
   return days <= MAX_ARRIVAL_AGE_DAYS ? days : null;
 }
 
+/** Highest average weight at opening the backend accepts (`CreateBatchDto.initialAvgWeightG`, @Max(20000)). */
+export const MAX_ARRIVAL_WEIGHT_G = 20_000;
+
+/**
+ * « Poids moyen à l'arrivée (g) » (CDC n° 6, Proposé), optional: undefined
+ * when empty (nothing sent), null when it is not a weight the backend accepts
+ * (1..MAX_ARRIVAL_WEIGHT_G g, decimals with a comma or a dot).
+ */
+export function parseArrivalWeightG(text: string): number | null | undefined {
+  const trimmed = text.trim().replace(',', '.');
+  if (trimmed === '') return undefined;
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+  const grams = Number(trimmed);
+  return grams >= 1 && grams <= MAX_ARRIVAL_WEIGHT_G ? grams : null;
+}
+
 export interface BandOpening {
   /** Sent as `integrationDate`: the arrival (opening) day. */
   integrationDate: string;

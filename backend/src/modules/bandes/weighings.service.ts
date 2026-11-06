@@ -130,7 +130,7 @@ export class WeighingsService implements OnModuleInit, OnModuleDestroy {
         dueDate: status.nextDueDate,
         daysLate: status.daysLate,
       };
-      // TODO(notify lot): in-app reminder to the farmer and the agent.
+      // Reminded by the FERME_/AGENT_PESEE_RETARD rules (notify): the whole farm team and the agents.
       koukouBus.emit(KOUKOU_EVENTS.WEIGHING_LATE, event);
       events.push(event);
     }

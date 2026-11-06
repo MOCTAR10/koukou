@@ -12,6 +12,7 @@ import { ORDER_CANAL_LABEL, PRODUCT_LABEL, UNIT_LABEL, invalidateOrderQueries, n
 import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
 import { PassportCard } from './PassportCard';
 import { ConfirmDialog, OrderStatusBadge } from './shared';
+import { OPERATOR_CESSION_NOTICE, hasBirdLines } from '../sales/cession';
 
 function Info({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
   return (
@@ -320,6 +321,7 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
           message={
             <>
               <p>Le cheptel sera décrémenté et le bon de commande PDF généré.</p>
+              {order.customer?.operatorId && hasBirdLines(order.items) ? <p>{OPERATOR_CESSION_NOTICE}</p> : null}
               {remaining > 0 ? (
                 <p>
                   Reste dû : <b>{fcfa(remaining)}</b>. Si le client paie maintenant, encaissez d’abord ; sinon le solde

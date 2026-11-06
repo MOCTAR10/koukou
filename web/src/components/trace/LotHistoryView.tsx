@@ -1,12 +1,51 @@
-import { AlertTriangle, Download, QrCode, ScanLine } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Bird,
+  Download,
+  Flag,
+  HeartPulse,
+  LogOut,
+  Package,
+  QrCode,
+  Scale,
+  ScanLine,
+  Skull,
+  Stethoscope,
+  Syringe,
+  Wheat,
+  type LucideIcon,
+} from 'lucide-react';
 import { api } from '../../api/client';
-import type { LotHistory, LotView } from '../../api/types-trace';
+import type { LotHistory, LotView, RearingKind } from '../../api/types-trace';
 import { dateFr, dateTimeFr, num } from '../../lib/format';
 import { Note, Pill, useAsyncAction } from '../flock/shared';
 import { Button, ErrorNote, Modal } from '../form';
 import { Loading } from '../ui';
 import { useLotHistory } from './queries';
-import { EVENT_TYPE_LABEL, LOT_KIND_LABEL, LOT_STATUS_LABEL, REARING_KIND_LABEL, lotStatusTone, scanWarnings } from './traceLabels';
+import {
+  EVENT_TYPE_LABEL,
+  LOT_KIND_LABEL,
+  LOT_STATUS_LABEL,
+  REARING_KIND_LABEL,
+  lotStatusTone,
+  rearingDetail,
+  rearingQuantityLabel,
+  scanWarnings,
+} from './traceLabels';
+
+const REARING_KIND_ICON: Record<RearingKind, LucideIcon> = {
+  OUVERTURE: Bird,
+  SOIN: Stethoscope,
+  TRAITEMENT: Syringe,
+  MORTALITE: Skull,
+  PESEE: Scale,
+  EVENEMENT_SANITAIRE: HeartPulse,
+  SORTIE: LogOut,
+  CLOTURE: Flag,
+  INTRANT: Package,
+  ALIMENT: Wheat,
+};
 
 export function LotStatusPill({ lot }: { lot: Pick<LotView, 'status'> }) {
   return <Pill tone={lotStatusTone(lot.status)}>{LOT_STATUS_LABEL[lot.status] ?? lot.status}</Pill>;
@@ -142,16 +181,25 @@ export function LotHistoryView({ history, onOpenLot }: { history: LotHistory; on
           <p className="text-sm text-slate-500">Aucun enregistrement.</p>
         ) : (
           <ol className="relative space-y-2 border-l border-slate-200 pl-4">
-            {rearing.map((r, i) => (
-              <li key={`${r.date}-${r.kind}-${i}`} className="text-sm">
-                <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-white bg-brand-500" aria-hidden="true" />
-                <span className="text-xs text-slate-500">{dateFr(r.date)} · {REARING_KIND_LABEL[r.kind] ?? r.kind}</span>
-                <p className="text-slate-800">
-                  {r.label}
-                  {r.quantity != null ? <span className="text-slate-500"> · {num(r.quantity)}</span> : null}
-                </p>
-              </li>
-            ))}
+            {rearing.map((r, i) => {
+              const KindIcon = REARING_KIND_ICON[r.kind] ?? Activity;
+              const qty = rearingQuantityLabel(r);
+              const detail = rearingDetail(r);
+              return (
+                <li key={`${r.date}-${r.kind}-${i}`} className="text-sm">
+                  <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-white bg-brand-500" aria-hidden="true" />
+                  <span className="flex items-center gap-1 text-xs text-slate-500">
+                    <KindIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {dateFr(r.date)} · {REARING_KIND_LABEL[r.kind] ?? r.kind}
+                  </span>
+                  <p className="text-slate-800">
+                    {r.label}
+                    {qty ? <span className="text-slate-500"> · {qty}</span> : null}
+                  </p>
+                  {detail ? <p className="text-xs text-slate-500">{detail}</p> : null}
+                </li>
+              );
+            })}
           </ol>
         )}
       </div>

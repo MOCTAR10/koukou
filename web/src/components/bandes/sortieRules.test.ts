@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { emptySortie, reasonChoices, sortieEffect, sortieOutcome, validateSortie, type SortieContext } from './sortieRules';
+import {
+  RECIPIENT_REQUIRED,
+  SALE_ALREADY_BOOKED,
+  emptySortie,
+  reasonChoices,
+  sortieEffect,
+  sortieOutcome,
+  validateSortie,
+  type SortieContext,
+} from './sortieRules';
 
 const ITEMS = [
   { code: 'VENTE_VIF', label: 'Vente de poulets vifs', family: 'VENTE', active: true },
@@ -32,7 +41,7 @@ describe('validateSortie', () => {
     todayUtc: '2026-11-06',
     ...over,
   });
-  const draft = (over = {}) => ({ ...emptySortie('2026-11-06'), ...over });
+  const draft = (over = {}) => ({ ...emptySortie('2026-11-06'), recipientName: 'Client', ...over });
 
   it('never exceeds the birds present', () => {
     expect(validateSortie(draft({ reasonCode: 'REFORME', count: '120' }), ctx('REFORME')).errors).toEqual([
@@ -57,7 +66,7 @@ describe('validateSortie', () => {
   });
 
   it('sends the slaughter fields and the operator', () => {
-    expect(validateSortie(draft({ reasonCode: 'ABATTOIR', count: '50', weightKg: '110,5', operatorId: 'op1' }), ctx('ABATTOIR')).payload).toEqual({
+    expect(validateSortie(draft({ reasonCode: 'ABATTOIR', count: '50', weightKg: '110,5', operatorId: 'op1', recipientName: '' }), ctx('ABATTOIR')).payload).toEqual({
       sortieDate: '2026-11-06',
       count: 50,
       reasonCode: 'ABATTOIR',
@@ -65,6 +74,14 @@ describe('validateSortie', () => {
       operatorId: 'op1',
       slaughterType: 'ABATTU',
       destination: 'EXTERNE',
+    });
+  });
+
+  it('requires a recipient: a free name or an operator', () => {
+    expect(validateSortie(draft({ reasonCode: 'DON', count: '1', recipientName: '  ' }), ctx('DON')).errors).toEqual([RECIPIENT_REQUIRED]);
+    expect(validateSortie(draft({ reasonCode: 'DON', count: '1', recipientName: '', operatorId: 'op1' }), ctx('DON')).errors).toEqual([]);
+    expect(validateSortie(draft({ reasonCode: 'DON', count: '1', recipientName: 'Orphelinat' }), ctx('DON')).payload).toMatchObject({
+      recipientName: 'Orphelinat',
     });
   });
 
@@ -82,7 +99,8 @@ describe('validateSortie', () => {
 
 describe('effects and outcomes', () => {
   it('says what the server creates, so nothing is entered twice', () => {
-    expect(sortieEffect('VENTE', false)[0]).toMatch(/ne la ressaisissez pas/);
+    expect(sortieEffect('VENTE', false)[0]).toContain(SALE_ALREADY_BOOKED);
+    expect(sortieEffect('ABATTOIR', false)[0]).toMatch(/dès l'enregistrement de la sortie/);
     expect(sortieEffect('ABATTOIR', true)).toHaveLength(2);
     expect(sortieEffect('REFORME', false)[0]).toMatch(/quittent/);
   });

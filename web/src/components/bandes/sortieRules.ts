@@ -5,8 +5,15 @@ import { isAfterTomorrow, isIsoDay, parseDecimal } from '../supply/deliveryRules
  * `backend/src/modules/bandes/sorties.service.ts`: the reason's family drives
  * what the server books in the same transaction, sorties never exceed the
  * birds present, a VENTE needs a price (and the weight for a price per kg),
+ * the recipient is required (a free name or an operator, CDC n° 9 and T3),
  * and an operator turns the sortie into a cession with a traceability sub-lot.
  */
+
+/** Server message when neither a name nor an operator is given. */
+export const RECIPIENT_REQUIRED = 'Le destinataire est obligatoire : un nom ou un opérateur du registre.';
+
+/** Shown on a VENTE motif: the sale is booked with the sortie. */
+export const SALE_ALREADY_BOOKED = 'Cette sortie crée la vente : ne la ressaisissez pas en caisse.';
 
 export type SortieFamily = 'VENTE' | 'ABATTOIR' | 'REFORME' | 'AUTRE';
 
@@ -46,12 +53,12 @@ export function sortieEffect(family: string | null | undefined, withOperator: bo
   switch (family) {
     case 'VENTE':
       lines.push(
-        'Enregistre la vente (à crédit) dans les ventes de la ferme, dans la même opération : ne la ressaisissez pas au point de vente. Encaissez-la ensuite depuis Clients ou Ventes.',
+        `${SALE_ALREADY_BOOKED} Elle est enregistrée (à crédit) dans les ventes de la ferme, dans la même opération ; encaissez-la ensuite depuis Clients ou Ventes.`,
       );
       break;
     case 'ABATTOIR':
       lines.push(
-        "Crée un ordre d'abattage brouillon (écran Abattage) : les sujets quittent la bande quand l'ordre est traité. Ne créez pas un second ordre pour ces sujets.",
+        "Les sujets quittent l'effectif de la bande dès l'enregistrement de la sortie. Un ordre d'abattage brouillon est créé (écran Abattage) pour suivre l'envoi et le traitement ; ne créez pas un second ordre pour ces sujets. Annuler cet ordre remet les sujets dans la bande.",
       );
       break;
     case 'REFORME':
@@ -128,6 +135,7 @@ export interface SortieContext {
 export function validateSortie(draft: SortieDraft, ctx: SortieContext): { errors: string[]; payload: SortiePayload | null } {
   const errors: string[] = [];
   if (ctx.closed) errors.push('Bande clôturée : lecture seule, aucune sortie possible.');
+  if (!draft.recipientName.trim() && !draft.operatorId) errors.push(RECIPIENT_REQUIRED);
   const family = ctx.reason?.family ?? null;
   if (!draft.reasonCode) errors.push('Choisissez le motif de la sortie.');
   else if (!ctx.reason) errors.push(`Motif de sortie inconnu ou inactif : ${draft.reasonCode}.`);

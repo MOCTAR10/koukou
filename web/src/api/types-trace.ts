@@ -74,7 +74,10 @@ export type RearingKind =
   | 'PESEE'
   | 'EVENEMENT_SANITAIRE'
   | 'SORTIE'
-  | 'CLOTURE';
+  | 'CLOTURE'
+  // POUFA T2: the inputs a band received (confirmed delivery) and the feed it ate (input lot, kg).
+  | 'INTRANT'
+  | 'ALIMENT';
 
 export interface RearingItem {
   date: string;

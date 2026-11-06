@@ -6,6 +6,7 @@ import { PointsOfSaleModule } from '../points-of-sale/points-of-sale.module.js';
 import { BatchesModule } from '../batches/batches.module.js';
 import { FinanceModule } from '../finance/finance.module.js';
 import { AccountingModule } from '../accounting/accounting.module.js';
+import { TraceCoreModule } from '../trace/trace-core.module.js';
 import { Order } from './entities/order.entity.js';
 import { OrdersService } from './orders.service.js';
 import { OrdersController } from './orders.controller.js';
@@ -19,6 +20,8 @@ import { OrdersController } from './orders.controller.js';
     BatchesModule,
     FinanceModule,
     AccountingModule,
+    // Cessions from orders delivered to an operator's customer (F4).
+    TraceCoreModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

@@ -7,6 +7,7 @@ import { PointsOfSaleModule } from '../points-of-sale/points-of-sale.module.js';
 import { AlertsModule } from '../alerts/alerts.module.js';
 import { ReferenceConstantsModule } from '../reference-constants/reference-constants.module.js';
 import { BatchesModule } from '../batches/batches.module.js';
+import { TraceCoreModule } from '../trace/trace-core.module.js';
 import { FeedStockModule } from '../feed-stock/feed-stock.module.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
@@ -67,6 +68,8 @@ import { PromotionsController } from './promotions.controller.js';
     ReferenceConstantsModule,
     BatchesModule,
     FeedStockModule,
+    // Cessions from sales to an operator's customer (F4).
+    TraceCoreModule,
   ],
   controllers: [
     CustomersController,

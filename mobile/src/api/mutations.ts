@@ -58,6 +58,19 @@ export interface DailyEntryPayload {
   eggsDoubleYolk?: number;
   eggsDirty?: number;
   source?: 'MANUELLE';
+  /** Sujets pesés (CDC 8), sent with a weight. */
+  sampleSize?: number;
+  // Offline conflict rule (CDC §7.2, backend sync.service.ts): see poufa/entry-sync.ts.
+  /** Time of entry on the phone (fixed when saved, kept on replay). */
+  capturedAt?: string;
+  /** updatedAt of the entry this phone edited (absent for a new entry). */
+  baseUpdatedAt?: string;
+  /** Values of that entry as known (feed in kg). */
+  baseValues?: Partial<Record<string, number | null>>;
+  /** Phone clock at this send attempt. */
+  deviceSentAt?: string;
+  /** Stable id of this install. */
+  deviceId?: string;
 }
 
 export interface DailyEntryValues {
@@ -68,6 +81,8 @@ export interface DailyEntryValues {
   bagSizeKg?: number;
   waterL: number;
   weightG: number;
+  /** Sujets pesés with the weight (0 = not typed). */
+  sampleSize?: number;
   eggs: number;
   eggsCracked: number;
   eggsSmall: number;
@@ -121,7 +136,10 @@ export function buildDailyEntryPayload(values: DailyEntryValues, opts: DailyEntr
     }
   }
   if (send(values.waterL)) p.waterL = values.waterL;
-  if (values.weightG > 0) p.avgWeightKg = values.weightG / 1000;
+  if (values.weightG > 0) {
+    p.avgWeightKg = values.weightG / 1000;
+    if (values.sampleSize != null && values.sampleSize > 0) p.sampleSize = values.sampleSize;
+  }
   if (sendEgg(values.eggs)) p.eggsCollected = values.eggs;
   if (sendEgg(values.eggs))
     p.eggsSellable = Math.max(
@@ -869,6 +887,8 @@ export interface CreateBatchInput {
    *  en cours » opens at its current age with its live birds as `quantityAtStart`
    *  (the backend refuses a `quantityAlive` different from it). */
   initialAgeDays?: number;
+  /** POUFA lot A bande: average weight on arrival (g / bird), 1..20000; absent = not weighed. */
+  initialAvgWeightG?: number;
 }
 
 export function createBatch(farmId: string, input: CreateBatchInput): Promise<{ id: string }> {
