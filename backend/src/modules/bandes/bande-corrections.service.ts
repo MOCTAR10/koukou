@@ -11,6 +11,7 @@ import {
   DailyEntry,
   type FieldSyncMeta,
 } from '../daily-entries/entities/daily-entry.entity.js';
+import { weighingSampleRefusal } from '../daily-entries/weighing-rules.js';
 import { BandeSnapshotsService } from './bande-snapshots.service.js';
 import { BandesService } from './bandes.service.js';
 import { CorrectClosedBandeDto } from './dto/sortie.dto.js';
@@ -74,6 +75,7 @@ export class BandeCorrectionsService {
           'Cette consommation est rattachée à un lot de stock : elle ne peut pas être corrigée ici.',
         );
       }
+      const before = { avgWeightKg: row.avgWeightKg ?? null, sampleSize: row.sampleSize ?? null };
       const sent: Partial<Record<keyof DailyEntry, unknown>> = {
         deaths: dto.deaths,
         feedQuantity: dto.feedQuantityKg,
@@ -103,6 +105,13 @@ export class BandeCorrectionsService {
           'Le nombre de sujets pesés accompagne un poids moyen.',
         );
       }
+      // CDC n° 8: same rule as the ordinary entry — a new weight says how many
+      // birds were weighed.
+      const sampleRefusal = weighingSampleRefusal(
+        { avgWeightKg: row.avgWeightKg, sampleSize: row.sampleSize },
+        row.id ? before : null,
+      );
+      if (sampleRefusal) throw new BadRequestException(sampleRefusal);
       row.fieldSync = fieldSync;
       row.updatedAt = now;
       row.createdById = actor.id;

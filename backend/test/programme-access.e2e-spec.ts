@@ -77,6 +77,8 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
     request(server).post(url).set(auth(token)).send(body);
   const patch = (url: string, body: object, token: string) =>
     request(server).patch(url).set(auth(token)).send(body);
+  const put = (url: string, body: object, token: string) =>
+    request(server).put(url).set(auth(token)).send(body);
 
   function jwtPayload(token: string): Record<string, unknown> {
     return JSON.parse(
@@ -438,6 +440,23 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         farm: true,
         needs: [['REGISTRE', 'CONSULTER']],
         call: () => get('/programme/farms', ''),
+      },
+      {
+        name: 'ADMINISTRATION consulter (comptes d’équipe)',
+        farm: true,
+        needs: [['ADMINISTRATION', 'CONSULTER']],
+        call: (f) => get(`/programme/farms/${f}/team`, ''),
+      },
+      {
+        name: 'ADMINISTRATION administrer (suspendre un compte d’équipe)',
+        farm: true,
+        needs: [['ADMINISTRATION', 'ADMINISTRER']],
+        call: (f) =>
+          put(
+            `/programme/farms/${f}/team/00000000-0000-4000-8000-000000000000/active`,
+            { active: 'x' },
+            '',
+          ),
       },
       {
         name: 'REGISTRE créer',

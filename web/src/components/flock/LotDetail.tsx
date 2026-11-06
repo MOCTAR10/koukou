@@ -77,7 +77,7 @@ import { DailyEntryModal } from './DailyEntryModal';
 // POUFA lot A2 sante: « Fait » through the completion form and the offline queue (CDC n° 22).
 import { CompleteCareModal } from './CompleteCareModal';
 import { refFromLot } from '../surveillance/sanitaryLot';
-import { REFERENCE_STEP_LABEL, postponedLabel } from './sanitaryRecords';
+import { REFERENCE_STEP_LABEL, postponedLabel, careHistoryDetail } from './sanitaryRecords';
 // POUFA W6: band sorties and traceability tabs.
 import { SortiesTab } from '../bandes/SortiesTab';
 import { LotTraceTab } from '../trace/LotTraceTab';
@@ -1000,7 +1000,7 @@ function HistoryTab({ lot }: { lot: Lot }) {
         date: t.administeredAt,
         kind: 'soins',
         title: t.productName,
-        sub: [t.dosage, t.route, t.withdrawalEndDate ? `retrait jusqu'au ${dateFr(t.withdrawalEndDate)}` : null].filter(Boolean).join(' · '),
+        sub: [t.dosage, t.route, ...careHistoryDetail({ reason: t.reason, startDate: t.administeredAt.slice(0, 10), endDate: t.endDate, animalCount: t.animalCount }, dateFr), t.withdrawalEndDate ? `retrait jusqu'au ${dateFr(t.withdrawalEndDate)}` : null].filter(Boolean).join(' · '),
         tone: 'brand',
         tag: CARE_TYPE_LABEL[t.careType],
       });
@@ -1012,7 +1012,7 @@ function HistoryTab({ lot }: { lot: Lot }) {
         date: p.completedAt ?? p.scheduledDate,
         kind: 'soins',
         title: p.name,
-        sub: `${CARE_TYPE_LABEL[p.careType]}${p.dosage ? ` · ${p.dosage}` : ''}`,
+        sub: [CARE_TYPE_LABEL[p.careType], p.dosage, ...careHistoryDetail({ animalCount: p.animalCount })].filter(Boolean).join(' · '),
         tone: p.status === 'FAIT' ? 'emerald' : 'red',
         tag: CARE_STATUS_LABEL[p.status],
       });
