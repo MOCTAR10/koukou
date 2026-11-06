@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { FarmMemberProfile } from '@/api/types';
-import { accessAllows, resolveFarmAccess } from './farm-access';
+import { accessAllows, readsFermiaData, resolveFarmAccess } from './farm-access';
 
 function profile(over: Partial<FarmMemberProfile> = {}): FarmMemberProfile {
   return { farmId: 'f-1', role: 'ADMIN', jobTitle: null, buildingAssignment: null, active: true, permissions: [], ...over };
@@ -71,5 +71,20 @@ describe('resolveFarmAccess', () => {
     expect(accessAllows(staff, 'saisie:creer')).toBe(true);
     const institution = resolveFarmAccess({ farmId: 'f-1', userRole: 'INSTITUTION', fetch: { status: 'error', network: true } });
     expect(accessAllows(institution, 'saisie:creer')).toBe(false);
+  });
+});
+
+describe('readsFermiaData', () => {
+  it('propriétaire, personnel et administrateur plateforme lisent les domaines Fermia', () => {
+    expect(readsFermiaData('PROPRIETAIRE')).toBe(true);
+    expect(readsFermiaData('ELEVEUR')).toBe(true);
+    expect(readsFermiaData('PLATFORM_ADMIN')).toBe(true);
+  });
+
+  it('jamais une institution (refusé par le backend quel que soit son profil), ni un acheteur', () => {
+    expect(readsFermiaData('INSTITUTION')).toBe(false);
+    expect(readsFermiaData('ACHETEUR')).toBe(false);
+    expect(readsFermiaData('OPERATEUR')).toBe(false);
+    expect(readsFermiaData(undefined)).toBe(false);
   });
 });

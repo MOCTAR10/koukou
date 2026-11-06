@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { ApiError } from '@/api/client';
 import { fetchFarmProfile } from '@/api';
 import type { PermissionCode } from '@/api/types';
-import { accessAllows, resolveFarmAccess, type ProfileFetchState } from './farm-access';
+import { accessAllows, readsFermiaData, resolveFarmAccess, type ProfileFetchState } from './farm-access';
 
 /** Server out of reach (offline start), as opposed to a refusal. */
 function isNetworkFailure(error: unknown): boolean {
@@ -46,6 +46,10 @@ export function useFarmProfile() {
     hasPermission,
     /** Compte de terrain dédié : Éleveur Fermia actif sur la ferme. */
     isGroundEleveur: profile?.role === 'ELEVEUR' && profile.active !== false,
+    /** Institutional account (programme): its rights come from its access profile. */
+    isInstitution: user.role === 'INSTITUTION',
+    /** May read the Fermia-only domains (caisse, orders, customers, POS, Market, accounting, team); never an institution. */
+    fermiaData: readsFermiaData(user.role),
     isLoading: query.isLoading,
     refetch: query.refetch,
   };

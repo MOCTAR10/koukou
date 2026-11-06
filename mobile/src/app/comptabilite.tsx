@@ -89,6 +89,25 @@ function SoldesRow({ account }: { account: AccountSoldes }) {
 }
 
 export default function ComptabiliteScreen() {
+  const { fermiaData } = useFarmProfile();
+  // SYSCOHADA accounting is a Fermia-only domain (COMPTABILITE): the backend
+  // refuses it to every institutional profile, so the screen asks nothing.
+  return fermiaData ? <ComptabiliteContent /> : <ComptabiliteUnavailable />;
+}
+
+function ComptabiliteUnavailable() {
+  return (
+    <Screen header={<ScreenHeader title="Comptabilité SYSCOHADA" back />}>
+      <Card>
+        <AppText size="body" color="muted">
+          La comptabilité de la ferme n’est pas ouverte aux comptes institutionnels. Les indicateurs économiques du programme restent dans Rentabilité.
+        </AppText>
+      </Card>
+    </Screen>
+  );
+}
+
+function ComptabiliteContent() {
   const { farms, farmId } = useAuth();
   const { hasPermission } = useFarmProfile();
   const queryClient = useQueryClient();

@@ -268,7 +268,6 @@ const splitCareLabel = (label: string): { action: string; detail: string } => {
 
 // Les dates sanitaires sont stockées en UTC (YYYY-MM-DD) côté serveur.
 const fromUtc = (epochMs: number) => new Date(epochMs).toISOString().slice(0, 10);
-const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 
 function careChips(prophylaxis: ProphylaxisEvent[] | undefined): CareChipData[] {
   const chips: CareChipData[] = [];
@@ -487,8 +486,11 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
 export default function LotsScreen() {
   const router = useRouter();
   const { farmId } = useAuth();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, fermiaData, isInstitution } = useFarmProfile();
   const canRapports = hasPermission('compta:rapports');
+  // Sales and expenses sit in the programme ÉCONOMIQUE domain: an institution
+  // reads them only with it (compta:rapports); orders are Fermia-only.
+  const readsEconomics = !isInstitution || canRapports;
   const { openCreateBuilding } = useCreateCenter();
   const batches = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
   const buildings = useQuery({ queryKey: ['buildings', farmId], queryFn: () => fetchBuildings(farmId) });
@@ -564,16 +566,18 @@ export default function LotsScreen() {
   const salesQ = useQuery({
     queryKey: ['sales', farmId, finMode, finFrom, finTo],
     queryFn: () => fetchSales(farmId, finFrom, finTo),
+    enabled: readsEconomics,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
   const expensesQ = useQuery({
     queryKey: ['expenses', farmId, finMode, finFrom, finTo],
     queryFn: () => fetchExpenses(farmId, finFrom, finTo),
+    enabled: readsEconomics,
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
-  const ordersQ = useQuery({ queryKey: ['orders', farmId], queryFn: () => fetchOrders(farmId), staleTime: 30_000 });
+  const ordersQ = useQuery({ queryKey: ['orders', farmId], queryFn: () => fetchOrders(farmId), enabled: fermiaData, staleTime: 30_000 });
 
   // ── Comparaison à la fenêtre précédente (même longueur) ──
   const prevWin = useMemo(() => shiftWindow(finFrom ?? undefined, finTo), [finFrom, finTo]);
@@ -590,10 +594,13 @@ export default function LotsScreen() {
   useLiveMinute(() => {
     if (period.isFiltered) return;
     void batches.refetch();
-    void ordersQ.refetch();
-    void pnl.refetch();
-    void salesQ.refetch();
-    void expensesQ.refetch();
+    // refetch() ignores `enabled`: only what this account may read.
+    if (fermiaData) void ordersQ.refetch();
+    if (canRapports) void pnl.refetch();
+    if (readsEconomics) {
+      void salesQ.refetch();
+      void expensesQ.refetch();
+    }
   });
 
   // ── Filter & Sort ──
@@ -2495,6 +2502,8 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
 }) {
   const router = useRouter();
   const { openDaily, openSale } = useQuickCapture();
+  // Selling opens the POS (Fermia-only sales desk): never for an institution.
+  const canSell = useFarmProfile().hasPermission('vente:creer');
   const m = batch.metrics;
   const stage = batchStage(batch);
   const openFull = () => {
@@ -2533,17 +2542,19 @@ function LotDetailSheet({ visible, batch, health, pnl, prophylaxis, treatments, 
               <ClipboardList size={15} color={semantic.primary} />
               <AppText size="small" weight="bold" color={semantic.primaryText}>Saisir aujourd&apos;hui</AppText>
             </Pressable>
-            <Pressable
-              onPress={() => {
-                onClose();
-                openSale(batch.id);
-              }}
-              style={({ pressed }) => [styles.sheetActionBtn, pressed && { opacity: 0.8 }]}
-              accessibilityRole="button"
-            >
-              <ShoppingCart size={15} color={palette.accent[600]} />
-              <AppText size="small" weight="bold" color={semantic.accentText}>Vendre</AppText>
-            </Pressable>
+            {canSell ? (
+              <Pressable
+                onPress={() => {
+                  onClose();
+                  openSale(batch.id);
+                }}
+                style={({ pressed }) => [styles.sheetActionBtn, pressed && { opacity: 0.8 }]}
+                accessibilityRole="button"
+              >
+                <ShoppingCart size={15} color={palette.accent[600]} />
+                <AppText size="small" weight="bold" color={semantic.accentText}>Vendre</AppText>
+              </Pressable>
+            ) : null}
           </View>
           <Pressable
             onPress={openFull}

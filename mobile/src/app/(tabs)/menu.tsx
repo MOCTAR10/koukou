@@ -45,6 +45,8 @@ interface MenuItem {
   href: Href;
   /** Droits (au moins un) requis pour afficher la tuile ; absent = visible par tous. */
   perms?: PermissionCode[];
+  /** Fermia-only domain the backend refuses to any institution, whatever its permissions. */
+  fermiaOnly?: boolean;
 }
 
 interface MenuGroup {
@@ -137,7 +139,7 @@ function GroundHome() {
 
 export default function MenuScreen() {
   const router = useRouter();
-  const { isGroundEleveur, hasPermission } = useFarmProfile();
+  const { isGroundEleveur, hasPermission, fermiaData } = useFarmProfile();
 
   if (isGroundEleveur) {
     return <GroundHome />;
@@ -182,7 +184,7 @@ export default function MenuScreen() {
       iconBg: semantic.warnSoft,
       items: [
         { key: 'rapports', label: 'Rentabilité', icon: FileBarChart2, href: '/rapports', perms: ['compta:rapports'] },
-        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'] },
+        { key: 'comptabilite', label: 'Comptabilité SYSCOHADA', icon: Landmark, href: '/comptabilite', perms: ['compta:rapports'], fermiaOnly: true },
         { key: 'depenses', label: 'Dépenses', icon: ReceiptText, href: '/depenses', perms: ['compta:depense'] },
       ],
     },
@@ -204,7 +206,9 @@ export default function MenuScreen() {
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.perms || item.perms.some((code) => hasPermission(code))),
+      items: group.items.filter(
+        (item) => (fermiaData || !item.fermiaOnly) && (!item.perms || item.perms.some((code) => hasPermission(code))),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 

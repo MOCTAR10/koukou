@@ -224,7 +224,10 @@ export default function LotDetailScreen() {
   const slaughterQ = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), staleTime: 60_000 });
 
   // ── New queries for lot metrics ──
-  const canRapports = useFarmProfile().hasPermission('compta:rapports');
+  const farmProfile = useFarmProfile();
+  const canRapports = farmProfile.hasPermission('compta:rapports');
+  // Selling opens the POS (Fermia-only sales desk): never for an institution.
+  const canSell = farmProfile.hasPermission('vente:creer');
   const rentabQ = useQuery({ queryKey: ['rentabilite-batch', farmId, batchId], queryFn: () => fetchRentabiliteBatch(farmId, batchId), enabled: !!batchId && canRapports });
   const feedStockQ = useQuery({ queryKey: ['feed-stock', farmId], queryFn: () => fetchFeedStock(farmId) });
   const dashboardQ = useQuery({ queryKey: ['dashboard', farmId, asOf ?? '', period.time ?? ''], queryFn: () => fetchDashboard(farmId, asOf, period.time), staleTime: 30_000 });
@@ -668,7 +671,9 @@ export default function LotDetailScreen() {
           )}
           <View style={styles.heroActions}>
             <Button label="Saisir" size="xs" labelSize="caption" tone="brand" icon={PenLine} block={false} onPress={() => openDaily(batchId)} />
-            <Button label="Encaisser" size="xs" labelSize="caption" tone="accent" icon={ShoppingCart} block={false} onPress={() => openSale(batchId)} />
+            {canSell ? (
+              <Button label="Encaisser" size="xs" labelSize="caption" tone="accent" icon={ShoppingCart} block={false} onPress={() => openSale(batchId)} />
+            ) : null}
           </View>
         </View>
         <AppText size="caption" color="muted">

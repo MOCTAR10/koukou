@@ -58,6 +58,19 @@ export function resolveFarmAccess(input: {
   return NOTHING;
 }
 
+/**
+ * Whether the account may read the Fermia-only domains of a farm (sales desk
+ * and caisse, orders, customers, points of sale, transfers, Market,
+ * accounting, team, account/push): owner, staff and platform admin only. The
+ * backend refuses those domains to any institutional profile
+ * (`validateMatrix`), whatever its matrix, so an institution's screen must not
+ * even ask (a 403 per screen otherwise). Programme domains (technique,
+ * sanitaire, intrants, économique…) follow the permissions instead.
+ */
+export function readsFermiaData(userRole: UserRole | undefined): boolean {
+  return userRole === 'PROPRIETAIRE' || userRole === 'ELEVEUR' || userRole === 'PLATFORM_ADMIN';
+}
+
 export function accessAllows(access: FarmAccess, code: string): boolean {
   return access.permissions === '*' || access.permissions.includes(code);
 }

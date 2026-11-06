@@ -30,6 +30,8 @@ interface AlertCardProps {
   onPrimary?: (alert: Alert) => void;
   onOpenLot?: (batchId: string) => void;
   showWhy?: boolean;
+  /** Sale rights (`vente:creer`): without them a sale alert only opens the lot. */
+  canSell?: boolean;
 }
 
 function statusChipTone(status: Alert['status']): ChipTone {
@@ -44,7 +46,7 @@ function statusLabel(status: Alert['status']): string {
   return 'En cours';
 }
 
-export function AlertCard({ alert, busy = false, onPrimary, onOpenLot, showWhy = true }: AlertCardProps) {
+export function AlertCard({ alert, busy = false, onPrimary, onOpenLot, showWhy = true, canSell = true }: AlertCardProps) {
   const [open, setOpen] = useState(false);
   const isCare = alert.category === 'SOIN';
   const readyItem = alert.category === 'VENTE' && alert.id.startsWith('ready:');
@@ -67,7 +69,7 @@ export function AlertCard({ alert, busy = false, onPrimary, onOpenLot, showWhy =
     primaryTone = 'accent';
     PrimaryIcon = PackageOpen;
   } else if (alert.category === 'VENTE') {
-    if (readyItem) {
+    if (readyItem || !canSell) {
       primaryLabel = 'Voir le lot';
       primaryTone = 'ghost';
       PrimaryIcon = ArrowRight;

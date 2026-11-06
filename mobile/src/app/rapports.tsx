@@ -15,6 +15,7 @@ import { PeriodBar, periodWindow, type PeriodWindow } from '@/components/ui/Peri
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchBatches, fetchPointsOfSale, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales } from '@/api';
 import { downloadPdf } from '@/api/pdf';
 import type { BatchPnl, BatchStatus } from '@/api/types';
@@ -86,7 +87,9 @@ export default function RapportsScreen() {
     queryFn: () => fetchSales(farmId, periodFrom ?? undefined, periodTo ?? undefined),
     enabled: !!periodFrom,
   });
-  const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId) });
+  // Points of sale are a Fermia-only domain: an institution gets no per-POS breakdown.
+  const { fermiaData } = useFarmProfile();
+  const pdvQuery = useQuery({ queryKey: ['points-of-sale', farmId], queryFn: () => fetchPointsOfSale(farmId), enabled: fermiaData });
 
   const revenue = ov?.sales?.totalFcfa ?? 0;
   const expenses = ov?.expenses?.totalFcfa ?? 0;
