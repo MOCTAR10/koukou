@@ -28,7 +28,6 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsBoolean,
   IsString,
@@ -48,33 +47,27 @@ class UpdateFarmDto {
   @IsNotEmpty({ message: 'La commune est requise.' })
   administrativeCity?: string;
 
-  @IsOptional()
-  @IsInt({ message: 'Le nombre de bâtiments doit être un entier.' })
-  @Min(1, { message: 'Le nombre de bâtiments doit être supérieur à 0.' })
-  buildingCount?: number;
+  /** Refused (400): buildings and capacity belong to the registry. */
+  @Allow()
+  buildingCount?: unknown;
 
-  @IsOptional()
-  @IsInt({ message: 'La capacité par bâtiment doit être un entier.' })
-  @Min(1, { message: 'La capacité par bâtiment doit être supérieure à 0.' })
-  capacityPerBuilding?: number;
+  @Allow()
+  capacityPerBuilding?: unknown;
 
-  @IsOptional()
-  @IsNumber({}, { message: 'La surface doit être un nombre.' })
-  @Min(0, { message: 'La surface doit être positive.' })
-  buildingAreaM2?: number;
+  @Allow()
+  buildingAreaM2?: unknown;
 
   @IsOptional()
   @IsInt({ message: 'Le poids du sac doit être un entier.' })
   @Min(1, { message: 'Le poids du sac doit être supérieur à 0.' })
   defaultSacKg?: number;
 
-  @IsOptional()
-  @IsNumber({})
-  longitude?: number;
+  /** Refused (400): the GPS point belongs to the registry (history, province check). */
+  @Allow()
+  longitude?: unknown;
 
-  @IsOptional()
-  @IsNumber({})
-  latitude?: number;
+  @Allow()
+  latitude?: unknown;
 
   /** Refused (400): a farm's `active` follows its programme status. */
   @IsOptional()
@@ -167,7 +160,9 @@ export class PlatformAdminController {
   }
 
   @Get('farms')
-  @AuditRead('Liste de toutes les fermes et de leurs propriétaires (administration)')
+  @AuditRead(
+    'Liste de toutes les fermes et de leurs propriétaires (administration)',
+  )
   @ApiOperation({
     summary: 'Lister toutes les fermes de la plateforme (avec propriétaire).',
   })

@@ -4,7 +4,11 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
-import { FARM_NAME_IN_REGISTRY } from './../src/modules/farms/farms.service.js';
+import {
+  FARM_CAPACITY_IN_REGISTRY,
+  FARM_GPS_IN_REGISTRY,
+  FARM_NAME_IN_REGISTRY,
+} from './../src/modules/farms/farms.service.js';
 import {
   createPlatformAdmin,
   createProgrammeFarm,
@@ -336,6 +340,29 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
       name: `Ferme Plateforme ${stamp}`,
       defaultSacKg: 25,
     });
+  });
+
+  it('ne modifie ni le GPS ni les bâtiments / capacité hors du registre (400, rien n’est écrit)', async () => {
+    const cases: [Record<string, unknown>, string][] = [
+      [{ latitude: 0.5 }, FARM_GPS_IN_REGISTRY],
+      [{ longitude: 9.4, defaultSacKg: 40 }, FARM_GPS_IN_REGISTRY],
+      [{ latitude: null }, FARM_GPS_IN_REGISTRY],
+      [{ buildingCount: 3 }, FARM_CAPACITY_IN_REGISTRY],
+      [
+        { capacityPerBuilding: 1500, defaultSacKg: 40 },
+        FARM_CAPACITY_IN_REGISTRY,
+      ],
+      [{ buildingAreaM2: 120 }, FARM_CAPACITY_IN_REGISTRY],
+    ];
+    for (const [body, message] of cases) {
+      const res = await patch(`/admin/farms/${farmId}`, body).expect(400);
+      expect(res.body.message).toBe(message);
+    }
+    const farm = (await get('/admin/farms').expect(200)).body.find(
+      (f: any) => f.id === farmId,
+    );
+    expect(farm).toMatchObject({ defaultSacKg: 25 });
+    expect(farm.capacityPerBuilding ?? null).toBeNull();
   });
 
   it('réserve la modification des constantes à l’administrateur plateforme', async () => {

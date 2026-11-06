@@ -34,6 +34,7 @@ import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
+import { ageOn } from './poufa/bande-rules.js';
 import {
   avgDailyWaterPerBird,
   FlockTimeline,
@@ -195,12 +196,9 @@ export class MetricsService {
     const entries = historical
       ? entriesRaw.filter((e) => e.entryDate <= asOf)
       : entriesRaw;
-    const standard = this.pickStandard(
-      standards,
-      batch.integrationDate,
-      refDate,
-    );
-    const ageDays = this.ageDaysOn(batch.integrationDate, refDate);
+    const standard = this.pickStandard(standards, batch, refDate);
+    // Age of the birds: J+x at opening + days since integration.
+    const ageDays = this.ageDaysOn(batch, refDate);
     const entryDeaths = entries.reduce((s, e) => s + e.deaths, 0);
     // Deaths declared as MORTALITE health events are not in the daily
     // entries: the mortality rate needs both.
@@ -259,6 +257,9 @@ export class MetricsService {
       integrationDate: batch.integrationDate,
       quantityAtStart: batch.quantityAtStart,
       day1WeightKg: day1WeightKg(batch.species),
+      initialAgeDays: batch.initialAgeDays,
+      initialWeightKg:
+        batch.initialAvgWeightG != null ? batch.initialAvgWeightG / 1000 : null,
       entries,
       removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
       deathEventsByDate,
@@ -269,7 +270,7 @@ export class MetricsService {
     const gmqGramsPerDay = perf?.gmqGramsPerDay ?? null;
     const ipe = perf?.ipe ?? null;
     const fcrStandard = perf
-      ? this.pickStandard(standards, batch.integrationDate, perf.weighingDate)
+      ? this.pickStandard(standards, batch, perf.weighingDate)
       : null;
 
     const eggsCollectedTotal = entries.reduce((s, e) => s + e.eggsCollected, 0);
@@ -431,11 +432,11 @@ export class MetricsService {
   /** Standard row for the age week on `date` (last row once past the curve). */
   private pickStandard(
     standards: BreedStandard[],
-    integrationDate: string,
+    batch: Pick<ProductionBatch, 'integrationDate' | 'initialAgeDays'>,
     date: string,
   ): BreedStandard | null {
     if (standards.length === 0) return null;
-    const ageWeek = Math.floor(this.ageDaysOn(integrationDate, date) / 7) + 1;
+    const ageWeek = Math.floor(this.ageDaysOn(batch, date) / 7) + 1;
     const applicable = standards.filter((s) => s.week <= ageWeek);
     return applicable.length > 0
       ? applicable[applicable.length - 1]!
@@ -450,22 +451,14 @@ export class MetricsService {
    */
   async breedStatus(batch: ProductionBatch): Promise<BreedStatus | null> {
     const standards = await this.loadStandards(batch);
-    const standard = this.pickStandard(
-      standards,
-      batch.integrationDate,
-      todayIso(),
-    );
+    const standard = this.pickStandard(standards, batch, todayIso());
     if (!standard) return null;
 
     const metrics = await this.compute(batch);
     // Weight and FCR are measured at the last weighing: compare them with the
     // curve at THAT age, not at today's week.
     const atWeighing = metrics.lastWeighingDate
-      ? this.pickStandard(
-          standards,
-          batch.integrationDate,
-          metrics.lastWeighingDate,
-        )
+      ? this.pickStandard(standards, batch, metrics.lastWeighingDate)
       : null;
     const actualAvgWeightKg =
       metrics.lastWeighingAvgWeightKg != null
@@ -496,11 +489,16 @@ export class MetricsService {
     };
   }
 
-  private ageDaysOn(integrationDate: string, onDate: string): number {
-    const start = new Date(integrationDate + 'T00:00:00Z');
-    const ref = new Date(onDate + 'T00:00:00Z');
-    const diff = ref.getTime() - start.getTime();
-    return Math.max(0, Math.floor(diff / 86400000));
+  /**
+   * Age of the birds on `onDate`: the age at opening (`initialAgeDays`, POUFA
+   * J+x; 0 for a lot placed as chicks) + the days since integration — the
+   * same rule as the band sheet (`ageOn`) and `expectedEndDate`.
+   */
+  private ageDaysOn(
+    batch: Pick<ProductionBatch, 'integrationDate' | 'initialAgeDays'>,
+    onDate: string,
+  ): number {
+    return ageOn(batch.integrationDate, batch.initialAgeDays, onDate);
   }
 
   /**

@@ -47,10 +47,28 @@ export const FERMIA_DOMAINS = [
  */
 export const SESSION_DOMAIN = 'SESSION' as const;
 
+/**
+ * REFERENCE: shared reference data every programme account needs to display
+ * a screen (provinces and their localités, active list items). Open, like
+ * SESSION, to any institutional account holding an effective membership,
+ * whatever its matrix; never listed in a matrix. Writes on the same data stay
+ * in their own domain (ADMINISTRATION).
+ */
+export const REFERENCE_DOMAIN = 'REFERENCE' as const;
+
+/** Domains open to any effective membership, outside the matrix. */
+export const MEMBER_DOMAINS: readonly string[] = [
+  SESSION_DOMAIN,
+  REFERENCE_DOMAIN,
+];
+
 export type ProgrammeDomain = (typeof PROGRAMME_DOMAINS)[number];
 export type FermiaDomain = (typeof FERMIA_DOMAINS)[number];
 export type AccessDomain =
-  ProgrammeDomain | FermiaDomain | typeof SESSION_DOMAIN;
+  | ProgrammeDomain
+  | FermiaDomain
+  | typeof SESSION_DOMAIN
+  | typeof REFERENCE_DOMAIN;
 
 export const ACCESS_ACTIONS = [
   'CONSULTER',
@@ -83,6 +101,7 @@ export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
   COMPTE: 'Compte Fermia',
   PLATEFORME: 'Administration de la plateforme Fermia',
   SESSION: 'Ma session',
+  REFERENCE: 'Données de référence',
 };
 
 export const ACTION_LABELS: Readonly<Record<AccessAction, string>> = {
@@ -96,7 +115,7 @@ export const ACTION_LABELS: Readonly<Record<AccessAction, string>> = {
 export function isAccessDomain(value: unknown): value is AccessDomain {
   return (
     typeof value === 'string' &&
-    (value === SESSION_DOMAIN ||
+    (MEMBER_DOMAINS.includes(value) ||
       (PROGRAMME_DOMAINS as readonly string[]).includes(value) ||
       (FERMIA_DOMAINS as readonly string[]).includes(value))
   );

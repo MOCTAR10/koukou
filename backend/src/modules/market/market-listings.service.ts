@@ -263,6 +263,7 @@ export class MarketListingsService {
       suggestion: suggestReadyDate({
         batchType: batch.type,
         integrationDate: batch.integrationDate,
+        initialAgeDays: batch.initialAgeDays,
         minAgeDays,
         standards,
         targetWeightKg: query.targetWeightKg,

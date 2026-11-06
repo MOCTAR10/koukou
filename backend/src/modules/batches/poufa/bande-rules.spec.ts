@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addDays,
   ageOn,
+  ageZeroDay,
   buildDailyStats,
   completenessPct,
   expectedEndDate,
@@ -37,6 +38,16 @@ describe('band dates', () => {
     expect(ageOn('2026-10-01', 0, '2026-10-01')).toBe(0);
     expect(ageOn('2026-10-01', 12, '2026-10-05')).toBe(16);
     expect(ageOn('2026-10-01', null, '2026-10-05')).toBe(4);
+  });
+
+  it('puts age 0 before the opening of a J+x band, never after', () => {
+    expect(ageZeroDay('2026-10-01', 12)).toBe('2026-09-19');
+    expect(ageZeroDay('2026-10-01', 0)).toBe('2026-10-01');
+    expect(ageZeroDay('2026-10-01T00:00:00.000Z', null)).toBe('2026-10-01');
+    // Consistent with the end date: J0 + reference duration.
+    expect(addDays(ageZeroDay('2026-10-01', 15), 45)).toBe(
+      expectedEndDate('2026-10-01', 15, 45),
+    );
   });
 
   it('ends a J+x band sooner', () => {

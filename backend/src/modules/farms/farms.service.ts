@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -28,6 +28,7 @@ import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
 import { User } from '../users/entities/user.entity.js';
 import { FarmEmployee } from './entities/farm-employee.entity.js';
 import { Farm } from './entities/farm.entity.js';
+import { Province } from '../programme/entities/province.entity.js';
 import type { InstitutionAccess } from '../access/access-rules.js';
 import { institutionPermissions } from '../access/permission-domains.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
@@ -40,12 +41,14 @@ export interface FarmDetailsInput {
   /** Refused (400): the name belongs to the registry (duplicate check). */
   name?: unknown;
   administrativeCity?: string;
-  buildingCount?: number | null;
-  capacityPerBuilding?: number | null;
-  buildingAreaM2?: number | null;
+  /** Refused (400): buildings and capacity belong to the registry. */
+  buildingCount?: unknown;
+  capacityPerBuilding?: unknown;
+  buildingAreaM2?: unknown;
   defaultSacKg?: number;
-  longitude?: number | null;
-  latitude?: number | null;
+  /** Refused (400): the GPS point belongs to the registry (history, province check). */
+  longitude?: unknown;
+  latitude?: unknown;
   isVerified?: boolean;
 }
 
@@ -107,6 +110,20 @@ export function uploadsRoot(): string {
 export const FARM_NAME_IN_REGISTRY =
   'Le nom d’une ferme du programme se modifie dans le registre (fiche de la ferme, PATCH /programme/farms/:farmId), qui contrôle les doublons.';
 
+/** French message of the 400 when a farm's GPS point is set outside the registry. */
+export const FARM_GPS_IN_REGISTRY =
+  'La position GPS d’une ferme du programme se modifie dans le registre (PUT /programme/farms/:farmId/gps), qui garde l’historique des relevés et contrôle la province.';
+
+/** French message of the 400 when building or capacity fields are set outside the registry. */
+export const FARM_CAPACITY_IN_REGISTRY =
+  'Les bâtiments et la capacité d’une ferme du programme se modifient dans le registre (capacité en places : PATCH /programme/farms/:farmId ; infrastructures : PUT /programme/farms/:farmId/infrastructures).';
+
+/** A farm as `GET /farms` serves it: its province code and name added. */
+export type FarmWithProvince = Farm & {
+  provinceCode: string | null;
+  provinceName: string | null;
+};
+
 /** A member's stored codes as the apps see them: dormant ones left out. */
 function servedPermissions(codes: readonly string[] | null | undefined): string[] {
   return (codes ?? []).filter(isPermissionCode);
@@ -133,6 +150,8 @@ export class FarmsService {
     private readonly employeeRepo: Repository<FarmEmployee>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
     private readonly scope: ScopeResolver,
   ) {}
 
@@ -182,7 +201,12 @@ export class FarmsService {
     }
   }
 
-  async findMine(user: AuthUser): Promise<Farm[]> {
+  /** The caller's farms (`GET /farms`), each with its province code and name. */
+  async findMine(user: AuthUser): Promise<FarmWithProvince[]> {
+    return this.withProvince(await this.farmsOf(user));
+  }
+
+  private async farmsOf(user: AuthUser): Promise<Farm[]> {
     if (user.role === UserRole.PLATFORM_ADMIN) {
       return this.farmRepo.find({ order: { name: 'ASC' } });
     }
@@ -206,6 +230,32 @@ export class FarmsService {
       relations: { farm: true },
     });
     return employments.map((e) => e.farm);
+  }
+
+  /**
+   * Adds `provinceCode` / `provinceName` (null without a province) to farms,
+   * with one query for all of them.
+   */
+  async withProvince(farms: Farm[]): Promise<FarmWithProvince[]> {
+    const ids = [
+      ...new Set(
+        farms.map((f) => f.provinceId).filter((id): id is string => !!id),
+      ),
+    ];
+    const provinces = ids.length
+      ? await this.provinceRepo.find({
+          where: { id: In(ids) },
+          select: { id: true, code: true, name: true },
+        })
+      : [];
+    const byId = new Map(provinces.map((p) => [p.id, p]));
+    return farms.map((f) => {
+      const p = f.provinceId ? byId.get(f.provinceId) : undefined;
+      return Object.assign(f, {
+        provinceCode: p?.code ?? null,
+        provinceName: p?.name ?? null,
+      });
+    });
   }
 
   /**
@@ -437,17 +487,21 @@ export class FarmsService {
       // Renaming here would bypass the registry's duplicate detection.
       throw new BadRequestException(FARM_NAME_IN_REGISTRY);
     }
+    // Same for the GPS point (history + province check) and the building /
+    // capacity fields (registry capacity and infrastructures).
+    if (input.latitude !== undefined || input.longitude !== undefined) {
+      throw new BadRequestException(FARM_GPS_IN_REGISTRY);
+    }
+    if (
+      input.buildingCount !== undefined ||
+      input.capacityPerBuilding !== undefined ||
+      input.buildingAreaM2 !== undefined
+    ) {
+      throw new BadRequestException(FARM_CAPACITY_IN_REGISTRY);
+    }
     if (input.administrativeCity != null)
       farm.administrativeCity = input.administrativeCity;
-    if (input.buildingCount !== undefined)
-      farm.buildingCount = input.buildingCount ?? null;
-    if (input.capacityPerBuilding !== undefined)
-      farm.capacityPerBuilding = input.capacityPerBuilding ?? null;
-    if (input.buildingAreaM2 !== undefined)
-      farm.buildingAreaM2 = input.buildingAreaM2 ?? null;
     if (input.defaultSacKg != null) farm.defaultSacKg = input.defaultSacKg;
-    if (input.longitude !== undefined) farm.longitude = input.longitude ?? null;
-    if (input.latitude !== undefined) farm.latitude = input.latitude ?? null;
     if (input.isVerified != null) farm.isVerified = input.isVerified;
     return this.farmRepo.save(farm);
   }

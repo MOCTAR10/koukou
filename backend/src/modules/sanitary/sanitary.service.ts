@@ -18,6 +18,7 @@ import { FarmsService } from '../farms/farms.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
+import { ageZeroDay } from '../batches/poufa/bande-rules.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
 import { SanitaryProtocol } from './entities/sanitary-protocol.entity.js';
 import { ProtocolStep } from './entities/protocol-step.entity.js';
@@ -234,7 +235,10 @@ export class SanitaryService {
       if (existingStepIds.has(step.id)) continue;
       // Like generateVaccineProgram: a step already past is skipped (it would
       // turn overdue at once and block slaughter and readiness).
-      const scheduledDate = addDays(batch.integrationDate, step.dayFrom);
+      const scheduledDate = addDays(
+        ageZeroDay(batch.integrationDate, batch.initialAgeDays),
+        step.dayFrom,
+      );
       if (scheduledDate < today) continue;
       const event = await this.eventRepo.save(
         this.eventRepo.create({
@@ -576,7 +580,10 @@ export class SanitaryService {
       }[] = [];
 
       for (const step of steps) {
-        const scheduledDate = addDays(lot.integrationDate, step.dayFrom);
+        const scheduledDate = addDays(
+          ageZeroDay(lot.integrationDate, lot.initialAgeDays),
+          step.dayFrom,
+        );
         const already = existingByStep.get(step.id);
         if (already) {
           const reason =

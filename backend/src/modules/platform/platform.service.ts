@@ -5,9 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
-import { generateLoginCode } from '../../common/utils/login-code.js';
+import { newLoginCode } from '../../common/utils/login-code.js';
 import { PaymentMethod } from '../../common/enums/payment-method.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
@@ -291,8 +290,8 @@ export class PlatformService {
         "Le code d'un administrateur plateforme ne se régénère pas depuis le tableau de bord.",
       );
     }
-    const loginCode = generateLoginCode();
-    user.passwordHash = await bcrypt.hash(loginCode, 10);
+    const { code: loginCode, hash } = await newLoginCode();
+    user.passwordHash = hash;
     const saved = await this.usersRepo.save(user);
     return { user: this.toPublicUser(saved), loginCode };
   }

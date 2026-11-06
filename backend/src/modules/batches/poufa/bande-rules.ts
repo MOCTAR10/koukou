@@ -38,6 +38,17 @@ export function ageOn(
 }
 
 /**
+ * Day the birds were at age 0 (J0): the integration date moved back by the
+ * age at opening. A care step or a curve week at age N falls on J0 + N.
+ */
+export function ageZeroDay(
+  integrationDate: string,
+  initialAgeDays: number | null,
+): string {
+  return addDays(integrationDate.slice(0, 10), -(initialAgeDays ?? 0));
+}
+
+/**
  * Planned end of the band: the reference duration counts from placement, so
  * a band opened at J+x ends x days sooner.
  */

@@ -303,6 +303,10 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(typo.duplicates[0].reasons).toEqual([
         'nom très proche dans la même province',
       ]);
+      expect(typo.duplicates[0]).toMatchObject({
+        provinceCode: 'G1',
+        provinceName: 'Estuaire',
+      });
 
       const sheet = await get(`/programme/farms/${created.farmId}`).expect(200);
       expect(sheet.body).toMatchObject({
@@ -384,6 +388,8 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(dup.body.duplicates).toHaveLength(1);
       expect(dup.body.duplicates[0]).toMatchObject({
         name: agriVert,
+        provinceCode: 'G1',
+        provinceName: 'Estuaire',
         reasons: ['même nom dans la même province'],
       });
       expect(dup.body.message).toContain('confirmDuplicate');
@@ -621,6 +627,13 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(mine.body.map((f: any) => f.id).sort()).toEqual(
         [farmA, farmB].sort(),
       );
+      // Each farm carries its province (one query for the whole list).
+      const provinces = Object.fromEntries(
+        mine.body.map((f: any) => [f.id, [f.provinceCode, f.provinceName]]),
+      );
+      expect(provinces[farmB]).toEqual(['G9', 'Woleu-Ntem']);
+      expect(provinces[farmA][0]).toBe('G5');
+      expect(typeof provinces[farmA][1]).toBe('string');
       await get(`/programme/farms/${farmB}`, token).expect(200);
       const someoneElse = (await get('/programme/farms?province=G1&pageSize=1'))
         .body.items[0].id;
