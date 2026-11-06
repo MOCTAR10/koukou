@@ -235,7 +235,7 @@ export class AccessAdminService {
       .innerJoinAndSelect('m.profile', 'p')
       .innerJoinAndSelect('m.user', 'u')
       .where('p.program_id = :programId', { programId: program.id })
-      .orderBy('u.full_name', 'ASC')
+      .orderBy('u.fullName', 'ASC')
       .getMany();
     const provinces = await this.provinceCodes(program.id);
     return rows.map((m) => this.membershipView(m, provinces));
