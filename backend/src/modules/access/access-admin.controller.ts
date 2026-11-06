@@ -120,6 +120,20 @@ export class AccessAdminController {
     return this.access.createMembership(user, dto);
   }
 
+  @Post('memberships/:id/login-code')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  @Action('ADMINISTRER')
+  @ApiOperation({
+    summary:
+      "Nouveau code de connexion d'un compte institutionnel (renvoyé une seule fois ; pas le sien)",
+  })
+  regenerateLoginCode(
+    @CurrentUser() user: AuthUser,
+    @Param('id', uuid) id: string,
+  ) {
+    return this.access.regenerateLoginCode(user, id);
+  }
+
   @Patch('memberships/:id')
   @Roles(UserRole.PLATFORM_ADMIN)
   @Action('ADMINISTRER')

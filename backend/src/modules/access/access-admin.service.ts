@@ -6,13 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { DataSource, EntityManager, In } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
-import { generateLoginCode } from '../../common/utils/login-code.js';
+import { newLoginCode } from '../../common/utils/login-code.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { Province } from '../programme/entities/province.entity.js';
 import { ProgrammeService } from '../programme/programme.service.js';
@@ -245,8 +244,7 @@ export class AccessAdminService {
   async createMembership(actor: AuthUser, dto: CreateMembershipDto) {
     const program = await this.programme.current();
     const granter = await this.granterOf(actor);
-    const code = generateLoginCode();
-    const passwordHash = await bcrypt.hash(code, 10);
+    const { code, hash: passwordHash } = await newLoginCode();
     try {
       const membershipId = await this.dataSource.transaction(async (em) => {
         const profile = await this.profileByCode(
@@ -356,6 +354,40 @@ export class AccessAdminService {
       throw err;
     });
     return this.membershipById(id);
+  }
+
+  /**
+   * New login code for an institutional account (the same code service as
+   * `POST /admin/users/:userId/login-code`): returned once, the previous
+   * code stops working, open sessions stay valid until they expire. Never
+   * one's own; an institutional admin only for an account it could grant.
+   */
+  async regenerateLoginCode(actor: AuthUser, id: string) {
+    const program = await this.programme.current();
+    const granter = await this.granterOf(actor);
+    const { code, hash } = await newLoginCode();
+    await this.dataSource.transaction(async (em) => {
+      const m = await em.getRepository(ProgramMembership).findOne({
+        where: { id },
+        relations: { profile: true },
+      });
+      if (!m || !m.profile || m.profile.programId !== program.id) {
+        throw new NotFoundException('Rattachement introuvable.');
+      }
+      if (m.userId === actor.id) {
+        throw new ForbiddenException(
+          'Vous ne pouvez pas régénérer votre propre code de connexion.',
+        );
+      }
+      await this.assertWithinOwnAccess(em, granter, m.profile, m);
+      const users = em.getRepository(User);
+      const user = await users.findOneOrFail({
+        where: { id: m.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      await users.save({ ...user, passwordHash: hash });
+    });
+    return { ...(await this.membershipById(id)), loginCode: code };
   }
 
   /**

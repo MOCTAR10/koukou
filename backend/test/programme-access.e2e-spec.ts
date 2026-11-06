@@ -20,6 +20,7 @@ import {
   SMS_SENDER,
 } from './../src/modules/auth/sms/sms-sender.js';
 import {
+  addProgrammeFarm,
   createPlatformAdmin,
   createProgrammeFarm,
   registerBuyer,
@@ -1096,6 +1097,114 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         {},
         accounts.ADMIN.token,
       ).expect(403);
+    });
+  });
+
+  describe('programme login codes (no platform admin needed)', () => {
+    it("regenerates a farm owner's code: matrix, scope, never one's own", async () => {
+      const url = `/programme/farms/${farmC}/owner-login-code`;
+      const first = await post(url, {}, adminToken).expect(201);
+      expect(first.body).toMatchObject({
+        farm: { id: farmC },
+        owner: { id: ownerId },
+      });
+      expect(first.body.loginCode).toMatch(/^\d{8}$/);
+      const ownerPhone: string = first.body.owner.phone;
+      // The programme admin profile (ADMINISTRATION:ADMINISTRER, ALL).
+      const second = await post(url, {}, accounts.ADMIN.token).expect(201);
+      await login(ownerPhone, first.body.loginCode).expect(401);
+      await login(ownerPhone, second.body.loginCode).expect(201);
+      const journal = await ds.query(
+        `SELECT summary::text AS s FROM audit_events WHERE route = '/programme/farms/:farmId/owner-login-code' AND params->>'farmId' = $1`,
+        [farmC],
+      );
+      expect(journal.length).toBeGreaterThanOrEqual(2);
+      for (const row of journal) {
+        expect(row.s ?? '').not.toContain(second.body.loginCode);
+      }
+      // Without ADMINISTRATION, or as the owner himself: refused.
+      await post(url, {}, accounts.DGE.token).expect(403);
+      await post(url, {}, ownerToken).expect(403);
+      // A farm without an owner account.
+      const none = await post(
+        `/programme/farms/${farmA}/owner-login-code`,
+        {},
+        adminToken,
+      ).expect(409);
+      expect(none.body).toMatchObject({ noOwnerAccount: true });
+
+      // A provincial admin: its farms only, and not for an owner who also
+      // holds a farm out of its scope.
+      const code = `LCADM${digits}`;
+      await post(
+        '/programme/access/profiles',
+        {
+          code,
+          label: `Admin codes ${digits}`,
+          scopeKind: 'PROVINCES',
+          matrix: { ADMINISTRATION: ['CONSULTER', 'ADMINISTRER'] },
+        },
+        adminToken,
+      ).expect(201);
+      const padm = (await createInstitution(code, { provinceCodes: ['G1'] }))
+        .token;
+      await post(url, {}, padm).expect(403); // farm C is in G3
+      const solo = await createProgrammeFarm(server, adminToken, {
+        provinceCode: 'G1',
+        name: `Ferme codes ${tag}`,
+      });
+      const res = await post(
+        `/programme/farms/${solo.farmId}/owner-login-code`,
+        {},
+        padm,
+      ).expect(201);
+      await login(solo.ownerPhone, res.body.loginCode).expect(201);
+      await addProgrammeFarm(server, adminToken, solo.ownerPhone, {
+        provinceCode: 'G2',
+        name: `Ferme codes sud ${tag}`,
+      });
+      const split = await post(
+        `/programme/farms/${solo.farmId}/owner-login-code`,
+        {},
+        padm,
+      ).expect(403);
+      expect(split.body.message).toContain('hors de votre périmètre');
+    });
+
+    it("regenerates an institutional account's code within the admin's own access", async () => {
+      const agent = await createInstitution(readerProfile, {
+        farmIds: [farmA],
+      });
+      const url = `/programme/access/memberships/${agent.id}/login-code`;
+      const first = await post(url, {}, adminToken).expect(201);
+      expect(first.body).toMatchObject({
+        id: agent.id,
+        user: { id: agent.userId },
+      });
+      expect(first.body.loginCode).toMatch(/^\d{8}$/);
+      await login(agent.phone, agent.code).expect(401);
+      await login(agent.phone, first.body.loginCode).expect(201);
+      const second = await post(url, {}, accounts.ADMIN.token).expect(201);
+      await login(agent.phone, second.body.loginCode).expect(201);
+      // Never one's own, never a broader account, never without the rights.
+      await post(
+        `/programme/access/memberships/${accounts.ADMIN.id}/login-code`,
+        {},
+        accounts.ADMIN.token,
+      ).expect(403);
+      const broader = await post(
+        `/programme/access/memberships/${accounts.DGE.id}/login-code`,
+        {},
+        accounts.ADMIN.token,
+      ).expect(403);
+      expect(broader.body.message).toContain('plus larges que les vôtres');
+      await post(url, {}, accounts.DGE.token).expect(403);
+      await post(url, {}, ownerToken).expect(403);
+      await post(
+        '/programme/access/memberships/00000000-0000-4000-8000-0000000000d1/login-code',
+        {},
+        adminToken,
+      ).expect(404);
     });
   });
 
