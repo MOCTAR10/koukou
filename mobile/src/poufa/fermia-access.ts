@@ -10,6 +10,7 @@
 import type { AccessMatrix } from '@/api/poufa';
 import type { UserRole } from '@/api/types';
 
+import { canReviewDeclarations } from './declaration-review';
 import { matrixGrants, readsProgrammeDomain } from './access';
 
 /** Fermia areas an institution may be granted (ECONOMIQUE = sales list, expenses, rentabilité). */
@@ -75,6 +76,8 @@ export interface MenuGate {
   fermiaArea?: FermiaArea;
   /** Set on programme bonus tiles: an institution sees it with `<area>:CONSULTER` (its perms are ignored). */
   programmeArea?: ProgrammeBonusArea;
+  /** Veterinary tile: an institution sees it with SANITAIRE:VALIDER (declaration review). */
+  vetReview?: boolean;
 }
 
 export function menuItemVisible(
@@ -83,6 +86,7 @@ export function menuItemVisible(
   has: HasCode,
   matrix?: AccessMatrix | null,
 ): boolean {
+  if (item.vetReview) return canReviewDeclarations(role, matrix);
   if (item.programmeArea && role === 'INSTITUTION') return readsProgrammeDomain(role, matrix, item.programmeArea);
   if (item.fermiaArea && !readsFermiaArea(role, item.fermiaArea, has)) return false;
   if (item.fermiaArea && role === 'INSTITUTION') return true;
