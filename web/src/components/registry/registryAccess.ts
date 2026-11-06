@@ -16,10 +16,18 @@ export interface RegistryRights {
   import: boolean;
   /** `POST /programme/farms/:farmId/owner-login-code` (domain ADMINISTRATION:ADMINISTRER, like the activation). */
   regenerateCode: boolean;
+  /**
+   * POUFA lot A droits: the GPS point (`PUT …/gps`): REGISTRE:MODIFIER, or
+   * TECHNIQUE:VALIDER (the agent technique checks the farm on site, « à
+   * valider DGE »).
+   */
+  gps: boolean;
+  /** POUFA lot A droits: the Market verification (`PUT …/verification`, REGISTRE:VALIDER). */
+  verify: boolean;
 }
 
-const NONE: RegistryRights = { view: false, create: false, edit: false, activateOwner: false, import: false, regenerateCode: false };
-const ALL: RegistryRights = { view: true, create: true, edit: true, activateOwner: true, import: true, regenerateCode: true };
+const NONE: RegistryRights = { view: false, create: false, edit: false, activateOwner: false, import: false, regenerateCode: false, gps: false, verify: false };
+const ALL: RegistryRights = { view: true, create: true, edit: true, activateOwner: true, import: true, regenerateCode: true, gps: true, verify: true };
 
 /**
  * Registry rights per account, mirroring the server (`ProgramAccessGuard`,
@@ -38,12 +46,15 @@ export function registryRights(
   if (role !== 'INSTITUTION' || !access) return NONE;
   const create = grantsAccess(access, 'REGISTRE', 'CREER');
   const administer = grantsAccess(access, 'ADMINISTRATION', 'ADMINISTRER');
+  const edit = grantsAccess(access, 'REGISTRE', 'MODIFIER');
   return {
     view: grantsAccess(access, 'REGISTRE', 'CONSULTER'),
     create,
-    edit: grantsAccess(access, 'REGISTRE', 'MODIFIER'),
+    edit,
     activateOwner: administer,
     import: create && access.scopeKind === 'ALL',
     regenerateCode: administer,
+    gps: edit || grantsAccess(access, 'TECHNIQUE', 'VALIDER'),
+    verify: grantsAccess(access, 'REGISTRE', 'VALIDER'),
   };
 }

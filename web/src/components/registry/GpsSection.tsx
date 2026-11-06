@@ -17,6 +17,7 @@ import {
   type DeviceFix,
 } from './geolocation';
 import { buildGpsBody } from './sheetForm';
+import { useIdempotencyKey } from '../../lib/idempotency';
 
 const SOURCE_LABEL: Record<string, string> = {
   APPAREIL: 'relevé sur place',
@@ -144,13 +145,16 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
     );
   };
   const source = gpsSourceOf(draft, device);
+  // POUFA lot A droits: a retry after a lost answer reuses the key, so the server adds the fix once.
+  const idempotency = useIdempotencyKey('farm-gps');
   const save = useMutation({
-    mutationFn: (body: object) => api.put<SetGpsResult>(`/programme/farms/${sheet.id}/gps`, body),
+    mutationFn: (body: object) => api.put<SetGpsResult>(`/programme/farms/${sheet.id}/gps`, { ...body, idempotencyKey: idempotency.keyFor(body) }),
     onSuccess: (result) => {
+      idempotency.settle();
       queryClient.setQueryData<RegistrySheet>(['programme-farm', sheet.id], (prev) => (prev ? { ...prev, gps: result.gps } : prev));
       invalidateRegistry(queryClient, sheet.id);
-      // Stored either way; a point outside the province stays on screen to be checked.
-      if (!result.provinceWarning) onClose();
+      // Stored either way; a point outside the province, or a fix the server kept out (older than the current point), stays on screen.
+      if (!result.provinceWarning && result.applied !== false) onClose();
     },
   });
   const set = (key: keyof typeof draft) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -166,7 +170,16 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
 
   return (
     <Modal title={`Position GPS · ${sheet.code ?? sheet.name}`} onClose={onClose}>
-      {save.data?.provinceWarning ? (
+      {save.data?.applied === false ? (
+        <div className="space-y-4">
+          <p className="rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900 ring-1 ring-sky-200">
+            {save.data.message ?? 'Ce relevé n’a pas été retenu : le point actuel est conservé.'}
+          </p>
+          <div className="flex justify-end">
+            <Button onClick={onClose}>Fermer</Button>
+          </div>
+        </div>
+      ) : save.data?.provinceWarning ? (
         <div className="space-y-4">
           <p className="text-sm text-slate-700">Relevé enregistré. Vérifiez-le :</p>
           <ProvinceWarning text={save.data.provinceWarning} />

@@ -132,7 +132,8 @@ export interface DashboardData {
   mortalityPercent: number | null;
   viabilityPercent: number | null;
   feedAutonomyDays: number | null;
-  collectedTodayFcfa: number;
+  /** POUFA lot A droits (F6): null for an institution reading neither ECONOMIQUE nor VENTES. */
+  collectedTodayFcfa: number | null;
   teamCount: number;
   alerts: { total: number; rouge: number; jaune: number; vert: number };
   health: DashboardHealth;
@@ -396,6 +397,10 @@ export interface ReferenceConstant {
   /** What the threshold means (and its unit), as seeded. */
   description: string | null;
   isEditable: boolean;
+  /** POUFA lot A droits (F8): the profile that owns the threshold (older servers omit it). */
+  ownerProfile?: 'DGE' | 'VETERINAIRE';
+  /** POUFA lot A droits: sanitary thresholds (veterinary services) or conduct ones (DGE). */
+  group?: 'SANITAIRE' | 'CONDUITE';
 }
 
 export interface PlatformMetrics {

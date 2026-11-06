@@ -59,6 +59,9 @@ import { motion, useReducedMotion } from 'motion/react';
 // POUFA W6: inputs and traceability entries.
 import { QrCode, Truck } from 'lucide-react';
 import { FARM_DELIVERIES_PATH, isProgrammeWidePath, programmeEntries, programmeWideLabel } from './trace/traceAccess';
+// POUFA lot A droits: the programme economic synthesis entry.
+import { useInstitutionAccess } from '../app/useInstitutionAccess';
+import { ECONOMIE_PATH, economieRights } from './economie/economie';
 
 /** `perms`: at least one is required to show the entry; absent means visible to all. */
 const NAV: Array<{
@@ -80,7 +83,7 @@ const NAV: Array<{
       { to: '/app/activities', label: 'Activités', icon: NotebookPen },
       { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText, perms: ['sanitaire:lecture'] },
       { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse, perms: ['stock:gerer'] },
-      { to: FARM_DELIVERIES_PATH, label: 'Livraisons d’intrants', icon: Truck }, // POUFA W6
+      { to: FARM_DELIVERIES_PATH, label: 'Livraisons d’intrants', icon: Truck, perms: ['intrants:lire', 'stock:gerer'] }, // POUFA W6; lot A droits: « intrants:lire »
       { to: '/app/slaughter', label: 'Abattage', icon: Factory, perms: ['production:abattage'] },
     ],
   },
@@ -91,7 +94,7 @@ const NAV: Array<{
       { to: '/app/finance/ventes', label: 'Ventes', icon: ShoppingCart, perms: ['vente:creer'] },
       { to: '/app/finance/caisse', label: 'Caisse', icon: Coins, perms: ['caisse:lire'] },
       { to: '/app/orders', label: 'Commandes', icon: ClipboardList, perms: ['vente:commande', 'vente:creer'] },
-      { to: '/app/market', label: 'Marché', icon: Store, perms: ['market:publier', 'vente:commande'] },
+      { to: '/app/market', label: 'Marché', icon: Store, perms: ['market:publier', 'vente:commande', 'market:lire'] },
       { to: '/app/finance/clients', label: 'Clients', icon: Handshake, perms: ['compta:client'] },
       { to: '/app/points-of-sale', label: 'Points de vente', icon: MapPin, perms: ['pdv:gerer'] },
       { to: '/app/finance/promotions', label: 'Promotions', icon: BadgePercent, perms: ['vente:promotion'] },
@@ -101,8 +104,9 @@ const NAV: Array<{
     title: 'Finance',
     items: [
       { to: '/app/reports', label: 'Rentabilité', icon: FileBarChart, perms: ['compta:rapports'] },
-      { to: '/app/accounting', label: 'Comptabilité', icon: Landmark, perms: ['compta:rapports'] },
-      { to: '/app/expenses', label: 'Dépenses', icon: ReceiptText, perms: ['compta:depense'] },
+      // POUFA lot A droits: same codes as the routes (App.tsx).
+      { to: '/app/accounting', label: 'Comptabilité', icon: Landmark, perms: ['compta:rapports', 'compta:lire'] },
+      { to: '/app/expenses', label: 'Dépenses', icon: ReceiptText, perms: ['compta:depense', 'compta:rapports'] },
     ],
   },
   {
@@ -155,7 +159,9 @@ export function Shell() {
       ? 'Journal d’audit du programme'
       : pathname.startsWith('/app/reprise')
         ? 'Reprise des données du programme'
-        : null;
+        : pathname.startsWith(ECONOMIE_PATH) // POUFA lot A droits
+          ? 'Synthèse économique du programme'
+          : null;
   // --- end programme administration ---
   const onProgrammeWide = isProgrammeWidePath(pathname); // POUFA W6
   const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null || onProgrammeWide;
@@ -163,6 +169,7 @@ export function Shell() {
   const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
     useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
+  const economie = economieRights(user?.role, useInstitutionAccess().access?.profile); // POUFA lot A droits
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
   const farmProvince = farm?.provinceName ?? undefined;
   // Programme-wide entries: the registry, the platform console, the institutional access administration, an institution's own access.
@@ -170,6 +177,8 @@ export function Shell() {
     ...(registry.view ? [{ to: '/app/registre', label: 'Registre des fermes', icon: BookMarked }] : []),
     // POUFA L6: programme steering (PILOTAGE:CONSULTER or the platform admin).
     ...(pilotage.view ? [{ to: '/app/pilotage', label: 'Pilotage du programme', icon: Gauge }] : []),
+    // POUFA lot A droits: programme economic synthesis (ECONOMIQUE:CONSULTER on farms, or the platform admin).
+    ...(economie.view ? [{ to: ECONOMIE_PATH, label: 'Synthèse économique', icon: Landmark }] : []),
     ...(showPlatform ? [{ to: '/app/platform', label: 'Cockpit plateforme', icon: Shield }] : []),
     ...(showAccessAdmin ? [{ to: '/app/acces', label: 'Accès institutionnels', icon: KeyRound }] : []),
     // --- Programme administration, by domain: PARAMETRES (or ADMINISTRATION for the lists), AUDIT, REGISTRE (national) ---

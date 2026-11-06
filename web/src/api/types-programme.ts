@@ -135,6 +135,8 @@ export interface GpsFixBody {
 /** `PUT /programme/farms/:farmId/gps`. */
 export interface SetGpsBody extends GpsFixBody {
   reason?: string;
+  /** POUFA lot A droits: unique per farm; a replay adds no second history row. */
+  idempotencyKey?: string;
 }
 
 export interface SetGpsResult {
@@ -142,6 +144,15 @@ export interface SetGpsResult {
   previous: { latitude: number; longitude: number; capturedAt: string | null; source: string | null } | null;
   /** The point is outside the farm's province: a warning, the fix is stored. */
   provinceWarning: string | null;
+  /** POUFA lot A droits: false when the fix was older than the current point (kept) or a replay; `message` says why. Older servers omit both. */
+  applied?: boolean;
+  message?: string | null;
+}
+
+/** POUFA lot A droits: `PUT /programme/farms/:farmId/verification` (REGISTRE:VALIDER), answers the sheet. */
+export interface SetVerificationBody {
+  verified: boolean;
+  reason?: string;
 }
 
 interface RegistryAuthor {

@@ -4,7 +4,7 @@ import {
   ACCESS_ACTIONS,
   ACTION_LABELS,
   DOMAIN_LABELS,
-  PROGRAMME_DOMAINS,
+  GRANTABLE_DOMAINS,
   SCOPE_KIND_LABELS,
   type AccessDomain,
 } from '../api/types-access';
@@ -47,6 +47,17 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/intrants': 'Intrants (livraisons du programme)',
   '/app/livraisons': 'Livraisons d’intrants de la ferme',
   '/app/tracabilite': 'Traçabilité et opérateurs',
+  // POUFA lot A droits: the Fermia modules opened in consultation, and the programme synthesis.
+  '/app/finance/ventes': 'Ventes',
+  '/app/finance/caisse': 'Caisse',
+  '/app/finance/clients': 'Clients',
+  '/app/orders': 'Commandes',
+  '/app/points-of-sale': 'Points de vente',
+  '/app/market': 'Marché',
+  '/app/accounting': 'Comptabilité',
+  '/app/hr': 'Dossiers RH',
+  '/app/team': 'Équipe',
+  '/app/economie': 'Synthèse économique',
 };
 
 /** Programme-wide pages: open without a farm in the scope (POUFA L5 adds surveillance and notification rules). */
@@ -108,7 +119,7 @@ export function MyAccessPage() {
 
   const { profile } = access;
   const reaches = scopeReachesFarms(profile.scopeKind);
-  const granted = PROGRAMME_DOMAINS.filter((d) => (profile.matrix[d]?.length ?? 0) > 0);
+  const granted = GRANTABLE_DOMAINS.filter((d) => (profile.matrix[d]?.length ?? 0) > 0);
 
   return (
     <div className="space-y-6">

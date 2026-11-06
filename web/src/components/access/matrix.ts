@@ -1,7 +1,8 @@
 import { ApiError, errorBody } from '../../api/errors';
 import {
   ACCESS_ACTIONS,
-  PROGRAMME_DOMAINS,
+  GRANTABLE_DOMAINS,
+  grantableActions,
   type AccessAction,
   type AccessDomain,
   type AccessMatrix,
@@ -25,7 +26,7 @@ export const cellKey = (domain: AccessDomain, action: AccessAction): string => `
 
 export function cellsOf(matrix: AccessMatrix | null | undefined): Set<string> {
   const cells = new Set<string>();
-  for (const domain of PROGRAMME_DOMAINS) {
+  for (const domain of GRANTABLE_DOMAINS) {
     for (const action of matrix?.[domain] ?? []) cells.add(cellKey(domain, action));
   }
   return cells;
@@ -44,7 +45,7 @@ export function toggleCell(cells: MatrixCells, domain: AccessDomain, action: Acc
 export function setDomain(cells: MatrixCells, domain: AccessDomain, on: boolean): Set<string> {
   const next = new Set(cells);
   for (const action of ACCESS_ACTIONS) {
-    if (on) next.add(cellKey(domain, action));
+    if (on && grantableActions(domain).includes(action)) next.add(cellKey(domain, action));
     else next.delete(cellKey(domain, action));
   }
   return next;
@@ -56,9 +57,9 @@ export function setDomain(cells: MatrixCells, domain: AccessDomain, on: boolean)
  */
 export function matrixOf(cells: MatrixCells, scopeKind: ScopeKind): AccessMatrix {
   const matrix: AccessMatrix = {};
-  for (const domain of PROGRAMME_DOMAINS) {
+  for (const domain of GRANTABLE_DOMAINS) {
     if (!domainAllowed(domain, scopeKind)) continue;
-    const actions = ACCESS_ACTIONS.filter((a) => cells.has(cellKey(domain, a)));
+    const actions = ACCESS_ACTIONS.filter((a) => cells.has(cellKey(domain, a)) && grantableActions(domain).includes(a));
     if (actions.length > 0) matrix[domain] = actions;
   }
   return matrix;
@@ -77,12 +78,17 @@ export function domainLockReason(domain: AccessDomain, scopeKind: ScopeKind): st
     : 'Réservé à un profil de périmètre « Journal d’audit ».';
 }
 
+/** POUFA lot A droits: why a cell is locked (a Fermia domain opens in consultation only); null: open. */
+export function actionLockReason(domain: AccessDomain, action: AccessAction): string | null {
+  return grantableActions(domain).includes(action) ? null : 'Module Fermia : consultation seule pour un profil institutionnel.';
+}
+
 /**
  * Domains granting some action but not « Consulter »: their screens stay out
  * of the account's menu (every screen reads first), worth a warning.
  */
 export function domainsWithoutConsult(matrix: AccessMatrix): AccessDomain[] {
-  return PROGRAMME_DOMAINS.filter((d) => {
+  return GRANTABLE_DOMAINS.filter((d) => {
     const actions = matrix[d];
     return !!actions && actions.length > 0 && !actions.includes('CONSULTER');
   });
@@ -90,7 +96,7 @@ export function domainsWithoutConsult(matrix: AccessMatrix): AccessDomain[] {
 
 /** Number of granted cells (list summary). */
 export function grantCount(matrix: AccessMatrix): number {
-  return PROGRAMME_DOMAINS.reduce((n, d) => n + (matrix[d]?.length ?? 0), 0);
+  return GRANTABLE_DOMAINS.reduce((n, d) => n + (matrix[d]?.length ?? 0), 0);
 }
 
 /** Same grants, whatever the order: tells whether the form changed the matrix. */

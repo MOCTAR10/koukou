@@ -2,7 +2,7 @@ import {
   ACCESS_ACTIONS,
   ACTION_LABELS,
   DOMAIN_LABELS,
-  PROGRAMME_DOMAINS,
+  GRANTABLE_DOMAINS,
   SCOPE_KIND_LABELS,
   type AccessAction,
   type AccessDomain,
@@ -70,7 +70,7 @@ export function scopeKindRefusal(granter: ScopeKind, target: ScopeKind): string 
 /** Rights of `target` the granter does not hold, in catalogue order. */
 export function matrixExcess(granter: AccessMatrix, target: AccessMatrix): Array<[AccessDomain, AccessAction]> {
   const out: Array<[AccessDomain, AccessAction]> = [];
-  for (const domain of PROGRAMME_DOMAINS) {
+  for (const domain of GRANTABLE_DOMAINS) {
     for (const action of ACCESS_ACTIONS) {
       if (holds(target, domain, action) && !holds(granter, domain, action)) out.push([domain, action]);
     }

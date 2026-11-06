@@ -133,6 +133,8 @@ describe('registryRights', () => {
       activateOwner: true,
       import: true,
       regenerateCode: true,
+      gps: true,
+      verify: true,
     });
     expect(registryRights('PROPRIETAIRE').view).toBe(false);
     expect(registryRights('INSTITUTION').view).toBe(false); // access not loaded
@@ -147,11 +149,18 @@ describe('registryRights', () => {
       activateOwner: true,
       import: false,
       regenerateCode: true,
+      gps: true,
+      verify: false,
     });
     const national: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
     expect(registryRights('INSTITUTION', national)).toMatchObject({ create: true, import: true, edit: false, activateOwner: false, regenerateCode: false });
     const provincial: Profile = { scopeKind: 'PROVINCES', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
     expect(registryRights('INSTITUTION', provincial).import).toBe(false);
+    // POUFA lot A droits: the agent technique records the GPS point (TECHNIQUE:VALIDER), nothing else of the sheet.
+    const agentTechnique: Profile = { scopeKind: 'FARMS', matrix: { REGISTRE: ['CONSULTER'], TECHNIQUE: ['CONSULTER', 'VALIDER'] } };
+    expect(registryRights('INSTITUTION', agentTechnique)).toMatchObject({ view: true, edit: false, gps: true, verify: false });
+    const dge: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'] } };
+    expect(registryRights('INSTITUTION', dge)).toMatchObject({ edit: true, gps: true, verify: true });
     // An AUDIT-scope profile reads the journal only.
     expect(registryRights('INSTITUTION', { scopeKind: 'AUDIT', matrix: { REGISTRE: ['CONSULTER'] } }).view).toBe(false);
   });

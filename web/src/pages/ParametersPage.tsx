@@ -1,9 +1,11 @@
-import { ListChecks, Map as MapIcon, SlidersHorizontal } from 'lucide-react';
+import { Gauge, ListChecks, Map as MapIcon, SlidersHorizontal } from 'lucide-react';
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import { useMenuAccess } from '../app/useMenuAccess';
 import { ListsView } from '../components/admin/ListsView';
 import { ParametersView } from '../components/admin/ParametersView';
 import { TerritoriesView } from '../components/admin/TerritoriesView';
+// POUFA lot A droits (F8): Fermia conduct thresholds tab.
+import { ThresholdsView } from '../components/admin/ThresholdsView';
 import { Loading, PageHeader } from '../components/ui';
 import { classNames } from '../lib/format';
 
@@ -16,7 +18,8 @@ const tabCls = ({ isActive }: { isActive: boolean }) =>
 /**
  * Programme settings without development (CDC §7.3): versioned parameters
  * (`/app/parametres`), configurable lists (`/app/parametres/listes`) and
- * provinces / localités (`/app/parametres/territoires`). Platform admin, or
+ * provinces / localités (`/app/parametres/territoires`), and the Fermia
+ * conduct thresholds (`/app/parametres/seuils`, POUFA lot A droits). Platform admin, or
  * an institution granted PARAMETRES (parameters) or ADMINISTRATION (lists,
  * territories); the server checks every write (owner profile, ADMINISTRER).
  */
@@ -39,6 +42,11 @@ export function ParametersPage() {
             <SlidersHorizontal className="h-3.5 w-3.5" /> Paramètres et formules
           </NavLink>
         ) : null}
+        {parameters.view ? (
+          <NavLink to="/app/parametres/seuils" className={tabCls}>
+            <Gauge className="h-3.5 w-3.5" /> Seuils de conduite Fermia
+          </NavLink>
+        ) : null}
         {lists.view ? (
           <>
             <NavLink to="/app/parametres/listes" className={tabCls}>
@@ -53,6 +61,7 @@ export function ParametersPage() {
 
       <Routes>
         <Route index element={parameters.view ? <ParametersView rights={parameters} /> : <Navigate to="listes" replace />} />
+        <Route path="seuils" element={parameters.view ? <ThresholdsView rights={parameters} /> : <Navigate to="/app/parametres" replace />} />
         <Route path="listes" element={lists.view ? <ListsView rights={lists} /> : <Navigate to="/app/parametres" replace />} />
         <Route path="territoires" element={lists.view ? <TerritoriesView rights={lists} /> : <Navigate to="/app/parametres" replace />} />
         <Route path="*" element={<Navigate to="/app/parametres" replace />} />
