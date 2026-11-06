@@ -13,6 +13,7 @@ import type {
 } from '../api/types-finance';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 import {
   BalanceTab,
   BilanTab,
@@ -171,6 +172,7 @@ export function AccountingPage() {
           </>
         }
       />
+      <ReadOnlyNotice what="comptabilité SYSCOHADA" />
 
       <div role="tablist" className="flex flex-wrap gap-1 border-b border-slate-200">
         {TABS.map((t) => (

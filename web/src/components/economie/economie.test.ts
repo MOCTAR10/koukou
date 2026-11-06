@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  availableViews,
   defaultPeriod,
   economieRights,
+  effectiveView,
+  missingAreas,
   exportFilename,
   exportPath,
   marginRate,
@@ -72,5 +75,32 @@ describe('margins', () => {
     expect(matchesSearch(row, 'estu')).toBe(true);
     expect(matchesSearch(row, 'woleu')).toBe(false);
     expect(matchesSearch(row, '  ')).toBe(true);
+  });
+});
+
+// POUFA lot A2 dge: column groups of the synthesis.
+describe('column groups', () => {
+  const base = { sales: true, collected: true, payroll: true, stock: true };
+  it('offers only the groups the matrix grants', () => {
+    expect(availableViews(base)).toEqual(['ventes']);
+    expect(availableViews({ ...base, accounting: true, market: true, production: true })).toEqual(['ventes', 'comptabilite', 'market', 'production']);
+    expect(availableViews({ ...base, market: true })).toEqual(['ventes', 'market']);
+  });
+
+  it('falls back to the first granted group', () => {
+    expect(effectiveView('market', { ...base, market: true })).toBe('market');
+    expect(effectiveView('comptabilite', base)).toBe('ventes');
+    expect(effectiveView('production', { ...base, sales: false, production: true })).toBe('production');
+    expect(effectiveView('ventes', { ...base, sales: false })).toBeNull();
+  });
+
+  it('names what the profile does not open', () => {
+    expect(missingAreas({ ...base, accounting: true, market: true, production: true })).toEqual([]);
+    expect(missingAreas({ ...base, payroll: false })).toEqual([
+      'les salaires (Équipe et RH)',
+      'la comptabilité SYSCOHADA',
+      'le Market',
+      'les saisies techniques (complétude et volumes)',
+    ]);
   });
 });

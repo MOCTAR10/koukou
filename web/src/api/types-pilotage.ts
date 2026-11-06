@@ -42,7 +42,8 @@ export interface PilotageMetrics {
   placedHeads: number;
   deaths: number;
   mortalityPct: number | null;
-  produced: { heads: number; kg: number; tonnes: number };
+  /** Null when the programme's volume formula is undefined (POUFA lot A2 dge). */
+  produced: { heads: number | null; kg: number | null; tonnes: number | null };
   sold: {
     liveHeads: number;
     liveKg: number;
@@ -76,6 +77,12 @@ export interface PilotagePerimeter {
   eligibleBandTypes: { species: string; type: string }[];
   conductAlerts: { label: string; kinds: string[] };
   mortalityFormula: { expression: string; parameterKey: string } | null;
+  /** POUFA lot A2 dge: completeness and volumes produced go through formulas too. */
+  completenessFormula?: { expression: string; parameterKey: string } | null;
+  producedFormulas?: {
+    heads: { expression: string; parameterKey: string } | null;
+    kg: { expression: string; parameterKey: string } | null;
+  };
 }
 
 export interface GroupFigures {

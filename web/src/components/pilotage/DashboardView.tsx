@@ -307,6 +307,8 @@ function PerimeterNote({ d }: { d: PilotageDashboard }) {
     <Note tone="slate">
       Périmètre du programme : {bandTypesLabel(p.eligibleBandTypes)}. Les autres bandes des fermes sont hors programme et ne comptent pas dans ces chiffres.
       {p.mortalityFormula ? ` Mortalité de la période = ${p.mortalityFormula.expression} (paramètre ${p.mortalityFormula.parameterKey}).` : ''}
+      {p.completenessFormula ? ` Complétude = ${p.completenessFormula.expression} (paramètre ${p.completenessFormula.parameterKey}).` : ''}
+      {p.producedFormulas?.kg ? ` Volumes produits (kg) = ${p.producedFormulas.kg.expression} (paramètre ${p.producedFormulas.kg.parameterKey}).` : ''}
     </Note>
   );
 }
