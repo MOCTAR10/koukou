@@ -213,6 +213,24 @@ describe('LiveApi.fetchBatches / fetchBatch', () => {
     expect(batch.breedName).toBe('Souche maison');
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('/breeds'))).toHaveLength(2);
   });
+
+  it('garde les champs de la bande POUFA (code, J+x, durée de référence, clôture)', async () => {
+    stubFetchSequence([
+      jsonResponse(200, [
+        {
+          id: 'lot-3', farmId: 'f-1', batchName: 'Bande 3', breedId: null, integrationDate: '2026-10-16',
+          quantityAtStart: 800, quantityAlive: 790, type: 'CHAIR', status: 'ACTIF',
+          code: 'G1-0003-B01', initialAgeDays: 21, referenceDurationDays: 45, closedAt: null,
+          metrics: { ageDays: 42 },
+        },
+      ]),
+      jsonResponse(200, []),
+    ]);
+    const [batch] = await new LiveApi().fetchBatches('f-1');
+    expect(batch).toMatchObject({ code: 'G1-0003-B01', initialAgeDays: 21, referenceDurationDays: 45, closedAt: null });
+    // The served age already includes J+x.
+    expect(batch.metrics.ageDays).toBe(42);
+  });
 });
 
 describe('LiveApi.fetchFeedStock / fetchCaisse', () => {

@@ -205,6 +205,10 @@ interface RawBatch {
   customSpecies?: string | null;
   customBreed?: string | null;
   status: BatchStatus;
+  code?: string | null;
+  initialAgeDays?: number | null;
+  referenceDurationDays?: number | null;
+  closedAt?: string | null;
   metrics: RawBatchMetrics;
 }
 
@@ -320,6 +324,12 @@ function mapBatch(b: RawBatch, breedsById: BreedLabels): BatchWithMetrics {
     customSpecies: b.customSpecies ?? null,
     customBreed: b.customBreed ?? null,
     status: b.status,
+    // POUFA band fields (dropped here before, so the band code, the J+x and
+    // the reference duration never reached the lot screens).
+    code: b.code ?? null,
+    initialAgeDays: b.initialAgeDays ?? null,
+    referenceDurationDays: b.referenceDurationDays ?? null,
+    closedAt: b.closedAt ?? null,
     metrics: mapMetrics(b.metrics),
   };
 }

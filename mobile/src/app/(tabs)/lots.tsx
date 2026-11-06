@@ -72,7 +72,7 @@ import { useCreateCenter } from '@/components/create/CreateCenter';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { ApiError } from '@/api/client';
 import { toast } from '@/components/ui/Feedback';
-import { bandCycle, lotSearchText } from '@/utils/band';
+import { ageOnDay, bandCycle, lotSearchText } from '@/utils/band';
 
 // ── Filters ──
 type FilterType = 'all' | 'active' | 'selling' | 'chair' | 'layer';
@@ -371,7 +371,7 @@ type CareInsight = { tone: 'red' | 'amber' | 'neutral'; main: string; sub: strin
 const MEDICAL_CARE_TYPES = new Set(['VACCIN', 'MEDICAMENT', 'ANTIBIOTIQUE']);
 
 function nextCareInsight(
-  batch: { integrationDate: string; metrics: { ageDays: number } },
+  batch: { integrationDate: string; initialAgeDays?: number | null; metrics: { ageDays: number } },
   prophylaxis: ProphylaxisEvent[] | undefined,
   treatments: TreatmentRecord[] | undefined,
   program: SanitaryProtocolWithSteps | undefined,
@@ -380,7 +380,8 @@ function nextCareInsight(
   const medical = events.filter((p) => MEDICAL_CARE_TYPES.has(p.careType));
   const integration = batch.integrationDate ? batch.integrationDate.slice(0, 10) : undefined;
   const today = fromUtc(Date.now());
-  const jOf = (iso: string) => (integration ? daysBetween(integration, iso) + 1 : null);
+  // Age of the birds on that day (J+x aware), the same J as the served ageDays.
+  const jOf = (iso: string) => (integration ? ageOnDay(integration, batch.initialAgeDays, iso) : null);
   const sorted = (arr: ProphylaxisEvent[]) => [...arr].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
 
   const late = sorted(medical.filter((p) => p.status === 'EN_RETARD'));
@@ -1188,8 +1189,7 @@ function LotCard({ batch, buildingName, health, prophylaxis, treatments, program
   const specLabel = customName ?? speciesLabel(spec);
   // Cycle of the band: its reference duration (programme parameter at opening).
   const cycle = bandCycle({
-    daysSinceOpening: m.ageDays,
-    initialAgeDays: batch.initialAgeDays,
+    ageDays: m.ageDays,
     referenceDurationDays: batch.referenceDurationDays,
     type: batch.type,
   });

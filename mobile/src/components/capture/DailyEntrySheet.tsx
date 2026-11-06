@@ -46,6 +46,7 @@ import { color, palette, radii, spacing, fontFamily, semantic } from '@/constant
 import { breedImageForLot } from '@/constants/breedImages';
 import { EGGS_PER_ALVEOL, FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 import { estimateDailyFeedPerBirdKg, type FeedRecommendation } from '@/zootechnics/feed-recommendation';
+import { ageOnDay } from '@/utils/band';
 
 interface DailyEntrySheetProps {
   initialBatchId?: string;
@@ -760,7 +761,8 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     const [y, m, d] = entryDateStr.split('-').map(Number);
     return Math.round((Date.UTC(y, m - 1, d) - todayUTC) / 86_400_000);
   }, [entryDateStr]);
-  const entryAgeDays = lot ? utcDaysBetween(lot.integrationDate, entryDateStr) : null;
+  // Age of the birds on the chosen day (J+x aware), the same J as the served ageDays.
+  const entryAgeDays = lot ? ageOnDay(lot.integrationDate, lot.initialAgeDays, entryDateStr) : null;
 
   const remainingPreview =
     chosenLot && feedKgEquivalent > 0

@@ -308,8 +308,7 @@ export default function LotDetailScreen() {
     const age = m?.ageDays ?? 0;
     if (b?.referenceDurationDays) {
       const cycle = bandCycle({
-        daysSinceOpening: age,
-        initialAgeDays: b.initialAgeDays,
+        ageDays: age,
         referenceDurationDays: b.referenceDurationDays,
         type: b.type,
       });
@@ -323,7 +322,7 @@ export default function LotDetailScreen() {
     const currentWeek = Math.min(Math.max(Math.ceil(age / 7), 1), totalWeeks);
     const pct = Math.min(100, (age / (totalWeeks * 7)) * 100);
     return { label: `Semaine ${currentWeek}/${totalWeeks}`, pct };
-  }, [standardsQ.data, m?.ageDays, isLayer, b?.referenceDurationDays, b?.initialAgeDays, b?.type]);
+  }, [standardsQ.data, m?.ageDays, isLayer, b?.referenceDurationDays, b?.type]);
 
   const lotFeedLots: FeedLotStock[] = useMemo(() => {
     return (feedStockQ.data?.lots ?? []).filter((l) => l.batchId === batchId);
@@ -673,7 +672,8 @@ export default function LotDetailScreen() {
           </View>
         </View>
         <AppText size="caption" color="muted">
-          Début : {b.integrationDate} · {fmt(b.quantityAtStart)} sujets
+          Ouverture : {b.integrationDate}
+          {b.initialAgeDays ? ` à J${b.initialAgeDays}` : ''} · {fmt(b.quantityAtStart)} sujets
         </AppText>
         <View style={styles.heroPassportRow}>
           <Button label="Passeport sanitaire (PDF)" size="sm" tone="brand" icon={FileText} block onPress={() => void downloadPasseport()} disabled={pdfBusy} loading={pdfBusy} />

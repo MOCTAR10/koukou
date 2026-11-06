@@ -94,6 +94,8 @@ import type {
 } from '@/api/types';
 import { color, palette, fontFamily, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
+import { ageZeroDay } from '@/utils/band';
+
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements';
 
 const TAB_OPTIONS: { key: TabKey; label: string; icon: (active: boolean) => React.ReactNode; description: string; tint?: 'green' | 'red' }[] = [
@@ -287,14 +289,15 @@ type CareStatus = {
   upToDate: boolean;
 };
 
-function careStatus(events: ProphylaxisEvent[] | undefined, integrationDate: string): CareStatus {
+/** `ageZeroDate` = J0 of the band (`ageZeroDay`): the J of a care is the age of the birds that day. */
+function careStatus(events: ProphylaxisEvent[] | undefined, ageZeroDate: string): CareStatus {
   const active = (events ?? []).filter((p) => p.status !== 'ANNULE');
   const today = fromUtc(Date.now());
   const late = active.filter((p) => p.status === 'EN_RETARD');
   const done = active.filter((p) => p.status === 'FAIT');
   const pending = active.filter((p) => p.status === 'PLANIFIE' && p.scheduledDate >= today);
   const next = [...late, ...pending].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate))[0] ?? null;
-  const nextAtDay = next && integrationDate ? daysBetween(integrationDate.slice(0, 10), next.scheduledDate) + 1 : null;
+  const nextAtDay = next && ageZeroDate ? daysBetween(ageZeroDate.slice(0, 10), next.scheduledDate) : null;
   return { lateCount: late.length, doneCount: done.length, pendingCount: pending.length, next, nextAtDay, upToDate: late.length === 0 };
 }
 
@@ -1096,7 +1099,7 @@ export default function SanitaryScreen() {
 
           return (<>
           {tab === 'sante' ? (
-            <SanteTab health={health.data as BatchHealth | undefined} loading={health.isLoading} lotName={lot?.batchName ?? ''} prophylaxis={calendar.data} integrationDate={lot?.integrationDate ?? ''} />
+            <SanteTab health={health.data as BatchHealth | undefined} loading={health.isLoading} lotName={lot?.batchName ?? ''} prophylaxis={calendar.data} ageZeroDate={lot ? ageZeroDay(lot.integrationDate, lot.initialAgeDays) : ''} />
           ) : null}
 
           {tab === 'check' ? (
@@ -1315,7 +1318,8 @@ function WizardHeader({ title, step, total }: { title: string; step?: number; to
 }
 
 function protocolDateFor(lot: BatchWithMetrics | undefined, dayFrom: number): string {
-  return lot ? addUtcDays(lot.integrationDate, dayFrom) : '';
+  // A protocol step of day N falls on J0 + N (J+x aware, like the backend calendar).
+  return lot ? addUtcDays(ageZeroDay(lot.integrationDate, lot.initialAgeDays), dayFrom) : '';
 }
 
 function ProgramPreview({
@@ -2075,8 +2079,8 @@ function EditScheduleSheet({
   );
 }
 
-function CareStatusCard({ events, integrationDate }: { events: ProphylaxisEvent[] | undefined; integrationDate: string }) {
-  const s = careStatus(events, integrationDate);
+function CareStatusCard({ events, ageZeroDate }: { events: ProphylaxisEvent[] | undefined; ageZeroDate: string }) {
+  const s = careStatus(events, ageZeroDate);
   const total = (events ?? []).filter((p) => p.status !== 'ANNULE').length;
   const fg = s.lateCount > 0 ? palette.red[500] : s.pendingCount > 0 ? palette.amber[600] : palette.green[600];
   const bg = s.lateCount > 0 ? semantic.dangerSoft : s.pendingCount > 0 ? semantic.warnSoft : semantic.successSoft;
@@ -2131,7 +2135,7 @@ function CareStatusCard({ events, integrationDate }: { events: ProphylaxisEvent[
   );
 }
 
-function SanteTab({ health, loading, lotName, prophylaxis, integrationDate }: { health: BatchHealth | undefined; loading: boolean; lotName: string; prophylaxis: ProphylaxisEvent[] | undefined; integrationDate: string }) {
+function SanteTab({ health, loading, lotName, prophylaxis, ageZeroDate }: { health: BatchHealth | undefined; loading: boolean; lotName: string; prophylaxis: ProphylaxisEvent[] | undefined; ageZeroDate: string }) {
   if (loading) return <Spinner label="Calcul des indicateurs santé…" />;
 
   const empty = !health;
@@ -2208,7 +2212,7 @@ function SanteTab({ health, loading, lotName, prophylaxis, integrationDate }: { 
       </Card>
 
       <SectionHeader title="Vaccins & médicaments" />
-      <CareStatusCard events={prophylaxis} integrationDate={integrationDate} />
+      <CareStatusCard events={prophylaxis} ageZeroDate={ageZeroDate} />
 
       <SectionHeader title="Mortalité · 7 jours" />
       <Card tone="default" style={styles.chartCard}>
