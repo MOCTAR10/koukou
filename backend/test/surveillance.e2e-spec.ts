@@ -705,5 +705,17 @@ describe('Surveillance sanitaire et notifications — lot L5 (e2e)', () => {
       // reader: SANITAIRE, province G5 only.
       await get(`/farms/${otherFarmId}/sanitary/lots`, reader.token).expect(403);
     });
+
+    it('GET /farms et /farms/:farmId/me relèvent de la session, dans le périmètre', async () => {
+      const farms = await get('/farms', reader.token).expect(200);
+      const ids = farms.body.map((f: { id: string }) => f.id);
+      expect(ids).toContain(farmId);
+      expect(ids).not.toContain(otherFarmId);
+      const me = await get(`/farms/${farmId}/me`, reader.token).expect(200);
+      expect(me.body).toMatchObject({ farmId, role: 'INSTITUTION' });
+      await get(`/farms/${otherFarmId}/me`, reader.token).expect(403);
+      // Other farm routes keep their domain.
+      await get(`/farms/${farmId}/permissions`, reader.token).expect(403);
+    });
   });
 });
