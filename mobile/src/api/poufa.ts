@@ -511,6 +511,7 @@ export interface TraceOperator {
   code: string;
   name: string;
   typeCode: string;
+  typeFamily?: string | null;
   active: boolean;
 }
 

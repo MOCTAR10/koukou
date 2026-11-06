@@ -10,6 +10,8 @@ interface OperatorLike {
   name: string;
   typeCode: string;
   active: boolean;
+  /** Family of the operator type, given by the server (`typeFamily`). */
+  typeFamily?: string | null;
 }
 
 interface TypeLike {
@@ -21,7 +23,7 @@ interface TypeLike {
 /** Active operators whose type is of the ABATTOIR family, by name. */
 export function abattoirOperators<T extends OperatorLike>(operators: readonly T[] | undefined, types: readonly TypeLike[] | undefined): T[] {
   const codes = new Set((types ?? []).filter((t) => t.family === ABATTOIR_FAMILY).map((t) => t.code));
-  return (operators ?? []).filter((o) => o.active && codes.has(o.typeCode)).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  return (operators ?? []).filter((o) => o.active && (o.typeFamily != null ? o.typeFamily === ABATTOIR_FAMILY : codes.has(o.typeCode))).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 }
 
 /** `operatorId` to send: only an external order carries an abattoir. */

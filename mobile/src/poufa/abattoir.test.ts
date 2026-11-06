@@ -13,6 +13,10 @@ describe('abattoirOperators', () => {
     const list = [op('1', 'Zeta', 'ABATTOIR_INDUSTRIEL'), op('2', 'Col', 'COLLECTEUR'), op('3', 'Alpha', 'ABATTOIR_INDUSTRIEL'), op('4', 'Off', 'ABATTOIR_INDUSTRIEL', false)];
     expect(abattoirOperators(list, types).map((o) => o.id)).toEqual(['3', '1']);
   });
+  it('trusts the typeFamily sent by the server', () => {
+    const list = [{ ...op('1', 'A', 'X'), typeFamily: 'ABATTOIR' }, { ...op('2', 'B', 'ABATTOIR_INDUSTRIEL'), typeFamily: 'COLLECTE' }];
+    expect(abattoirOperators(list, undefined).map((o) => o.id)).toEqual(['1']);
+  });
   it('is empty while a list is unknown', () => {
     expect(abattoirOperators(undefined, types)).toEqual([]);
     expect(abattoirOperators([op('1', 'A', 'ABATTOIR_INDUSTRIEL')], undefined)).toEqual([]);
