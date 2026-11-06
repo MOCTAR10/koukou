@@ -40,12 +40,14 @@ export interface FarmDetailsInput {
   /** Refused (400): the name belongs to the registry (duplicate check). */
   name?: unknown;
   administrativeCity?: string;
-  buildingCount?: number | null;
-  capacityPerBuilding?: number | null;
-  buildingAreaM2?: number | null;
+  /** Refused (400): buildings and capacity belong to the registry. */
+  buildingCount?: unknown;
+  capacityPerBuilding?: unknown;
+  buildingAreaM2?: unknown;
   defaultSacKg?: number;
-  longitude?: number | null;
-  latitude?: number | null;
+  /** Refused (400): the GPS point belongs to the registry (history, province check). */
+  longitude?: unknown;
+  latitude?: unknown;
   isVerified?: boolean;
 }
 
@@ -106,6 +108,14 @@ export function uploadsRoot(): string {
 /** French message of the 400 when a farm is renamed outside the registry. */
 export const FARM_NAME_IN_REGISTRY =
   'Le nom d’une ferme du programme se modifie dans le registre (fiche de la ferme, PATCH /programme/farms/:farmId), qui contrôle les doublons.';
+
+/** French message of the 400 when a farm's GPS point is set outside the registry. */
+export const FARM_GPS_IN_REGISTRY =
+  'La position GPS d’une ferme du programme se modifie dans le registre (PUT /programme/farms/:farmId/gps), qui garde l’historique des relevés et contrôle la province.';
+
+/** French message of the 400 when building or capacity fields are set outside the registry. */
+export const FARM_CAPACITY_IN_REGISTRY =
+  'Les bâtiments et la capacité d’une ferme du programme se modifient dans le registre (capacité en places : PATCH /programme/farms/:farmId ; infrastructures : PUT /programme/farms/:farmId/infrastructures).';
 
 /** A member's stored codes as the apps see them: dormant ones left out. */
 function servedPermissions(codes: readonly string[] | null | undefined): string[] {
@@ -437,17 +447,21 @@ export class FarmsService {
       // Renaming here would bypass the registry's duplicate detection.
       throw new BadRequestException(FARM_NAME_IN_REGISTRY);
     }
+    // Same for the GPS point (history + province check) and the building /
+    // capacity fields (registry capacity and infrastructures).
+    if (input.latitude !== undefined || input.longitude !== undefined) {
+      throw new BadRequestException(FARM_GPS_IN_REGISTRY);
+    }
+    if (
+      input.buildingCount !== undefined ||
+      input.capacityPerBuilding !== undefined ||
+      input.buildingAreaM2 !== undefined
+    ) {
+      throw new BadRequestException(FARM_CAPACITY_IN_REGISTRY);
+    }
     if (input.administrativeCity != null)
       farm.administrativeCity = input.administrativeCity;
-    if (input.buildingCount !== undefined)
-      farm.buildingCount = input.buildingCount ?? null;
-    if (input.capacityPerBuilding !== undefined)
-      farm.capacityPerBuilding = input.capacityPerBuilding ?? null;
-    if (input.buildingAreaM2 !== undefined)
-      farm.buildingAreaM2 = input.buildingAreaM2 ?? null;
     if (input.defaultSacKg != null) farm.defaultSacKg = input.defaultSacKg;
-    if (input.longitude !== undefined) farm.longitude = input.longitude ?? null;
-    if (input.latitude !== undefined) farm.latitude = input.latitude ?? null;
     if (input.isVerified != null) farm.isVerified = input.isVerified;
     return this.farmRepo.save(farm);
   }
