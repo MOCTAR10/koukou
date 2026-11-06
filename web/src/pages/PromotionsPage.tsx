@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import type { PromotionFull } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, StatusBadge, Th, Td } from '../components/ui';
+import { Card, DataTable, EmptyState, Loading, PageHeader, StatusBadge, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
 
 export function PromotionsPage() {
@@ -120,14 +120,13 @@ export function PromotionsPage() {
             <EmptyState icon={<BadgePercent />} message="Aucun code promo." />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Code</Th>
                   <Th>Libellé</Th>
                   <Th>Remise</Th>
-                  <Th>Minimum</Th>
+                  <Th className="hidden lg:table-cell">Minimum</Th>
                   <Th>Valable du</Th>
                   <Th>au</Th>
                   <Th>Statut</Th>
@@ -138,12 +137,12 @@ export function PromotionsPage() {
                 {rows.map((p) => (
                   <tr key={p.id} className="border-t border-slate-100">
                     <Td className="font-mono font-semibold">{p.code}</Td>
-                    <Td>{p.label}</Td>
-                    <Td className="whitespace-nowrap">{p.type === 'PCT' ? `− ${p.value} %` : `− ${fcfa(p.value)}`}</Td>
-                    <Td className="whitespace-nowrap">{p.minSubtotalFcfa != null ? fcfa(p.minSubtotalFcfa) : '—'}</Td>
-                    <Td>{p.startDate ? dateFr(p.startDate) : '—'}</Td>
-                    <Td>{p.endDate ? dateFr(p.endDate) : '—'}</Td>
-                    <Td>
+                    <Td label="Libellé">{p.label}</Td>
+                    <Td label="Remise" className="whitespace-nowrap">{p.type === 'PCT' ? `− ${p.value} %` : `− ${fcfa(p.value)}`}</Td>
+                    <Td label="Minimum" className="whitespace-nowrap md:max-lg:hidden">{p.minSubtotalFcfa != null ? fcfa(p.minSubtotalFcfa) : '—'}</Td>
+                    <Td label="Valable du">{p.startDate ? dateFr(p.startDate) : '—'}</Td>
+                    <Td label="au">{p.endDate ? dateFr(p.endDate) : '—'}</Td>
+                    <Td label="Statut">
                       <StatusBadge status={p.active ? 'active' : 'inactive'} />
                     </Td>
                     <Td>
@@ -160,8 +159,7 @@ export function PromotionsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         )}
       </Card>
     </div>

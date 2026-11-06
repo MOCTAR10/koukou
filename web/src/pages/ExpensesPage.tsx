@@ -7,7 +7,7 @@ import { useFarm } from '../app/FarmContext';
 import { EXPENSE_CATEGORIES, ExpenseFormModal } from '../components/finance/ExpenseFormModal';
 import { ConfirmModal, SuccessNote } from '../components/finance/shared';
 import { Button, ErrorNote } from '../components/form';
-import { Card, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
 
 const isAutoCreated = (e: Expense) => typeof e.notes === 'string' && e.notes.startsWith('[Auto]');
@@ -129,15 +129,14 @@ export function ExpensesPage() {
         />
       ) : (
         <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Date</Th>
                   <Th>Intitulé</Th>
                   <Th>Catégorie</Th>
-                  <Th>Fournisseur</Th>
-                  <Th>Paiement</Th>
+                  <Th className="hidden lg:table-cell">Fournisseur</Th>
+                  <Th className="hidden lg:table-cell">Paiement</Th>
                   <Th className="text-right">Montant</Th>
                   <Th className="text-right">Actions</Th>
                 </tr>
@@ -151,7 +150,7 @@ export function ExpensesPage() {
                   return (
                     <tr key={e.id} className="border-t border-slate-100 align-top">
                       <Td className="whitespace-nowrap">{dateFr(e.expenseDate)}</Td>
-                      <Td>
+                      <Td label="Intitulé">
                         <span className="font-medium text-slate-800">{e.label ?? cat.label}</span>
                         {auto ? (
                           <span className="ml-2">
@@ -161,17 +160,17 @@ export function ExpensesPage() {
                           <span className="mt-0.5 block text-xs text-slate-500">{e.notes}</span>
                         ) : null}
                       </Td>
-                      <Td className="whitespace-nowrap">
+                      <Td label="Catégorie" className="whitespace-nowrap">
                         {cat.label} <span className="text-xs text-slate-400">({cat.account})</span>
                       </Td>
-                      <Td>{e.supplier ?? '—'}</Td>
-                      <Td>
+                      <Td label="Fournisseur" className="md:max-lg:hidden">{e.supplier ?? '—'}</Td>
+                      <Td label="Paiement" className="md:max-lg:hidden">
                         <Tag tone={e.paidByCaisse ? 'emerald' : 'slate'}>{e.paidByCaisse ? 'Caisse' : 'Fournisseur'}</Tag>
                       </Td>
-                      <Td className="whitespace-nowrap text-right font-semibold tabular-nums text-red-600">
+                      <Td label="Montant" className="whitespace-nowrap text-right font-semibold tabular-nums text-red-600">
                         - {fcfa(e.amountFcfa)}
                       </Td>
-                      <Td className="whitespace-nowrap text-right">
+                      <Td label="Actions" className="whitespace-nowrap text-right">
                         {auto ? (
                           <span className="text-xs text-slate-400">—</span>
                         ) : (
@@ -204,8 +203,7 @@ export function ExpensesPage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+            </DataTable>
         </Card>
       )}
 

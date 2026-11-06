@@ -19,7 +19,7 @@ export function MarketLayout() {
     <FarmProvider>
       <div className="min-h-screen bg-slate-50">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
+          <div className="mx-auto flex max-w-page flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
             <Link to="/marche" className="flex items-center gap-2 font-bold text-brand-800">
               <Logo className="h-7 w-auto" />
               Marché Fermia
@@ -63,7 +63,7 @@ export function MarketLayout() {
           </div>
         </header>
         <OfflineBar note="Les commandes pourront être passées une fois reconnecté." />
-        <main className="mx-auto max-w-6xl px-4 py-6">
+        <main className="mx-auto max-w-page px-4 py-6 xl:px-8">
           <Outlet />
         </main>
       </div>

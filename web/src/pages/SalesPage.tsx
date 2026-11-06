@@ -16,7 +16,7 @@ import type {
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote, todayIso } from '../components/form';
-import { Card, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Th, Td } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, PhotoThumb, StatCard, Td, Th } from '../components/ui';
 import { Checkout } from '../components/sales/Checkout';
 import { LineForm, type LinePreset } from '../components/sales/LineForm';
 import {
@@ -343,7 +343,7 @@ export function SalesPage() {
                         />
                       </div>
                     ) : (
-                      <table className="w-full">
+                      <DataTable>
                         <thead className="bg-slate-50">
                           <tr>
                             <Th>Réserve</Th>
@@ -364,8 +364,8 @@ export function SalesPage() {
                                   {transferTitle(t)}
                                 </span>
                               </Td>
-                              <Td>{t.productType === 'ABATTU' ? 'Abattu' : t.productType === 'OEUFS' ? 'Œufs' : 'Provende'}</Td>
-                              <Td className="text-right tabular-nums">
+                              <Td label="Produit">{t.productType === 'ABATTU' ? 'Abattu' : t.productType === 'OEUFS' ? 'Œufs' : 'Provende'}</Td>
+                              <Td label="Restant" className="text-right tabular-nums">
                                 {num(transferRemaining(t), 2)} {transferUnitLabel(t)}
                               </Td>
                               <Td className="text-right">
@@ -376,7 +376,7 @@ export function SalesPage() {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </DataTable>
                     )
                   ) : batches.isLoading ? (
                     <div className="p-4">
@@ -387,7 +387,7 @@ export function SalesPage() {
                       <EmptyState icon={<Layers />} message="Aucun lot dans ce filtre." />
                     </div>
                   ) : (
-                    <table className="w-full">
+                    <DataTable>
                       <thead className="bg-slate-50">
                         <tr>
                           <Th>Lot</Th>
@@ -417,10 +417,10 @@ export function SalesPage() {
                                   </div>
                                 </div>
                               </Td>
-                              <Td className="text-right tabular-nums">{num(b.quantityAlive)}</Td>
-                              <Td className="text-right tabular-nums">{num(carcassesByBatch.get(b.id) ?? 0)}</Td>
-                              <Td>{hasEggs(b) ? formatEggAlveoles(b.metrics.eggStockAvailableEggs ?? 0) : '—'}</Td>
-                              <Td>
+                              <Td label="Vivants" className="text-right tabular-nums">{num(b.quantityAlive)}</Td>
+                              <Td label="Carcasses" className="text-right tabular-nums">{num(carcassesByBatch.get(b.id) ?? 0)}</Td>
+                              <Td label="Œufs">{hasEggs(b) ? formatEggAlveoles(b.metrics.eggStockAvailableEggs ?? 0) : '—'}</Td>
+                              <Td label="État">
                                 <span className={classNames('text-xs font-medium', !open ? 'text-slate-400' : ready ? 'text-emerald-600' : 'text-slate-500')}>
                                   {!open ? 'Fermé' : ready ? 'Prêt' : 'En cours'}
                                 </span>
@@ -436,7 +436,7 @@ export function SalesPage() {
                           );
                         })}
                       </tbody>
-                    </table>
+                    </DataTable>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
@@ -462,8 +462,7 @@ export function SalesPage() {
                     <EmptyState icon={<ShoppingCart />} message="Choisissez un lot ou ajoutez un article pour commencer." />
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
+                  <DataTable>
                       <thead className="bg-slate-50">
                         <tr>
                           <Th>Article</Th>
@@ -483,14 +482,14 @@ export function SalesPage() {
                                 {l.label}
                               </span>
                             </Td>
-                            <Td>{l.sourceLabel || '—'}</Td>
-                            <Td className="whitespace-nowrap text-right tabular-nums">
+                            <Td label="Source">{l.sourceLabel || '—'}</Td>
+                            <Td label="Quantité" className="whitespace-nowrap text-right tabular-nums">
                               {l.weightKg != null
                                 ? `${num(l.qty)} oiseau(x) · ${num(l.weightKg, 2)} kg`
                                 : `${num(l.qty, 2)} ${l.product === 'OEUF' ? 'alvéole(s)' : unitLabel(l.unit)}`}
                             </Td>
-                            <Td className="whitespace-nowrap text-right tabular-nums">{fcfa(l.unitPriceFcfa)}</Td>
-                            <Td className="whitespace-nowrap text-right font-semibold tabular-nums">{fcfa(lineAmount(l))}</Td>
+                            <Td label="Prix unitaire" className="whitespace-nowrap text-right tabular-nums">{fcfa(l.unitPriceFcfa)}</Td>
+                            <Td label="Montant" className="whitespace-nowrap text-right font-semibold tabular-nums">{fcfa(lineAmount(l))}</Td>
                             <Td>
                               <div className="flex justify-end gap-1">
                                 <button
@@ -514,8 +513,7 @@ export function SalesPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
-                  </div>
+                    </DataTable>
                 )}
               </Card>
             </div>

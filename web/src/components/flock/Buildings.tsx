@@ -8,7 +8,7 @@ import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
-import { EmptyState, Loading, Td, Th } from '../ui';
+import { DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { Note, Pill, SectionCard, localYmd, parseNum, useBuildings, useInvalidateFarm, videSanitaireHint } from './shared';
 
 /** Densities of the mobile building sheet, birds per m2. */
@@ -112,18 +112,17 @@ export function BuildingsPanel() {
     >
       <ErrorNote error={buildings.error} />
       {buildings.data?.length ? (
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <DataTable>
             <thead className="bg-slate-50">
               <tr>
                 <Th>Bâtiment</Th>
-                <Th>Surface</Th>
+                <Th className="hidden 2xl:table-cell">Surface</Th>
                 <Th>Capacité</Th>
                 <Th>Oiseaux présents</Th>
-                <Th>Lots actifs</Th>
-                <Th>Densité</Th>
-                <Th>Dernier lot terminé</Th>
-                <Th>Dernier vide</Th>
+                <Th className="hidden lg:table-cell">Lots actifs</Th>
+                <Th className="hidden lg:table-cell">Densité</Th>
+                <Th className="hidden 2xl:table-cell">Dernier lot terminé</Th>
+                <Th className="hidden 2xl:table-cell">Dernier vide</Th>
                 <Th>Pour un nouveau lot aujourd'hui</Th>
               </tr>
             </thead>
@@ -137,22 +136,21 @@ export function BuildingsPanel() {
                 return (
                   <tr key={b.id} className="border-t border-slate-100 align-top">
                     <Td className="font-medium">{b.name}</Td>
-                    <Td>{b.buildingAreaM2 != null ? `${num(b.buildingAreaM2)} m²` : '—'}</Td>
-                    <Td>{b.capacity != null ? num(b.capacity) : '—'}</Td>
-                    <Td>{num(b.stats?.activeBirds ?? 0)}</Td>
-                    <Td>{b.stats?.activeLots ?? 0}</Td>
-                    <Td>{b.stats?.densityPerM2 != null ? `${num(b.stats.densityPerM2)}/m²` : '—'}</Td>
-                    <Td>{dateFr(b.stats?.lastLotEndedAt)}</Td>
-                    <Td>{dateFr(b.lastVideSanitaireAt)}</Td>
-                    <Td className="max-w-xs">
+                    <Td label="Surface" className="md:max-2xl:hidden">{b.buildingAreaM2 != null ? `${num(b.buildingAreaM2)} m²` : '—'}</Td>
+                    <Td label="Capacité">{b.capacity != null ? num(b.capacity) : '—'}</Td>
+                    <Td label="Oiseaux présents">{num(b.stats?.activeBirds ?? 0)}</Td>
+                    <Td label="Lots actifs" className="md:max-lg:hidden">{b.stats?.activeLots ?? 0}</Td>
+                    <Td label="Densité" className="md:max-lg:hidden">{b.stats?.densityPerM2 != null ? `${num(b.stats.densityPerM2)}/m²` : '—'}</Td>
+                    <Td label="Dernier lot terminé" className="md:max-2xl:hidden">{dateFr(b.stats?.lastLotEndedAt)}</Td>
+                    <Td label="Dernier vide" className="md:max-2xl:hidden">{dateFr(b.lastVideSanitaireAt)}</Td>
+                    <Td label="Pour un nouveau lot aujourd'hui" className="max-w-xs">
                       <Pill tone={hint.tone}>{hint.text}</Pill>
                     </Td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </DataTable>
       ) : (
         <div className="p-4">
           <EmptyState message="Aucun bâtiment. Créez-en un pour installer vos lots." icon={<Warehouse />} />

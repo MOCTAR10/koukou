@@ -25,7 +25,7 @@ import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { EGG_IMAGES, SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num } from '../../lib/format';
-import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
+import { Button, ErrorNote, Field, FormColumns, inputCls, Modal } from '../form';
 import { PhotoThumb } from '../ui';
 import { BREED_INFO } from './breedInfo';
 import { BuildingFormModal } from './Buildings';
@@ -232,8 +232,10 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
   const feedAdvice = FEED_ADVICE[type].find((p) => ageDays >= p.from && ageDays <= p.to) ?? FEED_ADVICE[type][0];
 
   return (
-    <Modal title={running ? 'Ajouter un lot en cours' : 'Créer un lot'} onClose={onClose} wide>
+    <Modal title={running ? 'Ajouter un lot en cours' : 'Créer un lot'} onClose={onClose} large>
       <form onSubmit={submit} className="space-y-5">
+        <FormColumns>
+        <div className="min-w-0 space-y-5">
         <Toggle
           options={[
             { key: false, label: 'Nouveau lot', icon: <Plus /> },
@@ -420,11 +422,14 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
           </div>
         ) : null}
 
+        </div>
+
+        <div className="min-w-0 space-y-5">
         <fieldset className="rounded-xl border border-slate-200 p-4">
           <legend className="inline-flex items-center gap-1.5 px-1 text-xs font-semibold text-slate-600">
             <ShieldCheck className="h-3.5 w-3.5 text-brand-600" /> Traçabilité et coût (facultatif)
           </legend>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <Field label="Fournisseur (couvoir)">
               <input className={inputCls} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
             </Field>
@@ -504,6 +509,9 @@ export function CreateLotModal({ onClose, onCreated }: { onClose: () => void; on
         {standards.data?.length ? (
           <LotForecast type={type} standards={standards.data} qty={qty} start={integrationDate} />
         ) : null}
+
+        </div>
+        </FormColumns>
 
         <ErrorNote error={create.error} />
         <div className="flex justify-end gap-2">

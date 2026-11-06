@@ -1,6 +1,6 @@
 import { CalendarRange, ChevronLeft, ChevronRight } from 'lucide-react';
 import { classNames } from '../../lib/format';
-import { inputCls, todayIso } from '../form';
+import { inlineInputCls, todayIso } from '../form';
 import { addDays, spanWindow, type PeriodWindow } from './pnl';
 
 const SPANS = [
@@ -67,7 +67,7 @@ export function PeriodFilter({
           value={isAll ? '' : value.from}
           max={today}
           onChange={(e) => setFrom(e.target.value)}
-          className={classNames(inputCls, 'w-40')}
+          className={classNames(inlineInputCls, 'w-40')}
         />
         <span className="text-sm text-slate-400">au</span>
         <input
@@ -76,7 +76,7 @@ export function PeriodFilter({
           value={value.to}
           max={today}
           onChange={(e) => setTo(e.target.value)}
-          className={classNames(inputCls, 'w-40')}
+          className={classNames(inlineInputCls, 'w-40')}
         />
         <button
           type="button"

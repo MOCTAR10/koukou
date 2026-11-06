@@ -6,6 +6,12 @@ import { classNames } from '../lib/format';
 export const inputCls =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
 
+/**
+ * `inputCls` without `w-full`, for a field sized by its own width class
+ * (`w-40`, `w-auto`): with Tailwind v4, `w-full` would win over it.
+ */
+export const inlineInputCls = inputCls.replace('w-full ', '');
+
 export function Field({
   label,
   hint,
@@ -76,17 +82,25 @@ export function ErrorNote({ error }: { error: unknown }) {
 
 const openDialogs: object[] = [];
 
+/** A long form on a computer: the main fields, then a narrower column. One column, in the same order, below `lg`. */
+export function FormColumns({ children }: { children: ReactNode }) {
+  return <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">{children}</div>;
+}
+
 export function Modal({
   title,
   onClose,
   children,
   wide = false,
+  large = false,
   side = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  /** Room for a long form on two columns (`FormColumns`) on a computer. */
+  large?: boolean;
   /** A detail panel on the right edge; full screen on a phone. */
   side?: boolean;
 }) {
@@ -161,7 +175,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={classNames('w-full rounded-2xl bg-white shadow-2xl outline-none', wide ? 'max-w-3xl' : 'max-w-lg')}
+        className={classNames('w-full rounded-2xl bg-white shadow-2xl outline-none', large ? 'max-w-3xl lg:max-w-6xl' : wide ? 'max-w-3xl' : 'max-w-lg')}
       >
         {header}
         <div className="p-5">{children}</div>

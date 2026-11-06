@@ -16,7 +16,7 @@ import type { Parcelle } from '../api/types-agri';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote } from '../components/form';
-import { Card, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
 import { ParcelleStatusBadge, StageSummary } from '../components/agri/AgriBits';
 import { ParcelleFormModal } from '../components/agri/ParcelleFormModal';
 import { ParcelleMapPanel } from '../components/agri/ParcelleMap';
@@ -160,14 +160,13 @@ export function ParcelsPage() {
             />
           ) : (
           <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <DataTable>
                 <thead className="bg-slate-50">
                   <tr>
                     <Th>Parcelle</Th>
                     <Th>Culture</Th>
-                    <Th>Surface</Th>
-                    <Th>Plantation</Th>
+                    <Th className="hidden lg:table-cell">Surface</Th>
+                    <Th className="hidden lg:table-cell">Plantation</Th>
                     <Th className="w-72">Suivi</Th>
                     <Th>Statut</Th>
                     <Th />
@@ -180,21 +179,21 @@ export function ParcelsPage() {
                     return (
                       <tr key={p.id} className="border-t border-slate-100">
                         <Td className="font-medium text-slate-900">{p.name}</Td>
-                        <Td>
+                        <Td label="Culture">
                           {p.culture.name}
                           <span className="block text-xs text-slate-500">
                             {CROP_CATEGORY_LABELS[p.culture.category]}
                           </span>
                         </Td>
-                        <Td className="whitespace-nowrap tabular-nums">{formatArea(p)}</Td>
-                        <Td className="whitespace-nowrap">
+                        <Td label="Surface" className="whitespace-nowrap tabular-nums md:max-lg:hidden">{formatArea(p)}</Td>
+                        <Td label="Plantation" className="whitespace-nowrap md:max-lg:hidden">
                           <span className="inline-flex items-center gap-1.5">
                             <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
                             {p.plantedAt ? dateFr(p.plantedAt) : 'Non plantée'}
                           </span>
                         </Td>
-                        <Td>{stage ? <StageSummary stage={stage} /> : <span className="text-slate-400">—</span>}</Td>
-                        <Td>
+                        <Td label="Suivi">{stage ? <StageSummary stage={stage} /> : <span className="text-slate-400">—</span>}</Td>
+                        <Td label="Statut">
                           <ParcelleStatusBadge status={p.status} />
                         </Td>
                         <Td className="whitespace-nowrap text-right">
@@ -220,8 +219,7 @@ export function ParcelsPage() {
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </DataTable>
           </Card>
           )}
         </>

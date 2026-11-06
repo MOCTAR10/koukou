@@ -26,7 +26,7 @@ import { useFarmProfile } from '../app/useFarmProfile';
 import { buildActionQueue, buildJournal } from '../components/flock/activityFeed';
 import { Metric, Pill, Tabs, levelTone } from '../components/flock/shared';
 import { ErrorNote } from '../components/form';
-import { Card, EmptyState, IconTile, Loading, PageHeader, Td, Th, type IconTone } from '../components/ui';
+import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Td, Th, type IconTone } from '../components/ui';
 import { dateTimeFr, fcfa, num } from '../lib/format';
 
 type Panel = 'taches' | 'lots' | 'caisse' | 'rapports';
@@ -312,14 +312,13 @@ export function ActivitiesPage() {
                 <EmptyState message="Aucun lot actif." icon={<Bird className="h-6 w-6" />} />
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
+              <DataTable>
                   <thead className="bg-slate-50">
                     <tr>
                       <Th>Lot</Th>
                       <Th>Âge</Th>
                       <Th>Vivants</Th>
-                      <Th>Morts (semaine)</Th>
+                      <Th className="hidden lg:table-cell">Morts (semaine)</Th>
                       <Th>Mortalité</Th>
                       <Th>Alertes</Th>
                       <Th>Dernière saisie</Th>
@@ -333,16 +332,16 @@ export function ActivitiesPage() {
                             {r.batchName ?? 'Lot sans nom'}
                           </Link>
                         </Td>
-                        <Td>J{r.ageDays}</Td>
-                        <Td>{num(r.liveCount)}</Td>
-                        <Td>{num(r.weekDeaths, 0)}</Td>
-                        <Td>{num(r.mortalityPercent)} %</Td>
-                        <Td>
+                        <Td label="Âge">J{r.ageDays}</Td>
+                        <Td label="Vivants">{num(r.liveCount)}</Td>
+                        <Td label="Morts (semaine)" className="md:max-lg:hidden">{num(r.weekDeaths, 0)}</Td>
+                        <Td label="Mortalité">{num(r.mortalityPercent)} %</Td>
+                        <Td label="Alertes">
                           {r.alertesRouges > 0 ? <Pill tone={levelTone('ROUGE')}>{r.alertesRouges} critiques</Pill> : null}{' '}
                           {r.alertesJaunes > 0 ? <Pill tone={levelTone('JAUNE')}>{r.alertesJaunes} à surveiller</Pill> : null}
                           {r.alertesRouges + r.alertesJaunes === 0 ? '—' : null}
                         </Td>
-                        <Td>
+                        <Td label="Dernière saisie">
                           {r.lastEntryLagDays == null ? (
                             <Pill tone="amber">Aucune saisie</Pill>
                           ) : r.lastEntryLagDays > 0 ? (
@@ -354,8 +353,7 @@ export function ActivitiesPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </DataTable>
             )}
           </SectionCard>
         </>
@@ -455,8 +453,7 @@ export function ActivitiesPage() {
                   <EmptyState message="Pas encore de classement." icon={<Medal className="h-6 w-6" />} />
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+                <DataTable>
                     <thead className="bg-slate-50">
                       <tr>
                         <Th>Rang</Th>
@@ -472,17 +469,16 @@ export function ActivitiesPage() {
                       {d.leaderboard.map((r, i) => (
                         <tr key={r.batchId} className="border-t border-slate-100">
                           <Td>{i + 1}</Td>
-                          <Td className="font-medium">{r.batchName ?? 'Lot sans nom'}</Td>
-                          <Td>{r.perfIndex != null ? num(r.perfIndex, 0) : '—'}</Td>
-                          <Td>{r.fcr != null ? num(r.fcr, 2) : '—'}</Td>
-                          <Td>{r.gmqGramsPerDay != null ? `${num(r.gmqGramsPerDay, 0)} g/j` : '—'}</Td>
-                          <Td>{r.layRatePercent != null ? `${num(r.layRatePercent)} %` : '—'}</Td>
-                          <Td>{num(r.mortalityPercent)} %</Td>
+                          <Td label="Lot" className="font-medium">{r.batchName ?? 'Lot sans nom'}</Td>
+                          <Td label="Indice">{r.perfIndex != null ? num(r.perfIndex, 0) : '—'}</Td>
+                          <Td label="IC">{r.fcr != null ? num(r.fcr, 2) : '—'}</Td>
+                          <Td label="GMQ">{r.gmqGramsPerDay != null ? `${num(r.gmqGramsPerDay, 0)} g/j` : '—'}</Td>
+                          <Td label="Ponte">{r.layRatePercent != null ? `${num(r.layRatePercent)} %` : '—'}</Td>
+                          <Td label="Mortalité">{num(r.mortalityPercent)} %</Td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                  </DataTable>
               )}
             </SectionCard>
           </div>

@@ -7,7 +7,7 @@ import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { dateFr, fcfa, num } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
-import { IconTile, Loading, Td, Th } from '../ui';
+import { DataTable, IconTile, Loading, Td, Th } from '../ui';
 import { ORDER_CANAL_LABEL, PRODUCT_LABEL, UNIT_LABEL, invalidateOrderQueries, newIdempotencyKey, parseWhole } from './helpers';
 import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
 import { PassportCard } from './PassportCard';
@@ -227,8 +227,8 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
           <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
             <Package className="h-4 w-4 text-brand-600" /> Articles
           </h3>
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="w-full">
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <DataTable>
               <thead className="bg-slate-50">
                 <tr>
                   <Th>Article</Th>
@@ -241,16 +241,16 @@ export function OrderDetailModal({ orderId, onClose }: { orderId: string; onClos
                 {order.items.map((i) => (
                   <tr key={i.saleItemId || `${i.productType}-${i.label}-${i.quantity}`} className="border-t border-slate-100">
                     <Td className="font-medium">{i.label || PRODUCT_LABEL[i.productType] || 'Article'}</Td>
-                    <Td className="text-right tabular-nums">
+                    <Td label="Quantité" className="text-right tabular-nums">
                       {num(i.quantity, 2)} {UNIT_LABEL[i.unit] ?? i.unit}
                       {i.unit === 'KG' && i.pieceCount ? ` (${num(i.pieceCount, 0)} oiseaux)` : ''}
                     </Td>
-                    <Td className="text-right tabular-nums">{fcfa(i.unitPriceFcfa)}</Td>
-                    <Td className="text-right font-medium tabular-nums">{fcfa(i.amountFcfa)}</Td>
+                    <Td label="Prix unitaire" className="text-right tabular-nums">{fcfa(i.unitPriceFcfa)}</Td>
+                    <Td label="Montant" className="text-right font-medium tabular-nums">{fcfa(i.amountFcfa)}</Td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </DataTable>
           </div>
           <div className="ml-auto mt-3 max-w-xs space-y-1 text-sm">
             <p className="flex justify-between">

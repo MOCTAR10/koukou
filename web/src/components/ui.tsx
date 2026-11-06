@@ -237,7 +237,7 @@ export function Th({ children, className }: { children?: ReactNode; className?: 
 export function Td({ children, className, label }: { children?: ReactNode; className?: string; label?: string }) {
   return (
     <td data-label={label} className={classNames('px-3 py-2.5 text-sm text-slate-700', className)}>
-      {label ? <div className="min-w-0 md:contents">{children}</div> : children}
+      {label && children !== '' && children != null ? <div className="min-w-0 md:contents">{children}</div> : children}
     </td>
   );
 }

@@ -4,7 +4,7 @@ import { ReceiptText } from 'lucide-react';
 import { api } from '../../api/client';
 import type { PointOfSale, SaleFull } from '../../api/types-sales';
 import { ErrorNote, inputCls, todayIso } from '../form';
-import { Card, EmptyState, Loading, StatusBadge, Th, Td } from '../ui';
+import { Card, DataTable, EmptyState, Loading, StatusBadge, Td, Th } from '../ui';
 import { classNames, dateFr, fcfa, num } from '../../lib/format';
 import { productTypeLabel } from './labels';
 import { FilterChip, ReceiptButton } from './shared';
@@ -91,17 +91,16 @@ export function SalesHistory({ farmId, pointsOfSale }: { farmId: string | null; 
           <EmptyState icon={<ReceiptText />} message="Aucune vente sur cette période." />
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <DataTable>
             <thead className="bg-slate-50">
               <tr>
                 <Th>Référence</Th>
-                <Th>Date</Th>
-                <Th>Client</Th>
-                <Th>Point de vente</Th>
-                <Th>Articles</Th>
+                <Th className="hidden lg:table-cell">Date</Th>
+                <Th className="hidden lg:table-cell">Client</Th>
+                <Th className="hidden 2xl:table-cell">Point de vente</Th>
+                <Th className="hidden xl:table-cell">Articles</Th>
                 <Th className="text-right">Total</Th>
-                <Th className="text-right">Payé</Th>
+                <Th className="hidden xl:table-cell text-right">Payé</Th>
                 <Th>Statut</Th>
                 <Th></Th>
               </tr>
@@ -116,27 +115,27 @@ export function SalesHistory({ farmId, pointsOfSale }: { farmId: string | null; 
                         {s.referenceNumber}
                       </button>
                     </Td>
-                    <Td className="whitespace-nowrap">{dateFr(s.saleDate)}</Td>
-                    <Td>{s.customer?.fullName ?? <span className="text-slate-400">Comptoir</span>}</Td>
-                    <Td>{s.pointOfSaleId ? (posNames.get(s.pointOfSaleId) ?? '—') : '—'}</Td>
-                    <Td className="max-w-[260px]">
+                    <Td label="Date" className="whitespace-nowrap md:max-lg:hidden">{dateFr(s.saleDate)}</Td>
+                    <Td label="Client" className="md:max-lg:hidden">{s.customer?.fullName ?? <span className="text-slate-400">Comptoir</span>}</Td>
+                    <Td label="Point de vente" className="md:max-2xl:hidden">{s.pointOfSaleId ? (posNames.get(s.pointOfSaleId) ?? '—') : '—'}</Td>
+                    <Td label="Articles" className="max-w-[260px] md:max-xl:hidden">
                       {s.items.map((it) => `${it.label || productTypeLabel(it.productType)} × ${num(it.quantity, 2)}`).join(', ') || '—'}
                     </Td>
-                    <Td className="whitespace-nowrap text-right tabular-nums">
+                    <Td label="Total" className="whitespace-nowrap text-right tabular-nums">
                       {fcfa(s.totalAmountFcfa)}
                       {s.discountAmountFcfa > 0 ? (
                         <span className="block text-xs text-emerald-600">remise {fcfa(s.discountAmountFcfa)}</span>
                       ) : null}
                     </Td>
-                    <Td
+                    <Td label="Payé"
                       className={classNames(
-                        'whitespace-nowrap text-right tabular-nums',
+                        'whitespace-nowrap text-right tabular-nums md:max-xl:hidden',
                         s.status === 'CANCELLED' ? 'text-slate-400' : paid >= s.totalAmountFcfa ? 'font-semibold text-emerald-600' : 'text-amber-600',
                       )}
                     >
                       {fcfa(paid)}
                     </Td>
-                    <Td className="whitespace-nowrap">
+                    <Td label="Statut" className="whitespace-nowrap">
                       <StatusBadge status={s.status} />
                     </Td>
                     <Td>
@@ -146,8 +145,7 @@ export function SalesHistory({ farmId, pointsOfSale }: { farmId: string | null; 
                 );
               })}
             </tbody>
-          </table>
-        </div>
+          </DataTable>
       )}
       {open ? (
         <SaleDetail
