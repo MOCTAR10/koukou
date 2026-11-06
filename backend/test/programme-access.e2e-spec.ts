@@ -1,8 +1,8 @@
-// The programme layer is inert unless PROGRAM_CODE is set; the SMS step of
-// institutional logins starts off (default) and is switched on below.
-process.env.PROGRAM_CODE = 'POUFA';
+// The SMS step of institutional logins starts off (default) and is switched
+// on below.
 process.env.INSTITUTION_OTP = 'off';
 
+import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -19,6 +19,11 @@ import {
   ConsoleSmsSender,
   SMS_SENDER,
 } from './../src/modules/auth/sms/sms-sender.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  registerBuyer,
+} from './helpers/programme-farm.js';
 
 type Need = readonly [ProgrammeDomain, AccessAction];
 
@@ -38,11 +43,9 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
   let adminToken: string;
   let ownerToken: string;
   let ownerId: string;
-  // Programme farms carry no band: programme-farms.e2e-spec resets the
-  // registry by deleting every programme farm, and bands are never deleted.
-  let farmA: string; // programme farm, province G1
-  let farmB: string; // programme farm, province G2
-  let farmC: string; // the owner's plain Fermia farm, outside the programme
+  let farmA: string; // registry farm, province G1, no owner
+  let farmB: string; // registry farm, province G2, no owner
+  let farmC: string; // the owner's farm, province G3
   let batchC: string; // a band of farm C
   /** Band id probed on programme farms: the access decision comes first. */
   const NO_BATCH = '00000000-0000-4000-8000-0000000000b1';
@@ -52,6 +55,10 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
   const digits = String(stamp).slice(-7);
   let seq = 10;
   const phone = () => `+2416${seq++}${digits}`;
+  /** Letters unlike any earlier run's names (duplicate detection). */
+  const tag = Array.from(randomBytes(8), (b) =>
+    String.fromCharCode(65 + (b % 26)),
+  ).join('');
 
   /** Institutional accounts by profile code. */
   const accounts: Record<
@@ -71,18 +78,6 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
     return JSON.parse(
       Buffer.from(token.split('.')[1], 'base64url').toString('utf8'),
     );
-  }
-
-  async function registerOwner(p: string): Promise<string> {
-    await request(server)
-      .post('/auth/register')
-      .send({ phone: p, fullName: 'Accès E2E', code: 'secret123' })
-      .expect(201);
-    const res = await request(server)
-      .post('/auth/login')
-      .send({ phone: p, code: 'secret123' })
-      .expect(201);
-    return res.body.accessToken;
   }
 
   const login = (p: string, code: string) =>
@@ -130,19 +125,16 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       `SELECT id FROM programs WHERE code = 'POUFA'`,
     );
 
-    const adminPhone = phone();
-    await registerOwner(adminPhone);
-    await ds.query(
-      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-      [adminPhone],
-    );
-    adminToken = (await login(adminPhone, 'secret123').expect(201)).body
-      .accessToken;
+    adminToken = (await createPlatformAdmin(server, ds)).token;
 
-    const ownerPhone = phone();
-    ownerToken = await registerOwner(ownerPhone);
-    ownerId = String(jwtPayload(ownerToken).sub);
-    farmC = (await get('/farms', ownerToken).expect(200)).body[0].id;
+    const owner = await createProgrammeFarm(server, adminToken, {
+      provinceCode: 'G3',
+      exploitantName: 'Accès E2E',
+    });
+    ownerToken = owner.ownerToken;
+    ownerId = owner.ownerId;
+    expect(String(jwtPayload(ownerToken).sub)).toBe(ownerId);
+    farmC = owner.farmId;
     batchC = (
       await post(
         `/farms/${farmC}/batches`,
@@ -270,14 +262,14 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         admin,
       ).expect(201);
       expect(created.body.loginCode).toMatch(/^\d{8}$/);
-      // A FARMS scope only holds programme farms.
+      // A FARMS scope only holds farms of the programme.
       await post(
         '/programme/access/memberships',
         {
           fullName: 'Agent hors programme',
           phone: phone(),
           profileCode: 'AGENT_TECHNIQUE',
-          farmIds: [farmC],
+          farmIds: ['00000000-0000-4000-8000-0000000000c1'],
         },
         admin,
       ).expect(400);
@@ -433,7 +425,7 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         name: 'COMPTE',
         farm: false,
         needs: [],
-        call: () => post('/farms', { name: 'x', administrativeCity: 'x' }, ''),
+        call: () => get('/auth/buyer-profile', ''),
       },
     ];
 
@@ -507,7 +499,12 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       const list = await get('/programme/farms?pageSize=200', provToken).expect(
         200,
       );
-      const ids = list.body.items.map((f: { id: string }) => f.id);
+      // This run's farms only (Nord in G1, Sud in G2): G1 holds every run's.
+      const ours = await get(
+        `/programme/farms?pageSize=200&q=${digits}`,
+        provToken,
+      ).expect(200);
+      const ids = ours.body.items.map((f: { id: string }) => f.id);
       expect(ids).toContain(farmA);
       expect(ids).not.toContain(farmB);
       expect(
@@ -554,11 +551,11 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       };
       const south = await post(
         '/programme/farms',
-        { name: `Bilongo ${digits}`, provinceCode: 'G2', ...exploitant },
+        { name: `Bilongo ${tag}`, provinceCode: 'G2', ...exploitant },
         adminToken,
       ).expect(201);
       const entry = {
-        name: `Ferme Bilongo ${digits}`,
+        name: `Ferme Bilongo ${tag}`,
         provinceCode: 'G1',
         ...exploitant,
       };
@@ -579,7 +576,7 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       const body = JSON.stringify(dup.body);
       expect(body).not.toContain(south.body.code);
       expect(body).not.toContain(south.body.id);
-      expect(body).not.toContain(`Bilongo ${digits}"`);
+      expect(body).not.toContain(`Bilongo ${tag}"`);
       // A provincial agent cannot confirm against a farm it cannot see.
       await post(
         '/programme/farms',
@@ -621,7 +618,7 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       await get(`/programme/farms/${farmB}`, token).expect(200);
     });
 
-    it('ALL: every programme farm, never a plain Fermia farm', async () => {
+    it('ALL: every farm of the programme', async () => {
       const token = accounts.DGE.token;
       const [{ count }] = await ds.query(
         `SELECT COUNT(*)::int AS count FROM farms WHERE program_id = $1`,
@@ -632,9 +629,8 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       const mine = (await get('/farms', token).expect(200)).body.map(
         (f: { id: string }) => f.id,
       );
-      expect(mine).toEqual(expect.arrayContaining([farmA, farmB]));
-      expect(mine).not.toContain(farmC);
-      await get(`/farms/${farmC}/batches`, token).expect(403);
+      expect(mine).toEqual(expect.arrayContaining([farmA, farmB, farmC]));
+      await get(`/farms/${farmC}/batches`, token).expect(200);
       // An unknown farm id answers like one out of scope.
       await get(
         '/farms/00000000-0000-4000-8000-000000000000/batches',
@@ -717,8 +713,7 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
     });
 
     it('refuses the reserved operator accounts', async () => {
-      const p = phone();
-      await registerOwner(p);
+      const { phone: p } = await registerBuyer(server, { phone: phone() });
       await ds.query(`UPDATE users SET role = 'OPERATEUR' WHERE phone = $1`, [
         p,
       ]);

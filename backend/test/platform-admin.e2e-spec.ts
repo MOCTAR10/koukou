@@ -4,6 +4,12 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+  registerBuyer,
+  uniquePhone,
+} from './helpers/programme-farm.js';
 
 describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, fermes, utilisateurs, config), e2e', () => {
   let app: INestApplication<App>;
@@ -16,7 +22,7 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
   let protocolId: string;
 
   const stamp = Date.now();
-  const secondaryPhone = `+24161${stamp}`;
+  const secondaryPhone = uniquePhone();
 
   function post(url: string, body: object, auth = adminToken) {
     return request(server)
@@ -48,28 +54,18 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
     await app.init();
     server = app.getHttpServer();
 
-    // Propriétaire + ferme + lot + caisse pour alimenter les métriques.
-    const ownerPhone = `+24160${stamp}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: ownerPhone,
-        fullName: 'Propriétaire Plateforme',
-        code: 'secret123',
-      })
-      .expect(201);
-    const ownerLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: ownerPhone, code: 'secret123' })
-      .expect(201);
-    ownerToken = ownerLogin.body.accessToken;
-
-    const farm = await post(
-      '/farms',
-      { name: `Ferme Plateforme ${stamp}`, administrativeCity: 'Libreville' },
-      ownerToken,
-    ).expect(201);
-    farmId = farm.body.id;
+    // Programme farm + its owner + caisse to feed the metrics.
+    const ds = app.get(DataSource);
+    const admin = await createPlatformAdmin(server, ds, {
+      fullName: 'Administrateur Plateforme',
+    });
+    adminToken = admin.token;
+    const farm = await createProgrammeFarm(server, adminToken, {
+      name: `Ferme Plateforme ${stamp}`,
+      exploitantName: 'Propriétaire Plateforme',
+    });
+    farmId = farm.farmId;
+    ownerToken = farm.ownerToken;
 
     await post(
       `/farms/${farmId}/caisse/open`,
@@ -93,42 +89,13 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
       ownerToken,
     ).expect(201);
 
-    // Compte secondaire (sera suspendu) + promotion du rôle en administrateur.
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: secondaryPhone,
-        fullName: 'Compte Secondaire',
-        code: 'secret123',
-      })
-      .expect(201);
-    const secondary = await request(server)
-      .post('/auth/login')
-      .send({ phone: secondaryPhone, code: 'secret123' })
-      .expect(201);
-    secondaryUserId = secondary.body.user.id;
-
-    const adminPhone = `+24162${stamp}`;
-    await request(server)
-      .post('/auth/register')
-      .send({
-        phone: adminPhone,
-        fullName: 'Administrateur Plateforme',
-        code: 'secret456',
-      })
-      .expect(201);
-    const ds = app.get(DataSource);
-    await ds.query(
-      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-      [adminPhone],
-    );
-    const adminLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone: adminPhone, code: 'secret456' })
-      .expect(201);
-    adminToken = adminLogin.body.accessToken;
-    expect(adminLogin.body.user.role).toBe('PLATFORM_ADMIN');
-  });
+    // Secondary account (will be suspended): buyers are the only sign-up.
+    const secondary = await registerBuyer(server, {
+      phone: secondaryPhone,
+      fullName: 'Compte Secondaire',
+    });
+    secondaryUserId = secondary.userId;
+  }, 120_000);
 
   afterAll(async () => {
     // Rétablit l’état canonique des méthodes de paiement (disponible = CASH)
@@ -283,8 +250,16 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
     expect(protoUpdate.body.isEditable).toBe(true);
   });
 
-  it('suspend une ferme : lecture OK, nouvelle vente bloquée (400)', async () => {
-    await patch(`/admin/farms/${farmId}`, { active: false }).expect(200);
+  it('suspend une ferme par son statut du programme : lecture OK, nouvelle vente bloquée (400)', async () => {
+    // `active` follows the programme status: the platform route refuses it.
+    await patch(`/admin/farms/${farmId}`, { active: false }).expect(400);
+    await post(`/programme/farms/${farmId}/status`, {
+      statusCode: 'OPERATIONNELLE',
+    }).expect(201);
+    await post(`/programme/farms/${farmId}/status`, {
+      statusCode: 'SUSPENDUE',
+      reason: 'Contrôle e2e',
+    }).expect(201);
 
     const farms = await get('/admin/farms').expect(200);
     expect(farms.body.find((f: any) => f.id === farmId).active).toBe(false);
@@ -306,7 +281,9 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
     ).expect(400);
     expect(String(blocked.body.message)).toContain('suspendue');
 
-    await patch(`/admin/farms/${farmId}`, { active: true }).expect(200);
+    await post(`/programme/farms/${farmId}/status`, {
+      statusCode: 'OPERATIONNELLE',
+    }).expect(201);
     await post(
       `/farms/${farmId}/sales`,
       {
@@ -324,40 +301,23 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
     ).expect(201);
   });
 
-  it('provisionne une nouvelle ferme avec son propriétaire', async () => {
-    const phone = `+24163${stamp}`;
-    const res = await post('/admin/farms', {
+  it('ne provisionne plus de ferme hors registre : POST /admin/farms n’existe plus (404)', async () => {
+    await post('/admin/farms', {
       name: `Ferme Provisionnée ${stamp}`,
       administrativeCity: 'Port-Gentil',
-      capacityPerBuilding: 800,
       owner: {
         fullName: 'Propriétaire Provisionné',
-        phone,
+        phone: uniquePhone(),
         code: 'provision123',
       },
-    }).expect(201);
-    expect(res.body.farm.id).toBeDefined();
-    expect(res.body.owner.fullName).toBe('Propriétaire Provisionné');
+    }).expect(404);
+  });
 
-    const ownerLogin = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'provision123' })
-      .expect(201);
-    expect(ownerLogin.body.user.role).toBe('PROPRIETAIRE');
-
-    await post('/admin/farms', {
-      name: 'Doublon',
-      administrativeCity: 'Libreville',
-      owner: { fullName: 'Doublon', phone, code: 'provision123' },
-    }).expect(409);
-
-    // Le propriétaire provisionné accède bien à sa ferme.
-    const farms = await request(server)
-      .get('/farms')
-      .set('Authorization', `Bearer ${ownerLogin.body.accessToken}`)
-      .expect(200);
-    const mine = farms.body.find((f: any) => f.id === res.body.farm.id);
-    expect(mine).toBeDefined();
+  it('modifie les détails d’une ferme (sans toucher à active)', async () => {
+    const res = await patch(`/admin/farms/${farmId}`, {
+      defaultSacKg: 25,
+    }).expect(200);
+    expect(res.body.defaultSacKg).toBe(25);
   });
 
   it('réserve la modification des constantes à l’administrateur plateforme', async () => {
