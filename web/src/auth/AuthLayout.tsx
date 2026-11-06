@@ -191,8 +191,8 @@ function ProgrammeAside() {
   return (
     <aside className="relative hidden h-screen overflow-hidden bg-brand-950 text-white lg:block">
       <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_30%]" />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/40 via-45% to-brand-950/30" />
-      <div aria-hidden className="absolute inset-x-0 top-0 h-[22rem] bg-gradient-to-b from-black/55 to-transparent" />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950/90 via-brand-950/15 via-40% to-transparent" />
+      <div aria-hidden className="absolute inset-x-0 top-0 h-[20rem] bg-gradient-to-b from-black/45 to-transparent" />
       <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
         <div className="flex items-center gap-4">
           <img
@@ -221,13 +221,13 @@ function ProgrammeAside() {
             </p>
         </div>
 
-        <div className="mt-auto">
+        <div className="mt-auto mb-10 [@media(max-height:780px)]:mb-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200/90">
             Modules de la plateforme
           </p>
           <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2.5 xl:grid-cols-4 xl:gap-x-4 [@media(max-height:780px)]:gap-y-1.5">
             {PROGRAMME_MODULES.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-2.5 text-[13px] leading-snug text-white/90">
+              <li key={label} className="flex items-center gap-2.5 text-[13px] font-medium leading-snug text-white drop-shadow-[0_1px_3px_rgb(0_0_0/0.8)]">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-300/10 ring-1 ring-amber-200/25">
                   <Icon className="h-4 w-4 text-amber-200" aria-hidden />
                 </span>
