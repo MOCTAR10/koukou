@@ -95,6 +95,7 @@ import { TraceCoreModule } from '../trace/trace-core.module.js';
     BatchesService,
     FlockReconciliationService,
     BandeStatsService,
+    BandeOpeningService,
   ],
 })
 export class BatchesModule {}

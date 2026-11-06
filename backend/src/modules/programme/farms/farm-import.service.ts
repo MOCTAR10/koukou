@@ -126,6 +126,8 @@ export class FarmImportService {
       rows?: Record<string, unknown>[];
       dryRun?: boolean;
       confirmDuplicate?: boolean;
+      /** A real run inside the caller's transaction (data recovery). */
+      em?: EntityManager;
     },
   ): Promise<ImportReport> {
     if (this.scope.isInstitution(user)) {
@@ -157,12 +159,14 @@ export class FarmImportService {
         dryRun,
         input.confirmDuplicate === true,
       );
-    return dryRun
-      ? run(this.dataSource.manager)
-      : this.dataSource.transaction(async (em) => {
-          await this.registry.lockRegistry(em, program.id);
-          return run(em);
-        });
+    const inTransaction = async (em: EntityManager) => {
+      await this.registry.lockRegistry(em, program.id);
+      return run(em);
+    };
+    if (dryRun) return run(this.dataSource.manager);
+    return input.em
+      ? inTransaction(input.em)
+      : this.dataSource.transaction(inTransaction);
   }
 
   /** The upload as a table: an .xlsx (first sheet) or a CSV. */

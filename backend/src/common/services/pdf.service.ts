@@ -156,12 +156,16 @@ export class PdfService {
   }
 
   /**
-   * Renders a document definition built by a feature (e.g. the traceability
-   * lot label), with the shared fonts. The feature owns its layout.
+   * Renders a document definition built by a feature module (e.g. the
+   * traceability lot label, the data-recovery report) with the shared fonts,
+   * Roboto by default, so features never set up a pdfmake instance of their
+   * own. The feature owns its layout.
    */
   async render(documentDefinition: object): Promise<Buffer> {
     const pdfmake = await this.ensurePdfmake();
-    return pdfmake.createPdf(documentDefinition).getBuffer();
+    return pdfmake
+      .createPdf({ defaultStyle: { font: 'Roboto' }, ...documentDefinition })
+      .getBuffer();
   }
 
   async createReceiptPdf(data: ReceiptData): Promise<Buffer> {
