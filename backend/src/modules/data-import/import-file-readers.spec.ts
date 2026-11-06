@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
+import { toXlsx } from '../../common/utils/spreadsheet.js';
 import {
   readImportFile,
   type ImportFileReader,
@@ -33,13 +34,32 @@ describe('import file readers', () => {
     });
   });
 
-  it('refuses a workbook until the xlsx reader exists', async () => {
+  it('reads the first sheet of an .xlsx, whatever its name or label', async () => {
+    const xlsx = await toXlsx(['nom', 'effectif'], [['Ferme Été', 1200]]);
+    const expected = {
+      header: ['nom', 'effectif'],
+      rows: [['Ferme Été', '1200']],
+      encoding: 'xlsx',
+      delimiter: '',
+    };
+    expect(await readImportFile(file('fermes.xlsx', xlsx))).toEqual(expected);
+    // Recognised by its zip signature too (no extension, generic type).
+    expect(
+      await readImportFile(file('fermes', xlsx, 'application/octet-stream')),
+    ).toEqual(expected);
+  });
+
+  it('refuses a broken .xlsx and older workbooks with a French hint', async () => {
     const zip = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0]);
     await expect(readImportFile(file('fermes.bin', zip))).rejects.toThrow(
-      /enregistrez la feuille au format CSV/,
+      /Fichier Excel illisible/,
+    );
+    const ole = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0, 0]);
+    await expect(readImportFile(file('fermes.dat', ole))).rejects.toThrow(
+      /format Excel .xlsx ou CSV/,
     );
     await expect(
-      readImportFile(file('fermes.xlsx', Buffer.from('x'))),
+      readImportFile(file('fermes.ods', Buffer.from('x'))),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 

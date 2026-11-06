@@ -5,6 +5,8 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { toXlsx, XLSX_MIME } from './../src/common/utils/spreadsheet.js';
+import { parseCsv } from './../src/modules/programme/farms/csv.js';
 import {
   createPlatformAdmin,
   createProgrammeFarm,
@@ -470,18 +472,50 @@ describe('Programme POUFA — reprise des données (e2e)', () => {
       expect(mapped.body.counts).toMatchObject({ integrated: 1, errors: 0 });
     });
 
-    it('refuses an Excel workbook with a French hint, until xlsx is read', async () => {
-      const res = await request(server)
-        .post('/programme/imports')
-        .set(auth(adminToken))
-        .field('type', 'AMI')
-        .attach('file', Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]), {
-          filename: 'fiches.xlsx',
-          contentType:
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-        .expect(400);
-      expect(res.body.message).toMatch(/enregistrez la feuille au format CSV/);
+    it('reads the same sheets from an Excel .xlsx, and refuses .xls with a French hint', async () => {
+      const [header, ...rows] = parseCsv(content.toString('latin1'), ';');
+      const upload = (buffer: Buffer, filename: string, contentType: string) =>
+        request(server)
+          .post('/programme/imports')
+          .set(auth(adminToken))
+          .field('type', 'AMI')
+          .attach('file', buffer, { filename, contentType });
+      const xlsx = await upload(
+        await toXlsx(header, rows, { sheetName: 'Fiches AMI' }),
+        'fiches.xlsx',
+        XLSX_MIME,
+      ).expect(201);
+      expect(xlsx.body).toMatchObject({
+        type: 'AMI',
+        status: 'CONTROLE',
+        encoding: 'xlsx',
+        delimiter: '',
+        mappingError: null,
+      });
+      expect(xlsx.body.columnMapping['Nom de la ferme']).toBe('name');
+      // Same lines as the CSV, already integrated by the tests above.
+      expect(xlsx.body.counts).toMatchObject({
+        read: 5,
+        alreadyPresent: 3,
+        errors: 2,
+        integrated: 0,
+      });
+      await post(`/programme/imports/${xlsx.body.id}/reject`, {
+        reason: 'Essai du format Excel',
+      }).expect(201);
+
+      const broken = await upload(
+        Buffer.from([0x50, 0x4b, 0x03, 0x04, 0, 0, 0, 0]),
+        'fiches.xlsx',
+        XLSX_MIME,
+      ).expect(400);
+      expect(broken.body.message).toMatch(/Fichier Excel illisible/);
+      const xls = await upload(
+        Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0, 0, 0, 0]),
+        'fiches.xls',
+        'application/octet-stream',
+      ).expect(400);
+      expect(xls.body.message).toMatch(/format Excel .xlsx ou CSV/);
     });
   });
 

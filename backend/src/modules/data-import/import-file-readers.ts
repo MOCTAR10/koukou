@@ -1,15 +1,21 @@
 import { BadRequestException } from '@nestjs/common';
 import { CsvError, detectDelimiter, parseCsv } from '../programme/farms/csv.js';
-import type { UploadedCsvFile } from '../programme/farms/farm-import.service.js';
+import {
+  IMPORT_MAX_ROWS,
+  type UploadedCsvFile,
+} from '../programme/farms/farm-import.service.js';
+import {
+  readXlsx,
+  SpreadsheetError,
+} from '../../common/utils/spreadsheet.js';
 
 /**
  * Parser seam of the recovery import: every uploaded file becomes the same
  * table (header + data rows of plain strings) whatever its format, and the
  * rest of the flow (mapping, staging, controls) only sees that table.
  *
- * To support Excel, add an `xlsx` reader (exceljs: first worksheet, cell
- * `text`, dates formatted as `yyyy-mm-dd`) to `READERS` before the CSV one
- * and drop the refusal in `EXCEL_PENDING`. Nothing else has to change.
+ * Readers: Excel .xlsx / .xlsm (first sheet, `readXlsx`), then CSV; older
+ * workbooks (.xls, .ods) get a clear refusal.
  */
 export interface ImportTable {
   /** Raw header cells (made unique by the caller). */
@@ -49,14 +55,25 @@ function extensionOf(name: string): string {
 const ZIP_SIGNATURE = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 const OLE_SIGNATURE = Buffer.from([0xd0, 0xcf, 0x11, 0xe0]);
 
-function isWorkbook(file: UploadedCsvFile): boolean {
+/** An Office Open XML workbook (.xlsx, .xlsm): a zip. */
+function isXlsx(file: UploadedCsvFile): boolean {
   const ext = extensionOf(file.originalname ?? '');
-  if (['xlsx', 'xlsm', 'xls', 'ods'].includes(ext)) return true;
+  if (['xlsx', 'xlsm'].includes(ext)) return true;
+  if (/spreadsheetml/.test(file.mimetype ?? '')) return true;
+  return file.buffer.subarray(0, 4).equals(ZIP_SIGNATURE);
+}
+
+/** A workbook exceljs does not read (.xls, .ods). */
+function isOtherWorkbook(file: UploadedCsvFile): boolean {
+  const ext = extensionOf(file.originalname ?? '');
+  if (['xls', 'ods'].includes(ext)) return true;
   // Not `application/vnd.ms-excel`: Windows browsers send it for .csv files.
-  if (/spreadsheetml|opendocument\.spreadsheet/.test(file.mimetype ?? ''))
-    return true;
-  const head = file.buffer.subarray(0, 4);
-  return head.equals(ZIP_SIGNATURE) || head.equals(OLE_SIGNATURE);
+  if (/opendocument\.spreadsheet/.test(file.mimetype ?? '')) return true;
+  return file.buffer.subarray(0, 4).equals(OLE_SIGNATURE);
+}
+
+function isWorkbook(file: UploadedCsvFile): boolean {
+  return isXlsx(file) || isOtherWorkbook(file);
 }
 
 /** CSV with `,` or `;`, UTF-8 or Latin-1: the farm importer's parser. */
@@ -77,22 +94,43 @@ export const csvReader: ImportFileReader = {
   },
 };
 
-/**
- * Workbooks until an xlsx reader is plugged in (needs the exceljs
- * dependency): a clear refusal rather than a garbled CSV parse.
- */
-const EXCEL_PENDING: ImportFileReader = {
+/** Excel .xlsx / .xlsm: first sheet, cells as shown, dates `yyyy-mm-dd`. */
+export const xlsxReader: ImportFileReader = {
   label: 'Excel',
-  accepts: isWorkbook,
+  accepts: isXlsx,
+  async read(buffer) {
+    let table: string[][];
+    try {
+      // Header + IMPORT_MAX_ROWS rows; longer files are refused early.
+      table = await readXlsx(buffer, { maxRows: IMPORT_MAX_ROWS + 1 });
+    } catch (e) {
+      if (e instanceof SpreadsheetError) {
+        throw new BadRequestException(e.message);
+      }
+      throw e;
+    }
+    const [header = [], ...rows] = table;
+    return { header, rows, encoding: 'xlsx', delimiter: '' };
+  },
+};
+
+/** .xls / .ods: a clear refusal rather than a garbled CSV parse. */
+const OTHER_WORKBOOK: ImportFileReader = {
+  label: 'Excel',
+  accepts: isOtherWorkbook,
   read() {
     throw new BadRequestException(
-      'Les classeurs Excel ne sont pas encore lus directement : enregistrez la feuille au format CSV (Fichier › Enregistrer sous › CSV) et déposez ce fichier.',
+      'Ce format de classeur n’est pas lu : enregistrez la feuille au format Excel .xlsx ou CSV (Fichier › Enregistrer sous) et déposez ce fichier.',
     );
   },
 };
 
 /** First reader that accepts the file wins. */
-const READERS: readonly ImportFileReader[] = [EXCEL_PENDING, csvReader];
+const READERS: readonly ImportFileReader[] = [
+  xlsxReader,
+  OTHER_WORKBOOK,
+  csvReader,
+];
 
 export async function readImportFile(
   file: UploadedCsvFile,
