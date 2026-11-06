@@ -55,9 +55,9 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/" element={<Navigate to="/app" replace />} />
+      <Route path="/marche/inscription" element={<BuyerRegisterPage />} />
       <Route path="/marche" element={<MarketLayout />}>
         <Route index element={<MarketCataloguePage />} />
-        <Route path="inscription" element={<BuyerRegisterPage />} />
         <Route element={<RequiresAuth />}>
           <Route path="commandes" element={<BuyerOrdersPage />} />
           <Route path="commandes/:id" element={<BuyerOrderPage />} />

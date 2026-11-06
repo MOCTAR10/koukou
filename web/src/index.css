@@ -88,6 +88,11 @@
   --color-red-700: #99301f;
   --color-red-800: #7a271a;
   --color-red-900: #5c1e14;
+
+  --container-page: 105rem;
+  --text-display: clamp(2rem, 1.1rem + 1.7vw, 3rem);
+  --shadow-card: 0 1px 2px rgb(16 34 47 / 0.04), 0 1px 3px rgb(16 34 47 / 0.03);
+  --shadow-raised: 0 12px 32px -12px rgb(12 35 49 / 0.35);
 }
 
 html {
@@ -99,6 +104,35 @@ html {
 body {
   background-color: var(--color-slate-50);
   color: var(--color-slate-900);
+}
+
+/* Things you can click say so with a mouse. */
+button:not(:disabled),
+[role="button"],
+select:not(:disabled),
+summary {
+  cursor: pointer;
+}
+
+/* Native dropdowns take the same look on every system. Left unlayered, so the padding wins over px-* utilities. */
+select:not([multiple]) {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2358788c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 0.6rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+
+select.select-on-dark {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a8cbdf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* A translucent hover, so tinted rows keep their tint. */
+@media (hover: hover) {
+  tbody tr:hover > td {
+    background-color: rgb(16 34 47 / 0.025);
+  }
 }
 
 /* Figures line up in tables and stat tiles. */

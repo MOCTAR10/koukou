@@ -42,6 +42,7 @@ import { AlertLevelBadge } from '../components/sales/shared';
 import { EGG_IMAGES } from '../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct, statusLabel } from '../lib/format';
 import { stagger, staggerItem } from '../lib/motion';
+import { useMediaQuery } from '../lib/useMediaQuery';
 
 /** Local calendar date (Gabon is UTC+1: toISOString is "yesterday" before 01:00). */
 function localIso(d: Date): string {
@@ -88,6 +89,8 @@ function LivestockDashboard() {
   });
   const [curveBatchId, setCurveBatchId] = useState<string>('');
   const [cheptelOpen, setCheptelOpen] = useState(false);
+  // Two columns need the room: below this, the rail would squeeze the amounts in the main column.
+  const wide = useMediaQuery('(min-width: 1440px)');
 
   const advisory = useQuery({
     queryKey: ['advisory', farmId],
@@ -173,43 +176,9 @@ function LivestockDashboard() {
   // Dashboard rows carry no breed or species: the photo comes from the lot itself.
   const lotPhoto = (batchId: string) => batchPhoto(batchList.find((b) => b.id === batchId));
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Tableau de bord"
-        subtitle={`Situation de la ferme · mis à jour ${dateFr(d.generatedAt)}`}
-        icon={<LayoutDashboard className="h-6 w-6" />}
-        actions={
-          <>
-            <Calendar className="h-4 w-4 text-slate-400" />
-            <input
-              type="date"
-              value={selectedDate}
-              max={localToday()}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500"
-            />
-            {!isToday && (
-              <button
-                onClick={() => setSelectedDate(localToday())}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> Aujourd’hui
-              </button>
-            )}
-          </>
-        }
-      />
-
-      <ErrorNote error={batches.error ?? slaughter.error ?? pnl.error ?? clients.error} />
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <WeatherCard weather={d.weather} />
-        <PerformanceTiles batches={batchList} />
-      </div>
-
+  const kpis = (
       <motion.div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 min-[1800px]:grid-cols-6"
         variants={stagger}
         initial="hidden"
         animate="show"
@@ -267,9 +236,9 @@ function LivestockDashboard() {
           />
         </motion.div>
       </motion.div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="p-4 lg:col-span-1">
+  );
+  const health = (
+        <Card className="p-4 lg:col-span-1 min-[1440px]:col-auto">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
             <Stethoscope className="h-4 w-4 text-brand-600" /> Santé de la ferme
           </h2>
@@ -308,8 +277,9 @@ function LivestockDashboard() {
             </div>
           </div>
         </Card>
-
-        <Card className="p-4 lg:col-span-2">
+  );
+  const curve_card = (
+        <Card className="p-4 lg:col-span-2 min-[1440px]:col-auto">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <TrendingUp className="h-4 w-4 text-brand-600" /> Courbe de croissance (poids moyen / IC)
@@ -351,17 +321,9 @@ function LivestockDashboard() {
             <EmptyState message="Pas encore de données de croissance (saisies hebdomadaires)." icon={<TrendingUp className="h-6 w-6" />} />
           )}
         </Card>
-      </div>
-
-      <ActionQueue advisory={advisory.data} error={advisory.isError} />
-
-      {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
-
-      <Ranking dash={d} batches={batchList} typeLabel={statusLabel} />
-
-      <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} showFinance={canReports} showClients={canClients} />
-
-      <div className="grid gap-4 lg:grid-cols-2">
+  );
+  const tables_row = (
+      <div className="grid gap-4 min-[1360px]:grid-cols-2 min-[1440px]:grid-cols-1 min-[1800px]:grid-cols-2">
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-4 py-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -390,7 +352,7 @@ function LivestockDashboard() {
                       </div>
                     </Td>
                     <Td><StatusBadge status={b.type} /></Td>
-                    <Td>{b.ageDays} j</Td>
+                    <Td className="whitespace-nowrap">{b.ageDays} j</Td>
                     <Td className="font-semibold">{b.perfIndex != null ? num(b.perfIndex) : '—'}</Td>
                     <Td>{b.fcr != null ? num(b.fcr, 2) : '—'}</Td>
                     <Td>{num(b.liveCount)}</Td>
@@ -468,8 +430,8 @@ function LivestockDashboard() {
           </div>
         </Card>
       </div>
-
-      {d.alerts.rouge > 0 ? (
+  );
+  const priority = d.alerts.rouge > 0 ? (
         <Card className="flex items-start gap-3 border-red-200 bg-red-50 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
           <div>
@@ -481,7 +443,75 @@ function LivestockDashboard() {
             </Link>
           </div>
         </Card>
-      ) : null}
+  ) : null;
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Tableau de bord"
+        subtitle={`Situation de la ferme · mis à jour ${dateFr(d.generatedAt)}`}
+        icon={<LayoutDashboard className="h-6 w-6" />}
+        actions={
+          <>
+            <Calendar className="h-4 w-4 text-slate-400" />
+            <input
+              type="date"
+              value={selectedDate}
+              max={localToday()}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500"
+            />
+            {!isToday && (
+              <button
+                onClick={() => setSelectedDate(localToday())}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 hover:bg-brand-100"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Aujourd’hui
+              </button>
+            )}
+          </>
+        }
+      />
+
+      <ErrorNote error={batches.error ?? slaughter.error ?? pnl.error ?? clients.error} />
+
+      {wide ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-6 min-[1800px]:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="space-y-6">
+            {kpis}
+            <PerformanceTiles batches={batchList} />
+            {curve_card}
+            {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
+            {tables_row}
+            <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} showFinance={canReports} showClients={canClients} />
+          </div>
+          <div className="space-y-6">
+            {priority}
+            <WeatherCard weather={d.weather} />
+            {health}
+            <ActionQueue advisory={advisory.data} error={advisory.isError} />
+            <Ranking dash={d} batches={batchList} typeLabel={statusLabel} />
+          </div>
+        </div>
+      ) : (
+        <>
+          {priority}
+          {kpis}
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <WeatherCard weather={d.weather} />
+            <PerformanceTiles batches={batchList} />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            {health}
+            {curve_card}
+          </div>
+          <ActionQueue advisory={advisory.data} error={advisory.isError} />
+          {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
+          <Ranking dash={d} batches={batchList} typeLabel={statusLabel} />
+          {tables_row}
+          <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} showFinance={canReports} showClients={canClients} />
+        </>
+      )}
 
       {cheptelOpen ? (
         <CheptelModal

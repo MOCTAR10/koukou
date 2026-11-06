@@ -126,6 +126,7 @@ CI (`.github/workflows/ci.yml`): push to `main`/`feat/**` and PRs to `main`. bac
 - Every query key carries `farmId` as the 2nd element. After a sale, invalidate exactly `['sales'|'batches'|'dashboard'|'caisse-current'|'feed-stock'|'customers', farmId]` (`SalesPage.tsx`).
 - Feed option label is `` `${supplierLotNumber} - ${productName}` `` (**not** `lotNumber`).
 - Farm context lives in `src/app/FarmContext.tsx`; there is no `src/app/router`.
+- **Layout widths** (`components/Shell.tsx`): below `md` an off-canvas menu; `md` to `xl` a 76px icon rail that opens on hover or keyboard focus, with the farm picker in the top bar (Windows zoom puts many laptops here, so these widths must stay a desktop layout); `xl` and up the full sidebar. Sign-in and sign-up pages use `auth/AuthLayout.tsx`. A panel that can sit in a narrow or a wide column follows its own width (`@container`), not the screen's.
 
 ## Mobile (`mobile/`)
 
