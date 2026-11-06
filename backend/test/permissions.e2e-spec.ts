@@ -451,4 +451,122 @@ describe('Équipe & permissions — rôles ADMIN/ELEVEUR (e2e)', () => {
       .set('Authorization', `Bearer ${otherToken}`)
       .expect(403);
   });
+  describe('groupe « Évolution » Cultures (agri:*) hors du catalogue servi', () => {
+    it('le catalogue ne propose ni le groupe Agriculture ni agri:gerer', async () => {
+      const catalog = await request(server)
+        .get(`/farms/${farmId}/permissions`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(catalog.body.groups.map((g: any) => g.key)).not.toContain(
+        'agriculture',
+      );
+      const codes = JSON.stringify(catalog.body);
+      expect(codes).not.toContain('agri:');
+    });
+
+    it('un code caché est refusé comme un code inconnu (400)', async () => {
+      const patched = await request(server)
+        .patch(`/farms/${farmId}/eleveurs/${eleveurEmploymentId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ permissions: ['caisse:lire', 'agri:gerer'] })
+        .expect(400);
+      expect(patched.body.message).toBe(
+        'Permission(s) inconnue(s) : agri:gerer. Consultez le catalogue GET /farms/:farmId/permissions.',
+      );
+      const created = await request(server)
+        .post(`/farms/${farmId}/eleveurs`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          phone: phone(8),
+          fullName: 'Admin Agri',
+          code: 'secret888',
+          role: 'ADMIN',
+          permissions: ['agri:gerer'],
+        })
+        .expect(400);
+      expect(created.body.message).toContain('agri:gerer');
+    });
+
+    it('un code caché déjà stocké reste en base mais n’accorde rien', async () => {
+      const ds = app.get(DataSource);
+      const member = await request(server)
+        .post(`/farms/${farmId}/eleveurs`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          phone: phone(8),
+          fullName: 'Admin Cultures',
+          code: 'secret888',
+          role: 'ADMIN',
+          permissions: ['saisie:creer'],
+        })
+        .expect(201);
+      const memberId = member.body.employment.id as string;
+      // Stored before the group was hidden.
+      await ds.query(
+        `UPDATE farm_employees SET permissions = '["saisie:creer","agri:gerer"]'::jsonb WHERE id = $1`,
+        [memberId],
+      );
+      const memberToken = await login(phone(8), 'secret888');
+
+      const me = await request(server)
+        .get(`/farms/${farmId}/me`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .expect(200);
+      expect(me.body.permissions).toEqual(['saisie:creer']);
+      const listed = await request(server)
+        .get(`/farms/${farmId}/eleveurs`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      expect(
+        (listed.body as any[]).find((e: any) => e.id === memberId).permissions,
+      ).toEqual(['saisie:creer']);
+
+      // The dormant routes stay reachable by the owner only.
+      const cultures = await request(server)
+        .get(`/cultures?farmId=${farmId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .expect(200);
+      const parcelle = {
+        name: 'Parcelle dormante',
+        cultureId: cultures.body[0].id,
+        areaHa: 1,
+      };
+      await request(server)
+        .post(`/farms/${farmId}/parcelles`)
+        .set('Authorization', `Bearer ${memberToken}`)
+        .send(parcelle)
+        .expect(403);
+      await request(server)
+        .post(`/farms/${farmId}/parcelles`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(parcelle)
+        .expect(201);
+
+      // A team manager edits the member: the dormant code neither protects
+      // the member nor has to be held, and it survives the new list.
+      await request(server)
+        .post(`/farms/${farmId}/eleveurs`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          phone: phone(9),
+          fullName: 'Gestionnaire Équipe',
+          code: 'secret999',
+          role: 'ADMIN',
+          permissions: ['equipe:gerer', 'saisie:creer', 'caisse:lire'],
+        })
+        .expect(201);
+      const managerToken = await login(phone(9), 'secret999');
+      const edited = await request(server)
+        .patch(`/farms/${farmId}/eleveurs/${memberId}`)
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({ permissions: ['saisie:creer', 'caisse:lire'] })
+        .expect(200);
+      expect(edited.body.permissions).toEqual(['saisie:creer', 'caisse:lire']);
+      const [{ permissions }] = await ds.query(
+        `SELECT permissions FROM farm_employees WHERE id = $1`,
+        [memberId],
+      );
+      expect(permissions).toEqual(['saisie:creer', 'caisse:lire', 'agri:gerer']);
+    });
+  });
 });
