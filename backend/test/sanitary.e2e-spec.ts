@@ -5,8 +5,11 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
 import { DataSource } from 'typeorm';
 import {
+  auth,
   createPlatformAdmin,
   createProgrammeFarm,
+  login,
+  uniquePhone,
 } from './helpers/programme-farm.js';
 
 function daysAgo(n: number): string {
@@ -20,6 +23,8 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
   let server: App;
   let token: string;
   let farmId: string;
+  /** Veterinary services: they set a farm's own programme (CDC n° 22). */
+  let vetToken: string;
 
   async function createBatch(integrationDate: string) {
     const res = await request(server)
@@ -53,6 +58,17 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
     });
     token = farm.ownerToken;
     farmId = farm.farmId;
+    const vetPhone = uniquePhone('+2417');
+    const vet = await request(server)
+      .post('/programme/access/memberships')
+      .set(auth(admin.token))
+      .send({
+        fullName: `Vétérinaire sanitaire ${Date.now()}`,
+        phone: vetPhone,
+        profileCode: 'VETERINAIRE',
+      })
+      .expect(201);
+    vetToken = await login(server, vetPhone, vet.body.loginCode as string);
   });
 
   it('seed : les protocoles sanitaires par défaut sont disponibles (chair + pondeuse)', async () => {
@@ -252,9 +268,10 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
   });
 
   it('protocole personnalisé : compléter un soin antibiotique enregistre le traitement HACCP', async () => {
+    // The farm's own programme comes from the veterinary services (CDC n° 22).
     const protocol = await request(server)
       .post('/sanitary/protocols')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${vetToken}`)
       .send({
         farmId,
         name: 'Protocole test antibio',

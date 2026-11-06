@@ -5,8 +5,11 @@ import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import {
+  auth,
   createPlatformAdmin,
   createProgrammeFarm,
+  login,
+  uniquePhone,
 } from './helpers/programme-farm.js';
 import { DatabaseSeedService } from './../src/database/database-seed.service.js';
 
@@ -22,6 +25,8 @@ describe('Souches, cultures et programmes personnalisés : propres à la ferme (
   const other = { token: '', farmId: '' };
 
   let adminToken = '';
+  /** Veterinary services: they set a farm's own vaccination programme. */
+  let vetToken = '';
 
   async function signUp(prefix: string, target: typeof owner) {
     const created = await createProgrammeFarm(server, adminToken, {
@@ -51,6 +56,17 @@ describe('Souches, cultures et programmes personnalisés : propres à la ferme (
     await signUp('7', owner);
 
     await signUp('8', other);
+    const vetPhone = uniquePhone('+2417');
+    const vet = await request(server)
+      .post('/programme/access/memberships')
+      .set(auth(adminToken))
+      .send({
+        fullName: `Vétérinaire ressources ${stamp}`,
+        phone: vetPhone,
+        profileCode: 'VETERINAIRE',
+      })
+      .expect(201);
+    vetToken = await login(server, vetPhone, vet.body.loginCode as string);
   });
 
   afterAll(async () => {
@@ -146,7 +162,24 @@ describe('Souches, cultures et programmes personnalisés : propres à la ferme (
   });
 
   it('programme sanitaire : lisible et applicable uniquement par sa ferme', async () => {
-    const program = await as(owner)
+    const body = {
+      farmId: owner.farmId,
+      name: `Programme maison ${stamp}`,
+      species: 'POULET',
+      type: 'CHAIR',
+      steps: [
+        { stepOrder: 1, dayFrom: 1, dayTo: 3, careType: 'VACCIN', name: 'Vaccin J1' },
+      ],
+    };
+    // CDC n° 22 (POUFA lot A sante): the farm's own programme is set by the
+    // veterinary services, not by the farm nor the platform admin.
+    const refused = await as(owner).post('/sanitary/protocols').send(body).expect(403);
+    expect(refused.body.message).toContain('services vétérinaires');
+    await as({ token: adminToken, farmId: '' })
+      .post('/sanitary/protocols')
+      .send(body)
+      .expect(403);
+    const program = await as({ token: vetToken, farmId: '' })
       .post('/sanitary/protocols')
       .send({
         farmId: owner.farmId,

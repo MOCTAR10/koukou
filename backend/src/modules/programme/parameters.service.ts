@@ -198,7 +198,8 @@ export class ParametersService {
 
   /**
    * A parameter is changed by its owner profile only (a VETERINAIRE threshold
-   * by the veterinary services); the platform admin may change any. A null
+   * by the veterinary services); the platform admin may change any but the
+   * veterinary services' (`OWNER_PROFILES_CLOSED_TO_PLATFORM`). A null
    * actor is the server itself (seed).
    * @throws ForbiddenException
    */
