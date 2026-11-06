@@ -7,13 +7,8 @@ import { Public } from '../../common/decorators/public.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { AuthService } from './auth.service.js';
-import {
-  BecomeFarmerDto,
-  BuyerProfileDto,
-  RegisterBuyerDto,
-} from './dto/buyer.dto.js';
+import { BuyerProfileDto, RegisterBuyerDto } from './dto/buyer.dto.js';
 import { LoginDto } from './dto/login.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
 import { VerifyOtpDto } from './dto/verify-otp.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 
@@ -27,27 +22,10 @@ export class AuthController {
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Public()
-  @Post('register')
-  @ApiOperation({ summary: 'Inscription (Propriétaire)' })
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
-  }
-
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @Public()
   @Post('register-buyer')
   @ApiOperation({ summary: 'Inscription d’un acheteur du Market (sans ferme)' })
   registerBuyer(@Body() dto: RegisterBuyerDto) {
     return this.authService.registerBuyer(dto);
-  }
-
-  @Post('become-farmer')
-  @Roles(UserRole.ACHETEUR)
-  @ApiOperation({
-    summary: 'Un acheteur devient Propriétaire : sa ferme est créée',
-  })
-  becomeFarmer(@CurrentUser() user: AuthUser, @Body() dto: BecomeFarmerDto) {
-    return this.authService.becomeFarmer(user, dto);
   }
 
   @Get('buyer-profile')

@@ -28,7 +28,6 @@ import { FarmsService } from './farms.service.js';
 import type { UploadedImageFile } from './farms.service.js';
 import { CreateElevageDto } from './dto/create-eleveur.dto.js';
 import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
-import { CreateFarmDto } from './dto/create-farm.dto.js';
 import { UpdateFarmSettingsDto } from './dto/update-farm-settings.dto.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 
@@ -37,14 +36,6 @@ import { Domain } from '../../common/decorators/domain.decorator.js';
 @Controller('farms')
 export class FarmsController {
   constructor(private readonly farmsService: FarmsService) {}
-
-  @Post()
-  @Roles(UserRole.PROPRIETAIRE)
-  @Domain('COMPTE')
-  @ApiOperation({ summary: 'Créer une ferme (Propriétaire)' })
-  createFarm(@CurrentUser() user: AuthUser, @Body() dto: CreateFarmDto) {
-    return this.farmsService.create(user, dto);
-  }
 
   @Get()
   // A buyer gets an empty list: the apps call this at sign-in.

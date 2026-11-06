@@ -12,7 +12,6 @@ import { AccessCoreModule } from '../access/access-core.module.js';
 import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { UsersModule } from '../users/users.module.js';
-import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsModule } from '../farms/farms.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
@@ -24,7 +23,7 @@ import { SMS_SENDER, createSmsSender } from './sms/sms-sender.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Farm, BuyerProfile, LoginChallenge]),
+    TypeOrmModule.forFeature([User, BuyerProfile, LoginChallenge]),
     UsersModule,
     FarmsModule,
     AccessCoreModule,
