@@ -31,9 +31,13 @@ import type { InstitutionAccess } from '../access/access-rules.js';
 import { institutionPermissions } from '../access/permission-domains.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 
-export interface CreateFarmInput {
-  name: string;
-  administrativeCity: string;
+/**
+ * Editable details of a farm (owner settings, platform admin). A farm itself
+ * is only created by the programme registry (`POST /programme/farms`).
+ */
+export interface FarmDetailsInput {
+  name?: string;
+  administrativeCity?: string;
   buildingCount?: number | null;
   capacityPerBuilding?: number | null;
   buildingAreaM2?: number | null;
@@ -121,42 +125,6 @@ export class FarmsService {
     private readonly scope: ScopeResolver,
   ) {}
 
-  async create(
-    owner: AuthUser,
-    input: CreateFarmInput,
-    ownerId?: string,
-  ): Promise<Farm> {
-    const farm = this.farmRepo.create({
-      name: input.name,
-      administrativeCity: input.administrativeCity,
-      ownerId: ownerId ?? owner.id,
-      buildingCount: input.buildingCount ?? null,
-      capacityPerBuilding: input.capacityPerBuilding ?? null,
-      buildingAreaM2: input.buildingAreaM2 ?? null,
-      defaultSacKg: input.defaultSacKg ?? 50,
-      longitude: input.longitude ?? null,
-      latitude: input.latitude ?? null,
-    });
-    return this.farmRepo.save(farm);
-  }
-
-  /** Provisionnement plateforme : compte Propriétaire + sa ferme (admin). */
-  async provision(
-    farmInput: CreateFarmInput,
-    ownerInput: ProprietaireInput,
-  ): Promise<{ farm: Farm; owner: PublicUser }> {
-    const owner = await this.createProprietaire(ownerInput);
-    let farm: Farm;
-    try {
-      farm = await this.create(owner as AuthUser, farmInput, owner.id);
-    } catch (err) {
-      // No orphan owner account: a retry would otherwise always get a 409.
-      await this.userRepo.delete({ id: owner.id });
-      throw err;
-    }
-    return { farm, owner: this.publicUser(owner) };
-  }
-
   /** Existing account holding this (normalized) phone or e-mail, if any. */
   async findAccount(
     phone: string,
@@ -169,8 +137,8 @@ export class FarmsService {
   }
 
   /**
-   * Creates a PROPRIETAIRE account (provisioning, programme owner
-   * activation). The phone must already be normalized (`normalizePhone`).
+   * Creates a PROPRIETAIRE account (programme owner activation). The phone
+   * must already be normalized (`normalizePhone`).
    * @throws ConflictException when the phone or e-mail has an account
    */
   async createProprietaire(
@@ -451,7 +419,7 @@ export class FarmsService {
   async updateFarm(
     user: AuthUser,
     farmId: string,
-    input: Partial<CreateFarmInput>,
+    input: FarmDetailsInput,
   ): Promise<Farm> {
     const farm = await this.assertAccessible(user, farmId);
     if (input.name != null) farm.name = input.name;
@@ -468,34 +436,6 @@ export class FarmsService {
     if (input.latitude !== undefined) farm.latitude = input.latitude ?? null;
     if (input.isVerified != null) farm.isVerified = input.isVerified;
     return this.farmRepo.save(farm);
-  }
-
-  /** Suspendre / réactiver une ferme (plateforme uniquement). */
-  async setFarmActive(farmId: string, active: boolean): Promise<Farm> {
-    const farm = await this.farmRepo.findOne({ where: { id: farmId } });
-    if (!farm) throw new NotFoundException('Ferme introuvable.');
-    this.assertActiveNotProgrammeDriven(farm);
-    farm.active = active;
-    return this.farmRepo.save(farm);
-  }
-
-  /**
-   * A programme farm's `active` follows its programme status (SUSPENDUE →
-   * inactive): it is changed through the status, never directly.
-   */
-  assertActiveNotProgrammeDriven(farm: Pick<Farm, 'programId'>): void {
-    if (farm.programId) {
-      throw new BadRequestException(
-        'Ferme du programme : la suspension passe par son statut (POST /programme/farms/:farmId/status).',
-      );
-    }
-  }
-
-  /** @throws NotFoundException */
-  async findById(farmId: string): Promise<Farm> {
-    const farm = await this.farmRepo.findOne({ where: { id: farmId } });
-    if (!farm) throw new NotFoundException('Ferme introuvable.');
-    return farm;
   }
 
   /** Remplace le logo de la ferme : écrit le fichier sous /uploads/logos et

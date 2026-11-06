@@ -1,7 +1,3 @@
-// The programme layer is inert unless PROGRAM_CODE is set: set it before the
-// app (and its ConfigModule) loads.
-process.env.PROGRAM_CODE = 'POUFA';
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -10,6 +6,10 @@ import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import { IdCounterService } from './../src/modules/programme/id-counter.service.js';
 import { ProgrammeSeedService } from './../src/modules/programme/programme-seed.service.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2e)', () => {
   let app: INestApplication<App>;
@@ -45,22 +45,6 @@ describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2
   const put = (url: string, body: object, token = adminToken) =>
     request(server).put(url).set(auth(token)).send(body);
 
-  async function register(phone: string): Promise<string> {
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName: 'Programme E2E', code: 'secret123' })
-      .expect(201);
-    return phone;
-  }
-
-  async function login(phone: string): Promise<string> {
-    const res = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    return res.body.accessToken;
-  }
-
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -73,14 +57,9 @@ describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2
     server = app.getHttpServer();
     ds = app.get(DataSource);
 
-    const ownerPhone = await register(`+24163${stamp}`);
-    ownerToken = await login(ownerPhone);
-    const adminPhone = await register(`+24164${stamp}`);
-    await ds.query(
-      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-      [adminPhone],
-    );
-    adminToken = await login(adminPhone);
+    adminToken = (await createPlatformAdmin(server, ds)).token;
+    // A non-administrator reader: the owner of a registry farm.
+    ownerToken = (await createProgrammeFarm(server, adminToken)).ownerToken;
 
     const [row] = await ds.query(
       `SELECT p.geometry FROM provinces p JOIN programs g ON g.id = p.program_id
@@ -88,7 +67,7 @@ describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2
       [SQUARE_PROVINCE],
     );
     savedGeometry = row?.geometry ?? null;
-  });
+  }, 120_000);
 
   afterAll(async () => {
     // Leave the shared DB as found: the square is test data only.
@@ -101,7 +80,6 @@ describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2
       ],
     );
     await app?.close();
-    delete process.env.PROGRAM_CODE;
   });
 
   describe('données initiales', () => {

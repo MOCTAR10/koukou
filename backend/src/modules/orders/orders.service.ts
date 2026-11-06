@@ -861,7 +861,7 @@ export class OrdersService {
         operatorId: user.id,
       });
 
-      // POUFA band projection (no-op outside a programme).
+      // POUFA band projection, same transaction.
       for (const batchId of touchedBatches) {
         await this.bandeStats.refresh(em, batchId);
       }

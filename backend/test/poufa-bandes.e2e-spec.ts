@@ -1,7 +1,3 @@
-// The programme layer is inert unless PROGRAM_CODE is set: set it before the
-// app (and its ConfigModule) loads.
-process.env.PROGRAM_CODE = 'POUFA';
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -14,6 +10,10 @@ import {
   type SyncConflictEvent,
 } from './../src/common/utils/event-bus.js';
 import { WeighingsService } from './../src/modules/bandes/weighings.service.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 /** `YYYY-MM-DD`, `n` days from today (UTC). */
 const day = (n: number) =>
@@ -26,10 +26,8 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
   let ds: DataSource;
   let adminToken: string;
   let ownerToken: string;
-  let plainToken: string;
   let farmId: string;
   let farmCode: string;
-  let plainFarmId: string;
 
   const stamp = Date.now();
   const digits = String(stamp).slice(-7);
@@ -40,42 +38,6 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
     request(server).get(url).set(auth(token));
   const post = (url: string, body: object, token = ownerToken) =>
     request(server).post(url).set(auth(token)).send(body);
-
-  async function register(phone: string, fullName: string): Promise<string> {
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName, code: 'secret123' })
-      .expect(201);
-    const res = await request(server)
-      .post('/auth/login')
-      .send({ phone, code: 'secret123' })
-      .expect(201);
-    return res.body.accessToken;
-  }
-
-  /**
-   * Test DB only. Bands are never deleted and a farm never leaves its
-   * programme (triggers): the spec's farms are taken out of the programme by
-   * hand, triggers off, so the registry spec can reset its farms and codes.
-   */
-  async function releaseFarms() {
-    await ds.transaction(async (em) => {
-      await em.query(`SET LOCAL session_replication_role = replica`);
-      const farms: { id: string }[] = await em.query(
-        `SELECT id FROM farms WHERE name LIKE 'POUFA L3 E2E %' AND program_id IS NOT NULL`,
-      );
-      const ids = farms.map((f) => f.id);
-      if (ids.length === 0) return;
-      await em.query(
-        `UPDATE production_batches SET code = NULL WHERE farm_id = ANY($1)`,
-        [ids],
-      );
-      await em.query(
-        `UPDATE farms SET program_id = NULL, code = NULL WHERE id = ANY($1)`,
-        [ids],
-      );
-    });
-  }
 
   async function openBand(
     body: Record<string, unknown>,
@@ -115,51 +77,19 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
     ds = app.get(DataSource);
-    await releaseFarms();
-
-    const adminPhone = `+24161${digits}`;
-    await register(adminPhone, 'Admin Bandes');
-    await ds.query(
-      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-      [adminPhone],
-    );
-    adminToken = (
-      await request(server)
-        .post('/auth/login')
-        .send({ phone: adminPhone, code: 'secret123' })
-        .expect(201)
-    ).body.accessToken;
-
-    // A POUFA instance starts empty: the registry creates the farm, then
-    // links it to the exploitant's existing account.
-    const ownerPhone = `+24162${digits}`;
-    ownerToken = await register(ownerPhone, 'Éleveur Bandes');
-    const created = await post(
-      '/programme/farms',
-      {
-        name: NAME,
-        provinceCode: 'G1',
-        capacityPlaces: 2000,
-        exploitantName: 'Éleveur Bandes',
-        exploitantPhone: ownerPhone,
-        confirmDuplicate: true,
-      },
-      adminToken,
-    ).expect(201);
-    farmId = created.body.id;
-    farmCode = created.body.code;
-    await post(
-      `/programme/farms/${farmId}/activate-owner`,
-      { linkExistingUser: true },
-      adminToken,
-    ).expect(201);
-
-    plainToken = await register(`+24163${digits}`, 'Fermia Classique');
-    [{ id: plainFarmId }] = (await get('/farms', plainToken).expect(200)).body;
-  });
+    adminToken = (await createPlatformAdmin(server, ds)).token;
+    // A POUFA instance starts empty: the registry creates the farm and hands
+    // it to its exploitant.
+    const farm = await createProgrammeFarm(server, adminToken, {
+      name: NAME,
+      exploitantName: 'Éleveur Bandes',
+    });
+    farmId = farm.farmId;
+    farmCode = farm.farmCode;
+    ownerToken = farm.ownerToken;
+  }, 120_000);
 
   afterAll(async () => {
-    await releaseFarms();
     await app.close();
   });
 
@@ -200,42 +130,6 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
           band.id,
         ]),
       ).rejects.toThrow(/ne peut pas être modifié/);
-    });
-
-    it('une ferme hors programme garde son comportement', async () => {
-      const lot = await openBand(
-        { initialAgeDays: 5, initialAvgWeightG: 90 },
-        plainFarmId,
-        plainToken,
-      );
-      expect(lot).toMatchObject({
-        code: null,
-        initialAgeDays: null,
-        referenceDurationDays: null,
-      });
-      await get(`/farms/${plainFarmId}/bandes/${lot.id}`, plainToken).expect(
-        404,
-      );
-      await post(
-        `/farms/${plainFarmId}/batches/${lot.id}/daily-entries`,
-        {
-          entryDate: day(-1),
-          deaths: 2,
-          capturedAt: minutes(-30),
-          deviceSentAt: minutes(0),
-        },
-        plainToken,
-      ).expect(201);
-      const [{ n }] = await ds.query(
-        `SELECT COUNT(*)::int AS n FROM bande_daily_stats WHERE batch_id = $1`,
-        [lot.id],
-      );
-      expect(n).toBe(0);
-      const [{ c }] = await ds.query(
-        `SELECT COUNT(*)::int AS c FROM sync_clock_samples WHERE farm_id = $1`,
-        [plainFarmId],
-      );
-      expect(c).toBe(0);
     });
   });
 

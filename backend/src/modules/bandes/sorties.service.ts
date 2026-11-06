@@ -306,7 +306,7 @@ export class SortiesService {
         : Promise.resolve([] as SlaughterOrder[]),
       farmIds.length
         ? (this.dataSource.query(
-            'SELECT DISTINCT program_id AS "programId" FROM farms WHERE id = ANY($1) AND program_id IS NOT NULL',
+            'SELECT DISTINCT program_id AS "programId" FROM farms WHERE id = ANY($1)',
             [farmIds],
           ) as Promise<{ programId: string }[]>)
         : Promise.resolve([]),

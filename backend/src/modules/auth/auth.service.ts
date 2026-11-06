@@ -14,15 +14,8 @@ import { CustomerType } from '../../common/enums/customer-type.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
-import { Farm } from '../farms/entities/farm.entity.js';
-import { FarmsService } from '../farms/farms.service.js';
-import {
-  BecomeFarmerDto,
-  BuyerProfileDto,
-  RegisterBuyerDto,
-} from './dto/buyer.dto.js';
+import { BuyerProfileDto, RegisterBuyerDto } from './dto/buyer.dto.js';
 import { LoginDto } from './dto/login.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
 import { VerifyOtpDto } from './dto/verify-otp.dto.js';
 import {
   INSTITUTION_SESSION_SECONDS,
@@ -31,8 +24,6 @@ import {
 } from './login-challenge.service.js';
 import { NO_MEMBERSHIP_MESSAGE } from '../access/access-rules.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
-
-const DEFAULT_FARM_CITY = 'Libreville';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
 import { normalizePhone } from '../../common/utils/phone.js';
 
@@ -41,51 +32,14 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepo: Repository<User>,
-    @InjectRepository(Farm)
-    private readonly farmsRepo: Repository<Farm>,
     @InjectRepository(BuyerProfile)
     private readonly buyerProfileRepo: Repository<BuyerProfile>,
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
-    private readonly farmsService: FarmsService,
     private readonly challenges: LoginChallengeService,
     private readonly scope: ScopeResolver,
     private readonly config: ConfigService,
   ) {}
-
-  async register(dto: RegisterDto) {
-    const existing = await this.usersRepo.findOne({
-      where: { phone: dto.phone },
-    });
-    if (existing) {
-      throw new ConflictException(
-        'Un compte existe déjà avec ce numéro de téléphone.',
-      );
-    }
-
-    const codeHash = await bcrypt.hash(dto.code, 10);
-    const user = this.usersRepo.create({
-      phone: dto.phone,
-      fullName: dto.fullName,
-      passwordHash: codeHash,
-      role: UserRole.PROPRIETAIRE,
-    });
-    try {
-      await this.usersRepo.save(user);
-    } catch (err) {
-      // Two concurrent registrations: the unique index decides.
-      if (isUniqueViolation(err)) {
-        throw new ConflictException(
-          'Un compte existe déjà avec ce numéro de téléphone.',
-        );
-      }
-      throw err;
-    }
-
-    await this.ensureOwnerFarm(user, dto.farmName, dto.farmCity);
-
-    return this.buildAuthResponse(user);
-  }
 
   /** A buyer has an account and a profile, but no farm. */
   async registerBuyer(dto: RegisterBuyerDto) {
@@ -125,25 +79,6 @@ export class AuthService {
       }
       throw err;
     }
-  }
-
-  /**
-   * A phone number holds one account, so a buyer who starts farming upgrades
-   * that account rather than registering again. The conditional update lets
-   * only one of two concurrent calls through. The buyer profile stays: an
-   * owner can keep buying.
-   */
-  async becomeFarmer(authUser: AuthUser, dto: BecomeFarmerDto) {
-    const claimed = await this.usersRepo.update(
-      { id: authUser.id, role: UserRole.ACHETEUR },
-      { role: UserRole.PROPRIETAIRE },
-    );
-    if (!claimed.affected) {
-      throw new BadRequestException('Ce compte n’est pas un compte acheteur.');
-    }
-    const user = await this.usersRepo.findOneByOrFail({ id: authUser.id });
-    await this.ensureOwnerFarm(user, dto.farmName, dto.farmCity);
-    return this.buildAuthResponse(user);
   }
 
   getBuyerProfile(user: AuthUser) {
@@ -197,7 +132,6 @@ export class AuthService {
       }
       return this.buildAuthResponse(user, false);
     }
-    await this.ensureOwnerFarm(user);
     return this.buildAuthResponse(user);
   }
 
@@ -217,23 +151,6 @@ export class AuthService {
     if (!(await this.scope.accessOf(user.id))) {
       throw new UnauthorizedException(NO_MEMBERSHIP_MESSAGE);
     }
-  }
-
-  /** Un Propriétaire dispose toujours d'une ferme : crée la ferme par défaut sinon.
-   *  Le nom saisie à l'inscription prime ; à défaut on retombe sur « Ferme de <nom> »
-   *  (les farms déjà créées gardent leur nom — renommable via PATCH /farms/:farmId). */
-  private async ensureOwnerFarm(
-    user: User,
-    farmName?: string,
-    farmCity?: string,
-  ) {
-    if (user.role !== UserRole.PROPRIETAIRE) return;
-    const count = await this.farmsRepo.count({ where: { ownerId: user.id } });
-    if (count > 0) return;
-    await this.farmsService.create(user, {
-      name: farmName?.trim() || `Ferme de ${user.fullName}`,
-      administrativeCity: farmCity?.trim() || DEFAULT_FARM_CITY,
-    });
   }
 
   /** `mfa`: the SMS code step was passed (checked by JwtStrategy when on). */

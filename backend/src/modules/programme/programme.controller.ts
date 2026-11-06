@@ -39,9 +39,8 @@ const listTypePipe = new ParseEnumPipe(ProgramListType, {
 });
 
 /**
- * Programme layer (registry, territories, lists, versioned parameters).
- * Every route answers 404 « Aucun programme configuré » when `PROGRAM_CODE`
- * is unset.
+ * Programme layer (registry, territories, lists, versioned parameters) of
+ * the programme named by `PROGRAM_CODE`.
  *
  * Platform admin, or an institutional account whose profile grants the
  * route's domain (PARAMETRES; lists, localités and boundaries:

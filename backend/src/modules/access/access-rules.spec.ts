@@ -51,7 +51,6 @@ function access(
 
 const farmA = { id: FARM_A, programId: PROGRAM, provinceId: G1 };
 const farmB = { id: FARM_B, programId: PROGRAM, provinceId: G2 };
-const fermiaFarm = { id: FARM_A, programId: null, provinceId: null };
 
 describe('default profiles', () => {
   it('are the seven profiles of the plan, all valid', () => {
@@ -140,11 +139,10 @@ describe('decideRoute', () => {
 });
 
 describe('scope', () => {
-  it('ALL: every farm of the programme, never a plain Fermia farm', () => {
+  it('ALL: every farm of the programme, never one of another programme', () => {
     const dge = access('DGE');
     expect(includesFarm(dge, farmA)).toBe(true);
     expect(includesFarm(dge, farmB)).toBe(true);
-    expect(includesFarm(dge, fermiaFarm)).toBe(false);
     expect(includesFarm(dge, { ...farmA, programId: OTHER_PROGRAM })).toBe(
       false,
     );

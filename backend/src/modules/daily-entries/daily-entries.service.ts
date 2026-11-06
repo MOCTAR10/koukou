@@ -117,9 +117,14 @@ export class DailyEntriesService {
         const existing = await entryRepo.findOne({
           where: { batchId, entryDate: dto.entryDate },
         });
-        const sync = programId
-          ? await this.reconcileSync(em, programId, user, batch, existing, dto)
-          : null;
+        const sync = await this.reconcileSync(
+          em,
+          programId,
+          user,
+          batch,
+          existing,
+          dto,
+        );
         // Like health events: more new deaths than live birds is refused
         // (quantityAlive would silently floor at 0).
         if (dto.deaths !== undefined) {
@@ -248,18 +253,16 @@ export class DailyEntriesService {
         if (dto.source !== undefined) data.source = dto.source;
         if (dto.sampleSize !== undefined)
           data.sampleSize = dto.sampleSize ?? null;
-        if (sync) {
-          if (sync.applied || !existing) {
-            data.fieldSync = sync.fieldSync;
-            data.capturedAt = sync.capturedAt;
-            data.updatedAt = sync.updatedAt;
-          } else {
-            // Nothing sent is written: the row keeps its last writer.
-            delete data.createdById;
-          }
-          if (!existing) data.catchUp = isCatchUp(dto.entryDate);
-          if (dto.avgWeightKg === null) data.sampleSize = null;
+        if (sync.applied || !existing) {
+          data.fieldSync = sync.fieldSync;
+          data.capturedAt = sync.capturedAt;
+          data.updatedAt = sync.updatedAt;
+        } else {
+          // Nothing sent is written: the row keeps its last writer.
+          delete data.createdById;
         }
+        if (!existing) data.catchUp = isCatchUp(dto.entryDate);
+        if (dto.avgWeightKg === null) data.sampleSize = null;
 
         const entry = existing
           ? entryRepo.merge(existing, data)

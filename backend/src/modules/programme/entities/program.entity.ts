@@ -8,8 +8,7 @@ import {
 
 /**
  * A public programme supervising farms (e.g. POUFA). The instance serves the
- * programme named by `PROGRAM_CODE`; with none configured the programme layer
- * stays inert.
+ * programme named by `PROGRAM_CODE` (mandatory); every farm belongs to it.
  */
 @Entity('programs')
 export class Program {

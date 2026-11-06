@@ -30,8 +30,7 @@ const uuid = new ParseUUIDPipe({ version: '4' });
 /**
  * Institutional access of the programme (POUFA plan §5.2): access profiles
  * and the memberships of institutional accounts. Platform admin, or an
- * institutional profile granted ADMINISTRATION. Answers 404 « Aucun
- * programme configuré » when `PROGRAM_CODE` is unset.
+ * institutional profile granted ADMINISTRATION.
  */
 @ApiTags('Programme (POUFA) — accès institutionnels')
 @Domain('ADMINISTRATION')

@@ -1,7 +1,4 @@
-// The programme layer is inert unless PROGRAM_CODE is set: set it before the
-// app (and its ConfigModule) loads.
-process.env.PROGRAM_CODE = 'POUFA';
-
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -10,10 +7,46 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import {
+  createPlatformAdmin,
+  createProgrammeFarm,
+} from './helpers/programme-farm.js';
 
 const POUFA_CSV = readFileSync(
   join(process.cwd(), 'test', 'fixtures', 'fermes-poufa.csv'),
 );
+
+/**
+ * Random capital letters. Every farm is a programme farm and the suite never
+ * deletes one, so this spec's names must be unlike those of earlier runs on
+ * the same DB: the duplicate detector compares character bigrams, and two
+ * names differing only by a timestamp are « probable duplicates ».
+ */
+const tag = () =>
+  Array.from(randomBytes(10), (b) => String.fromCharCode(65 + (b % 26))).join(
+    '',
+  );
+
+/**
+ * The POUFA list with a tag appended to every name (one per line, so the
+ * lines stay as unlike each other as in the fixture): `numero,nom,province`.
+ */
+function taggedPoufaList(): { csv: Buffer; names: Map<string, string> } {
+  const [header, ...lines] = POUFA_CSV.toString('utf8').trim().split(/\r?\n/);
+  const names = new Map<string, string>();
+  const rows = lines.map((line) => {
+    const first = line.indexOf(',');
+    const last = line.lastIndexOf(',');
+    const cell = line.slice(first + 1, last);
+    const quoted = cell.startsWith('"');
+    const original = quoted ? cell.slice(1, -1).replace(/""/g, '"') : cell;
+    const name = `${original} ${tag()}`;
+    names.set(original, name);
+    const out = quoted ? `"${name.replace(/"/g, '""')}"` : name;
+    return `${line.slice(0, first)},${out}${line.slice(last)}`;
+  });
+  return { csv: Buffer.from([header, ...rows].join('\n'), 'utf8'), names };
+}
 
 describe('Programme POUFA — registre des fermes (e2e)', () => {
   let app: INestApplication<App>;
@@ -50,20 +83,29 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     request(server).patch(url).set(auth(token)).send(body);
   const put = (url: string, body: object, token = adminToken) =>
     request(server).put(url).set(auth(token)).send(body);
+  const poufaList = taggedPoufaList();
+  /** This run's name of a fixture farm. */
+  const listed = (original: string) => {
+    const name = poufaList.names.get(original);
+    if (!name) throw new Error(`Not in the POUFA list: ${original}`);
+    return name;
+  };
+  const listedNames = [...poufaList.names.values()];
+  /** Farms of this run's import (assertions never count other specs' farms). */
+  const countListed = async (): Promise<number> =>
+    (
+      await ds.query(
+        `SELECT COUNT(*)::int AS n FROM farms WHERE program_id = $1 AND name = ANY($2)`,
+        [programId, listedNames],
+      )
+    )[0].n;
   const importCsv = (dryRun?: boolean) => {
     const req = request(server)
       .post('/programme/farms/import')
       .set(auth(adminToken))
-      .attach('file', POUFA_CSV, 'fermes-poufa.csv');
+      .attach('file', poufaList.csv, 'fermes-poufa.csv');
     return dryRun === undefined ? req : req.field('dryRun', String(dryRun));
   };
-
-  async function register(phone: string, fullName = 'Registre E2E') {
-    await request(server)
-      .post('/auth/register')
-      .send({ phone, fullName, code: 'secret123' })
-      .expect(201);
-  }
 
   async function login(phone: string, code = 'secret123'): Promise<string> {
     const res = await request(server)
@@ -73,24 +115,11 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     return res.body.accessToken;
   }
 
-  /** Removes every programme farm left by an earlier run (test DB only). */
-  async function resetRegistry() {
-    const scope = `SELECT id FROM farms WHERE program_id = $1`;
-    await ds.query(
-      `DELETE FROM farm_status_history WHERE farm_id IN (${scope})`,
-      [programId],
-    );
-    await ds.query(`DELETE FROM farm_gps_history WHERE farm_id IN (${scope})`, [
-      programId,
-    ]);
-    await ds.query(
-      `DELETE FROM farm_infrastructures WHERE farm_id IN (${scope})`,
-      [programId],
-    );
-    await ds.query(`DELETE FROM farms WHERE program_id = $1`, [programId]);
-    // Codes are never reused in real life; a test DB starts over.
-    await ds.query(`DELETE FROM id_counters WHERE scope LIKE 'FARM:%'`);
-  }
+  /** Codes handed out by this run's import. */
+  let importedCodes: string[] = [];
+  /** Last Ngounié (G4) number of this run's import. */
+  let lastG4 = 0;
+  const codeNumber = (code: string) => Number(code.split('-')[1]);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -108,25 +137,17 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       `SELECT id FROM programs WHERE code = 'POUFA'`,
     );
     programId = program.id;
-    await resetRegistry();
 
-    const ownerPhone = `+24165${digits}`;
-    await register(ownerPhone);
-    ownerToken = await login(ownerPhone);
-    const adminPhone = `+24166${digits}`;
-    await register(adminPhone);
-    await ds.query(
-      `UPDATE users SET role = 'PLATFORM_ADMIN' WHERE phone = $1`,
-      [adminPhone],
-    );
-    adminToken = await login(adminPhone);
+    adminToken = (await createPlatformAdmin(server, ds)).token;
+    // A non-administrator: the owner of a registry farm.
+    ownerToken = (await createProgrammeFarm(server, adminToken)).ownerToken;
 
     const [row] = await ds.query(
       `SELECT geometry FROM provinces WHERE program_id = $1 AND code = $2`,
       [programId, SQUARE_PROVINCE],
     );
     savedGeometry = row?.geometry ?? null;
-  });
+  }, 120_000);
 
   afterAll(async () => {
     await ds?.query(
@@ -138,7 +159,6 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       ],
     );
     await app?.close();
-    delete process.env.PROGRAM_CODE;
   });
 
   describe('import de la liste POUFA', () => {
@@ -155,11 +175,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(res.body.lines.every((l: any) => l.outcome === 'A_CREER')).toBe(
         true,
       );
-      const [{ n }] = await ds.query(
-        `SELECT COUNT(*)::int AS n FROM farms WHERE program_id = $1`,
-        [programId],
-      );
-      expect(n).toBe(0);
+      expect(await countListed()).toBe(0);
     });
 
     it('import réel : 150 fermes créées, codes distincts par province', async () => {
@@ -172,27 +188,31 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         rejected: 0,
       });
       const codes: string[] = res.body.lines.map((l: any) => l.code);
+      importedCodes = codes;
       expect(new Set(codes).size).toBe(150);
       const estuaire = codes.filter((c) => c.startsWith('G1-'));
       expect(estuaire).toHaveLength(90);
-      expect(estuaire.every((c) => /^G1-\d{4}$/.test(c))).toBe(true);
-      expect([...estuaire].sort()).toEqual(
-        Array.from(
-          { length: 90 },
-          (_, i) => `G1-${String(i + 1).padStart(4, '0')}`,
-        ),
+      // 4 digits, widened past 9999 (the suite never deletes a farm).
+      expect(estuaire.every((c) => /^G1-\d{4,}$/.test(c))).toBe(true);
+      // One transaction: consecutive numbers, after the province's last one.
+      const numbers = estuaire.map(codeNumber).sort((a, b) => a - b);
+      expect(numbers).toEqual(
+        Array.from({ length: 90 }, (_, i) => numbers[0] + i),
+      );
+      lastG4 = Math.max(
+        ...codes.filter((c) => c.startsWith('G4-')).map(codeNumber),
       );
       // Woleu-Ntem (G9) holds 6 farms, among them the quoted « FERME DU NTEM, ONA & FILS ».
       const ntem = res.body.lines.find((l: any) =>
         l.name.includes('NTEM, ONA'),
       );
-      expect(ntem.code).toMatch(/^G9-\d{4}$/);
+      expect(ntem.code).toMatch(/^G9-\d{4,}$/);
 
       const rows = await ds.query(
         `SELECT f.owner_id, f.status_code, f.active, h.status_code AS h_code
            FROM farms f JOIN farm_status_history h ON h.farm_id = f.id
-          WHERE f.program_id = $1`,
-        [programId],
+          WHERE f.program_id = $1 AND f.name = ANY($2)`,
+        [programId, listedNames],
       );
       expect(rows).toHaveLength(150);
       expect(
@@ -209,22 +229,20 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     it('relance : idempotente, 0 créée et 150 déjà présentes', async () => {
       const res = await importCsv(false).expect(201);
       expect(res.body).toMatchObject({ created: 0, matched: 150, rejected: 0 });
-      const [{ n }] = await ds.query(
-        `SELECT COUNT(*)::int AS n FROM farms WHERE program_id = $1`,
-        [programId],
-      );
-      expect(n).toBe(150);
+      expect(await countListed()).toBe(150);
     });
 
     it('format complet en JSON : rapport par ligne avec motif de rejet', async () => {
+      const complete = tag();
+      const agriVert = listed('AGRI VERT');
       const res = await post('/programme/farms/import', {
         dryRun: false,
         rows: [
           {
-            nom: `Ferme Complète ${stamp}`,
+            nom: `Ferme Complète ${complete}`,
             province: 'estuaire',
             localite: 'Komo-Mondah',
-            exploitant: 'Jeanne Complète',
+            exploitant: `Jeanne Complète ${complete}`,
             telephone: `077 ${digits.slice(0, 3)} ${digits.slice(3)}`,
             amiRef: `ami-json-${stamp}`,
             cohorte: '2',
@@ -243,14 +261,14 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
           },
           // Same farm written differently: already present (line 1).
           {
-            nom: `FERME AVICOLE COMPLETE ${stamp}`,
+            nom: `FERME AVICOLE COMPLETE ${complete}`,
             province: 'G1',
             amiRef: `AMI-JSON-${stamp}`,
           },
           // An imported farm written without its space: the same key.
-          { nom: 'AGRIVERT', province: 'Estuaire' },
+          { nom: agriVert.replace(/ /g, ''), province: 'Estuaire' },
           // A typo of it: probable duplicate, rejected.
-          { nom: 'AGRI VERTT', province: 'Estuaire' },
+          { nom: agriVert.replace('VERT', 'VERTT'), province: 'Estuaire' },
         ],
       }).expect(201);
       expect(res.body).toMatchObject({
@@ -263,7 +281,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       const [created, lost, noName, unknown, again, same, typo] =
         res.body.lines;
       expect(created).toMatchObject({ outcome: 'CREEE' });
-      expect(created.code).toMatch(/^G1-\d{4}$/);
+      expect(created.code).toMatch(/^G1-\d{4,}$/);
       expect(lost).toMatchObject({
         outcome: 'REJETEE',
         reason: 'Province inconnue : « Atlantide ».',
@@ -280,9 +298,8 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       // "AGRIVERT" = "AGRI VERT" once spaces are ignored: an exact match.
       expect(same.outcome).toBe('DEJA_PRESENTE');
       expect(typo.outcome).toBe('REJETEE');
-      expect(typo.reason).toMatch(
-        /^Doublon probable de G1-\d{4} « AGRI VERT »/,
-      );
+      expect(typo.reason).toMatch(/^Doublon probable de G1-\d{4,} « /);
+      expect(typo.reason).toContain(`« ${agriVert} »`);
       expect(typo.duplicates[0].reasons).toEqual([
         'nom très proche dans la même province',
       ]);
@@ -294,7 +311,10 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         cohort: { code: 'COHORTE_2' },
         capacityPlaces: 1200,
         amiRef: `AMI-JSON-${stamp}`,
-        exploitant: { name: 'Jeanne Complète', phone: `077${digits}` },
+        exploitant: {
+          name: `Jeanne Complète ${complete}`,
+          phone: `077${digits}`,
+        },
         status: { code: 'OPERATIONNELLE', family: 'OPERATIONNELLE' },
         gps: { latitude: 0.39, longitude: 9.45, source: 'IMPORT' },
         occupation: { chicksPlaced: 0, capacityPlaces: 1200, ratePct: 0 },
@@ -320,7 +340,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
 
     it('crée une ferme unitaire hors liste, code suivant de la province', async () => {
       const res = await post('/programme/farms', {
-        name: `Ferme Nouvelle ${stamp}`,
+        name: `Ferme Nouvelle ${tag()}`,
         provinceCode: 'G4',
         amiRef: `AMI-${stamp}`,
         cohort: 'COHORTE_1',
@@ -332,8 +352,8 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       }).expect(201);
       farmId = res.body.id;
       farmCode = res.body.code;
-      // Ngounié: 5 imported farms, so the next one is G4-0006.
-      expect(farmCode).toBe('G4-0006');
+      // Ngounié: the next number after the import's last one.
+      expect(farmCode).toBe(`G4-${String(lastG4 + 1).padStart(4, '0')}`);
       expect(res.body).toMatchObject({
         status: { code: 'EN_PREPARATION' },
         infrastructures: [
@@ -346,7 +366,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
 
     it('refuse une référence AMI déjà attribuée (409, sans contournement)', async () => {
       const res = await post('/programme/farms', {
-        name: `Autre Ferme ${stamp}`,
+        name: `Autre Ferme ${tag()}`,
         provinceCode: 'G1',
         amiRef: ` ami-${stamp} `,
         confirmDuplicate: true,
@@ -355,18 +375,20 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     });
 
     it('bloque un doublon probable (409 avec candidats) puis crée sur confirmation', async () => {
+      const agriVert = listed('AGRI VERT');
+      const resembling = `Ferme avicole Agri-Vert ${agriVert.split(' ').pop()}`;
       const dup = await post('/programme/farms', {
-        name: 'Ferme avicole Agri-Vert',
+        name: resembling,
         provinceCode: 'G1',
       }).expect(409);
       expect(dup.body.duplicates).toHaveLength(1);
       expect(dup.body.duplicates[0]).toMatchObject({
-        name: 'AGRI VERT',
+        name: agriVert,
         reasons: ['même nom dans la même province'],
       });
       expect(dup.body.message).toContain('confirmDuplicate');
       const ok = await post('/programme/farms', {
-        name: 'Ferme avicole Agri-Vert',
+        name: resembling,
         provinceCode: 'G1',
         confirmDuplicate: true,
       }).expect(201);
@@ -377,7 +399,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
 
     it('modifie la fiche sans jamais toucher au code', async () => {
       const res = await patch(`/programme/farms/${farmId}`, {
-        name: `Ferme Nouvelle Renommée ${stamp}`,
+        name: `Ferme Nouvelle Renommée ${tag()}`,
         capacityPlaces: 2500,
         code: 'G4-9999',
         programId: '00000000-0000-4000-8000-000000000000',
@@ -437,7 +459,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
         geometry: SQUARE,
       }).expect(200);
       const res = await post('/programme/farms', {
-        name: `Ferme GPS ${stamp}`,
+        name: `Ferme GPS ${tag()}`,
         provinceCode: SQUARE_PROVINCE,
         gps: { latitude: 0.5, longitude: 12.5, accuracyM: 8 },
       }).expect(201);
@@ -481,12 +503,13 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(page.body.items.every((f: any) => f.province.code === 'G1')).toBe(
         true,
       );
+      const ntem = listed('FERME DU NTEM, ONA & FILS');
       const q = await get(
-        `/programme/farms?q=${encodeURIComponent('ntem, ona')}`,
+        `/programme/farms?q=${encodeURIComponent(ntem.toLowerCase())}`,
       ).expect(200);
       expect(q.body.total).toBe(1);
       expect(q.body.items[0]).toMatchObject({
-        name: 'FERME DU NTEM, ONA & FILS',
+        name: ntem,
         hasOwnerAccount: false,
         status: { code: 'EN_PREPARATION', label: 'En préparation' },
       });
@@ -500,10 +523,11 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     let farmA: string;
     let farmB: string;
     let loginCode: string;
+    const nameA = tag();
 
     it('crée le compte Propriétaire, qui se connecte et lit sa fiche', async () => {
       const a = await post('/programme/farms', {
-        name: `Ferme Exploitant A ${stamp}`,
+        name: `Ferme Exploitant A ${nameA}`,
         provinceCode: 'G5',
         exploitantName: 'Paul Exploitant',
         exploitantPhone: `+241 67 ${digits}`,
@@ -539,7 +563,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
     it('une 2e ferme du même exploitant se rattache à son compte existant', async () => {
       // Same exploitant and phone, another name: a second farm, not a duplicate.
       const b = await post('/programme/farms', {
-        name: 'Poulailler Mboumba',
+        name: `Poulailler Mboumba ${tag()}`,
         provinceCode: 'G9',
         exploitantName: 'Paul Exploitant',
         exploitantPhone: phone,
@@ -548,7 +572,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(b.body.duplicateOverride).toBeNull();
       // The same exploitant and phone with a resembling name: blocked.
       const dup = await post('/programme/farms', {
-        name: `Exploitant A ${stamp}`,
+        name: `Exploitant A ${nameA}`,
         provinceCode: 'G9',
         exploitantName: 'PAUL EXPLOITANT',
         exploitantPhone: phone,
@@ -628,7 +652,7 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       const mine = await get('/farms').expect(200);
       expect(mine.body.some((f: any) => f.ownerId === null)).toBe(true);
       const all = await get('/admin/farms').expect(200);
-      const orphan = all.body.find((f: any) => f.code === 'G1-0001');
+      const orphan = all.body.find((f: any) => f.code === importedCodes[0]);
       expect(orphan).toBeDefined();
       expect(orphan.owner).toBeNull();
       const byFarm = await get('/admin/metrics/by-farm').expect(200);
@@ -636,12 +660,13 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       await get('/admin/metrics').expect(200);
     });
 
-    it('la base refuse une ferme hors programme sans propriétaire', async () => {
+    it('la base refuse toute ferme hors programme, même avec un propriétaire', async () => {
       await expect(
         ds.query(
-          `INSERT INTO farms (name, "administrativeCity") VALUES ('Sans owner', 'Libreville')`,
+          `INSERT INTO farms (name, "administrativeCity", owner_id)
+           VALUES ('Hors programme', 'Libreville', (SELECT id FROM users LIMIT 1))`,
         ),
-      ).rejects.toThrow(/CHK_farms_owner_or_program/);
+      ).rejects.toThrow(/program_id/);
     });
   });
 });

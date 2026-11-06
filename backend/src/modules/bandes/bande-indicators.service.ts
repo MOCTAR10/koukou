@@ -67,7 +67,7 @@ export class BandeIndicatorsService {
   }
 
   async compute(
-    farm: Farm & { programId: string },
+    farm: Farm,
     batch: ProductionBatch,
     asOf: string = this.defaultAsOf(batch),
   ): Promise<BandeIndicators> {

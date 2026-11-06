@@ -80,7 +80,7 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
     if (event.auto) await this.batchesService.runAdvisoryForBatch(event.batchId);
   }
 
-  /** Version 1 of a closed programme band, created once. */
+  /** Version 1 of a closed band, created once. */
   async ensureClosureSnapshot(batchId: string): Promise<BandeSnapshot | null> {
     const existing = await this.snapshots.findOne({
       where: { batchId, version: 1 },
@@ -89,10 +89,10 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
     const batch = await this.batches.findOne({ where: { id: batchId } });
     if (!batch || batch.status !== BatchStatus.CLOTURE) return null;
     const farm = await this.farms.findOne({ where: { id: batch.farmId } });
-    if (!farm?.programId) return null;
+    if (!farm) return null;
     try {
       return await this.build(
-        farm as Farm & { programId: string },
+        farm,
         batch,
         1,
         batch.closureKind === 'AUTO' ? 'CLOTURE_AUTO' : 'CLOTURE_MANUELLE',
@@ -112,9 +112,9 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
     actorId: string,
   ): Promise<BandeSnapshot> {
     const batch = await this.batches.findOneOrFail({ where: { id: batchId } });
-    const farm = (await this.farms.findOneOrFail({
+    const farm = await this.farms.findOneOrFail({
       where: { id: batch.farmId },
-    })) as Farm & { programId: string };
+    });
     await this.ensureClosureSnapshot(batchId);
     for (let attempt = 0; ; attempt++) {
       const last = await this.snapshots.findOne({
@@ -153,7 +153,7 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async build(
-    farm: Farm & { programId: string },
+    farm: Farm,
     batch: ProductionBatch,
     version: number,
     trigger: BandeSnapshotTrigger,
