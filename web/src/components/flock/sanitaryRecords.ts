@@ -235,3 +235,20 @@ export function postponedLabel(
 export function canRemoveCare(care: Pick<CareRef, 'isReference'>, isInstitution: boolean): boolean {
   return !care.isReference || isInstitution;
 }
+
+/**
+ * History line of a care item (CDC n° 22-23): reason, period and number of
+ * animals, when known. Same wording as the traceability tab and the mobile.
+ */
+export function careHistoryDetail(
+  r: { reason?: string | null; startDate?: string | null; endDate?: string | null; animalCount?: number | null },
+  fmtDate: (iso: string) => string = (d) => d,
+): string[] {
+  const out: string[] = [];
+  if (r.reason && r.reason.trim() !== '') out.push(`Motif : ${r.reason.trim()}`);
+  if (r.startDate) {
+    out.push(r.endDate && r.endDate !== r.startDate ? `du ${fmtDate(r.startDate)} au ${fmtDate(r.endDate)}` : `le ${fmtDate(r.startDate)}`);
+  }
+  if (typeof r.animalCount === 'number') out.push(`${r.animalCount.toLocaleString('fr-FR')} animaux`);
+  return out;
+}

@@ -1,3 +1,4 @@
+import { careHistoryDetail } from './sanitaryRecords';
 import { describe, expect, it } from 'vitest';
 import {
   canRemoveCare,
@@ -153,5 +154,19 @@ describe('reference calendar steps', () => {
     expect(canRemoveCare({ isReference: true }, false)).toBe(false);
     expect(canRemoveCare({ isReference: true }, true)).toBe(true);
     expect(canRemoveCare({ isReference: false }, false)).toBe(true);
+  });
+});
+
+describe('careHistoryDetail', () => {
+  it('lists reason, period and animal count', () => {
+    expect(careHistoryDetail({ reason: ' Coccidiose ', startDate: '2026-11-01', endDate: '2026-11-03', animalCount: 1200 })).toEqual([
+      'Motif : Coccidiose',
+      'du 2026-11-01 au 2026-11-03',
+      expect.stringMatching(/^1.200 animaux$/),
+    ]);
+  });
+  it('uses a single day and skips unknown fields', () => {
+    expect(careHistoryDetail({ startDate: '2026-11-01', endDate: '2026-11-01' })).toEqual(['le 2026-11-01']);
+    expect(careHistoryDetail({})).toEqual([]);
   });
 });
