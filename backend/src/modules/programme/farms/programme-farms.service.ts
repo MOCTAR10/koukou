@@ -1136,7 +1136,12 @@ export class ProgrammeFarmsService {
           );
         }
       }
-      await users.save({ ...owner, passwordHash: hash });
+      await users.save({
+        ...owner,
+        passwordHash: hash,
+        failedLogins: 0,
+        lockedUntil: null,
+      });
       return {
         farm: { id: farm.id, code: farm.code, name: farm.name },
         owner: { id: owner.id, fullName: owner.fullName, phone: owner.phone },

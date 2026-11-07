@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { swaggerEnabled, trustProxyHops } from './http-exposure.js';
+import {
+  corsOriginsSetting,
+  securityHeaders,
+  swaggerEnabled,
+  trustProxyHops,
+} from './http-exposure.js';
 
 describe('trustProxyHops', () => {
   it('defaults to no proxy', () => {
@@ -29,5 +34,40 @@ describe('swaggerEnabled', () => {
   it('follows an explicit flag', () => {
     expect(swaggerEnabled('production', 'true')).toBe(true);
     expect(swaggerEnabled('development', 'false')).toBe(false);
+  });
+});
+
+describe('corsOriginsSetting', () => {
+  it('keeps * as the development default only', () => {
+    expect(corsOriginsSetting(undefined, false)).toBe('*');
+    expect(() => corsOriginsSetting(undefined, true)).toThrow(/CORS_ORIGINS/);
+    expect(() => corsOriginsSetting('  ', true)).toThrow(/CORS_ORIGINS/);
+    expect(corsOriginsSetting('https://a.ga', true)).toBe('https://a.ga');
+  });
+});
+
+describe('securityHeaders', () => {
+  function run(production: boolean) {
+    const headers: Record<string, string> = {};
+    let removed = '';
+    let called = false;
+    securityHeaders(production)(
+      {},
+      {
+        setHeader: (k, v) => void (headers[k] = v),
+        removeHeader: (k) => void (removed = k),
+      },
+      () => (called = true),
+    );
+    return { headers, removed, called };
+  }
+
+  it('sets the base headers and HSTS in production only', () => {
+    const dev = run(false);
+    expect(dev.called).toBe(true);
+    expect(dev.removed).toBe('X-Powered-By');
+    expect(dev.headers['X-Content-Type-Options']).toBe('nosniff');
+    expect(dev.headers['Strict-Transport-Security']).toBeUndefined();
+    expect(run(true).headers['Strict-Transport-Security']).toContain('max-age');
   });
 });
