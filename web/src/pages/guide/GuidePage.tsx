@@ -154,7 +154,10 @@ export function GuidePage() {
   const printing = presenting && params.get('print') === '1';
   const overview = params.get('vue') === '1';
   const pageParam = Number(params.get('page'));
-  const current = Number.isInteger(pageParam) && pageParam >= 1 && pageParam <= slides.length ? pageParam - 1 : 0;
+  const chapterParam = params.get('chapitre');
+  const chapterIndex = chapterParam ? slides.findIndex((s) => s.id.startsWith(`${chapterParam}-`)) : -1;
+  // A link from the CDC tables names a chapter (?chapitre=id): open its first page.
+  const current = chapterIndex >= 0 ? chapterIndex : Number.isInteger(pageParam) && pageParam >= 1 && pageParam <= slides.length ? pageParam - 1 : 0;
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -167,6 +170,13 @@ export function GuidePage() {
       document.title = prev;
     };
   }, []);
+
+  // Turn a chapter link into its page number and show that page from the top.
+  useEffect(() => {
+    if (chapterIndex < 0) return;
+    setParams({ page: String(chapterIndex + 1) }, { replace: true });
+    window.scrollTo(0, 0);
+  }, [chapterIndex, setParams]);
 
   const groups = useMemo<Group[]>(() => {
     const q = fold(query.trim());

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowRight, BookOpen, Check, ExternalLink, Search } from 'lucide-react';
 import {
   API_DOCS_URL,
@@ -110,13 +111,6 @@ export function SynthesisSection() {
       </TableWrap>
       <p className="text-[17px] text-slate-600">Frictions du terrain : {SUMMARY.frictions}.</p>
 
-      <div className="rounded-xl border border-brand-200 bg-brand-50 p-5">
-        <h3 className="text-lg font-semibold text-brand-900">Ce qui change depuis la v5</h3>
-        <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[17px] text-slate-700 marker:text-brand-500">
-          {SUMMARY.changesV6.map((t) => <li key={t}>{t}</li>)}
-        </ul>
-      </div>
-
       <h3 className="text-lg font-semibold text-slate-900">Le partiel du MVP, sans détour</h3>
       <div className="space-y-3">
         {SUMMARY.mvpPartiels.map((p) => (
@@ -188,7 +182,7 @@ export function RequirementsSection() {
         {rows.map((r) => (
           <li key={r.num} className="rounded-xl border border-slate-200 bg-white p-3">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-[17px] font-semibold text-slate-900"><span className="font-mono text-brand-700">{r.ref}</span> {r.titre}</p>
+              <p className="text-[17px] font-semibold text-slate-900"><span className="whitespace-nowrap text-brand-700">{r.ref}</span> {r.titre}</p>
               <StatusBadge statut={r.statut} />
             </div>
             <p className="mt-1 text-[15px] text-slate-500">{r.priorite}</p>
@@ -201,7 +195,7 @@ export function RequirementsSection() {
           <table className="w-full min-w-[40rem] border-collapse">
             <thead>
               <tr>
-                <th className={thCls}>N°</th>
+                <th className={thCls + ' whitespace-nowrap'}>N°</th>
                 <th className={thCls}>Exigence</th>
                 <th className={thCls}>Priorité</th>
                 <th className={thCls}>Statut</th>
@@ -213,7 +207,7 @@ export function RequirementsSection() {
                 const screens = CHAPTERS_BY_NUM.get(String(r.num)) ?? CHAPTERS_BY_NUM.get(r.ref) ?? [];
                 return (
                   <tr key={r.num} className="break-inside-avoid">
-                    <td className={tdCls + ' font-mono font-semibold text-brand-700'}>{r.ref}</td>
+                    <td className={tdCls + ' whitespace-nowrap font-semibold tabular-nums text-brand-700'}>{r.ref}</td>
                     <td className={tdCls}>
                       <span className="font-medium text-slate-900">{r.titre}</span>
                       {r.note ? <span className="mt-0.5 block text-[15px] text-slate-500">{r.note}</span> : null}
@@ -222,7 +216,7 @@ export function RequirementsSection() {
                     <td className={tdCls}><StatusBadge statut={r.statut} /></td>
                     <td className={tdCls}>
                       {screens.length === 0 ? <span className="text-slate-500">{noScreenReason(r.statut, r.num)}</span> : screens.slice(0, 3).map((s) => (
-                        <a key={s.id} href={`#${s.id}`} className="block text-brand-700 underline-offset-2 hover:underline">{s.t}</a>
+                        <Link key={s.id} to={`/guide?chapitre=${s.id}`} className="block text-brand-700 underline-offset-2 hover:underline">{s.t}</Link>
                       ))}
                     </td>
                   </tr>
@@ -359,11 +353,11 @@ export function ChapterSection({ chapter, number, withFigures = true }: { chapte
             <div className="mt-2">
               <TableWrap label={`Exigences du CDC couvertes par ${chapter.t}`}>
                 <table className="w-full min-w-[30rem] border-collapse">
-                  <thead><tr><th className={thCls}>N°</th><th className={thCls}>Exigence</th><th className={thCls}>Priorité</th><th className={thCls}>Statut</th></tr></thead>
+                  <thead><tr><th className={thCls + ' whitespace-nowrap'}>N°</th><th className={thCls}>Exigence</th><th className={thCls}>Priorité</th><th className={thCls}>Statut</th></tr></thead>
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.num}>
-                        <td className={tdCls + ' font-mono font-semibold text-brand-700'}>{r.num}</td>
+                        <td className={tdCls + ' whitespace-nowrap font-semibold tabular-nums text-brand-700'}>{r.num}</td>
                         <td className={tdCls}>{r.intitule}</td>
                         <td className={tdCls + ' whitespace-nowrap'}>{r.priorite}</td>
                         <td className={tdCls}><StatusBadge statut={r.statut} /></td>
@@ -443,7 +437,7 @@ export function RoutesSection() {
             <p className="text-lg font-bold text-brand-800">{a.name}</p>
             <p className="text-[17px] text-slate-600">{a.role}</p>
             <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[17px]">
-              {a.chapters.map((id) => <a key={id} href={`#${id}`} className="text-brand-700 underline underline-offset-2">{title(id)}</a>)}
+              {a.chapters.map((id) => <Link key={id} to={`/guide?chapitre=${id}`} className="text-brand-700 underline underline-offset-2">{title(id)}</Link>)}
             </p>
           </li>
         ))}
