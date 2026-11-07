@@ -137,6 +137,8 @@ export interface RejectedOp extends OfflineOp {
   rejectedAt: string;
   /** French server message (why it was refused). */
   reason: string;
+  /** Machine code of the refusal (e.g. `GPS_HORS_PROVINCE`), when the server sent one. */
+  code?: string;
 }
 
 const REJECTED_KEY = 'koukou.offline.rejected';
@@ -153,9 +155,9 @@ export function loadRejected(): RejectedOp[] {
 }
 
 /** Moves an op from the queue to the rejected list (single notify). */
-export function rejectOp(op: OfflineOp, reason: string): void {
+export function rejectOp(op: OfflineOp, reason: string, code?: string): void {
   const rejected = loadRejected();
-  rejected.push({ ...op, rejectedAt: new Date().toISOString(), reason });
+  rejected.push({ ...op, rejectedAt: new Date().toISOString(), reason, ...(code ? { code } : {}) });
   storage.setItem(REJECTED_KEY, JSON.stringify(rejected));
   persist(readOps().filter((o) => o.id !== op.id));
   notify();
@@ -173,4 +175,14 @@ export function dismissRejected(id: string): void {
     JSON.stringify(loadRejected().filter((o) => o.id !== id)),
   );
   notify();
+}
+
+/** Takes an op out of the rejected list (the caller requeues a corrected copy). */
+export function takeRejected(id: string): RejectedOp | null {
+  const rejected = loadRejected();
+  const found = rejected.find((o) => o.id === id) ?? null;
+  if (!found) return null;
+  storage.setItem(REJECTED_KEY, JSON.stringify(rejected.filter((o) => o.id !== id)));
+  notify();
+  return found;
 }

@@ -63,6 +63,7 @@ import {
   enqueueOp,
   loadOps,
   rejectOp,
+  takeRejected,
   removeOp,
   setHeldByClosedCaisse,
   type OfflineKind,
@@ -693,6 +694,43 @@ export function createSortieQueued(
   return sendOrQueueWith({ id: opId, kind: 'sortie', farmId, batchId, payload }, () => sendSortie(farmId, payload));
 }
 
+/** Server code of a point refused because it lies outside the declared province. */
+export const GPS_OUTSIDE_PROVINCE = 'GPS_HORS_PROVINCE';
+
+export const OUTSIDE_REASON_MIN = 5;
+
+/** True when `e` is the 409 asking for a motivated confirmation of the GPS point. */
+export function isOutsideProvince(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 409 && e.code === GPS_OUTSIDE_PROVINCE;
+}
+
+/** The payload with the motivated confirmation the server asks for. */
+export function withOutsideConfirmation(gps: FarmGpsPayload, reason: string): FarmGpsPayload {
+  return { ...gps, reason: reason.trim(), confirmOutsideProvince: true };
+}
+
+/**
+ * A queued GPS point refused as outside the province: the user gives the
+ * reason, the same op (same idempotency key) goes back to the end of the queue.
+ */
+export function confirmRejectedGps(id: string, reason: string): boolean {
+  if (reason.trim().length < OUTSIDE_REASON_MIN) return false;
+  const rejected = takeRejected(id);
+  if (!rejected || rejected.kind !== 'farm-gps') return false;
+  const { rejectedAt, reason: refusal, code, ...op } = rejected;
+  void rejectedAt;
+  void refusal;
+  void code;
+  const gps = (op.payload as { payload: FarmGpsPayload }).payload;
+  queueOp({
+    ...op,
+    attempts: 0,
+    payload: { payload: withOutsideConfirmation({ ...gps, idempotencyKey: gps.idempotencyKey ?? op.id }, reason) },
+  });
+  void flushQueue();
+  return true;
+}
+
 /**
  * GPS fix of the farm (CDC 2), keyed by `idempotencyKey = op.id`: a replay
  * after a lost answer adds no second point, and the server ignores a fix
@@ -903,7 +941,7 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       if (op.kind === 'health-event') ((op.payload as HealthEventOpPayload).photos ?? []).forEach(discardPhoto);
       if (op.kind === 'farm-visit') ((op.payload as VisitOpPayload).photos ?? []).forEach(discardPhoto);
       if (isCashOp(op) || isCreation(op)) {
-        rejectOp(op, rejectionReason(op, (e as ApiError).message));
+        rejectOp(op, rejectionReason(op, (e as ApiError).message), (e as ApiError).code);
         return 'rejected';
       }
       return 'dropped';

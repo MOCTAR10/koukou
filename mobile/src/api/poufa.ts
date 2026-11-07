@@ -569,6 +569,8 @@ export interface FarmGpsPayload {
   source?: 'APPAREIL' | 'MANUEL';
   accuracyM?: number;
   reason?: string;
+  /** Point outside the declared province, confirmed with a reason (5 characters min.). */
+  confirmOutsideProvince?: boolean;
   /** Offline replay key, unique per farm: a replay adds no second point. */
   idempotencyKey?: string;
 }

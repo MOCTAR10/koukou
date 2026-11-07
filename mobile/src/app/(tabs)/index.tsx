@@ -33,6 +33,7 @@ import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/compone
 import type { BatchWithMetrics, FarmWeather } from '@/api/types';
 import { ipeStatus } from '@/constants/flock';
 // POUFA lot A indic: « Ma bande en cours » (official indicators) heads the home screen.
+import { EleveurSimpleHome } from '@/components/home/EleveurSimpleHome';
 import { CurrentBandCard } from '@/components/band/CurrentBandCard';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
@@ -67,7 +68,10 @@ export default function AccueilScreen() {
   const router = useRouter();
 
   const { user, farms, farmId, setActiveFarmId } = useAuth();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, isGroundEleveur } = useFarmProfile();
+  // Éleveur: simple sheet first, everything else behind « Plus d’indicateurs ».
+  const simple = isGroundEleveur || user.role === 'ELEVEUR';
+  const [showMore, setShowMore] = useState(false);
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [cheptelOpen, setCheptelOpen] = useState(false);
   const [farmSelectOpen, setFarmSelectOpen] = useState(false);
@@ -320,6 +324,29 @@ export default function AccueilScreen() {
       ) : loading || !d ? (
         <BrandLoader />
       ) : (
+        <>
+          {simple ? (
+            <>
+              <EleveurSimpleHome
+                farmId={farmId}
+                liveStock={d.liveStock}
+                redAlerts={d.alerts.rouge}
+                feedAutonomyDays={d.feedAutonomyDays ?? null}
+                onOpenAlerts={() => router.push('/alerts')}
+              />
+              <Pressable
+                onPress={() => setShowMore((v) => !v)}
+                accessibilityRole='button'
+                accessibilityState={{ expanded: showMore }}
+                style={[styles.expandBtn, showMore && styles.expandBtnActive, { alignSelf: 'flex-start', marginTop: 12 }]}>
+                <AppText size='small' weight='semibold' color={showMore ? 'surface' : 'brand'}>
+                  {showMore ? 'Masquer les indicateurs' : 'Plus d’indicateurs'}
+                </AppText>
+                <ChevronDown size={14} color={showMore ? semantic.primarySoft : semantic.primary} style={{ transform: [{ rotate: showMore ? '180deg' : '0deg' }] }} />
+              </Pressable>
+            </>
+          ) : null}
+          {!simple || showMore ? (
         <>
           {showCurrentBand ? (
             <CurrentBandCard farmId={farmId} feedAutonomyDays={d.feedAutonomyDays ?? null} onOpen={(id) => router.push(`/lot/${id}`)} />
@@ -745,6 +772,8 @@ export default function AccueilScreen() {
               />
             )}
           </View>
+        </>
+          ) : null}
         </>
       )}
       <MetricInfoSheet metric={metricInfo} onClose={() => setMetricInfo(null)} />
