@@ -44,7 +44,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
 import { farmSpaceState, worksWithoutFarm } from '../app/roles';
 import { useMenuAccess } from '../app/useMenuAccess';
-import { Logo, MinistryBadge } from './Logo';
+import { FermiaLeaf, Logo, MinistryBadge } from './Logo';
 import { PageNotOpen } from './access/PageNotOpen';
 import { NoFarmScreen } from './NoFarmScreen';
 import { Loading } from './ui';
@@ -259,13 +259,14 @@ export function Shell() {
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex items-center gap-2 px-5 py-5">
-          {consoleMode ? <MinistryBadge className="h-10 w-10" /> : <Logo className="h-9 w-auto shrink-0" />}
+        <div className="flex items-center gap-3 px-4 py-4">
+          {/* The badge carries the Ministry's name: large enough to read it (smaller on the collapsed rail). */}
+          {consoleMode ? <MinistryBadge className="h-[7.5rem] w-[7.5rem] !object-contain md:max-xl:h-11 md:max-xl:w-11 md:max-xl:group-hover/side:h-[7.5rem] md:max-xl:group-hover/side:w-[7.5rem]" /> : <Logo className="h-9 w-auto shrink-0" />}
           <div className={classNames('whitespace-nowrap', RAIL_BLOCK)}>
             {consoleMode ? (
               <>
-                <p className="text-sm font-bold tracking-[0.16em] text-white">POUFA</p>
-                <p className="text-[11px] text-brand-200">Ministère de l’Agriculture · DGE</p>
+                <p className="text-base font-bold tracking-[0.16em] text-white">POUFA</p>
+                <p className="text-[11px] text-brand-200">DGE</p>
               </>
             ) : (
               <>
@@ -390,7 +391,7 @@ export function Shell() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          {consoleMode ? <MinistryBadge className="hidden h-8 w-8 !ring-slate-200 lg:block" /> : null}
+          <FermiaLeaf className="hidden h-7 w-7 lg:block" />
           <div className="flex min-w-0 items-center text-sm font-medium text-slate-700">
             {!onProgramme && farm ? (
               <>
