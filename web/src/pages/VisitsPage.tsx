@@ -31,7 +31,7 @@ export function VisitsPage() {
   const [tab, setTab] = useState<TabKey>('ferme');
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<{ farmId: string; id: string } | null>(null);
-  const [filters, setFilters] = useState({ province: '', classification: '', type: '' });
+  const [filters, setFilters] = useState({ province: '', classification: '', type: '', retard: '' });
 
   const { pending, rejected } = useOfflineQueue();
   // Visits recorded on this device that the server has not confirmed yet, or refused.
@@ -119,6 +119,15 @@ export function VisitsPage() {
                 {VISIT_TYPE_LABEL[t]}
               </option>
             ))}
+          </select>
+          <select
+            aria-label="Prochaine visite"
+            className={`${inlineInputCls} w-auto`}
+            value={filters.retard}
+            onChange={(e) => setFilters({ ...filters, retard: e.target.value })}
+          >
+            <option value="">Toutes les visites</option>
+            <option value="oui">Prochaine visite en retard</option>
           </select>
         </div>
       ) : null}

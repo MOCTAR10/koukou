@@ -5,8 +5,9 @@ import { router } from 'expo-router';
 import { mobileRouteOf } from '@/poufa/notifications';
 
 import { fetchAdvisory, fetchBatches, fetchTasks } from '@/api';
+import { fetchFarmVisits } from '@/api/poufa';
 import { useAuth } from '@/auth/AuthContext';
-import { buildReminderPlan } from '@/notifications/plan';
+import { buildReminderPlan, ownPlannedVisitDate } from '@/notifications/plan';
 import {
   applyReminderPlan,
   clearReminders,
@@ -27,13 +28,18 @@ function nowDate(): Date {
  * Go and offline — no server push involved.
  */
 export function LocalReminders() {
-  const { signedIn, farmId, farms, setActiveFarmId } = useAuth();
+  const { signedIn, farmId, farms, setActiveFarmId, user } = useAuth();
   const settings = useSyncExternalStore(subscribeReminderSettings, getReminderSettings);
   const active = signedIn && !!farmId && settings.enabled && remindersSupported();
 
   const tasks = useQuery({ queryKey: ['tasks', farmId], queryFn: () => fetchTasks(farmId), enabled: active, retry: false });
   const advisory = useQuery({ queryKey: ['advisory', farmId], queryFn: () => fetchAdvisory(farmId), enabled: active, retry: false });
   const batches = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId), enabled: active, retry: false });
+
+  // Visits of the farm: the agent's own planned next visit (403 for roles that
+  // cannot read them: the plan then simply has no visit reminder).
+  const visits = useQuery({ queryKey: ['visits', farmId], queryFn: () => fetchFarmVisits(farmId), enabled: active, retry: false });
+  const visitsSettled = visits.isSuccess || visits.isError;
 
   const farmName = farms.find((f) => f.id === farmId)?.name ?? 'la ferme';
 
@@ -44,7 +50,7 @@ export function LocalReminders() {
       return;
     }
     // Wait for every source: a partial plan would drop valid reminders.
-    if (!tasks.data || !advisory.data || !batches.data) return;
+    if (!tasks.data || !advisory.data || !batches.data || !visitsSettled) return;
     const plan = buildReminderPlan({
       now: nowDate(),
       settings,
@@ -52,6 +58,7 @@ export function LocalReminders() {
       hasActiveBatches: batches.data.some((b) => b.status !== 'CLOTURE'),
       tasks: tasks.data,
       actions: advisory.data.actions,
+      plannedVisitDate: visits.data ? ownPlannedVisitDate(visits.data, user.id) : null,
     });
     let cancelled = false;
     void (async () => {
@@ -62,7 +69,7 @@ export function LocalReminders() {
     return () => {
       cancelled = true;
     };
-  }, [signedIn, settings, farmName, tasks.data, advisory.data, batches.data]);
+  }, [signedIn, settings, farmName, tasks.data, advisory.data, batches.data, visits.data, visitsSettled, user.id]);
 
   // Back to foreground: refresh the sources (the day may have rolled over).
   const refetchAll = useRef(() => {});
@@ -70,6 +77,7 @@ export function LocalReminders() {
     void tasks.refetch();
     void advisory.refetch();
     void batches.refetch();
+    void visits.refetch();
   };
   useEffect(() => {
     if (!active) return;

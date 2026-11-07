@@ -28,6 +28,7 @@ import {
   type ReportReadyEvent,
   type SanitaryAlertEvent,
   type SyncConflictEvent,
+  type VisitReminderEvent,
   type WeighingLateEvent,
 } from '../../common/utils/event-bus.js';
 import {
@@ -75,6 +76,8 @@ export interface NotifyInput {
   route: string;
   /** Farm or band code put in the SMS. */
   smsCode: string | null;
+  /** The VISIT_AGENT audience: the agent who planned the visit. */
+  agentUserId?: string;
 }
 
 /** An inbox item as the apps get it. */
@@ -181,6 +184,11 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
     [
       KOUKOU_EVENTS.REPORT_READY,
       (e: ReportReadyEvent) => this.track(this.onReportReady(e)),
+    ],
+    // Next-visit reminders (swept hourly by the visits module).
+    [
+      KOUKOU_EVENTS.VISIT_REMINDER,
+      (e: VisitReminderEvent) => this.track(this.onVisitReminder(e)),
     ],
     // POUFA lot A2 vet: the vets' decision on a declaration (CDC n° 26).
     [
@@ -377,6 +385,34 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private async onVisitReminder(e: VisitReminderEvent): Promise<void> {
+    const farm = await this.farmOf(e.farmId);
+    if (!farm) return;
+    const what = farm.code ? `${farm.name} (${farm.code})` : farm.name;
+    const overdue = e.stage === 'RETARD';
+    const when =
+      e.stage === 'JOUR'
+        ? "aujourd'hui"
+        : e.stage === 'AVANT'
+          ? `dans ${e.days} jour${e.days > 1 ? 's' : ''}, le ${frDate(e.nextVisitDate)}`
+          : `prévue le ${frDate(e.nextVisitDate)} (${e.days} j de retard)`;
+    await this.notify({
+      event: overdue
+        ? NotificationEvent.VISIT_OVERDUE
+        : NotificationEvent.VISIT_REMINDER,
+      farmId: farm.id,
+      subjectId: e.visitId,
+      // One reminder before, one on the day, one when overdue, per planned visit.
+      dedupKey: `VISIT:${e.visitId}:${e.stage}`,
+      severity: overdue ? AlertLevel.JAUNE : AlertLevel.VERT,
+      title: overdue ? 'Visite en retard' : 'Visite à venir',
+      body: `Visite de ${what} ${when}.`,
+      route: `/farms/${farm.id}/visits`,
+      smsCode: farm.code,
+      agentUserId: e.agentUserId,
+    });
+  }
+
   private async onSyncConflict(e: SyncConflictEvent): Promise<void> {
     const farm = await this.farmOf(e.farmId);
     if (!farm || e.conflictIds.length === 0) return;
@@ -459,7 +495,7 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
     return this.notifyUsers(
       farm.programId,
       input,
-      (rule) => this.recipients(rule, farm, confidential),
+      (rule) => this.recipients(rule, farm, confidential, input.agentUserId),
       now,
     );
   }
@@ -577,8 +613,11 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
     rule: NotificationRule,
     farm: Farm,
     confidential: boolean,
+    agentUserId?: string,
   ): Promise<string[]> {
     switch (rule.audience) {
+      case NotificationAudience.VISIT_AGENT:
+        return agentUserId ? [agentUserId] : [];
       case NotificationAudience.FARM_MANAGERS:
       case NotificationAudience.FARM_TEAM: {
         const links = await this.dataSource.getRepository(FarmEmployee).find({

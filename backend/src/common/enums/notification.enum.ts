@@ -23,6 +23,11 @@ export enum NotificationEvent {
   // POUFA lot A2 vet: CDC n° 26, the farm hears the vets' decision.
   /** The veterinary services examined a declaration (validated, ruled out, alert). */
   DECLARATION_REVIEWED = 'DECLARATION_REVIEWED',
+  // Visit reminders: the next technical visit is near, or past.
+  /** The planned next visit of a farm is in N days or today. */
+  VISIT_REMINDER = 'VISIT_REMINDER',
+  /** The planned next visit date passed and no newer visit was recorded. */
+  VISIT_OVERDUE = 'VISIT_OVERDUE',
 }
 
 /** Delivery channel of one notification. */
@@ -63,4 +68,9 @@ export enum NotificationAudience {
    * (`report_runs.recipients`, POUFA lot A).
    */
   REPORT_RECIPIENTS = 'REPORT_RECIPIENTS',
+  /**
+   * VISIT_REMINDER / VISIT_OVERDUE only: the agent who recorded the visit
+   * that planned the next one.
+   */
+  VISIT_AGENT = 'VISIT_AGENT',
 }

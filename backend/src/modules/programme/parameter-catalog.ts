@@ -403,6 +403,17 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     defaultNote: FERMIA_PROPOSAL,
   },
   {
+    key: 'VISITE_RAPPEL_J',
+    label: "Délai de rappel avant la prochaine visite",
+    type: 'integer',
+    unit: 'jours',
+    ownerProfile: OWNER_PROFILE.DGE,
+    min: 0,
+    max: 30,
+    defaultValue: 2,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
     key: 'SEUIL_ECART_RECEPTION_ABATTOIR_PCT',
     label: "Seuil d'écart à la réception par l'abattoir",
     type: 'number',

@@ -10,6 +10,7 @@ import {
   FarmVisitsController,
   ProgrammeVisitsController,
 } from './visits.controller.js';
+import { VisitRemindersService } from './visit-reminders.service.js';
 import { VisitsService } from './visits.service.js';
 
 /**
@@ -27,7 +28,7 @@ import { VisitsService } from './visits.service.js';
     ProgrammeModule,
   ],
   controllers: [FarmVisitsController, ProgrammeVisitsController],
-  providers: [VisitsService],
-  exports: [VisitsService],
+  providers: [VisitsService, VisitRemindersService],
+  exports: [VisitsService, VisitRemindersService],
 })
 export class VisitsModule {}

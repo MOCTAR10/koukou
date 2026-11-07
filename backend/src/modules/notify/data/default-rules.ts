@@ -110,6 +110,23 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
     profileCode: PROFILE_CODES.AGENT_TECHNIQUE,
     channels: [IN_APP],
   },
+  // Next-visit reminders: the agent who planned the visit (VISIT_AGENT). The
+  // lead time is the parameter VISITE_RAPPEL_J. The administration may add a
+  // PROFILE rule (e.g. DGE on VISIT_OVERDUE) from the notification rules.
+  {
+    code: 'AGENT_VISITE_RAPPEL',
+    label: "Agent technique : rappel de la prochaine visite qu'il a planifiée",
+    event: NotificationEvent.VISIT_REMINDER,
+    audience: NotificationAudience.VISIT_AGENT,
+    channels: [IN_APP, PUSH],
+  },
+  {
+    code: 'AGENT_VISITE_RETARD',
+    label: "Agent technique : visite planifiée en retard",
+    event: NotificationEvent.VISIT_OVERDUE,
+    audience: NotificationAudience.VISIT_AGENT,
+    channels: [IN_APP, PUSH],
+  },
   {
     code: 'FERME_CONFLIT_SAISIE',
     label: 'Ferme : conflit de saisie hors ligne',

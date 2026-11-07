@@ -23,6 +23,8 @@ export const EVENT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   // POUFA lot A2 vet.
   [NotificationEvent.DECLARATION_REVIEWED]:
     'Déclaration sanitaire examinée par les services vétérinaires',
+  [NotificationEvent.VISIT_REMINDER]: 'Rappel de la prochaine visite',
+  [NotificationEvent.VISIT_OVERDUE]: 'Visite en retard',
 };
 
 /**
@@ -91,6 +93,13 @@ export function ruleProblem(rule: RuleShape, vetProfile: boolean): string | null
   ) {
     return 'Le destinataire « destinataires du rapport » ne sert qu’à l’événement « rapport disponible ».';
   }
+  if (
+    rule.audience === NotificationAudience.VISIT_AGENT &&
+    rule.event !== NotificationEvent.VISIT_REMINDER &&
+    rule.event !== NotificationEvent.VISIT_OVERDUE
+  ) {
+    return 'Le destinataire « agent de la visite » ne sert qu’aux événements de rappel de visite.';
+  }
   if (rule.audience === NotificationAudience.PROFILE) {
     if (!rule.profileCode) {
       return 'Précisez le profil destinataire (profileCode).';
@@ -155,6 +164,8 @@ export function smsText(
     [NotificationEvent.SYNC_CONFLICT]: `conflit de saisie${ref}`,
     [NotificationEvent.REPORT_READY]: 'nouveau rapport disponible',
     [NotificationEvent.DECLARATION_REVIEWED]: `déclaration sanitaire examinée${ref}`,
+    [NotificationEvent.VISIT_REMINDER]: `visite prévue${ref}`,
+    [NotificationEvent.VISIT_OVERDUE]: `visite en retard${ref}`,
   };
   return `${programCode} : ${what[event]}. Ouvrez l'application.`;
 }

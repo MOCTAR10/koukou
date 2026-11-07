@@ -334,8 +334,15 @@ export class VisitsService {
     if (query.farmId) qb.andWhere('v.farm_id = :farmId', { farmId: query.farmId });
     if (query.from) qb.andWhere('v.visit_date >= :from', { from: dayOf(query.from) });
     if (query.to) qb.andWhere('v.visit_date <= :to', { to: dayOf(query.to) });
+    if (query.retard) {
+      // Planned next visit passed and no newer visit on the farm.
+      qb.andWhere('v.next_visit_date < CURRENT_DATE').andWhere(
+        `NOT EXISTS (SELECT 1 FROM farm_visits n WHERE n.farm_id = v.farm_id
+           AND (n.visit_date, n.created_at) > (v.visit_date, v.created_at))`,
+      );
+    }
     const [rows, total] = await qb
-      .orderBy('v.visitDate', 'DESC')
+      .orderBy(query.retard ? 'v.nextVisitDate' : 'v.visitDate', query.retard ? 'ASC' : 'DESC')
       .addOrderBy('v.createdAt', 'DESC')
       .skip((page - 1) * pageSize)
       .take(pageSize)

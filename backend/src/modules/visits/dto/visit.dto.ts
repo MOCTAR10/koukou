@@ -1,8 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -158,6 +159,17 @@ export class ListProgrammeVisitsQueryDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'true : seulement les dernières visites de leur ferme dont la prochaine visite prévue est dépassée (en retard)',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' || value === true ? true : value === 'false' || value === false ? false : value,
+  )
+  @IsBoolean({ message: 'retard doit être true ou false.' })
+  retard?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
