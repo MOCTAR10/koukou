@@ -28,14 +28,16 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,webp,svg}'],
+        globPatterns: ['**/*.{js,css,html,png,webp,svg,woff2}'],
+        // The guide's screenshots (4 MB) are cached when viewed, not precached with the app.
+        globIgnores: ['guide/**'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /^\/apk\//],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
+            urlPattern: /\/guide\/.*\.webp$/,
             handler: 'CacheFirst',
-            options: { cacheName: 'fonts', expiration: { maxEntries: 20 }, cacheableResponse: { statuses: [0, 200] } },
+            options: { cacheName: 'guide-screens', expiration: { maxEntries: 80 }, cacheableResponse: { statuses: [200] } },
           },
         ],
       },

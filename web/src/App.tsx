@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FarmProvider } from './app/FarmContext';
 import { useFarmProfile } from './app/useFarmProfile';
@@ -59,6 +60,8 @@ import { TracabilitePage } from './pages/TracabilitePage';
 // POUFA lot A droits: programme economic synthesis (finance, payroll, sales and stock of the farms in scope).
 import { EconomiePage } from './pages/EconomiePage';
 
+const GuidePage = lazy(() => import('./pages/guide/GuidePage').then((m) => ({ default: m.GuidePage })));
+
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
   const { user } = useAuth();
@@ -75,6 +78,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* Public guide and presentation of the platform (demo data only). */}
+      <Route path="/guide" element={<Suspense fallback={<Loading />}><GuidePage /></Suspense>} />
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route path="/marche/inscription" element={<BuyerRegisterPage />} />
       <Route path="/marche" element={<MarketLayout />}>

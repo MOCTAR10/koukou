@@ -184,6 +184,9 @@ export function LoginPage() {
             >
               <Store className="h-4 w-4" /> Acheter sur le Marché Fermia
             </Link>
+            <Link to="/guide" className={authLinkCls + ' mt-3 block text-xs'}>
+              Guide de la plateforme
+            </Link>
           </>
         )
       }

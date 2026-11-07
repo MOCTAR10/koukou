@@ -202,6 +202,17 @@ export function HelpPage() {
     <div className="space-y-8">
       <PageHeader title="Aide" subtitle={institutional ? 'Français · Guides institution et ferme' : 'Français · Guide de démarrage'} icon={<LifeBuoy className="h-6 w-6" />} />
 
+      <Link to="/guide" className="flex items-center justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 p-4 hover:border-brand-400">
+        <span className="flex items-center gap-3">
+          <IconTile icon={<BookOpenCheck className="h-5 w-5" />} tone="brand" />
+          <span>
+            <span className="block text-sm font-bold text-slate-900">Guide de la plateforme</span>
+            <span className="block text-sm text-slate-600">Tous les écrans, le cahier des charges et le mode présentation.</span>
+          </span>
+        </span>
+        <span className="text-sm font-semibold text-brand-700">Ouvrir</span>
+      </Link>
+
       {institutional && institutionGuides.length > 0 ? (
         <>
           <nav aria-label="Sections de l’aide" className="flex flex-wrap gap-2 text-sm">
