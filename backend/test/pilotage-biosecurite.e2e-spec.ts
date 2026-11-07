@@ -36,6 +36,11 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
   let maedrToken: string;
   let registryOnlyToken: string;
   const digits = String(Date.now()).slice(-7);
+  // Dedicated cohort: every pilotage assertion is scoped to it, so other
+  // specs' farms on the same database never change the figures.
+  const cohort = `BIO_${digits}`;
+  const farmName = (n: string) => `Bio ${digits} ${n}`;
+  let baseline: Record<string, number>;
 
   const get = (url: string, token: string) =>
     request(server).get(url).set(auth(token));
@@ -85,14 +90,31 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
     ds = app.get(DataSource);
 
     adminToken = (await createPlatformAdmin(server, ds)).token;
+    await post(
+      '/programme/lists/COHORTE',
+      { code: cohort, label: `Cohorte ${cohort}` },
+      adminToken,
+    ).expect(201);
     farmA = (
-      await createProgrammeFarm(server, adminToken, { provinceCode: 'G1' })
+      await createProgrammeFarm(server, adminToken, {
+        provinceCode: 'G1',
+        name: farmName('A'),
+        extra: { cohort },
+      })
     ).farmId;
     farmB = (
-      await createProgrammeFarm(server, adminToken, { provinceCode: 'G1' })
+      await createProgrammeFarm(server, adminToken, {
+        provinceCode: 'G1',
+        name: farmName('B'),
+        extra: { cohort },
+      })
     ).farmId;
     farmC = (
-      await createProgrammeFarm(server, adminToken, { provinceCode: 'G2' })
+      await createProgrammeFarm(server, adminToken, {
+        provinceCode: 'G2',
+        name: farmName('C'),
+        extra: { cohort },
+      })
     ).farmId;
     agentToken = await institution('AGENT_TECHNIQUE', {
       farmIds: [farmA, farmB, farmC],
@@ -112,6 +134,11 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
     ).expect(201);
     registryOnlyToken = await institution(regCode);
 
+    const before = await get('/programme/economie/synthese', dgeToken).expect(
+      200,
+    );
+    baseline = before.body.total;
+
     // Farm A: an old A, then a recent C (the latest counts). Farm B: an A
     // older than the « ancien » threshold. Farm C: never controlled.
     await visit(farmA, daysAgo(40), allOk);
@@ -124,7 +151,10 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
   });
 
   it('classe chaque ferme sur son dernier contrôle, compte les non contrôlées et les contrôles anciens', async () => {
-    const res = await get('/pilotage/dashboard', dgeToken).expect(200);
+    const res = await get(
+      `/pilotage/dashboard?cohort=${cohort}`,
+      dgeToken,
+    ).expect(200);
     const b = res.body.biosecurity;
     expect(b.staleAfterDays).toBe(365);
     expect(b.total).toMatchObject({
@@ -148,7 +178,10 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
   });
 
   it('masque les agrégats du MAEDR sous k fermes', async () => {
-    const res = await get('/pilotage/dashboard', maedrToken).expect(200);
+    const res = await get(
+      `/pilotage/dashboard?cohort=${cohort}`,
+      maedrToken,
+    ).expect(200);
     expect(res.body.biosecurity.suppressed).toBe(true);
     expect(res.body.biosecurity.total).toBeNull();
     expect(
@@ -159,7 +192,9 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
   });
 
   it('colore la carte et l’export par ferme avec la classe, pas pour le MAEDR', async () => {
-    const map = await get('/pilotage/map', dgeToken).expect(200);
+    const map = await get(`/pilotage/map?cohort=${cohort}`, dgeToken).expect(
+      200,
+    );
     const pt = map.body.points.find(
       (p: { farmId: string }) => p.farmId === farmA,
     );
@@ -171,12 +206,16 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
       expect(pt.colours.biosecurity).toBe('ROUGE');
     }
     expect(map.body.legend.biosecurity.staleAfterDays).toBe(365);
-    const csv = await get('/pilotage/exports/farms.csv', dgeToken).expect(200);
+    const csv = await get(
+      `/pilotage/exports/farms.csv?cohort=${cohort}`,
+      dgeToken,
+    ).expect(200);
     expect(csv.text).toContain('Biosécurité : classe du dernier contrôle');
     expect(csv.text).toContain('Non contrôlée');
-    const prov = await get('/pilotage/exports/provinces.csv', dgeToken).expect(
-      200,
-    );
+    const prov = await get(
+      `/pilotage/exports/provinces.csv?cohort=${cohort}`,
+      dgeToken,
+    ).expect(200);
     expect(prov.text).toContain('Biosécurité : classe A');
     await get('/pilotage/exports/farms.csv', maedrToken).expect(403);
   });
@@ -192,20 +231,27 @@ describe('Pilotage — classement de biosécurité (e2e)', () => {
       (f: { farmId: string }) => f.farmId === farmC,
     );
     expect(c.bioClass).toBe('Non contrôlée');
-    expect(res.body.total).toMatchObject({ bioA: 1, bioC: 1, bioNever: 1 });
+    // Totals cover the whole programme: compare with the figures read
+    // before this spec records its visits.
+    const t = res.body.total;
+    expect(t.bioA - baseline.bioA).toBe(1);
+    expect(t.bioC - baseline.bioC).toBe(1);
+    // Farms A and B were never controlled at baseline; farm C still is.
+    expect(t.bioNever - baseline.bioNever).toBe(-2);
   });
 
   it('filtre le registre par classe pour qui consulte TECHNIQUE, refuse sinon', async () => {
-    const c = await get('/programme/farms?biosecurity=C', adminToken).expect(
-      200,
-    );
+    const c = await get(
+      `/programme/farms?biosecurity=C&q=Bio+${digits}`,
+      adminToken,
+    ).expect(200);
     expect(c.body.items.map((f: { id: string }) => f.id)).toEqual([farmA]);
     expect(c.body.items[0].biosecurity).toMatchObject({
       classification: 'C',
       scorePct: 50,
     });
     const none = await get(
-      '/programme/farms?biosecurity=NONE',
+      `/programme/farms?biosecurity=NONE&q=Bio+${digits}`,
       adminToken,
     ).expect(200);
     expect(none.body.items.map((f: { id: string }) => f.id)).toEqual([farmC]);
