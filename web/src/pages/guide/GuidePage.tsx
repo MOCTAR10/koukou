@@ -236,7 +236,6 @@ export function GuidePage() {
               {menuOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
               <span className="sr-only">Sommaire</span>
             </button>
-            <img src="/republique-gabonaise.webp" alt="République gabonaise" className="h-10 w-auto shrink-0 rounded-md bg-white p-0.5 sm:h-11" />
             <div className="min-w-0">
               <p className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Fermia<span className="hidden sm:inline"> — Guide de la plateforme</span><span className="sm:hidden"> · Guide</span></p>
               <p className="hidden truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300 sm:block">Présentation · Programme POUFA · MAEDR</p>
