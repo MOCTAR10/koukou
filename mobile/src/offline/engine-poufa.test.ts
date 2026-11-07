@@ -10,6 +10,7 @@ import {
   createSortieQueued,
   deliverOrderQueued,
   flushQueue,
+  createVisitQueued,
   setFarmGpsQueued,
 } from './engine';
 import { DEVICE_ID_KEY } from './device-id';
@@ -175,6 +176,28 @@ describe('point GPS (farm-gps)', () => {
     const live = stubFetch(async () => jsonResponse(200, { gps: null, previous: null, provinceWarning: null, applied: true }));
     await setFarmGpsQueued('f-1', { latitude: 0.4, longitude: 9.4 });
     expect((body(live) as { idempotencyKey?: string }).idempotencyKey).toBeTruthy();
+  });
+});
+
+describe('visite technique (farm-visit)', () => {
+  const visit = { visitDate: '2026-11-06', type: 'BIOSECURITE' as const, answers: [{ criterionCode: 'PEDILUVE', answer: 'CONFORME' as const }] };
+
+  it('hors ligne : rejouée avec sa clé et son heure de saisie', async () => {
+    stubFetch(networkError);
+    expect(await createVisitQueued('f-1', visit)).toEqual({ status: 'queued' });
+    const replay = stubFetch(async () => jsonResponse(201, { id: 'v-1' }));
+    await flushQueue();
+    expect(readCall(replay).url).toContain('/farms/f-1/visits');
+    expect(readCall(replay).init.method).toBe('POST');
+    expect(body(replay)).toMatchObject(visit);
+    expect(String((body(replay) as { idempotencyKey?: string }).idempotencyKey)).toMatch(/^off-farm-visit-/);
+    expect(Date.parse(String((body(replay) as { capturedAt?: string }).capturedAt))).not.toBeNaN();
+  });
+
+  it('refus (4xx) en direct : erreur levée, rien en file', async () => {
+    stubFetch(async () => jsonResponse(400, { message: 'Critère(s) inconnu(s) de la grille de biosécurité : X.' }));
+    await expect(createVisitQueued('f-1', visit)).rejects.toThrow('Critère');
+    expect(loadOps()).toEqual([]);
   });
 });
 

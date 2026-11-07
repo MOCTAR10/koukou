@@ -36,16 +36,19 @@ import {
   confirmDelivery,
   createDeclaration,
   createSortie,
+  createVisit,
   setFarmGps,
   uploadDeclarationPhoto,
   type ConfirmDeliveryPayload,
   type ConfirmResult,
   type DeclarationPayload,
+  type CreateVisitPayload,
   type DeclarationPhoto,
   type FarmGpsPayload,
   type FarmGpsResult,
   type SortiePayload,
   type SortieView,
+  type VisitView,
 } from '@/api/poufa';
 
 // POUFA lot A bande: offline conflict metadata of the daily entry.
@@ -198,7 +201,9 @@ function isCreation(op: OfflineOp): boolean {
     // user (a completion refused because the care was cancelled meanwhile
     // carries the animal count and route actually given).
     op.kind === 'treatment' ||
-    op.kind === 'prophylaxis-complete'
+    op.kind === 'prophylaxis-complete' ||
+    // A visit refused on replay (farm out of scope, unknown band) is kept to re-enter.
+    op.kind === 'farm-visit'
   );
 }
 
@@ -699,6 +704,21 @@ export function setFarmGpsQueued(farmId: string, gps: FarmGpsPayload): Promise<S
   return sendOrQueueWith({ id: opId, kind: 'farm-gps', farmId, payload: { payload } }, () => setFarmGps(farmId, payload));
 }
 
+/**
+ * Technical visit with its biosecurity grid (CDC n° 27, n° 45), keyed by
+ * `idempotencyKey = op.id`: a replay after a lost answer returns the visit
+ * already stored. The phone's capture time travels with it.
+ */
+export function createVisitQueued(farmId: string, visit: CreateVisitPayload): Promise<SendResultOf<VisitView>> {
+  const opId = nextId('farm-visit');
+  const payload = {
+    ...visit,
+    idempotencyKey: visit.idempotencyKey ?? opId,
+    capturedAt: visit.capturedAt ?? librevilleIso(),
+  };
+  return sendOrQueueWith({ id: opId, kind: 'farm-visit', farmId, payload }, () => createVisit(farmId, payload));
+}
+
 // ── POUFA lot A sante: sanitary registers (CDC n° 22-23) ──────────────
 // Both are keyed: the server stores a treatment once per (farm, key) and
 // answers a replayed completion with the care it already completed.
@@ -813,6 +833,9 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       // Ops queued before the key existed fall back to op.id.
       const gps = (op.payload as { payload: FarmGpsPayload }).payload;
       await setFarmGps(op.farmId, { ...gps, idempotencyKey: gps.idempotencyKey ?? op.id });
+    } else if (op.kind === 'farm-visit') {
+      const visit = op.payload as CreateVisitPayload;
+      await createVisit(op.farmId, { ...visit, idempotencyKey: visit.idempotencyKey ?? op.id });
     } else if (op.kind === 'treatment') {
       const p = op.payload as TreatmentOpPayload;
       await createTreatment(op.farmId, p.batchId, { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id });

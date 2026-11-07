@@ -68,6 +68,7 @@ function RootNavigator() {
         {/* ── POUFA field work (M2) ── */}
         <Stack.Screen name="livraisons/index" />
         <Stack.Screen name="livraisons/[id]" />
+        <Stack.Screen name="visites" />
         {/* ── end POUFA ── */}
       </Stack.Protected>
       {/* ── POUFA notification inbox (M2) ── */}

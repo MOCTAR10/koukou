@@ -622,3 +622,89 @@ export function fetchDeclarations(state?: SanitaryDeclaration['reviewState']): P
 export function reviewDeclaration(id: string, body: { decision: 'VALIDEE' | 'INFIRMEE' | 'ALERTE'; comment?: string }): Promise<SanitaryDeclaration> {
   return apiFetch(`/surveillance/declarations/${id}/review`, { method: 'POST', body });
 }
+
+// ── Technical visits and biosecurity (CDC n° 27, n° 45, §3.2) ──────────
+
+export type VisitType = 'TECHNIQUE' | 'BIOSECURITE' | 'SANITAIRE';
+export type BiosecurityAnswer = 'CONFORME' | 'NON_CONFORME' | 'NA';
+export type BiosecurityClass = 'A' | 'B' | 'C';
+
+export interface VisitAnswerView {
+  criterionCode: string;
+  label: string;
+  category: string | null;
+  weight: number;
+  answer: BiosecurityAnswer;
+  comment: string | null;
+}
+
+/** Backend `VisitView` (`modules/visits/visits.service.ts`); `answers` are empty in the list. */
+export interface VisitView {
+  id: string;
+  farmId: string;
+  farmCode: string | null;
+  farmName: string | null;
+  batchId: string | null;
+  batchCode: string | null;
+  visitDate: string;
+  type: VisitType;
+  agent: { id: string; name: string };
+  observations: string | null;
+  recommendations: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  nextVisitDate: string | null;
+  visaFrom: string | null;
+  visaTo: string | null;
+  scorePct: number | null;
+  classification: BiosecurityClass | null;
+  thresholds: { a: number; b: number } | null;
+  answers: VisitAnswerView[];
+}
+
+export interface VisitCriterion {
+  code: string;
+  label: string;
+  category: string | null;
+  weight: number;
+}
+
+/** `GET /farms/:farmId/visits/grid`: criteria in force and the class thresholds. */
+export interface VisitGrid {
+  criteria: VisitCriterion[];
+  thresholds: { a: number; b: number };
+}
+
+/** CreateVisitDto (backend `modules/visits/dto/visit.dto.ts`). */
+export interface CreateVisitPayload {
+  visitDate: string;
+  type: VisitType;
+  batchId?: string;
+  observations?: string;
+  recommendations?: string;
+  latitude?: number;
+  longitude?: number;
+  nextVisitDate?: string;
+  visaFrom?: string;
+  visaTo?: string;
+  answers?: Array<{ criterionCode: string; answer: BiosecurityAnswer; comment?: string }>;
+  capturedAt?: string;
+  /** Offline replay key, unique per farm: a replay returns the same visit. */
+  idempotencyKey?: string;
+}
+
+export function fetchFarmVisits(farmId: string): Promise<VisitView[]> {
+  return apiFetch<VisitView[]>(`/farms/${farmId}/visits`);
+}
+
+export function fetchFarmVisit(farmId: string, id: string): Promise<VisitView> {
+  return apiFetch<VisitView>(`/farms/${farmId}/visits/${id}`);
+}
+
+export function fetchVisitGrid(farmId: string): Promise<VisitGrid> {
+  return apiFetch<VisitGrid>(`/farms/${farmId}/visits/grid`);
+}
+
+export function createVisit(farmId: string, payload: CreateVisitPayload): Promise<VisitView> {
+  return apiFetch<VisitView>(`/farms/${farmId}/visits`, { method: 'POST', body: payload });
+}
