@@ -25,6 +25,7 @@ describe('mobileRouteOf', () => {
     expect(mobileRouteOf(`/notifications/${N}`)).toBe(`/notifications/${N}`);
     expect(mobileRouteOf(`/sanitary-alerts/${N}`)).toBe('/sanitary?tab=alertes');
     expect(mobileRouteOf(`/farms/${F}/batches/${B}/health-events`)).toBe(`/sanitary?lot=${B}&tab=maladies`);
+    expect(mobileRouteOf(`/farms/${F}/visits`)).toBe('/visites');
     expect(mobileRouteOf(`/batches/${B}`)).toBe(`/lot/${B}`);
   });
 

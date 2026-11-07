@@ -16,6 +16,22 @@ export interface WeighingLateEvent {
   daysLate: number;
 }
 
+/**
+ * The next visit planned by a farm's latest visit is near (`stage` AVANT: in
+ * `daysLeft` days; JOUR: today) or past (RETARD, `daysLate`). Re-emitted by
+ * every sweep until the notification exists: the notify dedup keys make it
+ * idempotent.
+ */
+export interface VisitReminderEvent {
+  visitId: string;
+  farmId: string;
+  agentUserId: string;
+  nextVisitDate: string;
+  stage: 'AVANT' | 'JOUR' | 'RETARD';
+  /** Days until the visit (AVANT), 0 (JOUR) or days past (RETARD). */
+  days: number;
+}
+
 /** Offline writes met changes from another device (`sync_conflicts` ids). */
 export interface SyncConflictEvent {
   farmId: string;
@@ -165,6 +181,7 @@ export const KOUKOU_EVENTS = {
   REPORT_READY: 'report.ready',
   // POUFA lot A2 vet.
   DECLARATION_REVIEWED: 'sanitary.declaration.reviewed',
+  VISIT_REMINDER: 'visit.reminder',
 } as const;
 
 class FermiaBus extends EventEmitter {}

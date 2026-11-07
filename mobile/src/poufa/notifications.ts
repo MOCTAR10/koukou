@@ -29,8 +29,10 @@ export function mobileRouteOf(serverRoute: string | null | undefined): string {
     return `/sanitary?lot=${m[1]}&tab=maladies`;
   }
   if ((m = route.match(new RegExp(`^/batches/(${UUID})$`)))) return `/lot/${m[1]}`;
+  // Next-visit reminders (VISIT_REMINDER / VISIT_OVERDUE).
+  if (new RegExp(`^/farms/${UUID}/visits$`).test(route)) return '/visites';
   // Already a mobile route (local reminders build their own).
-  if (/^\/(lot|lots|sanitary|livraisons|tasks|alerts|menu|activites|provende)(\/|\?|$)/.test(route)) return route;
+  if (/^\/(lot|lots|visites|sanitary|livraisons|tasks|alerts|menu|activites|provende)(\/|\?|$)/.test(route)) return route;
   if ((m = route.match(/^\/\(tabs\)(\/(lots|menu|activites|provende)(\?.*)?)$/))) return m[1];
   return '/notifications';
 }

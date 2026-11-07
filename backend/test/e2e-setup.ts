@@ -8,6 +8,8 @@ process.env.TASK_SWEEP_DISABLED = 'true';
 process.env.MARKET_SWEEP_DISABLED = 'true';
 // No hourly POUFA band sweep (late weighings, stale projections).
 process.env.WEIGHING_SWEEP_DISABLED = 'true';
+// No hourly visit reminders: the visits-reminders spec calls VisitRemindersService.sweep().
+process.env.VISIT_REMINDER_SWEEP_DISABLED = 'true';
 // No hourly audit seal: the audit spec calls AuditSealService directly.
 process.env.AUDIT_SEAL_DISABLED = 'true';
 // No hourly scheduled reports: the reporting spec calls ReportsService.sweep().

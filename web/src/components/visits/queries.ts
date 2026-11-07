@@ -34,6 +34,8 @@ export interface ProgrammeVisitFilters {
   province: string;
   classification: string;
   type: string;
+  /** « oui » : seulement les fermes dont la prochaine visite prévue est dépassée. */
+  retard?: string;
 }
 
 /** `GET /programme/visits` with the page filters. */
@@ -45,6 +47,7 @@ export function useProgrammeVisits(filters: ProgrammeVisitFilters, enabled: bool
       if (filters.province) q.set('province', filters.province);
       if (filters.classification) q.set('classification', filters.classification);
       if (filters.type) q.set('type', filters.type);
+      if (filters.retard === 'oui') q.set('retard', 'true');
       return api.get<ProgrammeVisitsPage>(`/programme/visits?${q.toString()}`);
     },
     enabled,

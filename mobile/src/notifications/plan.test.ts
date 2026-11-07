@@ -6,6 +6,7 @@ import {
   DEFAULT_REMINDER_SETTINGS,
   localAt,
   MAX_DATED_REMINDERS,
+  ownPlannedVisitDate,
   planSignature,
 } from './plan';
 
@@ -110,5 +111,38 @@ describe('buildReminderPlan', () => {
     expect(plan.dated).toHaveLength(MAX_DATED_REMINDERS);
     expect(plan.dated[0].key).toBe('task:2026-11-01');
     expect(planSignature(plan)).toBe(planSignature(buildReminderPlan({ ...base, tasks: many })));
+  });
+});
+
+describe('planned visit reminders', () => {
+  const now = new Date(2026, 10, 10, 12, 0, 0);
+  const base = {
+    now,
+    settings: DEFAULT_REMINDER_SETTINGS,
+    farmName: 'Ferme A',
+    hasActiveBatches: false,
+    tasks: [],
+    actions: [],
+  };
+
+  it('schedules the day before and the day of the agent\'s next visit', () => {
+    const plan = buildReminderPlan({ ...base, plannedVisitDate: '2026-11-12' });
+    expect(plan.dated.map((r) => [r.key, r.at.getDate(), r.route])).toEqual([
+      ['visit:2026-11-12:veille', 11, '/visites'],
+      ['visit:2026-11-12:jour', 12, '/visites'],
+    ]);
+  });
+
+  it('skips the reminders already in the past and plans nothing without a visit', () => {
+    expect(buildReminderPlan({ ...base, plannedVisitDate: '2026-11-10' }).dated).toEqual([]);
+    expect(buildReminderPlan({ ...base, plannedVisitDate: null }).dated).toEqual([]);
+  });
+
+  it('only counts the latest visit of the farm, recorded by the agent', () => {
+    const v = (agent: string, next: string | null) => ({ agent: { id: agent }, visitDate: '2026-11-01', nextVisitDate: next });
+    expect(ownPlannedVisitDate([v('u1', '2026-11-20')], 'u1')).toBe('2026-11-20');
+    expect(ownPlannedVisitDate([v('u2', null), v('u1', '2026-11-20')], 'u1')).toBeNull();
+    expect(ownPlannedVisitDate([v('u1', '2026-11-20')], 'u2')).toBeNull();
+    expect(ownPlannedVisitDate([], 'u1')).toBeNull();
   });
 });
