@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { AppModule } from './app.module.js';
 import { applyBodyLimits } from './common/http/body-limits.js';
 import {
+  corsOriginsSetting,
+  securityHeaders,
   swaggerEnabled,
   trustProxyHops,
 } from './common/utils/http-exposure.js';
@@ -40,7 +42,12 @@ async function bootstrap() {
     trustProxyHops(configService.get<string>('TRUST_PROXY')),
   );
 
-  const corsOrigins = configService.get('CORS_ORIGINS', '*');
+  const production = configService.get<string>('NODE_ENV') === 'production';
+  const corsOrigins = corsOriginsSetting(
+    configService.get<string>('CORS_ORIGINS'),
+    production,
+  );
+  app.use(securityHeaders(production));
   app.enableCors({
     origin: corsOrigins === '*' ? '*' : corsOrigins.split(',').map((o: string) => o.trim()),
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],

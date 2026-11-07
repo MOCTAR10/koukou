@@ -11,6 +11,7 @@ import {
 import {
   TraceLotKind,
   TraceLotStatus,
+  TraceLotValidation,
 } from '../../../common/enums/trace.enum.js';
 import type { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import type { Sortie } from '../../bandes/entities/sortie.entity.js';
@@ -89,6 +90,21 @@ export class TraceLot {
     default: TraceLotStatus.OUVERT,
   })
   status: TraceLotStatus;
+
+  /** Validation workflow (CDC 7.3b), independent of the chain status. */
+  @Column({
+    name: 'validation_status',
+    type: 'varchar',
+    length: 20,
+    default: TraceLotValidation.BROUILLON,
+  })
+  validationStatus: TraceLotValidation;
+
+  @Column({ name: 'validated_at', type: 'timestamptz', nullable: true })
+  validatedAt: Date | null;
+
+  @Column({ name: 'validated_by_id', type: 'uuid', nullable: true })
+  validatedById: string | null;
 
   /** Signature printed in the QR address (`?s=`). */
   @Column({ name: 'qr_token', type: 'varchar', length: 32 })

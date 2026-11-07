@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { PermissionsGuard } from '../../common/guards/permissions.guard.js';
 import { ProgramAccessGuard } from '../../common/guards/program-access.guard.js';
+import { AuditModule } from '../audit/audit.module.js';
 import { AccessCoreModule } from '../access/access-core.module.js';
 import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -27,6 +28,7 @@ import { SMS_SENDER, createSmsSender } from './sms/sms-sender.js';
     UsersModule,
     FarmsModule,
     AccessCoreModule,
+    AuditModule,
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],

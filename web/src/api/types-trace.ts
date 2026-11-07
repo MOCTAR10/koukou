@@ -50,6 +50,10 @@ export interface LotView {
   cededOn: string | null;
   closedAt: string | null;
   createdAt: string;
+  /** Validation workflow (CDC 7.3b). */
+  validationStatus: 'BROUILLON' | 'VALIDE';
+  validatedAt: string | null;
+  validatedBy: string | null;
   /** Address printed in the QR code. */
   qrUrl: string;
 }

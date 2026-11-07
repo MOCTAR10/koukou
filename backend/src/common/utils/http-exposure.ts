@@ -23,3 +23,50 @@ export function swaggerEnabled(
   if (flag === 'false') return false;
   return nodeEnv !== 'production';
 }
+
+/**
+ * CORS origins. Outside production an unset value means `*`; in production
+ * it must be listed explicitly (a wildcard default would silently open the API).
+ */
+export function corsOriginsSetting(
+  raw: string | undefined,
+  production: boolean,
+): string {
+  const value = raw?.trim();
+  if (value) return value;
+  if (production) {
+    throw new Error(
+      "CORS_ORIGINS est obligatoire en production (liste d'origines séparées par des virgules, ex. https://fermia.example.ga).",
+    );
+  }
+  return '*';
+}
+
+type HeaderRes = {
+  setHeader(name: string, value: string): unknown;
+  removeHeader(name: string): unknown;
+};
+
+/**
+ * Helmet-equivalent security headers, without the dependency. No CSP here:
+ * Swagger UI and the public QR trace page use inline scripts/styles, and the
+ * API serves JSON (the web app is served by its own host).
+ */
+export function securityHeaders(production: boolean) {
+  return (_req: unknown, res: HeaderRes, next: () => void): void => {
+    res.removeHeader('X-Powered-By');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-DNS-Prefetch-Control', 'off');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    if (production) {
+      res.setHeader(
+        'Strict-Transport-Security',
+        'max-age=15552000; includeSubDomains',
+      );
+    }
+    next();
+  };
+}

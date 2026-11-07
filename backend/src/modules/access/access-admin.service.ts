@@ -391,7 +391,12 @@ export class AccessAdminService {
         where: { id: m.userId },
         lock: { mode: 'pessimistic_write' },
       });
-      await users.save({ ...user, passwordHash: hash });
+      await users.save({
+        ...user,
+        passwordHash: hash,
+        failedLogins: 0,
+        lockedUntil: null,
+      });
     });
     return { ...(await this.membershipById(id)), loginCode: code };
   }

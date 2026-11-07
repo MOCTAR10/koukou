@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  Post,
   Query,
   Res,
   StreamableFile,
@@ -14,7 +15,7 @@ import {
   CurrentUser,
   type AuthUser,
 } from '../../common/decorators/current-user.decorator.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { TraceHistoryService } from './trace-history.service.js';
@@ -63,6 +64,21 @@ export class FarmTraceController {
     @Param('lotId') lotId: string,
   ) {
     return this.history.history(user, farmId, lotId);
+  }
+
+  @Post(':lotId/validate')
+  @Action('VALIDER')
+  @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @ApiOperation({
+    summary:
+      'Valider un lot (TRACABILITE:VALIDER dans la matrice ; refusé aux comptes de la ferme)',
+  })
+  validate(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('lotId') lotId: string,
+  ) {
+    return this.history.validate(user, farmId, lotId);
   }
 
   @Get(':lotId/label')

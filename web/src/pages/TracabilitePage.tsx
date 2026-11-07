@@ -67,14 +67,14 @@ export function TracabilitePage() {
           <FarmLotsTable />
         </Card>
       ) : null}
-      {tab === 'recherche' ? <CodeSearch /> : null}
+      {tab === 'recherche' ? <CodeSearch canValidate={rights.validateLot} /> : null}
       {tab === 'operateurs' ? <OperatorsPanel rights={rights} /> : null}
     </div>
   );
 }
 
 /** `GET /trace/lots/by-code/:code`: the code typed, or the QR address pasted. */
-function CodeSearch() {
+function CodeSearch({ canValidate }: { canValidate: boolean }) {
   const [input, setInput] = useState('');
   const [code, setCode] = useState<string | null>(null);
   const history = useQuery({
@@ -114,6 +114,8 @@ function CodeSearch() {
         <Card className="p-5">
           <LotHistoryView
             history={history.data}
+            canValidate={canValidate}
+            onValidated={() => void history.refetch()}
             onOpenLot={(id) => {
               const target = [history.data.root, ...history.data.subLots].find((l) => l?.id === id);
               if (target) {
