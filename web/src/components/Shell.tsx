@@ -44,7 +44,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
 import { farmSpaceState, worksWithoutFarm } from '../app/roles';
 import { useMenuAccess } from '../app/useMenuAccess';
-import { FermiaLeaf, Logo, MinistryBadge, MinistrySeal } from './Logo';
+import { Logo } from './Logo';
 import { PageNotOpen } from './access/PageNotOpen';
 import { NoFarmScreen } from './NoFarmScreen';
 import { Loading } from './ui';
@@ -262,14 +262,8 @@ export function Shell() {
         )}
       >
         <div className="flex items-center gap-3 px-4 py-4">
-          {/* The badge carries the Ministry's name: large enough to read it (smaller on the collapsed rail). */}
-          {/* On a phone the drawer shows the coat of arms alone, without the ministry's name. */}
-          {consoleMode ? (
-            <>
-              <MinistrySeal className="h-12 md:hidden" />
-              <MinistryBadge className="hidden h-[7.5rem] w-[7.5rem] !object-contain md:block md:max-xl:h-11 md:max-xl:w-11 md:max-xl:group-hover/side:h-[7.5rem] md:max-xl:group-hover/side:w-[7.5rem]" />
-            </>
-          ) : <Logo className="h-9 w-auto shrink-0" />}
+          {/* Fermia leaf on every screen: the top bar no longer repeats it. */}
+          <Logo className="h-9 w-auto shrink-0" />
           <div className={classNames('whitespace-nowrap', RAIL_BLOCK)}>
             {consoleMode ? (
               <>
@@ -308,7 +302,7 @@ export function Shell() {
           </div>
         ) : null}
 
-        <nav className="mt-5 flex-1 overflow-y-auto overflow-x-hidden px-3">
+        <nav className="side-scroll mt-5 flex-1 overflow-y-auto overflow-x-hidden px-3">
           {consoleMode && programmeItems.length > 0 ? (
             <div className="mb-4">
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
@@ -399,7 +393,6 @@ export function Shell() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <FermiaLeaf className="hidden h-7 w-7 lg:block" />
           <div className="flex min-w-0 items-center text-sm font-medium text-slate-700">
             {!onProgramme && farm ? (
               <>
