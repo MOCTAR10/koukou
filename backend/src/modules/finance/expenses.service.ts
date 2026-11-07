@@ -229,8 +229,8 @@ export class ExpensesService {
   ): Promise<Expense> {
     await this.farmsService.assertAccessible(user, farmId);
     const cls =
-      newCategory != null || dto.posteCharge?.trim()
-        ? await this.classify(newCategory, dto.posteCharge)
+      dto.category != null || dto.posteCharge?.trim()
+        ? await this.classify(dto.category, dto.posteCharge)
         : null;
     const newCategory = cls?.category;
     return this.dataSource.transaction(async (em) => {
