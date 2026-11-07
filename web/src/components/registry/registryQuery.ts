@@ -9,6 +9,8 @@ export interface RegistryFilters {
   cohort: string;
   /** STATUT_FERME list code. */
   status: string;
+  /** Class of the latest biosecurity control (`A`, `B`, `C`) or `NONE`; TECHNIQUE readers only. */
+  biosecurity: string;
   q: string;
   page: number;
 }
@@ -17,9 +19,9 @@ export const REGISTRY_PAGE_SIZE = 50;
 /** Server cap of `pageSize` on `GET /programme/farms`. */
 export const REGISTRY_MAX_PAGE_SIZE = 200;
 
-export const EMPTY_FILTERS: RegistryFilters = { province: '', localiteId: '', cohort: '', status: '', q: '', page: 1 };
+export const EMPTY_FILTERS: RegistryFilters = { province: '', localiteId: '', cohort: '', status: '', biosecurity: '', q: '', page: 1 };
 
-const TEXT_KEYS = ['province', 'localiteId', 'cohort', 'status', 'q'] as const;
+const TEXT_KEYS = ['province', 'localiteId', 'cohort', 'status', 'biosecurity', 'q'] as const;
 
 /** Reads the filters from the page URL (`?province=G1&page=2`); anything malformed falls back to the default. */
 export function parseRegistryParams(params: URLSearchParams): RegistryFilters {

@@ -7,6 +7,13 @@ import {
   sumFacts,
   type ConductAlerts,
 } from './pilotage-metrics.js';
+import {
+  biosecurityBlock,
+  NEVER_CONTROLLED,
+  type BiosecurityFigures,
+  type FarmBiosecurity,
+} from './pilotage-biosecurity.js';
+import { PilotageBiosecurityService } from './pilotage-biosecurity.service.js';
 import { CONDUCT_ALERTS_LABEL } from './pilotage-programme.js';
 import {
   alertLevel,
@@ -31,6 +38,8 @@ export interface MapColours {
   completeness: ColourLevel | null;
   /** ROUGE only with a published sanitary alert (conduct alerts never colour). */
   alert: ColourLevel;
+  /** Latest biosecurity class: A green, B yellow, C red, null never controlled. */
+  biosecurity: ColourLevel | null;
 }
 
 /** Alerts of a point or a cluster: the published ones, conduct ones apart. */
@@ -53,6 +62,8 @@ export interface MapPoint {
   mortalityPct: number | null;
   completenessPct: number | null;
   alerts: MapAlerts;
+  /** Class and score of the latest biosecurity control (class null: never controlled). */
+  biosecurity: FarmBiosecurity;
   colours: MapColours;
 }
 
@@ -69,6 +80,8 @@ export interface MapCluster {
   mortalityPct: number | null;
   completenessPct: number | null;
   alerts: MapAlerts | null;
+  /** Class distribution of the province's farms (null when hidden). */
+  biosecurity: BiosecurityFigures | null;
   colours: MapColours | null;
 }
 
@@ -80,6 +93,10 @@ export interface PilotageMap {
     mortality: Thresholds & { unit: '%'; description: string };
     completeness: Thresholds & { unit: '%'; description: string };
     alert: { description: string; conduct: string };
+    biosecurity: {
+      description: string;
+      staleAfterDays: number;
+    };
   };
   /** Farm points (registry GPS). Always empty for an aggregate-only view. */
   points: MapPoint[];
@@ -100,6 +117,7 @@ export class PilotageMapService {
     private readonly dashboards: PilotageDashboardService,
     private readonly data: PilotageDataService,
     private readonly parameters: ParametersService,
+    private readonly biosec: PilotageBiosecurityService,
   ) {}
 
   async map(
@@ -120,11 +138,32 @@ export class PilotageMapService {
     };
     const k = ctx.minGroupSize;
     const provinceById = new Map(ctx.provinces.map((p) => [p.id, p]));
+    const { byFarm, staleAfterDays } = await this.biosec.ofFarms(
+      view.programId,
+      ctx.rows.map((r) => r.farm.id),
+      today,
+    );
+    const bio = biosecurityBlock(
+      ctx.rows.map((r) => ({ id: r.farm.id, provinceId: r.farm.provinceId })),
+      byFarm,
+      ctx.provinces,
+      { aggregateOnly: view.aggregateOnly, k, staleAfterDays },
+    );
+    const bioLevel = (b: FarmBiosecurity | null): ColourLevel | null =>
+      b?.classification === 'A'
+        ? 'VERT'
+        : b?.classification === 'B'
+          ? 'JAUNE'
+          : b?.classification === 'C'
+            ? 'ROUGE'
+            : null;
     const colours = (f: {
       mortalityPct: number | null;
       completenessPct: number | null;
       published: number;
+      biosecurity?: FarmBiosecurity | null;
     }): MapColours => ({
+      biosecurity: bioLevel(f.biosecurity ?? null),
       mortality: mortalityLevel(f.mortalityPct, mortalityT),
       completeness: completenessLevel(f.completenessPct, completenessT),
       alert: alertLevel(f),
@@ -163,10 +202,12 @@ export class PilotageMapService {
               published: facts.publishedAlerts,
               conduct: conductAlertsOf(facts),
             },
+            biosecurity: byFarm.get(farm.id) ?? NEVER_CONTROLLED,
             colours: colours({
               mortalityPct,
               completenessPct,
               published: facts.publishedAlerts,
+              biosecurity: byFarm.get(farm.id) ?? NEVER_CONTROLLED,
             }),
           };
         });
@@ -223,6 +264,8 @@ export class PilotageMapService {
                   published: facts.publishedAlerts,
                   conduct: conductAlertsOf(facts),
                 },
+            biosecurity:
+              bio.provinces.find((g) => g.provinceId === key)?.figures ?? null,
             colours: suppressed
               ? null
               : colours({
@@ -257,6 +300,11 @@ export class PilotageMapService {
           description:
             'Rouge : alerte sanitaire publiée par les services vétérinaires sur la période ; vert : aucune.',
           conduct: `${CONDUCT_ALERTS_LABEL} : comptées à part, elles ne colorent jamais une ferme.`,
+        },
+        biosecurity: {
+          description:
+            'Classe du dernier contrôle de biosécurité : A vert, B jaune, C rouge ; sans couleur si la ferme n’a jamais été contrôlée.',
+          staleAfterDays,
         },
       },
       points,

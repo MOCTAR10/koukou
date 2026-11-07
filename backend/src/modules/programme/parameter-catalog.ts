@@ -403,6 +403,19 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     defaultNote: FERMIA_PROPOSAL,
   },
   {
+    // Pilotage: past this age the latest biosecurity control is shown as « ancien ».
+    // 0 switches the flag off.
+    key: 'BIOSECURITE_CONTROLE_ANCIEN_JOURS',
+    label: 'Ancienneté à partir de laquelle un contrôle de biosécurité est dit ancien',
+    type: 'integer',
+    unit: 'jours',
+    ownerProfile: OWNER_PROFILE.VETERINAIRE,
+    min: 0,
+    max: 3650,
+    defaultValue: 365,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
     key: 'SEUIL_ECART_RECEPTION_ABATTOIR_PCT',
     label: "Seuil d'écart à la réception par l'abattoir",
     type: 'number',

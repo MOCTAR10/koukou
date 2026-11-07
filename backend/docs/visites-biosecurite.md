@@ -52,6 +52,17 @@ L'historique de bande (`GET /farms/:farmId/trace/lots/:lotId`, `rearing`) ajoute
 - Web : page « Visites » (`/app/visites`) : visites de la ferme active, détail avec grille, formulaire de création (droit TECHNIQUE:VALIDER) ; vue « Programme » filtrable par province, classe et type pour les institutions. L'onglet Historique du lot affiche les visites.
 - Mobile : l'agent crée une visite avec la grille hors ligne (file `farm-visit`, `idempotencyKey = op.id`, grille et seuils mis en cache à la dernière ouverture) ; liste des visites de la ferme ; historique du lot.
 
+## Classement dans le pilotage
+
+Classe et score du **dernier** contrôle de chaque ferme (dernière visite ayant une classe, à date égale la dernière enregistrée), avec sa date ; une ferme sans contrôle est comptée « jamais contrôlée » ; au-delà de `BIOSECURITE_CONTROLE_ANCIEN_JOURS` (Proposé 365, 0 = désactivé, propriétaire : vétérinaires) le contrôle est dit « ancien ». Module `reporting/pilotage-biosecurity.ts` (pur) et `PilotageBiosecurityService` (SQL).
+
+- `GET /pilotage/dashboard` : bloc `biosecurity` (national et par province : A, B, C, jamais contrôlées, contrôlées %, score moyen, anciens). Profil agrégé (MAEDR) : un groupe de moins de `PILOTAGE_GROUPE_MIN_FERMES` fermes est masqué, ainsi que son plus petit voisin (même règle que les autres chiffres).
+- `GET /pilotage/map` : clé de couleur `biosecurity` (A vert, B jaune, C rouge, gris si jamais contrôlée), classe et date par point, répartition par province.
+- Exports `pilotage/exports/provinces` et `farms` (CSV, Excel) : colonnes de biosécurité ; rapports PDF : lignes dans la section « Fermes ».
+- `GET /programme/economie/synthese` (Synthèse DGE) : groupe de colonnes de biosécurité, ouvert par TECHNIQUE:CONSULTER comme les volumes ; ligne ferme = classe, score, date ; ligne province/total = répartition.
+- `GET /programme/farms?biosecurity=A|B|C|NONE` et colonne `biosecurity` du registre : réservés aux profils qui consultent TECHNIQUE (403 sur le filtre sinon, colonne absente).
+- Droits : ceux des vues existantes (matrice PILOTAGE, ECONOMIQUE, REGISTRE) ; aucune route nouvelle, lectures tierces déjà journalisées.
+
 ## Décisions à valider (DGE / vétérinaires)
 
 1. Grille par défaut, poids et seuils A 80 % / B 60 % (propositions).
@@ -59,10 +70,10 @@ L'historique de bande (`GET /farms/:farmId/trace/lots/:lotId`, `rearing`) ajoute
 3. Écriture des visites = TECHNIQUE:VALIDER (agent technique) ; les vétérinaires lisent, ne créent pas de visite.
 4. Le visa porte sur une période de saisies d'une bande ; pas de blocage de la bande ni de verrouillage des saisies visées.
 5. Visibilité à l'éleveur : il lit les visites de sa ferme, grille et recommandations comprises.
+6. Classement du pilotage : seul le dernier contrôle compte (pas de moyenne dans le temps) ; seuil « ancien » de 365 jours ; une visite non biosécurité qui a une grille notée compte aussi.
 
 ## Reste à faire
 
 - Photos de visite (le mécanisme de photos existe seulement pour les déclarations sanitaires : un fichier par visite demanderait une route et un stockage dédiés).
 - Création d'une visite hors ligne depuis le web (mobile seulement) ; planification et rappel de la « prochaine visite » (la date est stockée, aucune notification).
-- Classement de biosécurité dans les tableaux de pilotage et les rapports PDF (la liste programme filtrable par classe est l'amorce).
 - Critères bloquants (un critère critique non conforme qui dégrade la classe) : non prévu au CDC, non fait.

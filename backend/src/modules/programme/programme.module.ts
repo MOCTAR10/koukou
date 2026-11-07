@@ -16,6 +16,7 @@ import { Province } from './entities/province.entity.js';
 import { RefItem } from './entities/ref-item.entity.js';
 import { GeoService } from './geo.service.js';
 import { IdCounterService } from './id-counter.service.js';
+import { PilotageBiosecurityService } from '../reporting/pilotage-biosecurity.service.js';
 import { ParametersService } from './parameters.service.js';
 import { ProgrammeSeedService } from './programme-seed.service.js';
 import { ProgrammeController } from './programme.controller.js';
@@ -56,6 +57,7 @@ import { TerritoryService } from './territory.service.js';
     ProgrammeSeedService,
     ProgrammeFarmsService,
     FarmImportService,
+    PilotageBiosecurityService,
   ],
   exports: [
     ProgrammeService,

@@ -54,13 +54,15 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
   const legend = legendFor(key, d.legend);
   const valueOn = (v: { mortalityPct: number | null; completenessPct: number | null }) =>
     key === 'mortality' ? `Mortalité ${pctLabel(v.mortalityPct)}` : key === 'completeness' ? `Complétude ${pctLabel(v.completenessPct)}` : null;
+  const bioText = (b: MapPoint['biosecurity']): string =>
+    b.classification ? `Biosécurité : classe ${b.classification} (${pctLabel(b.scorePct)}) le ${b.visitDate}${b.stale ? ', contrôle ancien' : ''}` : 'Biosécurité : jamais contrôlée';
 
   const pointLines = (p: MapPoint): string[] => {
     const level = levelOn(p.colours, key);
     return [
       `${p.code ? `${p.code} · ` : ''}${p.name}`,
       `${headsLabel(p.headcount)} · ${countLabel(p.activeBands, 'bande active', 'bandes actives')}`,
-      valueOn(p) ?? alertText(p.alerts),
+      key === 'biosecurity' ? bioText(p.biosecurity) : (valueOn(p) ?? alertText(p.alerts)),
       level ? `Niveau ${LEVEL_TEXT[level]}` : 'Pas de donnée sur la période',
     ];
   };
@@ -72,7 +74,8 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
       `Effectif ${headsLabel(c.headcount)}`,
       `Mortalité ${pctLabel(c.mortalityPct)} · complétude ${pctLabel(c.completenessPct)}`,
       alertText(c.alerts),
-    ];
+      c.biosecurity ? `Biosécurité : A ${c.biosecurity.classA} · B ${c.biosecurity.classB} · C ${c.biosecurity.classC} · non contrôlées ${c.biosecurity.neverControlled}` : '',
+    ].filter(Boolean);
   };
 
   return (
@@ -117,7 +120,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
               ))}
             </ul>
             <p className="mt-2 text-xs text-slate-500">
-              {key === 'mortality' ? d.legend.mortality.description : key === 'completeness' ? d.legend.completeness.description : d.legend.alert.description}
+              {key === 'mortality' ? d.legend.mortality.description : key === 'completeness' ? d.legend.completeness.description : key === 'biosecurity' ? d.legend.biosecurity.description : d.legend.alert.description}
             </p>
             {key === 'alert' && d.legend.alert.conduct ? <p className="mt-2 text-xs text-slate-500">{d.legend.alert.conduct}</p> : null}
             <p className="mt-2 text-xs text-slate-500">Cercles larges : une province (centre de sa limite, sinon moyenne de ses fermes) ; en pointillé, ses chiffres sont masqués.</p>

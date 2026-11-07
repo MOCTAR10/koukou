@@ -23,11 +23,13 @@ import {
   newLoginCode,
 } from '../../../common/utils/login-code.js';
 import {
+  consults,
   includesFarm,
   scopeReachesFarms,
   type InstitutionAccess,
 } from '../../access/access-rules.js';
 import { ScopeResolver } from '../../access/scope-resolver.service.js';
+import { PilotageBiosecurityService } from '../../reporting/pilotage-biosecurity.service.js';
 import { POUFA_BASE_VARIABLE_NAMES } from '../../indicators/formula/formula-catalog.js';
 import {
   evaluateFormula,
@@ -174,6 +176,7 @@ export class ProgrammeFarmsService {
     private readonly parameters: ParametersService,
     private readonly farmsService: FarmsService,
     private readonly scope: ScopeResolver,
+    private readonly biosecurity: PilotageBiosecurityService,
     @InjectRepository(Farm) private readonly farms: Repository<Farm>,
     @InjectRepository(FarmStatusHistory)
     private readonly statusRows: Repository<FarmStatusHistory>,
@@ -1188,6 +1191,22 @@ export class ProgrammeFarmsService {
     if (query.status) {
       qb.andWhere('f.status_code = :status', { status: query.status });
     }
+    // Biosecurity belongs to the TECHNIQUE domain: column and filter follow it.
+    const readsBiosecurity = !access || consults(access, 'TECHNIQUE');
+    if (query.biosecurity) {
+      if (!readsBiosecurity) {
+        throw new ForbiddenException(
+          'Accès refusé : votre profil ne consulte pas les contrôles de biosécurité.',
+        );
+      }
+      const latest = `(SELECT v.classification::text FROM farm_visits v
+          WHERE v.farm_id = f.id AND v.classification IS NOT NULL
+          ORDER BY v.visit_date DESC, v.created_at DESC LIMIT 1)`;
+      if (query.biosecurity === 'NONE') qb.andWhere(`${latest} IS NULL`);
+      else {
+        qb.andWhere(`${latest} = :bioClass`, { bioClass: query.biosecurity });
+      }
+    }
     const q = query.q?.trim();
     if (q) {
       const like = `%${escapeLike(q)}%`;
@@ -1210,11 +1229,19 @@ export class ProgrammeFarmsService {
       .getManyAndCount();
     const statuses = await this.statusMap();
     const cohorts = await this.labels(ProgramListType.COHORTE);
+    const bio = readsBiosecurity
+      ? await this.biosecurity.ofFarms(
+          program.id,
+          rows.map((f) => f.id),
+        )
+      : null;
     return {
       total,
       page,
       pageSize,
+      biosecurityStaleAfterDays: bio?.staleAfterDays ?? null,
       items: rows.map((f) => ({
+        biosecurity: bio?.byFarm.get(f.id) ?? null,
         id: f.id,
         code: f.code,
         name: f.name,

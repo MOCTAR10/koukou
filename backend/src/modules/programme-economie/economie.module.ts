@@ -3,6 +3,7 @@ import { CommonModule } from '../../common/services/common.module.js';
 import { AccessCoreModule } from '../access/access-core.module.js';
 import { FeedStockModule } from '../feed-stock/feed-stock.module.js';
 import { ProgrammeModule } from '../programme/programme.module.js';
+import { PilotageBiosecurityService } from '../reporting/pilotage-biosecurity.service.js';
 import { EconomieController } from './economie.controller.js';
 import { EconomieService } from './economie.service.js';
 
@@ -10,6 +11,6 @@ import { EconomieService } from './economie.service.js';
 @Module({
   imports: [AccessCoreModule, CommonModule, FeedStockModule, ProgrammeModule],
   controllers: [EconomieController],
-  providers: [EconomieService],
+  providers: [EconomieService, PilotageBiosecurityService],
 })
 export class EconomieModule {}

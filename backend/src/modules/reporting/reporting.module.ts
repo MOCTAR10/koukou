@@ -31,6 +31,7 @@ import { ReportTemplate } from './entities/report-template.entity.js';
 import { PilotageDashboardService } from './pilotage-dashboard.service.js';
 import { PilotageDataService } from './pilotage-data.service.js';
 import { PilotageExportsService } from './pilotage-exports.service.js';
+import { PilotageBiosecurityService } from './pilotage-biosecurity.service.js';
 import { PilotageMapService } from './pilotage-map.service.js';
 import { PilotageObjectiveService } from './pilotage-objective.service.js';
 import { PilotageScopeService } from './pilotage-scope.service.js';
@@ -76,6 +77,7 @@ import { ReportsService } from './reports.service.js';
     PilotageDataService,
     PilotageDashboardService,
     PilotageMapService,
+    PilotageBiosecurityService,
     PilotageObjectiveService,
     PilotageExportsService,
     BandComparisonService,

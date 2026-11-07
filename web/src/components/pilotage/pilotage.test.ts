@@ -193,6 +193,7 @@ describe('map colour keys', () => {
     mortality: { jaune: 5, rouge: 10, unit: '%', description: '' },
     completeness: { jaune: 80, rouge: 50, unit: '%', description: '' },
     alert: { description: '', conduct: '' },
+    biosecurity: { description: '', staleAfterDays: 365 },
   };
 
   it('builds each legend from the served thresholds', () => {
@@ -210,6 +211,8 @@ describe('map colour keys', () => {
     ]);
     // POUFA lot A: only a published sanitary alert colours a farm red.
     expect(legendFor('alert', legend).map((i) => i.level)).toEqual(['VERT', 'ROUGE']);
+    // Biosecurity: class A green, B yellow, C red, never controlled grey.
+    expect(legendFor('biosecurity', legend).map((i) => i.level)).toEqual(['VERT', 'JAUNE', 'ROUGE', 'NONE']);
   });
 
   it('shows published sanitary alerts first and conduct alerts apart', () => {
@@ -220,7 +223,7 @@ describe('map colour keys', () => {
   });
 
   it('colours a point on the chosen key, grey without data or when hidden', () => {
-    const colours = { mortality: 'ROUGE' as const, completeness: null, alert: 'VERT' as const };
+    const colours = { mortality: 'ROUGE' as const, completeness: null, alert: 'VERT' as const, biosecurity: 'JAUNE' as const };
     expect(levelOn(colours, 'mortality')).toBe('ROUGE');
     expect(colourOf(levelOn(colours, 'completeness'))).toBe('#94a3b8');
     expect(colourOf(levelOn(null, 'alert'))).toBe('#94a3b8');

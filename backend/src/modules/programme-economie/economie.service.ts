@@ -9,6 +9,8 @@ import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { ParametersService } from '../programme/parameters.service.js';
+import { PilotageBiosecurityService } from '../reporting/pilotage-biosecurity.service.js';
+import type { FarmBiosecurity } from '../reporting/pilotage-biosecurity.js';
 import { ProgrammeService } from '../programme/programme.service.js';
 import {
   DAY_EXIT_KG,
@@ -24,6 +26,7 @@ import {
   emptySums,
   exportColumns,
   synthesisFormulasOf,
+  type FarmBiosecurityDetail,
   type FarmFigures,
   type FarmSums,
   type Synthesis,
@@ -33,6 +36,25 @@ import type {
   EconomieSynthesisExportDto,
   EconomieSynthesisQueryDto,
 } from './economie.dto.js';
+
+/** One farm's contribution to the biosecurity distribution, and its detail. */
+function biosecurityOf(
+  b: FarmBiosecurity | undefined,
+): Pick<FarmSums, 'bioA' | 'bioB' | 'bioC' | 'bioNever' | 'bioStale' | 'bioScoreSum'> &
+  FarmBiosecurityDetail {
+  const c = b?.classification ?? null;
+  return {
+    bioA: c === 'A' ? 1 : 0,
+    bioB: c === 'B' ? 1 : 0,
+    bioC: c === 'C' ? 1 : 0,
+    bioNever: b && c ? 0 : 1,
+    bioStale: b?.stale ? 1 : 0,
+    bioScoreSum: c ? (b?.scorePct ?? 0) : 0,
+    bioClass: c,
+    bioScorePct: c ? (b?.scorePct ?? null) : null,
+    bioDate: b?.visitDate ?? null,
+  };
+}
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -61,6 +83,7 @@ export class EconomieService {
     private readonly parameters: ParametersService,
     private readonly feedStock: FeedStockService,
     private readonly csv: CsvService,
+    private readonly biosecurity: PilotageBiosecurityService,
   ) {}
 
   async synthesis(
@@ -82,7 +105,14 @@ export class EconomieService {
       await this.parameters.resolver(programId),
       to < today() ? to : today(),
     );
-    const figures = await this.figures(farms, from, to, columns, rules);
+    const figures = await this.figures(
+      farms,
+      from,
+      to,
+      columns,
+      rules,
+      programId,
+    );
     return {
       from,
       to,
@@ -150,6 +180,7 @@ export class EconomieService {
       accounting: true,
       market: true,
       production: true,
+      biosecurity: true,
     };
     if (this.scope.isInstitution(user)) {
       const access = await this.scope.requireAccess(user);
@@ -167,6 +198,7 @@ export class EconomieService {
         accounting: consults(access, 'COMPTABILITE'),
         market: consults(access, 'MARCHE'),
         production: consults(access, 'TECHNIQUE'),
+        biosecurity: consults(access, 'TECHNIQUE'),
       };
     }
     const farms = await qb.getRawMany<{
@@ -185,6 +217,7 @@ export class EconomieService {
     to: string,
     columns: SynthesisColumns,
     rules: PilotageRules,
+    programId: string,
   ): Promise<FarmFigures[]> {
     if (farms.length === 0) return [];
     const ids = farms.map((f) => f.farmId);
@@ -248,6 +281,10 @@ export class EconomieService {
       columns.market ? this.market(ids, from, to) : none,
       columns.production ? this.production(ids, from, to, rules) : none,
     ]);
+    // Latest biosecurity control of each farm (as of today, not the period).
+    const bio = columns.biosecurity
+      ? (await this.biosecurity.ofFarms(programId, ids, today())).byFarm
+      : null;
     const stock = new Map<string, number>();
     if (columns.stock) {
       for (let i = 0; i < ids.length; i += STOCK_CONCURRENCY) {
@@ -271,6 +308,7 @@ export class EconomieService {
       payrollMonthlyFcfa: payroll.get(f.farmId)?.total ?? 0,
       employeeCount: payroll.get(f.farmId)?.count ?? 0,
       feedStockKg: stock.get(f.farmId) ?? 0,
+      ...biosecurityOf(bio?.get(f.farmId)),
     }));
   }
 

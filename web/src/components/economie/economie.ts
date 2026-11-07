@@ -100,13 +100,14 @@ export function matchesSearch(row: Pick<EconomieRow, 'name' | 'code' | 'province
 // the caller's matrix (the server nulls a group it does not grant).
 
 /** Column groups of the synthesis tables. */
-export type EconomieView = 'ventes' | 'comptabilite' | 'market' | 'production';
+export type EconomieView = 'ventes' | 'comptabilite' | 'market' | 'production' | 'biosecurite';
 
 export const ECONOMIE_VIEWS: ReadonlyArray<{ key: EconomieView; label: string }> = [
   { key: 'ventes', label: 'Ventes et charges' },
   { key: 'comptabilite', label: 'Comptabilité SYSCOHADA' },
   { key: 'market', label: 'Market' },
   { key: 'production', label: 'Complétude et volumes' },
+  { key: 'biosecurite', label: 'Biosécurité' },
 ];
 
 /** Whether a view's group is granted (`ventes` needs the sales; the route always gives them). */
@@ -120,6 +121,8 @@ export function viewGranted(view: EconomieView, cols: EconomieColumns): boolean 
       return !!cols.market;
     case 'production':
       return !!cols.production;
+    case 'biosecurite':
+      return !!cols.biosecurity;
   }
 }
 
@@ -144,5 +147,6 @@ export function missingAreas(cols: EconomieColumns): string[] {
     !cols.accounting && 'la comptabilité SYSCOHADA',
     !cols.market && 'le Market',
     !cols.production && 'les saisies techniques (complétude et volumes)',
+    !cols.biosecurity && 'les contrôles de biosécurité',
   ].filter((x): x is string => !!x);
 }

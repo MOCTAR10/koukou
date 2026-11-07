@@ -3,6 +3,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { utcDay } from '../batches/poufa/bande-rules.js';
 import type { ExportTable } from './export-table.js';
+import { NEVER_CONTROLLED, type BiosecurityFigures } from './pilotage-biosecurity.js';
+import { PilotageBiosecurityService } from './pilotage-biosecurity.service.js';
 import { metricsOf } from './pilotage-metrics.js';
 import {
   bandMortalityPct,
@@ -37,6 +39,7 @@ export class PilotageExportsService {
   constructor(
     private readonly dashboards: PilotageDashboardService,
     private readonly scope: PilotageScopeService,
+    private readonly biosec: PilotageBiosecurityService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -53,6 +56,7 @@ export class PilotageExportsService {
       farms: number,
       suppressed: boolean,
       m: ReturnType<typeof metricsOf> | null,
+      bio: BiosecurityFigures | null,
     ) => ({
       code,
       name,
@@ -79,10 +83,26 @@ export class PilotageExportsService {
       conductRaised: m?.alerts.conduct.raised,
       conductRed: m?.alerts.conduct.raisedRed,
       conductActive: m?.alerts.conduct.activeNow,
+      bioControlled: bio?.controlled,
+      bioA: bio?.classA,
+      bioB: bio?.classB,
+      bioC: bio?.classC,
+      bioNever: bio?.neverControlled,
+      bioControlledPct: bio?.controlledPct,
+      bioAverage: bio?.averageScorePct,
+      bioStale: bio?.stale,
     });
     const rows = [
       ...d.provinces.map((p) =>
-        line(p.code, p.name, p.farms, p.suppressed, p.metrics),
+        line(
+          p.code,
+          p.name,
+          p.farms,
+          p.suppressed,
+          p.metrics,
+          d.biosecurity.provinces.find((g) => g.provinceId === p.provinceId)
+            ?.figures ?? null,
+        ),
       ),
       line(
         'TOTAL',
@@ -90,6 +110,7 @@ export class PilotageExportsService {
         d.totals.farms,
         d.totals.suppressed,
         d.totals.metrics,
+        d.biosecurity.total,
       ),
     ];
     return {
@@ -121,6 +142,14 @@ export class PilotageExportsService {
         ['conductRaised', 'Alertes de conduite levées (conseil, non sanitaires)'],
         ['conductRed', 'dont rouges'],
         ['conductActive', 'Alertes de conduite actives'],
+        ['bioControlled', 'Biosécurité : fermes contrôlées'],
+        ['bioA', 'Biosécurité : classe A'],
+        ['bioB', 'Biosécurité : classe B'],
+        ['bioC', 'Biosécurité : classe C'],
+        ['bioNever', 'Biosécurité : jamais contrôlées'],
+        ['bioControlledPct', 'Biosécurité : fermes contrôlées (%)'],
+        ['bioAverage', 'Biosécurité : score moyen du dernier contrôle (%)'],
+        ['bioStale', 'Biosécurité : contrôles anciens'],
       ],
       rows,
     };
@@ -131,7 +160,12 @@ export class PilotageExportsService {
     this.scope.assertFarmRows(view);
     const ctx = await this.dashboards.context(view, query);
     const provinces = new Map(ctx.provinces.map((p) => [p.id, p]));
+    const { byFarm } = await this.biosec.ofFarms(
+      ctx.view.programId,
+      ctx.rows.map((r) => r.farm.id),
+    );
     const rows = ctx.rows.map(({ farm, facts }) => {
+      const bio = byFarm.get(farm.id) ?? NEVER_CONTROLLED;
       const m = metricsOf(facts, ctx.indicators);
       return {
         code: farm.code,
@@ -158,6 +192,10 @@ export class PilotageExportsService {
         published: m.alerts.published,
         conductActive: m.alerts.conduct.activeNow,
         conductRed: m.alerts.conduct.activeRedNow,
+        bioClass: bio.classification ?? 'Non contrôlée',
+        bioScore: bio.scorePct,
+        bioDate: bio.visitDate,
+        bioStale: bio.visitDate ? (bio.stale ? 'oui' : 'non') : null,
       };
     });
     return {
@@ -188,6 +226,10 @@ export class PilotageExportsService {
         ['published', 'Alertes sanitaires publiées'],
         ['conductActive', 'Alertes de conduite actives (conseil, non sanitaires)'],
         ['conductRed', 'dont rouges'],
+        ['bioClass', 'Biosécurité : classe du dernier contrôle'],
+        ['bioScore', 'Biosécurité : score (%)'],
+        ['bioDate', 'Biosécurité : date du contrôle'],
+        ['bioStale', 'Biosécurité : contrôle ancien'],
       ],
       rows,
     };

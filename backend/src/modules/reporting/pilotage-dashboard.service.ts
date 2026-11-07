@@ -2,6 +2,11 @@ import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { utcDay } from '../batches/poufa/bande-rules.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import {
+  biosecurityBlock,
+  type BiosecurityBlock,
+} from './pilotage-biosecurity.js';
+import { PilotageBiosecurityService } from './pilotage-biosecurity.service.js';
+import {
   INPUT_RECONCILIATION_SOURCE,
   inputGapFigures,
   type InputGapFigures,
@@ -131,6 +136,8 @@ export interface PilotageDashboard {
     suppressed: boolean;
     figures: InputGapFigures | null;
   };
+  /** Latest biosecurity control of the farms in scope, in total and per province. */
+  biosecurity: BiosecurityBlock;
   notes: readonly string[];
 }
 
@@ -166,6 +173,7 @@ export class PilotageDashboardService {
     private readonly scope: PilotageScopeService,
     private readonly data: PilotageDataService,
     private readonly parameters: ParametersService,
+    private readonly biosec: PilotageBiosecurityService,
     @Inject(INPUT_RECONCILIATION_SOURCE)
     private readonly inputSource: InputReconciliationSource,
   ) {}
@@ -321,8 +329,31 @@ export class PilotageDashboardService {
         suppressed: inputs.suppressed || totalsHidden,
         figures: inputs.suppressed || totalsHidden ? null : inputs.figures,
       },
+      biosecurity: await this.biosecurity(ctx, today),
       notes: METRIC_NOTES,
     };
+  }
+
+  /** Class distribution of the latest biosecurity controls, small groups hidden for an aggregate view. */
+  async biosecurity(
+    ctx: DashboardContext,
+    today: string = utcDay(),
+  ): Promise<BiosecurityBlock> {
+    const { byFarm, staleAfterDays } = await this.biosec.ofFarms(
+      ctx.view.programId,
+      ctx.rows.map((r) => r.farm.id),
+      today,
+    );
+    return biosecurityBlock(
+      ctx.rows.map((r) => ({ id: r.farm.id, provinceId: r.farm.provinceId })),
+      byFarm,
+      ctx.provinces,
+      {
+        aggregateOnly: ctx.view.aggregateOnly,
+        k: ctx.minGroupSize,
+        staleAfterDays,
+      },
+    );
   }
 
   /** Input gaps of the farms in scope, hidden under `k` farms for an aggregate view. */
