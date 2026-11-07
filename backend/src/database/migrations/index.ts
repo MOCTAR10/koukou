@@ -33,6 +33,8 @@ import { CareReferenceCalendar1794100100000 } from './1794100100000-CareReferenc
 import { VeterinaryAuthorityMatrix1794100200000 } from './1794100200000-VeterinaryAuthorityMatrix.js';
 import { DeclarationReview1794100200100 } from './1794100200100-DeclarationReview.js';
 // POUFA lot A2 vet (end)
+// POUFA visites techniques et biosécurité (CDC n° 27, n° 45, §3.2).
+import { TechnicalVisits1794400000000 } from './1794400000000-TechnicalVisits.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -77,4 +79,6 @@ export const MIGRATIONS = [
   SlaughterOrderOperator1794100500000,
   BreedReferenceRight1794100500100,
   // POUFA lot A2 divers (end)
+  // POUFA visites techniques et biosécurité
+  TechnicalVisits1794400000000,
 ];

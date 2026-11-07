@@ -11,6 +11,8 @@ import type {
   TraceLotKind,
   TraceLotStatus,
 } from '../../common/enums/trace.enum.js';
+import { grants } from '../access/access-rules.js';
+import type { AccessMatrix } from '../access/access-domains.js';
 import { mayHandleSanitaryDeclarations } from '../access/sanitary-declaration.policy.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { Sortie } from '../bandes/entities/sortie.entity.js';
@@ -111,6 +113,22 @@ const NO_SCANS: Omit<ScanIndicators, 'lotId'> = {
   firstAt: null,
   lastAt: null,
 };
+
+/**
+ * Visits are technical/sanitary follow-up: the farm's team, the platform
+ * admin and an institution whose matrix reads TECHNIQUE or SANITAIRE.
+ */
+function mayReadVisits(
+  user: Pick<AuthUser, 'role'>,
+  access: { matrix: AccessMatrix } | null,
+): boolean {
+  if (user.role !== UserRole.INSTITUTION) return true;
+  return (
+    !!access &&
+    (grants(access.matrix, 'TECHNIQUE', 'CONSULTER') ||
+      grants(access.matrix, 'SANITAIRE', 'CONSULTER'))
+  );
+}
 
 /**
  * Read side of the traceability lots for the farm and the institutions:
@@ -462,6 +480,45 @@ export class TraceHistoryService {
     return rows.map((r) => ({ ...r, kg: Number(r.kg) }));
   }
 
+  /**
+   * T2 « visites » (CDC n° 27, n° 45): the band's visits and controls, plus
+   * the farm's visits without band made while it ran. No agent name.
+   */
+  private async rearingVisits(band: ProductionBatch) {
+    const end = band.closedAt
+      ? band.closedAt.toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    const rows: {
+      id: string;
+      visitDate: string;
+      type: string;
+      scorePct: string | null;
+      classification: string | null;
+      visaFrom: string | null;
+      visaTo: string | null;
+      nextVisitDate: string | null;
+      hasRecommendations: boolean;
+    }[] = await this.dataSource.query(
+      `SELECT v.id, v.type, v.classification,
+              TO_CHAR(v.visit_date, 'YYYY-MM-DD') AS "visitDate",
+              v.score_pct AS "scorePct",
+              TO_CHAR(v.visa_from, 'YYYY-MM-DD') AS "visaFrom",
+              TO_CHAR(v.visa_to, 'YYYY-MM-DD') AS "visaTo",
+              TO_CHAR(v.next_visit_date, 'YYYY-MM-DD') AS "nextVisitDate",
+              (v.recommendations IS NOT NULL AND v.recommendations <> '') AS "hasRecommendations"
+         FROM farm_visits v
+        WHERE v.farm_id = $1
+          AND (v.batch_id = $2
+               OR (v.batch_id IS NULL AND v.visit_date BETWEEN $3::date AND $4::date))
+        ORDER BY v.visit_date, v.created_at`,
+      [band.farmId, band.id, band.integrationDate.slice(0, 10), end],
+    );
+    return rows.map((r) => ({
+      ...r,
+      scorePct: r.scorePct == null ? null : Number(r.scorePct),
+    }));
+  }
+
   private async rearing(
     user: AuthUser,
     band: ProductionBatch,
@@ -521,14 +578,16 @@ export class TraceHistoryService {
     const reasonLabel = new Map(reasons.map((r) => [r.code, r.label]));
     const operatorName = new Map(operators.map((o) => [o.id, o.name]));
     const lotOfSortie = new Map(subLots.map((l) => [l.sortieId, l.code]));
-    const [deliveries, feedLots] = await Promise.all([
+    const [deliveries, feedLots, visits] = await Promise.all([
       this.rearingDeliveries(band, farm?.programId ?? null),
       this.rearingFeedLots(band.id),
+      mayReadVisits(user, access) ? this.rearingVisits(band) : null,
     ]);
     return rearingTimeline({
       band,
       deliveries,
       feedLots,
+      visits,
       cares: cares
         .filter((c) => c.completedAt != null)
         .map((c) => ({

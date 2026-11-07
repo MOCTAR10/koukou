@@ -383,6 +383,26 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     defaultValue: 10,
   },
   {
+    // Biosecurity grid (CDC n° 27, §7.3f « classement »): score ≥ A is class A,
+    // ≥ B is class B, below is class C. Proposed values, to validate.
+    key: 'BIOSECURITE_SEUIL_A_PCT',
+    label: 'Score de biosécurité minimal pour la classe A',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.VETERINAIRE,
+    defaultValue: 80,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
+    key: 'BIOSECURITE_SEUIL_B_PCT',
+    label: 'Score de biosécurité minimal pour la classe B',
+    type: 'number',
+    ...pct,
+    ownerProfile: OWNER_PROFILE.VETERINAIRE,
+    defaultValue: 60,
+    defaultNote: FERMIA_PROPOSAL,
+  },
+  {
     key: 'SEUIL_ECART_RECEPTION_ABATTOIR_PCT',
     label: "Seuil d'écart à la réception par l'abattoir",
     type: 'number',

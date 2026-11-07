@@ -6,6 +6,7 @@ import type {
 } from '../programme/dto/ref-item.dto.js';
 import type { RefItem } from '../programme/entities/ref-item.entity.js';
 import { RefListsService } from '../programme/ref-lists.service.js';
+import { criterionMetaError } from '../visits/visit-rules.js';
 
 /**
  * Programme lists the veterinary services maintain (CDC: « signes
@@ -17,6 +18,8 @@ export const SANITARY_LIST_TYPES: readonly ProgramListType[] = [
   ProgramListType.SIGNE_CLINIQUE,
   ProgramListType.PRODUIT_TRAITEMENT,
   ProgramListType.STATUT_ALERTE,
+  // Biosecurity grid (CDC n° 27): the veterinary services own the criteria.
+  ProgramListType.CRITERE_BIOSECURITE,
 ];
 
 @Injectable()
@@ -25,6 +28,7 @@ export class SanitaryListsService {
 
   create(listType: ProgramListType, dto: CreateRefItemDto): Promise<RefItem> {
     this.assertSanitary(listType);
+    this.assertCriterionMeta(listType, dto.meta);
     return this.lists.create(listType, dto);
   }
 
@@ -34,6 +38,7 @@ export class SanitaryListsService {
     dto: UpdateRefItemDto,
   ): Promise<RefItem> {
     this.assertSanitary(listType);
+    this.assertCriterionMeta(listType, dto.meta);
     if (listType === ProgramListType.STATUT_ALERTE && dto.active === false) {
       // The circuit needs at least one active status per family.
       const item = await this.lists.getByCode(listType, code);
@@ -47,6 +52,16 @@ export class SanitaryListsService {
       }
     }
     return this.lists.update(listType, code, dto);
+  }
+
+  /** A biosecurity criterion's weight is an integer 1-10 (`meta.weight`). */
+  private assertCriterionMeta(
+    listType: ProgramListType,
+    meta: Record<string, unknown> | undefined,
+  ): void {
+    if (listType !== ProgramListType.CRITERE_BIOSECURITE) return;
+    const error = criterionMetaError(meta);
+    if (error) throw new BadRequestException(error);
   }
 
   private assertSanitary(listType: ProgramListType): void {
