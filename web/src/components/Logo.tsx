@@ -17,14 +17,25 @@ export function MinistryBadge({ className = 'h-12 w-12' }: { className?: string 
   );
 }
 
-/** Sign-in lockup on a dark band: Ministry badge, then the POUFA programme name. */
-export function ProgrammeLockup({ compact = false }: { compact?: boolean }) {
+/** Coat of arms alone (no ministry name): for small screens, where the full badge's text is unreadable. */
+export function MinistrySeal({ className = 'h-10' }: { className?: string }) {
+  return (
+    <img
+      src="/maedr-seal.webp"
+      alt="République gabonaise"
+      className={`${className} w-auto shrink-0 rounded-md bg-white object-contain p-0.5 ring-1 ring-white/30`}
+    />
+  );
+}
+
+/** Sign-in lockup on a dark band (phone): coat of arms, then the POUFA programme name. */
+export function ProgrammeLockup() {
   return (
     <div className="flex items-center gap-4">
-      <MinistryBadge className={compact ? 'h-12 w-12' : 'h-16 w-16 xl:h-20 xl:w-20'} />
+      <MinistrySeal className="h-16 sm:h-[4.5rem]" />
       <div className="border-l border-white/25 pl-4 text-white">
-        <p className={compact ? 'text-xl font-bold tracking-[0.18em]' : 'text-3xl font-bold tracking-[0.18em] xl:text-4xl'}>POUFA</p>
-        <p className="mt-0.5 text-[11px] uppercase tracking-wider text-brand-200 xl:text-xs">République gabonaise · Ministère de l’Agriculture</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-200">Programme</p>
+        <p className="text-2xl font-bold tracking-[0.18em]">POUFA</p>
       </div>
     </div>
   );

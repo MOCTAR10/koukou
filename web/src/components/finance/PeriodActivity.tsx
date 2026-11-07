@@ -41,7 +41,7 @@ function Block({
   children: ReactNode[];
 }) {
   return (
-    <Card className="p-5">
+    <Card className="min-w-0 p-5">
       <SectionTitle title={title} icon={icon} />
       <ErrorNote error={error} />
       {children.length > 0 ? (
@@ -93,7 +93,7 @@ export function PeriodActivity({
   const categoryLabel = (key: string) => EXPENSE_CATEGORIES.find((c) => c.key === key)?.label ?? key;
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <Block title="Ventes récentes" icon={<PackageCheck />} empty="Aucune vente sur la période." error={sales.error}>
         {recentSales.map((s) => (
           <Row
