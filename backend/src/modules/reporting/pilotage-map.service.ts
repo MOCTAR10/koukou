@@ -55,6 +55,8 @@ export interface MapPoint {
   provinceCode: string | null;
   latitude: number;
   longitude: number;
+  /** Point outside the declared province: to be checked (flagged on the map). */
+  gpsOutsideProvince: boolean;
   statusCode: string | null;
   cohort: string | null;
   activeBands: number;
@@ -192,6 +194,7 @@ export class PilotageMapService {
               : null,
             latitude: farm.latitude!,
             longitude: farm.longitude!,
+            gpsOutsideProvince: farm.gpsOutsideProvince,
             statusCode: farm.statusCode,
             cohort: farm.cohort,
             activeBands: facts.activeBands,

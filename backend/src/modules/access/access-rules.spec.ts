@@ -4,6 +4,7 @@ import { PERMISSIONS } from '../../common/permissions/permission-catalog.js';
 import { OWNER_PROFILE } from '../programme/parameter-catalog.js';
 import {
   FERMIA_DOMAINS,
+  type AccessMatrix,
   actionForMethod,
   isInstitutionFermiaDomain,
 } from './access-domains.js';
@@ -37,6 +38,7 @@ import {
 import {
   isVeterinaryAuthority,
   mayHandleSanitaryDeclarations,
+  mayReadSanitaryDeclarations,
 } from './sanitary-declaration.policy.js';
 
 const PROGRAM = '11111111-1111-4111-8111-111111111111';
@@ -360,6 +362,7 @@ describe('permission codes of an institutional profile', () => {
     expect([...institutionPermissions(access('AGENT_TECHNIQUE').matrix)].sort()).toEqual([
       'intrants:lire',
       'registre:gps',
+      'sanitaire:lecture',
     ]);
     expect(
       [...institutionPermissions(access('VETERINAIRE').matrix)].sort(),
@@ -489,7 +492,7 @@ describe('sanitary declarations', () => {
         access('DGE'),
       ),
     ).toBe(false);
-    // The matrix decides: the DGE granted SANITAIRE:CONSULTER still sees no
+    // (see below: CONSULTER reads, never handles) the DGE granted SANITAIRE:CONSULTER still handles no
     // declaration; a custom profile granted VALIDER does.
     expect(
       mayHandleSanitaryDeclarations(
@@ -503,6 +506,46 @@ describe('sanitary declarations', () => {
         { matrix: { SANITAIRE: ['CONSULTER', 'VALIDER'] } },
       ),
     ).toBe(true);
+    // Recette A21: the agent technique READS the declarations of its farms
+    // (DECLARATIONS:CONSULTER, a matrix right, no profile code), never
+    // handles them.
+    const agentAccess = access('AGENT_TECHNIQUE');
+    expect(
+      mayReadSanitaryDeclarations({ role: UserRole.INSTITUTION }, agentAccess),
+    ).toBe(true);
+    expect(
+      mayHandleSanitaryDeclarations({ role: UserRole.INSTITUTION }, agentAccess),
+    ).toBe(false);
+    expect(
+      mayReadSanitaryDeclarations({ role: UserRole.INSTITUTION }, access('DGE')),
+    ).toBe(false);
+    // The right follows the matrix, not the profile code: SANITAIRE:CONSULTER
+    // alone reads nothing, DECLARATIONS:CONSULTER reads under any profile.
+    const as = (matrix: AccessMatrix) =>
+      ({ ...agentAccess, profileCode: 'CUSTOM', matrix }) as typeof agentAccess;
+    expect(
+      mayReadSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        as({ SANITAIRE: ['CONSULTER'] }),
+      ),
+    ).toBe(false);
+    expect(
+      mayReadSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        as({ DECLARATIONS: ['CONSULTER'] }),
+      ),
+    ).toBe(true);
+    expect(
+      mayReadSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        { ...agentAccess, matrix: { ...agentAccess.matrix, DECLARATIONS: [] } },
+      ),
+    ).toBe(false);
+    // Read-only domain: no write action can be granted on it.
+    expect(
+      validateMatrix({ DECLARATIONS: ['CONSULTER', 'VALIDER'] }, AccessScopeKind.FARMS)
+        .ok,
+    ).toBe(false);
     expect(isVeterinaryAuthority(null)).toBe(false);
     expect(
       DEFAULT_PROFILES.filter((p) => isVeterinaryAuthority(p.matrix)).map((p) => p.code),

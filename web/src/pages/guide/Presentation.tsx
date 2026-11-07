@@ -111,20 +111,20 @@ function SynthesisSlide({ compact }: { compact: boolean }) {
             ))}
           </div>
           <p className="rounded-2xl border-l-8 border-emerald-600 bg-emerald-50 p-4 text-2xl leading-snug text-slate-900">
-            <b>MVP : {MVP[1]} sur {MVP[0]} couvertes</b>, {MVP[3]} partielle, aucune manquante.
+            <b>MVP : {MVP[1]} sur {MVP[0]} conformes</b>, {MVP[3]} partielles, {MVP[5]} à tester (recette ANINF du 7 nov. 2026, corrections en cours).
           </p>
         </div>
         <table className="w-full self-start border-collapse text-xl">
           <thead>
             <tr className="text-left text-base uppercase tracking-wide text-slate-600">
-              <th className="py-2">Priorité</th><th className="text-right">Total</th><th className="text-right">Couv.</th><th className="text-right">Part.</th><th className="text-right">Non</th>
+              <th className="py-2">Priorité</th><th className="text-right">Total</th><th className="text-right">Couv.</th><th className="text-right">Part.</th><th className="text-right">Non</th><th className="text-right">À tester</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(SUMMARY.decomptes.lignes).map(([k, v]) => (
               <tr key={k} className={'border-t border-slate-300 ' + (k === 'Total' ? 'font-bold' : '')}>
                 <td className="py-2.5 font-medium text-slate-900">{k}</td>
-                <td className="text-right tabular-nums">{v[0]}</td><td className="text-right tabular-nums">{v[1]}</td><td className="text-right tabular-nums">{v[3]}</td><td className="text-right tabular-nums">{v[4]}</td>
+                <td className="text-right tabular-nums">{v[0]}</td><td className="text-right tabular-nums">{v[1]}</td><td className="text-right tabular-nums">{v[3]}</td><td className="text-right tabular-nums">{v[4]}</td><td className="text-right tabular-nums">{v[5]}</td>
               </tr>
             ))}
           </tbody>

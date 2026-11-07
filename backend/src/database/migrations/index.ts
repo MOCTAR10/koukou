@@ -39,6 +39,8 @@ import { DeclarationReview1794100200100 } from './1794100200100-DeclarationRevie
 import { TechnicalVisits1794400000000 } from './1794400000000-TechnicalVisits.js';
 import { VisitPhotos1794410000000 } from './1794410000000-VisitPhotos.js';
 import { VisitReminders1794420000000 } from './1794420000000-VisitReminders.js';
+import { FarmCityFromLocalite1794430000000 } from './1794430000000-FarmCityFromLocalite.js';
+import { AgentReadsDeclarations1794500100000 } from './1794500100000-AgentReadsDeclarations.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -89,4 +91,6 @@ export const MIGRATIONS = [
   TechnicalVisits1794400000000,
   VisitPhotos1794410000000,
   VisitReminders1794420000000,
+  FarmCityFromLocalite1794430000000,
+  AgentReadsDeclarations1794500100000,
 ];

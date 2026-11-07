@@ -179,6 +179,7 @@ export class PilotageScopeService {
       .addSelect('f.latitude', 'latitude')
       .addSelect('f.longitude', 'longitude')
       .addSelect('f.capacity_places', 'capacity_places')
+      .addSelect('f.gps_province_warning', 'gps_province_warning')
       .addSelect('f.owner_id', 'owner_id')
       .where('f.program_id = :pilotageProgramId', {
         pilotageProgramId: view.programId,

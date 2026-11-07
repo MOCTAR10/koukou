@@ -201,6 +201,7 @@ describe('Audit — robustesse finance/inventaire/sécurité (e2e, passe 2)', ()
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',
@@ -337,6 +338,7 @@ describe('Audit — robustesse finance/inventaire/sécurité (e2e, passe 2)', ()
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${empToken}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',

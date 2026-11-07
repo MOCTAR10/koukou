@@ -64,7 +64,7 @@ export function SynthesisSection() {
         <Kpi value={TOTAL[4]} label="non couvertes" tone="text-red-700" />
       </div>
       <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4 text-slate-800">
-        <b>MVP obligatoire : {MVP[1]} exigences couvertes sur {MVP[0]}</b>, {MVP[3]} partielle, aucune manquante.
+        <b>MVP obligatoire : {MVP[1]} exigences conformes sur {MVP[0]}</b>, {MVP[3]} partielles, {MVP[5]} à tester. Corrections en cours suite à la recette ANINF du 7 nov. 2026.
       </div>
 
       <h3 className="text-lg font-semibold text-slate-900">Couverture par priorité</h3>
@@ -87,7 +87,7 @@ export function SynthesisSection() {
         </table>
       </TableWrap>
       <p className="text-[17px] text-slate-600">
-        Lecture : sur les {MVP[0]} exigences obligatoires du MVP, {MVP[1]} sont couvertes et {MVP[3]} est partielle. Les phases ultérieures et évolutives n’étaient pas exigées pour le MVP ; plusieurs sont pourtant déjà livrées (comptabilité, traçabilité, Marché).
+        Lecture : sur les {MVP[0]} exigences obligatoires du MVP, {MVP[1]} sont conformes, {MVP[3]} partielles et {MVP[5]} non vérifiées (à tester), d’après la recette ANINF du 7 nov. 2026. Les phases ultérieures et évolutives n’étaient pas exigées pour le MVP ; plusieurs sont pourtant déjà livrées (comptabilité, traçabilité, Marché).
       </p>
 
       <h3 className="text-lg font-semibold text-slate-900">Exigences transverses</h3>
@@ -127,7 +127,7 @@ export function SynthesisSection() {
       </ul>
       <div className="rounded-xl bg-slate-50 p-4 text-[17px] text-slate-700 ring-1 ring-slate-200">
         <b className="text-slate-900">Légende des statuts.</b>{' '}
-        <StatusBadge statut="✅" /> fonctionne et se vérifie dans l’application. <StatusBadge statut="🟠" /> existe, avec une limite expliquée. <StatusBadge statut="❌" /> pas encore livré.
+        <StatusBadge statut="✅" /> fonctionne et se vérifie dans l’application. <StatusBadge statut="🟠" /> existe, avec une limite expliquée. <StatusBadge statut="🔎" /> non vérifié lors de la recette ANINF, à tester. <StatusBadge statut="❌" /> pas encore livré.
       </div>
     </section>
   );
@@ -171,7 +171,7 @@ export function RequirementsSection() {
           Statut
           <select value={status} onChange={(e) => setStatus(e.target.value)} className={selectCls + ' mt-1 block w-full'}>
             <option value="">Tous</option>
-            {(['✅', '🟠', '❌'] as const).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+            {(['✅', '🟠', '🔎', '❌'] as const).map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
           </select>
         </label>
       </div>
@@ -454,6 +454,7 @@ export function RoutesSection() {
               <p className="mt-2 flex flex-wrap gap-2 text-[15px] font-semibold">
                 <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-emerald-800 ring-1 ring-emerald-200">{n('✅')} couvertes</span>
                 <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-amber-800 ring-1 ring-amber-200">{n('🟠')} partielles</span>
+                <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-sky-800 ring-1 ring-sky-200">{n('🔎')} à tester</span>
                 <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-red-800 ring-1 ring-red-200">{n('❌')} non livrées</span>
               </p>
               <p className="mt-2 text-[17px]"><a href="#exigences" className="text-brand-700 underline underline-offset-2">Voir les exigences n° {list[0].ref} à {list[list.length - 1].ref}</a></p>

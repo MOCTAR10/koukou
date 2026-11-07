@@ -36,6 +36,7 @@ import { ipeStatus } from '@/constants/flock';
 import { CurrentBandCard } from '@/components/band/CurrentBandCard';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
+import { fcrQualification } from '@/poufa/official-headline';
 
 function weatherHint(w: FarmWeather): string {
   const t = w.temperatureC ?? 0;
@@ -183,6 +184,11 @@ export default function AccueilScreen() {
     return live > 0 ? sum / live : null;
   };
   const avgFcr = weightedAvg((b) => b.metrics.fcr);
+  const avgFcrDeviation = (() => {
+    const rows = (d?.healthOverview ?? []).filter((h) => h.status !== 'CLOTURE' && h.breedStatus?.fcrDeviationPct != null);
+    const w = rows.reduce((s, h) => s + Math.max(h.liveCount, 1), 0);
+    return w > 0 ? rows.reduce((s, h) => s + (h.breedStatus!.fcrDeviationPct as number) * Math.max(h.liveCount, 1), 0) / w : null;
+  })();
   const avgGmq = weightedAvg((b) => b.metrics.gmqGramsPerDay);
   const avgIpe = weightedAvg((b) => b.metrics.ipe);
   // Value and target over the same lots: a lot with no target must not skew the comparison.
@@ -413,8 +419,8 @@ export default function AccueilScreen() {
             <MetricTile
               label='IC Fermia'
               value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
-              sub={avgFcr != null && avgFcr > 2.2 ? 'Élevé' : avgFcr != null && avgFcr < 1.8 ? 'Excellent' : 'Conforme'}
-              tone={avgFcr != null && avgFcr > 2.2 ? 'red' : avgFcr != null && avgFcr < 1.8 ? 'green' : 'default'}
+              sub={fcrQualification(avgFcr, avgFcrDeviation)}
+              tone={avgFcr != null && (avgFcrDeviation != null ? avgFcrDeviation > 10 : avgFcr > 2.2) ? 'red' : avgFcrDeviation != null && avgFcrDeviation <= -3 ? 'green' : 'default'}
               icon={Activity}
               onPress={() => setMetricInfo('IC')}
               threeCol

@@ -192,6 +192,7 @@ describe('Abattage / vente POS ↔ réservations de commandes (e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set(auth())
       .send({
+        customerName: 'Client comptoir',
         items: [{ unitPriceFcfa: 3000, batchId, ...item }],
         payments: [{ method: 'CASH', amountFcfa }],
       });

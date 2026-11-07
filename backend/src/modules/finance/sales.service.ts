@@ -163,6 +163,25 @@ export class SalesService {
       throw new BadRequestException('Au moins un article est requis.');
     }
 
+    // CDC n° 9 / §6.1 : toute sortie d'animaux vivants nomme son destinataire.
+    // Une vente au comptoir (hors sortie de bande, qui porte déjà son propre
+    // contrôle) doit donc avoir un client enregistré ou au moins un nom.
+    if (
+      !opts?.em &&
+      dto.items.some(
+        (i) =>
+          i.productType === SaleItemProductType.POULET_PIECE ||
+          i.productType === SaleItemProductType.POULET_KG,
+      ) &&
+      !dto.customerId &&
+      !dto.customerName?.trim() &&
+      !dto.customerPhone?.trim()
+    ) {
+      throw new BadRequestException(
+        'Le destinataire est obligatoire pour une vente de volailles vivantes : choisissez un client (opérateur du registre pour créer le sous-lot tracé) ou saisissez son nom.',
+      );
+    }
+
     const involvedBatches = new Set<string>();
 
     const book = async (em: EntityManager) => {

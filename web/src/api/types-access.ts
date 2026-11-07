@@ -10,6 +10,7 @@ export const PROGRAMME_DOMAINS = [
   'TECHNIQUE',
   'INTRANTS',
   'SANITAIRE',
+  'DECLARATIONS',
   'ECONOMIQUE',
   'TRACABILITE',
   'PILOTAGE',
@@ -32,6 +33,9 @@ export type FermiaGrantableDomain = (typeof FERMIA_GRANTABLE_DOMAINS)[number];
 export const GRANTABLE_DOMAINS = [...PROGRAMME_DOMAINS, ...FERMIA_GRANTABLE_DOMAINS] as const;
 export type AccessDomain = ProgrammeDomain | FermiaGrantableDomain;
 
+/** Programme domains granted in consultation only (`READ_ONLY_PROGRAMME_DOMAINS`): « Déclarations sanitaires (lecture) ». */
+export const READ_ONLY_PROGRAMME_DOMAINS = ['DECLARATIONS'] as const;
+
 export function isFermiaGrantableDomain(domain: string): domain is FermiaGrantableDomain {
   return (FERMIA_GRANTABLE_DOMAINS as readonly string[]).includes(domain);
 }
@@ -42,7 +46,9 @@ export type AccessAction = (typeof ACCESS_ACTIONS)[number];
 
 /** Actions a domain may be granted: « Consulter » only for a Fermia domain. */
 export function grantableActions(domain: AccessDomain): readonly AccessAction[] {
-  return isFermiaGrantableDomain(domain) ? ['CONSULTER'] : ACCESS_ACTIONS;
+  return isFermiaGrantableDomain(domain) || (READ_ONLY_PROGRAMME_DOMAINS as readonly string[]).includes(domain)
+    ? ['CONSULTER']
+    : ACCESS_ACTIONS;
 }
 
 export type ScopeKind = 'ALL' | 'PROVINCES' | 'FARMS' | 'FINANCED' | 'OPERATOR' | 'AGGREGATE' | 'AUDIT';
@@ -209,6 +215,7 @@ export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
   TECHNIQUE: 'Suivi technique',
   INTRANTS: 'Intrants',
   SANITAIRE: 'Sanitaire',
+  DECLARATIONS: 'Déclarations sanitaires (lecture)',
   ECONOMIQUE: 'Économique',
   TRACABILITE: 'Traçabilité',
   PILOTAGE: 'Pilotage et agrégats',

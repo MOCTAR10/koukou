@@ -41,6 +41,7 @@ export type AccessDomain =
   | 'TECHNIQUE'
   | 'INTRANTS'
   | 'SANITAIRE'
+  | 'DECLARATIONS'
   | 'ECONOMIQUE'
   | 'TRACABILITE'
   | 'PILOTAGE'

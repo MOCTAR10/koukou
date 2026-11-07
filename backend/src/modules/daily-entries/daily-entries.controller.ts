@@ -39,7 +39,19 @@ export class DailyEntriesController {
     const entry = await this.entriesService.create(user, farmId, batchId, dto);
     await this.batchesService.runAdvisoryForBatch(batchId);
     await this.feedStockService.evaluateStockAlerts(farmId);
-    return entry;
+    // Alerte stock négatif : la saisie est conservée (terrain hors ligne) mais
+    // le client doit afficher l'avertissement.
+    let stockWarning: string | null = null;
+    if (
+      entry.feedQuantity > 0 &&
+      !entry.skipStockDeduction &&
+      entry.inputLotId == null
+    ) {
+      const deficit = await this.feedStockService.uncoveredKg(farmId);
+      if (deficit > 0)
+        stockWarning = `Stock d’aliment négatif : ${deficit} kg consommés sans stock enregistré. Enregistrez une entrée de provende pour régulariser.`;
+    }
+    return Object.assign(entry, { stockWarning });
   }
 
   @Get()

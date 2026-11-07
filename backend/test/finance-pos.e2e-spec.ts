@@ -60,6 +60,7 @@ describe('Module 4 — POS ferme (régression & gardes manquantes, e2e)', () => 
     payments: any[],
   ) {
     return post('/farms/' + farmId + '/sales', {
+      customerName: 'Client comptoir test',
       items: [
         {
           productType: 'POULET_PIECE',

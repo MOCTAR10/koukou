@@ -141,8 +141,16 @@ export class HealthService {
     const trays = m.eggBreakdown.sellable > 0
       ? Math.floor(m.eggBreakdown.sellable / EGGS_PER_TRAY)
       : 0;
+    // Per bird AND per day (recette A7): the cumulative feed over the days
+    // since placement, not the whole-bande total per bird.
+    const feedDays = (() => {
+      const last = entries.length ? entries[entries.length - 1].entryDate : null;
+      if (!last || !batch.integrationDate) return 1;
+      const ms = Date.parse(`${last}T00:00:00Z`) - Date.parse(`${batch.integrationDate}T00:00:00Z`);
+      return Math.max(1, Math.round(ms / 86_400_000) + 1);
+    })();
     const feedPerBirdGrams =
-      m.liveCount > 0 ? (m.totalFeedKg * 1000) / m.liveCount : 0;
+      m.liveCount > 0 ? (m.totalFeedKg * 1000) / m.liveCount / feedDays : 0;
 
     const healthScore = this.computeHealthScore(m.mortalityPercent, m.fcr);
     const tips = this.buildTips({
@@ -192,7 +200,7 @@ export class HealthService {
     batchId: string,
   ): Promise<HealthEventWithPhotos[]> {
     // Legal rule: declarations stay between the farm and the vets.
-    await this.declarations.assert(user);
+    await this.declarations.assertRead(user);
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     const events = await this.eventRepo.find({
@@ -496,7 +504,7 @@ export class HealthService {
     eventId: string,
     photoId: string,
   ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
-    await this.assertEvent(user, farmId, batchId, eventId);
+    await this.assertEvent(user, farmId, batchId, eventId, true);
     const photo = await this.photoRepo.findOne({
       where: { id: photoId, healthEventId: eventId, farmId },
     });
@@ -535,9 +543,13 @@ export class HealthService {
     farmId: string,
     batchId: string,
     eventId: string,
+    readOnly = false,
   ): Promise<HealthEvent> {
-    // Legal rule: declarations stay between the farm and the vets.
-    await this.declarations.assert(user);
+    // Legal rule: declarations stay between the farm and the vets (reads:
+    // also a profile granted the DECLARATIONS:CONSULTER right, e.g. the agent technique).
+    await (readOnly
+      ? this.declarations.assertRead(user)
+      : this.declarations.assert(user));
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     const event = await this.eventRepo.findOne({

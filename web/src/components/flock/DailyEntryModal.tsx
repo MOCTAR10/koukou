@@ -420,7 +420,7 @@ function EntryForm({
 
       {deathsExceed ? (
         <Note tone="red">
-          Impossible : {num(deathsN)} morts atteint l'effectif vivant ({num(live)}).
+          Impossible : {num(deathsN)} {deathsN > 1 ? 'morts atteignent' : 'mort atteint'} l'effectif vivant ({num(live)}).
         </Note>
       ) : deathsN > 0 && live > 0 ? (
         <p className="text-xs text-slate-500">Soit {num((deathsN / live) * 100, 2)} % de l'effectif vivant.</p>
@@ -504,6 +504,17 @@ function EntryForm({
             </select>
           </IconField>
         </div>
+        {source !== 'externe' && feedKgEq > 0 && chosenLot == null ? (
+          <Note tone="red">
+            Stock d'aliment vide pour cette phase : la consommation sera enregistrée « depuis le stock » mais le stock
+            passera en négatif (-{num(feedKgEq)} kg) et une alerte sera levée. Enregistrez une entrée de provende pour régulariser.
+          </Note>
+        ) : source !== 'externe' && chosenLot != null && feedKgEq > chosenLot.availableKg ? (
+          <Note tone="amber">
+            La consommation ({num(feedKgEq)} kg) dépasse le stock du lot ({num(chosenLot.availableKg)} kg) : elle sera refusée.
+            Choisissez un autre lot, corrigez la quantité ou ajoutez du stock.
+          </Note>
+        ) : null}
         <FeedAdvice recKg={rec.totalKgPerDay} perBirdG={rec.perBirdG} feedKg={feedKgEq} devPct={feedDevPct} isLayer={isLayer} />
         {waterRatio != null ? <WaterRatio ratio={waterRatio} /> : null}
         {rec.totalKgPerDay ? (
@@ -522,6 +533,7 @@ function EntryForm({
       </div>
 
       <div className="min-w-0 space-y-4">
+      {isLayer || eggs > 0 ? (
       <fieldset className="space-y-3 rounded-xl border border-slate-200 p-4">
         <legend className="inline-flex items-center gap-1.5 px-1 text-xs font-semibold text-slate-600">
           <Egg className="h-3.5 w-3.5 text-accent-700" /> Œufs{isLayer ? '' : ' (si le lot pond)'}
@@ -582,6 +594,7 @@ function EntryForm({
           </Note>
         ) : null}
       </fieldset>
+      ) : null}
 
       {weightGN > 0 ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">

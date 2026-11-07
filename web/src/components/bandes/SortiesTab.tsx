@@ -226,9 +226,13 @@ function SortieModal({ farmId, lot, onClose }: { farmId: string; lot: Lot; onClo
             </Field>
           </div>
           <div className="min-w-0 space-y-4">
-            <Field label="Opérateur du programme (cession)" hint="Abattoir, acheteur, distributeur… du registre : crée un sous-lot de traçabilité.">
+            <Field label="Opérateur du programme (cession)" hint={
+                (operators.data ?? []).length === 0 && !operators.isLoading
+                  ? 'Le registre des opérateurs du programme est vide : demandez à la DGE d’y inscrire l’abattoir ou l’acheteur pour créer le sous-lot tracé (QR). Sinon, saisissez le nom du destinataire.'
+                  : 'Abattoir, acheteur, distributeur… du registre : crée un sous-lot de traçabilité.'
+              }>
               <select className={inputCls} value={draft.operatorId} onChange={(e) => set('operatorId', e.target.value)}>
-                <option value="">Aucun (pas de cession)</option>
+                <option value="">{(operators.data ?? []).length === 0 ? 'Aucun opérateur enregistré' : 'Aucun (pas de cession)'}</option>
                 {(operators.data ?? []).map((o) => (
                   <option key={o.id} value={o.id}>
                     {o.name} · {o.typeLabel ?? o.typeCode}

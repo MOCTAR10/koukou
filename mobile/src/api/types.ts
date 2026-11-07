@@ -719,6 +719,8 @@ export interface FeedStockLoss {
 }
 
 export interface FeedStockSummary {
+  /** Découvert (kg consommés « depuis le stock » sans lot disponible). */
+  deficitKg?: number;
   byType: FeedTypeStock[];
   lots: FeedLotStock[];
   losses: FeedStockLoss[];

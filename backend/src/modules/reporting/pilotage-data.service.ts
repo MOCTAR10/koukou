@@ -34,6 +34,8 @@ export interface ScopedFarm {
   latitude: number | null;
   longitude: number | null;
   capacityPlaces: number | null;
+  /** The GPS point is outside the farm's declared province (registry check). */
+  gpsOutsideProvince: boolean;
 }
 
 export interface FarmFacts {
@@ -209,6 +211,15 @@ export class PilotageDataService {
                 SUM(CASE i.product_type WHEN 'POULET_PIECE' THEN i.quantity
                     WHEN 'POULET_KG' THEN COALESCE(i.piece_count, 0) ELSE 0 END) AS live_heads,
                 SUM(CASE WHEN i.product_type = 'POULET_KG' THEN i.quantity ELSE 0 END) AS live_kg,
+                -- Pieces sold have no weight: estimate = heads × last average
+                -- weighing of the band up to the sale day (0 without weighing).
+                SUM(CASE WHEN i.product_type = 'POULET_PIECE' THEN i.quantity
+                    * COALESCE((SELECT de.avg_weight_kg FROM daily_entries de
+                                 WHERE de.batch_id = ib.id
+                                   AND de.avg_weight_kg IS NOT NULL
+                                   AND de.entry_date <= s.sale_date
+                                 ORDER BY de.entry_date DESC LIMIT 1), 0)
+                    ELSE 0 END) AS live_est_kg,
                 SUM(CASE WHEN i.product_type = 'POULET_PIECE' THEN i.quantity ELSE 0 END) AS piece_qty,
                 SUM(CASE WHEN i.product_type = 'POULET_PIECE' THEN i.amount_fcfa ELSE 0 END) AS piece_fcfa,
                 SUM(CASE WHEN i.product_type = 'POULET_KG' THEN i.amount_fcfa ELSE 0 END) AS kg_fcfa,
@@ -254,11 +265,11 @@ export class PilotageDataService {
           GROUP BY a.farm_id
        )
        SELECT sf.id, sf.province_id, sf.code, sf.name, sf.cohort, sf.status_code,
-              sf.active, sf.latitude, sf.longitude, sf.capacity_places,
+              sf.active, sf.latitude, sf.longitude, sf.capacity_places, sf.gps_province_warning,
               bf.bands, bf.exposed, bf.deaths, bf.exits, bf.exit_kg, bf.entered,
               bf.elapsed, bf.headcount, bf.active_bands,
               pl.bands_opened, pl.placed,
-              sl.live_heads, sl.live_kg, sl.piece_qty, sl.piece_fcfa, sl.kg_fcfa,
+              sl.live_heads, sl.live_kg, sl.live_est_kg, sl.piece_qty, sl.piece_fcfa, sl.kg_fcfa,
               sl.carcass_heads, sl.carcass_kg, sl.carcass_kg_fcfa,
               sl.carcass_piece_qty, sl.carcass_piece_fcfa, sl.revenue,
               al.raised, al.raised_red, al.active, al.active_red
@@ -288,6 +299,7 @@ export class PilotageDataService {
       facts.daysElapsed = n(r.elapsed);
       facts.liveHeads = n(r.live_heads);
       facts.liveKg = n(r.live_kg);
+      facts.liveKgEstimated = n(r.live_est_kg);
       facts.pieceQty = n(r.piece_qty);
       facts.pieceFcfa = n(r.piece_fcfa);
       facts.kgFcfa = n(r.kg_fcfa);
@@ -324,6 +336,7 @@ export class PilotageDataService {
           longitude: r.longitude == null ? null : Number(r.longitude),
           capacityPlaces:
             r.capacity_places == null ? null : Number(r.capacity_places),
+          gpsOutsideProvince: r.gps_province_warning != null,
         },
         facts,
       };

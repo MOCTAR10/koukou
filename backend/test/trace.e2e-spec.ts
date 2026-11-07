@@ -390,7 +390,7 @@ describe('Programme POUFA — traçabilité des lots (L7, e2e)', () => {
       });
     });
 
-    it('lot racine clos avec la bande : QR rejeté (410), le sous-lot reste valide', async () => {
+    it('lot racine clos avec la bande : le QR reste lisible (« Lot terminé »), le sous-lot reste valide', async () => {
       const alive = (
         await get(`/farms/${farmId}/batches/${band.id}`).expect(200)
       ).body.quantityAlive as number;
@@ -410,8 +410,10 @@ describe('Programme POUFA — traçabilité des lots (L7, e2e)', () => {
       expect(status).toBe('CLOS');
       const closed = await request(server)
         .get(publicPath(rootLot.qrUrl))
-        .expect(410);
-      expect(closed.body.message).toContain('clos');
+        .expect(200);
+      expect(closed.body.status).toBe('CLOS');
+      expect(closed.body.band.closedOn).toBeTruthy();
+      expect(closed.body.notice).toContain('pas un certificat sanitaire');
       await request(server).get(publicPath(subLot.qrUrl)).expect(200);
       const history = (
         await get(`/farms/${farmId}/trace/lots/${rootLot.id}`).expect(200)

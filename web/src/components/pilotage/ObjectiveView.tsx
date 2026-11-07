@@ -65,7 +65,10 @@ export function ObjectiveView({ filters }: { filters: PilotageFilters }) {
 
       {d.capacity ? (
         <SectionCard title="Capacité" icon={<Warehouse />}>
-          <FigureRow label="Fermes actives">{d.capacity.farms}</FigureRow>
+          <FigureRow label="Fermes inscrites (registre)">{d.capacity.farms}</FigureRow>
+          {d.capacity.farmsOperational != null ? (
+            <FigureRow label="Fermes opérationnelles (au moins une bande)">{d.capacity.farmsOperational}</FigureRow>
+          ) : null}
           <FigureRow label="Places (capacité du registre, sinon plus grande bande)">{numLabel(d.capacity.places, 0)}</FigureRow>
           <FigureRow label="Fermes sans capacité au registre">{countLabel(d.capacity.farmsWithoutCapacity, 'ferme', 'fermes')}</FigureRow>
         </SectionCard>

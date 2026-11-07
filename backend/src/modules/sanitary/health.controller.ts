@@ -31,7 +31,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { HealthService } from './health.service.js';
 import { CreateHealthEventDto } from './dto/create-health-event.dto.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { AlsoGrantedBy, Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Sanitaire & Prophylaxie')
 @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
@@ -57,6 +57,7 @@ export class HealthController {
   }
 
   @Get('health-events')
+  @AlsoGrantedBy(['DECLARATIONS', 'CONSULTER'])
   @AuditThirdPartyRead('Déclarations sanitaires d’un lot')
   @ApiOperation({ summary: 'Chronologie des événements sanitaires du lot' })
   @ApiParam({ name: 'farmId' })
@@ -136,6 +137,7 @@ export class HealthController {
   }
 
   @Get('health-events/:eventId/photos/:photoId')
+  @AlsoGrantedBy(['DECLARATIONS', 'CONSULTER'])
   @AuditThirdPartyRead('Photo d’une déclaration sanitaire')
   @AuditExport('Photo de déclaration sanitaire')
   @ApiOperation({

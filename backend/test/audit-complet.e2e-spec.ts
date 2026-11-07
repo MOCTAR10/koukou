@@ -235,6 +235,7 @@ describe('Audit complet — immuabilité, stocks, alertes, métriques (e2e)', ()
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',
@@ -283,6 +284,7 @@ describe('Audit complet — immuabilité, stocks, alertes, métriques (e2e)', ()
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',

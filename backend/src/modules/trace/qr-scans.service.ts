@@ -27,8 +27,14 @@ export interface ScanRequest {
 }
 
 export type ScanOutcome =
-  | { result: QrScanResult.OK; view: PublicLotView }
-  | { result: Exclude<QrScanResult, QrScanResult.OK> };
+  // A closed lot stays readable (« Lot terminé » with its origin): the birds
+  // are still being sold after the band is closed. Only unknown or forged
+  // codes are rejected.
+  | {
+      result: QrScanResult.OK | QrScanResult.CLOS;
+      view: PublicLotView;
+    }
+  | { result: Exclude<QrScanResult, QrScanResult.OK | QrScanResult.CLOS> };
 
 /** Scan counts of a lot, for the fraud indicators of the dashboards. */
 export interface ScanIndicators {
@@ -79,8 +85,8 @@ interface LotRow {
 }
 
 /**
- * Public QR scans (CDC §7.5): an unknown, badly signed or closed QR code is
- * rejected, and every scan is journaled in `qr_scans` (never the raw IP).
+ * Public QR scans (CDC §7.5): an unknown or badly signed QR code is rejected
+ * (a closed lot is shown as « Lot terminé »), and every scan is journaled in `qr_scans` (never the raw IP).
  * The journal feeds the fraud indicators: a genuine QR can be photocopied,
  * which shows as many scans, scans in distant areas, or scans after closure.
  */
@@ -119,8 +125,16 @@ export class QrScansService {
       geoCell: geoCellOf(req.lat, req.lng),
       result,
     });
-    if (result !== QrScanResult.OK || !lot) {
-      return { result: result as Exclude<QrScanResult, QrScanResult.OK> };
+    if (
+      !lot ||
+      (result !== QrScanResult.OK && result !== QrScanResult.CLOS)
+    ) {
+      return {
+        result: result as Exclude<
+          QrScanResult,
+          QrScanResult.OK | QrScanResult.CLOS
+        >,
+      };
     }
     return {
       result,

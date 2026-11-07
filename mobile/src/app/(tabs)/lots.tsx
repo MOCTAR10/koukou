@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { plural } from '@/utils/plural';
 import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -735,7 +736,7 @@ export default function LotsScreen() {
           {/* ── HEADER (fixe, comme Accueil) ── */}
           <ScreenHeader
             title="Lots"
-            subtitle={`${batches.data?.length ?? 0} lot(s) · suivi zootechnique`}
+            subtitle={`${plural(batches.data?.length ?? 0, 'lot')} · suivi zootechnique`}
             left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
             right={
               <Pressable onPress={openCreate} style={styles.createBtn} accessibilityRole='button'>
@@ -761,7 +762,7 @@ export default function LotsScreen() {
               <AppText style={styles.slimTileTitle} color={semantic.successText}>Volaille</AppText>
             </View>
             <View style={[styles.slimTileCount, { borderColor: palette.green[600] + '45', backgroundColor: palette.green[600] + '12' }]}>
-              <AppText style={styles.slimTileCountText} color={semantic.successText}>{farmStats.activeCount + farmStats.sellingCount} lots</AppText>
+              <AppText style={styles.slimTileCountText} color={semantic.successText}>{plural(farmStats.activeCount + farmStats.sellingCount, 'lot')}</AppText>
             </View>
           </View>
           <AppText style={styles.slimTileValue} color={semantic.successText}>{fmt(farmStats.totalBirds)}</AppText>
@@ -1596,7 +1597,7 @@ function StatsPanel({ summary, hasAnyBatch, filterLabel, onOpen }: { summary: Ov
         </View>
         <View style={{ flex: 1 }} />
         <View style={[styles.summaryPill, styles.summaryPillActive]}>
-          <AppText size="caption" weight="bold" color="surface">{summary.count} lots · {summary.activeCount} actifs</AppText>
+          <AppText size="caption" weight="bold" color="surface">{plural(summary.count, 'lot')} · {plural(summary.activeCount, 'actif')}</AppText>
         </View>
         <View style={[styles.panelChevron, styles.panelChevronActive]}>
           <ChevronUp size={14} color={semantic.primarySoft} />
@@ -1744,7 +1745,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
     <Sheet
       visible={visible}
       title="Vue d’ensemble"
-      subtitle={`${filterLabel} · ${summary.count} lot(s) · ${fmt(summary.totalBirds)} oiseaux`}
+      subtitle={`${filterLabel} · ${plural(summary.count, 'lot')} · ${plural(summary.totalBirds, 'oiseau')}`}
       accentColor={palette.brand[700]}
       icon={
         <View style={[styles.sheetIconTile, { backgroundColor: semantic.primary }]}>
@@ -1848,7 +1849,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
         </View>
         <View style={{ flex: 1, gap: 4 }}>
           <AppText size="small" weight="bold" color={summary.readyCount > 0 ? palette.green[600] : 'muted'}>
-            {summary.readyCount > 0 ? `${summary.readyCount} lot(s) · ${fmt(summary.readyBirds)} oiseaux prêts` : 'Aucun lot prêt'}
+            {summary.readyCount > 0 ? `${plural(summary.readyCount, 'lot')} · ${plural(summary.readyBirds, 'oiseau prêt', 'oiseaux prêts')}` : 'Aucun lot prêt'}
           </AppText>
           <View style={styles.progressTrack}>
             <View style={[styles.readyFill, { width: `${Math.round(readyShare * 100)}%`, backgroundColor: summary.readyCount > 0 ? palette.green[600] : palette.ink[200] }]} />

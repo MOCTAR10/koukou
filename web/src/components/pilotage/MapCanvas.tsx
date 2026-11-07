@@ -106,14 +106,21 @@ export default function PilotageMapCanvas({ points, clusters, colourKey, showClu
       }
     }
     for (const p of points) {
+      // A point outside the declared province gets a dashed red ring: to be checked.
       L.circleMarker([p.latitude, p.longitude], {
-        radius: 6,
-        color: '#ffffff',
-        weight: 2,
+        radius: p.gpsOutsideProvince ? 8 : 6,
+        color: p.gpsOutsideProvince ? '#dc2626' : '#ffffff',
+        weight: p.gpsOutsideProvince ? 3 : 2,
+        dashArray: p.gpsOutsideProvince ? '3 3' : undefined,
         fillColor: colourOf(levelOn(p.colours, colourKey)),
         fillOpacity: 1,
       })
-        .bindTooltip(linesNode(callbacks.current.pointLines(p)))
+        .bindTooltip(
+          linesNode([
+            ...callbacks.current.pointLines(p),
+            ...(p.gpsOutsideProvince ? ['Point GPS hors de la province déclarée : à vérifier'] : []),
+          ]),
+        )
         .addTo(group);
       bounds.extend([p.latitude, p.longitude]);
     }

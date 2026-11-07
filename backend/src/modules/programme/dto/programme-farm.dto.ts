@@ -79,6 +79,14 @@ export class SetFarmGpsDto extends FarmGpsDto {
 
   @ApiPropertyOptional({
     description:
+      'Confirmation motivée d’un point hors de la province déclarée (le motif devient obligatoire)',
+  })
+  @IsOptional()
+  @IsBoolean({ message: '« confirmOutsideProvince » doit être vrai ou faux.' })
+  confirmOutsideProvince?: boolean;
+
+  @ApiPropertyOptional({
+    description:
       'Clé de rejeu hors ligne (unique par ferme) : un rejeu n’ajoute pas un second point',
   })
   @IsOptional()

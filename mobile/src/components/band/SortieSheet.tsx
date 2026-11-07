@@ -207,7 +207,7 @@ export function SortieSheet({ visible, onClose, farmId, batch, has }: Props) {
                 ? isNetworkFailure(operators.error)
                   ? 'Opérateurs indisponibles hors ligne.'
                   : errorMessage(operators.error)
-                : 'Aucun opérateur enregistré.'}
+                : 'Registre des opérateurs vide : demandez à la DGE d’y inscrire l’abattoir ou l’acheteur pour créer le sous-lot tracé (QR).'}
             </AppText>
           ) : (
             <View style={styles.wrap}>

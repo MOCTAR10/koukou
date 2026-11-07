@@ -19,7 +19,7 @@ import type {
 } from '../../common/enums/trace.enum.js';
 import { grants } from '../access/access-rules.js';
 import type { AccessMatrix } from '../access/access-domains.js';
-import { mayHandleSanitaryDeclarations } from '../access/sanitary-declaration.policy.js';
+import { mayReadSanitaryDeclarations } from '../access/sanitary-declaration.policy.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { Sortie } from '../bandes/entities/sortie.entity.js';
 import { BandeDailyStat } from '../batches/entities/bande-daily-stat.entity.js';
@@ -589,7 +589,7 @@ export class TraceHistoryService {
       user.role === UserRole.INSTITUTION
         ? await this.scope.accessOf(user.id)
         : null;
-    const sanitary = mayHandleSanitaryDeclarations(user, access);
+    const sanitary = mayReadSanitaryDeclarations(user, access);
     const [cares, treatments, days, healthEvents, sorties] = await Promise.all([
       ds.getRepository(ProphylaxisEvent).find({
         where: { batchId: band.id, status: ProphylaxisStatus.FAIT },

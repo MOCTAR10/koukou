@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { plural } from '@/utils/plural';
 import { toast } from '@/components/ui/Feedback';
 import { careHistoryDetail, treatmentHistoryDetail } from '@/poufa/sanitary-records';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
@@ -92,7 +93,7 @@ import { BandPanel } from '@/components/band/BandPanel';
 // POUFA lot A indic: official indicators head the lot screen, the band sheet is the default view.
 import { fetchBandIndicators } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
-import { COST_PER_KG_SOLD_LABEL, conduiteLine, findIndicator, marginLabel, officialText } from '@/poufa/official-headline';
+import { COST_PER_KG_SOLD_LABEL, findIndicator, marginLabel, officialText } from '@/poufa/official-headline';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { fetchFarmVisits } from '@/api/poufa';
 import { readsVisits, visitHistoryLabel, visitInBand } from '@/poufa/visits';
@@ -728,7 +729,9 @@ export default function LotDetailScreen() {
             </View>
           )}
           <View style={styles.heroActions}>
-            <Button label="Saisir" size="xs" labelSize="caption" tone="brand" icon={PenLine} block={false} onPress={() => openDaily(batchId)} />
+            {farmProfile.hasPermission('saisie:creer') && !farmProfile.fermiaReadOnly ? (
+              <Button label="Saisir" size="xs" labelSize="caption" tone="brand" icon={PenLine} block={false} onPress={() => openDaily(batchId)} />
+            ) : null}
             {canSell ? (
               <Button label="Encaisser" size="xs" labelSize="caption" tone="accent" icon={ShoppingCart} block={false} onPress={() => openSale(batchId)} />
             ) : null}
@@ -778,7 +781,6 @@ export default function LotDetailScreen() {
             <MetricTile
               label={hasOfficial ? 'GMQ officiel' : 'GMQ (Fermia)'}
               value={hasOfficial ? officialText(official('gmq_g_j')) : m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—'}
-              sub={hasOfficial ? conduiteLine(m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g` : '—') : undefined}
               icon={TrendingUp}
               tone="brand"
               threeCol
@@ -788,7 +790,6 @@ export default function LotDetailScreen() {
             <MetricTile
               label={hasOfficial ? 'Viabilité officielle' : 'Viabilité (Fermia)'}
               value={hasOfficial ? officialText(official('viabilite')) : `${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`}
-              sub={hasOfficial ? conduiteLine(`${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`) : undefined}
               icon={HeartPulse}
               tone={(official('viabilite')?.value ?? m?.viabilityPercent ?? 100) >= 95 ? 'green' : 'amber'}
               threeCol
@@ -1184,21 +1185,21 @@ export default function LotDetailScreen() {
               </View>
               <View style={styles.healthGrid}>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Mortalité (Fermia)</AppText>
+                  <AppText size="small" color="muted">Mortalité{hasOfficial ? '' : ' (Fermia)'}</AppText>
                   <AppText size="body" weight="bold" color={normalizeMortalityStatus(healthQ.data.mortalityStatus, healthQ.data.mortalityPercent) === 'normal' ? 'text' : 'danger'}>
-                    {healthQ.data.mortalityPercent.toLocaleString('fr-FR')} %
+                    {hasOfficial ? officialText(official('taux_mortalite')) : `${healthQ.data.mortalityPercent.toLocaleString('fr-FR')} %`}
                   </AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">Viabilité (Fermia)</AppText>
+                  <AppText size="small" color="muted">Viabilité{hasOfficial ? '' : ' (Fermia)'}</AppText>
                   <AppText size="body" weight="bold" color="text">
-                    {healthQ.data.viabilityPercent.toLocaleString('fr-FR')} %
+                    {hasOfficial ? officialText(official('viabilite')) : `${healthQ.data.viabilityPercent.toLocaleString('fr-FR')} %`}
                   </AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">IC (Fermia)</AppText>
+                  <AppText size="small" color="muted">IC{hasOfficial ? '' : ' (Fermia)'}</AppText>
                   <AppText size="body" weight="bold" color="text">
-                    {healthQ.data.fcr?.toLocaleString('fr-FR') ?? '—'}
+                    {hasOfficial ? officialText(official('ic')) : (healthQ.data.fcr?.toLocaleString('fr-FR') ?? '—')}
                   </AppText>
                 </View>
                 {isLayer && (
@@ -1214,7 +1215,7 @@ export default function LotDetailScreen() {
           )}
 
           {/* Suivi sanitaire — événements + prophylaxie unifiés (triés par date) */}
-          <SectionHeader title="Suivi sanitaire" subtitle={`${filteredHealth.length} élément(s)`} />
+          <SectionHeader title="Suivi sanitaire" subtitle={plural(filteredHealth.length, 'élément')} />
           <View style={styles.filterRow}>
             {([
               { key: 'all', label: 'Tout' },

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { plural } from '@/utils/plural';
 import { toast, confirm } from '@/components/ui/Feedback';
 import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -525,11 +526,11 @@ function DiseaseFields({
   const effectiveDisease = disease === CUSTOM_DISEASE ? customDisease : disease;
   return (
     <>
-      <FormLabel text="MALADIE *" />
+      <FormLabel text="MALADIE SUSPECTÉE (FACULTATIF)" />
       <Pressable onPress={() => setShowDiseasePicker(true)} style={styles.selectBtn} accessibilityRole="button">
         <View style={{ flex: 1 }}>
           <AppText size="body" weight="semibold" color={effectiveDisease ? 'text' : 'faint'} numberOfLines={1}>
-            {effectiveDisease || 'Choisir une maladie…'}
+            {effectiveDisease || 'Inconnue / à déterminer'}
           </AppText>
         </View>
         <ChevronDown size={18} color={palette.red[500]} />
@@ -946,9 +947,10 @@ export default function SanitaryScreen() {
     setError(null);
 
     if (kind === 'MALADIE') {
+      // Recette ANINF A22: empty = « Inconnue / à déterminer » (the vets qualify).
       const name = (disease === CUSTOM_DISEASE ? customDisease : disease).trim();
-      if (name.length < 2) {
-        setError('Sélectionnez ou saisissez la maladie.');
+      if (disease === CUSTOM_DISEASE && name.length < 2) {
+        setError('Saisissez le nom de la maladie ou choisissez « Inconnue / à déterminer ».');
         return;
       }
     } else if (qty <= 0) {
@@ -964,11 +966,11 @@ export default function SanitaryScreen() {
 
     if (kind === 'MALADIE') {
       const name = (disease === CUSTOM_DISEASE ? customDisease : disease).trim();
-      title = name;
+      title = name || 'Maladie à déterminer (signes observés)';
       payloadSeverity = DISEASE_SEVERITY_TO_LEVEL[diseaseSeverity];
       symptomsJoined = symptomSel.join(', ');
       Object.assign(diseaseFields, {
-        disease: name,
+        ...(name ? { disease: name } : {}),
         diseaseSeverity,
         ...(treatment.trim() ? { treatmentGiven: treatment.trim() } : {}),
         vetConsulted,
@@ -1680,7 +1682,7 @@ function CreateScheduleWizard({
         for (const lid of selLots) {
           await invalidateFarmQueries(queryClient, { farmId, batchId: lid });
         }
-        toast.success('Soin planifié', `${selLots.length} lot(s) concerné(s)${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`);
+        toast.success('Soin planifié', `${plural(selLots.length, 'lot concerné', 'lots concernés')}${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`);
       }
       onClose();
     } catch (e) {
@@ -2742,8 +2744,19 @@ function MaladiesTab({
         </Card>
       ) : null}
 
-      <Sheet visible={showDiseasePicker} title="Maladie" subtitle="Choisir la maladie" onClose={() => setShowDiseasePicker(false)}>
+      <Sheet visible={showDiseasePicker} title="Maladie suspectée" subtitle="Vous décrivez les signes ; le vétérinaire qualifie" onClose={() => setShowDiseasePicker(false)}>
         <View style={{ gap: 2, paddingVertical: 8 }}>
+          <Pressable
+            onPress={() => {
+              setDisease('');
+              setShowDiseasePicker(false);
+            }}
+            style={styles.sheetRow}
+            accessibilityRole="button">
+            <AppText size="body" weight="semibold" color="text">
+              Inconnue / à déterminer
+            </AppText>
+          </Pressable>
           {DISEASES.map((d) => (
             <Pressable
               key={d}

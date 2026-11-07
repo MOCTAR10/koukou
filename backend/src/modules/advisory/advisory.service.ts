@@ -11,6 +11,7 @@ import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { ProphylaxisStatus } from '../../common/enums/prophylaxis-status.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
+import { visibleAlerts } from '../alerts/economic-alerts.js';
 import { Building } from '../buildings/entities/building.entity.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
@@ -164,7 +165,10 @@ export class AdvisoryService {
     const actions: NextAction[] = [];
 
     // 1) Alertes actives (hors kinds re-exprimés plus bas sous forme granulaire).
-    for (const a of alerts) {
+    // Recette ANINF A19 : alertes rentabilité/vente (montants FCFA) réservées
+    // aux lecteurs du domaine ÉCONOMIQUE.
+    const readsEconomics = await this.farmsService.readsEconomics(user);
+    for (const a of visibleAlerts(alerts, readsEconomics)) {
       if (RE_EXPRESSED.has(a.kind)) continue;
       const name = a.buildingId
         ? buildingName.get(a.buildingId)

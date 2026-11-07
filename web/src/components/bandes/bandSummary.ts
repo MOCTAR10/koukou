@@ -38,7 +38,10 @@ export function indicatorValueLabel(i: Pick<OfficialIndicator, 'value' | 'unit'>
 /** Which formula version produced the value. */
 export function formulaVersionLabel(i: Pick<OfficialIndicator, 'parameterVersionId' | 'validFrom'>, fmt: (iso: string) => string): string {
   if (!i.parameterVersionId) return 'Formule proposée du catalogue (aucune version enregistrée)';
-  return i.validFrom ? `Version en vigueur depuis le ${fmt(i.validFrom)}` : 'Version enregistrée';
+  // The seeded defaults carry a sentinel date (2000): not a real effective date (recette A15).
+  const t = i.validFrom ? Date.parse(i.validFrom) : NaN;
+  if (!i.validFrom || Number.isNaN(t) || t < Date.UTC(2001, 0, 1)) return 'Version par défaut du programme';
+  return `Version en vigueur depuis le ${fmt(i.validFrom)}`;
 }
 
 export const TRIGGER_LABELS: Record<BandeSnapshotTrigger, string> = {
