@@ -57,7 +57,12 @@ import { FERMIA_GRANTABLE_DOMAINS, type AccessAction, type AccessDomain, type Ac
 export type MenuRule =
   | { kind: 'always' }
   | { kind: 'never'; why: string }
-  | { kind: 'grant'; any: ReadonlyArray<readonly [AccessDomain, AccessAction]> };
+  | {
+      kind: 'grant';
+      any: ReadonlyArray<readonly [AccessDomain, AccessAction]>;
+      /** The page also needs a scope that reaches farms (ALL, PROVINCES, FARMS), like the server. */
+      farms?: boolean;
+    };
 
 const consult = (domain: AccessDomain): MenuRule => ({ kind: 'grant', any: [[domain, 'CONSULTER']] });
 const fermia = (why: string): MenuRule => ({ kind: 'never', why });
@@ -108,7 +113,8 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/accounting': consult('COMPTABILITE'),
   '/app/team': consult('EQUIPE'),
   '/app/hr': consult('EQUIPE'),
-  '/app/economie': consult('ECONOMIQUE'),
+  // The server returns nothing outside a farm scope (BCEG FINANCED, MAEDR AGGREGATE…): no entry there.
+  '/app/economie': { kind: 'grant', any: [['ECONOMIQUE', 'CONSULTER']], farms: true },
   // POUFA lot A droits (end)
   '/app/settings': fermia('COMPTE'),
   '/app/platform': fermia('PLATEFORME'),
@@ -158,6 +164,7 @@ export function grantsAccess(access: Pick<MyAccess['profile'], 'matrix' | 'scope
 function ruleAllows(rule: MenuRule, access: Pick<MyAccess['profile'], 'matrix' | 'scopeKind'>): boolean {
   if (rule.kind === 'always') return true;
   if (rule.kind === 'never') return false;
+  if (rule.farms && !scopeReachesFarms(access.scopeKind)) return false;
   return rule.any.some(([d, a]) => grantsAccess(access, d, a));
 }
 

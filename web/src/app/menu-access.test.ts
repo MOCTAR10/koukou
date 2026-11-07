@@ -182,6 +182,9 @@ describe('Fermia modules for institutions (POUFA lot A droits)', () => {
     expect(institutionShowsEntry('/app/expenses', DGE)).toBe(true);
     expect(institutionShowsEntry('/app/economie', DGE)).toBe(true);
     expect(institutionShowsEntry('/app/economie', AGENT_TECHNIQUE)).toBe(false);
+    // The synthesis needs a farm scope: the BCEG (FINANCED) holds ECONOMIQUE but reaches no farm yet.
+    expect(institutionShowsEntry('/app/economie', p('FINANCED', { ECONOMIQUE: ['CONSULTER'] }))).toBe(false);
+    expect(institutionShowsEntry('/app/economie', p('AGGREGATE', { ECONOMIQUE: ['CONSULTER'] }))).toBe(false);
   });
 });
 
