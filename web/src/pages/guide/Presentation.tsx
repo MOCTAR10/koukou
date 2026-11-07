@@ -51,7 +51,6 @@ function Cover({ compact }: { compact: boolean }) {
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/70 to-brand-950/30" />
       <div aria-hidden className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-600 via-amber-400 to-sky-600" />
       <div className={'relative flex flex-wrap items-center gap-4 ' + (compact ? 'p-5' : 'px-14 pt-10')}>
-        <img src="/republique-gabonaise.webp" alt="République gabonaise" className={(compact ? 'h-14' : 'h-24') + ' w-auto rounded-lg bg-white p-1'} />
         <img src="/maedr-logo-full.webp" alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural" className={(compact ? 'h-14 w-14' : 'h-24 w-24') + ' rounded-lg bg-white object-contain p-1'} />
         <img src="/men-logo.webp" alt="Ministère de l’Économie numérique, de la Digitalisation et de l’Innovation" className={(compact ? 'h-14 w-14' : 'h-24 w-24') + ' rounded-lg bg-white object-contain p-1'} />
       </div>

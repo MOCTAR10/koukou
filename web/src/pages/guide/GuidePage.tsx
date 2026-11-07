@@ -154,7 +154,10 @@ export function GuidePage() {
   const printing = presenting && params.get('print') === '1';
   const overview = params.get('vue') === '1';
   const pageParam = Number(params.get('page'));
-  const current = Number.isInteger(pageParam) && pageParam >= 1 && pageParam <= slides.length ? pageParam - 1 : 0;
+  const chapterParam = params.get('chapitre');
+  const chapterIndex = chapterParam ? slides.findIndex((s) => s.id.startsWith(`${chapterParam}-`)) : -1;
+  // A link from the CDC tables names a chapter (?chapitre=id): open its first page.
+  const current = chapterIndex >= 0 ? chapterIndex : Number.isInteger(pageParam) && pageParam >= 1 && pageParam <= slides.length ? pageParam - 1 : 0;
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -167,6 +170,13 @@ export function GuidePage() {
       document.title = prev;
     };
   }, []);
+
+  // Turn a chapter link into its page number and show that page from the top.
+  useEffect(() => {
+    if (chapterIndex < 0) return;
+    setParams({ page: String(chapterIndex + 1) }, { replace: true });
+    window.scrollTo(0, 0);
+  }, [chapterIndex, setParams]);
 
   const groups = useMemo<Group[]>(() => {
     const q = fold(query.trim());
@@ -236,7 +246,6 @@ export function GuidePage() {
               {menuOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
               <span className="sr-only">Sommaire</span>
             </button>
-            <img src="/republique-gabonaise.webp" alt="République gabonaise" className="h-10 w-auto shrink-0 rounded-md bg-white p-0.5 sm:h-11" />
             <div className="min-w-0">
               <p className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Fermia<span className="hidden sm:inline"> — Guide de la plateforme</span><span className="sm:hidden"> · Guide</span></p>
               <p className="hidden truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300 sm:block">Présentation · Programme POUFA · MAEDR</p>
