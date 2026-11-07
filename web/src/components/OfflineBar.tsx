@@ -8,6 +8,7 @@ import { dismissRejected, flushQueue, heldCashSummary, useOfflineQueue, useOnlin
 import { onReconnect } from '../offline/connectivity';
 import { dismissQueuedNotice, getQueuedNotice, subscribeQueuedNotice } from '../offline/notice';
 import { oldestShownDate, resetShownDate, subscribeShownDate } from '../offline/readCache';
+import { isSyncing, onSyncCentreRequest, setSyncing, subscribeSyncing } from '../offline/pulse';
 import { warmOfflineCache } from '../offline/warmup';
 import { fcfa } from '../lib/format';
 import { Button, Modal } from './form';
@@ -99,7 +100,7 @@ export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partir
   const queryClient = useQueryClient();
   const { pending, rejected } = useOfflineQueue();
   const savedAt = useSyncExternalStore(subscribeShownDate, oldestShownDate, oldestShownDate);
-  const [syncing, setSyncing] = useState(false);
+  const syncing = useSyncExternalStore(subscribeSyncing, isSyncing, isSyncing);
   const [open, setOpen] = useState(false);
   const [updateReady, setUpdateReady] = useState(false);
   const applyUpdate = useRef<(() => void) | null>(null);
@@ -117,6 +118,8 @@ export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partir
       setSyncing(false);
     }
   };
+
+  useEffect(() => onSyncCentreRequest(() => setOpen(true)), []);
 
   useEffect(() => {
     const update = registerSW({
@@ -160,7 +163,6 @@ export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partir
       {!online ? (
         <div role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 bg-amber-100 px-4 py-2 text-sm text-amber-900">
           <CloudOff className="h-4 w-4 shrink-0" />
-          <b>Hors ligne.</b>
           <span>
             {savedAt
               ? `Données enregistrées du ${new Date(savedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.`

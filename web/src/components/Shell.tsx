@@ -48,6 +48,7 @@ import { Logo } from './Logo';
 import { PageNotOpen } from './access/PageNotOpen';
 import { NoFarmScreen } from './NoFarmScreen';
 import { Loading } from './ui';
+import { ConnectionPulse } from './ConnectionPulse';
 import { OfflineBar } from './OfflineBar';
 import { FarmPicker } from './programme/FarmPicker';
 import { QuickCreate } from './QuickCreate';
@@ -441,6 +442,7 @@ export function Shell() {
             {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
           </div>
           <div className="shrink-0 lg:ml-0">{!onProgramme && farmId ? <QuickCreate /> : null}</div>
+          <ConnectionPulse interactive />
           {/* POUFA L5: unread notifications (hidden without the inbox right). */}
           <NotificationBell />
           {isAdmin ? (

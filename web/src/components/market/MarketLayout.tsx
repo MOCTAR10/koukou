@@ -5,6 +5,7 @@ import { canUseBuyerArea, isBuyer } from '../../app/roles';
 import { useAuth } from '../../auth/AuthContext';
 import { classNames } from '../../lib/format';
 import { Logo } from '../Logo';
+import { ConnectionPulse } from '../ConnectionPulse';
 import { OfflineBar } from '../OfflineBar';
 
 const linkCls = ({ isActive }: { isActive: boolean }) =>
@@ -25,7 +26,8 @@ export function MarketLayout() {
               <Logo className="h-7 w-auto" />
               Marché Fermia
             </Link>
-            <nav className="ml-auto flex flex-wrap items-center gap-1">
+            <ConnectionPulse interactive className="ml-auto" />
+            <nav className="flex flex-wrap items-center gap-1">
               <NavLink to="/marche" end className={linkCls}>
                 <Store className="h-4 w-4" /> Annonces
               </NavLink>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, LifeBuoy, ArrowLeft, Building2, Calculator, Check, Map, QrCode, ScrollText, Stethoscope, Store } from 'lucide-react';
+import { ConnectionPulse } from '../components/ConnectionPulse';
 import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
@@ -113,6 +114,9 @@ export function AuthLayout({
             <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-600 via-amber-400 to-sky-600" />
           </>
         ) : null}
+        <div className="absolute right-3 top-3 z-10 lg:right-5 lg:top-4">
+          <ConnectionPulse />
+        </div>
         <div className="relative bg-gradient-to-br from-brand-800 to-brand-950 px-5 py-4 lg:hidden">
           {programme ? (
             <ProgrammeLockup />
