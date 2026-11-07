@@ -44,7 +44,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
 import { farmSpaceState, worksWithoutFarm } from '../app/roles';
 import { useMenuAccess } from '../app/useMenuAccess';
-import { FermiaLeaf, Logo, MinistryBadge, MinistrySeal } from './Logo';
+import { FermiaLeaf, Logo, MinistryBadge } from './Logo';
 import { PageNotOpen } from './access/PageNotOpen';
 import { NoFarmScreen } from './NoFarmScreen';
 import { Loading } from './ui';
@@ -263,10 +263,10 @@ export function Shell() {
       >
         <div className="flex items-center gap-3 px-4 py-4">
           {/* The badge carries the Ministry's name: large enough to read it (smaller on the collapsed rail). */}
-          {/* On a phone the drawer shows the coat of arms alone, without the ministry's name. */}
+          {/* On a phone the drawer shows the Fermia leaf, smaller; the ministry badge stays on a computer. */}
           {consoleMode ? (
             <>
-              <MinistrySeal className="h-12 md:hidden" />
+              <Logo className="h-9 w-auto shrink-0 md:hidden" />
               <MinistryBadge className="hidden h-[7.5rem] w-[7.5rem] !object-contain md:block md:max-xl:h-11 md:max-xl:w-11 md:max-xl:group-hover/side:h-[7.5rem] md:max-xl:group-hover/side:w-[7.5rem]" />
             </>
           ) : <Logo className="h-9 w-auto shrink-0" />}
