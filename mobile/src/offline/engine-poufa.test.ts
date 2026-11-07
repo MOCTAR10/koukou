@@ -194,6 +194,40 @@ describe('visite technique (farm-visit)', () => {
     expect(Date.parse(String((body(replay) as { capturedAt?: string }).capturedAt))).not.toBeNaN();
   });
 
+  const photo = { uri: 'file:///v.jpg', name: 'v.jpg', mimeType: 'image/jpeg' };
+
+  it('en ligne : la visite puis ses photos, sans les fichiers dans le corps', async () => {
+    const live = stubFetch(async (url) =>
+      String(url).endsWith('/photos') ? jsonResponse(201, { id: 'ph-1' }) : jsonResponse(201, { id: 'v-1' }),
+    );
+    const res = await createVisitQueued('f-1', visit, [photo]);
+    expect(res).toEqual({ status: 'sent', data: { visitId: 'v-1', photosSent: 1, photosRefused: [] } });
+    expect(body(live)).not.toHaveProperty('photos');
+    expect(readCall(live, 1).url).toContain('/farms/f-1/visits/v-1/photos');
+  });
+
+  it('hors ligne : les photos partent au rejeu, après la visite', async () => {
+    stubFetch(networkError);
+    expect(await createVisitQueued('f-1', visit, [photo])).toEqual({ status: 'queued' });
+    const replay = stubFetch(async (url) =>
+      String(url).endsWith('/photos') ? jsonResponse(201, { id: 'ph-1' }) : jsonResponse(201, { id: 'v-1' }),
+    );
+    expect((await flushQueue()).synced).toBe(1);
+    expect(readCall(replay).url).toMatch(/\/visits$/);
+    expect(body(replay)).not.toHaveProperty('photos');
+    expect(readCall(replay, 1).url).toContain('/visits/v-1/photos');
+  });
+
+  it('photo refusée (4xx) : la visite reste enregistrée, motif rapporté', async () => {
+    stubFetch(async (url) =>
+      String(url).endsWith('/photos') ? jsonResponse(400, { message: 'Photo trop lourde (5 Mo au plus).' }) : jsonResponse(201, { id: 'v-1' }),
+    );
+    expect(await createVisitQueued('f-1', visit, [photo])).toEqual({
+      status: 'sent',
+      data: { visitId: 'v-1', photosSent: 0, photosRefused: ['Photo trop lourde (5 Mo au plus).'] },
+    });
+  });
+
   it('refus (4xx) en direct : erreur levée, rien en file', async () => {
     stubFetch(async () => jsonResponse(400, { message: 'Critère(s) inconnu(s) de la grille de biosécurité : X.' }));
     await expect(createVisitQueued('f-1', visit)).rejects.toThrow('Critère');

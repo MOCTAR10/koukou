@@ -66,3 +66,9 @@ L'historique de bande (`GET /farms/:farmId/trace/lots/:lotId`, `rearing`) ajoute
 - Création d'une visite hors ligne depuis le web (mobile seulement) ; planification et rappel de la « prochaine visite » (la date est stockée, aucune notification).
 - Classement de biosécurité dans les tableaux de pilotage et les rapports PDF (la liste programme filtrable par classe est l'amorce).
 - Critères bloquants (un critère critique non conforme qui dégrade la classe) : non prévu au CDC, non fait.
+
+## Photos de visite
+
+- `POST /farms/:farmId/visits/:id/photos` (multipart `file`, TECHNIQUE:VALIDER) : PNG/JPEG/WEBP vérifiés sur les octets, 5 Mo, 8 photos par visite, réservé à l'agent qui a enregistré la visite. Le même fichier renvoyé (rejeu hors ligne) ne crée pas de doublon (hash). La visite reste immuable ; la photo lui est rattachée après coup, comme pour les déclarations sanitaires.
+- `GET /farms/:farmId/visits/:id/photos/:photoId` : mêmes droits que la visite, lecture tierce journalisée. Fichiers sous `UPLOADS_DIR/visits/<farmId>/`, hors route statique. Le détail de la visite liste les photos (`photos`).
+- Mobile : les photos suivent la visite dans la file hors ligne et partent juste après. Web : la visite et sa grille passent par la file hors ligne (clé d'idempotence, grille en cache) ; les photos exigent une connexion (fichiers non mis en file sur le web) et s'ajoutent au détail de la visite.
