@@ -302,7 +302,7 @@ export function Shell() {
           </div>
         ) : null}
 
-        <nav className="mt-5 flex-1 overflow-y-auto overflow-x-hidden px-3">
+        <nav className="side-scroll mt-5 flex-1 overflow-y-auto overflow-x-hidden px-3">
           {consoleMode && programmeItems.length > 0 ? (
             <div className="mb-4">
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>

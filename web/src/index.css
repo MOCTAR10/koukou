@@ -267,3 +267,19 @@ td,
 .leaflet-tile-pane {
   filter: saturate(0.3) brightness(1.04) contrast(0.95);
 }
+
+/* Thin, discreet scrollbar for the dark side menu. */
+.side-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+.side-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.side-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.18);
+}
+.side-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
