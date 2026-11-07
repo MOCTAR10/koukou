@@ -35,6 +35,7 @@ import { ProgrammeModule } from './modules/programme/programme.module.js';
 import { AccessModule } from './modules/access/access.module.js';
 import { BandesModule } from './modules/bandes/bandes.module.js';
 import { SupplyModule } from './modules/supply/supply.module.js';
+import { VisitsModule } from './modules/visits/visits.module.js';
 import { SyncModule } from './modules/sync/sync.module.js';
 import { TraceModule } from './modules/trace/trace.module.js';
 import { DataImportModule } from './modules/data-import/data-import.module.js';
@@ -120,6 +121,7 @@ import {
     AccessModule,
     BandesModule,
     SupplyModule,
+    VisitsModule,
     SyncModule,
     TraceModule,
     DataImportModule,

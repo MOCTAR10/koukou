@@ -95,6 +95,29 @@ function metricRows(m: PilotageMetrics): string[][] {
   ];
 }
 
+/** « Biosécurité » lines of the Fermes section: latest control per farm. */
+export function biosecurityRows(b: PilotageDashboard['biosecurity']): string[][] {
+  if (b.suppressed || !b.total) {
+    return [['Biosécurité (dernier contrôle)', HIDDEN]];
+  }
+  const t = b.total;
+  const rows: string[][] = [
+    ['Biosécurité : fermes contrôlées', `${fmt(t.controlled)} sur ${fmt(t.farms)} (${pctText(t.controlledPct)})`],
+    ['Biosécurité : classe A', fmt(t.classA)],
+    ['Biosécurité : classe B', fmt(t.classB)],
+    ['Biosécurité : classe C', fmt(t.classC)],
+    ['Biosécurité : fermes jamais contrôlées', fmt(t.neverControlled)],
+    ['Biosécurité : score moyen du dernier contrôle', pctText(t.averageScorePct)],
+  ];
+  if (b.staleAfterDays > 0) {
+    rows.push([
+      `Biosécurité : contrôles de plus de ${fmt(b.staleAfterDays)} jours`,
+      fmt(t.stale),
+    ]);
+  }
+  return rows;
+}
+
 function figuresRows(
   g: GroupFigures,
   rows: (m: PilotageMetrics) => string[][],
@@ -311,6 +334,7 @@ export function areaReport(input: AreaReportInput): AccountingReportData {
               'Fermes avec des animaux en fin de période',
               fmt(d.farms.producing),
             ],
+            ...biosecurityRows(d.biosecurity),
           ],
         });
         break;

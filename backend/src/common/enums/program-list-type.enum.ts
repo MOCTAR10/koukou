@@ -15,4 +15,6 @@ export enum ProgramListType {
   SIGNE_CLINIQUE = 'SIGNE_CLINIQUE',
   TYPE_OPERATEUR = 'TYPE_OPERATEUR',
   STATUT_ALERTE = 'STATUT_ALERTE',
+  /** Biosecurity grid (CDC n° 27): `meta.weight` (integer ≥ 1) and `meta.category`. */
+  CRITERE_BIOSECURITE = 'CRITERE_BIOSECURITE',
 }

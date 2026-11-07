@@ -3,7 +3,8 @@
 // notification inbox, GPS capture. Shapes mirror the backend views exactly
 // (see backend/src/modules/{sanitary,surveillance,supply,bandes,reporting,
 // notify,trace,programme,access}).
-import { apiFetch, apiUpload } from './client';
+import { API_BASE_URL, apiFetch, apiUpload } from './client';
+import { loadSession } from './token';
 import type { AlertLevel, DiseaseSeverity, HealthEventKind } from './types';
 
 // ── Programme lists (REFERENCE domain) ─────────────────────────────────
@@ -621,4 +622,115 @@ export function fetchDeclarations(state?: SanitaryDeclaration['reviewState']): P
 /** `POST /surveillance/declarations/:id/review`: once, final. */
 export function reviewDeclaration(id: string, body: { decision: 'VALIDEE' | 'INFIRMEE' | 'ALERTE'; comment?: string }): Promise<SanitaryDeclaration> {
   return apiFetch(`/surveillance/declarations/${id}/review`, { method: 'POST', body });
+}
+
+// ── Technical visits and biosecurity (CDC n° 27, n° 45, §3.2) ──────────
+
+export type VisitType = 'TECHNIQUE' | 'BIOSECURITE' | 'SANITAIRE';
+export type BiosecurityAnswer = 'CONFORME' | 'NON_CONFORME' | 'NA';
+export type BiosecurityClass = 'A' | 'B' | 'C';
+
+export interface VisitAnswerView {
+  criterionCode: string;
+  label: string;
+  category: string | null;
+  weight: number;
+  answer: BiosecurityAnswer;
+  comment: string | null;
+}
+
+/** Photo of a visit (backend `VisitPhotoView`); bytes through `GET …/visits/:id/photos/:photoId`. */
+export interface VisitPhotoView {
+  id: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+/** Backend `VisitView` (`modules/visits/visits.service.ts`); `answers` and `photos` are empty in the list. */
+export interface VisitView {
+  id: string;
+  farmId: string;
+  farmCode: string | null;
+  farmName: string | null;
+  batchId: string | null;
+  batchCode: string | null;
+  visitDate: string;
+  type: VisitType;
+  agent: { id: string; name: string };
+  observations: string | null;
+  recommendations: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  nextVisitDate: string | null;
+  visaFrom: string | null;
+  visaTo: string | null;
+  scorePct: number | null;
+  classification: BiosecurityClass | null;
+  thresholds: { a: number; b: number } | null;
+  answers: VisitAnswerView[];
+  photos?: VisitPhotoView[];
+}
+
+export interface VisitCriterion {
+  code: string;
+  label: string;
+  category: string | null;
+  weight: number;
+}
+
+/** `GET /farms/:farmId/visits/grid`: criteria in force and the class thresholds. */
+export interface VisitGrid {
+  criteria: VisitCriterion[];
+  thresholds: { a: number; b: number };
+}
+
+/** CreateVisitDto (backend `modules/visits/dto/visit.dto.ts`). */
+export interface CreateVisitPayload {
+  visitDate: string;
+  type: VisitType;
+  batchId?: string;
+  observations?: string;
+  recommendations?: string;
+  latitude?: number;
+  longitude?: number;
+  nextVisitDate?: string;
+  visaFrom?: string;
+  visaTo?: string;
+  answers?: Array<{ criterionCode: string; answer: BiosecurityAnswer; comment?: string }>;
+  capturedAt?: string;
+  /** Offline replay key, unique per farm: a replay returns the same visit. */
+  idempotencyKey?: string;
+}
+
+export function fetchFarmVisits(farmId: string): Promise<VisitView[]> {
+  return apiFetch<VisitView[]>(`/farms/${farmId}/visits`);
+}
+
+export function fetchFarmVisit(farmId: string, id: string): Promise<VisitView> {
+  return apiFetch<VisitView>(`/farms/${farmId}/visits/${id}`);
+}
+
+export function fetchVisitGrid(farmId: string): Promise<VisitGrid> {
+  return apiFetch<VisitGrid>(`/farms/${farmId}/visits/grid`);
+}
+
+export function createVisit(farmId: string, payload: CreateVisitPayload): Promise<VisitView> {
+  return apiFetch<VisitView>(`/farms/${farmId}/visits`, { method: 'POST', body: payload });
+}
+
+/** POST …/visits/:id/photos (multipart « file »; same bytes = same photo; the recording agent only). */
+export function uploadVisitPhoto(farmId: string, visitId: string, photo: DeclarationPhoto): Promise<VisitPhotoView> {
+  const form = new FormData();
+  form.append('file', { uri: photo.uri, name: photo.name, type: photo.mimeType } as unknown as Blob);
+  return apiUpload<VisitPhotoView>(`/farms/${farmId}/visits/${visitId}/photos`, form);
+}
+
+/** Authenticated image source of a visit photo (the route is never public). */
+export function visitPhotoSource(farmId: string, visitId: string, photoId: string): { uri: string; headers: Record<string, string> } {
+  const session = loadSession();
+  return {
+    uri: `${API_BASE_URL}/farms/${farmId}/visits/${visitId}/photos/${photoId}`,
+    headers: session ? { Authorization: `Bearer ${session.token}` } : {},
+  };
 }

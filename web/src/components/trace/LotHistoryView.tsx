@@ -2,6 +2,7 @@ import {
   Activity,
   AlertTriangle,
   Bird,
+  ClipboardCheck,
   Download,
   Flag,
   HeartPulse,
@@ -45,6 +46,7 @@ const REARING_KIND_ICON: Record<RearingKind, LucideIcon> = {
   CLOTURE: Flag,
   INTRANT: Package,
   ALIMENT: Wheat,
+  VISITE: ClipboardCheck,
 };
 
 export function LotStatusPill({ lot }: { lot: Pick<LotView, 'status'> }) {

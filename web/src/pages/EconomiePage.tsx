@@ -94,7 +94,7 @@ export function EconomiePage() {
   const openFarm = (row: EconomieRow) => {
     if (!row.farmId) return;
     setFarm(row.farmId);
-    navigate(view === 'comptabilite' ? '/app/accounting' : view === 'market' ? '/app/market' : view === 'production' ? '/app/batches' : '/app/reports');
+    navigate(view === 'comptabilite' ? '/app/accounting' : view === 'market' ? '/app/market' : view === 'production' ? '/app/batches' : view === 'biosecurite' ? '/app/visites' : '/app/reports');
   };
 
   const kg = (v: number | null) => (v != null ? `${num(v, 0)} kg` : '—');
@@ -203,8 +203,31 @@ export function EconomiePage() {
     </>
   );
 
-  const figures = { ventes: salesFigures, comptabilite: accountingFigures, market: marketFigures, production: productionFigures }[view];
-  const figureHeads = { ventes: salesHeads, comptabilite: accountingHeads, market: marketHeads, production: productionHeads }[view];
+  // Biosecurity: a farm row shows its latest control, a group row the distribution.
+  const bioFigures = (r: EconomieRow) =>
+    r.farmId ? (
+      <>
+        <Td label="Classe" className={cell}>{r.bioClass ?? '—'}</Td>
+        <Td label="Score" className={cell}>{pct(r.bioScorePct ?? null)}</Td>
+        <Td label="Date du contrôle" className={cell}>{r.bioDate ?? '—'}</Td>
+      </>
+    ) : (
+      <>
+        <Td label="Classe A / B / C" className={cell}>{`${count(r.bioA ?? null)} / ${count(r.bioB ?? null)} / ${count(r.bioC ?? null)}`}</Td>
+        <Td label="Jamais contrôlées" className={cell}>{count(r.bioNever ?? null)}</Td>
+        <Td label="Score moyen" className={cell}>{pct(r.bioAverageScorePct ?? null)}</Td>
+      </>
+    );
+  const bioHeads = (
+    <>
+      <Th className="text-right">Classe (ou A / B / C)</Th>
+      <Th className="text-right">Score (ou jamais contrôlées)</Th>
+      <Th className="text-right">Date (ou score moyen)</Th>
+    </>
+  );
+
+  const figures = { ventes: salesFigures, comptabilite: accountingFigures, market: marketFigures, production: productionFigures, biosecurite: bioFigures }[view];
+  const figureHeads = { ventes: salesHeads, comptabilite: accountingHeads, market: marketHeads, production: productionHeads, biosecurite: bioHeads }[view];
 
   return (
     <div className="space-y-6">
@@ -280,6 +303,13 @@ export function EconomiePage() {
               <StatCard label="Ventes Market livrées" value={fcfa(total.marketSalesFcfa)} icon={<TrendingUp />} />
               <StatCard label="Volumes livrés" value={`${count(total.marketBirds)} poulet(s)`} hint={`${count(total.marketCarcasses)} carcasse(s)`} icon={<Warehouse />} />
             </div>
+          ) : view === 'biosecurite' ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard label="Fermes contrôlées" value={pct(total.bioControlledPct ?? null)} hint={`${count(total.bioNever ?? null)} jamais contrôlée(s)`} icon={<ClipboardCheck />} tone="accent" />
+              <StatCard label="Classe A" value={count(total.bioA ?? null)} icon={<ClipboardCheck />} />
+              <StatCard label="Classes B et C" value={`${count(total.bioB ?? null)} / ${count(total.bioC ?? null)}`} hint={`${count(total.bioStale ?? null)} contrôle(s) ancien(s)`} icon={<Scale />} />
+              <StatCard label="Score moyen" value={pct(total.bioAverageScorePct ?? null)} hint="Dernier contrôle de chaque ferme contrôlée" icon={<TrendingUp />} />
+            </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <StatCard label="Complétude des saisies" value={pct(total.completenessPct)} hint="Formule du programme (FORMULE_COMPLETUDE_PCT)" icon={<ClipboardCheck />} tone="accent" />
@@ -347,7 +377,7 @@ export function EconomiePage() {
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
               <Landmark className="h-4 w-4 text-brand-600" />
               <h2 className="text-sm font-semibold text-slate-700">Par ferme ({farms.length})</h2>
-              <span className="text-xs text-slate-400">Marge la plus faible en premier ; cliquez une ferme pour ouvrir sa page {view === 'comptabilite' ? 'comptable' : view === 'market' ? 'Market' : view === 'production' ? 'des lots' : 'de rentabilité'}.</span>
+              <span className="text-xs text-slate-400">Marge la plus faible en premier ; cliquez une ferme pour ouvrir sa page {view === 'comptabilite' ? 'comptable' : view === 'market' ? 'Market' : view === 'production' ? 'des lots' : view === 'biosecurite' ? 'des visites' : 'de rentabilité'}.</span>
             </div>
             {farms.length === 0 ? (
               <div className="p-4">

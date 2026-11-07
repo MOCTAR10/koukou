@@ -49,6 +49,34 @@ export function localAt(date: string, hour: number): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1, hour, 0, 0, 0);
 }
 
+/** A visit the agent planned (`VisitView` subset, most recent first). */
+export interface PlannedVisitSource {
+  agent: { id: string };
+  visitDate: string;
+  nextVisitDate: string | null;
+}
+
+/**
+ * Next visit planned by the agent himself: only the farm's latest visit
+ * counts (a newer one closes the plan), and only when he recorded it. The
+ * list is the farm's, most recent first (`GET /farms/:id/visits`).
+ */
+export function ownPlannedVisitDate(visits: readonly PlannedVisitSource[], userId: string): string | null {
+  const latest = visits[0];
+  if (!latest || latest.agent.id !== userId) return null;
+  return latest.nextVisitDate;
+}
+
+/** Day before (VISIT_LEAD_DAYS) and the day of a planned visit, at the morning hour. */
+export const VISIT_LEAD_DAYS = 1;
+
+function dayBefore(date: string, n: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const t = new Date(y, (m ?? 1) - 1, (d ?? 1) - n);
+  const pad = (v: number) => String(v).padStart(2, '0');
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+}
+
 export function buildReminderPlan(input: {
   now: Date;
   settings: ReminderSettings;
@@ -56,6 +84,8 @@ export function buildReminderPlan(input: {
   hasActiveBatches: boolean;
   tasks: FarmTask[];
   actions: NextAction[];
+  /** Day of the next visit the agent planned on this farm, if any. */
+  plannedVisitDate?: string | null;
 }): ReminderPlan {
   const { now, settings } = input;
   if (!settings.enabled) return { daily: null, dated: [] };
@@ -103,6 +133,25 @@ export function buildReminderPlan(input: {
       at,
       route: '/sanitary',
     });
+  }
+
+  // Next visit planned by the agent: the day before and the day itself.
+  if (input.plannedVisitDate) {
+    const day = input.plannedVisitDate;
+    for (const [when, title] of [
+      [dayBefore(day, VISIT_LEAD_DAYS), 'Visite demain'],
+      [day, 'Visite prévue aujourd’hui'],
+    ] as const) {
+      const at = localAt(when, settings.morningHour);
+      if (at <= now) continue;
+      dated.push({
+        key: `visit:${day}:${when === day ? 'jour' : 'veille'}`,
+        title,
+        body: `Visite technique de ${input.farmName}.`,
+        at,
+        route: '/visites',
+      });
+    }
   }
 
   dated.sort((a, b) => a.at.getTime() - b.at.getTime());

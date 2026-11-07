@@ -133,6 +133,8 @@ export function RegistryPage() {
   if (!canOpenRegistry) return accessLoading ? <Loading /> : <Navigate to="/app" replace />;
 
   const data = list.data;
+  // The server fills biosecurity only for a profile that reads TECHNIQUE.
+  const showBiosecurity = data?.biosecurityStaleAfterDays != null;
   const onSort = (key: SortKey) =>
     setSort((prev) => (prev?.key !== key ? { key, dir: 'asc' } : prev.dir === 'asc' ? { key, dir: 'desc' } : null));
   const rows = useMemo(() => {
@@ -214,6 +216,15 @@ export function RegistryPage() {
               </option>
             ))}
           </select>
+          {showBiosecurity || filters.biosecurity ? (
+            <select aria-label="Biosécurité" className={inputCls} value={filters.biosecurity} onChange={(e) => setFilter('biosecurity', e.target.value)}>
+              <option value="">Toutes les classes de biosécurité</option>
+              <option value="A">Classe A</option>
+              <option value="B">Classe B</option>
+              <option value="C">Classe C</option>
+              <option value="NONE">Jamais contrôlées</option>
+            </select>
+          ) : null}
         </div>
         {hasActiveFilter(filters) ? (
           <button
@@ -222,7 +233,7 @@ export function RegistryPage() {
             onClick={() => {
               setQ('');
               writtenQ.current = '';
-              update({ province: '', localiteId: '', cohort: '', status: '', q: '', page: 1 });
+              update({ province: '', localiteId: '', cohort: '', status: '', biosecurity: '', q: '', page: 1 });
             }}
           >
             Effacer les filtres
@@ -252,7 +263,7 @@ export function RegistryPage() {
                     onClick={() => {
                       setQ('');
                       writtenQ.current = '';
-                      update({ province: '', localiteId: '', cohort: '', status: '', q: '', page: 1 });
+                      update({ province: '', localiteId: '', cohort: '', status: '', biosecurity: '', q: '', page: 1 });
                     }}
                   >
                     Effacer les filtres
@@ -275,6 +286,7 @@ export function RegistryPage() {
                 <SortTh label="Exploitant" sortKey="exploitant" sort={sort} onSort={onSort} className="min-w-44" />
                 <SortTh label="Statut" sortKey="status" sort={sort} onSort={onSort} />
                 <SortTh label="Compte" sortKey="account" sort={sort} onSort={onSort} className="hidden lg:table-cell" />
+                {showBiosecurity ? <Th className="hidden lg:table-cell">Biosécurité</Th> : null}
                 <Th className="hidden text-center lg:table-cell">GPS</Th>
                 <Th></Th>
               </tr>
@@ -317,6 +329,17 @@ export function RegistryPage() {
                   <Td label="Compte" className="md:max-lg:hidden">
                     <StatusBadge tone={f.hasOwnerAccount ? 'ok' : 'neutral'} label={f.hasOwnerAccount ? 'Activé' : 'Non activé'} />
                   </Td>
+                  {showBiosecurity ? (
+                    <Td label="Biosécurité" className="md:max-lg:hidden">
+                      {f.biosecurity?.classification ? (
+                        <span title={`Contrôle du ${f.biosecurity.visitDate ?? ''}${f.biosecurity.stale ? ' (ancien)' : ''}`}>
+                          <StatusBadge tone={f.biosecurity.classification === 'A' ? 'ok' : 'neutral'} label={`Classe ${f.biosecurity.classification}${f.biosecurity.stale ? ' · ancien' : ''}`} />
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">Jamais contrôlée</span>
+                      )}
+                    </Td>
+                  ) : null}
                   <Td label="GPS" className="text-center md:max-lg:hidden">
                     {f.gpsProvinceWarning ? (
                       <span title={f.gpsProvinceWarning} aria-label={f.gpsProvinceWarning} className="inline-flex text-amber-700">

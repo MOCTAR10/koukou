@@ -14,6 +14,15 @@ export interface SeedRefItem {
   readonly meta?: Record<string, unknown>;
 }
 
+function bio(
+  code: string,
+  label: string,
+  category: string,
+  weight: number,
+): SeedRefItem {
+  return { code, label, meta: { weight, category } };
+}
+
 export const DEFAULT_REF_LISTS: Readonly<
   Record<ProgramListType, readonly SeedRefItem[]>
 > = {
@@ -121,5 +130,24 @@ export const DEFAULT_REF_LISTS: Readonly<
     { code: 'CONFIRMEE', label: 'Confirmée', family: 'CONFIRMEE' },
     { code: 'INFIRMEE', label: 'Infirmée', family: 'INFIRMEE' },
     { code: 'CLOSE', label: 'Close', family: 'CLOSE' },
+  ],
+  [ProgramListType.CRITERE_BIOSECURITE]: [
+    // Default grid (CDC n° 27), Fermia proposal for the veterinary services to
+    // validate: `meta.weight` 1-3 (3 = critical), `meta.category`.
+    bio('CLOTURE_ENTREE', 'Clôture entretenue, entrée unique contrôlée', 'Accès', 2),
+    bio('REGISTRE_VISITEURS', 'Registre des visiteurs tenu à jour', 'Accès', 1),
+    bio('PEDILUVE', 'Pédiluve à l’entrée des bâtiments, renouvelé', 'Accès', 3),
+    bio('TENUE_BOTTES', 'Tenue et bottes dédiées aux bâtiments', 'Accès', 2),
+    bio('DESINFECTION_VEHICULES', 'Désinfection des véhicules à l’entrée', 'Accès', 2),
+    bio('LAVAGE_MAINS', 'Point de lavage des mains avec savon', 'Hygiène', 1),
+    bio('NETTOYAGE_BATIMENT', 'Bâtiment nettoyé et désinfecté entre les bandes', 'Hygiène', 3),
+    bio('VIDE_SANITAIRE', 'Vide sanitaire respecté', 'Hygiène', 3),
+    bio('LITIERE_SECHE', 'Litière sèche et propre', 'Hygiène', 2),
+    bio('EAU_POTABLE', 'Eau d’abreuvement propre, abreuvoirs entretenus', 'Eau et aliment', 2),
+    bio('STOCK_ALIMENT', 'Aliment stocké à l’abri (humidité, nuisibles)', 'Eau et aliment', 2),
+    bio('LUTTE_NUISIBLES', 'Lutte contre rongeurs, insectes et oiseaux sauvages', 'Nuisibles', 2),
+    bio('GESTION_CADAVRES', 'Cadavres retirés chaque jour, fosse ou incinérateur', 'Déchets', 3),
+    bio('GESTION_FUMIER', 'Fumier et déchets évacués loin des bâtiments', 'Déchets', 1),
+    bio('SEPARATION_BANDES', 'Une seule bande par bâtiment (tout plein, tout vide)', 'Conduite', 3),
   ],
 };

@@ -72,10 +72,14 @@ export interface RegistryFarmRow {
   active: boolean;
   gpsProvinceWarning: string | null;
   createdAt: string;
+  /** Latest biosecurity control; null when the profile does not read TECHNIQUE. */
+  biosecurity?: { classification: 'A' | 'B' | 'C' | null; scorePct: number | null; visitDate: string | null; stale: boolean } | null;
 }
 
 export interface RegistryFarmPage {
   total: number;
+  /** Set only for a profile that reads biosecurity. */
+  biosecurityStaleAfterDays?: number | null;
   page: number;
   pageSize: number;
   items: RegistryFarmRow[];

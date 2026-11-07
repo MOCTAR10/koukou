@@ -39,6 +39,8 @@ const KEYED_KINDS: ReadonlySet<OfflineKind> = new Set<OfflineKind>([
   // the user: a sanitary record is never lost silently.
   'treatment',
   'prophylaxis-complete',
+  // Technical visit (CDC n° 45): a replayed visit returns the stored one (unique farm + key).
+  'visit',
 ]);
 
 /** A refusal of these is kept for the user to re-enter, never silently deleted. */

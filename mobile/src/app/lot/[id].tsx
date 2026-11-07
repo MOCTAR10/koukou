@@ -15,6 +15,7 @@ import {
   FileText,
   HeartPulse,
   Info,
+  ClipboardCheck,
   Layers,
   PenLine,
   Pill,
@@ -93,6 +94,8 @@ import { fetchBandIndicators } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { COST_PER_KG_SOLD_LABEL, conduiteLine, findIndicator, marginLabel, officialText } from '@/poufa/official-headline';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
+import { fetchFarmVisits } from '@/api/poufa';
+import { readsVisits, visitHistoryLabel, visitInBand } from '@/poufa/visits';
 import { readsProgrammeDomain } from '@/poufa/access';
 // ── end POUFA ──
 
@@ -232,6 +235,15 @@ export default function LotDetailScreen() {
   const treatmentsQ = useQuery({ queryKey: ['treatments', farmId, batchId], queryFn: () => fetchTreatments(farmId, batchId), enabled: !!batchId });
   const prophylaxisQ = useQuery({ queryKey: ['prophylaxis', farmId, batchId], queryFn: () => fetchProphylaxis(farmId, batchId), enabled: !!batchId });
   const healthEventsQ = useQuery({ queryKey: ['health-events', farmId, batchId], queryFn: () => fetchHealthEvents(farmId, batchId), enabled: !!batchId });
+  // Technical visits and biosecurity controls (CDC n° 27, n° 45) in the band history (T2).
+  const visitsProgrammeAccess = useProgrammeAccess();
+  const canReadVisits = readsVisits(user.role, visitsProgrammeAccess.matrix);
+  const visitsQ = useQuery({
+    queryKey: ['visits', farmId],
+    queryFn: () => cachedRead(`visits.${farmId}`, () => fetchFarmVisits(farmId)),
+    enabled: !!farmId && canReadVisits,
+    retry: false,
+  });
   const slaughterQ = useQuery({ queryKey: ['slaughter-orders', farmId], queryFn: () => fetchSlaughterOrders(farmId), staleTime: 60_000 });
 
   // ── New queries for lot metrics ──
@@ -505,9 +517,26 @@ export default function LotDetailScreen() {
       });
     }
 
+    // Visits of the band, or of the farm while it ran
+    const bandForVisits = batchQ.data;
+    if (bandForVisits) {
+      const today = new Date().toISOString().slice(0, 10);
+      for (const v of visitsQ.data ?? []) {
+        if (!visitInBand(v, { id: batchId, integrationDate: bandForVisits.integrationDate, closedAt: (bandForVisits as { closedAt?: string | null }).closedAt ?? null }, today)) continue;
+        items.push({
+          date: v.visitDate,
+          kind: 'visit',
+          label: visitHistoryLabel(v),
+          detail: v.recommendations ? `Recommandations : ${v.recommendations}` : (v.observations ?? ''),
+          icon: ClipboardCheck,
+          tone: v.classification === 'C' ? 'red' : v.classification === 'B' ? 'amber' : 'green',
+        });
+      }
+    }
+
     items.sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : 0));
     return items;
-  }, [treatmentsQ.data, prophylaxisQ.data, healthEventsQ.data, slaughterQ.data, batchId]);
+  }, [treatmentsQ.data, prophylaxisQ.data, healthEventsQ.data, slaughterQ.data, visitsQ.data, batchQ.data, batchId]);
 
   const filteredHistory = useMemo(() => {
     const from = dateRange.from ? toDateStr(dateRange.from) : null;

@@ -21,7 +21,9 @@ export type OfflineKind =
   | 'band-sortie'
   // POUFA lot A sante: a treatment (CDC n° 23) and a care completion (n° 22), both keyed.
   | 'treatment'
-  | 'prophylaxis-complete';
+  | 'prophylaxis-complete'
+  // Technical visit with its grid answers (keyed). Photos are not queued on the web: they need a connection.
+  | 'visit';
 
 export interface OfflineOp {
   /** Unique across devices; also the idempotency key of the creations. */

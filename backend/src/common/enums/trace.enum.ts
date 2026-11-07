@@ -57,6 +57,8 @@ export enum RearingEventKind {
   MORTALITE = 'MORTALITE',
   PESEE = 'PESEE',
   EVENEMENT_SANITAIRE = 'EVENEMENT_SANITAIRE',
+  /** Technical or biosecurity visit of an agent (CDC n° 27, n° 45). */
+  VISITE = 'VISITE',
   SORTIE = 'SORTIE',
   CLOTURE = 'CLOTURE',
 }

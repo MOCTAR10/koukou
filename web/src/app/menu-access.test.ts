@@ -271,10 +271,25 @@ describe('helpers', () => {
   });
 
   it('pagesOfDomain lists the pages a domain opens', () => {
-    expect(pagesOfDomain('SANITAIRE')).toEqual(['/app/sanitary', '/app/surveillance']);
+    expect(pagesOfDomain('SANITAIRE')).toEqual(['/app/sanitary', '/app/surveillance', '/app/visites']);
     expect(pagesOfDomain('ECONOMIQUE')).toEqual(['/app/reports', '/app/expenses', '/app/economie']);
     expect(pagesOfDomain('EQUIPE')).toEqual(['/app/team', '/app/hr']);
     expect(pagesOfDomain('AUDIT')).toEqual(['/app/audit']);
+  });
+});
+
+describe('POUFA visites menu row', () => {
+  it('opens the visits to the agent, the DGE and the veterinary services, not to the audit profile', () => {
+    expect(menuRuleFor('/app/visites')).toEqual({
+      kind: 'grant',
+      any: [
+        ['TECHNIQUE', 'CONSULTER'],
+        ['SANITAIRE', 'CONSULTER'],
+      ],
+    });
+    expect(institutionShowsEntry('/app/visites', VETERINAIRE)).toBe(true);
+    expect(institutionShowsEntry('/app/visites', DGE)).toBe(true);
+    expect(institutionShowsEntry('/app/visites', ANINF)).toBe(false);
   });
 });
 

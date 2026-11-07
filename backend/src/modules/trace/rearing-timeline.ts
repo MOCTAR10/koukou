@@ -1,6 +1,7 @@
 import { CareType } from '../../common/enums/care-type.enum.js';
 import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
 import { RearingEventKind } from '../../common/enums/trace.enum.js';
+import { visitHistoryLabel } from '../visits/visit-rules.js';
 
 /**
  * Rearing chronology of a lot (CDC T2 « Historique d'élevage du lot »): the
@@ -87,6 +88,18 @@ export interface RearingSources {
     quantity: number;
     disease: string | null;
   }[] | null;
+  /** Technical visits and biosecurity controls (CDC n° 27, n° 45); absent when the viewer may not read them. */
+  visits?: {
+    id: string;
+    visitDate: string;
+    type: string;
+    scorePct: number | null;
+    classification: string | null;
+    visaFrom: string | null;
+    visaTo: string | null;
+    nextVisitDate: string | null;
+    hasRecommendations: boolean;
+  }[] | null;
   sorties: {
     id: string;
     sortieDate: string;
@@ -123,6 +136,7 @@ const ORDER: readonly RearingEventKind[] = [
   RearingEventKind.SOIN,
   RearingEventKind.TRAITEMENT,
   RearingEventKind.EVENEMENT_SANITAIRE,
+  RearingEventKind.VISITE,
   RearingEventKind.MORTALITE,
   RearingEventKind.PESEE,
   RearingEventKind.SORTIE,
@@ -274,6 +288,24 @@ export function rearingTimeline(src: RearingSources): RearingItem[] {
       label: `${HEALTH_LABELS[h.kind] ?? 'Événement sanitaire'} : ${h.title}`,
       quantity: h.quantity || null,
       details: { kind: h.kind, disease: h.disease },
+    });
+  }
+  for (const v of src.visits ?? []) {
+    items.push({
+      date: dayOf(v.visitDate),
+      kind: RearingEventKind.VISITE,
+      label: visitHistoryLabel(v),
+      quantity: null,
+      details: {
+        visitId: v.id,
+        type: v.type,
+        scorePct: v.scorePct,
+        classification: v.classification,
+        visaFrom: v.visaFrom,
+        visaTo: v.visaTo,
+        nextVisitDate: v.nextVisitDate,
+        hasRecommendations: v.hasRecommendations,
+      },
     });
   }
   for (const s of src.sorties) {

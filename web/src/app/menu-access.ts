@@ -31,6 +31,7 @@ import { FERMIA_GRANTABLE_DOMAINS, type AccessAction, type AccessDomain, type Ac
  * | /app/intrants           | INTRANTS:CONSULTER       | programme/input-deliveries (INTRANTS)                     |
  * | /app/livraisons         | INTRANTS:CONSULTER       | farms/:id/input-deliveries, declarative-stock (INTRANTS)  |
  * | /app/tracabilite…       | TRACABILITE or ADMINISTRATION:CONSULTER | trace/lots (TRACABILITE), trace/operators (REFERENCE) |
+ * | /app/visites           | TECHNIQUE or SANITAIRE:CONSULTER | farms/:id/visits, visits/grid, programme/visits (TECHNIQUE; SANITAIRE alternative) |
  * | /app/mon-acces, /app/help | always                 | programme/access/me (SESSION), none                       |
  * | /app/surveillance(/…)   | SANITAIRE:CONSULTER      | surveillance/alerts, lists, calendars (SANITAIRE)         |
  * | /app/notifications      | always                   | notifications (SESSION: the account's own inbox)          |
@@ -94,6 +95,8 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   // POUFA W6: programme inputs, the farm deliveries, traceability (lots, code lookup, operators registry).
   '/app/intrants': consult('INTRANTS'),
   '/app/livraisons': consult('INTRANTS'),
+  // POUFA visites: TECHNIQUE:CONSULTER (DGE, agent technique) or SANITAIRE:CONSULTER (veterinary services).
+  '/app/visites': { kind: 'grant', any: [['TECHNIQUE', 'CONSULTER'], ['SANITAIRE', 'CONSULTER']] },
   '/app/tracabilite': { kind: 'grant', any: [['TRACABILITE', 'CONSULTER'], ['ADMINISTRATION', 'CONSULTER']] },
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },

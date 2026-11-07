@@ -95,12 +95,13 @@ describe('column groups', () => {
   });
 
   it('names what the profile does not open', () => {
-    expect(missingAreas({ ...base, accounting: true, market: true, production: true })).toEqual([]);
+    expect(missingAreas({ ...base, accounting: true, market: true, production: true, biosecurity: true })).toEqual([]);
     expect(missingAreas({ ...base, payroll: false })).toEqual([
       'les salaires (Équipe et RH)',
       'la comptabilité SYSCOHADA',
       'le Market',
       'les saisies techniques (complétude et volumes)',
+      'les contrôles de biosécurité',
     ]);
   });
 });

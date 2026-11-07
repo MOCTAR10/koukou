@@ -22,7 +22,9 @@ export type OfflineKind =
   | 'farm-gps'
   // POUFA lot A sante: a treatment (CDC n° 23) and a care completion (n° 22), both keyed.
   | 'treatment'
-  | 'prophylaxis-complete';
+  | 'prophylaxis-complete'
+  // Technical visit with its biosecurity grid (CDC n° 27, n° 45): keyed creation.
+  | 'farm-visit';
 
 export interface OfflineOp {
   id: string;

@@ -43,15 +43,20 @@ import type { PermissionCode } from '@/api/types';
 // ── POUFA field work (M2) ──
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { hasInbox, readsProgrammeDomain } from '@/poufa/access';
+import { readsVisits } from '@/poufa/visits';
 // POUFA lot A droits: Fermia tiles follow the matrix grants; the DGE synthesis tile.
 import { menuItemVisible, readsEconomieSynthesis, type FermiaArea, type ProgrammeBonusArea } from '@/poufa/fermia-access';
 
 /** Deliveries tile: farm accounts, or an institution whose matrix reads INTRANTS. */
-function usePoufaMenuItems(): { deliveries: MenuItem[]; inbox: MenuItem[]; synthesis: MenuItem[] } {
+function usePoufaMenuItems(): { deliveries: MenuItem[]; visits: MenuItem[]; inbox: MenuItem[]; synthesis: MenuItem[] } {
   const { user } = useAuth();
   const access = useProgrammeAccess();
   const deliveries: MenuItem[] = readsProgrammeDomain(user.role, access.matrix, 'INTRANTS')
     ? [{ key: 'livraisons', label: 'Livraisons d’intrants', icon: Truck, href: '/livraisons' as Href }]
+    : [];
+  // Technical visits and biosecurity (CDC n° 27, n° 45): the farm's accounts, or TECHNIQUE/SANITAIRE in consultation.
+  const visits: MenuItem[] = readsVisits(user.role, access.matrix)
+    ? [{ key: 'visites', label: 'Visites techniques', icon: ClipboardCheck, href: '/visites' as Href }]
     : [];
   const inbox: MenuItem[] = hasInbox(user.role)
     ? [{ key: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' as Href }]
@@ -59,7 +64,7 @@ function usePoufaMenuItems(): { deliveries: MenuItem[]; inbox: MenuItem[]; synth
   const synthesis: MenuItem[] = readsEconomieSynthesis(user.role, access.matrix)
     ? [{ key: 'synthese', label: 'Synthèse du programme', icon: Landmark, href: '/synthese' as Href }]
     : [];
-  return { deliveries, inbox, synthesis };
+  return { deliveries, visits, inbox, synthesis };
 }
 // ── end POUFA ──
 
@@ -129,6 +134,7 @@ function GroundHome() {
     { key: 'profil', label: 'Mon profil', icon: User, href: '/reglages' },
     { key: 'lots', label: 'Mes lots', icon: Bird, href: '/lots' },
     ...poufa.deliveries,
+    ...poufa.visits,
     ...poufa.inbox,
   ];
 
@@ -196,6 +202,7 @@ export default function MenuScreen() {
         { key: 'stock', label: 'Stock & provendes', icon: Wheat, href: '/provende', perms: ['stock:gerer'], programmeArea: 'INTRANTS' },
         { key: 'abattage', label: 'Abattage', icon: Drumstick, href: '/slaughter', perms: ['production:abattage'], programmeArea: 'TRACABILITE' },
         ...poufa.deliveries,
+        ...poufa.visits,
       ],
     },
     {
@@ -357,6 +364,7 @@ const REJECTED_KIND_LABEL: Partial<Record<RejectedOp['kind'], string>> = {
   // POUFA lot A sante
   treatment: 'Traitement',
   'prophylaxis-complete': 'Soin réalisé',
+  'farm-visit': 'Visite technique',
 };
 
 /** Kind of a rejected op, plus the amount collected if any, for display. */

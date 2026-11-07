@@ -13,6 +13,7 @@ export interface SynthesisColumns {
   accounting?: boolean;
   market?: boolean;
   production?: boolean;
+  biosecurity?: boolean;
 }
 
 export interface SynthesisRow {
@@ -48,6 +49,14 @@ export interface SynthesisRow {
   /** FORMULE_VOLUME_PRODUIT_TETES / _KG in force. */
   producedHeads?: number | null;
   producedKg?: number | null;
+  // Biosecurity (TECHNIQUE): class of the latest control per farm, distribution per group.
+  bioClass?: string | null;
+  bioA?: number | null;
+  bioB?: number | null;
+  bioC?: number | null;
+  bioNever?: number | null;
+  bioAverageScorePct?: number | null;
+  bioControlledPct?: number | null;
 }
 
 export interface EconomieSynthesis {

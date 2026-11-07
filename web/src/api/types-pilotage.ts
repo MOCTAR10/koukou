@@ -122,6 +122,35 @@ export interface InputGapFigures {
   farmsWithStockGap: number;
 }
 
+export type BiosecurityClassCode = 'A' | 'B' | 'C';
+
+/** Latest biosecurity control of a farm (classification null: never controlled). */
+export interface FarmBiosecurity {
+  classification: BiosecurityClassCode | null;
+  scorePct: number | null;
+  visitDate: string | null;
+  stale: boolean;
+}
+
+export interface BiosecurityFigures {
+  farms: number;
+  controlled: number;
+  neverControlled: number;
+  classA: number;
+  classB: number;
+  classC: number;
+  stale: number;
+  averageScorePct: number | null;
+  controlledPct: number | null;
+}
+
+export interface BiosecurityBlock {
+  staleAfterDays: number;
+  suppressed: boolean;
+  total: BiosecurityFigures | null;
+  provinces: { provinceId: string; code: string; name: string; suppressed: boolean; figures: BiosecurityFigures | null }[];
+}
+
 export interface PilotageDashboard {
   generatedAt: string;
   period: PilotagePeriod;
@@ -134,6 +163,7 @@ export interface PilotageDashboard {
   publishedAlerts: { available: boolean; count: number };
   perimeter: PilotagePerimeter;
   inputs: { available: boolean; thresholdPct: number; suppressed: boolean; figures: InputGapFigures | null };
+  biosecurity: BiosecurityBlock;
   notes: string[];
 }
 
@@ -145,6 +175,7 @@ export interface MapColours {
   mortality: ColourLevel | null;
   completeness: ColourLevel | null;
   alert: ColourLevel;
+  biosecurity: ColourLevel | null;
 }
 
 export interface MapAlerts {
@@ -166,6 +197,7 @@ export interface MapPoint {
   mortalityPct: number | null;
   completenessPct: number | null;
   alerts: MapAlerts;
+  biosecurity: FarmBiosecurity;
   colours: MapColours;
 }
 
@@ -181,6 +213,7 @@ export interface MapCluster {
   mortalityPct: number | null;
   completenessPct: number | null;
   alerts: MapAlerts | null;
+  biosecurity: BiosecurityFigures | null;
   colours: MapColours | null;
 }
 
@@ -199,6 +232,7 @@ export interface PilotageMap {
     mortality: MapThresholds;
     completeness: MapThresholds;
     alert: { description: string; conduct: string };
+    biosecurity: { description: string; staleAfterDays: number };
   };
   points: MapPoint[];
   farmsWithoutGps: number;

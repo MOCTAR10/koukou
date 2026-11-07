@@ -21,6 +21,7 @@ export const AUDIENCE_LABELS: Readonly<Record<NotificationAudience, string>> = {
   FARM_MANAGERS: 'Propriétaire et administrateurs de la ferme',
   FARM_TEAM: 'Toute l’équipe de la ferme',
   REPORT_RECIPIENTS: 'Les destinataires du rapport',
+  VISIT_AGENT: 'L’agent qui a planifié la visite',
 };
 
 export const CHANNEL_LABELS: Readonly<Record<NotificationChannel, string>> = {
@@ -84,6 +85,9 @@ export function ruleFormProblem(form: RuleForm, opts: { creating: boolean; confi
   // POUFA lot A pilot: same rule as the server's ruleProblem.
   if (form.audience === 'REPORT_RECIPIENTS' && form.event && form.event !== 'REPORT_READY') {
     return 'Le destinataire « destinataires du rapport » ne sert qu’à l’événement « rapport disponible ».';
+  }
+  if (form.audience === 'VISIT_AGENT' && form.event && form.event !== 'VISIT_REMINDER' && form.event !== 'VISIT_OVERDUE') {
+    return 'Le destinataire « agent de la visite » ne sert qu’aux événements de rappel de visite.';
   }
   if (form.label.trim().length > 200) return 'Le libellé ne doit pas dépasser 200 caractères.';
   if (form.audience === 'PROFILE') {

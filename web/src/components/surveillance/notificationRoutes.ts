@@ -43,6 +43,10 @@ export function webTargetFor(item: Pick<InboxItem, 'route' | 'farmId'>, ctx: Rou
   const report = new RegExp(`^/reports/(${UUID})$`).exec(route);
   if (report) return { path: `/app/pilotage/rapports?rapport=${report[1]}`, farmId: null };
 
+  // Next-visit reminders: the farm's visits page.
+  const visits = new RegExp(`^/farms/(${UUID})/visits$`).exec(route);
+  if (visits) return { path: '/app/visites', farmId: visits[1]! };
+
   return null;
 }
 
@@ -56,6 +60,8 @@ export const EVENT_SHORT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   SYNC_CONFLICT: 'Synchronisation',
   REPORT_READY: 'Rapport',
   DECLARATION_REVIEWED: 'Déclaration examinée',
+  VISIT_REMINDER: 'Visite à venir',
+  VISIT_OVERDUE: 'Visite en retard',
 };
 
 export function severityTone(level: AlertLevel): 'red' | 'amber' | 'emerald' {
