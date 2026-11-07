@@ -6,8 +6,15 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import type { UploadedImageFile } from '../farms/farms.service.js';
 import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -22,7 +29,7 @@ import {
   CreateVisitDto,
   ListProgrammeVisitsQueryDto,
 } from './dto/visit.dto.js';
-import { VisitsService } from './visits.service.js';
+import { VISIT_PHOTO_MAX_BYTES, VisitsService } from './visits.service.js';
 
 /**
  * Technical visits and biosecurity controls (CDC n° 45 and n° 27), farm side.
@@ -86,6 +93,57 @@ export class FarmVisitsController {
     @Body() dto: CreateVisitDto,
   ) {
     return this.visits.create(user, farmId, dto);
+  }
+
+  @Post(':id/photos')
+  @Action('VALIDER')
+  @Roles(UserRole.PLATFORM_ADMIN)
+  // Refused while streaming, before multer buffers more than the cap.
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: VISIT_PHOTO_MAX_BYTES, files: 1 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiOperation({
+    summary:
+      'Ajouter une photo à une visite (PNG/JPEG/WEBP, 5 Mo, 8 par visite), par l’agent qui l’a enregistrée. Multipart « file », après le texte.',
+  })
+  addPhoto(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId', ParseUUIDPipe) farmId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: UploadedImageFile | undefined,
+  ) {
+    return this.visits.addPhoto(user, farmId, id, file);
+  }
+
+  @Get(':id/photos/:photoId')
+  @AuditThirdPartyRead('Photo d’une visite technique')
+  @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @AlsoGrantedBy(['SANITAIRE', 'CONSULTER'])
+  @ApiOperation({ summary: 'Télécharger une photo de visite' })
+  async photo(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId', ParseUUIDPipe) farmId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('photoId', ParseUUIDPipe) photoId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.visits.photoFile(user, farmId, id, photoId);
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Disposition': `inline; filename="${file.fileName}"`,
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(file.buffer);
   }
 }
 

@@ -37,6 +37,7 @@ import {
   createDeclaration,
   createSortie,
   createVisit,
+  uploadVisitPhoto,
   setFarmGps,
   uploadDeclarationPhoto,
   type ConfirmDeliveryPayload,
@@ -48,7 +49,6 @@ import {
   type FarmGpsResult,
   type SortiePayload,
   type SortieView,
-  type VisitView,
 } from '@/api/poufa';
 
 // POUFA lot A bande: offline conflict metadata of the daily entry.
@@ -709,14 +709,59 @@ export function setFarmGpsQueued(farmId: string, gps: FarmGpsPayload): Promise<S
  * `idempotencyKey = op.id`: a replay after a lost answer returns the visit
  * already stored. The phone's capture time travels with it.
  */
-export function createVisitQueued(farmId: string, visit: CreateVisitPayload): Promise<SendResultOf<VisitView>> {
+export function createVisitQueued(
+  farmId: string,
+  visit: CreateVisitPayload,
+  photos: DeclarationPhoto[] = [],
+): Promise<SendResultOf<VisitSent>> {
   const opId = nextId('farm-visit');
-  const payload = {
+  const payload: VisitOpPayload = {
     ...visit,
     idempotencyKey: visit.idempotencyKey ?? opId,
     capturedAt: visit.capturedAt ?? librevilleIso(),
+    ...(photos.length > 0 ? { photos } : {}),
   };
-  return sendOrQueueWith({ id: opId, kind: 'farm-visit', farmId, payload }, () => createVisit(farmId, payload));
+  return sendOrQueueWith({ id: opId, kind: 'farm-visit', farmId, payload }, () => sendVisit(farmId, payload));
+}
+
+/** Queued visit: the DTO fields, plus the local photo files sent once the visit exists. */
+export type VisitOpPayload = CreateVisitPayload & { photos?: DeclarationPhoto[] };
+
+export interface VisitSent {
+  visitId: string;
+  photosSent: number;
+  /** French reasons of the photos the server refused (the visit itself is saved). */
+  photosRefused: string[];
+}
+
+/**
+ * The visit, then its photos (a visit is immutable: photos are bound to it
+ * afterwards, like declaration photos). A replay returns the stored visit by
+ * its key, and photos already stored are recognised by their hash.
+ */
+async function sendVisit(farmId: string, p: VisitOpPayload): Promise<VisitSent> {
+  const { photos = [], ...body } = p;
+  const visit = await createVisit(farmId, body);
+  let sent = 0;
+  const refused: string[] = [];
+  for (const photo of photos) {
+    if (!photoExists(photo)) {
+      refused.push('Photo introuvable sur le téléphone.');
+      continue;
+    }
+    try {
+      await uploadVisitPhoto(farmId, visit.id, photo);
+      sent += 1;
+    } catch (e) {
+      if (shouldDrop(e)) {
+        refused.push((e as ApiError).message);
+        continue;
+      }
+      throw e;
+    }
+  }
+  photos.forEach(discardPhoto);
+  return { visitId: visit.id, photosSent: sent, photosRefused: refused };
 }
 
 // ── POUFA lot A sante: sanitary registers (CDC n° 22-23) ──────────────
@@ -834,8 +879,8 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       const gps = (op.payload as { payload: FarmGpsPayload }).payload;
       await setFarmGps(op.farmId, { ...gps, idempotencyKey: gps.idempotencyKey ?? op.id });
     } else if (op.kind === 'farm-visit') {
-      const visit = op.payload as CreateVisitPayload;
-      await createVisit(op.farmId, { ...visit, idempotencyKey: visit.idempotencyKey ?? op.id });
+      const visit = op.payload as VisitOpPayload;
+      await sendVisit(op.farmId, { ...visit, idempotencyKey: visit.idempotencyKey ?? op.id });
     } else if (op.kind === 'treatment') {
       const p = op.payload as TreatmentOpPayload;
       await createTreatment(op.farmId, p.batchId, { ...p.payload, idempotencyKey: p.payload.idempotencyKey ?? op.id });
@@ -856,6 +901,7 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
     if (shouldDrop(e)) {
       // A refused declaration is re-entered by hand: its kept photo copies go.
       if (op.kind === 'health-event') ((op.payload as HealthEventOpPayload).photos ?? []).forEach(discardPhoto);
+      if (op.kind === 'farm-visit') ((op.payload as VisitOpPayload).photos ?? []).forEach(discardPhoto);
       if (isCashOp(op) || isCreation(op)) {
         rejectOp(op, rejectionReason(op, (e as ApiError).message));
         return 'rejected';

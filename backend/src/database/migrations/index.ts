@@ -37,6 +37,8 @@ import { DeclarationReview1794100200100 } from './1794100200100-DeclarationRevie
 // POUFA lot A2 vet (end)
 // POUFA visites techniques et biosécurité (CDC n° 27, n° 45, §3.2).
 import { TechnicalVisits1794400000000 } from './1794400000000-TechnicalVisits.js';
+import { VisitPhotos1794410000000 } from './1794410000000-VisitPhotos.js';
+import { VisitReminders1794420000000 } from './1794420000000-VisitReminders.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -85,4 +87,6 @@ export const MIGRATIONS = [
   LotValidationAndExpensePoste1794300000100,
   // POUFA visites techniques et biosécurité
   TechnicalVisits1794400000000,
+  VisitPhotos1794410000000,
+  VisitReminders1794420000000,
 ];

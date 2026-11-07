@@ -63,6 +63,15 @@ Classe et score du **dernier** contrôle de chaque ferme (dernière visite ayant
 - `GET /programme/farms?biosecurity=A|B|C|NONE` et colonne `biosecurity` du registre : réservés aux profils qui consultent TECHNIQUE (403 sur le filtre sinon, colonne absente).
 - Droits : ceux des vues existantes (matrice PILOTAGE, ECONOMIQUE, REGISTRE) ; aucune route nouvelle, lectures tierces déjà journalisées.
 
+## Rappel de la prochaine visite
+
+- **Qui** : l'agent qui a enregistré la visite planifiant la suivante (audience de règle `VISIT_AGENT`). C'est la règle la plus petite et cohérente ; pour prévenir aussi les agents de la zone ou la DGE, l'administration ajoute une règle `PROFILE` sur les événements `VISIT_REMINDER` / `VISIT_OVERDUE` (règles de notification, rien de codé en dur).
+- **Quand** : seule la **dernière visite de chaque ferme** compte (une visite plus récente clôt le rappel). Balayage au démarrage puis toutes les heures (`VisitRemindersService`, `VISIT_REMINDER_SWEEP_DISABLED=true` le coupe) : `VISITE_RAPPEL_J` jours avant (paramètre du catalogue, propriétaire DGE, Proposé 2 ; 0 = pas de rappel anticipé), le jour même, puis « en retard » une fois la date dépassée.
+- **Sans doublon** : le balayage n'a pas d'état ; la table des notifications est unique par utilisateur, canal et clé `VISIT:<visite>:<AVANT|JOUR|RETARD>`. Un balayage répété ne recrée rien, un événement perdu revient au balayage suivant.
+- **Règles par défaut** (modifiables) : `AGENT_VISITE_RAPPEL` et `AGENT_VISITE_RETARD`, dans l'application + push. Pas de SMS (non actif).
+- **Retards pour la DGE** : `GET /programme/visits?retard=true` (même droit et périmètre que la liste) ; filtre « Prochaine visite en retard » dans l'onglet Programme de la page Visites.
+- **Mobile** : rappels locaux de l'agent pour sa propre prochaine visite (veille et jour, à l'heure du matin des réglages).
+
 ## Décisions à valider (DGE / vétérinaires)
 
 1. Grille par défaut, poids et seuils A 80 % / B 60 % (propositions).
@@ -77,3 +86,9 @@ Classe et score du **dernier** contrôle de chaque ferme (dernière visite ayant
 - Photos de visite (le mécanisme de photos existe seulement pour les déclarations sanitaires : un fichier par visite demanderait une route et un stockage dédiés).
 - Création d'une visite hors ligne depuis le web (mobile seulement) ; planification et rappel de la « prochaine visite » (la date est stockée, aucune notification).
 - Critères bloquants (un critère critique non conforme qui dégrade la classe) : non prévu au CDC, non fait.
+
+## Photos de visite
+
+- `POST /farms/:farmId/visits/:id/photos` (multipart `file`, TECHNIQUE:VALIDER) : PNG/JPEG/WEBP vérifiés sur les octets, 5 Mo, 8 photos par visite, réservé à l'agent qui a enregistré la visite. Le même fichier renvoyé (rejeu hors ligne) ne crée pas de doublon (hash). La visite reste immuable ; la photo lui est rattachée après coup, comme pour les déclarations sanitaires.
+- `GET /farms/:farmId/visits/:id/photos/:photoId` : mêmes droits que la visite, lecture tierce journalisée. Fichiers sous `UPLOADS_DIR/visits/<farmId>/`, hors route statique. Le détail de la visite liste les photos (`photos`).
+- Mobile : les photos suivent la visite dans la file hors ligne et partent juste après. Web : la visite et sa grille passent par la file hors ligne (clé d'idempotence, grille en cache) ; les photos exigent une connexion (fichiers non mis en file sur le web) et s'ajoutent au détail de la visite.

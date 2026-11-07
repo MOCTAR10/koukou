@@ -218,6 +218,34 @@ describe('health-event (sanitary declaration, POUFA L5)', () => {
   });
 });
 
+describe('visit (technical visit, grid answers)', () => {
+  const path = `/farms/${FARM}/visits`;
+  const visit = {
+    kind: 'visit' as const,
+    farmId: FARM,
+    path,
+    body: { visitDate: '2026-11-06', type: 'BIOSECURITE', answers: [{ criterionCode: 'PEDILUVE', answer: 'CONFORME' }], idempotencyKey: 'web-visit-1' },
+    label: 'Visite · G1-0001',
+  };
+
+  it('queues offline with its answers and its own key, replays once back', async () => {
+    route('POST', /\/visits$/, 'network');
+    expect((await sendOrQueue(visit)).status).toBe('queued');
+    expect(loadOps()[0]).toMatchObject({ kind: 'visit', body: { idempotencyKey: 'web-visit-1', answers: [{ criterionCode: 'PEDILUVE' }] } });
+    route('POST', /\/visits$/, { status: 201, body: { id: 'v1' } });
+    expect((await flushQueue()).synced).toBe(1);
+    expect(calls.at(-1)).toMatchObject({ path, body: { idempotencyKey: 'web-visit-1' } });
+  });
+
+  it('keeps a visit refused on replay for the user to re-enter', async () => {
+    route('POST', /\/visits$/, 'network');
+    await sendOrQueue(visit);
+    route('POST', /\/visits$/, { status: 400, body: { message: 'Critère(s) inconnu(s) de la grille de biosécurité : PEDILUVE.' } });
+    expect((await flushQueue()).rejected).toBe(1);
+    expect(loadRejected()[0]).toMatchObject({ kind: 'visit' });
+  });
+});
+
 describe('POUFA writes (delivery confirmation, band sortie)', () => {
   const confirm = {
     kind: 'delivery-confirm' as const,

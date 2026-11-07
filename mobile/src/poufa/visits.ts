@@ -14,6 +14,14 @@ import type { UserRole } from '@/api/types';
 
 import { matrixGrants } from './access';
 
+/** Backend `VISIT_PHOTOS_MAX` (visits/visits.service.ts); 5 MiB per photo as for declarations. */
+export const MAX_VISIT_PHOTOS = 8;
+
+/** Photos still allowed on one visit. */
+export function visitPhotoSlotsLeft(count: number): number {
+  return Math.max(0, MAX_VISIT_PHOTOS - count);
+}
+
 export const VISIT_TYPE_LABEL: Record<VisitType, string> = {
   TECHNIQUE: 'Visite technique',
   BIOSECURITE: 'Contrôle de biosécurité',
