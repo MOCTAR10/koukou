@@ -21,11 +21,22 @@ export const API_BASE_URL = resolveApiBaseUrl(Constants.expoConfig?.hostUri ?? n
 
 export class ApiError extends Error {
   readonly status: number;
+  /** Machine code of the server answer (e.g. `GPS_HORS_PROVINCE`), when it sends one. */
+  readonly code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
+}
+
+function extractCode(body: unknown): string | undefined {
+  if (body && typeof body === 'object') {
+    const c = (body as { code?: unknown }).code;
+    if (typeof c === 'string' && c) return c;
+  }
+  return undefined;
 }
 
 function extractMessage(body: unknown): string | null {
@@ -90,7 +101,7 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
 
   if (!res.ok) {
     const message = extractMessage(body) ?? `Erreur serveur (${res.status})`;
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, extractCode(body));
   }
 
   return body as T;

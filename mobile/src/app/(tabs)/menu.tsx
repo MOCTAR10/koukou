@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter, type Href } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
@@ -36,7 +36,8 @@ import { color, layout, palette, radii, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
-import { dismissRejected, useOfflineQueue, type RejectedOp } from '@/offline';
+import { confirmRejectedGps, dismissRejected, GPS_OUTSIDE_PROVINCE, useOfflineQueue, type RejectedOp } from '@/offline';
+import { OutsideProvinceSheet } from '@/components/farm/OutsideProvinceSheet';
 import { HeldCashNotice } from '@/components/HeldCashNotice';
 import { farmRoleLabel } from '@/api/roles';
 import type { PermissionCode } from '@/api/types';
@@ -275,6 +276,7 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
   const { farms, farmId } = useAuth();
   const profileHook = useFarmProfile();
   const offline = useOfflineQueue(farmId);
+  const [confirmGps, setConfirmGps] = useState<RejectedOp | null>(null);
   const pending = offline.pending.length;
   const farm = farms.find((f) => f.id === farmId) ?? farms[0];
 
@@ -330,6 +332,16 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
               <AppText size="small" color="text" style={styles.rejectedText}>
                 {op.createdAt.slice(0, 16).replace('T', ' ')} · {rejectedLabel(op)} — {op.reason}
               </AppText>
+              {op.kind === 'farm-gps' && op.code === GPS_OUTSIDE_PROVINCE ? (
+                <Pressable
+                  onPress={() => setConfirmGps(op)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Confirmer ce point hors province avec un motif">
+                  <AppText size="small" weight="semibold" color="warn">
+                    Confirmer
+                  </AppText>
+                </Pressable>
+              ) : null}
               <Pressable
                 onPress={() => dismissRejected(op.id)}
                 accessibilityRole="button"
@@ -340,6 +352,15 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
               </Pressable>
             </View>
           ))}
+          <OutsideProvinceSheet
+            visible={confirmGps != null}
+            message={confirmGps?.reason ?? ''}
+            onCancel={() => setConfirmGps(null)}
+            onConfirm={(reason) => {
+              if (confirmGps) confirmRejectedGps(confirmGps.id, reason);
+              setConfirmGps(null);
+            }}
+          />
         </View>
       ) : null}
     </View>

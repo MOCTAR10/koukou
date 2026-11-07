@@ -11,7 +11,8 @@ import { useAuth } from '@/auth/AuthContext';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import type { Farm } from '@/api/types';
-import { setFarmGpsQueued } from '@/offline';
+import { isOutsideProvince, setFarmGpsQueued, withOutsideConfirmation } from '@/offline';
+import { OutsideProvinceSheet } from '@/components/farm/OutsideProvinceSheet';
 import { getCurrentPosition } from '@/location/current-position';
 import { canSetFarmGps } from '@/poufa/access';
 import { accuracyGrade, accuracyLabel, buildGpsPayload, formatCoords, positionRefusal, type DevicePosition } from '@/poufa/gps';
@@ -35,6 +36,8 @@ export function FarmGpsCard({ farm }: { farm: Farm }) {
   const [step, setStep] = useState<Step>({ kind: 'idle' });
   const [failure, setFailure] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  // Server refused the point as outside the province: ask the reason, then resend.
+  const [outside, setOutside] = useState<{ position: DevicePosition; message: string } | null>(null);
   const hasPoint = farm.latitude != null && farm.longitude != null;
 
   const locate = async () => {
@@ -50,6 +53,32 @@ export function FarmGpsCard({ farm }: { farm: Farm }) {
     }
   };
 
+  const submit = async (position: DevicePosition, reason?: string) => {
+    setStep({ kind: 'sending', position });
+    try {
+      const body = buildGpsPayload(position);
+      const result = await setFarmGpsQueued(farm.id, reason ? withOutsideConfirmation(body, reason) : body);
+      if (result.status === 'queued') {
+        toast.info('Position gardée sur le téléphone', 'Elle partira dès que la connexion revient, datée du relevé.');
+      } else {
+        toast.success('Position de la ferme enregistrée');
+        setWarning(result.data.provinceWarning);
+        void refreshFarms();
+        void qc.invalidateQueries({ queryKey: ['farm-profile', farm.id] });
+      }
+      setOutside(null);
+      setStep({ kind: 'idle' });
+    } catch (e) {
+      setStep({ kind: 'fix', position });
+      if (isOutsideProvince(e)) {
+        setOutside({ position, message: errorMessage(e) });
+        return;
+      }
+      setOutside(null);
+      toast.error('Position refusée', errorMessage(e));
+    }
+  };
+
   const send = async (position: DevicePosition) => {
     const refusal = positionRefusal(position);
     if (refusal) {
@@ -62,22 +91,7 @@ export function FarmGpsCard({ farm }: { farm: Farm }) {
       confirmLabel: 'Enregistrer',
     });
     if (!ok) return;
-    setStep({ kind: 'sending', position });
-    try {
-      const result = await setFarmGpsQueued(farm.id, buildGpsPayload(position));
-      if (result.status === 'queued') {
-        toast.info('Position gardée sur le téléphone', 'Elle partira dès que la connexion revient, datée du relevé.');
-      } else {
-        toast.success('Position de la ferme enregistrée');
-        setWarning(result.data.provinceWarning);
-        void refreshFarms();
-        void qc.invalidateQueries({ queryKey: ['farm-profile', farm.id] });
-      }
-      setStep({ kind: 'idle' });
-    } catch (e) {
-      toast.error('Position refusée', errorMessage(e));
-      setStep({ kind: 'fix', position });
-    }
+    await submit(position);
   };
 
   const fix = step.kind === 'fix' || step.kind === 'sending' ? step.position : null;
@@ -143,6 +157,13 @@ export function FarmGpsCard({ farm }: { farm: Farm }) {
           </AppText>
         </>
       )}
+      <OutsideProvinceSheet
+        visible={outside != null}
+        message={outside?.message ?? ''}
+        busy={step.kind === 'sending'}
+        onCancel={() => setOutside(null)}
+        onConfirm={(reason) => outside && void submit(outside.position, reason)}
+      />
     </Card>
   );
 }

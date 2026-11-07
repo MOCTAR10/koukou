@@ -12,6 +12,8 @@ import {
   flushQueue,
   createVisitQueued,
   setFarmGpsQueued,
+  confirmRejectedGps,
+  isOutsideProvince,
 } from './engine';
 import { DEVICE_ID_KEY } from './device-id';
 import { storage } from './storage';
@@ -176,6 +178,34 @@ describe('point GPS (farm-gps)', () => {
     const live = stubFetch(async () => jsonResponse(200, { gps: null, previous: null, provinceWarning: null, applied: true }));
     await setFarmGpsQueued('f-1', { latitude: 0.4, longitude: 9.4 });
     expect((body(live) as { idempotencyKey?: string }).idempotencyKey).toBeTruthy();
+  });
+});
+
+describe('point GPS hors province', () => {
+  const gps = { latitude: 5, longitude: 5, capturedAt: '2026-11-06T08:00:00.000Z', source: 'APPAREIL' as const };
+  const refuse = async () => jsonResponse(409, { statusCode: 409, code: 'GPS_HORS_PROVINCE', message: 'Point hors province.' });
+
+  it('en direct : le 409 porte son code, rien n’est mis en file', async () => {
+    stubFetch(refuse);
+    const err = await setFarmGpsQueued('f-1', gps).catch((e: unknown) => e);
+    expect(isOutsideProvince(err)).toBe(true);
+    expect(loadOps()).toHaveLength(0);
+  });
+
+  it('en file : refusé puis confirmé avec un motif, rejoué avec la même clé', async () => {
+    stubFetch(networkError);
+    await setFarmGpsQueued('f-1', gps);
+    const firstKey = (loadOps()[0].payload as { payload: { idempotencyKey: string } }).payload.idempotencyKey;
+    stubFetch(refuse);
+    await flushQueue();
+    const [rejected] = loadRejected();
+    expect(rejected.code).toBe('GPS_HORS_PROVINCE');
+    expect(confirmRejectedGps(rejected.id, 'abc')).toBe(false);
+    const replay = stubFetch(async () => jsonResponse(200, { gps: null, previous: null, provinceWarning: null }));
+    expect(confirmRejectedGps(rejected.id, 'Ferme à la limite de la province')).toBe(true);
+    await flushQueue();
+    expect(loadRejected()).toHaveLength(0);
+    expect(body(replay)).toMatchObject({ confirmOutsideProvince: true, reason: 'Ferme à la limite de la province', idempotencyKey: firstKey });
   });
 });
 

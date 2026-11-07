@@ -30,6 +30,11 @@ import {
   // POUFA lot A sante
   completeProphylaxisQueued,
   createTreatmentQueued,
+  confirmRejectedGps,
+  GPS_OUTSIDE_PROVINCE,
+  isOutsideProvince,
+  OUTSIDE_REASON_MIN,
+  withOutsideConfirmation,
   type DeclarationSent,
   type FlushSummary,
   type SendResult,
@@ -56,6 +61,9 @@ export { confirmDeliveryQueued, createDeclarationQueued, createSortieQueued, cre
 
 // POUFA lot A sante: treatments and care completions (CDC n° 22-23).
 export { completeProphylaxisQueued, createTreatmentQueued };
+
+// GPS point outside the declared province: confirmed with a reason.
+export { confirmRejectedGps, GPS_OUTSIDE_PROVINCE, isOutsideProvince, OUTSIDE_REASON_MIN, withOutsideConfirmation };
 
 export {
   cancelOrderQueued,
