@@ -339,6 +339,62 @@ describe('POUFA — visites techniques et biosécurité (e2e)', () => {
     });
   });
 
+  describe('photos of a visit', () => {
+    const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const png = () => Buffer.concat([PNG, Buffer.from(String(Math.random()))]);
+    const upload = (token: string, bytes: Buffer, type = 'image/png') =>
+      request(server)
+        .post(`/farms/${farmA}/visits/${visitId}/photos`)
+        .set(auth(token))
+        .attach('file', bytes, { filename: 'p.png', contentType: type });
+    let photoId: string;
+
+    it('lets the recording agent attach a photo, idempotently, checking the bytes', async () => {
+      const bytes = png();
+      const up = await upload(agentToken, bytes).expect(201);
+      photoId = up.body.id;
+      expect(up.body).toMatchObject({ mimeType: 'image/png', sizeBytes: bytes.length });
+      const again = await upload(agentToken, bytes).expect(201);
+      expect(again.body.id).toBe(photoId);
+      const fake = await upload(agentToken, Buffer.from('not an image at all')).expect(400);
+      expect(fake.body.message).toContain('PNG');
+      await upload(agentToken, png(), 'application/pdf').expect(400);
+      const one = await get(`/farms/${farmA}/visits/${visitId}`, ownerA).expect(200);
+      expect(one.body.photos).toHaveLength(1);
+    });
+
+    it('caps the number of photos', async () => {
+      for (let i = 0; i < 7; i++) await upload(agentToken, png()).expect(201);
+      await upload(agentToken, png()).expect(400);
+    });
+
+    it('refuses writing to anyone but the recording agent', async () => {
+      await upload(ownerA, png()).expect(403);
+      await upload(dgeToken, png()).expect(403);
+      await upload(vetToken, png()).expect(403);
+    });
+
+    it('serves the photo to the readers of the visit only, and journals third-party reads', async () => {
+      const since = new Date(Date.now() - 1000);
+      const url = `/farms/${farmA}/visits/${visitId}/photos/${photoId}`;
+      for (const token of [ownerA, dgeToken, vetToken, agentToken]) {
+        const res = await get(url, token).buffer(true).expect(200);
+        expect(res.headers['content-type']).toContain('image/png');
+      }
+      await get(url, ownerB).expect(403);
+      await get(url, bcegToken).expect(403);
+      const reads = await ds.query(
+        `SELECT actor_user_id FROM audit_events
+          WHERE action = 'READ_SENSITIVE' AND route = '/farms/:farmId/visits/:id/photos/:photoId'
+            AND occurred_at >= $1`,
+        [since],
+      );
+      const actors = reads.map((r: { actor_user_id: string }) => r.actor_user_id);
+      expect(actors).toContain(userIdOf(dgeToken));
+      expect(actors).not.toContain(userIdOf(ownerA));
+    });
+  });
+
   describe('programme view', () => {
     it('lists the visits of the scope with province and class filters', async () => {
       const all = await get('/programme/visits?pageSize=200', dgeToken).expect(200);
