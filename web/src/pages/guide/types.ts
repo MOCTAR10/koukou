@@ -65,8 +65,10 @@ export interface Summary {
   transverses: Record<string, number[] | string[]>;
   frictions: string;
   mvpPartiels: Array<{ num: string; intitule: string; texte: string }>;
-  reservesHonnetes: string[];
-  changesV6: string[];
+  terrain: Array<{ num: string; intitule: string; texte: string }>;
+  decisionsDge: string[];
+  miseEnService: string[];
+  phaseUlterieure: string[];
 }
 
 /** Rich text blocks for chapters that carry more than the who / why / how frame. */

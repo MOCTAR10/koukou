@@ -46,7 +46,7 @@ function Kpi({ value, label, tone }: { value: number | string; label: string; to
 
 /** « Synthèse du cahier des charges »: counts by priority, transverse tables, partial MVP lines and reserves. */
 export function SynthesisSection() {
-  const cols = ['Total', 'Couvert', 'Partiel léger', 'Partiel', 'Non couvert'];
+  const cols = ['Total', 'Couvert', 'Partiel', 'Non couvert', 'À valider sur le terrain'];
   const transCols = SUMMARY.transverses['colonnes'] as string[];
   const trans = Object.entries(SUMMARY.transverses).filter(([k]) => k !== 'colonnes') as Array<[string, number[]]>;
   return (
@@ -60,11 +60,11 @@ export function SynthesisSection() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi value={TOTAL[0]} label="exigences au cahier des charges" tone="text-brand-900" />
         <Kpi value={TOTAL[1]} label="couvertes" tone="text-emerald-700" />
-        <Kpi value={TOTAL[3]} label="partielles" tone="text-accent-700" />
-        <Kpi value={TOTAL[4]} label="non couvertes" tone="text-red-700" />
+        <Kpi value={TOTAL[2]} label="partielles" tone="text-accent-700" />
+        <Kpi value={TOTAL[3]} label="non couvertes" tone="text-red-700" />
       </div>
       <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4 text-slate-800">
-        <b>MVP obligatoire : {MVP[1]} exigences conformes sur {MVP[0]}</b>, {MVP[3]} partielles, {MVP[5]} à tester. Corrections en cours suite à la recette ANINF du 7 nov. 2026.
+        <b>MVP obligatoire : {MVP[1]} exigences couvertes sur {MVP[0]}</b>, {MVP[2]} partielles, {MVP[4]} à valider sur le terrain (n° 44 et 48). Quelques exigences transverses du MVP restent partielles (voir ci-dessous).
       </div>
 
       <h3 className="text-lg font-semibold text-slate-900">Couverture par priorité</h3>
@@ -87,7 +87,7 @@ export function SynthesisSection() {
         </table>
       </TableWrap>
       <p className="text-[17px] text-slate-600">
-        Lecture : sur les {MVP[0]} exigences obligatoires du MVP, {MVP[1]} sont conformes, {MVP[3]} partielles et {MVP[5]} non vérifiées (à tester), d’après la recette ANINF du 7 nov. 2026. Les phases ultérieures et évolutives n’étaient pas exigées pour le MVP ; plusieurs sont pourtant déjà livrées (comptabilité, traçabilité, Marché).
+        Lecture : sur les {MVP[0]} exigences obligatoires du MVP, {MVP[1]} sont couvertes, {MVP[2]} partielles et {MVP[4]} restent à valider sur le terrain (téléphone sans réseau, reprise réelle des données). Les phases ultérieures et évolutives n’étaient pas exigées pour le MVP ; plusieurs sont pourtant déjà livrées (comptabilité, traçabilité, Marché).
       </p>
 
       <h3 className="text-lg font-semibold text-slate-900">Exigences transverses</h3>
@@ -111,23 +111,43 @@ export function SynthesisSection() {
       </TableWrap>
       <p className="text-[17px] text-slate-600">Frictions du terrain : {SUMMARY.frictions}.</p>
 
-      <h3 className="text-lg font-semibold text-slate-900">Le partiel du MVP, sans détour</h3>
+      <h3 className="text-lg font-semibold text-slate-900">Partiels dans le MVP</h3>
       <div className="space-y-3">
         {SUMMARY.mvpPartiels.map((p) => (
           <div key={p.num} className="rounded-xl border-l-4 border-accent-500 bg-accent-50 p-4">
+            <p className="font-semibold text-slate-900">{p.num} : {p.intitule}</p>
+            <p className="mt-1 text-[17px] text-slate-700">{p.texte}</p>
+          </div>
+        ))}
+      </div>
+
+      <h3 className="text-lg font-semibold text-slate-900">À valider sur le terrain</h3>
+      <div className="space-y-3">
+        {SUMMARY.terrain.map((p) => (
+          <div key={p.num} className="rounded-xl border-l-4 border-sky-500 bg-sky-50 p-4">
             <p className="font-semibold text-slate-900">N° {p.num} : {p.intitule}</p>
             <p className="mt-1 text-[17px] text-slate-700">{p.texte}</p>
           </div>
         ))}
       </div>
 
-      <h3 className="text-lg font-semibold text-slate-900">Réserves honnêtes</h3>
+      <h3 className="text-lg font-semibold text-slate-900">Décisions attendues de la DGE</h3>
       <ul className="list-disc space-y-1.5 pl-5 text-[17px] text-slate-700 marker:text-accent-500">
-        {SUMMARY.reservesHonnetes.map((r) => <li key={r}>{r}</li>)}
+        {SUMMARY.decisionsDge.map((r) => <li key={r}>{r}</li>)}
+      </ul>
+
+      <h3 className="text-lg font-semibold text-slate-900">Mise en service</h3>
+      <ul className="list-disc space-y-1.5 pl-5 text-[17px] text-slate-700 marker:text-accent-500">
+        {SUMMARY.miseEnService.map((r) => <li key={r}>{r}</li>)}
+      </ul>
+
+      <h3 className="text-lg font-semibold text-slate-900">Phase ultérieure</h3>
+      <ul className="list-disc space-y-1.5 pl-5 text-[17px] text-slate-700 marker:text-accent-500">
+        {SUMMARY.phaseUlterieure.map((r) => <li key={r}>{r}</li>)}
       </ul>
       <div className="rounded-xl bg-slate-50 p-4 text-[17px] text-slate-700 ring-1 ring-slate-200">
         <b className="text-slate-900">Légende des statuts.</b>{' '}
-        <StatusBadge statut="✅" /> fonctionne et se vérifie dans l’application. <StatusBadge statut="🟠" /> existe, avec une limite expliquée. <StatusBadge statut="🔎" /> non vérifié lors de la recette ANINF, à tester. <StatusBadge statut="❌" /> pas encore livré.
+        <StatusBadge statut="✅" /> fonctionne et se vérifie dans l’application. <StatusBadge statut="🟠" /> existe, avec une limite expliquée. <StatusBadge statut="🔎" /> le code est en place ; reste à l'essayer sur le terrain. <StatusBadge statut="❌" /> pas encore livré.
       </div>
     </section>
   );
@@ -301,7 +321,7 @@ export function SecuritySection() {
   return (
     <section id="securite" data-part="Synthèse" data-title="Sécurité et protection des données" className="scroll-mt-24 space-y-5">
       <SectionTitle n="03">Sécurité et protection des données</SectionTitle>
-      <p className="max-w-3xl text-slate-700">Ce qui est en place dans le code, vérifié dans le dépôt. Les limites sont dites : le consentement des banques, le verrouillage de compte, le changement de code libre-service et les en-têtes helmet ne sont pas encore livrés (voir la synthèse).</p>
+      <p className="max-w-3xl text-slate-700">Ce qui est en place dans le code, vérifié dans le dépôt. Les limites sont dites : le consentement des banques et le changement de code en libre-service ne sont pas livrés (voir la synthèse).</p>
       <FactGrid items={SECURITY} />
       <div className="rounded-xl bg-slate-50 p-4 text-[17px] text-slate-700 ring-1 ring-slate-200">
         <b className="text-slate-900">Ce guide lui-même.</b> Page publique, sans donnée réelle : les captures montrent une ferme de démonstration, avec des numéros masqués. Elle ne charge aucun script ni aucune image externe.
@@ -454,7 +474,7 @@ export function RoutesSection() {
               <p className="mt-2 flex flex-wrap gap-2 text-[15px] font-semibold">
                 <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-emerald-800 ring-1 ring-emerald-200">{n('✅')} couvertes</span>
                 <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-amber-800 ring-1 ring-amber-200">{n('🟠')} partielles</span>
-                <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-sky-800 ring-1 ring-sky-200">{n('🔎')} à tester</span>
+                <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-sky-800 ring-1 ring-sky-200">{n('🔎')} à valider</span>
                 <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-red-800 ring-1 ring-red-200">{n('❌')} non livrées</span>
               </p>
               <p className="mt-2 text-[17px]"><a href="#exigences" className="text-brand-700 underline underline-offset-2">Voir les exigences n° {list[0].ref} à {list[list.length - 1].ref}</a></p>

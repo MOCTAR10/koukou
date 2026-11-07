@@ -95,8 +95,8 @@ function SynthesisSlide({ compact }: { compact: boolean }) {
   const kpi = [
     { v: TOTAL[0], l: 'exigences', c: 'text-brand-900' },
     { v: TOTAL[1], l: 'couvertes', c: 'text-emerald-700' },
-    { v: TOTAL[3], l: 'partielles', c: 'text-amber-700' },
-    { v: TOTAL[4], l: 'non couvertes', c: 'text-red-700' },
+    { v: TOTAL[2], l: 'partielles', c: 'text-amber-700' },
+    { v: TOTAL[3], l: 'non couvertes', c: 'text-red-700' },
   ];
   return (
     <Frame kicker="Cahier des charges · Synthèse" title="Ce que la plateforme couvre" compact={compact}>
@@ -111,20 +111,20 @@ function SynthesisSlide({ compact }: { compact: boolean }) {
             ))}
           </div>
           <p className="rounded-2xl border-l-8 border-emerald-600 bg-emerald-50 p-4 text-2xl leading-snug text-slate-900">
-            <b>MVP : {MVP[1]} sur {MVP[0]} conformes</b>, {MVP[3]} partielles, {MVP[5]} à tester (recette ANINF du 7 nov. 2026, corrections en cours).
+            <b>MVP : {MVP[1]} sur {MVP[0]} couvertes</b>, {MVP[2]} partielles, {MVP[4]} à valider sur le terrain (n° 44 et 48).
           </p>
         </div>
         <table className="w-full self-start border-collapse text-xl">
           <thead>
             <tr className="text-left text-base uppercase tracking-wide text-slate-600">
-              <th className="py-2">Priorité</th><th className="text-right">Total</th><th className="text-right">Couv.</th><th className="text-right">Part.</th><th className="text-right">Non</th><th className="text-right">À tester</th>
+              <th className="py-2">Priorité</th><th className="text-right">Total</th><th className="text-right">Couv.</th><th className="text-right">Part.</th><th className="text-right">Non</th><th className="text-right" title="À valider sur le terrain">Terrain</th>
             </tr>
           </thead>
           <tbody>
             {Object.entries(SUMMARY.decomptes.lignes).map(([k, v]) => (
               <tr key={k} className={'border-t border-slate-300 ' + (k === 'Total' ? 'font-bold' : '')}>
                 <td className="py-2.5 font-medium text-slate-900">{k}</td>
-                <td className="text-right tabular-nums">{v[0]}</td><td className="text-right tabular-nums">{v[1]}</td><td className="text-right tabular-nums">{v[3]}</td><td className="text-right tabular-nums">{v[4]}</td><td className="text-right tabular-nums">{v[5]}</td>
+                {v.map((x, i) => <td key={i} className="text-right tabular-nums">{x}</td>)}
               </tr>
             ))}
           </tbody>
@@ -134,19 +134,67 @@ function SynthesisSlide({ compact }: { compact: boolean }) {
   );
 }
 
+function ReserveCard({ title, text, tone }: { title: string; text: string; tone: 'amber' | 'sky' }) {
+  return (
+    <div className={'rounded-2xl border-l-8 px-4 py-2.5 ' + (tone === 'amber' ? 'border-amber-500 bg-amber-50' : 'border-sky-500 bg-sky-50')}>
+      <p className="text-[19px] leading-snug text-slate-800"><b className="text-slate-900">{title}.</b> {text}</p>
+    </div>
+  );
+}
+
+function ReserveList({ items }: { items: string[] }) {
+  return (
+    <ul className="space-y-2">
+      {items.map((r) => (
+        <li key={r} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-[19px] leading-snug text-slate-800">{r}</li>
+      ))}
+    </ul>
+  );
+}
+
+const heading = 'mb-2 text-base font-bold uppercase tracking-[0.12em] text-amber-700';
+
 function ReservesSlide({ compact }: { compact: boolean }) {
   return (
-    <Frame kicker="Cahier des charges · Transparence" title="Ce qui reste à faire, sans détour" compact={compact}>
-      <div className="space-y-4">
-        {SUMMARY.mvpPartiels.map((p) => (
-          <div key={p.num} className="rounded-2xl border-l-8 border-amber-500 bg-amber-50 p-5">
-            <p className="text-2xl font-bold text-slate-900">MVP, n° {p.num} : {p.intitule}</p>
-            <p className="mt-1 text-xl leading-snug text-slate-800">{p.texte}</p>
+    <Frame kicker="Cahier des charges · Ce qui reste à faire (1/2)" title="Dans le code et sur le terrain" compact={compact}>
+      <div className={compact ? 'space-y-5' : 'grid grid-cols-2 gap-8'}>
+        <div>
+          <p className={heading}>Partiels dans le MVP</p>
+          <div className="space-y-2">
+            {SUMMARY.mvpPartiels.map((p) => <ReserveCard key={p.num} tone="amber" title={`${p.num} ${p.intitule}`} text={p.texte} />)}
           </div>
-        ))}
-        <ul className="list-disc space-y-2 pl-6 text-xl leading-snug text-slate-800 marker:text-amber-600">
-          {SUMMARY.reservesHonnetes.slice(1, 3).map((r) => <li key={r}>{r}</li>)}
-        </ul>
+        </div>
+        <div className="space-y-5">
+          <div>
+            <p className={heading}>À valider sur le terrain</p>
+            <div className="space-y-2">
+              {SUMMARY.terrain.map((p) => <ReserveCard key={p.num} tone="sky" title={`N° ${p.num} ${p.intitule}`} text={p.texte} />)}
+            </div>
+          </div>
+          <div>
+            <p className={heading}>Phase ultérieure</p>
+            <ul className="list-disc space-y-0.5 pl-6 text-[19px] leading-snug text-slate-800 marker:text-amber-600">
+              {SUMMARY.phaseUlterieure.map((r) => <li key={r}>{r}</li>)}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+function ReservesDecisionsSlide({ compact }: { compact: boolean }) {
+  return (
+    <Frame kicker="Cahier des charges · Ce qui reste à faire (2/2)" title="Décisions et mise en service" compact={compact}>
+      <div className={compact ? 'space-y-5' : 'grid grid-cols-[1.25fr_1fr] gap-8'}>
+        <div>
+          <p className={heading}>Décisions attendues de la DGE</p>
+          <ReserveList items={SUMMARY.decisionsDge} />
+        </div>
+        <div>
+          <p className={heading}>Mise en service</p>
+          <ReserveList items={SUMMARY.miseEnService} />
+        </div>
       </div>
     </Frame>
   );
@@ -284,7 +332,8 @@ export function buildSlides(): Slide[] {
     },
     { id: 'role', label: 'Qui fait quoi', section: INTRO, title: 'Qui fait quoi ?', text: 'rôles acteurs administrateur institution exploitant parcours', notes: () => <RoutesSection />, render: (c) => <RoleSlide compact={c} /> },
     { id: 'synthese', label: 'Synthèse du CDC', section: CDC, title: 'Ce que la plateforme couvre', text: 'synthèse exigences couvertes partielles MVP matrice', notes: () => <><SynthesisSection /><div className="mt-10"><RequirementsSection /></div></>, render: (c) => <SynthesisSlide compact={c} /> },
-    { id: 'reserves', label: 'Ce qui reste à faire', section: CDC, title: 'Ce qui reste à faire, sans détour', text: SUMMARY.mvpPartiels.map((p) => p.intitule).join(' ') + ' réserves', render: (c) => <ReservesSlide compact={c} /> },
+    { id: 'reserves', label: 'Ce qui reste à faire (1/2)', section: CDC, title: 'Ce qui reste à faire : dans le code et sur le terrain', text: [...SUMMARY.mvpPartiels, ...SUMMARY.terrain].map((p) => `${p.num} ${p.intitule} ${p.texte}`).join(' ') + ' ' + SUMMARY.phaseUlterieure.join(' '), render: (c) => <ReservesSlide compact={c} /> },
+    { id: 'reserves-decisions', label: 'Ce qui reste à faire (2/2)', section: CDC, title: 'Ce qui reste à faire : décisions et mise en service', text: [...SUMMARY.decisionsDge, ...SUMMARY.miseEnService].join(' '), render: (c) => <ReservesDecisionsSlide compact={c} /> },
   ];
   chunk(SECURITY, 6).forEach((items, i, all) =>
     slides.push({
