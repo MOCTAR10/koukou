@@ -42,8 +42,8 @@ describe('Lots tab headline', () => {
 
   it('puts the official value first and labels Fermia’s figure « conduite »', () => {
     const cell = headlineCell(map.get('a'), 'taux_mortalite', { text: '3,4 %', value: 3.4 });
-    expect(cell).toEqual({ value: '3,2 %', sub: `Fermia 3,4 % · ${CONDUITE_LABEL}`, official: true, numeric: 3.21 });
-    expect(headlineCell(map.get('a'), 'ic', { text: '1,7', value: 1.7 }, true).sub).toBe('Fermia 1,7 · conduite');
+    expect(cell).toEqual({ value: '3,2 %', sub: '', official: true, numeric: 3.21 });
+    expect(headlineCell(map.get('a'), 'ic', { text: '1,7', value: 1.7 }, true).sub).toBe('');
     expect(headlineCell(map.get('b'), 'ic', { text: '1,7', value: 1.7 }).value).toBe('non calculable');
   });
 
@@ -55,7 +55,7 @@ describe('Lots tab headline', () => {
   it('builds the four cells of a lot from its metrics', () => {
     const head = lotHeadlines(map.get('a'), { mortalityPercent: 3.4, fcr: 1.7, gmqGramsPerDay: null, viabilityPercent: 96.6 });
     expect(head.mortality.value).toBe('3,2 %');
-    expect(head.fcr.sub).toBe(`Fermia 1,7 · ${CONDUITE_LABEL}`);
+    expect(head.fcr.sub).toBe('');
     expect(head.gmq).toEqual({ value: '—', sub: CONDUITE_LABEL, official: false, numeric: null });
     expect(head.viability.value).toBe('96,6 %');
   });
@@ -64,7 +64,7 @@ describe('Lots tab headline', () => {
     const cell = overviewCell(['a', 'b', 'c'], map, 'taux_mortalite', { text: '2 %', value: 2 });
     expect(cell.value).toBe('2,1 %');
     expect(cell.numeric).toBeCloseTo(2.105);
-    expect(cell.sub).toBe(`Fermia 2 % · ${CONDUITE_LABEL}`);
+    expect(cell.sub).toBe('');
     // A dated overview has no official set.
     expect(overviewCell(['a'], null, 'ic', { text: '1,8', value: 1.8 })).toEqual({ value: '1,8', sub: CONDUITE_LABEL, official: false, numeric: 1.8 });
   });

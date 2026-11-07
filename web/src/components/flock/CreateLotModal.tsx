@@ -294,6 +294,7 @@ export function CreateLotModal({
               <button
                 key={k}
                 type="button"
+                aria-label={v}
                 aria-pressed={species === k}
                 onClick={() => {
                   if (k === species) return;

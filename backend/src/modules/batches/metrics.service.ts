@@ -166,12 +166,7 @@ export class MetricsService {
     const historical = asOf != null && asOf < todayIso();
     const [
       entriesRaw,
-      standardModule,
-      densityWarn,
-      densityCritical,
-      minVenteAgeDays,
-      fcrDeviationMaxPct,
-      reformeLayRateFallPct,
+      constantsByKey,
       standards,
       alertsCount,
       holds,
@@ -180,18 +175,29 @@ export class MetricsService {
         where: { batchId: batch.id },
         order: { entryDate: 'ASC' },
       }),
-      this.constants.get(ReferenceKey.STANDARD_MODULE, 3000),
-      this.constants.get(ReferenceKey.DENSITY_WARN, 15),
-      this.constants.get(ReferenceKey.DENSITY_CRITICAL, 18),
-      this.constants.get(ReferenceKey.VENTE_AGE_MIN_DAYS, 35),
-      this.constants.get(ReferenceKey.VENTE_FCR_DEV_MAX_PCT, 10),
-      this.constants.get(ReferenceKey.REFORME_LAY_RATE_FALL_PCT, 15),
+      // One query for the six thresholds (was six: recette A16, N queries per lot).
+      this.constants.getMany([
+        ReferenceKey.STANDARD_MODULE,
+        ReferenceKey.DENSITY_WARN,
+        ReferenceKey.DENSITY_CRITICAL,
+        ReferenceKey.VENTE_AGE_MIN_DAYS,
+        ReferenceKey.VENTE_FCR_DEV_MAX_PCT,
+        ReferenceKey.REFORME_LAY_RATE_FALL_PCT,
+      ]),
       this.loadStandards(batch),
       this.alertRepo.count({
         where: { batchId: batch.id, status: AlertStatus.ACTIVE },
       }),
       sanitaryHolds(this.alertRepo.manager, batch.farmId, batch.id),
     ]);
+
+    const standardModule = constantsByKey[ReferenceKey.STANDARD_MODULE] ?? 3000;
+    const densityWarn = constantsByKey[ReferenceKey.DENSITY_WARN] ?? 15;
+    const densityCritical = constantsByKey[ReferenceKey.DENSITY_CRITICAL] ?? 18;
+    const minVenteAgeDays = constantsByKey[ReferenceKey.VENTE_AGE_MIN_DAYS] ?? 35;
+    const fcrDeviationMaxPct = constantsByKey[ReferenceKey.VENTE_FCR_DEV_MAX_PCT] ?? 10;
+    const reformeLayRateFallPct =
+      constantsByKey[ReferenceKey.REFORME_LAY_RATE_FALL_PCT] ?? 15;
 
     const entries = historical
       ? entriesRaw.filter((e) => e.entryDate <= asOf)

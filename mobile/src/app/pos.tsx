@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { plural } from '@/utils/plural';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -407,7 +408,7 @@ export default function PosScreen() {
         </View>
       </View>
       <AppText size="small" weight="semibold" color="text" style={{ marginTop: spacing.xs }}>
-        {fmt(totalVivants)} vivants (total) · {fmt(lots.length)} lots · {fmt(totalCarcasses)} carcasses · {fmt(availAlveoles)} alvéoles
+        {fmt(totalVivants)} vivants (total) · {plural(lots.length, 'lot')} · {fmt(totalCarcasses)} carcasses · {fmt(availAlveoles)} alvéoles
       </AppText>
     </View>
   );

@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { fetchBandComparison, fetchBandHistory, fetchDeclarativeStock } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { COMPARISON_METRICS, type CellTone } from '@/poufa/comparison';
-import { CONDUITE_LABEL, HEADLINE, currentBand, findIndicator, latestComparison, officialText } from '@/poufa/official-headline';
+import { HEADLINE, currentBand, findIndicator, latestComparison, officialText } from '@/poufa/official-headline';
 import { color, fmt, palette, semantic } from '@/constants/theme';
 
 const TONE_COLOR: Record<CellTone, string> = {
@@ -116,9 +116,6 @@ export function CurrentBandCard({ farmId, feedAutonomyDays, onOpen }: Props) {
           })}
         </View>
       ) : null}
-      <AppText size="small" color="faint">
-        Les chiffres Fermia plus bas sont un {CONDUITE_LABEL}.
-      </AppText>
     </Card>
   );
 }

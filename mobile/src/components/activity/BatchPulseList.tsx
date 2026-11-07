@@ -59,7 +59,7 @@ export function BatchPulseList({ rows }: { rows: HealthOverviewRow[] }) {
               </View>
               <AppText size="small" color="muted" numberOfLines={1}>
                 {fmtNum(row.liveCount ?? 0)} vivants · {row.ageDays ?? 0} j
-                {row.weekDeaths > 0 ? ` · ${fmtNum(row.weekDeaths)} morts / sem.` : ''}
+                {row.weekDeaths > 0 ? ` · ${fmtNum(row.weekDeaths)} ${row.weekDeaths > 1 ? 'morts' : 'mort'} / sem.` : ''}
               </AppText>
               {stale ? (
                 <AppText size="small" color="muted" numberOfLines={1}>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plural } from '@/utils/plural';
 import { toast, confirm } from '@/components/ui/Feedback';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -223,7 +224,7 @@ export default function DepensesScreen() {
       const result = await syncExpenses(farmId ?? '');
       const total = result.batchesSynced + result.inputsSynced;
       if (total > 0) {
-        toast.success('Synchronisation terminée', `${result.batchesSynced} lot(s) et ${result.inputsSynced} intrant(s) synchronisés.`);
+        toast.success('Synchronisation terminée', `${plural(result.batchesSynced, 'lot synchronisé', 'lots synchronisés')} et ${plural(result.inputsSynced, 'intrant synchronisé', 'intrants synchronisés')}.`);
       } else {
         toast.success('Synchronisation terminée', 'Toutes les dépenses sont déjà synchronisées.');
       }

@@ -393,7 +393,7 @@ export function Shell() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <div className="flex min-w-0 items-center text-sm font-medium text-slate-700">
+          <div className="flex min-w-0 flex-1 items-center text-sm font-medium text-slate-700 lg:flex-none">
             {!onProgramme && farm ? (
               <>
                 {/* The rail has no room for the farm picker: it moves up here. */}
@@ -405,8 +405,8 @@ export function Shell() {
                   onPick={setFarm}
                   label={pickerLabel}
                 />
-                <span className="truncate md:max-xl:hidden">
-                  {isAdmin ? <span className="text-slate-400">Ferme : </span> : null}
+                <span className="line-clamp-2 min-w-0 break-words leading-tight sm:truncate md:max-xl:hidden">
+                  {isAdmin ? <span className="hidden text-slate-400 sm:inline">Ferme : </span> : null}
                   {farm.name}
                 </span>
                 {farm.code ? (
@@ -440,14 +440,14 @@ export function Shell() {
           <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
             {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
           </div>
-          <div className="ml-auto lg:ml-0">{!onProgramme && farmId ? <QuickCreate /> : null}</div>
+          <div className="shrink-0 lg:ml-0">{!onProgramme && farmId ? <QuickCreate /> : null}</div>
           {/* POUFA L5: unread notifications (hidden without the inbox right). */}
           <NotificationBell />
           {isAdmin ? (
             <button
               onClick={() => navigate('/app/platform')}
               className={classNames(
-                'rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+                'shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition',
                 onPlatform
                   ? 'bg-brand-600 text-white'
                   : 'bg-brand-50 text-brand-700 hover:bg-brand-100',

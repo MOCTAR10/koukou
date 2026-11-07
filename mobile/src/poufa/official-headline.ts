@@ -98,3 +98,19 @@ export function latestComparison(c: BandComparison | null | undefined): Comparis
 export function showsBandEconomics(list: readonly ({ economicMasked?: boolean } | null | undefined)[]): boolean {
   return !list.some((item) => item?.economicMasked === true);
 }
+
+/**
+ * Qualification of an IC (lower is better). With the breed reference, the
+ * deviation decides (recette A11: « Excellent » at +8 % above the reference was
+ * wrong); without it only an absurdly high IC is flagged, never « Excellent ».
+ */
+export function fcrQualification(fcr: number | null | undefined, deviationPct?: number | null): string {
+  if (fcr == null) return 'Pas de donnée';
+  if (deviationPct != null && Number.isFinite(deviationPct)) {
+    if (deviationPct <= -3) return 'Meilleur que la référence';
+    if (deviationPct <= 3) return 'Conforme à la référence';
+    if (deviationPct <= 10) return 'Au-dessus de la référence';
+    return 'Élevé';
+  }
+  return fcr > 2.2 ? 'Élevé' : 'Conforme';
+}

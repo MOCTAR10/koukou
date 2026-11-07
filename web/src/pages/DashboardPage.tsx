@@ -6,6 +6,8 @@ import {
   Activity,
   AlertTriangle,
   Banknote,
+  BookOpen,
+  ChevronDown,
   Calendar,
   CalendarClock,
   LayoutDashboard,
@@ -39,6 +41,7 @@ import { ActionQueue, EggStockPanel, OwnerStats, PerformanceTiles, Ranking, Weat
 // POUFA lot A indic: official headline of the open bands, Fermia's figure second.
 import { ConduiteValue, OfficialValue, useBandHistory } from '../components/bandes/OfficialHeadline';
 import { CONDUITE_LABEL, FERMIA_FORMULAS, currentBand, findIndicator, openBandsHeadline, summariesById } from '../components/bandes/headline';
+import { DailyEntryModal } from '../components/flock/DailyEntryModal';
 import { CheptelModal, mainSpeciesImage } from '../components/flock/CheptelModal';
 import { HEALTH_LABEL } from '../components/sales/labels';
 import { batchPhoto } from '../components/sales/pos';
@@ -95,6 +98,8 @@ function LivestockDashboard() {
   });
   const [curveBatchId, setCurveBatchId] = useState<string>('');
   const [cheptelOpen, setCheptelOpen] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const [entering, setEntering] = useState(false);
   // Two columns need the room: below this, the rail would squeeze the amounts in the main column.
   const wide = useMediaQuery('(min-width: 1440px)');
 
@@ -184,12 +189,25 @@ function LivestockDashboard() {
 
   const d = dash.data;
   const liveLots = batchList.filter((b) => b.status !== 'CLOTURE');
+  // Average IC deviation to the breed reference of the open lots (weighted by live birds).
+  const fcrDeviationPct = (() => {
+    let sum = 0;
+    let w = 0;
+    for (const h of activeBatches) {
+      const dev = h.breedStatus?.fcrDeviationPct;
+      if (dev == null || !Number.isFinite(dev)) continue;
+      const weight = Math.max(h.liveCount, 1);
+      sum += dev * weight;
+      w += weight;
+    }
+    return w > 0 ? sum / w : null;
+  })();
   // Dashboard rows carry no breed or species: the photo comes from the lot itself.
   const lotPhoto = (batchId: string) => batchPhoto(batchList.find((b) => b.id === batchId));
 
-  const kpis = (
+  const kpisCore = (
       <motion.div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 min-[1800px]:grid-cols-6"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3"
         variants={stagger}
         initial="hidden"
         animate="show"
@@ -215,8 +233,8 @@ function LivestockDashboard() {
                 </span>
               }
               hint={
-                <span title={FERMIA_FORMULAS.mortality}>
-                  Viabilité {officialHeadline.viabilite != null ? pct(officialHeadline.viabilite) : '—'} · Fermia {pct(d.mortalityPercent)} ({CONDUITE_LABEL})
+                <span title={`Valeur Fermia (${CONDUITE_LABEL}) : ${pct(d.mortalityPercent)}. ${FERMIA_FORMULAS.mortality}`}>
+                  Viabilité {officialHeadline.viabilite != null ? pct(officialHeadline.viabilite) : '—'}
                 </span>
               }
               icon={<Activity className="h-5 w-5" />}
@@ -240,7 +258,15 @@ function LivestockDashboard() {
             tone={d.feedAutonomyDays != null && d.feedAutonomyDays < 3 ? 'warn' : 'default'}
           />
         </motion.div>
-        {showsCollectedToday(d.collectedTodayFcfa, canRead) ? (
+      </motion.div>
+  );
+  const kpisMore = (
+      <motion.div
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 min-[1800px]:grid-cols-6"
+        variants={stagger}
+        initial="hidden"
+        animate="show"
+      >        {showsCollectedToday(d.collectedTodayFcfa, canRead) ? (
           <motion.div variants={staggerItem}>
             <StatCard
               label="Encaissé du jour"
@@ -508,18 +534,39 @@ function LivestockDashboard() {
 
       <ErrorNote error={batches.error ?? slaughter.error ?? pnl.error ?? clients.error} />
 
+      {priority}
+      {hasPermission('saisie:creer') ? (
+        <button
+          type="button"
+          onClick={() => setEntering(true)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-700 sm:w-auto"
+        >
+          <BookOpen className="h-5 w-5" /> Saisie du jour
+        </button>
+      ) : null}
+      {kpisCore}
+      <PerformanceTiles batches={batchList} official={officialHeadline} fcrDeviationPct={fcrDeviationPct} />
+      <button
+        type="button"
+        aria-expanded={showMore}
+        onClick={() => setShowMore((v) => !v)}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+      >
+        <ChevronDown className={classNames('h-4 w-4 transition', showMore && 'rotate-180')} />
+        {showMore ? 'Masquer les indicateurs' : 'Plus d’indicateurs'}
+      </button>
+      {showMore ? (
+        <>
       {wide ? (
         <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-6 min-[1800px]:grid-cols-[minmax(0,1fr)_400px]">
           <div className="space-y-6">
-            {kpis}
-            <PerformanceTiles batches={batchList} official={officialHeadline} />
+            {kpisMore}
             {curve_card}
             {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
             {tables_row}
             <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} showFinance={canReports} showClients={canClients} />
           </div>
           <div className="space-y-6">
-            {priority}
             <WeatherCard weather={d.weather} />
             {health}
             <ActionQueue advisory={advisory.data} error={advisory.isError} />
@@ -528,11 +575,9 @@ function LivestockDashboard() {
         </div>
       ) : (
         <>
-          {priority}
-          {kpis}
+          {kpisMore}
           <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             <WeatherCard weather={d.weather} />
-            <PerformanceTiles batches={batchList} official={officialHeadline} />
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
             {health}
@@ -546,6 +591,10 @@ function LivestockDashboard() {
         </>
       )}
 
+        </>
+      ) : null}
+
+      {entering ? <DailyEntryModal onClose={() => setEntering(false)} /> : null}
       {cheptelOpen ? (
         <CheptelModal
           batches={batches.data ? liveLots : undefined}

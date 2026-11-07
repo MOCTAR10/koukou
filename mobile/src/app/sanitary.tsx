@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { plural } from '@/utils/plural';
 import { toast, confirm } from '@/components/ui/Feedback';
 import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -1680,7 +1681,7 @@ function CreateScheduleWizard({
         for (const lid of selLots) {
           await invalidateFarmQueries(queryClient, { farmId, batchId: lid });
         }
-        toast.success('Soin planifié', `${selLots.length} lot(s) concerné(s)${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`);
+        toast.success('Soin planifié', `${plural(selLots.length, 'lot concerné', 'lots concernés')}${fromStock ? ` · sortie de stock de ${payload.medicationQty} ${payload.medicationUnit ?? ''}` : ''}.`);
       }
       onClose();
     } catch (e) {

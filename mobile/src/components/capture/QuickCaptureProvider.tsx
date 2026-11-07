@@ -7,6 +7,8 @@ import { QuickActions } from './QuickActions';
 import { DailyEntrySheet } from './DailyEntrySheet';
 import { FeedEntrySheet } from './FeedEntrySheet';
 import { color } from '@/constants/theme';
+import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { toast } from '../ui/Feedback';
 
 type Mode = 'none' | 'quick' | 'daily' | 'feed';
 
@@ -27,6 +29,10 @@ export function useQuickCapture(): QuickCaptureApi {
 
 export function QuickCaptureProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const { hasPermission, fermiaReadOnly } = useFarmProfile();
+  // Read-only profiles (institution, member without the right): the forms do not open (recette A13).
+  const canEnter = hasPermission('saisie:creer') && !fermiaReadOnly;
+  const canStock = hasPermission('stock:gerer') && !fermiaReadOnly;
   const [mode, setMode] = useState<Mode>('none');
   const [targetBatch, setTargetBatch] = useState<string | undefined>(undefined);
   const [dailySticky, setDailySticky] = useState<React.ReactNode>(undefined);
@@ -43,6 +49,10 @@ export function QuickCaptureProvider({ children }: { children: React.ReactNode }
     () => ({
       openQuick: () => setMode('quick'),
       openDaily: (batchId) => {
+        if (!canEnter) {
+          toast.error('Votre profil est en consultation seule : saisie non autorisée.');
+          return;
+        }
         setTargetBatch(batchId);
         setMode('daily');
       },
@@ -51,11 +61,15 @@ export function QuickCaptureProvider({ children }: { children: React.ReactNode }
         router.push({ pathname: '/pos', params: batchId ? { batch: batchId } : {} });
       },
       openFeed: () => {
+        if (!canStock) {
+          toast.error('Votre profil est en consultation seule : entrée de provende non autorisée.');
+          return;
+        }
         setTargetBatch(undefined);
         setMode('feed');
       },
     }),
-    [router],
+    [router, canEnter, canStock],
   );
 
   const titles: Record<Exclude<Mode, 'none'>, { title: string; subtitle: string; icon: React.ReactNode }> = {
@@ -85,7 +99,7 @@ export function QuickCaptureProvider({ children }: { children: React.ReactNode }
         {mode === 'quick' && (
           <QuickActions
             onPick={(key) => {
-              if (key === 'saisie') { setMode('daily'); return; }
+              if (key === 'saisie') { if (canEnter) setMode('daily'); else toast.error('Votre profil est en consultation seule : saisie non autorisée.'); return; }
               if (key === 'vente') { close(); router.push('/pos'); return; }
               if (key === 'soin') { close(); router.push('/sanitary'); return; }
               if (key === 'caisse') { close(); router.push('/pos?tab=CAISSE'); return; }

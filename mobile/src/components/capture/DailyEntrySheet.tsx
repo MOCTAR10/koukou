@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plural } from '@/utils/plural';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -793,14 +794,21 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     // Editing an existing entry: clearing every field is a valid correction.
     existingEntry != null;
 
+  // Egg step only for laying lots (or an entry that already carries eggs): hidden on a meat lot.
+  const showEggs = ctx?.isLayer === true || values.eggs > 0;
+  const steps = useMemo(() => (showEggs ? STEPS : STEPS.filter((s) => s.key !== 'oeufs')), [showEggs]);
+  const stepKey = steps[Math.min(step, steps.length - 1)]?.key;
   const completed = useMemo<boolean[]>(
-    () => [
-      values.deaths > 0,
-      feedKgEquivalent > 0 || values.waterL > 0,
-      values.eggs > 0,
-      values.weightG > 0,
-    ],
-    [values.deaths, feedKgEquivalent, values.waterL, values.eggs, values.weightG],
+    () => {
+      const all: Record<string, boolean> = {
+        morts: values.deaths > 0,
+        aliments: feedKgEquivalent > 0 || values.waterL > 0,
+        oeufs: values.eggs > 0,
+        poids: values.weightG > 0,
+      };
+      return steps.map((st) => all[st.key] === true);
+    },
+    [steps, values.deaths, feedKgEquivalent, values.waterL, values.eggs, values.weightG],
   );
 
   // ── Indicateur d'étapes : hoisté dans la zone fixe du Sheet (ne défile pas) ──
@@ -815,9 +823,9 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
   );
   const stepsNode = useMemo(
     () => (
-      <StepProgress steps={STEPS} activeIndex={step} completed={completed} onSelect={onSelectStep} />
+      <StepProgress steps={steps} activeIndex={step} completed={completed} onSelect={onSelectStep} />
     ),
-    [step, completed, onSelectStep],
+    [steps, step, completed, onSelectStep],
   );
   useEffect(() => {
     if (!onStickyChange) return;
@@ -842,7 +850,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       return;
     }
     if (deathsExceedLive) {
-      setError(`Impossible : ${values.deaths} morts dépasse l'effectif vivant (${ctx?.live}).`);
+      setError(`Impossible : ${plural(values.deaths, 'mort')} dépasse l'effectif vivant (${ctx?.live}).`);
       return;
     }
     if (rejectsExceed) {
@@ -890,14 +898,14 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
             <Button label="Retour" tone="ghost" size="md" block={false} onPress={() => { setStep((s) => s - 1); setError(null); }} disabled={saving} />
           ) : null}
           <View style={{ flex: 1 }}>
-            {step < STEPS.length - 1 ? (
+            {step < steps.length - 1 ? (
               <Button
                 label="Suivant"
                 tone="brand"
                 disabled={saving}
                 onPress={() => {
                   if (step === 0 && deathsExceedLive) {
-                    setError(`Impossible : ${values.deaths} morts dépasse l'effectif vivant (${ctx?.live}).`);
+                    setError(`Impossible : ${plural(values.deaths, 'mort')} dépasse l'effectif vivant (${ctx?.live}).`);
                     return;
                   }
                   setStep((s) => s + 1);
@@ -917,7 +925,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
         </View>
       </View>
     ),
-    [error, step, saving, existingEntry, hasAnything, deathsExceedLive, rejectsExceed, sampleRefusal, ctx?.live, values.deaths, save],
+    [error, step, steps, saving, existingEntry, hasAnything, deathsExceedLive, rejectsExceed, sampleRefusal, ctx?.live, values.deaths, save],
   );
   useEffect(() => {
     if (!onFooterChange) return;
@@ -1113,7 +1121,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       ) : null}
 
       {/* ── ÉTAPE 1 : MORTS ── */}
-      {step === 0 ? (
+      {stepKey === 'morts' ? (
         <View style={styles.section}>
           <SectionHeader icon={Skull} title="Morts" done={values.deaths > 0} accent={palette.red[500]} />
           <NumberInput
@@ -1147,7 +1155,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       ) : null}
 
       {/* ── ÉTAPE 2 : ALIMENTS & EAU ── */}
-      {step === 1 ? (
+      {stepKey === 'aliments' ? (
         <View style={styles.section}>
           <SectionHeader
             icon={Wheat}
@@ -1409,7 +1417,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       ) : null}
 
       {/* ── ÉTAPE 3 : ŒUFS ── */}
-      {step === 2 ? (
+      {stepKey === 'oeufs' ? (
         <View style={styles.section}>
           <SectionHeader
             icon={Egg}
@@ -1525,7 +1533,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       ) : null}
 
       {/* ── ÉTAPE 4 : POIDS ── */}
-      {step === 3 ? (
+      {stepKey === 'poids' ? (
         <View style={styles.section}>
           <SectionHeader
             icon={Scale}

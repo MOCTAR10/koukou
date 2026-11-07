@@ -54,7 +54,7 @@ import { BandHistoryCard, ConduiteValue, OfficialMetric, OfficialValue, useBandH
 import { FERMIA_FORMULAS, currentBand, findIndicator, openBandsHeadline, summariesById, type HeadlineKey } from '../components/bandes/headline';
 import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { EGG_IMAGES, lotImage } from '../lib/animalImages';
-import { dateFr, fcfa, num } from '../lib/format';
+import { dateFr, fcfa, num, plural } from '../lib/format';
 
 type Filter = 'all' | 'active' | 'selling' | 'chair' | 'layer' | 'closed';
 type SortKey = 'name' | 'age' | 'mortality' | 'fcr' | 'live' | 'health';
@@ -243,7 +243,7 @@ export function BatchesPage() {
             }
           >
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
-              <Metric label="Oiseaux vivants" icon={<Bird />} value={num(summary.birds)} sub={`${summary.active} lots`} />
+              <Metric label="Oiseaux vivants" icon={<Bird />} value={num(summary.birds)} sub={plural(summary.active, 'lot actif', 'lots actifs')} />
               <OfficialMetric
                 label="Mortalité moy."
                 icon={<HeartPulse />}

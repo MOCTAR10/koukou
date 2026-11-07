@@ -420,7 +420,7 @@ function EntryForm({
 
       {deathsExceed ? (
         <Note tone="red">
-          Impossible : {num(deathsN)} morts atteint l'effectif vivant ({num(live)}).
+          Impossible : {num(deathsN)} {deathsN > 1 ? 'morts atteignent' : 'mort atteint'} l'effectif vivant ({num(live)}).
         </Note>
       ) : deathsN > 0 && live > 0 ? (
         <p className="text-xs text-slate-500">Soit {num((deathsN / live) * 100, 2)} % de l'effectif vivant.</p>
@@ -522,6 +522,7 @@ function EntryForm({
       </div>
 
       <div className="min-w-0 space-y-4">
+      {isLayer || eggs > 0 ? (
       <fieldset className="space-y-3 rounded-xl border border-slate-200 p-4">
         <legend className="inline-flex items-center gap-1.5 px-1 text-xs font-semibold text-slate-600">
           <Egg className="h-3.5 w-3.5 text-accent-700" /> Œufs{isLayer ? '' : ' (si le lot pond)'}
@@ -582,6 +583,7 @@ function EntryForm({
           </Note>
         ) : null}
       </fieldset>
+      ) : null}
 
       {weightGN > 0 ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">

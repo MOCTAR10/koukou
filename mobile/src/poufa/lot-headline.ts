@@ -5,7 +5,7 @@
 // (no band summary yet, or the overview rebuilt at a past date) Fermia's figure
 // stays, still labelled as a conduct indicator. Pure.
 import type { BandHistoryRow, BandSummaryIndicator } from '@/api/poufa';
-import { CONDUITE_LABEL, conduiteLine, findIndicator, officialText, type HeadlineKey } from './official-headline';
+import { CONDUITE_LABEL, findIndicator, officialText, type HeadlineKey } from './official-headline';
 
 /** Short form for the compact cells of a card. */
 export const CONDUITE_SHORT = 'conduite';
@@ -44,7 +44,7 @@ export function headlineCell(
   if (ind) {
     return {
       value: officialText(ind),
-      sub: short ? `Fermia ${fermia.text} · ${CONDUITE_SHORT}` : conduiteLine(fermia.text),
+      sub: '', // one number on screen (recette A4): Fermia's figure is no longer shown beside the official one
       official: true,
       numeric: ind.value != null && Number.isFinite(ind.value) ? ind.value : null,
     };
@@ -100,7 +100,7 @@ export function overviewCell(
   const mean = values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : null;
   return {
     value: officialText({ value: mean, unit: found[0].unit }),
-    sub: conduiteLine(fermia.text),
+    sub: '',
     official: true,
     numeric: mean,
   };

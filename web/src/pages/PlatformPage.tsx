@@ -134,7 +134,7 @@ export function PlatformPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-6">
               <StatTile label="Fermes" value={`${metrics.data.farms.total}`} hint={`${metrics.data.farms.active} actives`} trend={registeredTrend(farms.data)} to="/app/registre" actionLabel="Ouvrir le registre des fermes" />
               <StatTile label="Utilisateurs" value={`${metrics.data.users.total}`} hint={`${metrics.data.users.suspended} suspendus`} onClick={() => setTab('users')} actionLabel="Voir les utilisateurs" />
-              <StatTile label="Lots actifs" value={`${metrics.data.lots.active}`} hint={`${num(metrics.data.lots.cheptel)} têtes`} />
+              <StatTile label="Lots actifs" value={`${metrics.data.lots.active}`} hint={plural(metrics.data.lots.cheptel, 'tête')} />
               <StatTile label="Ventes" value={`${metrics.data.sales.count}`} hint={fcfa(metrics.data.sales.revenueFcfa)} />
               <StatTile label="Encaissé" value={fcfa(metrics.data.paidFcfa)} hint="paiements confirmés" />
               <StatTile label="Clients" value={`${metrics.data.customersCount}`} />

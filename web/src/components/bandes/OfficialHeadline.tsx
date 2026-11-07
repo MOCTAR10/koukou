@@ -46,14 +46,15 @@ export function OfficialValue({ indicator }: { indicator: BandSummaryIndicator |
   );
 }
 
-/** Fermia's figure under an official one, named, its formula on hover. */
+/** Fermia's figure, only in a hover tooltip (recette A4: one number on screen). */
 export function ConduiteValue({ text, formula }: { text: string; formula: string }) {
   return (
-    <span title={formula} className="inline-flex cursor-help items-center gap-1 text-[11px] text-slate-500">
+    <span
+      title={`Valeur Fermia (${CONDUITE_LABEL}) : ${text}. ${formula}`}
+      aria-label={`Valeur Fermia : ${text}`}
+      className="inline-flex cursor-help items-center text-slate-400"
+    >
       <Info className="h-3 w-3 shrink-0" aria-hidden />
-      <span>
-        Fermia {text} · {CONDUITE_LABEL}
-      </span>
     </span>
   );
 }
