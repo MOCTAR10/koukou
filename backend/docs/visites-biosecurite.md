@@ -52,6 +52,15 @@ L'historique de bande (`GET /farms/:farmId/trace/lots/:lotId`, `rearing`) ajoute
 - Web : page « Visites » (`/app/visites`) : visites de la ferme active, détail avec grille, formulaire de création (droit TECHNIQUE:VALIDER) ; vue « Programme » filtrable par province, classe et type pour les institutions. L'onglet Historique du lot affiche les visites.
 - Mobile : l'agent crée une visite avec la grille hors ligne (file `farm-visit`, `idempotencyKey = op.id`, grille et seuils mis en cache à la dernière ouverture) ; liste des visites de la ferme ; historique du lot.
 
+## Rappel de la prochaine visite
+
+- **Qui** : l'agent qui a enregistré la visite planifiant la suivante (audience de règle `VISIT_AGENT`). C'est la règle la plus petite et cohérente ; pour prévenir aussi les agents de la zone ou la DGE, l'administration ajoute une règle `PROFILE` sur les événements `VISIT_REMINDER` / `VISIT_OVERDUE` (règles de notification, rien de codé en dur).
+- **Quand** : seule la **dernière visite de chaque ferme** compte (une visite plus récente clôt le rappel). Balayage au démarrage puis toutes les heures (`VisitRemindersService`, `VISIT_REMINDER_SWEEP_DISABLED=true` le coupe) : `VISITE_RAPPEL_J` jours avant (paramètre du catalogue, propriétaire DGE, Proposé 2 ; 0 = pas de rappel anticipé), le jour même, puis « en retard » une fois la date dépassée.
+- **Sans doublon** : le balayage n'a pas d'état ; la table des notifications est unique par utilisateur, canal et clé `VISIT:<visite>:<AVANT|JOUR|RETARD>`. Un balayage répété ne recrée rien, un événement perdu revient au balayage suivant.
+- **Règles par défaut** (modifiables) : `AGENT_VISITE_RAPPEL` et `AGENT_VISITE_RETARD`, dans l'application + push. Pas de SMS (non actif).
+- **Retards pour la DGE** : `GET /programme/visits?retard=true` (même droit et périmètre que la liste) ; filtre « Prochaine visite en retard » dans l'onglet Programme de la page Visites.
+- **Mobile** : rappels locaux de l'agent pour sa propre prochaine visite (veille et jour, à l'heure du matin des réglages).
+
 ## Décisions à valider (DGE / vétérinaires)
 
 1. Grille par défaut, poids et seuils A 80 % / B 60 % (propositions).
