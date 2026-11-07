@@ -31,11 +31,11 @@ export class User {
   active: boolean;
 
   /** Consecutive failed logins since the last success (account lockout). */
-  @Column({ type: 'int', default: 0 })
+  @Column({ name: 'failed_logins', type: 'int', default: 0 })
   failedLogins: number;
 
   /** Login refused until this instant (null = not locked). */
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ name: 'locked_until', type: 'timestamptz', nullable: true })
   lockedUntil: Date | null;
 
   @CreateDateColumn()
