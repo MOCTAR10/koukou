@@ -63,15 +63,31 @@ async function bootstrap() {
   );
   if (swagger) {
     const config = new DocumentBuilder()
-      .setTitle('Fermia API')
+      .setTitle("API Fermia — Système d'information POUFA")
       .setDescription(
-        'API de gestion avicole offline-first pour le Gabon — Module 1 : Gestion des Lots',
+        "Documentation de l'API REST de Fermia, système d'information du programme POUFA (Gabon) : " +
+          'lots et bandes, santé, stock, finance, marché, traçabilité, pilotage et administration.\n\n' +
+          'Authentification : obtenez un jeton via `POST /auth/login`, puis cliquez sur « Authorize » ' +
+          'et collez le jeton (sans le préfixe « Bearer »).',
       )
       .setVersion('1.0')
-      .addBearerAuth()
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'bearer',
+      )
+      .addSecurityRequirements('bearer')
       .build();
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup(swaggerPath, app, document);
+    SwaggerModule.setup(swaggerPath, app, document, {
+      customSiteTitle: 'API Fermia — Documentation',
+      swaggerOptions: {
+        persistAuthorization: true,
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
+        docExpansion: 'none',
+        filter: true,
+      },
+    });
   }
 
   const port = configService.get('PORT', 3000);
