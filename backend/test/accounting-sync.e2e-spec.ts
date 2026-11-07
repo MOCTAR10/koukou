@@ -394,6 +394,7 @@ describe('M11b — Synchronisation comptable (commandes, dépenses, caisse) (e2e
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',

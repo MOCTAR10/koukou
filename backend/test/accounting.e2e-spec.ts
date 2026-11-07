@@ -145,6 +145,7 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',
@@ -179,6 +180,7 @@ describe('M11 — Comptabilité SYSCOHADA (e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',

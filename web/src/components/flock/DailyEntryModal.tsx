@@ -504,6 +504,17 @@ function EntryForm({
             </select>
           </IconField>
         </div>
+        {source !== 'externe' && feedKgEq > 0 && chosenLot == null ? (
+          <Note tone="red">
+            Stock d'aliment vide pour cette phase : la consommation sera enregistrée « depuis le stock » mais le stock
+            passera en négatif (-{num(feedKgEq)} kg) et une alerte sera levée. Enregistrez une entrée de provende pour régulariser.
+          </Note>
+        ) : source !== 'externe' && chosenLot != null && feedKgEq > chosenLot.availableKg ? (
+          <Note tone="amber">
+            La consommation ({num(feedKgEq)} kg) dépasse le stock du lot ({num(chosenLot.availableKg)} kg) : elle sera refusée.
+            Choisissez un autre lot, corrigez la quantité ou ajoutez du stock.
+          </Note>
+        ) : null}
         <FeedAdvice recKg={rec.totalKgPerDay} perBirdG={rec.perBirdG} feedKg={feedKgEq} devPct={feedDevPct} isLayer={isLayer} />
         {waterRatio != null ? <WaterRatio ratio={waterRatio} /> : null}
         {rec.totalKgPerDay ? (

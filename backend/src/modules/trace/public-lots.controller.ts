@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  GoneException,
   NotFoundException,
   Param,
   Query,
@@ -18,15 +17,14 @@ import { QrScansService } from './qr-scans.service.js';
 
 export const UNKNOWN_QR_MESSAGE =
   'QR code inconnu ou invalide : ce produit ne peut pas être rattaché à un lot du programme.';
-export const CLOSED_QR_MESSAGE =
-  "Ce lot est clos : ce QR code n'est plus valide.";
 
 /**
  * Public page of a lot (`/l/:code` on the web, architecture §11.3), read by
  * anyone with the QR code, without an account. Whitelisted answer (no phone,
  * precise GPS, cost nor person), mandatory « pas un certificat sanitaire »
  * mention. An unknown or badly signed QR gets the same 404 (no oracle on
- * which codes exist), a closed one 410. Every scan is journaled.
+ * which codes exist); a closed lot is still shown (status CLOS, « Lot
+ * terminé »: its birds keep being sold after the band closes). Every scan is journaled.
  *
  * Cached by the visitor's browser only (`private`): a shared cache would
  * hide scans from the journal, which the fraud indicators rely on.
@@ -67,11 +65,8 @@ export class PublicLotsController {
       lat,
       lng,
     });
-    if (outcome.result !== QrScanResult.OK) {
+    if (outcome.result !== QrScanResult.OK && outcome.result !== QrScanResult.CLOS) {
       res.set('Cache-Control', 'no-store');
-      if (outcome.result === QrScanResult.CLOS) {
-        throw new GoneException(CLOSED_QR_MESSAGE);
-      }
       throw new NotFoundException(UNKNOWN_QR_MESSAGE);
     }
     res.set('Cache-Control', 'private, max-age=300');

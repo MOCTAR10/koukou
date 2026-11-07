@@ -130,6 +130,7 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',
@@ -178,6 +179,7 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',
@@ -497,6 +499,7 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',
@@ -518,6 +521,7 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',
@@ -555,6 +559,7 @@ describe('Module 4 — Finance & Rentabilité (POS ferme, e2e)', () => {
       .post(`/farms/${farmId}/sales`)
       .set('Authorization', `Bearer ${token}`)
       .send({
+        customerName: 'Client comptoir test',
         items: [
           {
             productType: 'POULET_PIECE',

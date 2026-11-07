@@ -1337,6 +1337,18 @@ async function main() {
     },
     admin,
   );
+  // Registre des opérateurs : sans lui, la liste « Opérateur du programme » d'une
+  // sortie d'animaux est vide et aucun sous-lot cédé (QR) ne peut être créé.
+  const operatorsNow = await get('/trace/operators?all=true', admin);
+  if (operatorsNow.length === 0) {
+    for (const op of [
+      { typeCode: 'ABATTOIR', name: 'Abattoir de démonstration' },
+      { typeCode: 'ACHETEUR', name: 'Acheteur de démonstration' },
+      { typeCode: 'DISTRIBUTEUR', name: 'Distributeur de démonstration' },
+    ]) {
+      await post('/trace/operators', op, admin);
+    }
+  }
   const memberships = [
     {
       profileCode: 'DGE',

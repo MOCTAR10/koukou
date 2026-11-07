@@ -79,9 +79,11 @@ export function PosRegisterSheet({
   const isCredit = paymentMode === 'CREDIT';
   const creditDue = customer?.balance?.outstandingFcfa ?? 0;
   const cessionHints = posCessionHints(customer, lines.map((l) => l.product));
+  // CDC : toute sortie de volailles vivantes nomme son destinataire (client enregistré).
+  const needsRecipient = customer === null && lines.some((l) => l.product === 'PIECE' || l.product === 'KG');
   const canSell = isCredit
     ? totals.totalFcfa > 0 && customer !== null
-    : totals.totalFcfa > 0 && tendered >= totals.totalFcfa;
+    : totals.totalFcfa > 0 && tendered >= totals.totalFcfa && !needsRecipient;
 
   const security = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -98,6 +100,8 @@ export function PosRegisterSheet({
         if (totals.totalFcfa > 0 && !customer) {
           setError('Sélectionnez un client enregistré pour vendre à crédit.');
         }
+      } else if (needsRecipient) {
+        setError('Destinataire obligatoire pour une vente de volailles vivantes : sélectionnez un client (un opérateur du registre crée le sous-lot tracé).');
       } else if (totals.totalFcfa > 0 && tendered > 0 && tendered < totals.totalFcfa) {
         setError('La somme versée est inférieure au total.');
       }
@@ -376,7 +380,7 @@ export function PosRegisterSheet({
 
         <Card tone="default" style={{ gap: spacing.sm }}>
           <AppText size="label" color="muted">
-            {isCredit ? 'CLIENT — REQUIS (VENTE À CRÉDIT)' : 'CLIENT — OPTIONNEL (TROUVÉ OU CRÉÉ PAR TÉLÉPHONE)'}
+            {isCredit ? 'CLIENT — REQUIS (VENTE À CRÉDIT)' : needsRecipient ? 'CLIENT — REQUIS (DESTINATAIRE DES VOLAILLES VIVANTES)' : 'CLIENT — OPTIONNEL (TROUVÉ OU CRÉÉ PAR TÉLÉPHONE)'}
           </AppText>
           {customer ? (
             <View style={styles.custRow}>

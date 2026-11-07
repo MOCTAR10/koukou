@@ -59,7 +59,10 @@ export interface PilotageObjective {
     last12MonthsSharePct: number | null;
   } | null;
   capacity: {
+    /** Registered active farms. */
     farms: number;
+    /** Farms with at least one band of the programme (operational). */
+    farmsOperational: number;
     farmsWithoutCapacity: number;
     places: number;
   } | null;
@@ -90,6 +93,15 @@ const n = (v: unknown): number => (v == null ? 0 : Number(v));
  * Contribution of the programme to the 100 000 t objective (CDC « Volumes
  * produits ») and its projection to 2027-2030, within the viewer's scope.
  */
+/** Earliest of two days (YYYY-MM-DD or Date), as YYYY-MM-DD. */
+function earliestDay(start: string | Date | null, first: unknown): string {
+  const a = start == null ? null : new Date(start).toISOString().slice(0, 10);
+  const b =
+    first == null ? null : new Date(first as string).toISOString().slice(0, 10);
+  if (a && b) return a < b ? a : b;
+  return (a ?? b) as string;
+}
+
 @Injectable()
 export class PilotageObjectiveService {
   constructor(
@@ -168,10 +180,14 @@ export class PilotageObjectiveService {
       `WITH sf AS (${farms.sql})
        SELECT COUNT(*) AS farms,
               COUNT(*) FILTER (WHERE sf.capacity_places IS NULL AND mb.max_start IS NULL) AS without_capacity,
-              COALESCE(SUM(COALESCE(sf.capacity_places, mb.max_start, 0)), 0) AS places
+              COALESCE(SUM(COALESCE(sf.capacity_places, mb.max_start, 0)), 0) AS places,
+              -- Operational = at least one band of the programme was set up.
+              COUNT(*) FILTER (WHERE mb.max_start IS NOT NULL) AS operational,
+              MIN(mb.first_start)::text AS first_band
          FROM sf
          LEFT JOIN (
-           SELECT b.farm_id, MAX(b.quantity_at_start) AS max_start
+           SELECT b.farm_id, MAX(b.quantity_at_start) AS max_start,
+                  MIN(b.integration_date) AS first_start
              FROM production_batches b
             WHERE ${eligibleBandSql('b', eligibleC)}
             GROUP BY b.farm_id
@@ -317,7 +333,8 @@ export class PilotageObjectiveService {
       actual: suppressed
         ? null
         : {
-            since: program.startDate,
+            // The programme parameter, or the first band when it started earlier.
+            since: earliestDay(program.startDate, capacity.first_band),
             heads: produced.heads,
             tonnes: round(tonnes, 3),
             yearToDateTonnes: round(producedYtd.tonnes, 3),
@@ -328,6 +345,7 @@ export class PilotageObjectiveService {
         ? null
         : {
             farms: n(capacity.farms),
+            farmsOperational: n(capacity.operational),
             farmsWithoutCapacity: n(capacity.without_capacity),
             places,
           },

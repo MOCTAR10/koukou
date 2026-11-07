@@ -189,11 +189,38 @@ export class FeedStockService {
       where: { farmId },
       order: { occurredAt: 'DESC', createdAt: 'DESC' },
     });
+    const deficitKg = await this.uncoveredKg(farmId);
     return {
       byType: stock.byType,
       lots: stock.lots,
       losses,
+      // Stock négatif (CDC) : consommation « depuis le stock » saisie sans lot
+      // disponible. Le stock réel est donc -deficitKg tant qu'il n'est pas réapprovisionné.
+      deficitKg,
+      negativeStockKg: deficitKg > 0 ? -deficitKg : 0,
     };
+  }
+
+  /**
+   * Consommation d'aliment saisie « depuis le stock » mais rattachée à aucun lot
+   * (stock vide au moment de la saisie) : c'est le découvert de la ferme, en kg.
+   */
+  async uncoveredKg(farmId: string): Promise<number> {
+    const batchIds = (
+      await this.batchRepo.find({ where: { farmId }, select: { id: true } })
+    ).map((b) => b.id);
+    if (batchIds.length === 0) return 0;
+    const entries = await this.entryRepo.find({
+      where: {
+        batchId: In(batchIds),
+        inputLotId: IsNull(),
+        skipStockDeduction: false,
+      },
+    });
+    return round(
+      entries.reduce((s, e) => s + (e.feedQuantity ?? 0), 0),
+      2,
+    );
   }
 
   async listLosses(user: AuthUser, farmId: string): Promise<FeedStockLoss[]> {
@@ -547,7 +574,7 @@ export class FeedStockService {
       {
         kind: AlertKind.ALIMENT,
         level: AlertLevel.ROUGE,
-        message: `Aucune provende disponible pour la phase ${label} : la consommation a été saisie alors qu’il ne reste aucun lot consommable pour cette phase.`,
+        message: `Stock négatif : aucune provende disponible pour la phase ${label}, la consommation a pourtant été saisie « depuis le stock ». Le stock est à découvert.`,
         recommendation: `Enregistrez une entrée de provende (vrac, sac ou matière première) pour la phase ${label} afin d’alimenter les lots.`,
         context: { feedPhase: feedPhase ?? null },
       },

@@ -40,6 +40,8 @@ export interface Facts {
   /** Live birds sold (per piece, or per kg with a head count). */
   liveHeads: number;
   liveKg: number;
+  /** Estimated live weight of the birds sold per piece: heads × last average weighing of the band. */
+  liveKgEstimated: number;
   pieceQty: number;
   pieceFcfa: number;
   kgFcfa: number;
@@ -79,6 +81,7 @@ export const FACT_KEYS = [
   'daysElapsed',
   'liveHeads',
   'liveKg',
+  'liveKgEstimated',
   'pieceQty',
   'pieceFcfa',
   'kgFcfa',
@@ -121,7 +124,10 @@ export interface PilotageMetrics {
   produced: { heads: number | null; kg: number | null; tonnes: number | null };
   sold: {
     liveHeads: number;
+    /** Live weight sold: recorded kg + estimate (below) for the pieces. */
     liveKg: number;
+    /** Part of `liveKg` estimated (heads × last average weighing); 0 when all was weighed. */
+    liveKgEstimated: number;
     carcassHeads: number;
     carcassKg: number;
     revenueFcfa: number;
@@ -202,12 +208,16 @@ export function metricsOf(
     },
     sold: {
       liveHeads: f.liveHeads,
-      liveKg: round(f.liveKg, 1),
+      liveKg: round(f.liveKg + f.liveKgEstimated, 1),
+      liveKgEstimated: round(f.liveKgEstimated, 1),
       carcassHeads: f.carcassHeads,
       carcassKg: round(f.carcassKg, 1),
       revenueFcfa: f.revenueFcfa,
       avgPricePerHeadFcfa: ratio(f.pieceFcfa, f.pieceQty),
-      avgPricePerKgFcfa: ratio(f.kgFcfa, f.liveKg),
+      avgPricePerKgFcfa: ratio(
+        f.kgFcfa + (f.liveKgEstimated > 0 ? f.pieceFcfa : 0),
+        f.liveKg + f.liveKgEstimated,
+      ),
       avgCarcassPricePerPieceFcfa: ratio(f.carcassPieceFcfa, f.carcassPieceQty),
       avgCarcassPricePerKgFcfa: ratio(f.carcassKgFcfa, f.carcassKg),
     },

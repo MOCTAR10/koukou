@@ -99,6 +99,7 @@ export function DashboardView({ filters, aggregateOnly }: { filters: PilotageFil
             <>
               <FigureRow label="Vif vendu">
                 {headsLabel(m.sold.liveHeads)} · {weightLabel(m.sold.liveKg)}
+                {(m.sold.liveKgEstimated ?? 0) > 0 ? ` (dont ${weightLabel(m.sold.liveKgEstimated ?? 0)} estimés : têtes × dernière pesée)` : ''}
               </FigureRow>
               <FigureRow label="Prix moyen par tête">{fcfaLabel(m.sold.avgPricePerHeadFcfa)}</FigureRow>
               <FigureRow label="Prix moyen par kg vif">{fcfaLabel(m.sold.avgPricePerKgFcfa)}</FigureRow>

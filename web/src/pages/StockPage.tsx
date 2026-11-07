@@ -240,6 +240,12 @@ export function StockPage() {
               tone={summary.minAutonomy == null ? undefined : summary.minAutonomy < 3 ? 'bad' : summary.minAutonomy < 5 ? 'warn' : 'good'}
             />
           </div>
+          {(stock.data?.deficitKg ?? 0) > 0 ? (
+            <Note tone="red" icon={<AlertTriangle />}>
+              Stock négatif : {num(-(stock.data?.deficitKg ?? 0))} kg. Des consommations ont été saisies « depuis le stock » alors
+              qu'aucun lot n'était disponible. Enregistrez une entrée de provende pour régulariser.
+            </Note>
+          ) : null}
           {expiringSoon.length > 0 ? (
             <Note tone="amber" icon={<AlertTriangle />}>
               {expiringSoon.length} lot{expiringSoon.length > 1 ? 's' : ''} périmé{expiringSoon.length > 1 ? 's' : ''} ou proche

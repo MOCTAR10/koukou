@@ -303,6 +303,8 @@ export interface CashSession {
 }
 
 export interface FeedStockSummary {
+  /** Découvert (kg consommés « depuis le stock » sans lot disponible) ; absent des anciens serveurs. */
+  deficitKg?: number;
   byType: Array<{
     feedPhase: string | null;
     foodType: string | null;

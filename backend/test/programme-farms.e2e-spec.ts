@@ -527,6 +527,32 @@ describe('Programme POUFA — registre des fermes (e2e)', () => {
       expect(history.body[1].provinceWarning).toContain('hors de la province');
     });
 
+    it('refuse un point hors province sans confirmation motivée, puis le garde avec le motif', async () => {
+      await put(`/programme/provinces/${SQUARE_PROVINCE}/geometry`, {
+        geometry: SQUARE,
+      }).expect(200);
+      const res = await post('/programme/farms', {
+        name: `Ferme GPS hors ${tag()}`,
+        provinceCode: SQUARE_PROVINCE,
+        gps: { latitude: -10.5, longitude: 1.5 },
+      }).expect(201);
+      const outside = { latitude: 0.5, longitude: 12.5 };
+      const refused = await put(`/programme/farms/${res.body.id}/gps`, outside).expect(409);
+      expect(refused.body.code).toBe('GPS_HORS_PROVINCE');
+      await put(`/programme/farms/${res.body.id}/gps`, {
+        ...outside,
+        confirmOutsideProvince: true,
+      }).expect(409);
+      const ok = await put(`/programme/farms/${res.body.id}/gps`, {
+        ...outside,
+        confirmOutsideProvince: true,
+        reason: 'Ferme réellement située de l’autre côté',
+      }).expect(200);
+      expect(ok.body.provinceWarning).toContain('hors de la province');
+      const history = await get(`/programme/farms/${res.body.id}/gps-history`).expect(200);
+      expect(history.body[0].reason).toContain('Hors province confirmé');
+    });
+
     it('filtre et pagine la liste', async () => {
       const page = await get(
         '/programme/farms?province=G1&page=2&pageSize=20',

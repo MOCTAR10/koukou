@@ -518,8 +518,15 @@ export class FarmsService {
     ) {
       throw new BadRequestException(FARM_CAPACITY_IN_REGISTRY);
     }
-    if (input.administrativeCity != null)
+    if (input.administrativeCity != null) {
+      // The place comes from the registry locality (single source, recette A8).
+      if (farm.localiteId != null) {
+        throw new BadRequestException(
+          'La localité de la ferme vient du registre des fermes : elle se corrige dans la fiche du registre, pas ici.',
+        );
+      }
       farm.administrativeCity = input.administrativeCity;
+    }
     if (input.defaultSacKg != null) farm.defaultSacKg = input.defaultSacKg;
     if (input.isVerified != null) farm.isVerified = input.isVerified;
     return this.farmRepo.save(farm);

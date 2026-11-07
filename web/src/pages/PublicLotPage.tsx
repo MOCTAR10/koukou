@@ -66,10 +66,22 @@ function LotCard({ state }: { state: Extract<PublicLotState, { kind: 'ok' }> }) 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <div className="flex items-center gap-2 text-emerald-700">
-          <BadgeCheck className="h-5 w-5" />
-          <span className="text-sm font-semibold">Lot du programme reconnu</span>
-        </div>
+        {v.status === 'CLOS' ? (
+          <>
+            <div className="flex items-center gap-2 text-slate-700">
+              <Lock className="h-5 w-5" />
+              <span className="text-sm font-semibold">Lot terminé</span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              L’élevage de ce lot est terminé ; les volailles peuvent encore être en vente. Voici leur origine.
+            </p>
+          </>
+        ) : (
+          <div className="flex items-center gap-2 text-emerald-700">
+            <BadgeCheck className="h-5 w-5" />
+            <span className="text-sm font-semibold">Lot du programme reconnu</span>
+          </div>
+        )}
         <h1 className="mt-2 text-xl font-bold text-slate-900">
           {v.product.speciesLabel} · {v.product.typeLabel}
         </h1>

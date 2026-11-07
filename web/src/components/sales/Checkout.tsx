@@ -142,7 +142,10 @@ export function Checkout({
   const change = received - total;
   const creditDue = customer?.balance?.outstandingFcfa ?? 0;
   const notices = saleCessionNotices(customer, lines);
-  const canSell = total > 0 && (isCredit ? customer !== null : received >= total);
+  // CDC : toute sortie de volailles vivantes nomme son destinataire (client ou téléphone).
+  const liveBirds = lines.some((l) => (l.product ?? '') === 'PIECE' || (l.product ?? '') === 'KG');
+  const needsRecipient = liveBirds && customer === null && !phone.trim();
+  const canSell = total > 0 && !needsRecipient && (isCredit ? customer !== null : received >= total);
 
   const saleKey = useIdempotencyKey('sale');
   const sell = useMutation({
@@ -267,6 +270,12 @@ export function Checkout({
           <p className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800 ring-1 ring-brand-200">{notices.cession}</p>
         ) : null}
         {notices.noDoubleEntry ? <p className="text-xs text-slate-500">{notices.noDoubleEntry}</p> : null}
+        {needsRecipient ? (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200">
+            Destinataire obligatoire pour une vente de volailles vivantes : choisissez un client (un opérateur du registre crée le
+            sous-lot tracé avec son QR) ou saisissez son téléphone.
+          </p>
+        ) : null}
         {!isCredit && !customer ? (
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="Téléphone (trouvé ou créé)">

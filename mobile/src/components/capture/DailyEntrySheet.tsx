@@ -1240,6 +1240,19 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
                 </TipBox>
               ) : null}
 
+              {feedKgEquivalent > 0 && chosenLot == null ? (
+                <TipBox icon={AlertTriangle} tone="amber">
+                  <AppText size="small" weight="semibold" style={{ color: palette.red[600] }}>Stock vide.</AppText>{' '}
+                  La consommation ({feedKgEquivalent} kg) sera enregistrée « depuis le stock » mais le stock passera en négatif
+                  (-{feedKgEquivalent} kg) et une alerte sera levée. Enregistrez une entrée de provende pour régulariser.
+                </TipBox>
+              ) : chosenLot != null && feedKgEquivalent > chosenLot.availableKg ? (
+                <TipBox icon={AlertTriangle} tone="amber">
+                  La consommation ({feedKgEquivalent} kg) dépasse le stock du lot ({Math.round(chosenLot.availableKg)} kg) : elle sera
+                  refusée. Choisissez un autre lot, corrigez la quantité ou ajoutez du stock.
+                </TipBox>
+              ) : null}
+
               {chosenLot && remainingPreview != null ? (
                 <Card tone="default" style={styles.stockPreview}>
                   <View style={{ flex: 1, gap: 2 }}>

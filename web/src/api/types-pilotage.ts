@@ -47,6 +47,8 @@ export interface PilotageMetrics {
   sold: {
     liveHeads: number;
     liveKg: number;
+    /** Part of liveKg estimated (têtes × dernière pesée moyenne de la bande). */
+    liveKgEstimated?: number;
     carcassHeads: number;
     carcassKg: number;
     revenueFcfa: number;
@@ -190,6 +192,8 @@ export interface MapPoint {
   provinceCode: string | null;
   latitude: number;
   longitude: number;
+  /** Point outside the declared province (to be checked). */
+  gpsOutsideProvince?: boolean;
   statusCode: string | null;
   cohort: string | null;
   activeBands: number;
@@ -272,7 +276,7 @@ export interface PilotageObjective {
     last12MonthsTonnes: number;
     last12MonthsSharePct: number | null;
   } | null;
-  capacity: { farms: number; farmsWithoutCapacity: number; places: number } | null;
+  capacity: { farms: number; farmsOperational?: number; farmsWithoutCapacity: number; places: number } | null;
   projection: {
     method: string[];
     inputs: ProjectionInputView[];

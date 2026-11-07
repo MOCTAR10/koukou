@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Crosshair, ExternalLink, History, LocateFixed } from 'lucide-react';
-import { api } from '../../api/client';
+import { api, errorBody } from '../../api/client';
 import type { RegistryGps, RegistrySheet, SetGpsResult } from '../../api/types-programme';
 import { dateFr, dateTimeFr } from '../../lib/format';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso, DateInput } from '../form';
@@ -161,11 +161,15 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
     setDraft((d) => ({ ...d, [key]: e.target.value }));
     setFormError(null);
   };
+  // Point outside the declared province: refused until confirmed with a reason.
+  const [confirmOutside, setConfirmOutside] = useState(false);
+  const outsideRefused = errorBody<{ code?: string }>(save.error)?.code === 'GPS_HORS_PROVINCE';
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const built = buildGpsBody({ ...draft, today, source });
     if ('error' in built) return setFormError(built.error);
-    save.mutate(built.body);
+    if (confirmOutside && draft.reason.trim().length < 5) return setFormError('Indiquez le motif (au moins 5 caractères) pour confirmer un point hors de la province.');
+    save.mutate(confirmOutside ? { ...built.body, confirmOutsideProvince: true } : built.body);
   };
 
   return (
@@ -230,8 +234,14 @@ function GpsFixModal({ sheet, onClose }: { sheet: RegistrySheet; onClose: () => 
             <textarea className={inputCls} rows={2} maxLength={500} value={draft.reason} onChange={set('reason')} />
           </Field>
           <p className="text-xs text-slate-500">
-            Degrés décimaux (WGS 84). Un point hors de la province de la ferme est signalé, jamais refusé.
+            Degrés décimaux (WGS 84). Un point hors de la province de la ferme n’est enregistré qu’avec une confirmation motivée ; il est alors signalé sur la carte.
           </p>
+          {outsideRefused || confirmOutside ? (
+            <label className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+              <input type="checkbox" className="mt-1" checked={confirmOutside} onChange={(e) => setConfirmOutside(e.target.checked)} />
+              <span>Je confirme que ce point est bien hors de la province déclarée (le motif ci-dessus est obligatoire et sera gardé dans l’historique).</span>
+            </label>
+          ) : null}
           <ErrorNote error={formError ?? save.error} />
           <div className="flex justify-end gap-2">
             <Button tone="secondary" onClick={onClose} disabled={save.isPending}>

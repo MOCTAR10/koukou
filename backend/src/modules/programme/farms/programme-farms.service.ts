@@ -711,6 +711,7 @@ export class ProgrammeFarmsService {
           | 'name'
           | 'provinceId'
           | 'localiteId'
+          | 'administrativeCity'
           | 'exploitantName'
           | 'exploitantPhone'
           | 'amiRef'
@@ -727,8 +728,12 @@ export class ProgrammeFarmsService {
         if (dto.localiteId === undefined) patch.localiteId = null;
       }
       if (dto.localiteId !== undefined) {
-        patch.localiteId =
-          (await this.resolveLocalite(province, dto.localiteId))?.id ?? null;
+        const localite = await this.resolveLocalite(province, dto.localiteId);
+        patch.localiteId = localite?.id ?? null;
+        // Single source of the place: the registry locality (A8).
+        patch.administrativeCity = localite?.name ?? province.name;
+      } else if (provinceChanged) {
+        patch.administrativeCity = province.name;
       }
       if (dto.exploitantName !== undefined) {
         patch.exploitantName = dto.exploitantName?.trim() || null;
@@ -946,13 +951,34 @@ export class ProgrammeFarmsService {
       const province = await em
         .getRepository(Province)
         .findOneByOrFail({ id: farm.provinceId as string });
+      // A point outside the declared province is not saved on a simple
+      // warning: it needs an explicit confirmation with a reason, kept in the
+      // GPS history (who, when, why) and flagged on the map.
+      const check = await this.geo.checkPoint(
+        fix.latitude,
+        fix.longitude,
+        province.code,
+      );
+      const reason = dto.reason?.trim() || null;
+      if (check.warning && check.inside === false) {
+        if (dto.confirmOutsideProvince !== true || !reason || reason.length < 5) {
+          throw new ConflictException({
+            statusCode: 409,
+            code: 'GPS_HORS_PROVINCE',
+            message: `${check.warning} Pour enregistrer quand même ce point, confirmez-le en indiquant le motif (au moins 5 caractères).`,
+            provinceWarning: check.warning,
+          });
+        }
+      }
       const warning = await this.applyGps(
         em,
         farm,
         province,
         fix,
         user.id,
-        dto.reason?.trim() || null,
+        check.inside === false && reason
+          ? `Hors province confirmé : ${reason}`.slice(0, 500)
+          : reason,
         idempotencyKey,
       );
       return { applied: true, replay: false, previous, warning, message: null };
