@@ -58,7 +58,7 @@ import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
 import { motion, useReducedMotion } from 'motion/react';
 // POUFA W6: inputs and traceability entries.
-import { QrCode, Truck } from 'lucide-react';
+import { ClipboardCheck, QrCode, Truck } from 'lucide-react';
 import { FARM_DELIVERIES_PATH, isProgrammeWidePath, programmeEntries, programmeWideLabel } from './trace/traceAccess';
 // POUFA lot A droits: the programme economic synthesis entry.
 import { useInstitutionAccess } from '../app/useInstitutionAccess';
@@ -86,6 +86,8 @@ const NAV: Array<{
       { to: '/app/sanitary', label: 'Sanitaire', icon: ScrollText, perms: ['sanitaire:lecture'] },
       { to: '/app/stock', label: 'Stock & provendes', icon: Warehouse, perms: ['stock:gerer'] },
       { to: FARM_DELIVERIES_PATH, label: 'Livraisons d’intrants', icon: Truck, perms: ['intrants:lire', 'stock:gerer'] }, // POUFA W6; lot A droits: « intrants:lire »
+      // POUFA visites techniques et biosécurité (CDC n° 27, n° 45): every farm account reads, the matrix gates institutions.
+      { to: '/app/visites', label: 'Visites techniques', icon: ClipboardCheck },
       { to: '/app/slaughter', label: 'Abattage', icon: Factory, perms: ['production:abattage'] },
     ],
   },

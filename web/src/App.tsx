@@ -45,6 +45,8 @@ import { InstitutionHomeRedirect } from './components/access/InstitutionHomeRedi
 // POUFA L5: sanitary surveillance and notifications.
 import { SurveillancePage } from './pages/SurveillancePage';
 import { SurveillanceSettingsPage } from './pages/SurveillanceSettingsPage';
+// POUFA visites techniques et biosécurité (CDC n° 27, n° 45): the page checks its own rights.
+import { VisitsPage } from './pages/VisitsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { NotificationRulesPage } from './pages/NotificationRulesPage';
 // --- Programme administration (parameters, audit journal, data recovery) ---
@@ -142,6 +144,7 @@ export function App() {
           {/* POUFA W6: programme inputs (the page checks INTRANTS), the farm deliveries and traceability. */}
           <Route path="intrants" element={<IntrantsPage />} />
           <Route path="livraisons" element={<FarmDeliveriesPage />} />
+          <Route path="visites" element={<VisitsPage />} />
           <Route path="tracabilite/*" element={<TracabilitePage />} />
           {/* POUFA lot A droits: the page checks its own access (economieRights). */}
           <Route path="economie" element={<EconomiePage />} />

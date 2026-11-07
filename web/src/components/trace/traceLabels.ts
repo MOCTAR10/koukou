@@ -34,6 +34,7 @@ export const REARING_KIND_LABEL: Record<RearingKind, string> = {
   CLOTURE: 'Clôture',
   INTRANT: 'Intrants reçus',
   ALIMENT: 'Aliment consommé',
+  VISITE: 'Visite',
 };
 
 const SOURCE_LABEL: Record<string, string> = {

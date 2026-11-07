@@ -77,7 +77,9 @@ export type RearingKind =
   | 'CLOTURE'
   // POUFA T2: the inputs a band received (confirmed delivery) and the feed it ate (input lot, kg).
   | 'INTRANT'
-  | 'ALIMENT';
+  | 'ALIMENT'
+  // Technical visit or biosecurity control of an agent (CDC n° 27, n° 45).
+  | 'VISITE';
 
 export interface RearingItem {
   date: string;
