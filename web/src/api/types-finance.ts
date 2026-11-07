@@ -20,6 +20,8 @@ export interface Expense {
   farmId: string;
   expenseDate: string;
   category: ExpenseCategory;
+  /** Code of the POSTE_CHARGE list item (null on older rows). */
+  posteCharge: string | null;
   amountFcfa: number;
   label: string | null;
   supplier: string | null;
@@ -31,7 +33,8 @@ export interface Expense {
 }
 
 export interface CreateExpenseBody {
-  category: ExpenseCategory;
+  /** Code of an active POSTE_CHARGE item; the accounting category is derived server-side. */
+  posteCharge: string;
   amountFcfa: number;
   label?: string;
   supplier?: string;
@@ -40,7 +43,7 @@ export interface CreateExpenseBody {
 }
 
 export interface UpdateExpenseBody {
-  category: ExpenseCategory;
+  posteCharge: string;
   label: string;
   supplier: string;
   notes: string;

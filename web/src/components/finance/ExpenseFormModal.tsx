@@ -1,7 +1,8 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Pencil } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
+import type { RefItem } from '../../api/types-programme';
 import type { CreateExpenseBody, Expense, ExpenseCategory, UpdateExpenseBody } from '../../api/types-finance';
 import { classNames, fcfa } from '../../lib/format';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
@@ -34,7 +35,15 @@ export function ExpenseFormModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [category, setCategory] = useState<ExpenseCategory>(editing?.category ?? 'ALIMENTS');
+  // Postes de charge: the admin-managed POSTE_CHARGE list (active items, any account reads them).
+  const postes = useQuery({
+    queryKey: ['programme-list', 'POSTE_CHARGE'],
+    queryFn: () => api.get<RefItem[]>('/programme/lists/POSTE_CHARGE'),
+    staleTime: 5 * 60_000,
+  });
+  const [poste, setPoste] = useState<string>(editing?.posteCharge ?? '');
+  const posteOptions = postes.data ?? [];
+  const selectedPoste = poste || posteOptions[0]?.code || '';
   const [amount, setAmount] = useState('');
   const [label, setLabel] = useState(editing?.label ?? '');
   const [supplier, setSupplier] = useState(editing?.supplier ?? '');
@@ -47,7 +56,7 @@ export function ExpenseFormModal({
       if (editing) {
         // Always sent: an emptied field ('') is cleared by the server.
         const body: UpdateExpenseBody = {
-          category,
+          posteCharge: selectedPoste,
           label: label.trim(),
           supplier: supplier.trim(),
           notes: notes.trim(),
@@ -55,7 +64,7 @@ export function ExpenseFormModal({
         return api.patch<Expense>(`/farms/${farmId}/expenses/${editing.id}`, body);
       }
       const body: CreateExpenseBody = {
-        category,
+        posteCharge: selectedPoste,
         amountFcfa: Math.round(Number(amount)),
         paidByCaisse,
         ...(label.trim() ? { label: label.trim() } : {}),
@@ -69,6 +78,10 @@ export function ExpenseFormModal({
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!selectedPoste) {
+      setFormError('Choisissez un poste de charge.');
+      return;
+    }
     if (!editing && !(Math.round(Number(amount)) > 0)) {
       setFormError('Montant invalide.');
       return;
@@ -93,18 +106,23 @@ export function ExpenseFormModal({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Catégorie"
-            hint={editing ? 'Changer la catégorie reclasse automatiquement le compte de charge.' : undefined}
+            label="Poste de charge"
+            hint={editing ? 'Changer le poste reclasse automatiquement le compte de charge.' : undefined}
             className={editing ? 'sm:col-span-2' : undefined}
           >
             <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+              value={selectedPoste}
+              onChange={(e) => setPoste(e.target.value)}
+              disabled={postes.isLoading}
               className={inputCls}
             >
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c.key} value={c.key}>
-                  {c.label} ({c.account})
+              {/* An edited expense whose poste was since deactivated stays selectable. */}
+              {selectedPoste && !posteOptions.some((p) => p.code === selectedPoste) ? (
+                <option value={selectedPoste}>{selectedPoste}</option>
+              ) : null}
+              {posteOptions.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.label}
                 </option>
               ))}
             </select>

@@ -10,6 +10,12 @@ export enum TraceLotKind {
   DERIVE = 'DERIVE',
 }
 
+/** Validation of a lot by an authorised institution (CDC 7.3b). */
+export enum TraceLotValidation {
+  BROUILLON = 'BROUILLON',
+  VALIDE = 'VALIDE',
+}
+
 /** Where a lot stands in the chain. */
 export enum TraceLotStatus {
   /** At the farm (root lot of a band still open). */

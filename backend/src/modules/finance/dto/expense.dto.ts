@@ -18,8 +18,16 @@ export class CreateExpenseDto {
   )
   expenseDate?: string;
 
+  /** Legacy accounting category; optional when `posteCharge` is sent. */
+  @IsOptional()
   @IsEnum(ExpenseCategory, { message: 'Catégorie de dépense invalide.' })
-  category: ExpenseCategory;
+  category?: ExpenseCategory;
+
+  /** Code of an active item of the `POSTE_CHARGE` list (checked by the service). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString({ message: 'Le poste de charge doit être un code.' })
+  posteCharge?: string;
 
   @IsInt({ message: 'Le montant doit être un entier.' })
   @Min(1, { message: 'Le montant doit être positif (FCFA).' })
@@ -47,6 +55,11 @@ export class CreateExpenseDto {
 }
 
 export class UpdateExpenseDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString({ message: 'Le poste de charge doit être un code.' })
+  posteCharge?: string;
+
   @IsOptional()
   @IsEnum(ExpenseCategory, { message: 'Catégorie de dépense invalide.' })
   category?: ExpenseCategory;

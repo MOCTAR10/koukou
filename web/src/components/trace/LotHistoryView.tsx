@@ -78,10 +78,22 @@ function SubLotRow({ lot, onOpen }: { lot: LotView; onOpen?: (id: string) => voi
  * operators, the events, the rearing chronology and the QR scan indicators,
  * with the printable A6 label.
  */
-export function LotHistoryView({ history, onOpenLot }: { history: LotHistory; onOpenLot?: (id: string) => void }) {
+export function LotHistoryView({
+  history,
+  onOpenLot,
+  canValidate = false,
+  onValidated,
+}: {
+  history: LotHistory;
+  onOpenLot?: (id: string) => void;
+  /** Shows « Valider le lot » (the server checks the right again). */
+  canValidate?: boolean;
+  onValidated?: () => void;
+}) {
   const { lot, root, subLots, band, events, rearing, scans, farm } = history;
   const pdf = useAsyncAction();
   const warnings = scanWarnings(scans);
+  const validated = lot.validationStatus === 'VALIDE';
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -92,8 +104,17 @@ export function LotHistoryView({ history, onOpenLot }: { history: LotHistory; on
             {farm.name}
           </p>
         </div>
-        <LotStatusPill lot={lot} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Pill tone={validated ? 'emerald' : 'slate'}>{validated ? 'Validé' : 'Brouillon'}</Pill>
+          <LotStatusPill lot={lot} />
+        </div>
       </div>
+      {validated ? (
+        <p className="text-xs text-slate-500">
+          Validé{lot.validatedAt ? ` le ${dateTimeFr(lot.validatedAt)}` : ''}
+          {lot.validatedBy ? ` par ${lot.validatedBy}` : ''}
+        </p>
+      ) : null}
 
       <div className="grid gap-3 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
         <p>
@@ -133,6 +154,19 @@ export function LotHistoryView({ history, onOpenLot }: { history: LotHistory; on
         >
           <Download className="h-4 w-4" /> Étiquette QR (PDF A6)
         </Button>
+        {canValidate && !validated ? (
+          <Button
+            busy={pdf.busy === 'validate'}
+            onClick={() =>
+              void pdf.run('validate', async () => {
+                await api.post(`/farms/${farm.id}/trace/lots/${lot.id}/validate`, {});
+                onValidated?.();
+              })
+            }
+          >
+            Valider le lot
+          </Button>
+        ) : null}
         <a href={lot.qrUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
           <QrCode className="h-3.5 w-3.5" /> Page publique du QR code
         </a>

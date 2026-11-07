@@ -13,6 +13,12 @@ import {
   CashMovementType,
 } from '../../common/enums/cash-session-status.enum.js';
 import { InputKind } from '../../common/enums/input-kind.enum.js';
+import { ProgramListType } from '../../common/enums/program-list-type.enum.js';
+import { RefItem } from '../programme/entities/ref-item.entity.js';
+import {
+  categoryForPoste,
+  posteForCategory,
+} from './expense-poste.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
@@ -62,6 +68,39 @@ export class ExpensesService {
     private readonly accountingService: AccountingService,
   ) {}
 
+  /**
+   * Category + poste of a new expense. A poste must be an active item of the
+   * `POSTE_CHARGE` list; a legacy client sending only a category is accepted
+   * and gets the matching poste.
+   */
+  private async classify(
+    category: ExpenseCategory | undefined,
+    poste: string | undefined,
+  ): Promise<{ category: ExpenseCategory; posteCharge: string }> {
+    const code = poste?.trim();
+    if (code) {
+      const item = await this.dataSource.getRepository(RefItem).findOne({
+        where: {
+          listType: ProgramListType.POSTE_CHARGE,
+          code,
+          active: true,
+        },
+      });
+      if (!item) {
+        throw new BadRequestException(
+          `Poste de charge inconnu ou désactivé : ${code}.`,
+        );
+      }
+      return { category: category ?? categoryForPoste(code), posteCharge: code };
+    }
+    if (!category) {
+      throw new BadRequestException(
+        'Indiquez le poste de charge de la dépense.',
+      );
+    }
+    return { category, posteCharge: posteForCategory(category) };
+  }
+
   async list(
     user: AuthUser,
     farmId: string,
@@ -90,6 +129,7 @@ export class ExpensesService {
   ): Promise<Expense> {
     await this.farmsService.assertAccessible(user, farmId);
     const batch = await this.resolveBatch(farmId, dto.batchId);
+    const cls = await this.classify(dto.category, dto.posteCharge);
 
     return this.dataSource.transaction(async (em) => {
       let cashMovement: CashMovement | null = null;
@@ -125,7 +165,7 @@ export class ExpensesService {
             type: CashMovementType.OUT,
             source: CashMovementSource.EXPENSE,
             amountFcfa: dto.amountFcfa,
-            reason: dto.label ?? dto.category,
+            reason: dto.label ?? cls.category,
             movementDate:
               dto.expenseDate ?? new Date().toISOString().slice(0, 10),
             createdById: user.id,
@@ -137,7 +177,8 @@ export class ExpensesService {
         em.getRepository(Expense).create({
           farmId,
           expenseDate: dto.expenseDate ?? new Date().toISOString().slice(0, 10),
-          category: dto.category,
+          category: cls.category,
+          posteCharge: cls.posteCharge,
           amountFcfa: dto.amountFcfa,
           label: dto.label ?? null,
           supplier: dto.supplier ?? null,
@@ -187,6 +228,11 @@ export class ExpensesService {
     dto: UpdateExpenseDto,
   ): Promise<Expense> {
     await this.farmsService.assertAccessible(user, farmId);
+    const cls =
+      newCategory != null || dto.posteCharge?.trim()
+        ? await this.classify(newCategory, dto.posteCharge)
+        : null;
+    const newCategory = cls?.category;
     return this.dataSource.transaction(async (em) => {
       const expenseRepo = em.getRepository(Expense);
       const expense = await expenseRepo.findOne({
@@ -198,8 +244,8 @@ export class ExpensesService {
       // expense:<id>: re-posting here would count the cost twice.
       if (
         expense.inputLotId != null &&
-        dto.category != null &&
-        dto.category !== expense.category
+        newCategory != null &&
+        newCategory !== expense.category
       ) {
         throw new BadRequestException(
           'Dépense liée à une réception d’intrant : sa catégorie suit le type de l’intrant et ne peut pas être modifiée ici.',
@@ -207,7 +253,8 @@ export class ExpensesService {
       }
 
       const oldCategory = expense.category;
-      if (dto.category != null) expense.category = dto.category;
+      if (newCategory != null) expense.category = newCategory;
+      if (cls) expense.posteCharge = cls.posteCharge;
       // An empty (or null) text clears the field; absent keeps it.
       if (dto.label !== undefined) expense.label = dto.label?.trim() || null;
       if (dto.supplier !== undefined)
@@ -219,7 +266,7 @@ export class ExpensesService {
       }
       const saved = await expenseRepo.save(expense);
 
-      if (dto.category != null && dto.category !== oldCategory) {
+      if (newCategory != null && newCategory !== oldCategory) {
         // Comptabilité : reclassement du compte de charge — débit nouveau
         // compte / crédit ancien compte, équilibré et idempotent (ajustement).
         const chargeAccount = expenseAccountForCategory(expense.category);

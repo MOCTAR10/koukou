@@ -21,9 +21,11 @@ export interface TraceRights {
   createOperator: boolean;
   /** `PATCH /trace/operators/:id` (deactivation included): ADMINISTRATION:MODIFIER on an ALL scope. */
   editOperator: boolean;
+  /** `POST /farms/:farmId/trace/lots/:lotId/validate`: platform admin, or TRACABILITE:VALIDER in the matrix. */
+  validateLot: boolean;
 }
 
-const NONE: TraceRights = { searchByCode: false, farmLots: false, readInactiveOperators: false, createOperator: false, editOperator: false };
+const NONE: TraceRights = { searchByCode: false, farmLots: false, readInactiveOperators: false, createOperator: false, editOperator: false, validateLot: false };
 
 /**
  * Mirrors `trace.controller.ts` / `operators.service.ts`: the platform admin
@@ -32,7 +34,7 @@ const NONE: TraceRights = { searchByCode: false, farmLots: false, readInactiveOp
  * need an ALL scope, `assertNational`).
  */
 export function traceRights(role: Role | null | undefined, access: Profile | null | undefined): TraceRights {
-  if (role === 'PLATFORM_ADMIN') return { searchByCode: true, farmLots: true, readInactiveOperators: true, createOperator: true, editOperator: true };
+  if (role === 'PLATFORM_ADMIN') return { searchByCode: true, farmLots: true, readInactiveOperators: true, createOperator: true, editOperator: true, validateLot: true };
   if (role === 'PROPRIETAIRE' || role === 'ELEVEUR') return { ...NONE, searchByCode: true, farmLots: true };
   if (role !== 'INSTITUTION' || !access) return NONE;
   const trace = grantsAccess(access, 'TRACABILITE', 'CONSULTER');
@@ -44,6 +46,7 @@ export function traceRights(role: Role | null | undefined, access: Profile | nul
     readInactiveOperators: anyOf('ADMINISTRATION') || anyOf('TRACABILITE'),
     createOperator: national && grantsAccess(access, 'ADMINISTRATION', 'CREER'),
     editOperator: national && grantsAccess(access, 'ADMINISTRATION', 'MODIFIER'),
+    validateLot: grantsAccess(access, 'TRACABILITE', 'VALIDER'),
   };
 }
 
