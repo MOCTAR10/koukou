@@ -46,6 +46,9 @@ import { EMPTY_PRODUCT_LIST_NOTE, REFERENCE_STEP_HINT, UNKNOWN_PRODUCT_LIST_NOTE
 
 const KIND_ICON = { MALADIE: <Stethoscope />, MORTALITE: <HeartPulse />, REFORME: <Trash2 /> };
 
+/** « Inconnue / à déterminer »: no disease sent, the vets qualify. */
+const UNKNOWN_DISEASE = '';
+
 const DISEASES: Array<{ value: string; label: string }> = [
   { value: 'Newcastle disease', label: 'Maladie de Newcastle' },
   { value: "Marek's disease", label: 'Maladie de Marek' },
@@ -116,7 +119,8 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
   const [created, setCreated] = useState<(HealthEvent & { suspicion?: boolean }) | null>(null);
   const [kind, setKind] = useState<'MALADIE' | 'MORTALITE' | 'REFORME'>('MALADIE');
   const [occurredAt, setOccurredAt] = useState(localYmd());
-  const [disease, setDisease] = useState(DISEASES[0].value);
+  // Recette ANINF A22: the farmer describes signs, he does not diagnose: unknown by default.
+  const [disease, setDisease] = useState(UNKNOWN_DISEASE);
   const [customDisease, setCustomDisease] = useState('');
   const [severity, setSeverity] = useState<DiseaseSeverity>('MEDIUM');
   const [symptoms, setSymptoms] = useState<string[]>([]);
@@ -132,7 +136,7 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
   const qty = parseInt(quantity, 10) || 0;
   const diseaseName = disease === '__custom' ? customDisease.trim() : disease;
   const needsQty = kind !== 'MALADIE';
-  const canSubmit = kind === 'MALADIE' ? diseaseName.length >= 2 : qty > 0;
+  const canSubmit = kind === 'MALADIE' ? (disease === '__custom' ? diseaseName.length >= 2 : true) : qty > 0;
 
   const save = useMutation({
     mutationFn: () => {
@@ -145,8 +149,10 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
       };
       if (kind === 'MALADIE') {
         const level = SEVERITIES.find((s) => s.key === severity)?.level ?? 'JAUNE';
-        body.title = DISEASES.find((d) => d.value === diseaseName)?.label ?? diseaseName;
-        body.disease = diseaseName;
+        body.title = diseaseName
+          ? (DISEASES.find((d) => d.value === diseaseName)?.label ?? diseaseName)
+          : 'Maladie à déterminer (signes observés)';
+        if (diseaseName) body.disease = diseaseName;
         body.diseaseSeverity = severity;
         body.severity = level;
         if (symptoms.length) body.symptoms = symptoms.join(', ');
@@ -262,8 +268,9 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
           </IconField>
           {kind === 'MALADIE' ? (
             <>
-              <Field label="Maladie *">
+              <Field label="Maladie suspectée (facultatif)">
                 <select className={inputCls} value={disease} onChange={(e) => setDisease(e.target.value)}>
+                  <option value={UNKNOWN_DISEASE}>Inconnue / à déterminer</option>
                   {DISEASES.map((d) => (
                     <option key={d.value} value={d.value}>
                       {d.label}

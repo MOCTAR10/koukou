@@ -38,6 +38,10 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
     matrix: {
       REGISTRE: ['CONSULTER'],
       TECHNIQUE: ['CONSULTER', 'VALIDER'],
+      // Recette ANINF A21: reads the declarations of its farms (CDC §3
+      // « vérifie les déclarations »); no validation/publication (vets).
+      // À arbitrer DGE; migration AgentReadsDeclarations for existing data.
+      SANITAIRE: ['CONSULTER'],
       INTRANTS: ['CONSULTER'],
       PARAMETRES: ['CONSULTER'],
     },

@@ -6,6 +6,7 @@ import {
   DOMAIN_LABELS,
   GRANTABLE_DOMAINS,
   SCOPE_KIND_LABELS,
+  type AccessAction,
   type AccessDomain,
 } from '../api/types-access';
 import { useFarm } from '../app/FarmContext';
@@ -58,7 +59,22 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/hr': 'Dossiers RH',
   '/app/team': 'Équipe',
   '/app/economie': 'Synthèse économique',
+  '/app/visites': 'Visites techniques et biosécurité',
 };
+
+/**
+ * Concrete things a granted action lets the account do, shown on the domain
+ * card. Derived from the effective matrix (never from the profile code), so
+ * an admin changing the matrix changes this list. Recette ANINF A20.
+ */
+const ACTION_CAPABILITIES: ReadonlyArray<{ domain: AccessDomain; action: AccessAction; label: string }> = [
+  { domain: 'TECHNIQUE', action: 'VALIDER', label: 'Créer des visites techniques (observations, grille de biosécurité, photos) et relever le point GPS d’une ferme' },
+  { domain: 'SANITAIRE', action: 'CONSULTER', label: 'Lire les déclarations sanitaires des fermes de votre périmètre' },
+  { domain: 'SANITAIRE', action: 'VALIDER', label: 'Valider les déclarations sanitaires et publier les alertes' },
+  { domain: 'SANITAIRE', action: 'MODIFIER', label: 'Qualifier les alertes et gérer les listes sanitaires' },
+  { domain: 'REGISTRE', action: 'CREER', label: 'Enregistrer de nouvelles fermes au registre' },
+  { domain: 'INTRANTS', action: 'CREER', label: 'Enregistrer les livraisons d’intrants de l’État' },
+];
 
 /** Programme-wide pages: open without a farm in the scope (POUFA L5 adds surveillance and notification rules). */
 
@@ -165,6 +181,7 @@ export function MyAccessPage() {
                 (p) => PAGE_LABELS[p] && institutionShowsEntry(p, profile) && (worksWithoutFarm(p) || (reaches && farms.length > 0)),
               );
               const note = NO_SCREEN_YET[d];
+              const capabilities = ACTION_CAPABILITIES.filter((c) => c.domain === d && grantsAccess(profile, d, c.action));
               return (
                 <Card key={d} className="p-4">
                   <p className="font-semibold text-slate-900">{DOMAIN_LABELS[d]}</p>
@@ -175,6 +192,13 @@ export function MyAccessPage() {
                       </Pill>
                     ))}
                   </div>
+                  {capabilities.length > 0 ? (
+                    <ul className="mt-3 list-disc space-y-0.5 pl-5 text-sm text-slate-700">
+                      {capabilities.map((c) => (
+                        <li key={c.action + c.label}>{c.label}</li>
+                      ))}
+                    </ul>
+                  ) : null}
                   {pages.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {pages.map((p) => (

@@ -192,7 +192,7 @@ export class HealthService {
     batchId: string,
   ): Promise<HealthEventWithPhotos[]> {
     // Legal rule: declarations stay between the farm and the vets.
-    await this.declarations.assert(user);
+    await this.declarations.assertRead(user);
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     const events = await this.eventRepo.find({
@@ -496,7 +496,7 @@ export class HealthService {
     eventId: string,
     photoId: string,
   ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
-    await this.assertEvent(user, farmId, batchId, eventId);
+    await this.assertEvent(user, farmId, batchId, eventId, true);
     const photo = await this.photoRepo.findOne({
       where: { id: photoId, healthEventId: eventId, farmId },
     });
@@ -535,9 +535,13 @@ export class HealthService {
     farmId: string,
     batchId: string,
     eventId: string,
+    readOnly = false,
   ): Promise<HealthEvent> {
-    // Legal rule: declarations stay between the farm and the vets.
-    await this.declarations.assert(user);
+    // Legal rule: declarations stay between the farm and the vets (reads:
+    // also a profile granted SANITAIRE:CONSULTER, e.g. the agent technique).
+    await (readOnly
+      ? this.declarations.assertRead(user)
+      : this.declarations.assert(user));
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     const event = await this.eventRepo.findOne({
