@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import '@/diagnostics/install-crash-log';
+import React, { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -21,6 +22,8 @@ import { FeedbackHost } from '@/components/ui/Feedback';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { semantic } from '@/constants/theme';
 import { accountArea } from '@/api/roles';
+import { previousCrash } from '@/diagnostics/crash-log';
+import { CrashReportScreen } from '@/diagnostics/CrashReportScreen';
 
 // Keep the native splash up until the brand typeface is ready, so the first
 // frame never flashes in the system font.
@@ -96,6 +99,14 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // A crash at startup would repeat before any alert shows: the report screen
+  // uses React Native core components only and replaces the whole app once.
+  const [crash, setCrash] = useState(previousCrash);
+  if (crash) return <CrashReportScreen crash={crash} onContinue={() => setCrash(null)} />;
+  return <AppRoot />;
+}
+
+function AppRoot() {
   // Per-weight imports: the package root would bundle all 18 Inter files.
   const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
   const fontsReady = fontsLoaded || fontError != null;
