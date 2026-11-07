@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
 import { isUuid } from '../../common/context/request-context.js';
@@ -7,6 +12,7 @@ import { InputDeliveryStatus } from '../../common/enums/input-delivery.enum.js';
 import { ProgramListType } from '../../common/enums/program-list-type.enum.js';
 import { ProphylaxisStatus } from '../../common/enums/prophylaxis-status.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { TraceLotValidation } from '../../common/enums/trace.enum.js';
 import type {
   TraceLotKind,
   TraceLotStatus,
@@ -61,6 +67,9 @@ export interface LotView {
   cededOn: string | null;
   closedAt: Date | null;
   createdAt: Date;
+  validationStatus: TraceLotValidation;
+  validatedAt: Date | null;
+  validatedBy: string | null;
   /** Address printed in the QR code. */
   qrUrl: string;
 }
@@ -180,6 +189,44 @@ export class TraceHistoryService {
     return this.historyOf(user, lot);
   }
 
+  /**
+   * Validates a lot (CDC 7.3b). Farm accounts never validate their own lots:
+   * the right belongs to the platform admin and to institutional profiles
+   * holding TRACABILITE:VALIDER in the access matrix (checked by the guard,
+   * within the profile's scope through `assertAccessible`).
+   */
+  async validate(
+    user: AuthUser,
+    farmId: string,
+    lotId: string,
+  ): Promise<LotView> {
+    if (
+      user.role === UserRole.PROPRIETAIRE ||
+      user.role === UserRole.ELEVEUR
+    ) {
+      throw new ForbiddenException(
+        'La validation d’un lot est réservée aux institutions habilitées.',
+      );
+    }
+    await this.farms.assertAccessible(user, farmId);
+    const repo = this.dataSource.getRepository(TraceLot);
+    const lot = isUuid(lotId)
+      ? await repo.findOne({
+          where: { id: lotId, farmId },
+          relations: { batch: true },
+        })
+      : null;
+    if (!lot) throw new NotFoundException('Lot introuvable dans cette ferme.');
+    if (lot.validationStatus === TraceLotValidation.VALIDE) {
+      throw new ConflictException('Ce lot est déjà validé.');
+    }
+    lot.validationStatus = TraceLotValidation.VALIDE;
+    lot.validatedAt = new Date();
+    lot.validatedById = user.id;
+    await repo.save(lot);
+    return (await this.views([lot]))[0];
+  }
+
   /** By code, programme-wide (institutions, platform admin, the farm). */
   async historyByCode(user: AuthUser, code: string): Promise<LotHistory> {
     const lot = await this.dataSource.getRepository(TraceLot).findOne({
@@ -260,6 +307,17 @@ export class TraceHistoryService {
       types.map((t) => [`${t.programId}:${t.code}`, t.label]),
     );
     const operatorOf = new Map(operators.map((o) => [o.id, o]));
+    const validatorIds = [
+      ...new Set(rows.map((r) => r.validatedById).filter((v) => v != null)),
+    ];
+    const validators = new Map(
+      (validatorIds.length
+        ? await this.dataSource
+            .getRepository(User)
+            .find({ where: { id: In(validatorIds) } })
+        : []
+      ).map((u) => [u.id, u.fullName]),
+    );
     return rows.map((r) => {
       const op = r.operatorId ? operatorOf.get(r.operatorId) : undefined;
       return {
@@ -286,6 +344,9 @@ export class TraceHistoryService {
         cededOn: r.cededOn,
         closedAt: r.closedAt,
         createdAt: r.createdAt,
+        validationStatus: r.validationStatus,
+        validatedAt: r.validatedAt,
+        validatedBy: r.validatedById ? (validators.get(r.validatedById) ?? null) : null,
         qrUrl: this.config.qrUrl(r.code, r.qrToken),
       };
     });

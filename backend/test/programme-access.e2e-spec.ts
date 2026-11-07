@@ -1104,11 +1104,15 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       );
       expect(journal.length).toBeGreaterThan(0);
       for (const row of journal) expect(row.s ?? '').not.toContain(code);
+      // The login lockout counters journal their own row changes (failed then
+      // successful login): look for the code change itself, not the last row.
       const changes = await ds.query(
-        `SELECT after::text AS a FROM audit_row_changes WHERE table_name = 'users' AND row_id = $1 ORDER BY id DESC LIMIT 1`,
+        `SELECT after::text AS a FROM audit_row_changes WHERE table_name = 'users' AND row_id = $1 AND after ? '_redacted_changed' ORDER BY id DESC LIMIT 1`,
         [ownerId],
       );
+      expect(changes.length).toBe(1);
       expect(changes[0].a).toContain('_redacted_changed');
+      expect(changes[0].a).not.toContain(code);
       // An institutional agent too.
       const agent = await post(
         `/admin/users/${accounts.BCEG.userId}/login-code`,

@@ -62,6 +62,7 @@ describe('traceability rights', () => {
       readInactiveOperators: true,
       createOperator: true,
       editOperator: true,
+      validateLot: false,
     });
     expect(traceRights('INSTITUTION', { scopeKind: 'PROVINCES', matrix: { ADMINISTRATION: ['CREER', 'MODIFIER'] } }).createOperator).toBe(false);
     expect(traceRights('INSTITUTION', { scopeKind: 'ALL', matrix: { TRACABILITE: ['CONSULTER'] } })).toMatchObject({

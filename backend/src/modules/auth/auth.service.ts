@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
+import { AuditService } from '../audit/audit.service.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { CustomerType } from '../../common/enums/customer-type.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -39,6 +40,7 @@ export class AuthService {
     private readonly challenges: LoginChallengeService,
     private readonly scope: ScopeResolver,
     private readonly config: ConfigService,
+    private readonly audit: AuditService,
   ) {}
 
   /** A buyer has an account and a profile, but no farm. */
@@ -108,10 +110,25 @@ export class AuthService {
       dto.code,
       user ? user.passwordHash : DUMMY_PASSWORD_HASH,
     );
+    if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+      const minutes = Math.ceil(
+        (user.lockedUntil.getTime() - Date.now()) / 60000,
+      );
+      throw new UnauthorizedException(
+        `Compte temporairement verrouillé après trop d’échecs de connexion. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''} ou contactez l’administrateur.`,
+      );
+    }
+    if (user && !ok) await this.registerFailure(user);
     if (!user || !ok) {
       throw new UnauthorizedException(
         'Identifiants invalides. Vérifiez le numéro de téléphone et le code.',
       );
+    }
+    if (user.failedLogins > 0 || user.lockedUntil) {
+      await this.usersRepo.update(user.id, {
+        failedLogins: 0,
+        lockedUntil: null,
+      });
     }
     if (user.active === false) {
       throw new UnauthorizedException(
@@ -133,6 +150,37 @@ export class AuthService {
       return this.buildAuthResponse(user, false);
     }
     return this.buildAuthResponse(user);
+  }
+
+  /**
+   * Counts a failed password (atomic increment). At LOGIN_MAX_FAILURES
+   * (default 5) the account is locked for LOGIN_LOCK_MINUTES (default 15) and
+   * the lockout is written to the audit journal. An admin code reset unlocks.
+   */
+  private async registerFailure(user: User): Promise<void> {
+    const max = positiveInt(this.config.get('LOGIN_MAX_FAILURES'), 5);
+    const minutes = positiveInt(this.config.get('LOGIN_LOCK_MINUTES'), 15);
+    const raw: unknown = await this.usersRepo.query(
+      `UPDATE "users" SET "failed_logins" = "failed_logins" + 1 WHERE "id" = $1 RETURNING "failed_logins" AS n`,
+      [user.id],
+    );
+    // pg driver: [rows, affected] for UPDATE ... RETURNING.
+    const rows = (Array.isArray(raw) && Array.isArray(raw[0]) ? raw[0] : raw) as Array<{
+      n: number;
+    }>;
+    const count = Number(rows[0]?.n ?? 0);
+    if (count >= max) {
+      const until = new Date(Date.now() + minutes * 60000);
+      await this.usersRepo.update(user.id, {
+        failedLogins: 0,
+        lockedUntil: until,
+      });
+      await this.audit.recordSystem('AUTH_ACCOUNT_LOCKED', {
+        userId: user.id,
+        failures: count,
+        lockedUntil: until.toISOString(),
+      });
+    }
   }
 
   /** Second step of an institutional login: the SMS code opens an 8 h session. */
@@ -178,3 +226,8 @@ export class AuthService {
 }
 
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('kudummy-identity-check', 10);
+
+function positiveInt(raw: unknown, fallback: number): number {
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}

@@ -18,6 +18,11 @@ export function resolveJwtSecret(config: ConfigService): string {
   // Generated once per process: the signer (JwtModule) and the verifier
   // (JwtStrategy) both call this, and two different secrets would turn every
   // authenticated request into a 401.
+  if (config.get<string>('NODE_ENV') === 'production') {
+    throw new Error(
+      "JWT_SECRET est obligatoire en production (valeur absente ou placeholder). Définissez une clé aléatoire d'au moins 32 caractères.",
+    );
+  }
   if (generated == null) {
     generated = randomBytes(48).toString('hex');
     console.warn(

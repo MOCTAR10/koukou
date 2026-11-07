@@ -23,6 +23,8 @@ import { InstitutionFermiaGrants1794000500000 } from './1794000500000-Institutio
 import { AuditMaskSalaries1794000500100 } from './1794000500100-AuditMaskSalaries.js';
 // POUFA lot A droits (end)
 // POUFA lot A2 divers
+import { LoginLockout1794300000000 } from './1794300000000-LoginLockout.js';
+import { LotValidationAndExpensePoste1794300000100 } from './1794300000100-LotValidationAndExpensePoste.js';
 import { SlaughterOrderOperator1794100500000 } from './1794100500000-SlaughterOrderOperator.js';
 import { BreedReferenceRight1794100500100 } from './1794100500100-BreedReferenceRight.js';
 // POUFA lot A sante: CDC n° 22-23 (treatments, vaccinations, offline keys).
@@ -79,6 +81,8 @@ export const MIGRATIONS = [
   SlaughterOrderOperator1794100500000,
   BreedReferenceRight1794100500100,
   // POUFA lot A2 divers (end)
+  LoginLockout1794300000000,
+  LotValidationAndExpensePoste1794300000100,
   // POUFA visites techniques et biosécurité
   TechnicalVisits1794400000000,
 ];

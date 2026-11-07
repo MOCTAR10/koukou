@@ -33,6 +33,10 @@ export class Expense {
   @Column({ type: 'enum', enum: ExpenseCategory })
   category: ExpenseCategory;
 
+  /** Code of the `POSTE_CHARGE` list item (CDC 7.3a); null on older rows. */
+  @Column({ name: 'poste_charge', type: 'varchar', length: 40, nullable: true })
+  posteCharge: string | null;
+
   @Column({ name: 'amount_fcfa', type: 'int' })
   amountFcfa: number;
 

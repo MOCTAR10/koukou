@@ -30,6 +30,14 @@ export class User {
   @Column({ default: true })
   active: boolean;
 
+  /** Consecutive failed logins since the last success (account lockout). */
+  @Column({ name: 'failed_logins', type: 'int', default: 0 })
+  failedLogins: number;
+
+  /** Login refused until this instant (null = not locked). */
+  @Column({ name: 'locked_until', type: 'timestamptz', nullable: true })
+  lockedUntil: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
