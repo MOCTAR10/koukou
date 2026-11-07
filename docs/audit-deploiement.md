@@ -53,6 +53,14 @@ ALTER DEFAULT PRIVILEGES FOR ROLE fermia_owner IN SCHEMA public
 -- que ci-dessus.
 ```
 
+**Script prêt à l'emploi** : `deploy/audit-roles.sql` rejoue tout ce qui précède de façon idempotente (création des deux rôles si absents, propriété des objets, `GRANT`/`REVOKE` du journal, privilèges par défaut, contrôle final). Sur le serveur, conteneur `fermia_postgres` (les mots de passe viennent de l'environnement, jamais du dépôt) :
+
+```bash
+docker exec -i fermia_postgres psql -U postgres -d fermia -v ON_ERROR_STOP=1   -v owner_pw="'$OWNER_PW'" -v app_pw="'$APP_PW'" < deploy/audit-roles.sql
+```
+
+La requête finale doit afficher `f` partout pour `UPDATE`, `DELETE` et `TRUNCATE`. Le script ne bascule pas l'application : il faut ensuite mettre `DB_USERNAME=fermia_app` / `DB_MIGRATIONS_RUN=false` dans le `.env` de production et passer les migrations avec `fermia_owner`, comme décrit ci-dessous. À relancer après chaque migration qui ajoute une table.
+
 Les déclencheurs de `audit_row_change()` s'exécutent avec les droits de l'utilisateur qui modifie la ligne : `fermia_app` a donc besoin de `INSERT` sur `audit_row_changes` (accordé ci-dessus), et de rien de plus.
 
 Avec deux rôles, l'application ne doit plus passer les migrations au démarrage :
