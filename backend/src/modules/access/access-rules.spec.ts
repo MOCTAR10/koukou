@@ -4,6 +4,7 @@ import { PERMISSIONS } from '../../common/permissions/permission-catalog.js';
 import { OWNER_PROFILE } from '../programme/parameter-catalog.js';
 import {
   FERMIA_DOMAINS,
+  type AccessMatrix,
   actionForMethod,
   isInstitutionFermiaDomain,
 } from './access-domains.js';
@@ -506,7 +507,8 @@ describe('sanitary declarations', () => {
       ),
     ).toBe(true);
     // Recette A21: the agent technique READS the declarations of its farms
-    // (SANITAIRE:CONSULTER), never handles them.
+    // (DECLARATIONS:CONSULTER, a matrix right, no profile code), never
+    // handles them.
     const agentAccess = access('AGENT_TECHNIQUE');
     expect(
       mayReadSanitaryDeclarations({ role: UserRole.INSTITUTION }, agentAccess),
@@ -516,6 +518,33 @@ describe('sanitary declarations', () => {
     ).toBe(false);
     expect(
       mayReadSanitaryDeclarations({ role: UserRole.INSTITUTION }, access('DGE')),
+    ).toBe(false);
+    // The right follows the matrix, not the profile code: SANITAIRE:CONSULTER
+    // alone reads nothing, DECLARATIONS:CONSULTER reads under any profile.
+    const as = (matrix: AccessMatrix) =>
+      ({ ...agentAccess, profileCode: 'CUSTOM', matrix }) as typeof agentAccess;
+    expect(
+      mayReadSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        as({ SANITAIRE: ['CONSULTER'] }),
+      ),
+    ).toBe(false);
+    expect(
+      mayReadSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        as({ DECLARATIONS: ['CONSULTER'] }),
+      ),
+    ).toBe(true);
+    expect(
+      mayReadSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        { ...agentAccess, matrix: { ...agentAccess.matrix, DECLARATIONS: [] } },
+      ),
+    ).toBe(false);
+    // Read-only domain: no write action can be granted on it.
+    expect(
+      validateMatrix({ DECLARATIONS: ['CONSULTER', 'VALIDER'] }, AccessScopeKind.FARMS)
+        .ok,
     ).toBe(false);
     expect(isVeterinaryAuthority(null)).toBe(false);
     expect(

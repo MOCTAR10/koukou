@@ -546,7 +546,7 @@ export class HealthService {
     readOnly = false,
   ): Promise<HealthEvent> {
     // Legal rule: declarations stay between the farm and the vets (reads:
-    // also a profile granted SANITAIRE:CONSULTER, e.g. the agent technique).
+    // also a profile granted the DECLARATIONS:CONSULTER right, e.g. the agent technique).
     await (readOnly
       ? this.declarations.assertRead(user)
       : this.declarations.assert(user));

@@ -69,7 +69,7 @@ const PAGE_LABELS: Record<string, string> = {
  */
 const ACTION_CAPABILITIES: ReadonlyArray<{ domain: AccessDomain; action: AccessAction; label: string }> = [
   { domain: 'TECHNIQUE', action: 'VALIDER', label: 'Créer des visites techniques (observations, grille de biosécurité, photos) et relever le point GPS d’une ferme' },
-  { domain: 'SANITAIRE', action: 'CONSULTER', label: 'Lire les déclarations sanitaires des fermes de votre périmètre' },
+  { domain: 'DECLARATIONS', action: 'CONSULTER', label: 'Lire les déclarations sanitaires des fermes de votre périmètre' },
   { domain: 'SANITAIRE', action: 'VALIDER', label: 'Valider les déclarations sanitaires et publier les alertes' },
   { domain: 'SANITAIRE', action: 'MODIFIER', label: 'Qualifier les alertes et gérer les listes sanitaires' },
   { domain: 'REGISTRE', action: 'CREER', label: 'Enregistrer de nouvelles fermes au registre' },

@@ -16,6 +16,7 @@ export const PROGRAMME_DOMAINS = [
   'TECHNIQUE',
   'INTRANTS',
   'SANITAIRE',
+  'DECLARATIONS',
   'ECONOMIQUE',
   'TRACABILITE',
   'PILOTAGE',
@@ -23,6 +24,14 @@ export const PROGRAMME_DOMAINS = [
   'AUDIT',
   'ADMINISTRATION',
 ] as const;
+
+/**
+ * Programme domains granted in consultation only. DECLARATIONS = « lire les
+ * déclarations sanitaires des fermes de son périmètre » (CDC §3, agent
+ * technique), read-only: creating, qualifying, validating and publishing stay
+ * SANITAIRE:VALIDER (veterinary services).
+ */
+export const READ_ONLY_PROGRAMME_DOMAINS = ['DECLARATIONS'] as const;
 
 /**
  * Fermia-only domains: the farm's own business (cash, sales operations,
@@ -108,7 +117,7 @@ export type AccessAction = (typeof ACCESS_ACTIONS)[number];
 /** Access matrix of a profile: grantable domain → granted actions. */
 export type AccessMatrix = Partial<Record<GrantableDomain, AccessAction[]>>;
 
-/** Actions an institutional profile may hold on an {@link INSTITUTION_FERMIA_DOMAINS} domain. */
+/** Actions an institutional profile may hold on an {@link INSTITUTION_FERMIA_DOMAINS} or {@link READ_ONLY_PROGRAMME_DOMAINS} domain. */
 export const FERMIA_GRANTABLE_ACTIONS: readonly AccessAction[] = ['CONSULTER'];
 
 export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
@@ -116,6 +125,7 @@ export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
   TECHNIQUE: 'Suivi technique',
   INTRANTS: 'Intrants',
   SANITAIRE: 'Sanitaire',
+  DECLARATIONS: 'Déclarations sanitaires (lecture)',
   ECONOMIQUE: 'Économique',
   TRACABILITE: 'Traçabilité',
   PILOTAGE: 'Pilotage et agrégats',
@@ -166,6 +176,12 @@ export function isInstitutionFermiaDomain(
   );
 }
 
+export function isReadOnlyProgrammeDomain(value: unknown): boolean {
+  return (READ_ONLY_PROGRAMME_DOMAINS as readonly string[]).includes(
+    value as string,
+  );
+}
+
 /** A domain a matrix may hold (programme or Fermia bonus domain). */
 export function isGrantableDomain(value: unknown): value is GrantableDomain {
   return isProgrammeDomain(value) || isInstitutionFermiaDomain(value);
@@ -175,7 +191,7 @@ export function isGrantableDomain(value: unknown): value is GrantableDomain {
 export function grantableActions(
   domain: GrantableDomain,
 ): readonly AccessAction[] {
-  return isInstitutionFermiaDomain(domain)
+  return isInstitutionFermiaDomain(domain) || isReadOnlyProgrammeDomain(domain)
     ? FERMIA_GRANTABLE_ACTIONS
     : ACCESS_ACTIONS;
 }
