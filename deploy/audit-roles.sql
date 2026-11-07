@@ -3,8 +3,8 @@
 -- le passage de l'application sur fermia_app change DB_USERNAME (et les droits
 -- de migration, qui passent à fermia_owner).
 --
--- Usage (superutilisateur, base cible `fermia`) :
---   docker exec -i fermia_postgres psql -U postgres -d fermia \
+-- Usage (superutilisateur `fermia` du conteneur, base `fermia`) :
+--   docker exec -i fermia_postgres psql -U fermia -d fermia \
 --     -v ON_ERROR_STOP=1 -v owner_pw="'...'" -v app_pw="'...'" < deploy/audit-roles.sql
 -- Mots de passe : jamais dans le dépôt. Sans -v, les rôles sont créés sans
 -- mot de passe (NOLOGIN effectif tant qu'on n'en fixe pas un avec ALTER ROLE).
@@ -30,10 +30,26 @@ SELECT format('ALTER DATABASE %I OWNER TO fermia_owner', current_database()) \ge
 
 -- Le propriétaire des objets passe à fermia_owner (tables, séquences, types,
 -- fonctions) : sinon l'ancien propriétaire pourrait encore retirer les déclencheurs.
-SELECT format('ALTER TABLE public.%I OWNER TO fermia_owner', tablename)
-  FROM pg_tables WHERE schemaname = 'public' \gexec
-SELECT format('ALTER SEQUENCE public.%I OWNER TO fermia_owner', sequencename)
-  FROM pg_sequences WHERE schemaname = 'public' \gexec
+-- Objets des extensions (PostGIS : spatial_ref_sys, fonctions, types) exclus.
+SELECT format('ALTER TABLE public.%I OWNER TO fermia_owner', c.relname)
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+   AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e') \gexec
+SELECT format('ALTER SEQUENCE public.%I OWNER TO fermia_owner', c.relname)
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public' AND c.relkind = 'S'
+   -- A sequence owned by a column (serial / identity) follows its table.
+   AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype IN ('e', 'a', 'i')) \gexec
+-- Types énumérés et domaines : les migrations font ALTER TYPE … ADD VALUE.
+SELECT format('ALTER TYPE public.%I OWNER TO fermia_owner', t.typname)
+  FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+ WHERE n.nspname = 'public' AND t.typtype IN ('e', 'd')
+   AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = t.oid AND d.deptype = 'e') \gexec
+-- Fonctions (dont audit_row_change, déclencheurs du journal).
+SELECT format('ALTER FUNCTION %s OWNER TO fermia_owner', p.oid::regprocedure)
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public'
+   AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e') \gexec
 ALTER SCHEMA public OWNER TO fermia_owner;
 
 GRANT USAGE ON SCHEMA public TO fermia_app;
