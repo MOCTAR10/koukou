@@ -316,7 +316,7 @@ export function SecuritySection() {
   );
 }
 
-export function ChapterSection({ chapter, number }: { chapter: Chapter; number: number }) {
+export function ChapterSection({ chapter, number, withFigures = true }: { chapter: Chapter; number: number; withFigures?: boolean }) {
   const { rows, notes, bonus } = cdcFor(chapter);
   const extra = CHAPTER_BLOCKS[chapter.id];
   return (
@@ -345,7 +345,7 @@ export function ChapterSection({ chapter, number }: { chapter: Chapter; number: 
           <div className="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200"><p className="text-[15px] font-bold uppercase tracking-widest text-brand-700">Comment</p><ol className="mt-1 list-decimal space-y-1 pl-4 text-[17px] text-slate-700">{chapter.how?.map((h) => <li key={h}>{h}</li>)}</ol></div>
         </div>
       ) : null}
-      {chapter.figs.map((fig) => (
+      {withFigures && chapter.figs.map((fig) => (
         <div key={fig.k} className="space-y-2">
           <h3 className="text-base font-semibold text-slate-800">{fig.alt}</h3>
           <ScreenFigure fig={fig} />
