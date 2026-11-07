@@ -63,7 +63,7 @@ import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { useCanRead } from '../../app/useMenuAccess';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
-import { dateFr, fcfa, num } from '../../lib/format';
+import { dateFr, fcfa, num, plural } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
 import { Button, ErrorNote, Modal } from '../form';
 import { DataTable, EmptyState, IconTile, Loading, PhotoThumb, Td, Th, type IconTone } from '../ui';
@@ -473,7 +473,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
               indicator={officialOf('taux_mortalite')}
               fermiaText={`${num(m.mortalityPercent)} %`}
               fermiaFormula={FERMIA_FORMULAS.mortality}
-              extra={<span>{num(m.totalDeaths)} morts</span>}
+              extra={<span>{plural(m.totalDeaths, 'mort', 'morts')}</span>}
               tone={officialMortality >= 5 ? 'bad' : officialMortality >= 3 ? 'warn' : 'good'}
             />
             <OfficialMetric

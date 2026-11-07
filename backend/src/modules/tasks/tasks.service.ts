@@ -330,12 +330,12 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
       .slice(0, 3)
       .map((t) => `« ${t.title} » (échéance ${t.dueDate})`)
       .join(', ');
-    const more = overdue.length > 3 ? ` et ${overdue.length - 3} autre(s)` : '';
+    const more = overdue.length > 3 ? ` et ${overdue.length - 3} ${overdue.length - 3 > 1 ? 'autres' : 'autre'}` : '';
     await this.alertsService.raise(
       {
         kind: AlertKind.TACHE,
         level: AlertLevel.ROUGE,
-        message: `${overdue.length} tâche(s) de l’équipe en retard : ${listed}${more}.`,
+        message: `${overdue.length} ${overdue.length > 1 ? 'tâches' : 'tâche'} de l’équipe en retard : ${listed}${more}.`,
         recommendation:
           'Consulter la liste des tâches, réassigner ou reporter l’échéance, puis notifier l’éleveur concerné.',
         // Single key: jsonb reorders object keys, the sorted id list stays

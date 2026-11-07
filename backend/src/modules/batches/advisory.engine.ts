@@ -555,7 +555,7 @@ export class AdvisoryEngine {
           {
             kind: AlertKind.EAU,
             level: AlertLevel.JAUNE,
-            message: `Consommation d’eau de ${drop.todayPerBird.toFixed(2)} L/oiseau/jour, écart de ${deviationPct.toFixed(0)}% à la norme (${norm} L). Vérifier l’abreuvement.`,
+            message: `Consommation d’eau du dernier jour saisi : ${drop.todayPerBird.toFixed(2)} L/oiseau/jour${metrics.waterLPerBird != null ? ` (moyenne du lot : ${metrics.waterLPerBird.toFixed(2)} L)` : ''}, écart de ${deviationPct.toFixed(0)}% à la norme (${norm} L). Vérifier l’abreuvement.`,
             recommendation:
               'Contrôler la pression des abreuvoirs, la qualité de l’eau et l’état sanitaire du lot.',
             context: {

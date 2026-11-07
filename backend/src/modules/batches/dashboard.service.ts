@@ -368,7 +368,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       { rouge: 0, jaune: 0, vert: 0 },
     );
 
-    const health = this.computeHealth(alerts, missingEntries);
+    // Farm score on the open bandes only (recette A11): alerts of a closed
+    // bande are history and must not drag the score of the lots in progress.
+    const openIds = new Set(activeBatches.map((b) => b.id));
+    const health = this.computeHealth(
+      alerts.filter((a) => !a.batchId || openIds.has(a.batchId)),
+      missingEntries,
+    );
     const deltas = this.computeDeltas(batches, entries, deathEvents, refDate);
     const leaderboard = await this.computeLeaderboard(user, farmId);
     const healthOverview = await this.computeHealthOverview(
@@ -704,9 +710,11 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         alertesRouges,
         alertesJaunes,
         lastEntryDate,
-        lastEntryLagDays: lastEntryDate
-          ? daysBetween(lastEntryDate, refDate)
-          : null,
+        // A closed bande no longer takes daily entries: no delay flag (recette A10).
+        lastEntryLagDays:
+          lastEntryDate && b.status !== BatchStatus.CLOTURE
+            ? daysBetween(lastEntryDate, refDate)
+            : null,
         breedStatus: await this.metricsService.breedStatus(b),
       });
     }

@@ -71,7 +71,7 @@ export function DashboardView({ filters, aggregateOnly }: { filters: PilotageFil
         <StatCard
           label="Mortalité de la période"
           value={<FigureText shown={fig((x) => x.mortalityPct, pctLabel)} />}
-          hint={m ? `${headsLabel(m.deaths)} morts` : undefined}
+          hint={m ? countLabel(m.deaths, 'mort', 'morts') : undefined}
           icon={<Skull className="h-4 w-4" />}
         />
         <StatCard
@@ -127,7 +127,7 @@ export function DashboardView({ filters, aggregateOnly }: { filters: PilotageFil
                 <FigureRow label="Levées sur la période">{m.alerts.conduct.raised}</FigureRow>
                 <FigureRow label="dont rouges">{m.alerts.conduct.raisedRed}</FigureRow>
                 <FigureRow label="Actives aujourd’hui">
-                  {m.alerts.conduct.activeNow} (dont {m.alerts.conduct.activeRedNow} rouges)
+                  {m.alerts.conduct.activeNow} (dont {countLabel(m.alerts.conduct.activeRedNow, 'rouge', 'rouges')})
                 </FigureRow>
               </>
             ) : (
@@ -284,7 +284,7 @@ function ProvincesTable({ d }: { d: PilotageDashboard }) {
                       <Td label="Complétude">{pctLabel(pm.completeness.pct)}</Td>
                       <Td label="Alertes de conduite actives">
                         {pm.alerts.conduct.activeNow}
-                        {pm.alerts.conduct.activeRedNow > 0 ? <span className="ml-1 text-amber-700">({pm.alerts.conduct.activeRedNow} rouges)</span> : null}
+                        {pm.alerts.conduct.activeRedNow > 0 ? <span className="ml-1 text-amber-700">({countLabel(pm.alerts.conduct.activeRedNow, 'rouge', 'rouges')})</span> : null}
                       </Td>
                     </>
                   )}

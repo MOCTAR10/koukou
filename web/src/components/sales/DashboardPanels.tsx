@@ -44,7 +44,7 @@ import { EGG_IMAGES } from '../../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct } from '../../lib/format';
 import { MetricInfoButtons } from './MetricInfoModal';
 // POUFA lot A indic: official IC/GMQ head the tiles, Fermia's second.
-import { CONDUITE_LABEL, officialText, type HeadlineKey } from '../bandes/headline';
+import { CONDUITE_LABEL, fcrQualification, officialText, type HeadlineKey } from '../bandes/headline';
 import { batchPhoto } from './pos';
 import { AlertLevelBadge, FilterChip } from './shared';
 
@@ -180,14 +180,14 @@ function weightedAvg(batches: PosBatch[], pick: (b: PosBatch) => number | null |
  * `official`: the open bands' official values (programme formulas, weighted
  * by live birds); they head the tiles and Fermia's own average comes second.
  */
-export function PerformanceTiles({ batches, official }: { batches: PosBatch[]; official?: Partial<Record<HeadlineKey, number | null>> }) {
+export function PerformanceTiles({ batches, official, fcrDeviationPct }: { batches: PosBatch[]; official?: Partial<Record<HeadlineKey, number | null>>; fcrDeviationPct?: number | null }) {
   const active = batches.filter((b) => b.status !== 'CLOTURE');
   const fermiaFcr = weightedAvg(active, (b) => b.metrics.fcr);
   const fermiaGmq = weightedAvg(active, (b) => b.metrics.gmqGramsPerDay);
   const fcr = official ? (official.ic ?? null) : fermiaFcr;
   const gmq = official ? (official.gmq_g_j ?? null) : fermiaGmq;
   const ipe = weightedAvg(active, (b) => b.metrics.ipe);
-  const fermiaLine = (text: string) => (official ? ` · Fermia ${text} (${CONDUITE_LABEL})` : '');
+  const fermiaLine = (_text: string) => ''; // one number: the official one (recette A4)
   return (
     <Card className="p-4">
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
@@ -199,7 +199,7 @@ export function PerformanceTiles({ batches, official }: { batches: PosBatch[]; o
           label={official ? 'IC moyen (officiel)' : 'IC moyen'}
           icon={Activity}
           value={fcr != null ? officialText({ value: fcr, unit: 'kg aliment/kg vif' }) : '—'}
-          sub={`${fcr == null ? 'Pas de donnée' : fcr > 2.2 ? 'Élevé' : fcr < 1.8 ? 'Excellent' : 'Conforme'}${fermiaLine(fermiaFcr != null ? num(fermiaFcr, 2) : '—')}`}
+          sub={`${fcrQualification(fcr, fcrDeviationPct)}${fermiaLine(fermiaFcr != null ? num(fermiaFcr, 2) : '—')}`}
           tone={fcr != null && fcr > 2.2 ? 'text-red-600' : undefined}
         />
         <Tile
