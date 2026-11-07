@@ -30,9 +30,9 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,webp,svg,woff2}'],
         // The guide's screenshots (4 MB) are cached when viewed, not precached with the app.
-        globIgnores: ['guide/**'],
+        globIgnores: ['guide/**', 'guide-jury/**'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/apk\//],
+        navigateFallbackDenylist: [/^\/api/, /^\/apk\//, /^\/guide-jury(\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /\/guide\/.*\.webp$/,
