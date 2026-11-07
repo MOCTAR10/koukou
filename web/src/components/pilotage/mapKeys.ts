@@ -7,12 +7,13 @@ import type { ColourLevel, MapAlerts, MapColours, PilotageMap } from '../../api/
 
 export type ColourKey = keyof MapColours;
 
-export const COLOUR_KEYS: readonly ColourKey[] = ['mortality', 'completeness', 'alert'];
+export const COLOUR_KEYS: readonly ColourKey[] = ['mortality', 'completeness', 'alert', 'biosecurity'];
 
 export const COLOUR_KEY_LABELS: Record<ColourKey, string> = {
   mortality: 'Mortalité',
   completeness: 'Complétude',
   alert: 'Alertes',
+  biosecurity: 'Biosécurité',
 };
 
 export function parseColourKey(raw: string | null | undefined): ColourKey {
@@ -71,6 +72,14 @@ export function legendFor(key: ColourKey, legend: PilotageMap['legend']): Legend
       item('JAUNE', `${n(rouge)} % à moins de ${n(jaune)} %`),
       item('ROUGE', `moins de ${n(rouge)} %`),
       item('NONE', 'pas de donnée sur la période'),
+    ];
+  }
+  if (key === 'biosecurity') {
+    return [
+      item('VERT', 'classe A'),
+      item('JAUNE', 'classe B'),
+      item('ROUGE', 'classe C'),
+      item('NONE', 'jamais contrôlée'),
     ];
   }
   return [

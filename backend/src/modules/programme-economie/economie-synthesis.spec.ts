@@ -28,6 +28,7 @@ const ALL = {
   accounting: true,
   market: true,
   production: true,
+  biosecurity: true,
 };
 const NONE = {
   sales: false,
@@ -37,6 +38,7 @@ const NONE = {
   accounting: false,
   market: false,
   production: false,
+  biosecurity: false,
 };
 
 describe('buildSynthesis', () => {
@@ -237,5 +239,48 @@ describe('buildSynthesis', () => {
       // Undefined (no day elapsed): null, never a fake zero.
       expect(defaults.completeness(0, 0)).toBeNull();
     });
+  });
+});
+
+describe('biosecurity columns of the synthesis', () => {
+  const bio = (cls: 'A' | 'B' | 'C' | null, score: number | null, over = {}) =>
+    farm({
+      farmId: String(cls) + score,
+      bioA: cls === 'A' ? 1 : 0,
+      bioB: cls === 'B' ? 1 : 0,
+      bioC: cls === 'C' ? 1 : 0,
+      bioNever: cls ? 0 : 1,
+      bioScoreSum: score ?? 0,
+      bioClass: cls,
+      bioScorePct: score,
+      bioDate: cls ? '2026-10-01' : null,
+      ...over,
+    });
+
+  it('gives the latest class per farm and the distribution per province and in total', () => {
+    const s = buildSynthesis(
+      [bio('A', 90), bio('C', 40), bio(null, null)],
+      ALL,
+    );
+    expect(s.farms.map((f) => f.bioClass).sort()).toEqual([
+      'A',
+      'C',
+      'Non contrôlée',
+    ]);
+    expect(s.total).toMatchObject({
+      bioA: 1,
+      bioC: 1,
+      bioNever: 1,
+      bioAverageScorePct: 65,
+      bioControlledPct: 66.7,
+    });
+    expect(s.provinces[0].bioClass).toBeNull();
+  });
+
+  it('is null everywhere without the TECHNIQUE grant', () => {
+    const s = buildSynthesis([bio('A', 90)], NONE);
+    expect(s.farms[0]).toMatchObject({ bioClass: null, bioA: null, bioDate: null });
+    expect(exportColumns(NONE).some(([k]) => k === 'bioClass')).toBe(false);
+    expect(exportColumns(ALL).some(([k]) => k === 'bioClass')).toBe(true);
   });
 });

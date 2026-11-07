@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Activity, AlertTriangle, Bird, CalendarCheck, Coins, Factory, Package, ShieldAlert, Skull, Tractor } from 'lucide-react';
+import { Activity, AlertTriangle, Bird, CalendarCheck, Coins, Factory, Package, ShieldAlert, ShieldCheck, Skull, Tractor } from 'lucide-react';
 import { api } from '../../api/client';
-import type { CountItem, PilotageDashboard, PilotageMetrics } from '../../api/types-pilotage';
+import type { BiosecurityFigures, CountItem, PilotageDashboard, PilotageMetrics } from '../../api/types-pilotage';
 import { LineChart } from '../Charts';
 import { ErrorNote } from '../form';
 import { Note, SectionCard } from '../flock/shared';
@@ -147,6 +147,8 @@ export function DashboardView({ filters, aggregateOnly }: { filters: PilotageFil
         <CountsCard title="Fermes par statut" items={d.farms.byStatus} total={d.farms.total} />
         <CountsCard title="Fermes par cohorte" items={d.farms.byCohort} total={d.farms.total} />
       </div>
+
+      <BiosecurityCard d={d} />
 
       <InputsCard d={d} />
 
@@ -332,6 +334,58 @@ function CountsCard({ title, items, total }: { title: string; items: CountItem[]
             </li>
           ))}
         </ul>
+      )}
+    </SectionCard>
+  );
+}
+
+function BiosecurityCard({ d }: { d: PilotageDashboard }) {
+  const b = d.biosecurity;
+  const k = d.scope.minGroupSize;
+  const heads = ['Classe A', 'Classe B', 'Classe C', 'Jamais contrôlées', 'Contrôlées', 'Score moyen'];
+  const cells = (f: BiosecurityFigures) => [f.classA, f.classB, f.classC, f.neverControlled, pctLabel(f.controlledPct), pctLabel(f.averageScorePct)];
+  return (
+    <SectionCard
+      title="Classement de biosécurité"
+      subtitle={`Classe du dernier contrôle de chaque ferme${b.staleAfterDays > 0 ? ` · contrôle dit ancien après ${b.staleAfterDays} jours` : ''}`}
+      icon={<ShieldCheck />}
+      flush
+    >
+      {b.suppressed || !b.total ? (
+        <p className="px-4 py-3 text-sm italic text-slate-400">{suppressedSentence(k)}</p>
+      ) : (
+        <DataTable>
+          <thead>
+            <tr>
+              <Th>Province</Th>
+              {heads.map((h) => (
+                <Th key={h}>{h}</Th>
+              ))}
+              <Th>Contrôles anciens</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...b.provinces.map((p) => ({ key: p.provinceId || 'none', name: p.name, f: p.figures })), { key: 'total', name: 'Total du périmètre', f: b.total }].map((r) => (
+              <tr key={r.key}>
+                <Td label="Province">{r.name}</Td>
+                {r.f ? (
+                  <>
+                    {cells(r.f).map((c, i) => (
+                      <Td key={heads[i]} label={heads[i]}>
+                        {c}
+                      </Td>
+                    ))}
+                    <Td label="Contrôles anciens">{r.f.stale}</Td>
+                  </>
+                ) : (
+                  <Td label="Valeurs">
+                    <span className="italic text-slate-400">{suppressedLabel(k)}</span>
+                  </Td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </DataTable>
       )}
     </SectionCard>
   );

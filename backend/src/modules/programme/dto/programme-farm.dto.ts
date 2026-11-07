@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -336,6 +337,17 @@ export class ListProgrammeFarmsQueryDto {
   @IsString()
   @MaxLength(100)
   q?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Classe du dernier contrôle de biosécurité (A, B, C) ou NONE (jamais contrôlée) ; réservé aux profils qui consultent le domaine TECHNIQUE',
+    enum: ['A', 'B', 'C', 'NONE'],
+  })
+  @IsOptional()
+  @IsIn(['A', 'B', 'C', 'NONE'], {
+    message: 'La classe de biosécurité doit valoir A, B, C ou NONE.',
+  })
+  biosecurity?: 'A' | 'B' | 'C' | 'NONE';
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

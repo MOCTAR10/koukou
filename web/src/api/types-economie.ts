@@ -41,6 +41,17 @@ export interface EconomieRow {
   /** FORMULE_VOLUME_PRODUIT_TETES / _KG in force. */
   producedHeads: number | null;
   producedKg: number | null;
+  // Biosecurity (TECHNIQUE): latest control on a farm row, distribution on a group row.
+  bioClass?: string | null;
+  bioScorePct?: number | null;
+  bioDate?: string | null;
+  bioA?: number | null;
+  bioB?: number | null;
+  bioC?: number | null;
+  bioNever?: number | null;
+  bioStale?: number | null;
+  bioAverageScorePct?: number | null;
+  bioControlledPct?: number | null;
 }
 
 export interface EconomieColumns {
@@ -52,6 +63,7 @@ export interface EconomieColumns {
   accounting?: boolean;
   market?: boolean;
   production?: boolean;
+  biosecurity?: boolean;
 }
 
 export interface EconomieSynthese {

@@ -34,6 +34,8 @@ export interface SynthesisColumns {
   market: boolean;
   /** POUFA lot A2 dge: completeness and volumes produced (TECHNIQUE:CONSULTER). */
   production: boolean;
+  /** Class of the latest biosecurity control (TECHNIQUE:CONSULTER, like production). */
+  biosecurity: boolean;
 }
 
 /** Figures summed per farm over the period. */
@@ -69,9 +71,26 @@ export interface FarmSums {
   /** Birds that left the programme bands alive, and their live kg. */
   exitHeads: number;
   exitKg: number;
+  /** Biosecurity: 1 for the class of the farm's latest control, summed up. */
+  bioA: number;
+  bioB: number;
+  bioC: number;
+  /** 1 when the farm was never controlled. */
+  bioNever: number;
+  /** 1 when the latest control is older than `BIOSECURITE_CONTROLE_ANCIEN_JOURS`. */
+  bioStale: number;
+  /** Sum of the latest scores (for the mean). */
+  bioScoreSum: number;
 }
 
-export interface FarmFigures extends FarmSums {
+/** Detail of a farm's latest control (farm rows only). */
+export interface FarmBiosecurityDetail {
+  bioClass?: 'A' | 'B' | 'C' | null;
+  bioScorePct?: number | null;
+  bioDate?: string | null;
+}
+
+export interface FarmFigures extends FarmSums, FarmBiosecurityDetail {
   farmId: string;
   code: string | null;
   name: string;
@@ -115,6 +134,20 @@ export interface SynthesisRow {
   producedHeads: number | null;
   /** `FORMULE_VOLUME_PRODUIT_KG`, one decimal. */
   producedKg: number | null;
+  /** Farm rows: class, score and date of the latest biosecurity control. */
+  bioClass: string | null;
+  bioScorePct: number | null;
+  bioDate: string | null;
+  /** Group rows: distribution of the latest classes. */
+  bioA: number | null;
+  bioB: number | null;
+  bioC: number | null;
+  bioNever: number | null;
+  bioStale: number | null;
+  /** Mean of the latest scores, one decimal. */
+  bioAverageScorePct: number | null;
+  /** Controlled farms over farms, one decimal. */
+  bioControlledPct: number | null;
 }
 
 export interface Synthesis {
@@ -197,6 +230,7 @@ function rowOf(
   f: FarmSums,
   columns: SynthesisColumns,
   formulas: SynthesisFormulas,
+  detail?: FarmBiosecurityDetail,
 ): SynthesisRow {
   const margin = columns.sales
     ? formulas.margin(f.salesFcfa, f.expensesFcfa)
@@ -204,6 +238,9 @@ function rowOf(
   const produced = columns.production
     ? formulas.produced(f.exitHeads, f.exitKg)
     : null;
+  const bio = <T>(v: T): T | null => (columns.biosecurity ? v : null);
+  const bioControlled = f.bioA + f.bioB + f.bioC;
+  const bioFarms = bioControlled + f.bioNever;
   const acc = <T>(v: T): T | null => (columns.accounting ? v : null);
   const mkt = <T>(v: T): T | null => (columns.market ? v : null);
   return {
@@ -235,6 +272,26 @@ function rowOf(
       : null,
     producedHeads: produced?.heads ?? null,
     producedKg: produced?.kg ?? null,
+    bioClass: columns.biosecurity
+      ? base.farmId
+        ? (detail?.bioClass ?? 'Non contrôlée')
+        : null
+      : null,
+    bioScorePct: bio(base.farmId ? (detail?.bioScorePct ?? null) : null),
+    bioDate: bio(base.farmId ? (detail?.bioDate ?? null) : null),
+    bioA: bio(f.bioA),
+    bioB: bio(f.bioB),
+    bioC: bio(f.bioC),
+    bioNever: bio(f.bioNever),
+    bioStale: bio(f.bioStale),
+    bioAverageScorePct: bio(
+      bioControlled > 0
+        ? Math.round((f.bioScoreSum / bioControlled) * 10) / 10
+        : null,
+    ),
+    bioControlledPct: bio(
+      bioFarms > 0 ? Math.round((bioControlled / bioFarms) * 1000) / 10 : null,
+    ),
   };
 }
 
@@ -260,6 +317,12 @@ const SUM_KEYS = [
   'daysElapsed',
   'exitHeads',
   'exitKg',
+  'bioA',
+  'bioB',
+  'bioC',
+  'bioNever',
+  'bioStale',
+  'bioScoreSum',
 ] as const satisfies readonly (keyof FarmSums)[];
 
 /** Every figure of a farm at zero. */
@@ -320,6 +383,7 @@ export function buildSynthesis(
         f,
         columns,
         formulas,
+        f,
       ),
     ),
     provinces: [...byProvince.values()].map((p) =>
@@ -389,6 +453,20 @@ export function exportColumns(
       ['completenessPct', 'Complétude des saisies (%)'],
       ['producedHeads', 'Volumes produits (têtes)'],
       ['producedKg', 'Volumes produits (kg vif)'],
+    );
+  }
+  if (columns.biosecurity) {
+    out.push(
+      ['bioClass', 'Biosécurité : classe du dernier contrôle'],
+      ['bioScorePct', 'Biosécurité : score (%)'],
+      ['bioDate', 'Biosécurité : date du contrôle'],
+      ['bioA', 'Biosécurité : fermes en classe A'],
+      ['bioB', 'Biosécurité : fermes en classe B'],
+      ['bioC', 'Biosécurité : fermes en classe C'],
+      ['bioNever', 'Biosécurité : fermes jamais contrôlées'],
+      ['bioStale', 'Biosécurité : contrôles anciens'],
+      ['bioAverageScorePct', 'Biosécurité : score moyen (%)'],
+      ['bioControlledPct', 'Biosécurité : fermes contrôlées (%)'],
     );
   }
   return out;

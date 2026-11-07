@@ -35,13 +35,14 @@ export interface Figure {
 }
 
 /** POUFA lot A2 dge: column groups of the synthesis, each from its own matrix domain. */
-export type SynthesisGroup = 'VENTES' | 'COMPTA' | 'MARKET' | 'PRODUCTION';
+export type SynthesisGroup = 'VENTES' | 'COMPTA' | 'MARKET' | 'PRODUCTION' | 'BIOSECURITE';
 
 export const SYNTHESIS_GROUPS: readonly { key: SynthesisGroup; label: string }[] = [
   { key: 'VENTES', label: 'Ventes' },
   { key: 'COMPTA', label: 'Compta' },
   { key: 'MARKET', label: 'Market' },
   { key: 'PRODUCTION', label: 'Saisies' },
+  { key: 'BIOSECURITE', label: 'Biosécurité' },
 ];
 
 /** The groups the server granted, in order (the sales group always: it is the route's domain). */
@@ -51,7 +52,8 @@ export function synthesisGroups(columns: SynthesisColumns): SynthesisGroup[] {
       g === 'VENTES' ||
       (g === 'COMPTA' && !!columns.accounting) ||
       (g === 'MARKET' && !!columns.market) ||
-      (g === 'PRODUCTION' && !!columns.production),
+      (g === 'PRODUCTION' && !!columns.production) ||
+      (g === 'BIOSECURITE' && !!columns.biosecurity),
   );
 }
 
@@ -92,6 +94,16 @@ export function visibleFigures(row: SynthesisRow, columns: SynthesisColumns, gro
       { key: 'completeness', label: 'Complétude des saisies', value: v(row.completenessPct), kind: 'pct' },
       { key: 'producedHeads', label: 'Volumes produits (têtes)', value: v(row.producedHeads), kind: 'count' },
       { key: 'producedKg', label: 'Poids vif produit', value: v(row.producedKg), kind: 'kg' },
+    ];
+  }
+  if (g === 'BIOSECURITE') {
+    return [
+      { key: 'bioA', label: 'Classe A', value: v(row.bioA), kind: 'count' },
+      { key: 'bioB', label: 'Classe B', value: v(row.bioB), kind: 'count' },
+      { key: 'bioC', label: 'Classe C', value: v(row.bioC), kind: 'count' },
+      { key: 'bioNever', label: 'Jamais contrôlées', value: v(row.bioNever), kind: 'count' },
+      { key: 'bioControlledPct', label: 'Fermes contrôlées', value: v(row.bioControlledPct), kind: 'pct' },
+      { key: 'bioAverageScorePct', label: 'Score moyen du dernier contrôle', value: v(row.bioAverageScorePct), kind: 'pct' },
     ];
   }
   if (columns.sales) {
