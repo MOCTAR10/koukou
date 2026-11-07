@@ -1,0 +1,1486 @@
+[
+  {
+    "route": "/login",
+    "titre": "Connexion",
+    "roles": [
+      "Tous"
+    ],
+    "resume": "Page d'entrée unique pour tous les comptes. Elle envoie chacun vers son espace : ferme, pilotage, accès ou marché.",
+    "cdc": [
+      {
+        "num": "8.1",
+        "intitule": "Authentification sécurisée",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      },
+      {
+        "num": "3.11",
+        "intitule": "Matrice de droits paramétrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Web utilisable hors ligne, ouvert à tous les rôles."
+    ],
+    "aSavoir": "Sécurité de connexion : verrouillage par compte, changement de code et en-têtes helmet ne sont pas faits (8.1 🟠, lot B)."
+  },
+  {
+    "route": "/app/dashboard",
+    "titre": "Tableau de bord ferme",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (TECHNIQUE)"
+    ],
+    "resume": "Vue d'ensemble de la bande en cours avec mortalité, viabilité, GMQ et IC. Les chiffres officiels de la formule du programme passent en tête.",
+    "cdc": [
+      {
+        "num": "36",
+        "intitule": "Tableau de bord de l'éleveur",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "12",
+        "intitule": "Taux de mortalité",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "13",
+        "intitule": "Viabilité",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "14",
+        "intitule": "GMQ",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "15",
+        "intitule": "IC",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "7.4a",
+        "intitule": "Indicateurs à chaque saisie",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Météo et stress thermique, conseils de conduite zootechniques."
+    ],
+    "aSavoir": "Les valeurs « conduite » de Fermia sont libellées à part des valeurs officielles."
+  },
+  {
+    "route": "/app/home",
+    "titre": "Accueil éleveur de terrain",
+    "roles": [
+      "Éleveur"
+    ],
+    "resume": "Écran simplifié pour l'éleveur de terrain avec les gestes du jour. Il mène vers la saisie, les soins et les tâches.",
+    "cdc": [
+      {
+        "num": "7",
+        "intitule": "Fiche d'élevage",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Parcours adapté au profil, pensé pour le terrain."
+    ],
+    "aSavoir": "Écran propre à Fermia, fermé aux institutions."
+  },
+  {
+    "route": "/app/batches",
+    "titre": "Lots et suivi",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (TECHNIQUE)"
+    ],
+    "resume": "Liste des bandes, ouverture et clôture, fiche d'élevage, pesées, sorties et historique. Les saisies passent par la file hors ligne.",
+    "cdc": [
+      {
+        "num": "6",
+        "intitule": "Ouverture d'une bande",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "7",
+        "intitule": "Fiche d'élevage",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "8",
+        "intitule": "Pesées",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "9",
+        "intitule": "Sorties d'animaux",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "10",
+        "intitule": "Clôture et bilan",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "11",
+        "intitule": "Historique des bandes",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "12",
+        "intitule": "Taux de mortalité",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "13",
+        "intitule": "Viabilité",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "14",
+        "intitule": "GMQ",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "15",
+        "intitule": "IC",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "16",
+        "intitule": "Volumes produits",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "T2",
+        "intitule": "Historique d'élevage sans ressaisie",
+        "priorite": "MVP",
+        "statut": "🟠"
+      },
+      {
+        "num": "T3",
+        "intitule": "Sortie, cession, destinataire obligatoire",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "7.2b",
+        "intitule": "Synchronisation automatique",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "7.2c",
+        "intitule": "Conflit : dernière saisie horodatée",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "7.4c",
+        "intitule": "Bande clôturée en lecture seule",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Pondeuses, œufs et autres espèces, courbes de race, densité par bâtiment, calendrier de soins généré."
+    ],
+    "aSavoir": "Ouverture et clôture de bande ne fonctionnent pas hors ligne. T2 reste partiel : ni contrôles ni visites."
+  },
+  {
+    "route": "/app/alerts",
+    "titre": "Alertes de conduite",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (TECHNIQUE)"
+    ],
+    "resume": "Liste des alertes de conduite de la ferme et gestes du jour comme « Fait » pour un soin. On peut aussi déclarer un cas aux services vétérinaires.",
+    "cdc": [
+      {
+        "num": "25",
+        "intitule": "Alerte précoce",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "21",
+        "intitule": "Déclaration sanitaire",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "22",
+        "intitule": "Registre des vaccinations",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Moteur de conseil zootechnique : eau, densité, vide sanitaire, IPE, GMQ."
+    ],
+    "aSavoir": "Seules les alertes publiées par un vétérinaire alimentent le pilotage (F1 corrigé). Le seuil de mortalité de 1 % est une valeur « Proposée », à fixer par les vétérinaires."
+  },
+  {
+    "route": "/app/sanitary",
+    "titre": "Sanitaire de la ferme",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (SANITAIRE)"
+    ],
+    "resume": "Déclarations sanitaires, vaccinations, traitements et délais d'attente, avec le badge de la décision vétérinaire. Le nombre d'animaux est obligatoire à chaque soin.",
+    "cdc": [
+      {
+        "num": "21",
+        "intitule": "Déclaration sanitaire",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "22",
+        "intitule": "Registre des vaccinations",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "23",
+        "intitule": "Registre des traitements",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "26",
+        "intitule": "Qualification et validation des alertes",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Calendriers de soins par espèce, fiche de suivi sanitaire en PDF, délai d'attente qui bloque abattage et Market."
+    ],
+    "aSavoir": "La liste PRODUIT_TRAITEMENT est livrée vide : le texte libre est accepté tant que les vétérinaires ne l'ont pas remplie. La DGE n'a pas le droit sanitaire par défaut."
+  },
+  {
+    "route": "/app/surveillance",
+    "titre": "Surveillance sanitaire",
+    "roles": [
+      "Vétérinaire",
+      "Institution (SANITAIRE)"
+    ],
+    "resume": "Registre des déclarations à valider, alertes officielles et calendriers de référence. Le vétérinaire valide, infirme ou transforme en alerte.",
+    "cdc": [
+      {
+        "num": "25",
+        "intitule": "Alerte précoce",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "26",
+        "intitule": "Qualification et validation des alertes",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "21",
+        "intitule": "Déclaration sanitaire",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "8.5",
+        "intitule": "Déclarations aux seuls vétérinaires",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "3.4",
+        "intitule": "Services vétérinaires",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "L'autorité vétérinaire est un droit de la matrice (SANITAIRE:VALIDER), pas un code de profil. Pas d'échange avec EMA-i Plus (n° 28 ❌), ni biosécurité (n° 27 ❌), ni diagnostics structurés (n° 24 🟠)."
+  },
+  {
+    "route": "/app/surveillance/parametres",
+    "titre": "Paramètres de surveillance",
+    "roles": [
+      "Vétérinaire"
+    ],
+    "resume": "Réglage des seuils, listes et calendriers sanitaires. Réservé aux vétérinaires, l'administrateur plateforme est exclu.",
+    "cdc": [
+      {
+        "num": "25",
+        "intitule": "Alerte précoce",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "7.3d",
+        "intitule": "Seuils paramétrables",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "7.3c",
+        "intitule": "Formules paramétrables",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "3.11",
+        "intitule": "Matrice de droits paramétrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Les valeurs « Proposé » (seuils, calendrier) attendent la validation des vétérinaires."
+  },
+  {
+    "route": "/app/stock",
+    "titre": "Stock d'intrants",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (INTRANTS, lecture)"
+    ],
+    "resume": "Stock d'aliments et produits avec autonomie en jours, réceptions et utilisation déduite des saisies. Les livraisons de l'État en attente sont signalées à part.",
+    "cdc": [
+      {
+        "num": "17",
+        "intitule": "Réception des intrants",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "18",
+        "intitule": "Utilisation et stock d'intrants",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Stock physique FEFO et HACCP, péremption, pertes, alerte d'autonomie."
+    ],
+    "aSavoir": "Pour une institution, l'écran est en lecture seule même si un droit d'écriture est accordé."
+  },
+  {
+    "route": "/app/livraisons",
+    "titre": "Livraisons d'intrants reçues",
+    "roles": [
+      "Éleveur",
+      "Propriétaire"
+    ],
+    "resume": "L'éleveur confirme les intrants livrés par le programme. C'est la base du recoupement livraisons contre déclarations.",
+    "cdc": [
+      {
+        "num": "17",
+        "intitule": "Réception des intrants",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "19",
+        "intitule": "Recoupement livraisons / déclarations",
+        "priorite": "Phase ultérieure",
+        "statut": "🟠"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Recoupement partiel : pas la formule du CDC ni de rapport d'écarts exportable par ferme (n° 19 🟠). Commande d'intrants non construite (n° 20 ❌)."
+  },
+  {
+    "route": "/app/intrants",
+    "titre": "Intrants du programme",
+    "roles": [
+      "DGE",
+      "Institution (INTRANTS)"
+    ],
+    "resume": "La DGE enregistre les livraisons d'intrants par ferme et suit les confirmations. Elle voit les écarts de stock.",
+    "cdc": [
+      {
+        "num": "17",
+        "intitule": "Réception des intrants",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "19",
+        "intitule": "Recoupement livraisons / déclarations",
+        "priorite": "Phase ultérieure",
+        "statut": "🟠"
+      },
+      {
+        "num": "20",
+        "intitule": "Commande d'intrants",
+        "priorite": "À arbitrer",
+        "statut": "❌"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "La commande d'intrants (demande, validation, livraison) n'existe pas : décision à prendre par la DGE (n° 20 ❌)."
+  },
+  {
+    "route": "/app/slaughter",
+    "titre": "Abattage",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (TRACABILITE, lecture)"
+    ],
+    "resume": "Ordre d'abattage avec choix de l'abattoir, poids des carcasses et rendement. La cession et le QR se créent à la transformation de l'ordre.",
+    "cdc": [
+      {
+        "num": "9",
+        "intitule": "Sorties d'animaux",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "T3",
+        "intitule": "Sortie, cession, destinataire obligatoire",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "29",
+        "intitule": "Rendez-vous d'abattage",
+        "priorite": "À arbitrer",
+        "statut": "🟠"
+      },
+      {
+        "num": "T6",
+        "intitule": "Réception à l'abattoir",
+        "priorite": "Phase ultérieure",
+        "statut": "❌"
+      }
+    ],
+    "bonus": [
+      "Statuts brouillon, envoyé, traité ; carcasses vendables en point de vente et Market."
+    ],
+    "aSavoir": "Rendez-vous d'abattage partiel : date du jour par défaut, pas de calendrier par abattoir (n° 29 🟠). Pas de réception à l'abattoir (T6 ❌). Un délai d'attente sanitaire bloque l'envoi."
+  },
+  {
+    "route": "/app/tasks",
+    "titre": "Tâches",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (TECHNIQUE)"
+    ],
+    "resume": "Tâches assignées à l'équipe avec retards signalés. Les rappels de saisie et de soins s'y ajoutent.",
+    "cdc": [
+      {
+        "num": "7.6c",
+        "intitule": "Notification immédiate, rappel de pesée",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      }
+    ],
+    "bonus": [
+      "Tâches et rappels d'équipe, retard avec push."
+    ],
+    "aSavoir": "Le push réel exige le build Android EAS, pas encore fait (7.6c 🟠)."
+  },
+  {
+    "route": "/app/activities",
+    "titre": "Activités du jour",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (TECHNIQUE)"
+    ],
+    "resume": "Agenda des soins, pesées et tâches à faire. Il regroupe ce qui est dû aujourd'hui.",
+    "cdc": [
+      {
+        "num": "7",
+        "intitule": "Fiche d'élevage",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "22",
+        "intitule": "Registre des vaccinations",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Écran de confort, sans ligne propre au CDC."
+  },
+  {
+    "route": "/app/finance/ventes",
+    "titre": "Ventes",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (VENTES, lecture)"
+    ],
+    "resume": "Ventes à la pièce, au kg, carcasses et œufs, avec reçu PDF portant un QR de lot. Chaque vente à un opérateur crée la cession.",
+    "cdc": [
+      {
+        "num": "30",
+        "intitule": "Enregistrement des ventes",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "33",
+        "intitule": "Chiffre d'affaires",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "T3",
+        "intitule": "Sortie, cession, destinataire obligatoire",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "T5",
+        "intitule": "QR par lot / sous-lot",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Reçus PDF, créances clients, encaissements partiels."
+    ],
+    "aSavoir": "Pas de champ « destination » sur la vente. Visibilité des identités clients pour la DGE : décision à valider (n° 30, 8.15)."
+  },
+  {
+    "route": "/app/finance/caisse",
+    "titre": "Caisse",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (VENTES, lecture)"
+    ],
+    "resume": "Sessions de caisse avec ouverture, clôture et encaissements. Les écritures comptables se font automatiquement.",
+    "cdc": [
+      {
+        "num": "33",
+        "intitule": "Chiffre d'affaires",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Caisse de point de vente, au-delà du CDC."
+    ],
+    "aSavoir": "Bonus sans ligne CDC propre ; ouvert à la DGE en lecture seule par la matrice."
+  },
+  {
+    "route": "/app/orders",
+    "titre": "Commandes",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (VENTES, lecture)"
+    ],
+    "resume": "Commandes avec acompte, livraison et vente à crédit. Les oiseaux sont réservés jusqu'à la livraison.",
+    "cdc": [
+      {
+        "num": "30",
+        "intitule": "Enregistrement des ventes",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "T3",
+        "intitule": "Sortie, cession, destinataire obligatoire",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Bon de commande PDF avec QR de lot, acomptes."
+    ],
+    "aSavoir": "Une livraison saisie hors ligne est datée du jour de livraison, au fuseau du Gabon."
+  },
+  {
+    "route": "/app/finance/clients",
+    "titre": "Clients",
+    "roles": [
+      "Éleveur",
+      "Propriétaire"
+    ],
+    "resume": "Fichier clients avec créances et historique d'achats. Un client peut être lié à un opérateur du registre.",
+    "cdc": [
+      {
+        "num": "T4",
+        "intitule": "Registre des opérateurs",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "30",
+        "intitule": "Enregistrement des ventes",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Gestion des créances."
+    ],
+    "aSavoir": "Une vente à un client sans lien opérateur ne crée pas de cession : règle à valider par la DGE."
+  },
+  {
+    "route": "/app/finance/promotions",
+    "titre": "Promotions",
+    "roles": [
+      "Éleveur",
+      "Propriétaire"
+    ],
+    "resume": "Promotions applicables aux ventes de la ferme. Elles se règlent sans toucher aux règles du programme.",
+    "cdc": [],
+    "bonus": [
+      "Promotions de vente, au-delà du CDC."
+    ],
+    "aSavoir": "Bonus pur, sans exigence du CDC associée."
+  },
+  {
+    "route": "/app/points-of-sale",
+    "titre": "Points de vente",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (VENTES, lecture)"
+    ],
+    "resume": "Points de vente ferme ou boutique et transferts de carcasses, d'aliment ou d'œufs. Chaque transfert décrémente la source.",
+    "cdc": [],
+    "bonus": [
+      "Transferts ferme vers boutique."
+    ],
+    "aSavoir": "Bonus sans ligne CDC."
+  },
+  {
+    "route": "/app/market",
+    "titre": "Fermia Market (côté ferme)",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (MARCHE, lecture)"
+    ],
+    "resume": "La ferme publie ses annonces et traite les demandes des acheteurs. Les lots vendus portent un QR de traçabilité sur le reçu.",
+    "cdc": [
+      {
+        "num": "51",
+        "intitule": "Mise en relation commerciale",
+        "priorite": "Évolutive",
+        "statut": "🟠"
+      },
+      {
+        "num": "T5",
+        "intitule": "QR par lot / sous-lot",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Catalogue public, précommandes avec acompte, demandes qui expirent à 48 h, comptes acheteurs."
+    ],
+    "aSavoir": "Mise en relation commerciale partielle : pas de mise en relation fournisseurs, abattoirs ou distributeurs (n° 51 🟠). Les annonces elles-mêmes ne portent pas encore le QR."
+  },
+  {
+    "route": "/marche",
+    "titre": "Fermia Market (catalogue public)",
+    "roles": [
+      "Public",
+      "Acheteur"
+    ],
+    "resume": "Catalogue public des annonces, avec commandes et compte pour l'acheteur inscrit. Il met en avant le produit gabonais.",
+    "cdc": [
+      {
+        "num": "51",
+        "intitule": "Mise en relation commerciale",
+        "priorite": "Évolutive",
+        "statut": "🟠"
+      }
+    ],
+    "bonus": [
+      "Place de marché complète avec précommande et acompte."
+    ],
+    "aSavoir": "Catalogue ouvert sans compte. Inscription acheteur sur /marche/inscription."
+  },
+  {
+    "route": "/app/accounting",
+    "titre": "Comptabilité",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "DGE (COMPTABILITE, lecture)"
+    ],
+    "resume": "Journal, grand livre, balance, compte de résultat et bilan SYSCOHADA. Les écritures sont générées par les ventes et dépenses.",
+    "cdc": [
+      {
+        "num": "32",
+        "intitule": "Coût de production",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "33",
+        "intitule": "Chiffre d'affaires",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "34",
+        "intitule": "Marge et rentabilité",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Comptabilité SYSCOHADA complète avec clôture d'exercice et export."
+    ],
+    "aSavoir": "La DGE le lit en consultation avec un bandeau lecture seule. Visibilité à valider (8.15 🟠)."
+  },
+  {
+    "route": "/app/expenses",
+    "titre": "Dépenses",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (ECONOMIQUE, lecture)"
+    ],
+    "resume": "14 postes de dépense alignés sur le plan comptable. La réception d'intrants crée la dépense automatiquement.",
+    "cdc": [
+      {
+        "num": "31",
+        "intitule": "Charges d'exploitation",
+        "priorite": "Phase ultérieure",
+        "statut": "🟠"
+      },
+      {
+        "num": "32",
+        "intitule": "Coût de production",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Reprise automatique des intrants en dépense."
+    ],
+    "aSavoir": "La liste POSTE_CHARGE du CDC n'est pas branchée sur les dépenses (n° 31 🟠)."
+  },
+  {
+    "route": "/app/reports",
+    "titre": "Rapports de rentabilité",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (ECONOMIQUE, lecture)"
+    ],
+    "resume": "Compte de résultat par bande et par ferme avec exports. Une alerte signale une marge faible.",
+    "cdc": [
+      {
+        "num": "34",
+        "intitule": "Marge et rentabilité",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "32",
+        "intitule": "Coût de production",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "33",
+        "intitule": "Chiffre d'affaires",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Rentabilité par bande, qui alimente les indicateurs officiels."
+    ],
+    "aSavoir": "Ne pas confondre avec les rapports périodiques du CDC (n° 40), qui sont dans Pilotage > Rapports (F12)."
+  },
+  {
+    "route": "/app/team",
+    "titre": "Équipe",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "Institution (EQUIPE, lecture)"
+    ],
+    "resume": "Membres de la ferme, droits par membre et comptes d'équipe créés par l'exploitant.",
+    "cdc": [
+      {
+        "num": "3.1",
+        "intitule": "Éleveur",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "3.11",
+        "intitule": "Matrice de droits paramétrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Comptes limités à la ferme, suspension."
+    ],
+    "aSavoir": ""
+  },
+  {
+    "route": "/app/hr",
+    "titre": "Ressources humaines",
+    "roles": [
+      "Propriétaire",
+      "Institution (EQUIPE, lecture)"
+    ],
+    "resume": "Dossier RH des membres : contrat, embauche, salaire. Réservé au propriétaire.",
+    "cdc": [],
+    "bonus": [
+      "Module RH, au-delà du CDC."
+    ],
+    "aSavoir": "La DGE peut lire les salaires par défaut (8.15 🟠, décision à prendre). Les salaires sont masqués dans le journal ANINF."
+  },
+  {
+    "route": "/app/registre",
+    "titre": "Registre des fermes",
+    "roles": [
+      "DGE",
+      "Agent technique",
+      "Institution (REGISTRE)"
+    ],
+    "resume": "Registre national des fermes avec fiche d'identification, GPS, capacités, statut et comptes d'équipe. Chaque consultation est journalisée.",
+    "cdc": [
+      {
+        "num": "1",
+        "intitule": "Fiche d'identification",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "2",
+        "intitule": "Géolocalisation",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "3",
+        "intitule": "Capacités et infrastructures",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "4",
+        "intitule": "Statut de la ferme",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "43",
+        "intitule": "Utilisateurs, profils, droits",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "3.2",
+        "intitule": "Agent technique : vérifie les déclarations",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      },
+      {
+        "num": "8.7",
+        "intitule": "Journal, consultations tracées, ANINF",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      }
+    ],
+    "bonus": [
+      "Multi-fermes par exploitant."
+    ],
+    "aSavoir": "Les contours des 9 provinces ne sont pas chargés. L'agent technique ne relève que le GPS, sans visa des déclarations (3.2 🟠)."
+  },
+  {
+    "route": "/app/pilotage",
+    "titre": "Pilotage : tableau de bord",
+    "roles": [
+      "DGE",
+      "MAEDR",
+      "Institution (PILOTAGE)"
+    ],
+    "resume": "Tableau de bord provincial et national avec complétude et volumes produits. Les chiffres se rafraîchissent automatiquement.",
+    "cdc": [
+      {
+        "num": "37",
+        "intitule": "Tableaux de bord province et national",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "47",
+        "intitule": "Qualité et complétude",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "7.3c",
+        "intitule": "Formules paramétrables",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Formules ajoutées par Fermia (complétude, volumes) pour combler le CDC."
+    ],
+    "aSavoir": "Aucun profil PROVINCES n'est créé au départ. Seuil d'anonymat k = 5 à valider."
+  },
+  {
+    "route": "/app/pilotage/carte",
+    "titre": "Pilotage : carte",
+    "roles": [
+      "DGE",
+      "MAEDR",
+      "Institution (PILOTAGE)"
+    ],
+    "resume": "Carte des fermes filtrable avec niveau d'alerte publié. Elle montre où agir en premier.",
+    "cdc": [
+      {
+        "num": "38",
+        "intitule": "Cartographie",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "7.6b",
+        "intitule": "Carte filtrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Les tuiles viennent d'OpenStreetMap, à remplacer par un fournisseur autorisé (lot B7)."
+  },
+  {
+    "route": "/app/pilotage/objectif",
+    "titre": "Pilotage : objectif 100 000 t",
+    "roles": [
+      "DGE",
+      "MAEDR",
+      "Institution (PILOTAGE)"
+    ],
+    "resume": "Suivi de l'objectif national en poids vif annuel et projection. Il situe la production par rapport à la cible.",
+    "cdc": [
+      {
+        "num": "37",
+        "intitule": "Tableaux de bord province et national",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "L'objectif de 100 000 t et la projection 2027-2030 sont des hypothèses à valider par la DGE et le MAEDR."
+  },
+  {
+    "route": "/app/pilotage/rapports",
+    "titre": "Pilotage : rapports périodiques",
+    "roles": [
+      "DGE",
+      "MAEDR",
+      "Institution (PILOTAGE)"
+    ],
+    "resume": "Rapports hebdomadaires et de fin de bande, exportables en PDF. Une notification prévient quand un rapport est prêt.",
+    "cdc": [
+      {
+        "num": "40",
+        "intitule": "Rapports périodiques",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "41",
+        "intitule": "Filtres et exports",
+        "priorite": "À arbitrer",
+        "statut": "🟠"
+      },
+      {
+        "num": "9.5",
+        "intitule": "Modèles de rapports",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "7.7c",
+        "intitule": "Exports conformes aux droits",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Pas d'écran mobile des rapports ni d'envoi par e-mail. Exports absents : tableau de bord PDF, alertes, intrants, lots (n° 41 🟠)."
+  },
+  {
+    "route": "/app/economie",
+    "titre": "Synthèse économique",
+    "roles": [
+      "DGE",
+      "Institution (ECONOMIQUE)"
+    ],
+    "resume": "Synthèse des ventes, dépenses et marge par ferme, avec colonnes comptabilité et Market. Export CSV et Excel.",
+    "cdc": [
+      {
+        "num": "34",
+        "intitule": "Marge et rentabilité",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "33",
+        "intitule": "Chiffre d'affaires",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "41",
+        "intitule": "Filtres et exports",
+        "priorite": "À arbitrer",
+        "statut": "🟠"
+      },
+      {
+        "num": "8.15",
+        "intitule": "Proportionnalité des lectures institutionnelles des bonus",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      }
+    ],
+    "bonus": [
+      "Colonnes comptabilité et Market ajoutées à la synthèse."
+    ],
+    "aSavoir": "La marge officielle (ventes moins dépenses) diffère de la marge de lot. Domiciliation des revenus non construite (n° 35 ❌)."
+  },
+  {
+    "route": "/app/tracabilite",
+    "titre": "Traçabilité",
+    "roles": [
+      "Éleveur",
+      "Propriétaire",
+      "DGE",
+      "Vétérinaire",
+      "Institution (TRACABILITE)"
+    ],
+    "resume": "Lots, sous-lots, QR, registre des opérateurs et historique d'élevage d'un lot. On peut chercher un code et suivre les cessions.",
+    "cdc": [
+      {
+        "num": "T1",
+        "intitule": "Identifiant de lot, immuable",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "T2",
+        "intitule": "Historique d'élevage sans ressaisie",
+        "priorite": "MVP",
+        "statut": "🟠"
+      },
+      {
+        "num": "T3",
+        "intitule": "Sortie, cession, destinataire obligatoire",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "T4",
+        "intitule": "Registre des opérateurs",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "T5",
+        "intitule": "QR par lot / sous-lot",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "T12",
+        "intitule": "Recherche amont / aval, export",
+        "priorite": "Phase ultérieure",
+        "statut": "🟠"
+      },
+      {
+        "num": "T13",
+        "intitule": "QR inconnu ou clos rejeté, scans journalisés",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "T14",
+        "intitule": "Indicateurs de traçabilité 95 %",
+        "priorite": "Phase ultérieure",
+        "statut": "🟠"
+      },
+      {
+        "num": "T16",
+        "intitule": "Document d'accompagnement",
+        "priorite": "À arbitrer",
+        "statut": "🟠"
+      }
+    ],
+    "bonus": [
+      "QR signé HMAC, scellé quotidien du journal, indicateurs de fraude sur les scans."
+    ],
+    "aSavoir": "T2 est partiel : contrôles de biosécurité et visites absents. Recherche amont-aval partielle (T12 🟠). L'indicateur de traçabilité à 95 % n'est pas encore lu (T14 🟠). Document d'accompagnement : « pas un certificat sanitaire » (T16 🟠)."
+  },
+  {
+    "route": "/l/:code",
+    "titre": "Page publique d'un lot (QR)",
+    "roles": [
+      "Public (consommateur)"
+    ],
+    "resume": "Le consommateur scanne le QR et voit l'historique du lot, sans compte ni donnée personnelle. Un code inconnu ou clos est rejeté.",
+    "cdc": [
+      {
+        "num": "T10",
+        "intitule": "Consultation publique",
+        "priorite": "Évolutive",
+        "statut": "✅"
+      },
+      {
+        "num": "T13",
+        "intitule": "QR inconnu ou clos rejeté, scans journalisés",
+        "priorite": "Phase ultérieure",
+        "statut": "✅"
+      },
+      {
+        "num": "3.8",
+        "intitule": "Consommateur par QR",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "8.9",
+        "intitule": "Page publique sans donnée personnelle",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "7.5c",
+        "intitule": "QR inconnu ou clos rejeté",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Scans journalisés en écriture seule."
+    ],
+    "aSavoir": "Page jamais mise en cache hors ligne. Les scans sont tracés dans un journal non modifiable."
+  },
+  {
+    "route": "/app/notifications",
+    "titre": "Notifications",
+    "roles": [
+      "Tous"
+    ],
+    "resume": "Boîte de réception de chaque compte avec alertes, rapports prêts et rappels. Chacun ne voit que les siennes.",
+    "cdc": [
+      {
+        "num": "7.6c",
+        "intitule": "Notification immédiate, rappel de pesée",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      },
+      {
+        "num": "40",
+        "intitule": "Rapports périodiques",
+        "priorite": "MVP",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Notification dans l'application seulement : le push téléphone dépend du build Android (7.6c 🟠)."
+  },
+  {
+    "route": "/app/notifications/regles",
+    "titre": "Règles de notification",
+    "roles": [
+      "Administrateur",
+      "Institution (ADMINISTRATION)"
+    ],
+    "resume": "Réglage des règles qui déclenchent les notifications et de leurs destinataires.",
+    "cdc": [
+      {
+        "num": "7.3a",
+        "intitule": "Listes paramétrables",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      },
+      {
+        "num": "3.11",
+        "intitule": "Matrice de droits paramétrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Pas d'envoi par e-mail."
+  },
+  {
+    "route": "/app/parametres",
+    "titre": "Paramètres du programme",
+    "roles": [
+      "DGE",
+      "Administrateur"
+    ],
+    "resume": "Formules, seuils, listes et calendriers du programme, modifiables sans développement. Chaque paramètre a un propriétaire dans la matrice.",
+    "cdc": [
+      {
+        "num": "7.3a",
+        "intitule": "Listes paramétrables",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      },
+      {
+        "num": "7.3c",
+        "intitule": "Formules paramétrables",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "7.3d",
+        "intitule": "Seuils paramétrables",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "3.3",
+        "intitule": "POUFA / DGE",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "3.11",
+        "intitule": "Matrice de droits paramétrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Plusieurs valeurs sont « Proposé » (seuils, calendrier, k = 5). PRODUIT_TRAITEMENT est vide. Les statuts de lot sont un enum, non paramétrables (7.3a 🟠)."
+  },
+  {
+    "route": "/app/acces",
+    "titre": "Accès et profils",
+    "roles": [
+      "Administrateur",
+      "Institution (ADMINISTRATION)"
+    ],
+    "resume": "Matrice des droits par profil, domaine et périmètre, gérée par l'administrateur. Les rattachements de comptes s'y font aussi.",
+    "cdc": [
+      {
+        "num": "43",
+        "intitule": "Utilisateurs, profils, droits",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "3.10",
+        "intitule": "Administrateur",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "3.11",
+        "intitule": "Matrice de droits paramétrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "8.3",
+        "intitule": "Cloisonnement",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Droits gérés par l'administrateur plutôt que codés en dur."
+    ],
+    "aSavoir": "Sept profils « Proposé » à valider. L'écriture est impossible pour une institution sur les modules bonus."
+  },
+  {
+    "route": "/app/mon-acces",
+    "titre": "Mon accès",
+    "roles": [
+      "Institution"
+    ],
+    "resume": "Un compte institution voit ici son profil, son périmètre et les droits qu'il détient. C'est la preuve du cloisonnement.",
+    "cdc": [
+      {
+        "num": "8.3",
+        "intitule": "Cloisonnement",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "3.11",
+        "intitule": "Matrice de droits paramétrable",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "Écran réservé aux comptes institutionnels."
+  },
+  {
+    "route": "/app/audit",
+    "titre": "Journal d'audit",
+    "roles": [
+      "ANINF",
+      "Institution (AUDIT)"
+    ],
+    "resume": "Journal de toutes les actions et des lectures de tiers, avec scellé quotidien vérifiable et export. L'ANINF y accède sans voir les fermes.",
+    "cdc": [
+      {
+        "num": "46",
+        "intitule": "Historique et journal",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "3.9",
+        "intitule": "ANINF (audit)",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "8.7",
+        "intitule": "Journal, consultations tracées, ANINF",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      },
+      {
+        "num": "8.8",
+        "intitule": "Conservation, aucune suppression",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Scellé SHA-256 chaîné et vérifiable, salaires masqués."
+    ],
+    "aSavoir": "Immuabilité complète exige deux rôles SQL, pas encore créés (8.7 🟠, lot B4)."
+  },
+  {
+    "route": "/app/reprise",
+    "titre": "Reprise des données",
+    "roles": [
+      "DGE",
+      "Institution (REGISTRE)"
+    ],
+    "resume": "Import de la liste POUFA et des historiques de bandes avec un aperçu avant validation. Les lignes refusées sont expliquées.",
+    "cdc": [
+      {
+        "num": "48",
+        "intitule": "Reprise des données",
+        "priorite": "MVP",
+        "statut": "✅"
+      },
+      {
+        "num": "7.7b",
+        "intitule": "Import de la liste POUFA",
+        "priorite": "Transverse",
+        "statut": "✅"
+      },
+      {
+        "num": "9.3",
+        "intitule": "Reprise des données (livrable)",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      }
+    ],
+    "bonus": [],
+    "aSavoir": "L'outil est prêt, la reprise réelle n'est pas faite (9.3 🟠). L'aperçu accepte un poids sans échantillon que l'import refuse ensuite."
+  },
+  {
+    "route": "/app/settings",
+    "titre": "Paramètres du compte",
+    "roles": [
+      "Éleveur",
+      "Propriétaire"
+    ],
+    "resume": "Réglages du compte de ferme : logo, profil, ferme active. Fermé aux institutions.",
+    "cdc": [],
+    "bonus": [
+      "Réglages de compte propres à Fermia."
+    ],
+    "aSavoir": "Sans ligne CDC."
+  },
+  {
+    "route": "/app/platform",
+    "titre": "Console plateforme",
+    "roles": [
+      "Administrateur plateforme"
+    ],
+    "resume": "Métriques globales et par ferme, utilisateurs, suspension, codes de connexion, races et protocoles partagés.",
+    "cdc": [
+      {
+        "num": "3.10",
+        "intitule": "Administrateur",
+        "priorite": "Transverse",
+        "statut": "✅"
+      }
+    ],
+    "bonus": [
+      "Console d'exploitation de la plateforme."
+    ],
+    "aSavoir": "Réservée à PLATFORM_ADMIN, qui n'a plus qu'un accès en lecture sur les routes propriétaire (F8 ✅ avec réserve)."
+  },
+  {
+    "route": "/app/help",
+    "titre": "Aide",
+    "roles": [
+      "Tous"
+    ],
+    "resume": "Fiches d'élevage simples sur l'eau, l'alimentation, le poids, la mortalité et la santé. Elles aident à comprendre les alertes.",
+    "cdc": [
+      {
+        "num": "9.7",
+        "intitule": "Guides et formation",
+        "priorite": "Transverse",
+        "statut": "🟠"
+      },
+      {
+        "num": "52",
+        "intitule": "Portail, formation en ligne",
+        "priorite": "Évolutive",
+        "statut": "❌"
+      }
+    ],
+    "bonus": [
+      "Base de connaissances d'élevage."
+    ],
+    "aSavoir": "Guides par profil et formation non faits (9.7 🟠, lot B11). Le portail de formation reste évolutif (n° 52 ❌)."
+  }
+]

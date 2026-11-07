@@ -1,0 +1,102 @@
+{
+  "source": "Audit POUFA v6 (2026-11-07, main 613657d) : mise à jour de la v5 (2026-11-06, main 9171482) après le lot B (mise en service). Le code n'a pas été ré-audité ligne à ligne ; les changements portent sur la production et l'APK publiés.",
+  "decomptes": {
+    "colonnes": [
+      "Total",
+      "✅",
+      "🟡",
+      "🟠",
+      "❌"
+    ],
+    "lignes": {
+      "Obligatoire MVP": [
+        36,
+        35,
+        0,
+        1,
+        0
+      ],
+      "Phase ultérieure": [
+        18,
+        5,
+        0,
+        5,
+        8
+      ],
+      "À arbitrer": [
+        5,
+        0,
+        0,
+        3,
+        2
+      ],
+      "Évolutive": [
+        9,
+        1,
+        0,
+        3,
+        5
+      ],
+      "Total": [
+        68,
+        41,
+        0,
+        12,
+        15
+      ]
+    }
+  },
+  "transverses": {
+    "colonnes": [
+      "✅",
+      "🟠",
+      "❌"
+    ],
+    "§3 Acteurs": [
+      8,
+      3,
+      1
+    ],
+    "§6 Traçabilité": [
+      6,
+      6,
+      4
+    ],
+    "§7 Technique": [
+      16,
+      7,
+      1
+    ],
+    "§8 Sécurité": [
+      6,
+      7,
+      2
+    ],
+    "§9 Livrables": [
+      3,
+      5,
+      0
+    ]
+  },
+  "frictions": "F1 à F13 : 13 sur 13 ✅ en v5, inchangé en v6",
+  "mvpPartiels": [
+    {
+      "num": "T2",
+      "intitule": "Historique d'élevage sans ressaisie",
+      "texte": "L'historique d'un lot se reconstitue sans ressaisie : saisies, soins, intrants, cessions. Il manque les contrôles de biosécurité (n° 27) et les visites techniques (n° 45), absents du produit. Ils sont prévus au lot C."
+    }
+  ],
+  "reservesHonnetes": [
+    "Fiche lot web, onglet Historique : n'affiche pas encore motif, période ni effectif des soins (n° 23 reste ✅ avec réserve).",
+    "APK Android : publié et signé, mais pas encore testé sur un téléphone ; notifications push (projet EAS, FCM) non vérifiées.",
+    "Mise en service (lot B) : production en ligne en HTTPS avec sauvegardes chiffrées chaque nuit (7 jours conservés) et redéploiement par script. Elle tourne aujourd'hui avec une copie des données de démonstration : la reprise réelle des données et le paramétrage initial avec la DGE et les vétérinaires restent à faire.",
+    "Sécurité de connexion (verrouillage par compte, changement de code libre-service, en-têtes helmet) : toujours absents du code (vérifié sur main 613657d), donc 8.1 reste 🟠.",
+    "T2 : contrôles de biosécurité (n° 27) et visites techniques (n° 45) absents, prévus au lot C."
+  ],
+  "changesV6": [
+    "n° 44 Collecte mobile hors connexion : 🟠 → ✅. Un APK Android signé est publié (https://fermia.greenleaves.ga/apk/fermia.apk, construit par Jenkins). Il n'a pas encore été testé sur un téléphone.",
+    "MVP : 34 ✅ / 2 🟠 devient 35 ✅ / 1 🟠 (reste T2). Total : 40 ✅ / 13 🟠 / 15 ❌ devient 41 ✅ / 12 🟠 / 15 ❌.",
+    "§9 Livrables, 9.6 Build Android : ❌ → ✅ (APK signé construit par Jenkins et non par EAS). Le 9.1 reste 🟠 : l'APK n'est pas testé sur appareil et le paramétrage initial reste à faire. §9 : 2 ✅ / 5 🟠 / 1 ❌ devient 3 ✅ / 5 🟠 / 0 ❌.",
+    "§7 et §8 : décomptes inchangés (16/7/1 et 6/7/2). TLS, sauvegardes chiffrées et secrets de production sont en place sur le serveur, mais les lignes 8.10 à 8.12 restent 🟠 faute de re-contrôle dans le code (voir réserves)."
+  ]
+}

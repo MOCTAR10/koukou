@@ -1,0 +1,482 @@
+[
+ {
+  "num": 1,
+  "ref": "1",
+  "titre": "Fiche d'identification",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 2,
+  "ref": "2",
+  "titre": "Géolocalisation",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 3,
+  "ref": "3",
+  "titre": "Capacités et infrastructures",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 4,
+  "ref": "4",
+  "titre": "Statut de la ferme",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 5,
+  "ref": "5",
+  "titre": "Financement BCEG et consentement",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 6,
+  "ref": "6",
+  "titre": "Ouverture d'une bande",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 7,
+  "ref": "7",
+  "titre": "Fiche d'élevage",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 8,
+  "ref": "8",
+  "titre": "Pesées",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 9,
+  "ref": "9",
+  "titre": "Sorties d'animaux",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 10,
+  "ref": "10",
+  "titre": "Clôture et bilan",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 11,
+  "ref": "11",
+  "titre": "Historique des bandes",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 12,
+  "ref": "12",
+  "titre": "Taux de mortalité",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 13,
+  "ref": "13",
+  "titre": "Viabilité",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 14,
+  "ref": "14",
+  "titre": "GMQ",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 15,
+  "ref": "15",
+  "titre": "IC",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 16,
+  "ref": "16",
+  "titre": "Volumes produits",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 17,
+  "ref": "17",
+  "titre": "Réception des intrants",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 18,
+  "ref": "18",
+  "titre": "Utilisation et stock d'intrants",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 19,
+  "ref": "19",
+  "titre": "Recoupement livraisons / déclarations",
+  "priorite": "Phase ultérieure",
+  "statut": "🟠"
+ },
+ {
+  "num": 20,
+  "ref": "20",
+  "titre": "Commande d'intrants",
+  "priorite": "À arbitrer",
+  "statut": "❌"
+ },
+ {
+  "num": 21,
+  "ref": "21",
+  "titre": "Déclaration sanitaire",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 22,
+  "ref": "22",
+  "titre": "Registre des vaccinations",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅",
+  "note": "Réserve : le « Fait » rapide de l'onglet Lots du mobile a été corrigé au lot A3."
+ },
+ {
+  "num": 23,
+  "ref": "23",
+  "titre": "Registre des traitements",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅",
+  "note": "Réserve : l'onglet Historique de la fiche lot web n'affiche pas encore motif, période ni effectif."
+ },
+ {
+  "num": 24,
+  "ref": "24",
+  "titre": "Diagnostics et interventions vétérinaires",
+  "priorite": "Phase ultérieure",
+  "statut": "🟠"
+ },
+ {
+  "num": 25,
+  "ref": "25",
+  "titre": "Alerte précoce",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 26,
+  "ref": "26",
+  "titre": "Qualification et validation des alertes",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 27,
+  "ref": "27",
+  "titre": "Contrôles de biosécurité",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 28,
+  "ref": "28",
+  "titre": "Échange avec EMA-i Plus (FAO)",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 29,
+  "ref": "29",
+  "titre": "Rendez-vous d'abattage",
+  "priorite": "À arbitrer",
+  "statut": "🟠"
+ },
+ {
+  "num": 30,
+  "ref": "30",
+  "titre": "Enregistrement des ventes",
+  "priorite": "Phase ultérieure",
+  "statut": "✅"
+ },
+ {
+  "num": 31,
+  "ref": "31",
+  "titre": "Charges d'exploitation",
+  "priorite": "Phase ultérieure",
+  "statut": "🟠"
+ },
+ {
+  "num": 32,
+  "ref": "32",
+  "titre": "Coût de production",
+  "priorite": "Phase ultérieure",
+  "statut": "✅"
+ },
+ {
+  "num": 33,
+  "ref": "33",
+  "titre": "Chiffre d'affaires",
+  "priorite": "Phase ultérieure",
+  "statut": "✅"
+ },
+ {
+  "num": 34,
+  "ref": "34",
+  "titre": "Marge et rentabilité",
+  "priorite": "Phase ultérieure",
+  "statut": "✅"
+ },
+ {
+  "num": 35,
+  "ref": "35",
+  "titre": "Domiciliation des revenus",
+  "priorite": "À arbitrer",
+  "statut": "❌"
+ },
+ {
+  "num": 36,
+  "ref": "36",
+  "titre": "Tableau de bord de l'éleveur",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 37,
+  "ref": "37",
+  "titre": "Tableaux de bord province et national",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 38,
+  "ref": "38",
+  "titre": "Cartographie",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 39,
+  "ref": "39",
+  "titre": "Classement des fermes",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 40,
+  "ref": "40",
+  "titre": "Rapports périodiques",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 41,
+  "ref": "41",
+  "titre": "Filtres et exports",
+  "priorite": "À arbitrer",
+  "statut": "🟠"
+ },
+ {
+  "num": 42,
+  "ref": "42",
+  "titre": "Diffusion des données agrégées",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 43,
+  "ref": "43",
+  "titre": "Utilisateurs, profils, droits",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 44,
+  "ref": "44",
+  "titre": "Collecte mobile hors connexion",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅",
+  "note": "APK Android signé publié ; pas encore testé sur un téléphone."
+ },
+ {
+  "num": 45,
+  "ref": "45",
+  "titre": "Visites techniques",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 46,
+  "ref": "46",
+  "titre": "Historique et journal",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 47,
+  "ref": "47",
+  "titre": "Qualité et complétude",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 48,
+  "ref": "48",
+  "titre": "Reprise des données",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 49,
+  "ref": "49",
+  "titre": "Observatoire des prix",
+  "priorite": "Évolutive",
+  "statut": "❌"
+ },
+ {
+  "num": 50,
+  "ref": "50",
+  "titre": "Assistance vétérinaire à distance",
+  "priorite": "Évolutive",
+  "statut": "❌"
+ },
+ {
+  "num": 51,
+  "ref": "51",
+  "titre": "Mise en relation commerciale",
+  "priorite": "Évolutive",
+  "statut": "🟠"
+ },
+ {
+  "num": 52,
+  "ref": "52",
+  "titre": "Portail, formation…",
+  "priorite": "Évolutive",
+  "statut": "❌"
+ },
+ {
+  "num": 53,
+  "ref": "T1",
+  "titre": "Identifiant de lot, immuable",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 54,
+  "ref": "T2",
+  "titre": "Historique d'élevage sans ressaisie",
+  "priorite": "Obligatoire MVP",
+  "statut": "🟠",
+  "note": "Il manque les contrôles de biosécurité (n° 27) et les visites techniques (n° 45)."
+ },
+ {
+  "num": 55,
+  "ref": "T3",
+  "titre": "Sortie, cession, destinataire obligatoire",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 56,
+  "ref": "T4",
+  "titre": "Registre des opérateurs",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 57,
+  "ref": "T5",
+  "titre": "QR par lot / sous-lot",
+  "priorite": "Obligatoire MVP",
+  "statut": "✅"
+ },
+ {
+  "num": 58,
+  "ref": "T6",
+  "titre": "Réception à l'abattoir",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 59,
+  "ref": "T7",
+  "titre": "Transformation",
+  "priorite": "Évolutive",
+  "statut": "🟠"
+ },
+ {
+  "num": 60,
+  "ref": "T8",
+  "titre": "Transport",
+  "priorite": "Évolutive",
+  "statut": "❌"
+ },
+ {
+  "num": 61,
+  "ref": "T9",
+  "titre": "Contrôle distributeur",
+  "priorite": "Évolutive",
+  "statut": "❌"
+ },
+ {
+  "num": 62,
+  "ref": "T10",
+  "titre": "Consultation publique",
+  "priorite": "Évolutive",
+  "statut": "✅"
+ },
+ {
+  "num": 63,
+  "ref": "T11",
+  "titre": "Validation sur événements",
+  "priorite": "Phase ultérieure",
+  "statut": "❌"
+ },
+ {
+  "num": 64,
+  "ref": "T12",
+  "titre": "Recherche amont / aval, export",
+  "priorite": "Phase ultérieure",
+  "statut": "🟠"
+ },
+ {
+  "num": 65,
+  "ref": "T13",
+  "titre": "QR inconnu / clos rejeté, scans journalisés",
+  "priorite": "Phase ultérieure",
+  "statut": "✅"
+ },
+ {
+  "num": 66,
+  "ref": "T14",
+  "titre": "Indicateurs de traçabilité 95 %",
+  "priorite": "Phase ultérieure",
+  "statut": "🟠"
+ },
+ {
+  "num": 67,
+  "ref": "T15",
+  "titre": "Intégration abattoirs / distributeurs",
+  "priorite": "Évolutive",
+  "statut": "🟠"
+ },
+ {
+  "num": 68,
+  "ref": "T16",
+  "titre": "Document d'accompagnement",
+  "priorite": "À arbitrer",
+  "statut": "🟠"
+ }
+]

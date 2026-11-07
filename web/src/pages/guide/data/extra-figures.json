@@ -1,0 +1,346 @@
+[
+ {
+  "chapter": "surveillance",
+  "fig": {
+   "k": "alerte-detail",
+   "alt": "Surveillance : détail d'une alerte",
+   "cap": "Fiche d'une alerte sanitaire publiée, avec son historique.",
+   "m": [
+    {
+     "x": 800,
+     "y": 91,
+     "title": "État de l'alerte",
+     "desc": "Statut, gravité, publication et issue, d'un coup d'œil."
+    },
+    {
+     "x": 940,
+     "y": 160,
+     "title": "Où et quand",
+     "desc": "Ferme, bande, province et jour des faits."
+    },
+    {
+     "x": 1050,
+     "y": 345,
+     "title": "Qualifier l'alerte",
+     "desc": "Le vétérinaire choisit un nouveau statut et ajoute un commentaire."
+    },
+    {
+     "x": 1320,
+     "y": 527,
+     "title": "Changer le statut",
+     "desc": "Valide le changement ; il est daté et signé."
+    },
+    {
+     "x": 727,
+     "y": 596,
+     "title": "Historique",
+     "desc": "Chaque étape reste visible : qui, quand, pourquoi."
+    }
+   ]
+  }
+ },
+ {
+  "chapter": "surveillance",
+  "fig": {
+   "k": "surveillance-param",
+   "alt": "Surveillance : listes et calendriers sanitaires",
+   "cap": "Listes de référence du suivi sanitaire.",
+   "m": [
+    {
+     "x": 366,
+     "y": 199,
+     "title": "Deux onglets",
+     "desc": "Listes sanitaires et calendriers vaccinaux de référence."
+    },
+    {
+     "x": 358,
+     "y": 259,
+     "title": "Trois listes",
+     "desc": "Signes cliniques, produits de traitement, statuts des alertes."
+    },
+    {
+     "x": 360,
+     "y": 318,
+     "title": "Signes cliniques",
+     "desc": "Les choix proposés dans le formulaire de déclaration, sur web et mobile."
+    },
+    {
+     "x": 948,
+     "y": 375,
+     "title": "Code",
+     "desc": "Identifiant technique stable de chaque signe."
+    },
+    {
+     "x": 1271,
+     "y": 375,
+     "title": "État",
+     "desc": "Actif ou désactivé, sans jamais supprimer."
+    }
+   ]
+  }
+ },
+ {
+  "chapter": "pilotage",
+  "fig": {
+   "k": "carte-alertes",
+   "alt": "Pilotage : carte des alertes",
+   "cap": "Couche « Alertes » de la carte.",
+   "m": [
+    {
+     "x": 525,
+     "y": 361,
+     "title": "Couche Alertes",
+     "desc": "Colore chaque ferme selon l'alerte sanitaire publiée."
+    },
+    {
+     "x": 1203,
+     "y": 361,
+     "title": "Regroupements",
+     "desc": "Cercles par province, ou points isolés."
+    },
+    {
+     "x": 788,
+     "y": 658,
+     "title": "Alerte publiée",
+     "desc": "Cercle rouge : une alerte des services vétérinaires sur la période."
+    },
+    {
+     "x": 622,
+     "y": 566,
+     "title": "Aucune alerte",
+     "desc": "Cercles verts : aucune alerte publiée."
+    },
+    {
+     "x": 1137,
+     "y": 420,
+     "title": "Légende",
+     "desc": "Explique les couleurs ; les conseils Fermia ne colorent jamais une ferme."
+    },
+    {
+     "x": 1137,
+     "y": 745,
+     "title": "Fermes sans GPS",
+     "desc": "Nombre de fermes absentes de la carte faute de position."
+    }
+   ]
+  }
+ },
+ {
+  "chapter": "b-compta",
+  "fig": {
+   "k": "c-grand-livre",
+   "alt": "Comptabilité : grand livre",
+   "cap": "Onglet Grand livre : le détail compte par compte.",
+   "m": [
+    {
+     "x": 422,
+     "y": 197,
+     "title": "Onglet Grand livre",
+     "desc": "Le détail de chaque compte, ligne par ligne."
+    },
+    {
+     "x": 550,
+     "y": 293,
+     "title": "Compte et période",
+     "desc": "Un compte précis ou tous, entre deux dates."
+    },
+    {
+     "x": 1258,
+     "y": 343,
+     "title": "PDF et CSV",
+     "desc": "Exports du grand livre."
+    },
+    {
+     "x": 330,
+     "y": 414,
+     "title": "Compte 401",
+     "desc": "Chaque compte a son bloc : numéro et intitulé."
+    },
+    {
+     "x": 440,
+     "y": 756,
+     "title": "Total et solde",
+     "desc": "Total des débits et crédits, solde de clôture."
+    }
+   ]
+  }
+ },
+ {
+  "chapter": "acces",
+  "fig": {
+   "k": "mon-acces",
+   "alt": "Mon accès : ce que mon profil permet",
+   "cap": "Page « Mon accès » d'un agent de la DGE.",
+   "m": [
+    {
+     "x": 373,
+     "y": 214,
+     "title": "Mon profil",
+     "desc": "Nom du profil et périmètre : ici toutes les fermes du programme."
+    },
+    {
+     "x": 1086,
+     "y": 210,
+     "title": "Durée de l'accès",
+     "desc": "Accès sans date de fin ; une session dure 8 heures."
+    },
+    {
+     "x": 330,
+     "y": 382,
+     "title": "Domaines autorisés",
+     "desc": "Chaque carte est un domaine de droits."
+    },
+    {
+     "x": 410,
+     "y": 410,
+     "title": "Actions permises",
+     "desc": "Consulter, créer, modifier, valider : seules celles du profil."
+    },
+    {
+     "x": 400,
+     "y": 442,
+     "title": "Raccourcis",
+     "desc": "Les écrans que le profil permet d'ouvrir."
+    }
+   ]
+  }
+ },
+ {
+  "chapter": "parametres",
+  "fig": {
+   "k": "param-version",
+   "alt": "Paramètres : versions d'une valeur",
+   "cap": "Fiche d'un paramètre et de ses versions.",
+   "m": [
+    {
+     "x": 1064,
+     "y": 90,
+     "title": "Identité",
+     "desc": "Clé, type et bornes autorisées de la valeur."
+    },
+    {
+     "x": 1064,
+     "y": 175,
+     "title": "Profil responsable",
+     "desc": "Qui a le droit de la changer : ici POUFA / DGE."
+    },
+    {
+     "x": 770,
+     "y": 251,
+     "title": "Nouvelle valeur",
+     "desc": "Propose une valeur avec sa date d'effet et son motif."
+    },
+    {
+     "x": 755,
+     "y": 327,
+     "title": "Programmée",
+     "desc": "Une valeur future : elle ne change rien avant sa date."
+    },
+    {
+     "x": 750,
+     "y": 428,
+     "title": "En vigueur",
+     "desc": "Valeur actuelle, ici « Proposée par le cahier des charges »."
+    },
+    {
+     "x": 1060,
+     "y": 553,
+     "title": "Versions immuables",
+     "desc": "Une erreur se corrige par une nouvelle version, jamais en effaçant."
+    }
+   ]
+  }
+ },
+ {
+  "chapter": "parametres",
+  "fig": {
+   "k": "territoires",
+   "alt": "Paramètres : provinces et localités",
+   "cap": "Onglet Provinces et localités.",
+   "m": [
+    {
+     "x": 330,
+     "y": 249,
+     "title": "Neuf provinces",
+     "desc": "Fixes ; le contour sert à vérifier les positions GPS."
+    },
+    {
+     "x": 325,
+     "y": 326,
+     "title": "Une province",
+     "desc": "Code, chef-lieu et nombre de localités."
+    },
+    {
+     "x": 357,
+     "y": 377,
+     "title": "Contour chargé",
+     "desc": "La vérification GPS de cette province est active."
+    },
+    {
+     "x": 917,
+     "y": 377,
+     "title": "Sans contour",
+     "desc": "Pas encore chargé : aucune vérification."
+    },
+    {
+     "x": 505,
+     "y": 377,
+     "title": "Charger un contour",
+     "desc": "Importe ou remplace la limite de la province."
+    },
+    {
+     "x": 790,
+     "y": 472,
+     "title": "Modifier ou désactiver",
+     "desc": "Une localité se corrige ou se désactive, sans suppression."
+    }
+   ]
+  }
+ },
+ {
+  "chapter": "audit",
+  "fig": {
+   "k": "audit-donnees",
+   "alt": "Audit : données modifiées",
+   "cap": "Onglet « Données modifiées » du journal.",
+   "m": [
+    {
+     "x": 472,
+     "y": 193,
+     "title": "Onglet Données modifiées",
+     "desc": "Ce que la base a changé, avant et après."
+    },
+    {
+     "x": 400,
+     "y": 256,
+     "title": "Filtres",
+     "desc": "Période, table, ligne ou requête précise."
+    },
+    {
+     "x": 350,
+     "y": 337,
+     "title": "Filtrer",
+     "desc": "Applique la recherche."
+    },
+    {
+     "x": 600,
+     "y": 376,
+     "title": "Secrets protégés",
+     "desc": "Les mots de passe ne sont jamais copiés dans le journal."
+    },
+    {
+     "x": 336,
+     "y": 456,
+     "title": "Création ou modification",
+     "desc": "Type de changement enregistré."
+    },
+    {
+     "x": 460,
+     "y": 585,
+     "title": "Avant et après",
+     "desc": "Chaque colonne modifiée, ancienne et nouvelle valeur."
+    }
+   ]
+  }
+ }
+]

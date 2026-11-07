@@ -1,0 +1,34 @@
+[
+ {
+  "q": "Un agent ne voit pas une entrée de menu.",
+  "a": "Vérifiez son profil dans « Accès institutionnels » : le domaine concerné doit avoir au moins « Consulter », et le périmètre doit couvrir les fermes visées."
+ },
+ {
+  "q": "J'ai perdu le code que je venais de générer.",
+  "a": "Il n'est affiché qu'une fois. Générez-en un nouveau depuis la fiche de la ferme (exploitant) ou du compte (institution) ; l'ancien est invalidé."
+ },
+ {
+  "q": "Une ferme apparaît « Hors province ».",
+  "a": "La position GPS tombe hors des limites de la province de rattachement. Vérifiez les coordonnées avec l'exploitant. L'alerte ne bloque aucune opération."
+ },
+ {
+  "q": "Une valeur « Proposé, à valider » ne change rien.",
+  "a": "C'est normal : tant qu'elle n'est pas validée et que sa date d'effet n'est pas atteinte, l'ancienne valeur reste en vigueur."
+ },
+ {
+  "q": "Puis-je corriger ou supprimer une ligne du journal ?",
+  "a": "Non. Le journal est en ajout seul et scellé chaque jour ; une correction se fait par une nouvelle action, qui s'inscrit à son tour."
+ },
+ {
+  "q": "Le compteur de 100 000 t semble très bas.",
+  "a": "Il ne mesure que le poids vif sorti vivant des fermes du programme, dans le périmètre filtré. Il augmente à mesure que les bandes sont vendues."
+ },
+ {
+  "q": "Pourquoi des zéros ou des états vides sur certains écrans ?",
+  "a": "La démonstration ne contient pas tous les cas (aucune livraison d'intrants, pas d'abattage, pas d'alerte publiée). L'écran fonctionne ; il n'a simplement rien à montrer."
+ },
+ {
+  "q": "Les données de la démonstration sont-elles réelles ?",
+  "a": "Non. Fermes, exploitants, montants et téléphones sont fictifs ou masqués."
+ }
+]
