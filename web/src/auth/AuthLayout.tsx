@@ -115,7 +115,7 @@ export function AuthLayout({
         ) : null}
         <div className="relative bg-gradient-to-br from-brand-800 to-brand-950 px-5 py-4 lg:hidden">
           {programme ? (
-            <ProgrammeLockup compact />
+            <ProgrammeLockup />
           ) : (
             <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-12 w-auto" />
           )}
