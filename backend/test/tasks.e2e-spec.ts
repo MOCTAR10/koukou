@@ -269,7 +269,7 @@ describe('Tâches & équipe — module Tâches (e2e)', () => {
     await app.get(TasksService).sweepOverdue();
     const reraised = await openTacheAlert();
     expect(reraised?.status).toBe('ACTIVE');
-    expect(reraised?.message).toMatch(/^2 tâche\(s\)/);
+    expect(reraised?.message).toMatch(/^2 tâches de l’équipe en retard/);
     expect(reraised?.message).toContain('Nettoyer le bâtiment 2');
   });
 

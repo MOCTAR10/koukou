@@ -60,7 +60,8 @@ export function mayHandleSanitaryDeclarations(
 /**
  * Recette ANINF A21: READING the declarations of a farm in one's perimeter
  * (CDC §3: the agent technique « vérifie les déclarations » de ses fermes).
- * Beyond the veterinary authority, an institutional profile granted
+ * Beyond the veterinary authority, ONLY the AGENT_TECHNIQUE profile (not any
+ * other CONSULTER holder: DGE, custom) granted
  * SANITAIRE:CONSULTER in the matrix reads them (default grant of the
  * AGENT_TECHNIQUE profile, the admin can remove or give it). Writing,
  * validating, qualifying and publishing stay with {@link
@@ -68,11 +69,12 @@ export function mayHandleSanitaryDeclarations(
  */
 export function mayReadSanitaryDeclarations(
   user: Pick<AuthUser, 'role'>,
-  access: Pick<InstitutionAccess, 'matrix'> | null,
+  access: Pick<InstitutionAccess, 'matrix' | 'profileCode'> | null,
 ): boolean {
   if (mayHandleSanitaryDeclarations(user, access)) return true;
   return (
     user.role === UserRole.INSTITUTION &&
+    access?.profileCode === 'AGENT_TECHNIQUE' &&
     !!access?.matrix &&
     grants(access.matrix, 'SANITAIRE', 'CONSULTER')
   );
