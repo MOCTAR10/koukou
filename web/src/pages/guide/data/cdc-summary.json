@@ -110,7 +110,7 @@
     {
       "num": "48",
       "intitule": "Reprise des données",
-      "texte": "L'outil d'import est complet. La reprise réelle des 151 fermes n'a pas encore été exécutée."
+      "texte": "L'outil d'import est complet. La reprise réelle des 150 fermes n'a pas encore été exécutée."
     }
   ],
   "decisionsDge": [
@@ -122,7 +122,7 @@
     "Valeurs « Proposé » : seuils de mortalité, formule, calendrier vaccinal, k = 5, produits de traitement."
   ],
   "miseEnService": [
-    "Reprise des données et paramétrage initial des 151 fermes : outil prêt, exécution à planifier avec la DGE et les vétérinaires.",
+    "Reprise des données et paramétrage initial des 150 fermes : outil prêt, exécution à planifier avec la DGE et les vétérinaires.",
     "Essai de l'APK Android sur téléphone, hors ligne, puis configuration du push (EAS, FCM).",
     "Environnement d'essai séparé de la production, pour la formation et les tests.",
     "Formation des utilisateurs, choix de l'opérateur SMS (code des institutions), durée de conservation des données."
