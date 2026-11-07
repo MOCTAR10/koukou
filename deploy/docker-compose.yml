@@ -24,7 +24,10 @@ services:
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: fermia
+      # Audit roles (deploy/audit-roles.sql): the API runs as fermia_app once
+      # DB_APP_PASSWORD is set in .env; until then, as the superuser fermia.
+      DB_USERNAME: ${DB_APP_USER:-fermia}
+      DB_PASSWORD: ${DB_APP_PASSWORD:-${DB_PASSWORD}}
       DB_DATABASE: fermia
     depends_on:
       postgres: { condition: service_healthy }
