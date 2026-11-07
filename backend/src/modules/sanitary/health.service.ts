@@ -184,6 +184,9 @@ export class HealthService {
       feedPerBirdGrams: round2(feedPerBirdGrams),
       waterLPerBird:
         m.waterLPerBird != null ? round2(m.waterLPerBird) : null,
+      waterLPerBirdLastDay:
+        m.waterLPerBirdLastDay != null ? round2(m.waterLPerBirdLastDay) : null,
+      waterLastDayDate: m.waterLastDayDate,
       healthScore,
       tips,
       trends,

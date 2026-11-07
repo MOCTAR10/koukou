@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Not, Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
@@ -234,18 +234,37 @@ export class BatchesService {
     user: AuthUser,
     farmId: string,
     asOf?: string,
+    scope: 'all' | 'active' | 'closed' = 'all',
   ): Promise<BatchWithMetrics[]> {
     await this.farmsService.assertAccessible(user, farmId);
     const batches = await this.batchRepo.find({
-      where: { farmId },
+      where:
+        scope === 'all'
+          ? { farmId }
+          : scope === 'closed'
+            ? { farmId, status: BatchStatus.CLOTURE }
+            : { farmId, status: Not(BatchStatus.CLOTURE) },
       order: { createdAt: 'DESC' },
     });
     const economics = await this.farmsService.readsEconomics(user);
-    return Promise.all(
-      batches.map(async (b) =>
-        this.gateEconomics(await this.withMetrics(b, asOf), economics),
-      ),
+    // Bounded fan-out: each band's metrics costs ~10 queries, and firing them
+    // all at once for a farm with dozens of (closed) bands starved the
+    // connection pool and queued every other request behind it.
+    const out = Array.from<BatchWithMetrics>({ length: batches.length });
+    let next = 0;
+    const worker = async () => {
+      while (next < batches.length) {
+        const i = next++;
+        out[i] = this.gateEconomics(
+          await this.withMetrics(batches[i]!, asOf),
+          economics,
+        );
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(METRICS_CONCURRENCY, batches.length) }, worker),
     );
+    return out;
   }
 
   // POUFA lot A droits: the chick price for economic readers only (audit F6).
@@ -405,6 +424,9 @@ export class BatchesService {
     return { ...batch, metrics };
   }
 }
+
+/** Bands whose metrics are computed at the same time in a list. */
+const METRICS_CONCURRENCY = 3;
 
 export type BatchWithMetrics = ProductionBatch & {
   metrics: import('./models/batch-metrics.model.js').BatchMetrics;

@@ -28,6 +28,14 @@ export interface BatchMetrics {
   totalWaterL: number;
   /** Average daily water per bird over the last 7 days (L/oiseau/j). */
   waterLPerBird: number | null;
+  /**
+   * Water per bird (L/oiseau/j) of the last entered day: that day's litres over
+   * the live headcount of that day. The value the water alert compares with
+   * the norm (single helper `lastDayWaterPerBird`).
+   */
+  waterLPerBirdLastDay: number | null;
+  /** Date of that last entered day (YYYY-MM-DD). */
+  waterLastDayDate: string | null;
   /** Live weight produced up to the last weighing (all birds fed, incl. sold/dead). */
   totalWeightGainKg: number | null;
   /** FCR / GMQ / IPE are measured at the last weighing (see flock-performance). */

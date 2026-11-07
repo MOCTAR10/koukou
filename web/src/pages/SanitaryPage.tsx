@@ -275,7 +275,12 @@ function HealthPanel({
             <Metric label="Viabilité" icon={<HeartPulse />} value={`${num(health.viabilityPercent)} %`} />
             <Metric label="Indice de consommation" icon={<Scale />} value={health.fcr != null ? num(health.fcr, 2) : '—'} />
             <Metric label="Aliment / oiseau / jour" icon={<Wheat />} value={`${num(health.feedPerBirdGrams, 0)} g/j`} />
-            <Metric label="Eau / oiseau / jour" icon={<Droplets />} value={health.waterLPerBird != null ? `${num(health.waterLPerBird, 2)} L/j` : '—'} />
+            <Metric
+              label="Eau / oiseau / jour (dernier jour saisi)"
+              icon={<Droplets />}
+              value={(health.waterLPerBirdLastDay ?? health.waterLPerBird) != null ? `${num(health.waterLPerBirdLastDay ?? health.waterLPerBird, 2)} L/j` : '—'}
+              sub={health.waterLPerBirdLastDay != null && health.waterLPerBird != null ? `moyenne 7 j : ${num(health.waterLPerBird, 2)} L/j` : undefined}
+            />
             {isLayer ? (
               <Metric label="Taux de ponte" icon={<Egg />} value={health.layRatePercent != null ? `${num(health.layRatePercent)} %` : '—'} sub={`${num(health.trays, 0)} alvéoles`} />
             ) : null}

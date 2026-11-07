@@ -242,3 +242,24 @@ export function avgDailyWaterPerBird(
   }
   return n > 0 ? sum / n : null;
 }
+
+/**
+ * Water per bird of the LAST ENTERED DAY (latest entry; if it carries no
+ * water the result is null — a missing reading is not replaced by an older
+ * day): that day's litres / live headcount of that day (deaths and removals
+ * up to that day deducted, see `populationOn`). Single definition shared by
+ * the lot indicator and the water alert, which compares it with the norm and
+ * with the mean of the previous readings. The 7-day mean stays in
+ * `avgDailyWaterPerBird`.
+ */
+export function lastDayWaterPerBird(
+  t: FlockTimeline,
+): { date: string; perBird: number } | null {
+  let last: FlockEntry | null = null;
+  for (const e of t.entries) {
+    if (last == null || e.entryDate > last.entryDate) last = e;
+  }
+  if (!last) return null;
+  const perBird = waterPerBirdOn(t, last);
+  return perBird == null ? null : { date: last.entryDate, perBird };
+}

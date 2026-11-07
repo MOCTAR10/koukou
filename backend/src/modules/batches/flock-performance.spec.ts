@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   avgDailyWaterPerBird,
+  lastDayWaterPerBird,
   FlockEntry,
   FlockTimeline,
   growthOrigin,
@@ -135,5 +136,16 @@ describe('flock-performance', () => {
     expect(waterPerBirdOn(t, t.entries[1])).toBeCloseTo(0.2, 6);
     expect(waterPerBirdOn(t, t.entries[2])).toBeNull();
     expect(avgDailyWaterPerBird(t, '2026-01-10', '2026-01-20')).toBeCloseTo(0.2, 6);
+  });
+
+  it('eau : le dernier jour saisi (alerte + écran) est distinct de la moyenne 7 j', () => {
+    const t = timeline();
+    // Dernière saisie sans eau : pas de valeur (pas de repli sur un jour plus ancien).
+    expect(lastDayWaterPerBird(t)).toBeNull();
+    const t2 = timeline({ entries: t.entries.slice(0, 2) });
+    const last = lastDayWaterPerBird(t2);
+    expect(last?.date).toBe(t2.entries[1]!.entryDate);
+    expect(last?.perBird).toBeCloseTo(waterPerBirdOn(t2, t2.entries[1]!)!, 6);
+    expect(lastDayWaterPerBird({ ...t2, entries: [] })).toBeNull();
   });
 });
