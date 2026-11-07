@@ -3,7 +3,8 @@
 // notification inbox, GPS capture. Shapes mirror the backend views exactly
 // (see backend/src/modules/{sanitary,surveillance,supply,bandes,reporting,
 // notify,trace,programme,access}).
-import { apiFetch, apiUpload } from './client';
+import { API_BASE_URL, apiFetch, apiUpload } from './client';
+import { loadSession } from './token';
 import type { AlertLevel, DiseaseSeverity, HealthEventKind } from './types';
 
 // ── Programme lists (REFERENCE domain) ─────────────────────────────────
@@ -638,7 +639,15 @@ export interface VisitAnswerView {
   comment: string | null;
 }
 
-/** Backend `VisitView` (`modules/visits/visits.service.ts`); `answers` are empty in the list. */
+/** Photo of a visit (backend `VisitPhotoView`); bytes through `GET …/visits/:id/photos/:photoId`. */
+export interface VisitPhotoView {
+  id: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+/** Backend `VisitView` (`modules/visits/visits.service.ts`); `answers` and `photos` are empty in the list. */
 export interface VisitView {
   id: string;
   farmId: string;
@@ -660,6 +669,7 @@ export interface VisitView {
   classification: BiosecurityClass | null;
   thresholds: { a: number; b: number } | null;
   answers: VisitAnswerView[];
+  photos?: VisitPhotoView[];
 }
 
 export interface VisitCriterion {
@@ -707,4 +717,20 @@ export function fetchVisitGrid(farmId: string): Promise<VisitGrid> {
 
 export function createVisit(farmId: string, payload: CreateVisitPayload): Promise<VisitView> {
   return apiFetch<VisitView>(`/farms/${farmId}/visits`, { method: 'POST', body: payload });
+}
+
+/** POST …/visits/:id/photos (multipart « file »; same bytes = same photo; the recording agent only). */
+export function uploadVisitPhoto(farmId: string, visitId: string, photo: DeclarationPhoto): Promise<VisitPhotoView> {
+  const form = new FormData();
+  form.append('file', { uri: photo.uri, name: photo.name, type: photo.mimeType } as unknown as Blob);
+  return apiUpload<VisitPhotoView>(`/farms/${farmId}/visits/${visitId}/photos`, form);
+}
+
+/** Authenticated image source of a visit photo (the route is never public). */
+export function visitPhotoSource(farmId: string, visitId: string, photoId: string): { uri: string; headers: Record<string, string> } {
+  const session = loadSession();
+  return {
+    uri: `${API_BASE_URL}/farms/${farmId}/visits/${visitId}/photos/${photoId}`,
+    headers: session ? { Authorization: `Bearer ${session.token}` } : {},
+  };
 }

@@ -4,6 +4,7 @@ import { ProductionBatch } from '../batches/entities/production-batch.entity.js'
 import { FarmsModule } from '../farms/farms.module.js';
 import { ProgrammeModule } from '../programme/programme.module.js';
 import { FarmVisitAnswer } from './entities/farm-visit-answer.entity.js';
+import { FarmVisitPhoto } from './entities/farm-visit-photo.entity.js';
 import { FarmVisit } from './entities/farm-visit.entity.js';
 import {
   FarmVisitsController,
@@ -19,7 +20,10 @@ import { VisitsService } from './visits.service.js';
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([FarmVisit, FarmVisitAnswer, ProductionBatch]),
+    TypeOrmModule.forFeature([FarmVisit, FarmVisitAnswer,
+      FarmVisitPhoto,
+      ProductionBatch,
+    ]),
     FarmsModule,
     ProgrammeModule,
   ],

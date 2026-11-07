@@ -11,10 +11,12 @@ import { TextField } from '@/components/ui/TextField';
 import { confirm, errorMessage, toast } from '@/components/ui/Feedback';
 import { DateField, Labeled, PillRow } from '@/components/market/shared';
 import { localYmd } from '@/api/mutations';
-import { fetchBandHistory, fetchVisitGrid, type BiosecurityAnswer, type VisitType } from '@/api/poufa';
+import { fetchBandHistory, fetchVisitGrid, type BiosecurityAnswer, type DeclarationPhoto, type VisitType } from '@/api/poufa';
 import { getCurrentPosition } from '@/location/current-position';
 import { cachedRead } from '@/offline/ref-cache';
 import { createVisitQueued } from '@/offline';
+import { persistPhoto } from '@/offline/photo-files';
+import { VisitPhotoPicker } from './VisitPhotoPicker';
 import {
   ANSWER_LABEL,
   buildVisitPayload,
@@ -43,9 +45,13 @@ export function VisitSheet({ visible, onClose, farmId, onSaved }: { visible: boo
   const [draft, setDraft] = useState<VisitDraft>(() => emptyVisitDraft(localYmd(new Date())));
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [photos, setPhotos] = useState<DeclarationPhoto[]>([]);
 
   useEffect(() => {
-    if (visible) setDraft(emptyVisitDraft(localYmd(new Date())));
+    if (visible) {
+      setDraft(emptyVisitDraft(localYmd(new Date())));
+      setPhotos([]);
+    }
   }, [visible]);
 
   const grid = useQuery({
@@ -92,9 +98,12 @@ export function VisitSheet({ visible, onClose, farmId, onSaved }: { visible: boo
     if (!ok) return;
     setBusy(true);
     try {
-      const result = await createVisitQueued(farmId, buildVisitPayload(draft, criteria));
+      const result = await createVisitQueued(farmId, buildVisitPayload(draft, criteria), photos.map(persistPhoto));
       if (result.status === 'queued') {
         toast.info('Visite gardée sur le téléphone', 'Elle partira dès que la connexion revient.');
+      } else if (result.data.photosRefused.length > 0) {
+        toast.error('Visite enregistrée, photo(s) refusée(s)', result.data.photosRefused.join('\n'));
+        void qc.invalidateQueries({ queryKey: ['visits', farmId] });
       } else {
         toast.success('Visite enregistrée');
         void qc.invalidateQueries({ queryKey: ['visits', farmId] });
@@ -160,6 +169,9 @@ export function VisitSheet({ visible, onClose, farmId, onSaved }: { visible: boo
             onPress={() => void locate()}
             loading={locating}
           />
+        </Labeled>
+        <Labeled label={`Photos (${photos.length}/8, facultatif)`}>
+          <VisitPhotoPicker photos={photos} onPhotos={setPhotos} disabled={busy} />
         </Labeled>
         <View style={styles.box}>
           <AppText size="body" weight="semibold" color="text">

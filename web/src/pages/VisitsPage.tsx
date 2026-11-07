@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ClipboardCheck, Globe2, Plus, Tractor } from 'lucide-react';
+import { ClipboardCheck, CloudOff, Globe2, Plus, Tractor, Trash2 } from 'lucide-react';
 import type { BiosecurityClass, VisitType, VisitView } from '../api/types-visits';
 import { useFarm } from '../app/FarmContext';
 import { useInstitutionAccess } from '../app/useInstitutionAccess';
@@ -13,6 +13,7 @@ import { useFarmVisits, useProgrammeVisits } from '../components/visits/queries'
 import { CLASS_LABEL, VISIT_TYPE_LABEL, visitRights } from '../components/visits/visitRules';
 import { Card, DataTable, EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr } from '../lib/format';
+import { dismissRejected, useOfflineQueue } from '../offline';
 
 type TabKey = 'ferme' | 'programme';
 
@@ -32,6 +33,10 @@ export function VisitsPage() {
   const [openId, setOpenId] = useState<{ farmId: string; id: string } | null>(null);
   const [filters, setFilters] = useState({ province: '', classification: '', type: '', retard: '' });
 
+  const { pending, rejected } = useOfflineQueue();
+  // Visits recorded on this device that the server has not confirmed yet, or refused.
+  const waiting = pending.filter((o) => o.kind === 'visit' && o.farmId === farmId);
+  const refused = rejected.filter((o) => o.kind === 'visit' && o.farmId === farmId);
   const farmVisits = useFarmVisits(farmId, rights.view);
   const programme = useProgrammeVisits(filters, rights.programme && tab === 'programme');
   const provinces = useProvinces(rights.programme && tab === 'programme');
@@ -127,6 +132,28 @@ export function VisitsPage() {
         </div>
       ) : null}
 
+      {tab === 'ferme' && (waiting.length > 0 || refused.length > 0) ? (
+        <Card className="space-y-2 p-4">
+          {waiting.map((op) => (
+            <p key={op.id} className="flex items-start gap-2 text-sm text-amber-800">
+              <CloudOff className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                <b>En attente d’envoi</b> · {op.label} · enregistrée le {new Date(op.createdAt).toLocaleString('fr-FR')} (partira au retour de la connexion).
+              </span>
+            </p>
+          ))}
+          {refused.map((op) => (
+            <div key={op.id} className="flex items-start justify-between gap-3 text-sm text-red-700">
+              <span>
+                <b>Refusée par le serveur</b> · {op.label} : {op.reason} Saisissez-la à nouveau.
+              </span>
+              <button type="button" onClick={() => dismissRejected(op.id)} className="shrink-0 rounded p-1 text-slate-400 hover:text-red-600" aria-label={`Retirer : ${op.label}`} title="Retirer de la liste">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </Card>
+      ) : null}
       <ErrorNote error={error} />
       <Card className="overflow-hidden">
         {loading ? (
@@ -194,7 +221,7 @@ export function VisitsPage() {
       ) : null}
       {openId ? (
         <Modal title="Visite" side onClose={() => setOpenId(null)}>
-          <VisitDetail farmId={openId.farmId} id={openId.id} />
+          <VisitDetail farmId={openId.farmId} id={openId.id} canAddPhotos={rights.write} />
         </Modal>
       ) : null}
     </div>

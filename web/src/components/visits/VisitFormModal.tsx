@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client';
+import { Camera, X } from 'lucide-react';
 import type { BiosecurityAnswer, CreateVisitBody, VisitType, VisitView } from '../../api/types-visits';
 import { Note, Pill, lotName, useLots } from '../flock/shared';
 import { Button, DateInput, ErrorNote, Field, FormColumns, inputCls, Modal, todayIso } from '../form';
 import { dateFr } from '../../lib/format';
 import { useIdempotencyKey } from '../../lib/idempotency';
+import { sendOrQueue, showQueuedNotice, useOnline } from '../../offline';
+import { PHOTO_ACCEPT, sizeFr } from '../surveillance/declaration';
+import { VISIT_PHOTOS_MAX, splitVisitPhotos, uploadVisitPhotos } from './VisitPhotos';
 import { invalidateVisits, useVisitGrid } from './queries';
 import { ANSWER_LABEL, CLASS_LABEL, VISIT_TYPE_LABEL, classOf, classTone, groupByCategory, scoreLabel, scoreOf, visaError } from './visitRules';
 
@@ -15,7 +18,10 @@ const ANSWERS: BiosecurityAnswer[] = ['CONFORME', 'NON_CONFORME', 'NA'];
  * Records a visit (CDC n° 45) with its biosecurity grid (n° 27) and the agent's
  * visa of a period of the band's records (§3.2). The score and class shown are
  * a preview with the weights and thresholds served by the grid: the server
- * recomputes and stores them. Online only on the web (the phone queues it).
+ * recomputes and stores them. Offline-capable like the phone: the visit and its
+ * grid answers go through the offline queue (keyed, the grid comes from the
+ * read cache); photos need a connection (files are not queued on the web) and
+ * are sent right after the visit, or from its detail later.
  */
 export function VisitFormModal({ farmId, onClose, onSaved }: { farmId: string; onClose: () => void; onSaved: (v: VisitView) => void }) {
   const qc = useQueryClient();
@@ -33,6 +39,11 @@ export function VisitFormModal({ farmId, onClose, onSaved }: { farmId: string; o
   const [answers, setAnswers] = useState<Record<string, BiosecurityAnswer | undefined>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
   const [localError, setLocalError] = useState<string | null>(null);
+  const online = useOnline();
+  const picker = useRef<HTMLInputElement>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoNotes, setPhotoNotes] = useState<string[]>([]);
+  const [saved, setSaved] = useState<{ visit: VisitView; failed: string[] } | null>(null);
 
   const criteria = grid.data?.criteria ?? [];
   const thresholds = grid.data?.thresholds ?? { a: 80, b: 60 };
@@ -41,12 +52,42 @@ export function VisitFormModal({ farmId, onClose, onSaved }: { farmId: string; o
   const band = (lots.data ?? []).find((l) => l.id === batchId) ?? null;
 
   const save = useMutation({
-    mutationFn: (body: CreateVisitBody) => api.post<VisitView>(`/farms/${farmId}/visits`, body),
-    onSuccess: (v) => {
+    mutationFn: (body: CreateVisitBody) =>
+      sendOrQueue<VisitView>({
+        kind: 'visit',
+        farmId,
+        path: `/farms/${farmId}/visits`,
+        body,
+        label: `Visite · ${VISIT_TYPE_LABEL[body.type]} · ${dateFr(body.visitDate)}`,
+      }),
+    onSuccess: async (res) => {
+      key.settle();
       invalidateVisits(qc, farmId);
-      onSaved(v);
+      if (res.status === 'queued') {
+        showQueuedNotice(
+          photos.length > 0
+            ? 'Visite enregistrée hors ligne : elle sera envoyée au retour de la connexion. Ajoutez ses photos depuis son détail une fois envoyée.'
+            : 'Visite enregistrée hors ligne : elle sera envoyée au retour de la connexion.',
+        );
+        onClose();
+        return;
+      }
+      const failed = photos.length > 0 ? await uploadVisitPhotos(farmId, res.data.id, photos) : [];
+      if (failed.length > 0) {
+        // The visit exists: say which photos did not go, the detail lets the agent add them again.
+        setSaved({ visit: res.data, failed });
+        return;
+      }
+      onSaved(res.data);
     },
   });
+
+  const pickPhotos = (files: File[]) => {
+    const { accepted, refused } = splitVisitPhotos(files, photos.length);
+    setPhotos((cur) => [...cur, ...accepted]);
+    setPhotoNotes(refused);
+    if (picker.current) picker.current.value = '';
+  };
 
   const submit = () => {
     const refusal = visaError({ visitDate, batchId, visaFrom, visaTo, bandStart: band?.integrationDate });
@@ -72,8 +113,30 @@ export function VisitFormModal({ farmId, onClose, onSaved }: { farmId: string; o
       })),
       capturedAt: new Date().toISOString(),
     };
-    save.mutate({ ...body, idempotencyKey: key.keyFor(body) });
+    // The capture time changes at every click: the key follows the content, not the clock.
+    save.mutate({ ...body, idempotencyKey: key.keyFor({ ...body, capturedAt: undefined }) });
   };
+
+  if (saved) {
+    return (
+      <Modal title="Visite enregistrée" onClose={() => onSaved(saved.visit)}>
+        <div className="space-y-4">
+          <Note tone="amber">
+            <span className="block font-medium">La visite est enregistrée, mais certaines photos n’ont pas été envoyées :</span>
+            {saved.failed.map((f) => (
+              <span key={f} className="block">
+                {f}
+              </span>
+            ))}
+            <span className="block">Vous pouvez les ajouter depuis le détail de la visite.</span>
+          </Note>
+          <div className="flex justify-end">
+            <Button onClick={() => onSaved(saved.visit)}>Ouvrir la visite</Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal title="Nouvelle visite" onClose={onClose} large>
@@ -180,6 +243,44 @@ export function VisitFormModal({ farmId, onClose, onSaved }: { farmId: string; o
               </ul>
             </div>
           ))}
+        </section>
+
+        <section className="space-y-2 rounded-xl border border-slate-200 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-slate-800">
+              Photos ({photos.length}/{VISIT_PHOTOS_MAX})
+            </h3>
+            <input ref={picker} type="file" accept={PHOTO_ACCEPT} multiple className="hidden" onChange={(e) => pickPhotos(Array.from(e.target.files ?? []))} />
+            <Button tone="secondary" disabled={!online || photos.length >= VISIT_PHOTOS_MAX} onClick={() => picker.current?.click()}>
+              <Camera className="h-4 w-4" /> Ajouter des photos
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500">
+            {online
+              ? 'PNG, JPEG ou WEBP, 5 Mo au plus par photo. Elles partent juste après la visite.'
+              : 'Hors ligne : la visite et sa grille partiront au retour de la connexion ; les photos s’ajoutent ensuite depuis le détail de la visite.'}
+          </p>
+          {photoNotes.length > 0 ? (
+            <Note tone="amber">
+              {photoNotes.map((r) => (
+                <span key={r} className="block">
+                  {r}
+                </span>
+              ))}
+            </Note>
+          ) : null}
+          {photos.length > 0 ? (
+            <ul className="flex flex-wrap gap-2">
+              {photos.map((f, i) => (
+                <li key={`${f.name}-${i}`} className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-700">
+                  {f.name} · {sizeFr(f.size)}
+                  <button type="button" aria-label={`Retirer ${f.name}`} className="rounded p-0.5 text-slate-400 hover:text-red-600" onClick={() => setPhotos((cur) => cur.filter((_, j) => j !== i))}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
 
         {localError ? <Note tone="red">{localError}</Note> : null}

@@ -14,6 +14,13 @@ export interface VisitAnswerView {
   comment: string | null;
 }
 
+export interface VisitPhotoView {
+  id: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
 export interface VisitView {
   id: string;
   farmId: string;
@@ -39,6 +46,8 @@ export interface VisitView {
   createdAt: string;
   /** Empty in the lists; filled on the detail. */
   answers: VisitAnswerView[];
+  /** Empty in the lists; filled on the detail. */
+  photos: VisitPhotoView[];
 }
 
 export interface GridCriterion {

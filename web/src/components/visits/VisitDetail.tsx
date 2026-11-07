@@ -1,9 +1,11 @@
+import { useAuth } from '../../auth/AuthContext';
 import { dateFr } from '../../lib/format';
 import type { VisitView } from '../../api/types-visits';
 import { Pill } from '../flock/shared';
 import { ErrorNote } from '../form';
 import { Loading } from '../ui';
 import { useVisit } from './queries';
+import { VisitPhotos } from './VisitPhotos';
 import { ANSWER_LABEL, CLASS_LABEL, VISIT_TYPE_LABEL, classTone, groupByCategory, scoreLabel } from './visitRules';
 
 function ScoreBadge({ visit }: { visit: Pick<VisitView, 'scorePct' | 'classification'> }) {
@@ -19,7 +21,8 @@ function ScoreBadge({ visit }: { visit: Pick<VisitView, 'scorePct' | 'classifica
 export { ScoreBadge };
 
 /** Detail of one visit: facts, observations, visa and the filled grid. */
-export function VisitDetail({ farmId, id }: { farmId: string; id: string }) {
+export function VisitDetail({ farmId, id, canAddPhotos = false }: { farmId: string; id: string; canAddPhotos?: boolean }) {
+  const { user } = useAuth();
   const q = useVisit(farmId, id);
   if (q.isLoading) return <Loading label="Chargement de la visite…" />;
   if (q.error || !q.data) return <ErrorNote error={q.error} />;
@@ -62,6 +65,7 @@ export function VisitDetail({ farmId, id }: { farmId: string; id: string }) {
           <p className="whitespace-pre-wrap text-sm text-slate-800">{v.recommendations}</p>
         </div>
       ) : null}
+      <VisitPhotos farmId={farmId} visitId={v.id} photos={v.photos ?? []} canAdd={canAddPhotos && v.agent.id === user?.id} />
       {grouped.length > 0 ? (
         <div className="space-y-3">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Grille de biosécurité</h4>

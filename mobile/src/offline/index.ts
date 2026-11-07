@@ -48,6 +48,7 @@ import {
 } from './store';
 
 export { clearQueue, clearRejected, dismissRejected, flushQueue, heldCashSummary, loadOps, loadRejected };
+export type { VisitSent } from './engine';
 export type { DeclarationSent, FlushSummary, OfflineOp, RejectedOp, SendResult, SendResultOf };
 
 // POUFA field work (mobile M2).

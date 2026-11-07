@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardCheck, Plus } from 'lucide-react-native';
 
@@ -13,7 +13,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { VisitSheet } from '@/components/visits/VisitSheet';
 import { useAuth } from '@/auth/AuthContext';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
-import { fetchFarmVisit, fetchFarmVisits, type VisitView } from '@/api/poufa';
+import { fetchFarmVisit, fetchFarmVisits, visitPhotoSource, type VisitView } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { useOfflineQueue } from '@/offline';
 import {
@@ -69,6 +69,23 @@ function VisitDetailSheet({ farmId, visit, onClose }: { farmId: string; visit: V
             </AppText>
           ) : null}
           {detail.isLoading ? <Spinner label="Chargement de la grille…" /> : null}
+          {(detail.data?.photos ?? []).length > 0 ? (
+            <View style={{ gap: 6 }}>
+              <AppText size="small" weight="semibold" color="muted">
+                Photos ({detail.data?.photos?.length})
+              </AppText>
+              <View style={styles.photos}>
+                {(detail.data?.photos ?? []).map((p, i) => (
+                  <Image
+                    key={p.id}
+                    source={visitPhotoSource(farmId, v.id, p.id)}
+                    style={styles.photo}
+                    accessibilityLabel={`Photo ${i + 1} de la visite`}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
           {groupByCategory(v.answers.map((a) => ({ ...a, category: a.category }))).map((g) => (
             <View key={g.category} style={{ gap: 4 }}>
               <AppText size="small" weight="semibold" color="muted">
@@ -176,4 +193,6 @@ export default function VisitsScreen() {
 const styles = StyleSheet.create({
   card: { gap: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  photos: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photo: { width: 96, height: 96, borderRadius: 8, backgroundColor: color.ink[100] },
 });
