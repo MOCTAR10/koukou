@@ -1,34 +1,30 @@
 {
-  "source": "Audit POUFA v6 (2026-11-07, main 613657d), corrigé après la recette ANINF du 7 nov. 2026 : 24 exigences MVP conformes, 8 partielles, 4 non vérifiées. Corrections en cours suite à la recette ANINF du 7 nov. 2026.",
+  "source": "Audit de couverture du cahier des charges, code main @03f5bed, 2026-11-07. Chaque ligne a été relue dans le code (backend, web, mobile). Les points qui exigent un téléphone ou une exploitation réelle sont marqués « À valider sur le terrain ».",
   "decomptes": {
     "colonnes": [
       "Total",
       "✅",
-      "🟡",
       "🟠",
       "❌",
-      "À tester"
+      "À valider sur le terrain"
     ],
     "lignes": {
       "Obligatoire MVP": [
         36,
-        24,
+        34,
         0,
-        8,
         0,
-        4
+        2
       ],
       "Phase ultérieure": [
         18,
-        7,
-        0,
+        8,
         5,
-        6,
+        5,
         0
       ],
       "À arbitrer": [
         5,
-        0,
         0,
         3,
         2,
@@ -37,18 +33,16 @@
       "Évolutive": [
         9,
         1,
-        0,
         3,
         5,
         0
       ],
       "Total": [
         68,
-        32,
-        0,
-        19,
-        13,
-        4
+        43,
+        11,
+        12,
+        2
       ]
     }
   },
@@ -59,84 +53,86 @@
       "❌"
     ],
     "§3 Acteurs": [
-      8,
-      3,
+      9,
+      2,
       1
     ],
     "§6 Traçabilité": [
+      7,
       6,
-      6,
-      4
+      3
     ],
     "§7 Technique": [
-      16,
-      7,
-      1
+      18,
+      6,
+      0
     ],
     "§8 Sécurité": [
-      6,
-      7,
-      2
+      10,
+      4,
+      1
     ],
     "§9 Livrables": [
-      3,
-      5,
+      4,
+      4,
       0
     ]
   },
-  "frictions": "F1 à F13 : 13 sur 13 ✅ en v5, inchangé en v6",
+  "frictions": "F1 à F13 : 13 sur 13 ✅",
   "mvpPartiels": [
     {
-      "num": "2",
-      "intitule": "Géolocalisation",
-      "texte": "Partiel d'après la recette ANINF du 7 nov. 2026 ; correction en cours."
+      "num": "7.2a",
+      "intitule": "Saisies de terrain sans réseau",
+      "texte": "Fiche d'élevage, pesées, sorties, soins, déclarations, visites et point GPS passent par la file hors ligne. L'ouverture et la clôture d'une bande demandent une connexion."
     },
     {
-      "num": "9",
-      "intitule": "Sorties d'animaux",
-      "texte": "Partiel d'après la recette ANINF du 7 nov. 2026 ; correction en cours."
+      "num": "7.3b",
+      "intitule": "Statuts paramétrables",
+      "texte": "Les statuts de ferme et d'alerte se règlent sans développement. Les statuts de validation d'un lot sont fixés dans le code."
     },
     {
-      "num": "18",
-      "intitule": "Utilisation et stock d'intrants",
-      "texte": "Partiel d'après la recette ANINF du 7 nov. 2026 ; correction en cours."
+      "num": "7.3d",
+      "intitule": "Seuil d'écart à l'abattoir",
+      "texte": "Le paramètre existe, mais aucune fonction ne le lit : il n'y a pas encore de réception à l'abattoir."
     },
     {
-      "num": "36",
-      "intitule": "Tableau de bord de l'éleveur",
-      "texte": "Partiel d'après la recette ANINF du 7 nov. 2026 ; correction en cours."
-    },
+      "num": "7.6c",
+      "intitule": "Notifications",
+      "texte": "Notifications dans l'application et rappels en place. Le push sur téléphone exige de configurer le projet EAS et FCM."
+    }
+  ],
+  "terrain": [
     {
-      "num": "38",
-      "intitule": "Cartographie",
-      "texte": "Partiel d'après la recette ANINF du 7 nov. 2026 ; correction en cours."
+      "num": "44",
+      "intitule": "Collecte mobile hors connexion",
+      "texte": "Code complet, APK signé publié. À essayer sur un téléphone en zone sans réseau."
     },
     {
       "num": "48",
       "intitule": "Reprise des données",
-      "texte": "Partiel d'après la recette ANINF du 7 nov. 2026 ; correction en cours."
-    },
-    {
-      "num": "T2",
-      "intitule": "Historique d'élevage sans ressaisie",
-      "texte": "Partiel d'après la recette ANINF. Les visites techniques (n° 45) et les contrôles de biosécurité (n° 27) existent à l'écran « Visites techniques et biosécurité » ; le reste de l'historique est en cours de correction."
-    },
-    {
-      "num": "T3",
-      "intitule": "Sortie, cession, destinataire obligatoire",
-      "texte": "Partiel d'après la recette ANINF du 7 nov. 2026 ; correction en cours."
+      "texte": "L'outil d'import est complet. La reprise réelle des 150 fermes n'a pas encore été exécutée."
     }
   ],
-  "reservesHonnetes": [
-    "Corrections en cours suite à la recette ANINF du 7 nov. 2026 : 24 conformes, 8 partiels (n° 2, 9, 18, 36, 38, 48, T2, T3) et 4 non vérifiés, à tester (n° 17, 23, 44, T4).",
-    "Fiche lot web, onglet Historique : n'affiche pas encore motif, période ni effectif des soins (n° 23, à tester).",
-    "APK Android : publié et signé, mais pas encore testé sur un téléphone ; notifications push (projet EAS, FCM) non vérifiées.",
-    "Mise en service (lot B) : production en ligne en HTTPS avec sauvegardes chiffrées chaque nuit (7 jours conservés) et redéploiement par script. Elle tourne aujourd'hui avec une copie des données de démonstration : la reprise réelle des données et le paramétrage initial avec la DGE et les vétérinaires restent à faire.",
-    "Sécurité de connexion (verrouillage par compte, changement de code libre-service, en-têtes helmet) : toujours absents du code (vérifié sur main 613657d), donc 8.1 reste 🟠."
+  "decisionsDge": [
+    "Agent technique : il lit les déclarations sanitaires de ses fermes. À maintenir ou à retirer ?",
+    "QR après la clôture d'un lot : page « Lot terminé » avec l'origine. Durée de validité à fixer.",
+    "Caisse : un destinataire est exigé pour les volailles vivantes (règle codée). À confirmer ou à rendre réglable.",
+    "Stock d'aliment négatif : refusé sur un lot entamé, accepté avec alerte sur un stock vide. À harmoniser.",
+    "Registre des opérateurs vide en production : liste des abattoirs et acheteurs à fournir.",
+    "Valeurs « Proposé » : seuils de mortalité, formule, calendrier vaccinal, k = 5, produits de traitement."
   ],
-  "changesV6": [
-    "Recette ANINF du 7 nov. 2026 : MVP 36 exigences = 24 conformes, 8 partielles, 4 non vérifiées. Les n° 27 (biosécurité) et 45 (visites techniques) sont couverts par l'écran « Visites techniques et biosécurité ».",
-    "§9 Livrables, 9.6 Build Android : ❌ → ✅ (APK signé construit par Jenkins et non par EAS). Le 9.1 reste 🟠 : l'APK n'est pas testé sur appareil et le paramétrage initial reste à faire. §9 : 2 ✅ / 5 🟠 / 1 ❌ devient 3 ✅ / 5 🟠 / 0 ❌.",
-    "§7 et §8 : décomptes inchangés (16/7/1 et 6/7/2). TLS, sauvegardes chiffrées et secrets de production sont en place sur le serveur, mais les lignes 8.10 à 8.12 restent 🟠 faute de re-contrôle dans le code (voir réserves)."
+  "miseEnService": [
+    "Reprise des données et paramétrage initial des 150 fermes : outil prêt, exécution à planifier avec la DGE et les vétérinaires.",
+    "Essai de l'APK Android sur téléphone, hors ligne, puis configuration du push (EAS, FCM).",
+    "Environnement d'essai séparé de la production, pour la formation et les tests.",
+    "Formation des utilisateurs, choix de l'opérateur SMS (code des institutions), durée de conservation des données."
+  ],
+  "phaseUlterieure": [
+    "Financement BCEG et consentement de l'exploitant (n° 5)",
+    "Échange avec EMA-i Plus (n° 28)",
+    "Classement de performance des fermes (n° 39)",
+    "Réception à l'abattoir et validation automatique des lots (T6, T11)",
+    "Commande d'intrants (n° 20, à arbitrer)",
+    "Diffusion des données agrégées après validation du MAEDR (n° 42)"
   ]
 }

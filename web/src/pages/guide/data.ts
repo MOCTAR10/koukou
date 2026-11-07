@@ -18,13 +18,13 @@ export const REQUIREMENTS = requirementsJson as unknown as Requirement[];
 export const SUMMARY = summaryJson as unknown as Summary;
 export const FAQ = faqJson as Array<{ q: string; a: string }>;
 
-export const AUDIT_LABEL = 'Audit v6 (2026-11-07)';
+export const AUDIT_LABEL = 'Audit de couverture du code';
 export const PLATFORM_URL = 'https://fermia.greenleaves.ga';
 export const APK_URL = `${PLATFORM_URL}/apk/fermia.apk`;
 export const API_DOCS_URL = '/api/docs/';
 export const PDF_URL = '/guide/POUFA-presentation-jury.pdf';
 
-export const STATUS_LABEL: Record<string, string> = { '✅': 'Couvert', '🟡': 'Partiel léger', '🟠': 'Partiel', '🔎': 'À tester', '❌': 'Non couvert' };
+export const STATUS_LABEL: Record<string, string> = { '✅': 'Couvert', '🟡': 'Partiel léger', '🟠': 'Partiel', '🔎': 'À valider sur le terrain', '❌': 'Non couvert' };
 export const STATUS_TONE: Record<string, string> = {
   '✅': 'bg-emerald-50 text-emerald-800 ring-emerald-200',
   '🟡': 'bg-amber-50 text-amber-800 ring-amber-200',

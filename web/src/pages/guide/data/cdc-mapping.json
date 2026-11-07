@@ -11,7 +11,7 @@
         "num": "8.1",
         "intitule": "Authentification sécurisée",
         "priorite": "Transverse",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "3.11",
@@ -23,7 +23,7 @@
     "bonus": [
       "Web utilisable hors ligne, ouvert à tous les rôles."
     ],
-    "aSavoir": "Sécurité de connexion : verrouillage par compte, changement de code et en-têtes helmet ne sont pas faits (8.1 🟠, lot B)."
+    "aSavoir": "Verrouillage du compte après 5 échecs (15 minutes, levé par l'administration), en-têtes de sécurité, secrets obligatoires en production. Le code n'est pas modifiable en libre-service : l'administration le réinitialise. Le code SMS des institutions est un réglage à activer."
   },
   {
     "route": "/app/dashboard",
@@ -39,7 +39,7 @@
         "num": "36",
         "intitule": "Tableau de bord de l'éleveur",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "12",
@@ -129,7 +129,7 @@
         "num": "9",
         "intitule": "Sorties d'animaux",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "10",
@@ -177,13 +177,13 @@
         "num": "T2",
         "intitule": "Historique d'élevage sans ressaisie",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "7.2b",
@@ -207,7 +207,7 @@
     "bonus": [
       "Pondeuses, œufs et autres espèces, courbes de race, densité par bâtiment, calendrier de soins généré."
     ],
-    "aSavoir": "Ouverture et clôture de bande ne fonctionnent pas hors ligne. T2 reste partiel (recette ANINF), correction en cours."
+    "aSavoir": "L'ouverture et la clôture de bande demandent une connexion (7.2a). Les saisies, pesées, sorties et soins passent par la file hors ligne."
   },
   {
     "route": "/app/alerts",
@@ -269,7 +269,7 @@
         "num": "23",
         "intitule": "Registre des traitements",
         "priorite": "MVP",
-        "statut": "🔎"
+        "statut": "✅"
       },
       {
         "num": "26",
@@ -324,7 +324,7 @@
       }
     ],
     "bonus": [],
-    "aSavoir": "L'autorité vétérinaire est un droit de la matrice (SANITAIRE:VALIDER), pas un code de profil. Pas d'échange avec EMA-i Plus (n° 28 ❌), la biosécurité (n° 27) et les visites (n° 45) sont à l'écran « Visites techniques et biosécurité », ni diagnostics structurés (n° 24 🟠)."
+    "aSavoir": "L'autorité vétérinaire est un droit de la matrice (SANITAIRE:VALIDER), pas un code de profil. Pas d'échange avec EMA-i Plus (n° 28 ❌), ni de diagnostics structurés (n° 24 🟠). La biosécurité (n° 27) et les visites (n° 45) sont à l'écran « Visites techniques et biosécurité »."
   },
   {
     "route": "/app/surveillance/parametres",
@@ -344,7 +344,7 @@
         "num": "7.3d",
         "intitule": "Seuils paramétrables",
         "priorite": "Transverse",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "7.3c",
@@ -376,13 +376,13 @@
         "num": "17",
         "intitule": "Réception des intrants",
         "priorite": "MVP",
-        "statut": "🔎"
+        "statut": "✅"
       },
       {
         "num": "18",
         "intitule": "Utilisation et stock d'intrants",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       }
     ],
     "bonus": [
@@ -403,7 +403,7 @@
         "num": "17",
         "intitule": "Réception des intrants",
         "priorite": "MVP",
-        "statut": "🔎"
+        "statut": "✅"
       },
       {
         "num": "19",
@@ -428,7 +428,7 @@
         "num": "17",
         "intitule": "Réception des intrants",
         "priorite": "MVP",
-        "statut": "🔎"
+        "statut": "✅"
       },
       {
         "num": "19",
@@ -460,13 +460,13 @@
         "num": "9",
         "intitule": "Sorties d'animaux",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "29",
@@ -560,7 +560,7 @@
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "T5",
@@ -616,7 +616,7 @@
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       }
     ],
     "bonus": [
@@ -637,7 +637,7 @@
         "num": "T4",
         "intitule": "Registre des opérateurs",
         "priorite": "MVP",
-        "statut": "🔎"
+        "statut": "✅"
       },
       {
         "num": "30",
@@ -777,7 +777,7 @@
         "num": "31",
         "intitule": "Charges d'exploitation",
         "priorite": "Phase ultérieure",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "32",
@@ -789,7 +789,7 @@
     "bonus": [
       "Reprise automatique des intrants en dépense."
     ],
-    "aSavoir": "La liste POSTE_CHARGE du CDC n'est pas branchée sur les dépenses (n° 31 🟠)."
+    "aSavoir": "Les postes viennent de la liste paramétrable POSTE_CHARGE ; la valeur des intrants reçus est reprise automatiquement (n° 31 ✅)."
   },
   {
     "route": "/app/reports",
@@ -887,7 +887,7 @@
         "num": "2",
         "intitule": "Géolocalisation",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "3",
@@ -911,19 +911,19 @@
         "num": "3.2",
         "intitule": "Agent technique : vérifie les déclarations",
         "priorite": "Transverse",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "8.7",
         "intitule": "Journal, consultations tracées, ANINF",
         "priorite": "Transverse",
-        "statut": "🟠"
+        "statut": "✅"
       }
     ],
     "bonus": [
       "Multi-fermes par exploitant."
     ],
-    "aSavoir": "Les contours des 9 provinces ne sont pas chargés. L'agent technique relève le GPS, enregistre des visites techniques et lit les déclarations sanitaires de ses fermes (droit Sanitaire : Consulter, réglable par l'administration) ; il ne les valide pas (3.2 🟠)."
+    "aSavoir": "Les contours des 9 provinces ne sont pas chargés. L'agent technique relève le GPS, enregistre des visites techniques et lit les déclarations sanitaires de ses fermes (droit « Déclarations : consulter », réglable par l'administration) ; il ne les valide pas. Ce périmètre est une décision attendue de la DGE."
   },
   {
     "route": "/app/pilotage",
@@ -973,7 +973,7 @@
         "num": "38",
         "intitule": "Cartographie",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "7.6b",
@@ -983,7 +983,7 @@
       }
     ],
     "bonus": [],
-    "aSavoir": "Les tuiles viennent d'OpenStreetMap, à remplacer par un fournisseur autorisé (lot B7)."
+    "aSavoir": "Les tuiles viennent d'OpenStreetMap par défaut ; le fournisseur se règle par configuration."
   },
   {
     "route": "/app/pilotage/objectif",
@@ -1104,19 +1104,19 @@
         "num": "T2",
         "intitule": "Historique d'élevage sans ressaisie",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "T4",
         "intitule": "Registre des opérateurs",
         "priorite": "MVP",
-        "statut": "🔎"
+        "statut": "✅"
       },
       {
         "num": "T5",
@@ -1152,7 +1152,7 @@
     "bonus": [
       "QR signé HMAC, scellé quotidien du journal, indicateurs de fraude sur les scans."
     ],
-    "aSavoir": "T2 est partiel (recette ANINF du 7 nov. 2026), correction en cours ; les visites et contrôles de biosécurité existent à l'écran « Visites techniques et biosécurité ». Recherche amont-aval partielle (T12 🟠). L'indicateur de traçabilité à 95 % n'est pas encore lu (T14 🟠). Document d'accompagnement : « pas un certificat sanitaire » (T16 🟠)."
+    "aSavoir": "Le registre des opérateurs est vide en production. Recherche amont-aval partielle (T12 🟠). L'indicateur de traçabilité à 95 % n'est pas encore lu (T14 🟠). Pas de réception à l'abattoir (T6 ❌), donc pas de validation automatique des lots (T11 🟠). Document d'accompagnement : « pas un certificat sanitaire » (T16 🟠)."
   },
   {
     "route": "/l/:code",
@@ -1235,7 +1235,7 @@
         "num": "7.3a",
         "intitule": "Listes paramétrables",
         "priorite": "Transverse",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "3.11",
@@ -1260,7 +1260,7 @@
         "num": "7.3a",
         "intitule": "Listes paramétrables",
         "priorite": "Transverse",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "7.3c",
@@ -1272,7 +1272,7 @@
         "num": "7.3d",
         "intitule": "Seuils paramétrables",
         "priorite": "Transverse",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "3.3",
@@ -1288,7 +1288,7 @@
       }
     ],
     "bonus": [],
-    "aSavoir": "Plusieurs valeurs sont « Proposé » (seuils, calendrier, k = 5). PRODUIT_TRAITEMENT est vide. Les statuts de lot sont un enum, non paramétrables (7.3a 🟠)."
+    "aSavoir": "Plusieurs valeurs sont « Proposé » (seuils, calendrier, k = 5) et attendent la validation de la DGE. La liste PRODUIT_TRAITEMENT est vide. Les statuts de validation d'un lot sont fixés dans le code (7.3b). Le seuil d'écart à la réception à l'abattoir n'est lu nulle part (7.3d)."
   },
   {
     "route": "/app/acces",
@@ -1378,7 +1378,7 @@
         "num": "8.7",
         "intitule": "Journal, consultations tracées, ANINF",
         "priorite": "Transverse",
-        "statut": "🟠"
+        "statut": "✅"
       },
       {
         "num": "8.8",
@@ -1390,7 +1390,7 @@
     "bonus": [
       "Scellé SHA-256 chaîné et vérifiable, salaires masqués."
     ],
-    "aSavoir": "Immuabilité complète exige deux rôles SQL, pas encore créés (8.7 🟠, lot B4)."
+    "aSavoir": "Le journal est en ajout seul, scellé chaque jour ; les deux rôles SQL qui garantissent l'immuabilité sont appliqués en production (8.7 ✅). Les salaires y sont masqués."
   },
   {
     "route": "/app/reprise",
@@ -1405,7 +1405,7 @@
         "num": "48",
         "intitule": "Reprise des données",
         "priorite": "MVP",
-        "statut": "🟠"
+        "statut": "🔎"
       },
       {
         "num": "7.7b",
@@ -1421,7 +1421,7 @@
       }
     ],
     "bonus": [],
-    "aSavoir": "L'outil est prêt, la reprise réelle n'est pas faite (9.3 🟠). L'aperçu accepte un poids sans échantillon que l'import refuse ensuite."
+    "aSavoir": "L'outil est prêt ; la reprise réelle des données n'a pas encore été exécutée (n° 48 🔎, 9.3 🟠)."
   },
   {
     "route": "/app/settings",
@@ -1481,6 +1481,6 @@
     "bonus": [
       "Base de connaissances d'élevage."
     ],
-    "aSavoir": "Guides par profil et formation non faits (9.7 🟠, lot B11). Le portail de formation reste évolutif (n° 52 ❌)."
+    "aSavoir": "Le guide public (/guide) présente chaque écran. La formation des utilisateurs reste à organiser (9.7 🟠). Le portail de formation reste évolutif (n° 52 ❌)."
   }
 ]
