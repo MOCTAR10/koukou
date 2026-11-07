@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
-import { API_DOCS_URL, APK_URL, AUDIT_LABEL, CHAPTERS, CHAPTER_BLOCKS, PLATFORM_URL, SCREEN_COUNT, SUMMARY, cdcFor } from './data';
+import { API_DOCS_URL, APK_URL, AUDIT_LABEL, CHAPTERS, CHAPTER_BLOCKS, FAQ, PLATFORM_URL, SCREEN_COUNT, SUMMARY, cdcFor } from './data';
 import { PIPELINE, PRACTICES, REDEPLOY, SECURITY } from './practices';
 import { ChannelCards, ScreenFigure } from './parts';
-import { Flow } from './sections';
+import { ChapterSection, FaqSection, PortabilitySection, RequirementsSection, RoutesSection, SecuritySection, SynthesisSection, HowToReadSection, Flow } from './sections';
 import type { Chapter, Figure } from './types';
 
-interface Slide {
+export interface Slide {
   id: string;
-  /** Short label for the counter / aria. */
+  /** Short label: side list, counter, aria. */
   label: string;
+  /** Group of the side list (Introduction, Cahier des charges, a part of the guide...). */
+  section: string;
+  /** Headline shown above the slide in the guide viewer. */
+  title: string;
+  /** Plain text used by the guide's search. */
+  text: string;
+  /** « Ce que dit cette page »: the long-form content shown under the slide in the guide viewer. */
+  notes?: () => ReactNode;
   render: (compact: boolean) => ReactNode;
 }
 
@@ -164,7 +172,7 @@ function ChapterSlide({ chapter, number, fig, index, compact }: { chapter: Chapt
   const crumb = `${chapter.part} › Chapitre ${String(number).padStart(2, '0')}/${CHAPTERS.length}${chapter.figs.length > 1 ? ` · écran ${index + 1}/${chapter.figs.length}` : ''}`;
   const badge = rows.length > 0 ? `Répond au CDC n° ${rows.map((r) => r.num).join(', ')}` : 'Module bonus, au-delà du CDC';
   return (
-    <div className={compact ? 'flex flex-col gap-4 p-5' : 'grid h-full grid-cols-[1.12fr_1fr] gap-8 px-10 py-8'}>
+    <div className={compact ? 'flex flex-col gap-4 p-5' : 'grid h-full grid-cols-[1.5fr_1fr] gap-7 px-9 py-8'}>
       <div className="flex min-w-0 flex-col justify-center gap-3">
         <ScreenFigure fig={fig} large={!compact} eager hideLegend />
         <p className="flex flex-wrap items-center gap-2">
@@ -173,7 +181,7 @@ function ChapterSlide({ chapter, number, fig, index, compact }: { chapter: Chapt
       </div>
       <div className="min-h-0 overflow-hidden">
         <p className="text-base font-bold uppercase tracking-[0.12em] text-amber-700">{crumb}</p>
-        <h2 className="mt-1 text-[38px] font-bold leading-tight text-brand-900">{chapter.t}</h2>
+        <h2 className="mt-1 text-[34px] font-bold leading-tight text-brand-900">{chapter.t}</h2>
         {chapter.who ? <p className="mt-2 text-[19px] leading-snug text-slate-800"><b>Qui : </b>{chapter.who}</p> : null}
         <p className="mt-2 text-[19px] font-semibold leading-snug text-brand-800">{fig.cap}</p>
         {intro ? <p className="mt-2 text-[19px] leading-snug text-slate-800">{intro}</p> : null}
@@ -238,27 +246,52 @@ function Closing({ compact }: { compact: boolean }) {
   );
 }
 
-function buildSlides(): Slide[] {
+function FaqSlide({ compact }: { compact: boolean }) {
+  return (
+    <Frame kicker="Questions fréquentes" title="Les questions que l’on nous pose" compact={compact}>
+      <ul className={'grid gap-3 ' + (compact ? '' : 'grid-cols-2')}>
+        {FAQ.slice(0, 6).map((f) => (
+          <li key={f.q} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-[21px] font-bold leading-tight text-brand-900">{f.q}</p>
+            <p className="mt-1 line-clamp-3 text-[18px] leading-snug text-slate-700">{f.a}</p>
+          </li>
+        ))}
+      </ul>
+    </Frame>
+  );
+}
+
+const INTRO = 'Introduction';
+const CDC = 'Cahier des charges';
+const OPS = 'Sécurité et mise en œuvre';
+const END = 'Pour aller plus loin';
+
+export function buildSlides(): Slide[] {
+  const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
   const slides: Slide[] = [
-    { id: 'couverture', label: 'Couverture', render: (c) => <Cover compact={c} /> },
-    { id: 'lire', label: 'Comment suivre', render: (c) => <ReadSlide compact={c} /> },
     {
-      id: 'canaux',
-      label: 'Deux canaux d’accès',
+      id: 'couverture', label: 'Plateforme Fermia', section: INTRO, title: 'Plateforme Fermia · Programme POUFA',
+      text: 'Système d’information de suivi technico-économique et de traçabilité de la filière avicole',
+      render: (c) => <Cover compact={c} />,
+    },
+    { id: 'lire', label: 'Comment lire ce guide', section: INTRO, title: 'Comment suivre cette présentation', text: 'écran repères CDC preuve', notes: () => <HowToReadSection />, render: (c) => <ReadSlide compact={c} /> },
+    {
+      id: 'canaux', label: 'Web et Android', section: INTRO, title: 'Deux canaux : web et Android', text: 'navigateur application Android APK installation hors ligne',
       render: (c) => (
         <Frame kicker="Accès à la plateforme" title="Deux canaux : web et Android" compact={c}>
           <ChannelCards web={PLATFORM_URL} apk={APK_URL} size="lg" />
         </Frame>
       ),
     },
-    { id: 'synthese', label: 'Synthèse du CDC', render: (c) => <SynthesisSlide compact={c} /> },
-    { id: 'reserves', label: 'Réserves', render: (c) => <ReservesSlide compact={c} /> },
+    { id: 'role', label: 'Qui fait quoi', section: INTRO, title: 'Qui fait quoi ?', text: 'rôles acteurs administrateur institution exploitant parcours', notes: () => <RoutesSection />, render: (c) => <RoleSlide compact={c} /> },
+    { id: 'synthese', label: 'Synthèse du CDC', section: CDC, title: 'Ce que la plateforme couvre', text: 'synthèse exigences couvertes partielles MVP matrice', notes: () => <><SynthesisSection /><div className="mt-10"><RequirementsSection /></div></>, render: (c) => <SynthesisSlide compact={c} /> },
+    { id: 'reserves', label: 'Ce qui reste à faire', section: CDC, title: 'Ce qui reste à faire, sans détour', text: SUMMARY.mvpPartiels.map((p) => p.intitule).join(' ') + ' réserves', render: (c) => <ReservesSlide compact={c} /> },
   ];
-  const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
   chunk(SECURITY, 6).forEach((items, i, all) =>
     slides.push({
-      id: `securite-${i}`,
-      label: 'Sécurité',
+      id: `securite-${i}`, label: all.length > 1 ? `Sécurité (${i + 1}/${all.length})` : 'Sécurité', section: OPS, title: 'Sécurité et protection des données',
+      text: items.map((x) => `${x.title} ${x.text}`).join(' '),
+      notes: i === 0 ? () => <SecuritySection /> : undefined,
       render: (c) => (
         <Frame kicker={`Sécurité · ${i + 1}/${all.length}`} title="Sécurité et protection des données" compact={c}>
           <FactCards items={items} compact={c} />
@@ -267,8 +300,8 @@ function buildSlides(): Slide[] {
     }),
   );
   slides.push({
-    id: 'pipeline',
-    label: 'Mise en œuvre',
+    id: 'pipeline', label: 'De la modification à la sauvegarde', section: OPS, title: 'De la modification à la sauvegarde',
+    text: [...PIPELINE, ...PRACTICES.slice(0, 4)].map((x) => `${x.title} ${x.text}`).join(' '),
     render: (c) => (
       <Frame kicker="Mise en œuvre · 1/3" title="De la modification à la sauvegarde" compact={c}>
         <div className="space-y-6">
@@ -279,8 +312,8 @@ function buildSlides(): Slide[] {
     ),
   });
   slides.push({
-    id: 'pratiques',
-    label: 'Mise en œuvre',
+    id: 'pratiques', label: 'Pratiques professionnelles', section: OPS, title: 'Des pratiques professionnelles',
+    text: PRACTICES.slice(4, 10).map((x) => `${x.title} ${x.text}`).join(' '),
     render: (c) => (
       <Frame kicker="Mise en œuvre · 2/3" title="Des pratiques professionnelles" compact={c}>
         <FactCards items={PRACTICES.slice(4, 10)} compact={c} />
@@ -288,8 +321,9 @@ function buildSlides(): Slide[] {
     ),
   });
   slides.push({
-    id: 'portabilite',
-    label: 'Portabilité',
+    id: 'portabilite', label: 'Déployer ailleurs', section: OPS, title: 'Déployer sur un autre serveur',
+    text: 'portabilité Docker serveur ANINF ' + REDEPLOY.map((x) => `${x.title} ${x.text}`).join(' '),
+    notes: () => <PortabilitySection />,
     render: (c) => (
       <Frame kicker="Mise en œuvre · 3/3" title="Déployer sur un autre serveur" compact={c}>
         <div className="space-y-5">
@@ -299,13 +333,22 @@ function buildSlides(): Slide[] {
       </Frame>
     ),
   });
-  slides.push({ id: 'role', label: 'Qui fait quoi', render: (c) => <RoleSlide compact={c} /> });
   CHAPTERS.forEach((chapter, ci) => {
     chapter.figs.forEach((fig, index) => {
-      slides.push({ id: `${chapter.id}-${fig.k}`, label: chapter.t, render: (c) => <ChapterSlide chapter={chapter} number={ci + 1} fig={fig} index={index} compact={c} /> });
+      const many = chapter.figs.length > 1;
+      slides.push({
+        id: `${chapter.id}-${fig.k}`,
+        label: many ? `${chapter.t} (${index + 1}/${chapter.figs.length})` : chapter.t,
+        section: chapter.part,
+        title: index === 0 ? chapter.t : fig.cap.replace(/\.$/, ''),
+        text: [chapter.t, chapter.who, chapter.why, fig.alt, fig.cap, ...fig.m.map((m) => `${m.title} ${m.desc}`)].filter(Boolean).join(' '),
+        notes: () => <ChapterSection chapter={chapter} number={ci + 1} withFigures={false} />,
+        render: (c) => <ChapterSlide chapter={chapter} number={ci + 1} fig={fig} index={index} compact={c} />,
+      });
     });
   });
-  slides.push({ id: 'fin', label: 'Liens', render: (c) => <Closing compact={c} /> });
+  slides.push({ id: 'faq', label: 'Questions fréquentes', section: END, title: 'Questions fréquentes', text: FAQ.map((f) => `${f.q} ${f.a}`).join(' '), notes: () => <FaqSection />, render: (c) => <FaqSlide compact={c} /> });
+  slides.push({ id: 'fin', label: 'Retrouver la plateforme', section: END, title: 'Retrouvez la plateforme', text: 'liens plateforme APK API documentation Swagger', render: (c) => <Closing compact={c} /> });
   return slides;
 }
 

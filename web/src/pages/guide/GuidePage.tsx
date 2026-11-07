@@ -1,77 +1,116 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ChevronDown, Download, FileDown, LogIn, Menu, Presentation as PresentationIcon, X } from 'lucide-react';
-import { API_DOCS_URL, APK_URL, PDF_URL, PLATFORM_URL, CHAPTERS, PARTS, SCREEN_COUNT } from './data';
-import { FaqSection, HowToReadSection, RoutesSection, ChapterSection, PortabilitySection, RequirementsSection, SecuritySection, SynthesisSection } from './sections';
-import { ChannelCards } from './parts';
-import { PrintDeck, Presentation } from './Presentation';
+import { ArrowLeft, ArrowRight, Download, LayoutGrid, LogIn, Maximize2, Menu, Presentation as PresentationIcon, Search, X } from 'lucide-react';
+import { API_DOCS_URL, PDF_URL } from './data';
+import { PrintDeck, Presentation, STAGE_H, STAGE_W, buildSlides, type Slide } from './Presentation';
 
-interface TocItem {
-  id: string;
-  title: string;
-  group: string;
+/** Below this width the slide is laid out for a phone (its compact render) instead of a scaled 16:9 stage. */
+const COMPACT_BELOW = 640;
+
+/** Lower-case, accent-free text for the search. */
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-const TOC: TocItem[] = [
-  { id: 'lire', title: 'Comment lire ce guide', group: 'Repères' },
-  { id: 'parcours', title: 'Parcours par acteur', group: 'Repères' },
-  { id: 'synthese', title: 'Synthèse du cahier des charges', group: 'Synthèse' },
-  { id: 'exigences', title: 'Matrice des 68 exigences', group: 'Synthèse' },
-  { id: 'portabilite', title: 'Mise en œuvre et portabilité', group: 'Synthèse' },
-  { id: 'securite', title: 'Sécurité et données', group: 'Synthèse' },
-  ...PARTS.flatMap((part) => CHAPTERS.filter((c) => c.part === part).map((c) => ({ id: c.id, title: c.t, group: part }))),
-  { id: 'faq', title: 'Questions fréquentes', group: 'FAQ' },
-];
-
-/** Section currently under the top of the viewport (scroll-spy). */
-function useActiveSection(): string {
-  const [active, setActive] = useState(TOC[0].id);
+/** Width of an element, followed on resize. */
+function useWidth<T extends HTMLElement>(): [React.RefObject<T>, number] {
+  const ref = useRef<T>(null);
+  const [w, setW] = useState(0);
   useEffect(() => {
-    const els = TOC.map((t) => document.getElementById(t.id)).filter((e): e is HTMLElement => Boolean(e));
-    const onScroll = () => {
-      const y = window.scrollY + 140;
-      let cur = els[0]?.id ?? TOC[0].id;
-      for (const el of els) if (el.offsetTop <= y) cur = el.id;
-      setActive(cur);
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width));
+    ro.observe(el);
+    setW(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
   }, []);
-  return active;
+  return [ref, w];
 }
 
-function TocList({ active, onPick }: { active: string; onPick?: () => void }) {
-  const groups = useMemo(() => {
-    const map = new Map<string, TocItem[]>();
-    for (const t of TOC) map.set(t.group, [...(map.get(t.group) ?? []), t]);
-    return [...map.entries()];
-  }, []);
+/** A slide scaled to the width of its column, 16:9. */
+function Stage({ slide, children }: { slide: Slide; children?: ReactNode }) {
+  const [ref, w] = useWidth<HTMLDivElement>();
+  const compact = w > 0 && w < COMPACT_BELOW;
+  const scale = w / STAGE_W;
   return (
-    <div className="space-y-4">
-      {groups.map(([group, items]) => (
-        <div key={group}>
-          <p className="px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{group}</p>
-          <ul className="mt-1">
-            {items.map((t) => (
-              <li key={t.id}>
-                <a
-                  href={`#${t.id}`}
-                  onClick={onPick}
-                  aria-current={active === t.id ? 'location' : undefined}
-                  className={
-                    'block border-l-2 px-3 py-1.5 text-sm transition-colors ' +
-                    (active === t.id ? 'border-brand-600 bg-brand-50 font-semibold text-brand-800' : 'border-slate-200 text-slate-600 hover:border-slate-400 hover:text-slate-900')
-                  }
-                >
-                  {t.title}
-                </a>
-              </li>
-            ))}
+    <div ref={ref} className="relative overflow-hidden rounded-2xl bg-white shadow-[0_10px_40px_-12px_rgba(12,35,49,0.35)] ring-1 ring-black/5">
+      {compact ? (
+        <div aria-live="polite">{slide.render(true)}</div>
+      ) : (
+        <div style={{ height: w ? STAGE_H * scale : undefined, aspectRatio: w ? undefined : '16 / 9' }} aria-live="polite">
+          {w ? (
+            <div style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: 'top left' }} className="overflow-hidden">
+              {slide.render(false)}
+            </div>
+          ) : null}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** Thumbnail of a slide for the overview, rendered only once it scrolls into view. */
+function Thumb({ slide }: { slide: Slide }) {
+  const [ref, w] = useWidth<HTMLDivElement>();
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || seen) return;
+    const io = new IntersectionObserver(([e]) => e.isIntersecting && setSeen(true), { rootMargin: '300px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, seen]);
+  return (
+    <div ref={ref} className="pointer-events-none relative aspect-video overflow-hidden bg-white" aria-hidden>
+      {seen && w ? (
+        <div style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${w / STAGE_W})`, transformOrigin: 'top left' }} className="overflow-hidden">
+          {slide.render(false)}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+interface Group {
+  section: string;
+  items: Array<{ slide: Slide; index: number }>;
+}
+
+function SideList({ groups, current, onPick }: { groups: Group[]; current: number; onPick: (i: number) => void }) {
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [current]);
+  if (groups.length === 0) return <p className="px-4 py-6 text-sm text-slate-500">Aucune page ne correspond à la recherche.</p>;
+  return (
+    <div className="space-y-5 pb-6">
+      {groups.map((g) => (
+        <div key={g.section}>
+          <p className="flex items-baseline justify-between px-4 text-[13px] font-bold uppercase tracking-[0.14em] text-amber-800">
+            {g.section} <span className="text-[11px] font-medium tracking-normal text-slate-500">{g.items.length}</span>
+          </p>
+          <ul className="mt-1.5 space-y-0.5 px-2">
+            {g.items.map(({ slide, index }) => {
+              const active = index === current;
+              return (
+                <li key={slide.id}>
+                  <button
+                    type="button"
+                    ref={active ? activeRef : undefined}
+                    onClick={() => onPick(index)}
+                    aria-current={active ? 'page' : undefined}
+                    className={
+                      'flex w-full items-baseline gap-3 rounded-lg px-3 py-1.5 text-left text-[15px] transition-colors ' +
+                      (active ? 'bg-brand-900 font-medium text-white' : 'text-slate-700 hover:bg-white hover:text-slate-950')
+                    }
+                  >
+                    <span className={'w-6 shrink-0 text-right text-[13px] font-bold tabular-nums ' + (active ? 'text-amber-300' : 'text-slate-500')}>{index + 1}</span>
+                    <span className="min-w-0">{slide.label}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}
@@ -79,123 +118,255 @@ function TocList({ active, onPick }: { active: string; onPick?: () => void }) {
   );
 }
 
-/** Public, institutional guide to the platform. No login: only demo data is shown. */
+function Overview({ groups, current, onPick }: { groups: Group[]; current: number; onPick: (i: number) => void }) {
+  return (
+    <div className="space-y-10">
+      {groups.map((g) => (
+        <section key={g.section}>
+          <h2 className="text-2xl font-bold tracking-tight text-brand-900">{g.section}</h2>
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {g.items.map(({ slide, index }) => (
+              <li key={slide.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(index)}
+                  className={'block w-full overflow-hidden rounded-xl border bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ' + (index === current ? 'border-amber-500 ring-2 ring-amber-400' : 'border-slate-200')}
+                >
+                  <Thumb slide={slide} />
+                  <span className="flex items-baseline gap-2 border-t border-slate-100 px-3 py-2.5 text-[15px] text-slate-800">
+                    <b className="tabular-nums text-amber-800">{index + 1}</b> <span className="truncate">{slide.label}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** Public, institutional guide to the platform, read page by page like a presentation. No login: only demo data is shown. */
 export function GuidePage() {
+  const slides = useMemo(buildSlides, []);
   const [params, setParams] = useSearchParams();
   const presenting = params.get('present') === '1';
   const printing = presenting && params.get('print') === '1';
+  const overview = params.get('vue') === '1';
+  const pageParam = Number(params.get('page'));
+  const current = Number.isInteger(pageParam) && pageParam >= 1 && pageParam <= slides.length ? pageParam - 1 : 0;
+  const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  const active = useActiveSection();
+  const searchRef = useRef<HTMLInputElement>(null);
+  const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const prev = document.title;
-    document.title = 'Guide de la plateforme · Programme POUFA';
+    document.title = 'Guide de la plateforme Fermia · Programme POUFA';
     return () => {
       document.title = prev;
     };
   }, []);
 
-  const startPresentation = useCallback(() => setParams({ present: '1' }), [setParams]);
-  const stopPresentation = useCallback(() => setParams({}), [setParams]);
-  let n = 0;
+  const groups = useMemo<Group[]>(() => {
+    const q = fold(query.trim());
+    const map = new Map<string, Group>();
+    slides.forEach((slide, index) => {
+      if (q && !fold(`${slide.label} ${slide.title} ${slide.section} ${slide.text}`).includes(q)) return;
+      const g = map.get(slide.section) ?? { section: slide.section, items: [] };
+      g.items.push({ slide, index });
+      map.set(slide.section, g);
+    });
+    return [...map.values()];
+  }, [slides, query]);
+
+  const goTo = useCallback(
+    (i: number) => {
+      const n = Math.min(slides.length - 1, Math.max(0, i));
+      setParams({ page: String(n + 1) }, { replace: true });
+      setMenuOpen(false);
+      topRef.current?.scrollIntoView({ block: 'start' });
+    },
+    [setParams, slides.length],
+  );
+  const setOverview = useCallback((on: boolean) => setParams(on ? { page: String(current + 1), vue: '1' } : { page: String(current + 1) }, { replace: true }), [setParams, current]);
+  const startPresentation = useCallback(() => setParams({ present: '1', slide: String(current + 1) }), [setParams, current]);
+  const stopPresentation = useCallback(() => {
+    // The presentation keeps its slide number in the address: come back to that page.
+    const n = Number(new URLSearchParams(window.location.search).get('slide'));
+    setParams({ page: String(Number.isInteger(n) && n >= 1 ? n : current + 1) });
+  }, [setParams, current]);
+
+  useEffect(() => {
+    if (presenting) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+        if (e.key === 'Escape') (t as HTMLInputElement).blur();
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') (e.preventDefault(), goTo(current + 1));
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') (e.preventDefault(), goTo(current - 1));
+      else if (e.key === 'g' || e.key === 'G') setOverview(!overview);
+      else if (e.key === 'f' || e.key === 'F') startPresentation();
+      else if (e.key === '/') (e.preventDefault(), searchRef.current?.focus(), setMenuOpen(true));
+      else if (e.key === 'Escape' && overview) setOverview(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [presenting, current, goTo, overview, setOverview, startPresentation]);
 
   if (printing) return <PrintDeck />;
-  return (
-    <div className="min-h-screen bg-white text-slate-800">
-      <a href="#contenu" className="sr-only z-[60] rounded bg-white px-3 py-2 text-brand-800 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Aller au contenu</a>
-      <div aria-hidden className="h-1.5 bg-gradient-to-r from-emerald-600 via-amber-400 to-sky-600 print:hidden" />
 
-      <header className="relative overflow-hidden bg-brand-950 text-white">
-        <img src="/login-poufa.webp" alt="" aria-hidden width={1600} height={900} className="absolute inset-0 h-full w-full object-cover opacity-30 print:hidden" />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-brand-950/60 via-brand-950/80 to-brand-950" />
-        <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-5 sm:px-6 lg:px-8 lg:pb-14">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <img src="/republique-gabonaise.webp" alt="République gabonaise" className="h-12 w-auto rounded-md bg-white p-0.5 sm:h-16" />
-              <img src="/maedr-logo-full.webp" alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural" className="h-12 w-12 rounded-md bg-white object-contain p-0.5 sm:h-16 sm:w-16" />
-              <img src="/men-logo.webp" alt="Ministère de l’Économie numérique, de la Digitalisation et de l’Innovation" className="h-12 w-12 rounded-md bg-white object-contain p-0.5 sm:h-16 sm:w-16" />
-              <p className="hidden border-l border-white/30 pl-4 text-xl font-bold uppercase tracking-[0.2em] sm:block">POUFA</p>
-            </div>
-            <div className="flex flex-wrap gap-2 print:hidden">
-              <button type="button" onClick={startPresentation} className="inline-flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-brand-950 hover:bg-amber-300">
-                <PresentationIcon className="h-4 w-4" aria-hidden /> Mode présentation
-              </button>
-              <a href={PDF_URL} download className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium ring-1 ring-white/25 hover:bg-white/20">
-                <Download className="h-4 w-4" aria-hidden /> Présentation (PDF)
-              </a>
-              <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium ring-1 ring-white/25 hover:bg-white/20">
-                <FileDown className="h-4 w-4" aria-hidden /> Imprimer
-              </button>
-              <Link to="/login" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm font-medium ring-1 ring-white/25 hover:bg-white/20">
-                <LogIn className="h-4 w-4" aria-hidden /> Connexion
-              </Link>
+  const slide = slides[current];
+  const prev = current > 0 ? slides[current - 1] : null;
+  const next = current < slides.length - 1 ? slides[current + 1] : null;
+  const progress = ((current + 1) / slides.length) * 100;
+  const kicker = slide.section === slide.title ? slide.section : `${slide.section} · ${slide.label}`;
+
+  return (
+    <div className="min-h-screen bg-[#f4f2ec] text-slate-800">
+      <a href="#contenu" className="sr-only z-[60] rounded bg-white px-3 py-2 text-brand-800 focus:not-sr-only focus:fixed focus:left-3 focus:top-3">Aller au contenu</a>
+
+      <header className="sticky top-0 z-40 border-b-[3px] border-amber-400 bg-brand-950 text-white">
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={() => setMenuOpen((o) => !o)} aria-expanded={menuOpen} aria-controls="sommaire" className="rounded-lg p-2 hover:bg-white/10 lg:hidden">
+              {menuOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
+              <span className="sr-only">Sommaire</span>
+            </button>
+            <img src="/republique-gabonaise.webp" alt="République gabonaise" className="h-10 w-auto shrink-0 rounded-md bg-white p-0.5 sm:h-11" />
+            <div className="min-w-0">
+              <p className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Fermia<span className="hidden sm:inline"> — Guide de la plateforme</span><span className="sm:hidden"> · Guide</span></p>
+              <p className="hidden truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-300 sm:block">Présentation · Programme POUFA · MAEDR</p>
             </div>
           </div>
-          <div className="mt-10 max-w-4xl lg:mt-14">
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-amber-200 sm:text-sm">Programme POUFA · Agri Track 241 · Plateforme Fermia</p>
-            <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight sm:text-5xl">Guide de la plateforme</h1>
-            <p className="mt-4 max-w-3xl text-base text-brand-100 sm:text-lg">
-              Système d’information de suivi technico-économique et de traçabilité de la filière avicole. Chaque écran, expliqué simplement : à quoi il sert, qui l’utilise, et quelles exigences du cahier des charges il couvre.
-            </p>
-            <dl className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-sm text-brand-100">
-              <div><dt className="sr-only">Version</dt><dd>Novembre 2026</dd></div>
-              <div><dt className="sr-only">Langue</dt><dd>Interface en français</dd></div>
-              <div><dt className="sr-only">Contenu</dt><dd>{SCREEN_COUNT} écrans annotés</dd></div>
-              <div><dt className="sr-only">Audit</dt><dd>Audit v6 du 7 novembre 2026</dd></div>
-            </dl>
-            <div className="mt-6 max-w-5xl"><ChannelCards web={PLATFORM_URL} apk={APK_URL} dark /></div>
-            <p className="mt-4 text-[17px] print:hidden"><a href={API_DOCS_URL} className="underline decoration-white/40 underline-offset-4 hover:decoration-white">Documentation de l’API (Swagger)</a></p>
-          </div>
+          <nav aria-label="Actions" className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOverview(!overview)}
+              aria-pressed={overview}
+              className={'inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold ring-1 ring-white/30 hover:bg-white/10 sm:px-4 ' + (overview ? 'bg-white/15' : '')}
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden /> <span className="hidden md:inline">Vue d’ensemble</span>
+            </button>
+            <button type="button" onClick={startPresentation} className="hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-white/30 hover:bg-white/10 md:inline-flex">
+              <PresentationIcon className="h-4 w-4" aria-hidden /> Présenter
+            </button>
+            <a href={PDF_URL} download className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3 py-2 text-sm font-bold text-brand-950 hover:bg-amber-300 sm:px-4">
+              <Download className="h-4 w-4" aria-hidden /> <span className="hidden sm:inline">Télécharger le PDF</span>
+            </a>
+            <Link to="/login" className="hidden items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold ring-1 ring-white/30 hover:bg-white/10 xl:inline-flex">
+              <LogIn className="h-4 w-4" aria-hidden /> Connexion
+            </Link>
+          </nav>
         </div>
       </header>
 
-      {/* Mobile / tablet: collapsible chapter menu. */}
-      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur print:hidden lg:hidden">
-        <button
-          type="button"
-          aria-expanded={menuOpen}
-          aria-controls="menu-chapitres"
-          onClick={() => setMenuOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-brand-900"
+      <div className="lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside
+          id="sommaire"
+          className={
+            'border-r border-black/5 bg-[#ebe8df] lg:sticky lg:top-[67px] lg:block lg:h-[calc(100vh-67px)] lg:overflow-y-auto ' +
+            (menuOpen ? 'fixed inset-x-0 bottom-0 top-[63px] z-30 block overflow-y-auto' : 'hidden')
+          }
         >
-          <span className="flex items-center gap-2">{menuOpen ? <X className="h-4 w-4" aria-hidden /> : <Menu className="h-4 w-4" aria-hidden />} Chapitres</span>
-          <span className="flex min-w-0 items-center gap-1 font-normal text-slate-500"><span className="truncate">{TOC.find((t) => t.id === active)?.title}</span><ChevronDown className={'h-4 w-4 shrink-0 transition-transform ' + (menuOpen ? 'rotate-180' : '')} aria-hidden /></span>
-        </button>
-        {menuOpen ? (
-          <nav id="menu-chapitres" aria-label="Chapitres" className="max-h-[70vh] overflow-y-auto border-t border-slate-100 py-3">
-            <TocList active={active} onPick={() => setMenuOpen(false)} />
-          </nav>
-        ) : null}
-      </div>
-
-      <div className="mx-auto grid max-w-7xl grid-cols-[minmax(0,1fr)] gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:px-8 lg:py-12">
-        <aside className="hidden print:hidden lg:block">
-          <nav aria-label="Sommaire" className="sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto pr-2">
-            <TocList active={active} />
+          <div className="sticky top-0 z-10 bg-[#ebe8df] p-3">
+            <label className="relative block">
+              <span className="sr-only">Rechercher dans le guide</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Rechercher (titre, texte)…"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-[15px] text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              />
+            </label>
+          </div>
+          <nav aria-label="Pages du guide">
+            <SideList groups={groups} current={current} onPick={goTo} />
           </nav>
         </aside>
-        <main id="contenu" className="min-w-0 space-y-14 [overflow-wrap:anywhere]">
-          <HowToReadSection />
-          <RoutesSection />
-          <SynthesisSection />
-          <RequirementsSection />
-          <PortabilitySection />
-          <SecuritySection />
-          {PARTS.map((part) => (
-            <div key={part} className="space-y-14">
-              <p className="border-b-2 border-brand-700 pb-2 text-sm font-bold uppercase tracking-[0.25em] text-brand-700">{part}</p>
-              {CHAPTERS.filter((c) => c.part === part).map((c) => (
-                <ChapterSection key={c.id} chapter={c} number={++n} />
-              ))}
+
+        <main id="contenu" className="min-w-0 px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
+          <div ref={topRef} className="scroll-mt-24" />
+          {overview ? (
+            <>
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <h1 className="text-3xl font-bold tracking-tight text-brand-900">Vue d’ensemble</h1>
+                <button type="button" onClick={() => setOverview(false)} className="rounded-full px-4 py-2 text-sm font-semibold text-brand-800 ring-1 ring-brand-300 hover:bg-white">Revenir à la page {current + 1}</button>
+              </div>
+              <Overview
+                groups={groups}
+                current={current}
+                onPick={(i) => {
+                  setParams({ page: String(i + 1) }, { replace: true });
+                  topRef.current?.scrollIntoView({ block: 'start' });
+                }}
+              />
+            </>
+          ) : (
+            <div className="mx-auto max-w-[78rem]">
+              <div className="flex items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold uppercase tracking-[0.2em] text-amber-800">{kicker}</p>
+                  <h1 className="mt-1 text-3xl font-bold leading-tight tracking-tight text-brand-900 sm:text-[40px]">{slide.title}</h1>
+                </div>
+                <p className="shrink-0 pb-1 text-xl font-bold tabular-nums text-slate-500" aria-label={`Page ${current + 1} sur ${slides.length}`}>
+                  {current + 1} / {slides.length}
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <Stage key={slide.id} slide={slide}>
+                  <button
+                    type="button"
+                    onClick={startPresentation}
+                    className="absolute bottom-3 right-3 hidden items-center gap-2 rounded-full bg-brand-950/85 px-4 py-2 text-sm font-bold text-white shadow-lg backdrop-blur hover:bg-brand-950 sm:inline-flex"
+                  >
+                    <Maximize2 className="h-4 w-4" aria-hidden /> Agrandir
+                  </button>
+                </Stage>
+              </div>
+
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/10" aria-hidden>
+                <div className="h-full bg-[linear-gradient(90deg,#009e60_0_33.3%,#fcd116_33.3%_66.6%,#3a75c4_66.6%_100%)] transition-[width] duration-300" style={{ width: `${progress}%`, backgroundSize: `${(100 / progress) * 100}% 100%` }} />
+              </div>
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {prev ? (
+                  <button type="button" onClick={() => goTo(current - 1)} className="group rounded-xl border border-slate-200 bg-white px-5 py-3.5 text-left hover:border-brand-300">
+                    <span className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500"><ArrowLeft className="h-3.5 w-3.5" aria-hidden /> Précédente</span>
+                    <span className="mt-0.5 block truncate text-lg font-bold text-brand-900 group-hover:text-brand-700">{prev.label}</span>
+                  </button>
+                ) : <span className="hidden sm:block" />}
+                {next ? (
+                  <button type="button" onClick={() => goTo(current + 1)} className="group rounded-xl border border-slate-200 bg-white px-5 py-3.5 text-right hover:border-brand-300">
+                    <span className="flex items-center justify-end gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-slate-500">Suivante <ArrowRight className="h-3.5 w-3.5" aria-hidden /></span>
+                    <span className="mt-0.5 block truncate text-lg font-bold text-brand-900 group-hover:text-brand-700">{next.label}</span>
+                  </button>
+                ) : null}
+              </div>
+
+              {slide.notes ? (
+                <section aria-labelledby="ce-que-dit" className="mt-6 rounded-2xl border border-slate-200 border-l-[6px] border-l-amber-500 bg-white px-5 py-6 sm:px-8 [overflow-wrap:anywhere]">
+                  <h2 id="ce-que-dit" className="text-[15px] font-bold uppercase tracking-[0.18em] text-amber-800">Ce que dit cette page</h2>
+                  <div className="mt-4 [&_section]:border-t-0 [&_section]:pt-0">{slide.notes()}</div>
+                </section>
+              ) : null}
             </div>
-          ))}
-          <FaqSection />
+          )}
+
+          <footer className="mx-auto mt-10 max-w-[78rem] pb-6 text-center text-[13px] leading-relaxed text-slate-500">
+            Fermia · Programme POUFA · République gabonaise. Les fermes, exploitants et montants des captures viennent d’un jeu de démonstration ; les numéros de téléphone sont masqués.{' '}
+            <a href={API_DOCS_URL} className="underline underline-offset-2 hover:text-brand-800">Documentation de l’API</a>.
+            <span className="hidden lg:inline"> Raccourcis : ← → pour naviguer, G pour la vue d’ensemble, F pour agrandir, / pour chercher.</span>
+          </footer>
         </main>
       </div>
-
-      <footer className="border-t border-slate-200 bg-slate-50 px-4 py-8 text-center text-xs text-slate-500">
-        Programme POUFA · République gabonaise · Les fermes, exploitants et montants des captures sont ceux d’un jeu de démonstration ; les numéros de téléphone sont masqués.
-      </footer>
 
       {presenting ? <Presentation onExit={stopPresentation} /> : null}
     </div>
