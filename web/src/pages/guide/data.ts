@@ -24,11 +24,12 @@ export const APK_URL = `${PLATFORM_URL}/apk/fermia.apk`;
 export const API_DOCS_URL = '/api/docs/';
 export const PDF_URL = '/guide/POUFA-presentation-jury.pdf';
 
-export const STATUS_LABEL: Record<string, string> = { '✅': 'Couvert', '🟡': 'Partiel léger', '🟠': 'Partiel', '❌': 'Non couvert' };
+export const STATUS_LABEL: Record<string, string> = { '✅': 'Couvert', '🟡': 'Partiel léger', '🟠': 'Partiel', '🔎': 'À tester', '❌': 'Non couvert' };
 export const STATUS_TONE: Record<string, string> = {
   '✅': 'bg-emerald-50 text-emerald-800 ring-emerald-200',
   '🟡': 'bg-amber-50 text-amber-800 ring-amber-200',
   '🟠': 'bg-amber-50 text-amber-800 ring-amber-200',
+  '🔎': 'bg-sky-50 text-sky-800 ring-sky-200',
   '❌': 'bg-red-50 text-red-800 ring-red-200',
 };
 export const PRIORITIES = ['Obligatoire MVP', 'Phase ultérieure', 'À arbitrer', 'Évolutive'] as const;

@@ -37,6 +37,7 @@ import {
 import {
   isVeterinaryAuthority,
   mayHandleSanitaryDeclarations,
+  mayReadSanitaryDeclarations,
 } from './sanitary-declaration.policy.js';
 
 const PROGRAM = '11111111-1111-4111-8111-111111111111';
@@ -360,6 +361,7 @@ describe('permission codes of an institutional profile', () => {
     expect([...institutionPermissions(access('AGENT_TECHNIQUE').matrix)].sort()).toEqual([
       'intrants:lire',
       'registre:gps',
+      'sanitaire:lecture',
     ]);
     expect(
       [...institutionPermissions(access('VETERINAIRE').matrix)].sort(),
@@ -489,7 +491,7 @@ describe('sanitary declarations', () => {
         access('DGE'),
       ),
     ).toBe(false);
-    // The matrix decides: the DGE granted SANITAIRE:CONSULTER still sees no
+    // (see below: CONSULTER reads, never handles) the DGE granted SANITAIRE:CONSULTER still handles no
     // declaration; a custom profile granted VALIDER does.
     expect(
       mayHandleSanitaryDeclarations(
@@ -503,6 +505,18 @@ describe('sanitary declarations', () => {
         { matrix: { SANITAIRE: ['CONSULTER', 'VALIDER'] } },
       ),
     ).toBe(true);
+    // Recette A21: the agent technique READS the declarations of its farms
+    // (SANITAIRE:CONSULTER), never handles them.
+    const agentAccess = access('AGENT_TECHNIQUE');
+    expect(
+      mayReadSanitaryDeclarations({ role: UserRole.INSTITUTION }, agentAccess),
+    ).toBe(true);
+    expect(
+      mayHandleSanitaryDeclarations({ role: UserRole.INSTITUTION }, agentAccess),
+    ).toBe(false);
+    expect(
+      mayReadSanitaryDeclarations({ role: UserRole.INSTITUTION }, access('DGE')),
+    ).toBe(false);
     expect(isVeterinaryAuthority(null)).toBe(false);
     expect(
       DEFAULT_PROFILES.filter((p) => isVeterinaryAuthority(p.matrix)).map((p) => p.code),

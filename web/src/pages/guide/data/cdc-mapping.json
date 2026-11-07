@@ -39,7 +39,7 @@
         "num": "36",
         "intitule": "Tableau de bord de l'éleveur",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "12",
@@ -129,7 +129,7 @@
         "num": "9",
         "intitule": "Sorties d'animaux",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "10",
@@ -183,7 +183,7 @@
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "7.2b",
@@ -207,7 +207,7 @@
     "bonus": [
       "Pondeuses, œufs et autres espèces, courbes de race, densité par bâtiment, calendrier de soins généré."
     ],
-    "aSavoir": "Ouverture et clôture de bande ne fonctionnent pas hors ligne. T2 reste partiel : ni contrôles ni visites."
+    "aSavoir": "Ouverture et clôture de bande ne fonctionnent pas hors ligne. T2 reste partiel (recette ANINF), correction en cours."
   },
   {
     "route": "/app/alerts",
@@ -269,7 +269,7 @@
         "num": "23",
         "intitule": "Registre des traitements",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🔎"
       },
       {
         "num": "26",
@@ -324,7 +324,7 @@
       }
     ],
     "bonus": [],
-    "aSavoir": "L'autorité vétérinaire est un droit de la matrice (SANITAIRE:VALIDER), pas un code de profil. Pas d'échange avec EMA-i Plus (n° 28 ❌), ni biosécurité (n° 27 ❌), ni diagnostics structurés (n° 24 🟠)."
+    "aSavoir": "L'autorité vétérinaire est un droit de la matrice (SANITAIRE:VALIDER), pas un code de profil. Pas d'échange avec EMA-i Plus (n° 28 ❌), la biosécurité (n° 27) et les visites (n° 45) sont à l'écran « Visites techniques et biosécurité », ni diagnostics structurés (n° 24 🟠)."
   },
   {
     "route": "/app/surveillance/parametres",
@@ -376,13 +376,13 @@
         "num": "17",
         "intitule": "Réception des intrants",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🔎"
       },
       {
         "num": "18",
         "intitule": "Utilisation et stock d'intrants",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       }
     ],
     "bonus": [
@@ -403,7 +403,7 @@
         "num": "17",
         "intitule": "Réception des intrants",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🔎"
       },
       {
         "num": "19",
@@ -428,7 +428,7 @@
         "num": "17",
         "intitule": "Réception des intrants",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🔎"
       },
       {
         "num": "19",
@@ -460,13 +460,13 @@
         "num": "9",
         "intitule": "Sorties d'animaux",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "29",
@@ -560,7 +560,7 @@
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "T5",
@@ -616,7 +616,7 @@
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       }
     ],
     "bonus": [
@@ -637,7 +637,7 @@
         "num": "T4",
         "intitule": "Registre des opérateurs",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🔎"
       },
       {
         "num": "30",
@@ -887,7 +887,7 @@
         "num": "2",
         "intitule": "Géolocalisation",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "3",
@@ -923,7 +923,7 @@
     "bonus": [
       "Multi-fermes par exploitant."
     ],
-    "aSavoir": "Les contours des 9 provinces ne sont pas chargés. L'agent technique ne relève que le GPS, sans visa des déclarations (3.2 🟠)."
+    "aSavoir": "Les contours des 9 provinces ne sont pas chargés. L'agent technique relève le GPS, enregistre des visites techniques et lit les déclarations sanitaires de ses fermes (droit Sanitaire : Consulter, réglable par l'administration) ; il ne les valide pas (3.2 🟠)."
   },
   {
     "route": "/app/pilotage",
@@ -973,7 +973,7 @@
         "num": "38",
         "intitule": "Cartographie",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "7.6b",
@@ -1110,13 +1110,13 @@
         "num": "T3",
         "intitule": "Sortie, cession, destinataire obligatoire",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "T4",
         "intitule": "Registre des opérateurs",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🔎"
       },
       {
         "num": "T5",
@@ -1152,7 +1152,7 @@
     "bonus": [
       "QR signé HMAC, scellé quotidien du journal, indicateurs de fraude sur les scans."
     ],
-    "aSavoir": "T2 est partiel : contrôles de biosécurité et visites absents. Recherche amont-aval partielle (T12 🟠). L'indicateur de traçabilité à 95 % n'est pas encore lu (T14 🟠). Document d'accompagnement : « pas un certificat sanitaire » (T16 🟠)."
+    "aSavoir": "T2 est partiel (recette ANINF du 7 nov. 2026), correction en cours ; les visites et contrôles de biosécurité existent à l'écran « Visites techniques et biosécurité ». Recherche amont-aval partielle (T12 🟠). L'indicateur de traçabilité à 95 % n'est pas encore lu (T14 🟠). Document d'accompagnement : « pas un certificat sanitaire » (T16 🟠)."
   },
   {
     "route": "/l/:code",
@@ -1405,7 +1405,7 @@
         "num": "48",
         "intitule": "Reprise des données",
         "priorite": "MVP",
-        "statut": "✅"
+        "statut": "🟠"
       },
       {
         "num": "7.7b",

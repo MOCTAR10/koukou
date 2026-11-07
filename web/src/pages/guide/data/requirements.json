@@ -11,7 +11,8 @@
   "ref": "2",
   "titre": "Géolocalisation",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🟠",
+  "note": "Recette ANINF : géolocalisation partielle, correction en cours."
  },
  {
   "num": 3,
@@ -60,7 +61,8 @@
   "ref": "9",
   "titre": "Sorties d'animaux",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🟠",
+  "note": "Recette ANINF : sorties d'animaux partielles, correction en cours."
  },
  {
   "num": 10,
@@ -116,14 +118,16 @@
   "ref": "17",
   "titre": "Réception des intrants",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🔎",
+  "note": "Recette ANINF : non vérifié, à tester."
  },
  {
   "num": 18,
   "ref": "18",
   "titre": "Utilisation et stock d'intrants",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🟠",
+  "note": "Recette ANINF : stock d'intrants partiel, correction en cours."
  },
  {
   "num": 19,
@@ -159,8 +163,8 @@
   "ref": "23",
   "titre": "Registre des traitements",
   "priorite": "Obligatoire MVP",
-  "statut": "✅",
-  "note": "Réserve : l'onglet Historique de la fiche lot web n'affiche pas encore motif, période ni effectif."
+  "statut": "🔎",
+  "note": "Recette ANINF : non vérifié, à tester. Réserve : l'onglet Historique de la fiche lot web n'affiche pas encore motif, période ni effectif."
  },
  {
   "num": 24,
@@ -188,7 +192,8 @@
   "ref": "27",
   "titre": "Contrôles de biosécurité",
   "priorite": "Phase ultérieure",
-  "statut": "❌"
+  "statut": "✅",
+  "note": "Écran « Visites techniques et biosécurité » : grille de contrôle de biosécurité renseignée lors des visites."
  },
  {
   "num": 28,
@@ -251,7 +256,8 @@
   "ref": "36",
   "titre": "Tableau de bord de l'éleveur",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🟠",
+  "note": "Recette ANINF : tableau de bord de l'éleveur partiel, correction en cours."
  },
  {
   "num": 37,
@@ -265,7 +271,8 @@
   "ref": "38",
   "titre": "Cartographie",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🟠",
+  "note": "Recette ANINF : cartographie partielle, correction en cours."
  },
  {
   "num": 39,
@@ -307,15 +314,16 @@
   "ref": "44",
   "titre": "Collecte mobile hors connexion",
   "priorite": "Obligatoire MVP",
-  "statut": "✅",
-  "note": "APK Android signé publié ; pas encore testé sur un téléphone."
+  "statut": "🔎",
+  "note": "Recette ANINF : non vérifié, à tester. APK Android signé publié ; pas encore testé sur un téléphone."
  },
  {
   "num": 45,
   "ref": "45",
   "titre": "Visites techniques",
   "priorite": "Phase ultérieure",
-  "statut": "❌"
+  "statut": "✅",
+  "note": "Écran « Visites techniques et biosécurité » : visites, observations, recommandations, photos, GPS."
  },
  {
   "num": 46,
@@ -336,7 +344,8 @@
   "ref": "48",
   "titre": "Reprise des données",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🟠",
+  "note": "Recette ANINF : reprise des données partielle, correction en cours."
  },
  {
   "num": 49,
@@ -379,21 +388,23 @@
   "titre": "Historique d'élevage sans ressaisie",
   "priorite": "Obligatoire MVP",
   "statut": "🟠",
-  "note": "Il manque les contrôles de biosécurité (n° 27) et les visites techniques (n° 45)."
+  "note": "Recette ANINF : partiel, correction en cours. Les visites techniques (n° 45) et les contrôles de biosécurité (n° 27) existent désormais à l'écran « Visites techniques et biosécurité »."
  },
  {
   "num": 55,
   "ref": "T3",
   "titre": "Sortie, cession, destinataire obligatoire",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🟠",
+  "note": "Recette ANINF : partiel, correction en cours."
  },
  {
   "num": 56,
   "ref": "T4",
   "titre": "Registre des opérateurs",
   "priorite": "Obligatoire MVP",
-  "statut": "✅"
+  "statut": "🔎",
+  "note": "Recette ANINF : non vérifié, à tester."
  },
  {
   "num": 57,

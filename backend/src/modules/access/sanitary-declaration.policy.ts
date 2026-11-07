@@ -58,6 +58,27 @@ export function mayHandleSanitaryDeclarations(
 }
 
 /**
+ * Recette ANINF A21: READING the declarations of a farm in one's perimeter
+ * (CDC §3: the agent technique « vérifie les déclarations » de ses fermes).
+ * Beyond the veterinary authority, an institutional profile granted
+ * SANITAIRE:CONSULTER in the matrix reads them (default grant of the
+ * AGENT_TECHNIQUE profile, the admin can remove or give it). Writing,
+ * validating, qualifying and publishing stay with {@link
+ * mayHandleSanitaryDeclarations} (SANITAIRE:VALIDER). À arbitrer DGE.
+ */
+export function mayReadSanitaryDeclarations(
+  user: Pick<AuthUser, 'role'>,
+  access: Pick<InstitutionAccess, 'matrix'> | null,
+): boolean {
+  if (mayHandleSanitaryDeclarations(user, access)) return true;
+  return (
+    user.role === UserRole.INSTITUTION &&
+    !!access?.matrix &&
+    grants(access.matrix, 'SANITAIRE', 'CONSULTER')
+  );
+}
+
+/**
  * Service-side enforcement of the sanitary declaration rule. Today's
  * declarations are the `HealthEvent`s (sanitary module); the official
  * surveillance module (L5) must call it too.
@@ -73,6 +94,17 @@ export class SanitaryDeclarationPolicy {
         ? await this.scope.accessOf(user.id)
         : null;
     if (!mayHandleSanitaryDeclarations(user, access)) {
+      throw new ForbiddenException(SANITARY_DECLARATION_MESSAGE);
+    }
+  }
+
+  /** Read-only variant ({@link mayReadSanitaryDeclarations}). @throws ForbiddenException */
+  async assertRead(user: AuthUser): Promise<void> {
+    const access =
+      user.role === UserRole.INSTITUTION
+        ? await this.scope.accessOf(user.id)
+        : null;
+    if (!mayReadSanitaryDeclarations(user, access)) {
       throw new ForbiddenException(SANITARY_DECLARATION_MESSAGE);
     }
   }
