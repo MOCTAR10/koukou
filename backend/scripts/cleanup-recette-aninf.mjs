@@ -63,9 +63,9 @@ async function referencing(table) {
   const rows = await q(
     `SELECT c.conrelid::regclass::text AS child, c.confdeltype AS del,
             c.conkey, c.confkey, c.conname,
-            (SELECT array_agg(a.attname ORDER BY k.ord) FROM unnest(c.conkey) WITH ORDINALITY k(att, ord)
+            (SELECT array_agg(a.attname::text ORDER BY k.ord) FROM unnest(c.conkey) WITH ORDINALITY k(att, ord)
                JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.att) AS cols,
-            (SELECT array_agg(a.attname ORDER BY k.ord) FROM unnest(c.confkey) WITH ORDINALITY k(att, ord)
+            (SELECT array_agg(a.attname::text ORDER BY k.ord) FROM unnest(c.confkey) WITH ORDINALITY k(att, ord)
                JOIN pg_attribute a ON a.attrelid = c.confrelid AND a.attnum = k.att) AS refcols
        FROM pg_constraint c
       WHERE c.contype = 'f' AND c.confrelid = $1::regclass`,
@@ -104,6 +104,56 @@ async function collect(table, ids, level) {
     );
     const fresh = add(child, rows.map((r) => r.id), level + 1);
     if (fresh.length) await collect(child, fresh, level + 1);
+  }
+  await collectSoft(table, ids, level);
+}
+
+/**
+ * Soft links: columns that point at a parent WITHOUT a declared foreign key
+ * (health_events, prophylaxis_events, alerts, treatment_records, stats…), or
+ * with ON DELETE SET NULL (expenses, input_lots): rows of the test band,
+ * building or visit are deleted too, not left orphaned.
+ */
+const SOFT = {
+  production_batches: ['batch_id', 'band_id'],
+  buildings: ['building_id'],
+  farm_visits: ['visit_id', 'farm_visit_id'],
+};
+/** Rows without an `id` column, deleted by their link column. */
+const byColumn = [];
+
+async function collectSoft(table, ids, level) {
+  const cols = SOFT[table];
+  if (!cols) return;
+  const links = await q(
+    `SELECT c.table_name AS t, c.column_name AS col,
+            EXISTS (SELECT 1 FROM information_schema.columns i
+                     WHERE i.table_schema = 'public' AND i.table_name = c.table_name
+                       AND i.column_name = 'id') AS has_id
+       FROM information_schema.columns c
+       JOIN information_schema.tables tb
+         ON tb.table_schema = c.table_schema AND tb.table_name = c.table_name
+        AND tb.table_type = 'BASE TABLE'
+      WHERE c.table_schema = 'public' AND c.column_name = ANY($1::text[])
+        AND c.table_name <> $2`,
+    [cols, table],
+  );
+  for (const l of links) {
+    if (IMMUTABLE_TABLE.test(l.t)) continue;
+    if (!l.has_id) {
+      const [{ n }] = await q(
+        `SELECT count(*)::int AS n FROM ${ident(l.t)} WHERE ${ident(l.col)}::text = ANY($1::text[])`,
+        [ids],
+      );
+      if (n) byColumn.push({ table: l.t, col: l.col, ids, n });
+      continue;
+    }
+    const rows = await q(
+      `SELECT id FROM ${ident(l.t)} WHERE ${ident(l.col)}::text = ANY($1::text[])`,
+      [ids],
+    );
+    const fresh = add(l.t, rows.map((r) => r.id), level + 1);
+    if (fresh.length) await collect(l.t, fresh, level + 1);
   }
 }
 
@@ -175,7 +225,8 @@ try {
   console.log('\nÀ supprimer (dépendants inclus), par table :');
   const order = [...toDelete.keys()].sort((a, b) => depth.get(b) - depth.get(a));
   for (const t of order) console.log(`  ${t.padEnd(36)} ${toDelete.get(t).size}`);
-  if (!order.length) console.log('  (rien)');
+  for (const b of byColumn) console.log(`  ${(b.table + ' (par ' + b.col + ')').padEnd(36)} ${b.n}`);
+  if (!order.length && !byColumn.length) console.log('  (rien)');
 
   // Photo files stay on disk: list them.
   for (const t of ['health_event_photos', 'farm_visit_photos']) {
@@ -185,7 +236,10 @@ try {
     console.log(`\nFichiers à supprimer à la main (${t}) : ${files.map((f) => f.file_name).join(', ')}`);
   }
 
-  // Deepest dependants first, then the roots.
+  // Rows without id first, then deepest dependants, then the roots.
+  for (const b of byColumn) {
+    await client.query(`DELETE FROM ${ident(b.table)} WHERE ${ident(b.col)}::text = ANY($1::text[])`, [b.ids]);
+  }
   for (const t of order) {
     const ids = [...toDelete.get(t)];
     const res = await client.query(`DELETE FROM ${ident(t)} WHERE id = ANY($1::uuid[])`, [ids]);
