@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { FarmProvider } from './app/FarmContext';
 import { useFarmProfile } from './app/useFarmProfile';
@@ -62,7 +61,16 @@ import { TracabilitePage } from './pages/TracabilitePage';
 // POUFA lot A droits: programme economic synthesis (finance, payroll, sales and stock of the farms in scope).
 import { EconomiePage } from './pages/EconomiePage';
 
-const GuidePage = lazy(() => import('./pages/guide/GuidePage').then((m) => ({ default: m.GuidePage })));
+/**
+ * /guide now shows the static jury guide (web/public/guide-jury/, generated outside the repo by
+ * build.mjs and copied here, see its README). It is not part of the SPA, so a full page load is
+ * needed: nginx redirects /guide too, this covers SPA links and the installed PWA (service worker
+ * navigation fallback). The former React guide (pages/guide) is kept but no longer routed.
+ */
+function GuideRedirect() {
+  window.location.replace('/guide-jury/' + window.location.hash);
+  return <Loading />;
+}
 
 /** The farm space's landing page (a buyer never gets here: RequiresFarmAccount). */
 function HomeRedirect() {
@@ -81,7 +89,7 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       {/* Public guide and presentation of the platform (demo data only). */}
-      <Route path="/guide" element={<Suspense fallback={<Loading />}><GuidePage /></Suspense>} />
+      <Route path="/guide" element={<GuideRedirect />} />
       <Route path="/" element={<Navigate to="/app" replace />} />
       <Route path="/marche/inscription" element={<BuyerRegisterPage />} />
       <Route path="/marche" element={<MarketLayout />}>
