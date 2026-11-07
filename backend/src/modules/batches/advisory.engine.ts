@@ -15,6 +15,7 @@ import {
   FlockTimeline,
   daysBetween as flockDaysBetween,
   growthOrigin,
+  lastDayWaterPerBird,
   waterPerBirdOn,
 } from './flock-performance.js';
 import { ageOn } from './poufa/bande-rules.js';
@@ -452,14 +453,28 @@ export class AdvisoryEngine {
       order: { entryDate: 'DESC' },
     });
     if (entries.length === 0) return null;
+    // Same timeline inputs as MetricsService.compute (death events included),
+    // so the alert and the lot indicator give the same figure.
+    const [removalsByDate, deathRows] = await Promise.all([
+      this.flockReconciliation.removalsByDate(batch.id),
+      this.flockReconciliation.deathEvents([batch.id]),
+    ]);
+    const deathEventsByDate = new Map<string, number>();
+    for (const d of deathRows) {
+      deathEventsByDate.set(d.date, (deathEventsByDate.get(d.date) ?? 0) + d.quantity);
+    }
     const timeline: FlockTimeline = {
       integrationDate: batch.integrationDate,
       quantityAtStart: batch.quantityAtStart,
       day1WeightKg: day1WeightKg(batch.species),
+      initialAgeDays: batch.initialAgeDays,
+      initialWeightKg:
+        batch.initialAvgWeightG != null ? batch.initialAvgWeightG / 1000 : null,
       entries,
-      removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+      removalsByDate,
+      deathEventsByDate,
     };
-    const todayPerBird = waterPerBirdOn(timeline, entries[0]);
+    const todayPerBird = lastDayWaterPerBird(timeline)?.perBird ?? null;
     if (todayPerBird == null) return null;
 
     const baselineDays = Math.max(1, Math.round(baselineWindowDays));
@@ -555,7 +570,7 @@ export class AdvisoryEngine {
           {
             kind: AlertKind.EAU,
             level: AlertLevel.JAUNE,
-            message: `Consommation d’eau du dernier jour saisi : ${drop.todayPerBird.toFixed(2)} L/oiseau/jour${metrics.waterLPerBird != null ? ` (moyenne du lot : ${metrics.waterLPerBird.toFixed(2)} L)` : ''}, écart de ${deviationPct.toFixed(0)}% à la norme (${norm} L). Vérifier l’abreuvement.`,
+            message: `Consommation d’eau du dernier jour saisi : ${drop.todayPerBird.toFixed(2)} L/oiseau/jour${metrics.waterLPerBird != null ? ` (moyenne 7 j : ${metrics.waterLPerBird.toFixed(2)} L)` : ''}, écart de ${deviationPct.toFixed(0)}% à la norme (${norm} L). Vérifier l’abreuvement.`,
             recommendation:
               'Contrôler la pression des abreuvoirs, la qualité de l’eau et l’état sanitaire du lot.',
             context: {

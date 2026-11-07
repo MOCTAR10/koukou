@@ -1165,7 +1165,12 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                 value={<span title={FERMIA_FORMULAS.mortality}>{num(health.data.mortalityPercent)} %</span>}
                 sub={CONDUITE_LABEL}
               />
-              <Metric label="Eau / oiseau" icon={<Droplets />} value={health.data.waterLPerBird != null ? `${num(health.data.waterLPerBird, 2)} L` : '—'} />
+              <Metric
+                label="Eau / oiseau (dernier jour saisi)"
+                icon={<Droplets />}
+                value={(health.data.waterLPerBirdLastDay ?? health.data.waterLPerBird) != null ? `${num(health.data.waterLPerBirdLastDay ?? health.data.waterLPerBird, 2)} L` : '—'}
+                sub={health.data.waterLPerBirdLastDay != null && health.data.waterLPerBird != null ? `moyenne 7 j : ${num(health.data.waterLPerBird, 2)} L` : undefined}
+              />
             </div>
           ) : null}
         </SectionCard>

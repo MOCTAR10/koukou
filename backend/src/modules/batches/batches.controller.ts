@@ -46,8 +46,12 @@ export class BatchesController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Query('asOf') asOf?: string,
+    @Query('status') status?: string,
   ) {
-    return this.batchesService.findAll(user, farmId, asOf);
+    // Optional and additive: without it (older clients) every band is listed.
+    const scope =
+      status === 'active' || status === 'closed' ? status : 'all';
+    return this.batchesService.findAll(user, farmId, asOf, scope);
   }
 
   @Get(':batchId')

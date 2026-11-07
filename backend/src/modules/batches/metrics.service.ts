@@ -37,6 +37,7 @@ import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { ageOn } from './poufa/bande-rules.js';
 import {
   avgDailyWaterPerBird,
+  lastDayWaterPerBird,
   FlockTimeline,
   ipeOf,
   performanceAtLastWeighing,
@@ -170,6 +171,10 @@ export class MetricsService {
       standards,
       alertsCount,
       holds,
+      deathEventRows,
+      removalsByDate,
+      farm,
+      building,
     ] = await Promise.all([
       this.entriesRepo.find({
         where: { batchId: batch.id },
@@ -189,6 +194,17 @@ export class MetricsService {
         where: { batchId: batch.id, status: AlertStatus.ACTIVE },
       }),
       sanitaryHolds(this.alertRepo.manager, batch.farmId, batch.id),
+      // Independent reads fired together with the rest (were sequential
+      // round-trips further down: ~7 serial queries per band in a list).
+      this.flockReconciliation.deathEvents([batch.id]),
+      this.flockReconciliation.removalsByDate(batch.id),
+      this.farmRepo.findOne({ where: { id: batch.farmId } }),
+      batch.buildingId
+        ? this.farmRepo.manager.findOne(Building, {
+            where: { id: batch.buildingId },
+            select: { id: true, capacity: true },
+          })
+        : Promise.resolve(null),
     ]);
 
     const standardModule = constantsByKey[ReferenceKey.STANDARD_MODULE] ?? 3000;
@@ -209,8 +225,13 @@ export class MetricsService {
     // Deaths declared as MORTALITE health events are not in the daily
     // entries: the mortality rate needs both.
     const deathEventsByDate = new Map<string, number>();
-    for (const d of await this.flockReconciliation.deathEvents([batch.id])) {
-      if (d.date <= refDate) deathEventsByDate.set(d.date, d.quantity);
+    for (const d of deathEventRows) {
+      if (d.date <= refDate) {
+        deathEventsByDate.set(
+          d.date,
+          (deathEventsByDate.get(d.date) ?? 0) + d.quantity,
+        );
+      }
     }
     const totalDeaths =
       entryDeaths + [...deathEventsByDate.values()].reduce((s, n) => s + n, 0);
@@ -267,9 +288,10 @@ export class MetricsService {
       initialWeightKg:
         batch.initialAvgWeightG != null ? batch.initialAvgWeightG / 1000 : null,
       entries,
-      removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+      removalsByDate,
       deathEventsByDate,
     };
+    const lastWater = lastDayWaterPerBird(timeline);
     const perf = performanceAtLastWeighing(timeline, refDate);
     const totalWeightGainKg = perf ? perf.biomassGainKg : null;
     const fcr = perf?.fcr ?? null;
@@ -339,13 +361,6 @@ export class MetricsService {
 
     const moduleFraction = batch.quantityAtStart / standardModule;
 
-    const farm = await this.farmRepo.findOne({ where: { id: batch.farmId } });
-    const building = batch.buildingId
-      ? await this.farmRepo.manager.findOne(Building, {
-          where: { id: batch.buildingId },
-          select: { id: true, capacity: true },
-        })
-      : null;
     const moduleRatioVsCapacity = capacityRatio(
       batch.quantityAtStart,
       referenceCapacity({
@@ -394,6 +409,8 @@ export class MetricsService {
         addDaysIso(refDate, -7),
         refDate,
       ),
+      waterLPerBirdLastDay: lastWater?.perBird ?? null,
+      waterLastDayDate: lastWater?.date ?? null,
       totalWeightGainKg,
       fcr,
       gmqGramsPerDay,

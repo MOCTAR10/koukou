@@ -76,6 +76,9 @@ export interface LotCurveWeek {
   feedKg: number;
   waterL: number;
   waterLPerBird: number | null;
+  /** Last entered day (what the water alert compares with the norm); absent on older backends. */
+  waterLPerBirdLastDay?: number | null;
+  waterLastDayDate?: string | null;
   deaths: number;
   cumFeedKg: number;
   fcrCumulative: number | null;
@@ -275,6 +278,8 @@ export interface BatchHealth {
   layRatePercent: number | null;
   feedPerBirdGrams: number;
   waterLPerBird: number | null;
+  waterLPerBirdLastDay?: number | null;
+  waterLastDayDate?: string | null;
   healthScore: number;
   tips: Array<{ level: AlertLevel; text: string }>;
   trends: { dates: string[]; mortality: number[]; eggs: number[] };
