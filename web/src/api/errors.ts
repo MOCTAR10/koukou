@@ -24,7 +24,7 @@ export class ApiError extends Error {
 const STATUS_MESSAGES: Record<number, string> = {
   400: 'Demande invalide. Vérifiez les informations saisies.',
   401: 'Session expirée ou identifiants refusés. Reconnectez-vous.',
-  403: 'Votre profil ne permet pas cette action (consultation seule ou droit manquant). Contactez l’administrateur si besoin.',
+  403: 'Vos droits ne permettent pas cette action (profil en consultation seule ou droit manquant). Contactez l’administrateur si besoin.',
   404: 'Élément introuvable.',
   408: 'Le serveur a mis trop de temps à répondre. Réessayez.',
   409: 'Cette opération entre en conflit avec des données existantes.',
