@@ -56,6 +56,7 @@ import {
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { FarmWeather, WeatherService } from '../weather/weather.service.js';
+import { UserRole } from '../../common/enums/role.enum.js';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -275,12 +276,16 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     // Date de référence du tableau de bord. Sans `date`, on travaille sur le
     // jour courant. Tout agrégat daté (encaissé, eau, écarts hebdo, saisies
     // manquantes) est calculé relativement à cette date.
-    if (date != null && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (
+      date != null &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) !== date)
+    ) {
       throw new BadRequestException(
         'Le paramètre date doit être au format YYYY-MM-DD.',
       );
     }
-    if (time != null && !/^\d{2}:\d{2}$/.test(time)) {
+    if (time != null && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
       throw new BadRequestException(
         'Le paramètre time doit être au format HH:MM.',
       );
@@ -321,7 +326,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     );
     const showCollected = await this.farmsService.readsCollected(user);
 
-    const missingEntries = await this.evaluateDailyEntryAlerts(farmId, refDate);
+    // A read-only institution consulting a farm must not mutate its alerts.
+    const persist = user.role !== UserRole.INSTITUTION;
+    const missingEntries = await this.evaluateDailyEntryAlerts(
+      farmId,
+      refDate,
+      persist,
+    );
 
     let totalDeaths = 0;
     let totalStart = 0;
@@ -384,7 +395,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       alerts,
       refDate,
     );
-    const eggStock = await this.evaluateEggStockAlerts(farmId);
+    const eggStock = await this.evaluateEggStockAlerts(farmId, persist);
     // La météo ne doit jamais dégrader le dashboard (échec réseau → null) ni
     // le ralentir : au-delà de 2 s on répond sans elle (le cache servira au
     // prochain chargement, l'appel continue en arrière-plan).
@@ -477,7 +488,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
  * `SalesService.assertEggsAvailable`. Évaluée de façon paresseuse (lecture
  * dashboard) et re-évaluée après chaque saisie de ponte / vente.
  */
-  async evaluateEggStockAlerts(farmId: string): Promise<EggStockInfo> {
+  async evaluateEggStockAlerts(
+    farmId: string,
+    persist = true,
+  ): Promise<EggStockInfo> {
     const farmBatches = await this.batchRepo.find({ where: { farmId } });
     let collected = 0;
     if (farmBatches.length > 0) {
@@ -534,7 +548,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       10,
     );
 
-    if (availableAlveoles >= warnAlveoles) {
+    if (!persist) {
+      // Read-only consultation: report the figures, leave the alerts alone.
+    } else if (availableAlveoles >= warnAlveoles) {
       await this.alertsService.raise(
         {
           kind: AlertKind.STOCK_OEUF,
@@ -569,13 +585,14 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
   private async evaluateDailyEntryAlerts(
     farmId: string,
     refDate: string,
+    persist = true,
   ): Promise<string[]> {
     const today = refDate;
     const active = await this.batchRepo.find({
       where: { farmId, status: In([BatchStatus.ACTIF, BatchStatus.EN_VENTE]) },
     });
     if (active.length === 0) {
-      if (refDate === todayStr()) {
+      if (persist && refDate === todayStr()) {
         await this.alertsService.clearKind(
           farmId,
           null,
@@ -593,7 +610,7 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     // L'alerte persistée SAISIE_MANQUEE ne reflète que le jour courant : on ne
     // la crée/résout que pour aujourd'hui pour ne pas muter l'état live en
     // consultant une date passée.
-    if (refDate !== todayStr()) return missingIds;
+    if (!persist || refDate !== todayStr()) return missingIds;
 
     if (missingIds.length === 0) {
       await this.alertsService.clearKind(
