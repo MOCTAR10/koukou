@@ -151,8 +151,6 @@ export function Checkout({
   const canSell = total > 0 && !needsRecipient && (isCredit ? customer !== null : received >= total);
 
   const saleKey = useIdempotencyKey('sale');
-  // Credit ceiling refused by the server: a user with the right may validate the overrun.
-  const refusal = creditRefusal(sell.error);
   const sell = useMutation({
     mutationFn: async (override?: boolean) => {
       const body = {
@@ -203,6 +201,8 @@ export function Checkout({
       invalidateCash(queryClient, farmId);
     },
   });
+  // Credit ceiling refused by the server: a user with the right may validate the overrun.
+  const refusal = creditRefusal(sell.error);
 
   return (
     <Card className="space-y-4 p-4">

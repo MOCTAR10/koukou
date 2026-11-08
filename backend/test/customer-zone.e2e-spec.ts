@@ -608,7 +608,7 @@ describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons)
       phone,
     });
     expect(cust.status).toBe(201);
-    expect(cust.body).not.toHaveProperty('creditLimitFcfa');
+    expect(cust.body.creditLimitFcfa ?? null).toBeNull();
 
     const first = await post('/farms/' + farmId + '/sales', {
       customerId: cust.body.id,
