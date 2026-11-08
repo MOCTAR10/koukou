@@ -14,6 +14,7 @@ import { ProphylaxisStatus } from '../../common/enums/prophylaxis-status.enum.js
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
 import { ScheduleSource } from '../../common/enums/schedule-source.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
+import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { AlertsService } from '../alerts/alerts.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
@@ -298,7 +299,10 @@ export class SanitaryService {
     // La lecture réconcilie statuts (EN_RETARD) ET alertes PROPHYLAXIE /
     // DELAI_ATTENTE : un soin échu par simple passage du temps déclenche la
     // bascule d'état et l'alerte associée (« badge » cohérent côté mobile).
-    await this.refreshProphylaxis(batchId);
+    // A read-only institution consulting the calendar must not write.
+    if (user.role !== UserRole.INSTITUTION) {
+      await this.refreshProphylaxis(batchId);
+    }
     const events = await this.eventRepo.find({
       where: { batchId },
       order: { scheduledDate: 'ASC' },

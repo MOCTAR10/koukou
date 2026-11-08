@@ -95,49 +95,62 @@ export class AlertsService {
       where.batchId = IsNull();
       where.buildingId = IsNull();
     }
-    const existing = await this.alertRepo.findOne({ where });
-    if (
-      existing &&
-      opts.keepAcknowledgedIfUnchanged &&
-      existing.status === AlertStatus.ACQUITTEE &&
-      existing.level === candidate.level &&
-      // jsonb reorders object keys: compare with sorted keys.
-      stableJson(existing.context ?? null) ===
-        stableJson(candidate.context ?? null)
-    ) {
-      return existing;
-    }
-    if (existing) {
-      const escalated =
-        existing.level !== AlertLevel.ROUGE &&
-        candidate.level === AlertLevel.ROUGE;
-      existing.status = AlertStatus.ACTIVE;
-      existing.resolvedAt = null;
-      existing.level = candidate.level;
-      existing.message = candidate.message;
-      existing.recommendation = candidate.recommendation ?? null;
-      existing.context = candidate.context ?? null;
-      const saved = await this.alertRepo.save(existing);
-      if (escalated) this.emitRaised(saved);
-      return saved;
-    }
-    // L'alerte est scoped bâtiment : on stocke batchId null pour que la
-    // déduplication et le clearKind (batchId IsNull) restent cohérents.
-    const rowBatchId = ctx.buildingId ? null : (ctx.batchId ?? null);
-    const alert = this.alertRepo.create({
-      farmId: ctx.farmId,
-      batchId: rowBatchId,
-      buildingId: ctx.buildingId ?? null,
-      ruleId: ctx.ruleId ?? null,
-      kind: candidate.kind,
-      level: candidate.level,
-      status: AlertStatus.ACTIVE,
-      message: candidate.message,
-      recommendation: candidate.recommendation ?? null,
-      context: candidate.context ?? null,
-    });
-    const saved = await this.alertRepo.save(alert);
-    if (saved.level === AlertLevel.ROUGE) this.emitRaised(saved);
+    // Find-then-write is serialised per risk (transaction-scoped advisory
+    // lock): two concurrent dashboard loads must not both insert the same
+    // active alert.
+    const lockKey = `alert:${ctx.farmId}:${candidate.kind}:${ctx.buildingId ?? ''}:${ctx.batchId ?? ''}`;
+    const { saved, notify } = await this.alertRepo.manager.transaction(
+      async (em) => {
+        await em.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          lockKey,
+        ]);
+        const repo = em.getRepository(Alert);
+        const existing = await repo.findOne({ where });
+        if (
+          existing &&
+          opts.keepAcknowledgedIfUnchanged &&
+          existing.status === AlertStatus.ACQUITTEE &&
+          existing.level === candidate.level &&
+          // jsonb reorders object keys: compare with sorted keys.
+          stableJson(existing.context ?? null) ===
+            stableJson(candidate.context ?? null)
+        ) {
+          return { saved: existing, notify: false };
+        }
+        if (existing) {
+          const escalated =
+            existing.level !== AlertLevel.ROUGE &&
+            candidate.level === AlertLevel.ROUGE;
+          existing.status = AlertStatus.ACTIVE;
+          existing.resolvedAt = null;
+          existing.level = candidate.level;
+          existing.message = candidate.message;
+          existing.recommendation = candidate.recommendation ?? null;
+          existing.context = candidate.context ?? null;
+          return { saved: await repo.save(existing), notify: escalated };
+        }
+        // L'alerte est scoped bâtiment : on stocke batchId null pour que la
+        // déduplication et le clearKind (batchId IsNull) restent cohérents.
+        const rowBatchId = ctx.buildingId ? null : (ctx.batchId ?? null);
+        const created = await repo.save(
+          repo.create({
+            farmId: ctx.farmId,
+            batchId: rowBatchId,
+            buildingId: ctx.buildingId ?? null,
+            ruleId: ctx.ruleId ?? null,
+            kind: candidate.kind,
+            level: candidate.level,
+            status: AlertStatus.ACTIVE,
+            message: candidate.message,
+            recommendation: candidate.recommendation ?? null,
+            context: candidate.context ?? null,
+          }),
+        );
+        return { saved: created, notify: created.level === AlertLevel.ROUGE };
+      },
+    );
+    // After commit, so a listener reading the alert finds it.
+    if (notify) this.emitRaised(saved);
     return saved;
   }
 

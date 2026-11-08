@@ -31,6 +31,7 @@ import { FarmTask } from './entities/farm-task.entity.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
 import { todayLocal } from '../../common/utils/date.utils.js';
+import { UserRole } from '../../common/enums/role.enum.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 /** Tasks overdue for longer than this are marked notified without a push. */
@@ -93,8 +94,11 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
       farmId,
       ...(onlyMine ? { assigneeId: user.id } : {}),
     };
-    // Opening the list reflects tasks that went overdue since the last sweep.
-    await this.refreshOverdueAlerts(farmId);
+    // Opening the list reflects tasks that went overdue since the last sweep
+    // (a read-only institution consulting the farm must not trigger it).
+    if (user.role !== UserRole.INSTITUTION) {
+      await this.refreshOverdueAlerts(farmId);
+    }
     return this.taskRepo.find({
       where,
       order: { dueDate: 'ASC', createdAt: 'DESC' },
