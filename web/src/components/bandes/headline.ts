@@ -27,10 +27,10 @@ export const HEADLINE_SHORT: Record<HeadlineKey, string> = {
 export const FERMIA_FORMULAS = {
   mortality: 'Fermia : (morts des saisies + mortalités déclarées) ÷ sujets mis en place × 100, à date.',
   viability: 'Fermia : 100 − mortalité Fermia.',
-  fcr: 'Fermia : aliment consommé jusqu’à la dernière pesée ÷ poids vif de tous les oiseaux nourris (présents, vendus, abattus, réformés et morts, au poids estimé), à la dernière pesée.',
+  fcr: 'IC technique (Fermia) : aliment consommé jusqu’à la dernière pesée ÷ poids vif de tous les oiseaux nourris (présents, vendus, abattus, réformés et morts, au poids estimé). L’IC officiel (bilan) = aliment ÷ poids vif produit.',
   gmq: 'Fermia : gain de poids depuis l’arrivée ÷ âge, à la dernière pesée.',
   ipe: 'Fermia : indice de performance européen (viabilité × poids ÷ âge ÷ IC), à la dernière pesée.',
-  costPerKgSold: 'Fermia : toutes les charges du lot ÷ kg vendus. Le coût officiel se rapporte au kg vif produit.',
+  costPerKgSold: 'Coût par kg vendu = charges du lot ÷ kg vendus au poids (« — » si vente à l’unité). Le coût de production officiel se rapporte au kg de poids vif produit.',
   marginPct: 'Fermia : (revenus − charges) ÷ revenus × 100.',
 } as const;
 

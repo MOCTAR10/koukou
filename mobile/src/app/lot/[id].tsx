@@ -98,6 +98,8 @@ import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { fetchFarmVisits } from '@/api/poufa';
 import { readsVisits, visitHistoryLabel, visitInBand } from '@/poufa/visits';
 import { readsProgrammeDomain } from '@/poufa/access';
+import { GlossaryLink } from '@/components/GlossaryLink';
+import { costPerKgSoldView } from '@/poufa/glossary';
 import { librevilleDay } from '@/utils/libreville';
 import { errorText } from '@/api/errorText';
 // ── end POUFA ──
@@ -711,7 +713,7 @@ export default function LotDetailScreen() {
               <View style={styles.heroStatSep} />
               <HeroStat
                 value={hasOfficial ? officialText(official('ic')) : (m?.fcr ?? 0).toLocaleString('fr-FR')}
-                label={hasOfficial ? 'IC officiel' : 'IC Fermia'}
+                label={hasOfficial ? 'IC officiel (bilan)' : 'IC technique'}
                 small
               />
               <View style={styles.heroStatSep} />
@@ -808,6 +810,7 @@ export default function LotDetailScreen() {
           ) : null}
 
           {/* ── ABATTAGE — synthèse ordres ── */}
+          <GlossaryLink keys={['ic_officiel', 'ic_technique', 'gmq', 'ipe', 'mortalite', 'viabilite', 'taux_ponte', 'cout_kg_vendu', 'cout_kg_produit']} />
           <SlaughterInfoCard summary={slaughterSummary} showEmpty />
 
           {/* ── ŒUFS — répartition détaillée ── */}
@@ -1007,8 +1010,8 @@ export default function LotDetailScreen() {
                   <AppText size="body" weight="bold" color="text">{fmtFcfa(pnl.revenueFcfa)}</AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">{COST_PER_KG_SOLD_LABEL} (Fermia)</AppText>
-                  <AppText size="body" weight="bold" color="text">{pnl.costPerKgFcfa != null ? fmtFcfa(pnl.costPerKgFcfa) : '—'}</AppText>
+                  <AppText size="small" color="muted">{COST_PER_KG_SOLD_LABEL}</AppText>
+                  <AppText size="body" weight="bold" color="text">{costPerKgSoldView(pnl.costPerKgFcfa, pnl.kgSold).applicable ? fmtFcfa(pnl.costPerKgFcfa!) : '—'}</AppText>
                 </View>
                 <View style={styles.healthStat}>
                   <AppText size="small" color="muted">Vendus</AppText>
@@ -1199,7 +1202,7 @@ export default function LotDetailScreen() {
                   </AppText>
                 </View>
                 <View style={styles.healthStat}>
-                  <AppText size="small" color="muted">IC{hasOfficial ? '' : ' (Fermia)'}</AppText>
+                  <AppText size="small" color="muted">{hasOfficial ? 'IC officiel (bilan)' : 'IC technique'}</AppText>
                   <AppText size="body" weight="bold" color="text">
                     {hasOfficial ? officialText(official('ic')) : (healthQ.data.fcr?.toLocaleString('fr-FR') ?? '—')}
                   </AppText>

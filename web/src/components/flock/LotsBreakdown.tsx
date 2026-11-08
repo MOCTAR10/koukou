@@ -8,6 +8,7 @@ import { useCanRead } from '../../app/useMenuAccess';
 import { lotImage } from '../../lib/animalImages';
 import { num } from '../../lib/format';
 import { PhotoThumb } from '../ui';
+import { weightedMean } from '../../lib/weightedMean';
 import { kindLabel, lotName, Metric } from './shared';
 
 /**
@@ -59,14 +60,13 @@ export function LotsBreakdown({ lots, historical }: { lots: Lot[]; historical: b
       byKey.set(key, group);
     }
     return [...byKey.values()].map(({ label, items }) => {
-      const rates = items.flatMap((b) => (b.metrics.layRatePercent != null ? [b.metrics.layRatePercent] : []));
       return {
         label,
         items,
         birds: items.reduce((sum, b) => sum + b.metrics.liveCount, 0),
         eggs: items.reduce((sum, b) => sum + (b.metrics.eggsCollectedTotal ?? 0), 0),
         feedKg: items.reduce((sum, b) => sum + (b.metrics.totalFeedKg ?? 0), 0),
-        layRate: rates.length > 0 ? rates.reduce((sum, r) => sum + r, 0) / rates.length : null,
+        layRate: weightedMean(items.map((b) => ({ value: b.metrics.layRatePercent, weight: b.metrics.liveCount }))),
       };
     });
   }, [lots]);

@@ -1587,7 +1587,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
 
           {layRatePct != null && ctx?.isLayer ? (
             <Hint tone={layDevPct != null && layDevPct < -8 ? 'amber' : 'success'}>
-              Taux de ponte du jour : {layRatePct.toFixed(1)} %
+              Taux de ponte du jour (aperçu de saisie) : {layRatePct.toFixed(1)} %
               {targetLayRatePct != null ? ` (objectif S${ctx.week} : ${targetLayRatePct.toFixed(0)} %)` : ''}
               {layDevPct != null ? (layDevPct >= 0 ? ' — dans/sur les standards.' : ' — sous les standards, surveillez alimentation & eau.') : '.'}
             </Hint>
