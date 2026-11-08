@@ -291,7 +291,8 @@ export class CustomersService {
       qb.andWhere('c.type = :type', { type: opts.type });
     }
     if (opts?.search) {
-      const like = `%${opts.search.trim()}%`;
+      // %, _ and \ typed by the user are literals, not wildcards.
+      const like = `%${opts.search.trim().replace(/[%_\\]/g, '\\$&')}%`;
       qb.andWhere('(LOWER(c.fullName) LIKE LOWER(:like) OR LOWER(c.phone) LIKE LOWER(:like))', { like });
     }
 

@@ -35,7 +35,11 @@ import { SMS_SENDER, createSmsSender } from './sms/sms-sender.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: resolveJwtSecret(config),
-        signOptions: { expiresIn: config.get('JWT_EXPIRES_IN', '7d') },
+        signOptions: {
+          expiresIn: config.get('JWT_EXPIRES_IN', '7d'),
+          algorithm: 'HS256',
+        },
+        verifyOptions: { algorithms: ['HS256'] },
       }),
     }),
   ],

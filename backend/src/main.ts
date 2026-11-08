@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { AppModule } from './app.module.js';
 import { applyBodyLimits } from './common/http/body-limits.js';
 import {
+  applyServerTimeouts,
   corsOriginsSetting,
   securityHeaders,
   swaggerEnabled,
@@ -99,6 +100,7 @@ async function bootstrap() {
 
   const port = configService.get('PORT', 3000);
   await app.listen(port);
+  applyServerTimeouts(app.getHttpServer());
   // eslint-disable-next-line no-console
   console.log(`Fermia API démarré sur http://localhost:${port}`);
   if (swagger) {

@@ -17,6 +17,7 @@ import { CashMovement } from './cash-movement.entity.js';
 @Index('UQ_expenses_farm_idem', ['farmId', 'idempotencyKey'], {
   unique: true,
 })
+@Index('IDX_expenses_farm_date', ['farmId', 'expenseDate'])
 @Entity('expenses')
 export class Expense {
   @PrimaryGeneratedColumn('uuid')
