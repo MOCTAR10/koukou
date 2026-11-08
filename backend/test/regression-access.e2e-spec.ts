@@ -395,7 +395,11 @@ describe('Regression — accès et isolation des données (e2e)', () => {
       await send('delete', `/farms/${farmA}/tasks/${task}`, undefined, eleveur)
         .expect(403);
       const list = await get(`/farms/${farmA}/tasks`, eleveur).expect(200);
-      expect(list.body).toEqual([]);
+      // Generated tasks (weighing plan of the farm's lots) are shared with the
+      // team; the manual task of the owner is not.
+      expect(
+        (list.body as Array<{ source: string }>).filter((t) => t.source === 'MANUELLE'),
+      ).toEqual([]);
       // …and he reaches nothing on the other farm.
       await get(`/farms/${farmB}/batches`, eleveur).expect(403);
     });
