@@ -120,8 +120,6 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const invalidate = useInvalidateFarm();
-  // Official cost per kg produced: computed by the server, never recomputed here.
-  const costProduced = costPerKgProducedView(lot.coutProductionKg, lot.coutProductionReason);
   const [tab, setTab] = useState<TabKey>('vue');
   const [entry, setEntry] = useState<{ date?: string } | null>(null);
   const [closing, setClosing] = useState(false);
@@ -377,6 +375,8 @@ function useSlaughterOrders() {
 }
 
 function OverviewTab({ lot }: { lot: Lot }) {
+  // Official cost per kg produced: computed by the server, never recomputed here.
+  const costProduced = costPerKgProducedView(lot.coutProductionKg, lot.coutProductionReason);
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canRead = useCanRead();
