@@ -57,6 +57,8 @@ function todayStr(): string {
 interface StatePrefetch {
   holds: Map<string, SanitaryHolds>;
   accepted: Map<string, number>;
+  /** Free stock per listing id (eggs grouped, birds/carcasses from the loaded relations). */
+  free: Map<string, number>;
 }
 
 interface ListingState {
@@ -545,14 +547,33 @@ export class MarketListingsService {
     em: EntityManager,
     listings: MarketListing[],
   ): Promise<StatePrefetch> {
-    const [holds, accepted] = await Promise.all([
+    const eggListings = listings.filter((l) => l.product === MarketProduct.EGGS);
+    const birdListings = listings.filter(
+      (l) => l.product !== MarketProduct.EGGS && l.product !== MarketProduct.CARCASS,
+    );
+    const [holds, accepted, eggFree, birdFree] = await Promise.all([
       sanitaryHoldsMany(em, [...new Set(listings.map((l) => l.batchId))]),
       acceptedQuantities(
         em,
         listings.map((l) => l.id),
       ),
+      this.ordersService.freeEggAlveolesMany(em, eggListings),
+      this.ordersService.freeBirdsMany(
+        em,
+        birdListings.map((l) => l.batch),
+      ),
     ]);
-    return { holds, accepted };
+    const free = new Map<string, number>();
+    for (const l of listings) {
+      if (l.product === MarketProduct.EGGS) {
+        free.set(l.id, eggFree.get(l.batchId) ?? 0);
+      } else if (l.product === MarketProduct.CARCASS) {
+        free.set(l.id, l.slaughterOrder?.carcassesAvailable ?? 0);
+      } else {
+        free.set(l.id, birdFree.get(l.batchId) ?? 0);
+      }
+    }
+    return { holds, accepted, free };
   }
 
   async stateOf(
@@ -561,7 +582,9 @@ export class MarketListingsService {
     pre?: StatePrefetch,
   ): Promise<ListingState> {
     const [free, holds, accepted, operational] = await Promise.all([
-      this.freeStock(em, listing),
+      pre?.free.has(listing.id)
+        ? Promise.resolve(pre.free.get(listing.id)!)
+        : this.freeStock(em, listing),
       pre
         ? Promise.resolve(
             pre.holds.get(listing.batchId) ?? {
