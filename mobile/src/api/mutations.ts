@@ -1,3 +1,5 @@
+import { librevilleDay } from '@/utils/libreville';
+
 import { ApiError, apiFetch, apiUpload } from './client';
 import type {
   AlertLevel,
@@ -32,8 +34,9 @@ export function localYmd(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Business day (Gabon time, not the phone's time zone). */
 export function todayStr(): string {
-  return localYmd(new Date());
+  return librevilleDay();
 }
 
 export interface DailyEntryPayload {

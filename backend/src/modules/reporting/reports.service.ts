@@ -651,8 +651,15 @@ export class ReportsService {
         ? await this.farmRepo.findOne({ where: { id: batch.farmId } })
         : null;
       if (!batch || !farm) continue;
-      const res = await this.generateBand(template, batch, farm, null);
-      if (res?.created) created++;
+      // One faulty band must not stop the reports of the others.
+      try {
+        const res = await this.generateBand(template, batch, farm, null);
+        if (res?.created) created++;
+      } catch (err) {
+        this.logger.error(
+          `Rapport « ${template.code} », bande ${id} : ${String(err)}`,
+        );
+      }
     }
     return created;
   }

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
+import { isAfterTomorrowUtc, todayLocal } from '../../common/utils/date.utils.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -275,7 +275,7 @@ export class InputsService {
         supplierLotNumber: input.supplierLotNumber,
         expirationDate: input.expirationDate ?? null,
         receivedDate:
-          input.receivedDate ?? new Date().toISOString().slice(0, 10),
+          input.receivedDate ?? todayLocal(),
         quantity,
         unit,
         unitPriceFcfa,

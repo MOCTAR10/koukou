@@ -1097,7 +1097,11 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       expect(code).toMatch(/^\d{8}$/);
       const ownerPhone = res.body.user.phone;
       await login(ownerPhone, 'secret123').expect(401);
-      await login(ownerPhone, code).expect(201);
+      // A code reset revokes the sessions opened before it: log in again.
+      const staleToken = ownerToken;
+      ownerToken = (await login(ownerPhone, code).expect(201)).body.accessToken;
+      await get('/farms', staleToken).expect(401);
+      await get('/farms', ownerToken).expect(200);
       const journal = await ds.query(
         `SELECT summary::text AS s FROM audit_events WHERE route = '/admin/users/:userId/login-code' AND params->>'userId' = $1`,
         [ownerId],
@@ -1119,7 +1123,9 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         {},
         adminToken,
       ).expect(201);
-      await login(accounts.BCEG.phone, agent.body.loginCode).expect(201);
+      accounts.BCEG.token = (
+        await login(accounts.BCEG.phone, agent.body.loginCode).expect(201)
+      ).body.accessToken;
       accounts.BCEG.code = agent.body.loginCode;
     });
 
@@ -1152,7 +1158,8 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       // The programme admin profile (ADMINISTRATION:ADMINISTRER, ALL).
       const second = await post(url, {}, accounts.ADMIN.token).expect(201);
       await login(ownerPhone, first.body.loginCode).expect(401);
-      await login(ownerPhone, second.body.loginCode).expect(201);
+      ownerToken = (await login(ownerPhone, second.body.loginCode).expect(201))
+        .body.accessToken;
       const journal = await ds.query(
         `SELECT summary::text AS s FROM audit_events WHERE route = '/programme/farms/:farmId/owner-login-code' AND params->>'farmId' = $1`,
         [farmC],

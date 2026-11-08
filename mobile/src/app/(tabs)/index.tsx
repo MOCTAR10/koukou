@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { Bell, Wheat, Banknote, BarChart3, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Building, Stethoscope, Users } from 'lucide-react-native';
@@ -30,7 +30,7 @@ import { MetricInfoSheet } from '@/components/MetricInfoSheet';
 import type { MetricKey } from '@/components/MetricInfoSheet';
 import { CheptelModal } from '@/components/CheptelModal';
 import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
-import type { BatchWithMetrics, FarmWeather } from '@/api/types';
+import type { BatchWithMetrics, DashboardData, FarmWeather } from '@/api/types';
 import { ipeStatus } from '@/constants/flock';
 // POUFA lot A indic: « Ma bande en cours » (official indicators) heads the home screen.
 import { EleveurSimpleHome } from '@/components/home/EleveurSimpleHome';
@@ -38,6 +38,7 @@ import { CurrentBandCard } from '@/components/band/CurrentBandCard';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
 import { fcrQualification } from '@/poufa/official-headline';
+import { readCached } from '@/offline/ref-cache';
 
 function weatherHint(w: FarmWeather): string {
   const t = w.temperatureC ?? 0;
@@ -80,7 +81,14 @@ export default function AccueilScreen() {
   const [liveNow, setLiveNow] = useState(new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setLiveNow(new Date()), 1000);
+    // Minute resolution: the state only changes when the minute does, so the
+    // screen does not re-render every second.
+    const id = setInterval(() => {
+      setLiveNow((prev) => {
+        const next = new Date();
+        return Math.floor(next.getTime() / 60_000) === Math.floor(prev.getTime() / 60_000) ? prev : next;
+      });
+    }, 15_000);
     return () => clearInterval(id);
   }, []);
 
@@ -102,6 +110,8 @@ export default function AccueilScreen() {
   const dashboard = useQuery({
     queryKey: ['dashboard', farmId, queryDateStr, queryTimeStr],
     queryFn: () => fetchDashboard(farmId, queryDateStr, queryTimeStr),
+    // The key changes every minute: keep the previous data on screen meanwhile.
+    placeholderData: keepPreviousData,
   });
   const advisory = useQuery({
     queryKey: ['advisory', farmId],
@@ -111,6 +121,7 @@ export default function AccueilScreen() {
     queryKey: ['batches', farmId, window.isFiltered ? (window.to ?? '') : ''],
     queryFn: () => fetchBatches(farmId, window.isFiltered ? window.to : undefined),
     refetchInterval: !window.isFiltered ? 60_000 : undefined,
+    placeholderData: keepPreviousData,
   });
   const slaughterQuery = useQuery({
     queryKey: ['slaughter-orders', farmId],
@@ -167,7 +178,16 @@ export default function AccueilScreen() {
   const canCaisse = hasPermission('caisse:lire');
 
 
-  const loading = dashboard.isLoading || advisory.isLoading;
+  // The advisory is not shown on this screen: its failure never blocks it.
+  const loading = dashboard.isLoading;
+  // Shown data older than the last attempt (offline copy, or a failed refresh).
+  const staleSince = useMemo((): number | null => {
+    if (!dashboard.data) return null;
+    const cachedAt = readCached<DashboardData>(`dashboard.${farmId}`)?.savedAt;
+    const savedMs = cachedAt ? Date.parse(cachedAt) : NaN;
+    if (Number.isFinite(savedMs) && savedMs < dashboard.dataUpdatedAt - 60_000) return savedMs;
+    return dashboard.isError ? dashboard.dataUpdatedAt : null;
+  }, [dashboard.data, dashboard.dataUpdatedAt, dashboard.isError, farmId]);
   const alertCount = (d?.alerts.rouge ?? 0) + (d?.alerts.jaune ?? 0);
   const mortalityStatus = d ? normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) : 'normal';
 
@@ -314,7 +334,16 @@ export default function AccueilScreen() {
       }
     >
 
-      {dashboard.isError || advisory.isError ? (
+      {d && staleSince != null ? (
+        <View
+          accessibilityRole='alert'
+          style={{ marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radii.md, backgroundColor: palette.amber[50] }}>
+          <AppText size='small' weight='semibold' style={{ color: palette.amber[700] }}>
+            {`Hors ligne · données du ${new Date(staleSince).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${new Date(staleSince).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
+          </AppText>
+        </View>
+      ) : null}
+      {dashboard.isError && !d ? (
         <View style={{ marginTop: 16, gap: 10 }}>
           <AppText size='body' color='danger'>
             Impossible de charger les données de la ferme. Vérifiez la connexion au serveur.

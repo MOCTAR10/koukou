@@ -36,6 +36,7 @@ import type {
   EconomieSynthesisExportDto,
   EconomieSynthesisQueryDto,
 } from './economie.dto.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 /** One farm's contribution to the biosecurity distribution, and its detail. */
 function biosecurityOf(
@@ -57,7 +58,7 @@ function biosecurityOf(
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 /** Stock reads run a few farms at a time (one query set per farm). */

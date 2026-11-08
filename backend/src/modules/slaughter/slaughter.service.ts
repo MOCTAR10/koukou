@@ -45,6 +45,7 @@ import {
   type OfficialBandIndicatorsPort,
 } from '../indicators/official-band-indicators.port.js';
 import type { OfficialIndicator } from '../indicators/official-indicators.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 // Préfixe codé en dur (même convention que VTE pour les ventes — pas de compteur séparé).
 const SLAUGHTER_PREFIX = 'ABT';
@@ -457,7 +458,7 @@ export class SlaughterService {
           em,
           order,
           user.id,
-          new Date().toISOString().slice(0, 10),
+          todayLocal(),
         );
       }
       // POUFA band projection, same transaction.
@@ -757,13 +758,13 @@ export class SlaughterService {
   }
 
   private makeReference(): string {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const date = todayLocal().replace(/-/g, '');
     const suffix = Math.floor(100000 + Math.random() * 900000);
     return `${SLAUGHTER_PREFIX}-${date}-${suffix}`;
   }
 
   private makeInternalCode(): string {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const date = todayLocal().replace(/-/g, '');
     const suffix = Math.floor(100000 + Math.random() * 900000);
     return `${SLAUGHTER_PREFIX}-${date}-${suffix}-I`;
   }

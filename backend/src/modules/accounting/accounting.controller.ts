@@ -22,6 +22,7 @@ import { AccountingService } from './accounting.service.js';
 import { CreateRegularisationDto } from './dto/accounting.dto.js';
 import type { AccountSoldes } from './accounting.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 @ApiTags('Comptabilité SYSCOHADA')
 @Domain('COMPTABILITE')
@@ -268,7 +269,7 @@ export class AccountingController {
                 : 'Bilan',
       period:
         kind === 'bilan'
-          ? `Situation arrêtée au ${to ?? new Date().toISOString().slice(0, 10)}`
+          ? `Situation arrêtée au ${to ?? todayLocal()}`
           : this.periodLabel(from, to),
       generatedAtLabel: new Date().toLocaleString('fr-FR'),
       sections: reportData.sections,

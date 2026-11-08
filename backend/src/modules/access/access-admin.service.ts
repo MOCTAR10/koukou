@@ -396,6 +396,7 @@ export class AccessAdminService {
         passwordHash: hash,
         failedLogins: 0,
         lockedUntil: null,
+        credentialsChangedAt: new Date(),
       });
     });
     return { ...(await this.membershipById(id)), loginCode: code };

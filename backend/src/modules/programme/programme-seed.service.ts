@@ -16,6 +16,7 @@ import { PARAMETER_CATALOG, seedReason } from './parameter-catalog.js';
 import { DEFAULT_PROFILES } from '../access/data/default-profiles.js';
 import { AccessProfile } from '../access/entities/access-profile.entity.js';
 import { ProgrammeService } from './programme.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 /** Known programmes; any other `PROGRAM_CODE` gets its code as name. */
 const PROGRAM_DEFAULTS: Readonly<
@@ -69,7 +70,7 @@ export class ProgrammeSeedService implements OnApplicationBootstrap {
   private async seedProgram(em: EntityManager, code: string): Promise<Program> {
     const defaults = PROGRAM_DEFAULTS[code] ?? {
       name: code,
-      startDate: new Date().toISOString().slice(0, 10),
+      startDate: todayLocal(),
     };
     await em
       .createQueryBuilder()

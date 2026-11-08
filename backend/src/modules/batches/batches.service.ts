@@ -25,6 +25,7 @@ import { MetricsService } from './metrics.service.js';
 import { AdvisoryEngine } from './advisory.engine.js';
 import { KOUKOU_EVENTS, koukouBus } from '../../common/utils/event-bus.js';
 import { BandeOpeningService } from './poufa/bande-opening.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 @Injectable()
 export class BatchesService {
@@ -379,7 +380,7 @@ export class BatchesService {
     const metrics = await this.metricsService.compute(batch);
     batch.lastComputedFcr = metrics.fcr ?? 0;
     if (metrics.readyForSale && batch.readyForSaleAt == null) {
-      batch.readyForSaleAt = new Date().toISOString().slice(0, 10);
+      batch.readyForSaleAt = todayLocal();
     }
     batch.saleReadinessChecked = metrics.readyForSale || batch.saleReadinessChecked;
     await this.persist(batch, [

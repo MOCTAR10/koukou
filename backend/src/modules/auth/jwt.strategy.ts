@@ -13,6 +13,17 @@ export interface JwtPayload {
   role: string;
   /** Set on institutional tokens: the SMS code step was passed. */
   mfa?: boolean;
+  /** Issued at (seconds), set by jsonwebtoken. */
+  iat?: number;
+}
+
+/** True when a token issued at `iat` (seconds) predates the code reset. */
+export function isRevokedByReset(
+  iat: number | undefined,
+  changedAt: Date | null | undefined,
+): boolean {
+  if (!changedAt || iat == null) return false;
+  return iat * 1000 < changedAt.getTime() - 1000;
 }
 
 @Injectable()
@@ -36,6 +47,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // A suspended account loses access immediately, not at token expiry.
     if (user.active === false) {
       throw new UnauthorizedException('Compte suspendu.');
+    }
+    // A token issued before the last code reset is refused (1 s of slack:
+    // `iat` is in whole seconds).
+    if (isRevokedByReset(payload.iat, user.credentialsChangedAt)) {
+      throw new UnauthorizedException(
+        'Session expirée : le code a été changé, reconnectez-vous.',
+      );
     }
     // With INSTITUTION_OTP=sms an institutional account only ever signs in
     // through the SMS step: a token without it (issued before the account

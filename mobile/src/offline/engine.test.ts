@@ -4,7 +4,7 @@ import { jsonResponse, readCall, stubFetch, stubFetchSequence } from '@/api/test
 import { clearSession, saveSession, type StoredSession } from '@/api/token';
 
 import { MAX_SERVER_ATTEMPTS, cancelStockTransferQueued, heldCashSummary, createCreditSaleQueued, deliverOrderQueued, createStockTransferQueued, createDailyEntryQueued, createSaleQueued, flushQueue, recordCustomerPaymentQueued } from './engine';
-import { clearQueue, dismissRejected, enqueueOp, getQueueVersion, loadOps, loadRejected, removeOp, subscribeQueue } from './store';
+import { clearQueue, clearUserQueue, countUserOps, dismissRejected, enqueueOp, getQueueVersion, loadOps, loadRejected, removeOp, salvageOps, subscribeQueue } from './store';
 
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: '192.168.1.10:8081' } },
@@ -543,5 +543,51 @@ describe('file hors ligne — robustesse', () => {
     const [a, b] = loadOps().map((o) => o.id);
     expect(a).not.toBe(b);
     expect(a).toMatch(/^off-daily-entry-[0-9a-z]+-[0-9a-f]{24}$/);
+  });
+
+  it('429 / 408 / 425 : l’op reste en file, ni rejetée ni abandonnée', async () => {
+    for (const status of [429, 408, 425]) {
+      clearQueue();
+      stubFetch(networkError);
+      await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28' });
+      stubFetchSequence([jsonResponse(status, { message: 'Trop de requêtes' })]);
+      const summary = await flushQueue();
+      expect(summary).toMatchObject({ synced: 0, dropped: 0, rejected: 0, remaining: 1 });
+      expect(loadOps()[0].attempts ?? 0).toBe(0);
+    }
+  });
+
+  it('401 : file conservée et signalée', async () => {
+    stubFetch(networkError);
+    await createDailyEntryQueued('f-1', 'b-1', { entryDate: '2026-08-28' });
+    stubFetchSequence([jsonResponse(401, { message: 'Unauthorized' })]);
+    const summary = await flushQueue();
+    expect(summary).toMatchObject({ unauthorized: true, remaining: 1 });
+  });
+
+  it('exception locale (ancien payload) : refusée après MAX_SERVER_ATTEMPTS, la file se débloque', async () => {
+    enqueueOp({ id: 'off-bad', kind: 'daily-entry', farmId: 'f-1', batchId: 'b-1', payload: null, createdAt: '2026-08-28T08:00:00.000Z' });
+    enqueueOp({ id: 'off-ok', kind: 'daily-entry', farmId: 'f-1', batchId: 'b-1', payload: { entryDate: '2026-08-28' }, createdAt: '2026-08-28T08:01:00.000Z' });
+    stubFetch(async () => jsonResponse(200, { id: 'e-1' }));
+    for (let i = 0; i < MAX_SERVER_ATTEMPTS; i++) await flushQueue();
+    expect(loadOps()).toEqual([]);
+    expect(loadRejected().map((o) => o.id)).toEqual(['off-bad']);
+  });
+});
+
+describe('store — récupération et déconnexion', () => {
+  it('salvageOps récupère les ops valides d’un JSON tronqué', () => {
+    const a = { id: 'a', kind: 'sale', farmId: 'f-1', payload: { note: 'x}"y' }, createdAt: '2026-08-28T08:00:00.000Z' };
+    const b = { id: 'b', kind: 'sale', farmId: 'f-1', payload: {}, createdAt: '2026-08-28T08:01:00.000Z' };
+    const raw = JSON.stringify([a, b]).slice(0, -12);
+    expect(salvageOps(raw).map((o) => o.id)).toEqual(['a']);
+  });
+
+  it('clearUserQueue ne retire que les ops de l’utilisateur', () => {
+    enqueueOp({ id: 'mine', kind: 'sale', farmId: 'f-1', payload: {}, createdAt: '2026-08-28T08:00:00.000Z', userId: 'u-1' });
+    enqueueOp({ id: 'other', kind: 'sale', farmId: 'f-1', payload: {}, createdAt: '2026-08-28T08:01:00.000Z', userId: 'u-2' });
+    expect(countUserOps('u-1')).toBe(1);
+    clearUserQueue('u-1');
+    expect(loadOps().map((o) => o.id)).toEqual(['other']);
   });
 });

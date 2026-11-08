@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
+import { maskPhone } from '../../audit/audit-sanitize.js';
 
 /**
  * Outgoing SMS, behind one interface so several providers can coexist. The
@@ -47,7 +48,13 @@ export class ConsoleSmsSender implements SmsSender {
   }
 
   send(phone: string, message: string): Promise<void> {
-    this.logger.log(`→ ${phone} : ${message}`);
+    // In production the message carries one-time codes: never write it (nor
+    // the full number) to the server logs.
+    if (process.env.NODE_ENV === 'production') {
+      this.logger.log(`→ ${maskPhone(phone) ?? '***'} : [contenu masqué]`);
+    } else {
+      this.logger.log(`→ ${phone} : ${message}`);
+    }
     this.outbox.push({ phone, message, at: new Date() });
     if (this.outbox.length > 20) this.outbox.shift();
     return Promise.resolve();

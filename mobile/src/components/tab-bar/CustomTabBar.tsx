@@ -93,7 +93,9 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
   const { farmId } = useAuth();
   const { openCreateMenu } = useCreateCenter();
   const offline = useOfflineQueue(farmId);
-  const pendingOffline = offline.pending.length;
+  const rejectedOffline = offline.rejected.length;
+  // Refused ops need the user's action: they count in the badge, in red.
+  const pendingOffline = offline.pending.length + rejectedOffline;
 
   const [barW, setBarW] = useState(0);
   const pillW = Math.max(0, barW - PILL_HD_PAD * 2);
@@ -186,7 +188,7 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
               navigation={navigation}
               badge={pendingOffline > 0}
               badgeCount={pendingOffline}
-              badgeTone="amber"
+              badgeTone={rejectedOffline > 0 ? 'red' : 'amber'}
             />
           </View>
         </View>

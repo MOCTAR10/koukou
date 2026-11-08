@@ -43,8 +43,6 @@ const KEYED_KINDS: ReadonlySet<OfflineKind> = new Set<OfflineKind>([
   'visit',
 ]);
 
-/** A refusal of these is kept for the user to re-enter, never silently deleted. */
-const CREATION_KINDS: ReadonlySet<OfflineKind> = new Set<OfflineKind>([...KEYED_KINDS, 'daily-entry']);
 
 export class CaisseClosedSinceError extends Error {}
 
@@ -172,7 +170,7 @@ export function heldCashSummary(farmId: string): { count: number; amountFcfa: nu
   return { count: held.length, amountFcfa: held.reduce((sum, o) => sum + (o.cashFcfa ?? 0), 0) };
 }
 
-type ProcessResult = 'ok' | 'retry' | 'failed' | 'dropped' | 'rejected' | 'skip';
+type ProcessResult = 'ok' | 'retry' | 'failed' | 'rejected' | 'skip';
 
 async function processOne(op: OfflineOp): Promise<ProcessResult> {
   try {
@@ -192,11 +190,10 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
   } catch (e) {
     if (e instanceof CashBlockedError) return 'skip';
     if (shouldDrop(e)) {
-      if ((op.cashFcfa ?? 0) > 0 || CREATION_KINDS.has(op.kind)) {
-        rejectOp(op, (e as ApiError).message);
-        return 'rejected';
-      }
-      return 'dropped';
+      // Refused for good (4xx): never lose it silently, whatever the kind (a delivery, a cancellation or a
+      // point-of-sale change the user believes done) — the sync centre lists it with the server's message.
+      rejectOp(op, (e as ApiError).message);
+      return 'rejected';
     }
     if (e instanceof ApiError && !(e instanceof OfflineError) && e.status >= 500) return 'failed';
     return 'retry';
@@ -205,7 +202,6 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
 
 export interface FlushSummary {
   synced: number;
-  dropped: number;
   rejected: number;
   remaining: number;
   /** Farms whose queued ops reached the server, to refresh each of them. */
@@ -213,7 +209,7 @@ export interface FlushSummary {
 }
 
 async function runFlush(): Promise<FlushSummary> {
-  const total = { synced: 0, dropped: 0, rejected: 0 };
+  const total = { synced: 0, rejected: 0 };
   const farmIds = new Set<string>();
   const skipped = new Set<string>();
   for (let round = 0; round < 20; round++) {
@@ -243,10 +239,6 @@ async function runFlush(): Promise<FlushSummary> {
         total.synced += 1;
         progress += 1;
         farmIds.add(op.farmId);
-      } else if (result === 'dropped') {
-        removeOp(op.id);
-        total.dropped += 1;
-        progress += 1;
       } else if (result === 'rejected') {
         total.rejected += 1;
         progress += 1;
@@ -262,7 +254,7 @@ async function runFlush(): Promise<FlushSummary> {
 }
 
 function idleSummary(): FlushSummary {
-  return { synced: 0, dropped: 0, rejected: 0, remaining: loadOps().length, farmIds: [] };
+  return { synced: 0, rejected: 0, remaining: loadOps().length, farmIds: [] };
 }
 
 let flushing: Promise<FlushSummary> | null = null;

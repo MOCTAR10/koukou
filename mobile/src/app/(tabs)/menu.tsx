@@ -329,9 +329,16 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
           </AppText>
           {offline.rejected.map((op) => (
             <View key={op.id} style={styles.rejectedRow}>
-              <AppText size="small" color="text" style={styles.rejectedText}>
-                {op.createdAt.slice(0, 16).replace('T', ' ')} · {rejectedLabel(op)} — {op.reason}
-              </AppText>
+              <View style={styles.rejectedText}>
+                <AppText size="small" color="text">
+                  {op.createdAt.slice(0, 16).replace('T', ' ')} · {rejectedLabel(op)} — {op.reason}
+                </AppText>
+                {rejectedDetail(op) ? (
+                  <AppText size="small" color="muted">
+                    {rejectedDetail(op)}
+                  </AppText>
+                ) : null}
+              </View>
               {op.kind === 'farm-gps' && op.code === GPS_OUTSIDE_PROVINCE ? (
                 <Pressable
                   onPress={() => setConfirmGps(op)}
@@ -393,6 +400,41 @@ function rejectedLabel(op: RejectedOp): string {
   const kind = REJECTED_KIND_LABEL[op.kind] ?? 'Opération';
   const amount = rejectedAmount(op);
   return amount > 0 ? `${kind} · ${amount.toLocaleString('fr-FR')} FCFA` : kind;
+}
+
+/** Date and main values of a rejected entry, so the user can re-enter it. */
+function rejectedDetail(op: RejectedOp): string {
+  const parts: string[] = [];
+  const p = op.payload as {
+    entryDate?: string;
+    saleDate?: string;
+    occurrenceDate?: string;
+    deaths?: number;
+    feedQuantity?: number;
+    feedBags?: number;
+    feedUnit?: string;
+    waterL?: number;
+    avgWeightKg?: number;
+    eggsCollected?: number;
+    quantity?: number;
+    unit?: string;
+    items?: unknown[];
+  };
+  const date = p.entryDate ?? p.saleDate ?? p.occurrenceDate;
+  if (date) parts.push(`Date ${date}`);
+  if (op.kind === 'daily-entry') {
+    if (p.deaths) parts.push(`${p.deaths} mort(s)`);
+    if (p.feedQuantity) parts.push(`${p.feedQuantity} ${p.feedUnit === 'SAC' ? 'sac(s)' : 'kg'} d’aliment`);
+    else if (p.feedBags) parts.push(`${p.feedBags} sac(s) d’aliment`);
+    if (p.waterL) parts.push(`${p.waterL} L d’eau`);
+    if (p.avgWeightKg) parts.push(`poids ${p.avgWeightKg} kg`);
+    if (p.eggsCollected) parts.push(`${p.eggsCollected} œuf(s)`);
+  } else if (op.kind === 'sale') {
+    if (p.items?.length) parts.push(`${p.items.length} ligne(s)`);
+  } else if (op.kind === 'stock-loss') {
+    if (p.quantity) parts.push(`${p.quantity} ${p.unit === 'SAC' ? 'sac(s)' : 'kg'}`);
+  }
+  return parts.join(' · ');
 }
 
 /** Amount collected by a rejected cash op (0 when none). */

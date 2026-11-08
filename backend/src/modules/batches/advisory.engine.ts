@@ -22,6 +22,7 @@ import {
 import { ageOn } from './poufa/bande-rules.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { BatchMetrics } from './models/batch-metrics.model.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 function addDaysIso(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
@@ -377,7 +378,7 @@ export class AdvisoryEngine {
   private ageInWeeks(
     lot: Pick<ProductionBatch, 'integrationDate' | 'initialAgeDays'>,
   ): number {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocal();
     return ageOn(lot.integrationDate, lot.initialAgeDays, today) / 7;
   }
 
@@ -799,7 +800,7 @@ export class AdvisoryEngine {
   ) {
     // Convention dates UTC (YYYY-MM-DD) : la comparaison se fait sur des
     // chaînes ISO, sans convertir en heure locale (robustesse aux fuseaux).
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocal();
     const soon = addDaysIso(today, 7);
     const secSoon = addDaysIso(today, 14);
     const lots = await this.inputRepo.find({

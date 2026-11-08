@@ -16,6 +16,7 @@ import { api } from '../api/client';
 import { exploitantNameOf } from '../api/types';
 import type { PlatformFarmRow, PlatformMetrics, PublicUser, ReferenceConstant } from '../api/types';
 import { useFarm } from '../app/FarmContext';
+import { ErrorNote } from '../components/form';
 import { statusLabelOf, useFarmStatusItems } from '../components/programme/FarmStatusModal';
 import { PREPARATION_FAMILY, SUSPENDED_FAMILY } from '../components/programme/farmStatus';
 import {
@@ -191,6 +192,7 @@ export function PlatformPage() {
               <BookMarked className="h-4 w-4" /> Registre des fermes
             </Link>
           </div>
+          <ErrorNote error={patchFarm.error} />
           <Card className="overflow-hidden">
             <DataTable>
                 <thead className="bg-slate-50">
@@ -228,12 +230,22 @@ export function PlatformPage() {
                       <Td label="Alertes">{r.alertsActive}</Td>
                       <Td label="Vérif.">
                         <button
-                          onClick={() =>
+                          disabled={patchFarm.isPending}
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                r.farm.isVerified
+                                  ? `Retirer la vérification de la ferme « ${r.farm.name} » ?`
+                                  : `Marquer la ferme « ${r.farm.name} » comme vérifiée ?`,
+                              )
+                            )
+                              return;
                             patchFarm.mutate({
                               id: r.farm.id,
                               body: { isVerified: !r.farm.isVerified },
-                            })
-                          }
+                            });
+                          }}
+                          className="disabled:opacity-50"
                           title="Basculer la vérification"
                         >
                           <StatusBadge tone={r.farm.isVerified ? 'ok' : 'danger'} label={r.farm.isVerified ? 'Vérifiée' : 'Non vérifiée'} />
@@ -279,6 +291,8 @@ export function PlatformPage() {
       ) : null}
 
       {tab === 'users' ? (
+        <>
+        <ErrorNote error={suspendUser.error} />
         <Card className="overflow-hidden">
           <DataTable>
               <thead className="bg-slate-50">
@@ -303,15 +317,19 @@ export function PlatformPage() {
                     <Td>
                       {u.role !== 'PLATFORM_ADMIN' ? (
                         <button
-                          onClick={() =>
-                            confirm(
-                              u.active
-                                ? `Suspendre le compte de ${u.fullName} ?`
-                                : `Réactiver le compte de ${u.fullName} ?`,
-                            ) &&
-                            suspendUser.mutate({ id: u.id, suspended: u.active })
-                          }
-                          className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200"
+                          disabled={suspendUser.isPending}
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                u.active
+                                  ? `Suspendre le compte de ${u.fullName} ?`
+                                  : `Réactiver le compte de ${u.fullName} ?`,
+                              )
+                            )
+                              return;
+                            suspendUser.mutate({ id: u.id, suspended: u.active });
+                          }}
+                          className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-50"
                         >
                           {u.active ? 'Suspendre' : 'Réactiver'}
                         </button>
@@ -331,6 +349,7 @@ export function PlatformPage() {
               </tbody>
             </DataTable>
         </Card>
+        </>
       ) : null}
 
       {tab === 'payment' ? (

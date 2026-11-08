@@ -173,7 +173,10 @@ export function FeedEntryModal({ stock, onClose }: { stock: FeedStockSummary | u
       : entryType === 'MEDICAMENT'
         ? additive.trim() !== '' && (parseNum(doseQty) ?? 0) > 0
         : (parseNum(tonnage) ?? 0) > 0;
-  const canSubmit = productName.trim() !== '' && supplier.trim() !== '' && lotNumber.trim() !== '' && typeOk;
+  // DateInput keeps the last valid value while a typed date is unfinished: refuse an empty or future reception day.
+  const receivedOk = received !== '' && received <= localYmd();
+  const canSubmit =
+    productName.trim() !== '' && supplier.trim() !== '' && lotNumber.trim() !== '' && typeOk && receivedOk;
 
   const save = useMutation({
     mutationFn: () => {
@@ -456,7 +459,7 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (lot && qty > 0 && !exceeds) save.mutate();
+          if (lot && qty > 0 && !exceeds && occurredAt !== '' && occurredAt <= localYmd()) save.mutate();
         }}
       >
         <IconField label="Lot d'aliment *" icon={<Wheat />}>

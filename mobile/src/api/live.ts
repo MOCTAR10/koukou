@@ -1,3 +1,5 @@
+import { cachedRead } from '@/offline/ref-cache';
+
 import { apiFetch } from './client';
 import type {
   Alert,
@@ -496,20 +498,29 @@ export class LiveApi {
     if (date) params.set('date', date);
     if (time) params.set('time', time);
     const qs = params.toString();
-    const raw = await apiFetch<DashboardData>(`/farms/${farmId}/dashboard${qs ? `?${qs}` : ''}`);
-    const weather = mapWeather(raw.weather as unknown as BackendWeather | null);
-    return { ...raw, weather };
+    // One cached copy per farm (the time changes every minute): offline, the
+    // last dashboard is shown instead of an error.
+    const load = async (): Promise<DashboardData> => {
+      const raw = await apiFetch<DashboardData>(`/farms/${farmId}/dashboard${qs ? `?${qs}` : ''}`);
+      const weather = mapWeather(raw.weather as unknown as BackendWeather | null);
+      return { ...raw, weather };
+    };
+    return cachedRead(`dashboard.${farmId}`, load);
   }
 
   async fetchBatches(
     farmId: string,
     asOf?: string,
   ): Promise<BatchWithMetrics[]> {
-    const raw = await apiFetch<RawBatch[]>(
-      `/farms/${farmId}/batches${asOf ? `?asOf=${asOf}` : ''}`,
-    );
-    const labels = await breedLabels(farmId, raw.map((b) => b.breedId));
-    return raw.map((b) => mapBatch(b, labels));
+    const load = async (): Promise<BatchWithMetrics[]> => {
+      const raw = await apiFetch<RawBatch[]>(
+        `/farms/${farmId}/batches${asOf ? `?asOf=${asOf}` : ''}`,
+      );
+      const labels = await breedLabels(farmId, raw.map((b) => b.breedId));
+      return raw.map((b) => mapBatch(b, labels));
+    };
+    // Past-date views are not worth keeping offline: only the live list is cached.
+    return asOf ? load() : cachedRead(`batches.${farmId}`, load);
   }
 
   async fetchBatch(
@@ -750,7 +761,9 @@ export class LiveApi {
   }
 
   async fetchDailyEntries(farmId: string, batchId: string): Promise<DailyEntryRecord[]> {
-    return apiFetch<DailyEntryRecord[]>(`/farms/${farmId}/batches/${batchId}/daily-entries`);
+    return cachedRead(`daily-entries.${farmId}.${batchId}`, () =>
+      apiFetch<DailyEntryRecord[]>(`/farms/${farmId}/batches/${batchId}/daily-entries`),
+    );
   }
 
   async fetchReferenceConstants(): Promise<ReferenceConstant[]> {

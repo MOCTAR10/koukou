@@ -2,6 +2,7 @@ import { useState, useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { invalidateFarmQueries } from '@/api/invalidate';
+import { loadSession } from '@/api/token';
 import type { DailyEntryPayload, InvoiceFields, SaleItemPayload } from '@/api/mutations';
 
 import {
@@ -18,6 +19,7 @@ import {
   deliverOrderQueued,
   flushQueue,
   heldCashSummary,
+  subscribeFlush,
   recordCustomerPaymentQueued,
   recordOrderPaymentQueued,
   recordStockLossQueued,
@@ -43,6 +45,10 @@ import {
 import {
   clearQueue,
   clearRejected,
+  clearUserQueue,
+  clearUserRejected,
+  consumeQueueRecovery,
+  countUserOps,
   dismissRejected,
   getQueueVersion,
   loadOps,
@@ -52,7 +58,7 @@ import {
   type RejectedOp,
 } from './store';
 
-export { clearQueue, clearRejected, dismissRejected, flushQueue, heldCashSummary, loadOps, loadRejected };
+export { clearQueue, clearRejected, clearUserQueue, clearUserRejected, consumeQueueRecovery, countUserOps, dismissRejected, flushQueue, heldCashSummary, loadOps, loadRejected, subscribeFlush };
 export type { VisitSent } from './engine';
 export type { DeclarationSent, FlushSummary, OfflineOp, RejectedOp, SendResult, SendResultOf };
 
@@ -97,8 +103,11 @@ export function useOfflineQueue(farmId: string): OfflineQueueState {
   const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
   const [last, setLast] = useState<FlushSummary | null>(null);
-  const pending = loadOps();
-  const rejected = loadRejected();
+  // Another account's ops stay on the phone but are neither shown nor counted.
+  const me = loadSession()?.user?.id;
+  const mine = (o: OfflineOp) => o.userId == null || o.userId === me;
+  const pending = loadOps().filter(mine);
+  const rejected = loadRejected().filter(mine);
 
   const flush = async () => {
     setSyncing(true);

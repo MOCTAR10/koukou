@@ -178,7 +178,7 @@ export function lastClosingOf(sessions: CashSession[] | undefined): number | nul
   return sessions?.find((s) => s.closingBalanceFcfa != null)?.closingBalanceFcfa ?? null;
 }
 
-/** A sale or a payment moves the stock, the cash, the balances and the overview. */
+/** A sale or a payment moves the stock, the cash, the balances, the books and the overview. */
 export function invalidateCash(queryClient: QueryClient, farmId: string | null): void {
   const keys = [
     'sales',
@@ -195,6 +195,11 @@ export function invalidateCash(queryClient: QueryClient, farmId: string | null):
     'slaughter',
     'advisory',
     'rentabilite',
+    // The sale posts its entries and the cash it takes can be spent: expenses and the accounts follow.
+    'expenses',
   ];
   keys.forEach((k) => void queryClient.invalidateQueries({ queryKey: [k, farmId] }));
+  void queryClient.invalidateQueries({
+    predicate: (q) => q.queryKey[1] === farmId && String(q.queryKey[0]).startsWith('accounting'),
+  });
 }

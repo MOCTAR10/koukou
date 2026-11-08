@@ -110,7 +110,9 @@ export class AuthService {
       dto.code,
       user ? user.passwordHash : DUMMY_PASSWORD_HASH,
     );
-    if (user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+    // The lock message only answers the right code: a wrong code on a locked
+    // account reads like any wrong code (no account enumeration).
+    if (ok && user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
       const minutes = Math.ceil(
         (user.lockedUntil.getTime() - Date.now()) / 60000,
       );

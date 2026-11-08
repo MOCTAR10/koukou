@@ -294,6 +294,7 @@ export class PlatformService {
     user.passwordHash = hash;
     user.failedLogins = 0;
     user.lockedUntil = null;
+    user.credentialsChangedAt = new Date();
     const saved = await this.usersRepo.save(user);
     return { user: this.toPublicUser(saved), loginCode };
   }

@@ -1170,6 +1170,7 @@ export class ProgrammeFarmsService {
         passwordHash: hash,
         failedLogins: 0,
         lockedUntil: null,
+        credentialsChangedAt: new Date(),
       });
       return {
         farm: { id: farm.id, code: farm.code, name: farm.name },

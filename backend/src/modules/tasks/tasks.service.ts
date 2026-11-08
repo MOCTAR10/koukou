@@ -30,6 +30,7 @@ import { FarmsService } from '../farms/farms.service.js';
 import { FarmTask } from './entities/farm-task.entity.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 /** Tasks overdue for longer than this are marked notified without a push. */
@@ -37,7 +38,7 @@ const OVERDUE_PUSH_MAX_DAYS = 7;
 
 /** Due dates are compared in UTC, like every other date in the backend. */
 function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 @Injectable()

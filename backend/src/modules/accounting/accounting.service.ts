@@ -1105,7 +1105,7 @@ export class AccountingService {
   ) {
     await this.farmsService.assertAccessible(user, farmId);
     const em = this.dataSource.manager;
-    const asOf = to ?? new Date().toISOString().slice(0, 10);
+    const asOf = to ?? todayLocal();
     const exercice = await this.exerciceAt(em, farmId, asOf);
     const exerciceStart = exercice?.startDate ?? `${asOf.slice(0, 4)}-01-01`;
 

@@ -136,7 +136,10 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
   const qty = parseInt(quantity, 10) || 0;
   const diseaseName = disease === '__custom' ? customDisease.trim() : disease;
   const needsQty = kind !== 'MALADIE';
-  const canSubmit = kind === 'MALADIE' ? (disease === '__custom' ? diseaseName.length >= 2 : true) : qty > 0;
+  // DateInput keeps the last valid value while a typed date is unfinished: refuse an empty or future day.
+  const dateOk = occurredAt !== '' && occurredAt <= localYmd();
+  const canSubmit =
+    dateOk && (kind === 'MALADIE' ? (disease === '__custom' ? diseaseName.length >= 2 : true) : qty > 0);
 
   const save = useMutation({
     mutationFn: () => {

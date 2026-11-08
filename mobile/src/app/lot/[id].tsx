@@ -98,6 +98,7 @@ import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { fetchFarmVisits } from '@/api/poufa';
 import { readsVisits, visitHistoryLabel, visitInBand } from '@/poufa/visits';
 import { readsProgrammeDomain } from '@/poufa/access';
+import { librevilleDay } from '@/utils/libreville';
 // ── end POUFA ──
 
 // ── Tabs ──
@@ -521,7 +522,7 @@ export default function LotDetailScreen() {
     // Visits of the band, or of the farm while it ran
     const bandForVisits = batchQ.data;
     if (bandForVisits) {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = librevilleDay();
       for (const v of visitsQ.data ?? []) {
         if (!visitInBand(v, { id: batchId, integrationDate: bandForVisits.integrationDate, closedAt: (bandForVisits as { closedAt?: string | null }).closedAt ?? null }, today)) continue;
         items.push({

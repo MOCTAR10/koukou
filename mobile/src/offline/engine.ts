@@ -1,4 +1,4 @@
-import { ApiError } from '@/api/client';
+import { ApiError, NetworkTimeoutError } from '@/api/client';
 import {
   cancelOrder,
   cancelStockTransfer,
@@ -138,8 +138,22 @@ async function sendOrQueue(op: NewOp, live: () => Promise<string | void>): Promi
 /** Erreur réseau ou serveur indisponible → on met en attente. */
 function shouldQueue(e: unknown): boolean {
   if (e instanceof TypeError) return true;
-  if (e instanceof ApiError) return e.status >= 500;
+  if (e instanceof ApiError) return e.status >= 500 || isTransientStatus(e.status);
   return false;
+}
+
+/** Timeout (408), too early (425), rate limited (429): the same request can pass later. */
+function isTransientStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429;
+}
+
+/** Fetch could not reach the server (as opposed to a TypeError thrown by our own code). */
+function isNetworkError(e: unknown): boolean {
+  if (e instanceof NetworkTimeoutError) return true;
+  return (
+    e instanceof TypeError &&
+    /network|fetch|load failed|timed out|timeout|abort|internet|connection/i.test(e.message)
+  );
 }
 
 /**
@@ -148,7 +162,13 @@ function shouldQueue(e: unknown): boolean {
  * reconnexion plutôt que de perdre la saisie.
  */
 function shouldDrop(e: unknown): boolean {
-  return e instanceof ApiError && e.status >= 400 && e.status < 500 && e.status !== 401;
+  return (
+    e instanceof ApiError &&
+    e.status >= 400 &&
+    e.status < 500 &&
+    e.status !== 401 &&
+    !isTransientStatus(e.status)
+  );
 }
 
 /** Amount of cash an op carries. */
@@ -852,7 +872,7 @@ export function completeProphylaxisQueued(
 }
 
 /** `failed` = server error (5xx): counted, unlike network or 401 retries. */
-type ProcessResult = 'ok' | 'retry' | 'failed' | 'dropped' | 'rejected' | 'skip';
+type ProcessResult = 'ok' | 'retry' | 'failed' | 'crashed' | 'unauthorized' | 'dropped' | 'rejected' | 'skip';
 
 /** Ops queued before keys existed fall back to op.id (stable across replays). */
 function keyed<T extends { idempotencyKey?: string }>(op: OfflineOp): T {
@@ -946,8 +966,16 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
       }
       return 'dropped';
     }
-    if (e instanceof ApiError && e.status >= 500) return 'failed';
-    return 'retry';
+    if (e instanceof ApiError) {
+      if (e.status >= 500) return 'failed';
+      // 401 (session expired): kept, the user is told to sign in again.
+      if (e.status === 401) return 'unauthorized';
+      return 'retry'; // 408 / 425 / 429
+    }
+    if (isNetworkError(e)) return 'retry';
+    // Our own code threw (e.g. an old payload shape): counted, so that it can
+    // never block the queue forever.
+    return 'crashed';
   }
 }
 
@@ -978,6 +1006,8 @@ export interface FlushSummary {
   /** Cash ops refused by the server, kept in the rejected list. */
   rejected: number;
   remaining: number;
+  /** The server answered 401: the session expired, ops are kept. */
+  unauthorized: boolean;
   /** Farms whose queued ops reached the server (to refresh each of them). */
   farmIds: string[];
 }
@@ -989,14 +1019,36 @@ let flushing: Promise<FlushSummary> | null = null;
  *  même passe pour ne jamais POSTer deux fois une opération non idempotente. */
 export function flushQueue(): Promise<FlushSummary> {
   if (flushing) return flushing;
-  flushing = runFlush().finally(() => {
-    flushing = null;
-  });
+  flushing = runFlush()
+    .then((summary) => {
+      for (const listener of [...flushListeners]) {
+        try {
+          listener(summary);
+        } catch {
+          // A faulty listener must not break the sync.
+        }
+      }
+      return summary;
+    })
+    .finally(() => {
+      flushing = null;
+    });
   return flushing;
+}
+
+const flushListeners = new Set<(summary: FlushSummary) => void>();
+
+/** Called after every flush pass (manual, automatic or post-send). */
+export function subscribeFlush(listener: (summary: FlushSummary) => void): () => void {
+  flushListeners.add(listener);
+  return () => {
+    flushListeners.delete(listener);
+  };
 }
 
 async function runFlush(): Promise<FlushSummary> {
   const total = { synced: 0, dropped: 0, rejected: 0 };
+  let unauthorized = false;
   const farmIds = new Set<string>();
   // Si de nouvelles opérations sont enfilées PENDANT une passe (réseau
   // instable), on relance tant que la file est stabilisée, sans jamais
@@ -1015,6 +1067,21 @@ async function runFlush(): Promise<FlushSummary> {
         continue;
       }
       let result = await processOne(op);
+      if (result === 'unauthorized') {
+        // Nothing can be sent with this token: stop here, keep the whole queue.
+        unauthorized = true;
+        break;
+      }
+      if (result === 'crashed') {
+        // Local failure: after MAX_SERVER_ATTEMPTS the op is refused (cash
+        // included: the rejected list keeps it, it is never deleted).
+        if (bumpAttempts(op.id) < MAX_SERVER_ATTEMPTS) {
+          result = 'retry';
+        } else {
+          rejectOp(op, 'Opération illisible : elle doit être ressaisie.');
+          result = 'rejected';
+        }
+      }
       if (result === 'failed') {
         // A payload the server keeps failing on must not block every op
         // behind it forever. Cash is never given up: it stays queued but is
@@ -1046,7 +1113,8 @@ async function runFlush(): Promise<FlushSummary> {
     total.synced += roundSynced;
     total.dropped += roundDropped;
     total.rejected += roundRejected;
+    if (unauthorized) break;
     if (roundSynced === 0 && roundDropped === 0 && roundRejected === 0) break;
   }
-  return { ...total, remaining: loadOps().length, farmIds: [...farmIds] };
+  return { ...total, remaining: loadOps().length, unauthorized, farmIds: [...farmIds] };
 }

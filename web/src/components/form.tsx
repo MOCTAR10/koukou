@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { AlertTriangle, CalendarDays, Loader2, X } from 'lucide-react';
 import { ApiError } from '../api/client';
-import { classNames, frToIso, isoToFr } from '../lib/format';
+import { checkTypedDate } from '../lib/dateInput';
+import { classNames, isoToFr } from '../lib/format';
 
 export const inputCls =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
@@ -192,8 +193,10 @@ export function todayIso(): string {
 /**
  * Date field always shown « jj/mm/aaaa » (a native `type="date"` follows the
  * browser locale, often mm/dd/yyyy). Drop-in for `<input type="date">`: `value`
- * and `min`/`max` are ISO « aaaa-mm-jj », `onChange` receives `{ target: { value } }`
- * with an ISO date, or '' while the typed text is incomplete or impossible.
+ * and `min`/`max` are ISO « aaaa-mm-jj », `onChange` receives `{ target: { value } }`.
+ * It fires only for a complete, valid date inside `min`/`max`, or with '' when the
+ * text is cleared; an unfinished, impossible or out-of-range text is flagged under
+ * the field and the last valid value is kept.
  */
 export function DateInput({
   value,
@@ -220,21 +223,28 @@ export function DateInput({
 }) {
   const iso = value ? value.slice(0, 10) : '';
   const [text, setText] = useState(isoToFr(iso));
+  const [touched, setTouched] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
 
   // Follow external changes (reset, prefill) without fighting the typing.
   useEffect(() => {
-    setText((t) => (frToIso(t) === iso ? t : isoToFr(iso)));
+    setText((t) => (checkTypedDate(t).iso === iso ? t : isoToFr(iso)));
   }, [iso]);
+
+  const check = checkTypedDate(text, min, max);
+  // An unfinished date is only reported once the user left the field (or typed the full length).
+  const error = check.message && (check.status !== 'incomplete' || touched || text.length >= 10) ? check.message : null;
 
   const type = (raw: string) => {
     const t = raw.replace(/[^\d/.\-\s]/g, '').slice(0, 10);
     setText(t);
-    const next = frToIso(t);
-    if (next !== iso) onChange?.({ target: { value: next } });
+    const next = checkTypedDate(t, min, max);
+    if (next.status === 'ok' && next.iso !== iso) onChange?.({ target: { value: next.iso } });
+    else if (next.status === 'empty' && iso !== '') onChange?.({ target: { value: '' } });
   };
 
   return (
+    <div>
     <div className="relative">
       <input
         id={id}
@@ -245,12 +255,17 @@ export function DateInput({
         maxLength={10}
         title={title}
         aria-label={ariaLabel}
-        className={classNames(className ?? inputCls, 'pr-9')}
+        aria-invalid={error ? true : undefined}
+        className={classNames(className ?? inputCls, 'pr-9', error && 'border-red-400 focus:border-red-500 focus:ring-red-100')}
         value={text}
         required={required}
         disabled={disabled}
         onChange={(e) => type(e.target.value)}
-        onBlur={() => setText(isoToFr(iso))}
+        onBlur={() => {
+          setTouched(true);
+          // A valid but out-of-range text stays visible with its message; anything else snaps back to the value.
+          if (check.status !== 'out') setText(isoToFr(iso));
+        }}
       />
       <button
         type="button"
@@ -273,10 +288,18 @@ export function DateInput({
         min={min}
         max={max}
         onChange={(e) => {
-          setText(isoToFr(e.target.value));
-          onChange?.({ target: { value: e.target.value } });
+          const v = e.target.value;
+          if (v && checkTypedDate(isoToFr(v), min, max).status !== 'ok') return;
+          setText(isoToFr(v));
+          onChange?.({ target: { value: v } });
         }}
       />
+    </div>
+    {error ? (
+      <p role="alert" className="mt-1 text-xs text-red-600">
+        {error}
+      </p>
+    ) : null}
     </div>
   );
 }

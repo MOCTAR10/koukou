@@ -8,6 +8,7 @@ import { ProphylaxisEvent } from './entities/prophylaxis-event.entity.js';
 import { ProtocolStep } from './entities/protocol-step.entity.js';
 import { SanitaryProtocol } from './entities/sanitary-protocol.entity.js';
 import { planSteps } from './care-reference-rules.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 /** The vets' reference calendar for a species and type (shared, `isDefault`). */
 export function findReferenceProtocol(
@@ -42,7 +43,7 @@ export function isReferenceProtocol(protocol: SanitaryProtocol): boolean {
 export async function applyReferenceCalendar(
   em: EntityManager,
   batch: ProductionBatch,
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = todayLocal(),
 ): Promise<number> {
   if (batch.status === BatchStatus.CLOTURE) return 0;
   const protocol = await findReferenceProtocol(em, batch.species, batch.type);
