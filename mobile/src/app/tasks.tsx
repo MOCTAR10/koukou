@@ -25,12 +25,14 @@ import { Spinner } from '@/components/ui/Spinner';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
-import { fetchAssignableTeam, fetchBatches, fetchTasks } from '@/api';
+import { fetchAssignableTeam, fetchBatches, fetchProphylaxis, fetchTasks } from '@/api';
+import { CompleteCareSheet } from '@/components/sanitary/SanitaryRecordSheets';
+import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { librevilleDay } from '@/utils/libreville';
 import { createTask, updateTask, deleteTask, type TaskStatusValue } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
-import type { FarmTask, TaskStatus } from '@/api/types';
+import type { FarmTask, TaskSource, TaskStatus } from '@/api/types';
 import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 import { errorText } from '@/api/errorText';
 
@@ -47,6 +49,28 @@ const STATUS_TONES: Record<TaskStatus, 'brand' | 'accent' | 'green' | 'neutral'>
   FAIT: 'green',
   ANNULEE: 'neutral',
 };
+
+const SOURCE_LABELS: Record<Exclude<TaskSource, 'MANUELLE'>, string> = {
+  PROGRAMME_VACCIN: 'Programme sanitaire',
+  PESEE: 'Pesée',
+  VIDE_SANITAIRE: 'Vide sanitaire',
+};
+
+/**
+ * « Terminer » d'une tâche de vaccination : ouvre la fiche de réalisation du
+ * soin (mêmes contrôles, même file hors ligne) ; le serveur ferme la tâche.
+ */
+function CareTaskSheet({ task, defaultCount, onClose }: { task: FarmTask; defaultCount: number | null; onClose: () => void }) {
+  const { farmId } = useAuth();
+  const events = useQuery({
+    queryKey: ['prophylaxis', farmId, task.batchId],
+    queryFn: () => fetchProphylaxis(farmId, task.batchId as string),
+    enabled: !!task.batchId,
+  });
+  const event = events.data?.find((e) => e.id === task.stepId);
+  if (!event) return null;
+  return <CompleteCareSheet visible farmId={farmId} event={event} defaultCount={defaultCount} onClose={onClose} />;
+}
 
 /** Date locale (YYYY-MM-DD) : évite le décalage d'un jour de toISOString() (UTC). */
 function toLocalDateString(d: Date): string {
@@ -281,6 +305,7 @@ function TaskCard({
   batchName,
   canManage,
   onToggle,
+  onComplete,
   onEdit,
   onDelete,
 }: {
@@ -289,6 +314,7 @@ function TaskCard({
   batchName: string | null;
   canManage: boolean;
   onToggle: (next: TaskStatusValue) => void;
+  onComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -297,8 +323,15 @@ function TaskCard({
   const dimmed = done || cancelled;
   const due = dueLabel(task);
 
+  const generated = !!task.source && task.source !== 'MANUELLE';
+  const open = task.status === 'A_FAIRE' || task.status === 'EN_COURS';
+  // Vaccination / weighing: « Terminer » opens the matching form (the data updates the lot).
+  const withForm = open && (task.source === 'PROGRAMME_VACCIN' || task.source === 'PESEE');
+
   const nextAction: { label: string; next: TaskStatusValue; icon: typeof Check; tone: 'brand' | 'accent' | 'green' } | null =
-    task.status === 'A_FAIRE'
+    withForm
+      ? null
+      : task.status === 'A_FAIRE'
       ? { label: 'Démarrer', next: 'EN_COURS', icon: CircleCheck, tone: 'brand' }
       : task.status === 'EN_COURS'
         ? { label: 'Terminer', next: 'FAIT', icon: Check, tone: 'green' }
@@ -319,7 +352,7 @@ function TaskCard({
             {task.title}
           </AppText>
           <AppText size="caption" color="muted" numberOfLines={1}>
-            {assigneeName ? assigneeName : 'Tâche libre'}
+            {generated ? `${SOURCE_LABELS[task.source as Exclude<TaskSource, 'MANUELLE'>]}` : assigneeName ? assigneeName : 'Tâche libre'}
             {batchName ? ` · ${batchName}` : ''}
           </AppText>
         </View>
@@ -341,6 +374,18 @@ function TaskCard({
           </AppText>
         </View>
         <View style={styles.taskActions}>
+          {withForm ? (
+            <Pressable
+              onPress={onComplete}
+              style={[styles.actionBtn, { backgroundColor: semantic.successSoft }]}
+              accessibilityRole="button"
+              accessibilityLabel="Terminer">
+              <Check size={16} color={palette.green[600]} />
+              <AppText size="caption" weight="semibold" color="success">
+                Terminer
+              </AppText>
+            </Pressable>
+          ) : null}
           {nextAction ? (
             <Pressable
               onPress={() => onToggle(nextAction.next)}
@@ -353,18 +398,20 @@ function TaskCard({
               </AppText>
             </Pressable>
           ) : null}
-          {canManage ? (
+          {canManage && !(generated && task.status === 'ANNULEE') ? (
             <>
-              <Pressable onPress={onEdit} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Modifier">
-                <Pencil size={15} color={color.ink[500]} />
-              </Pressable>
-              {task.status !== 'ANNULEE' ? (
-                <Pressable onPress={() => onToggle('ANNULEE')} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Annuler la tâche">
-                  <X size={16} color={color.red[500]} />
+              {generated ? null : (
+                <Pressable onPress={onEdit} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Modifier">
+                  <Pencil size={15} color={color.ink[500]} />
                 </Pressable>
-              ) : (
+              )}
+              {task.status === 'ANNULEE' ? (
                 <Pressable onPress={onDelete} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Supprimer la tâche">
                   <Trash2 size={15} color={color.red[500]} />
+                </Pressable>
+              ) : task.source === 'PROGRAMME_VACCIN' ? null : (
+                <Pressable onPress={() => onToggle('ANNULEE')} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Annuler la tâche">
+                  <X size={16} color={color.red[500]} />
                 </Pressable>
               )}
             </>
@@ -410,6 +457,14 @@ export default function TasksScreen() {
   const [filter, setFilter] = useState<Filter>('OPEN');
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<FarmTask | null>(null);
+  const [careTask, setCareTask] = useState<FarmTask | null>(null);
+  const { openDaily } = useQuickCapture();
+
+  const complete = (task: FarmTask) => {
+    if (task.source === 'PROGRAMME_VACCIN') setCareTask(task);
+    // Pesée : la saisie du jour (lot prérempli) ; l'enregistrement ferme la tâche côté serveur.
+    else if (task.batchId) openDaily(task.batchId);
+  };
 
   const members = useMemo(() => teamQuery.data ?? [], [teamQuery.data]);
   const memberNames = useMemo(() => new Map(members.map((m) => [m.userId, m.fullName])), [members]);
@@ -514,6 +569,7 @@ export default function TasksScreen() {
                 batchName={t.batchId ? batchNames.get(t.batchId) ?? null : null}
                 canManage={canManage}
                 onToggle={(next) => void toggle(t, next)}
+                onComplete={() => complete(t)}
                 onEdit={() => setEditing(t)}
                 onDelete={() => void remove(t)}
               />
@@ -530,6 +586,13 @@ export default function TasksScreen() {
           onClose={() => {
             setCreateOpen(false);
           }}
+        />
+      ) : null}
+      {careTask ? (
+        <CareTaskSheet
+          task={careTask}
+          defaultCount={batchesQuery.data?.find((b) => b.id === careTask.batchId)?.quantityAlive ?? null}
+          onClose={() => setCareTask(null)}
         />
       ) : null}
       {editing ? (

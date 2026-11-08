@@ -2,6 +2,9 @@ import type { Farm, PublicUser } from './types';
 
 export type TaskStatus = 'A_FAIRE' | 'EN_COURS' | 'FAIT' | 'ANNULEE';
 
+/** Origin of a task: by hand, or generated from a programme (care calendar, weighing plan, closure). */
+export type TaskSource = 'MANUELLE' | 'PROGRAMME_VACCIN' | 'PESEE' | 'VIDE_SANITAIRE';
+
 export interface FarmTask {
   id: string;
   farmId: string;
@@ -12,6 +15,10 @@ export interface FarmTask {
   dueDate: string;
   status: TaskStatus;
   completedAt: string | null;
+  /** Absent on payloads cached before the generated tasks: read as MANUELLE. */
+  source?: TaskSource;
+  /** Generated task: the care (PROGRAMME_VACCIN) or the weighing step (PESEE). */
+  stepId?: string | null;
 }
 
 export interface CreateTaskInput {

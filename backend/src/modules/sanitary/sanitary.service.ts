@@ -66,6 +66,7 @@ import {
 } from './care-reference-rules.js';
 import { isReferenceProtocol } from './reference-calendar.js';
 import { todayLocal } from '../../common/utils/date.utils.js';
+import { TaskSyncService } from '../tasks/task-sync.service.js';
 
 function todayStr(): string {
   return todayLocal();
@@ -114,6 +115,7 @@ export class SanitaryService {
     private readonly alertsService: AlertsService,
     private readonly constants: ReferenceConstantsService,
     private readonly lists: RefListsService,
+    private readonly taskSync: TaskSyncService,
   ) {}
 
   // ---------- Protocoles sanitaire (données de référence) ----------
@@ -1036,6 +1038,9 @@ export class SanitaryService {
   async refreshProphylaxis(batchId: string): Promise<void> {
     const batch = await this.batchRepo.findOne({ where: { id: batchId } });
     if (!batch) return;
+    // The care calendar is the source of truth of the vaccination tasks (and
+    // of the PROPHYLAXIE alerts below): every change of it passes here.
+    await this.taskSync.syncBatch(batchId);
     // A closed lot's alerts were resolved at closing: reading its calendar
     // must not raise them again.
     if (batch.status === BatchStatus.CLOTURE) return;

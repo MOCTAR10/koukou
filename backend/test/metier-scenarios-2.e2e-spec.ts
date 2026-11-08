@@ -1345,9 +1345,8 @@ describe('Scénarios métier 2 : intrants, abattage, clients, visites, tâches, 
       expect(refreshed.metrics.lastWeighingAgeDays).toBe(30);
     });
 
-    it.todo(
-      'les tâches ne sont pas générées par les programmes (vaccination, pesée) : le calendrier sanitaire et la pesée ont leurs propres rappels (alertes PROPHYLAXIE, WEIGHING_LATE) mais aucune tâche d’équipe n’est créée ni clôturée automatiquement ; terminer une tâche ne met pas à jour le lot (il faut enregistrer le soin ou la pesée) ; à valider avec les vétérinaires',
-    );
+    // Tâches générées par les programmes (vaccination, pesée, vide sanitaire) :
+    // couvertes par tasks-programmes.e2e-spec.ts.
     it.todo(
       'notifications de tâches : l’assignation et le retard passent par le push seulement (pas de notification interne dans la boîte /notifications) ; les tâches en retard de plus de 7 jours ne sont jamais notifiées',
     );

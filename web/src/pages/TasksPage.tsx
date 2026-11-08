@@ -9,7 +9,9 @@ import { useFarmProfile } from '../app/useFarmProfile';
 import { useCanRead } from '../app/useMenuAccess';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote, todayIso } from '../components/form';
-import { ConfirmModal, invalidateFarm, TaskStatusBadge } from '../components/org/shared';
+import { ConfirmModal, invalidateFarm, TaskSourceBadge, TaskStatusBadge } from '../components/org/shared';
+import { CareTaskCompletion } from '../components/org/CareTaskCompletion';
+import { DailyEntryModal } from '../components/flock/DailyEntryModal';
 import { TaskFormModal } from '../components/org/TaskFormModal';
 import { Card, DataTable, EmptyState, IconButton, Loading, PageHeader, Td, Th } from '../components/ui';
 import { classNames, dateFr } from '../lib/format';
@@ -29,6 +31,9 @@ const NEXT_ACTION: Partial<Record<TaskStatus, { label: string; next: TaskStatus;
 };
 
 const isOpen = (t: FarmTask) => t.status === 'A_FAIRE' || t.status === 'EN_COURS';
+/** Generated task that records data on the lot: « Terminer » opens the care / weighing form. */
+const completesWithForm = (t: FarmTask) => t.source === 'PROGRAMME_VACCIN' || t.source === 'PESEE';
+const isGenerated = (t: FarmTask) => !!t.source && t.source !== 'MANUELLE';
 
 function dueLabel(task: FarmTask): { text: string; cls: string } | null {
   if (!isOpen(task)) return null;
@@ -52,6 +57,8 @@ export function TasksPage() {
   const [form, setForm] = useState<{ task: FarmTask | null } | null>(null);
   const [cancelling, setCancelling] = useState<FarmTask | null>(null);
   const [deleting, setDeleting] = useState<FarmTask | null>(null);
+  const [completing, setCompleting] = useState<FarmTask | null>(null);
+  const canAct = user?.role !== 'INSTITUTION';
 
   const tasks = useQuery({
     queryKey: ['tasks', farmId],
@@ -167,13 +174,20 @@ export function TasksPage() {
                 {rows.map((t) => {
                   const due = dueLabel(t);
                   // Without equipe:taches the server only lets you move your own task forward.
-                  const next = canManage || (t.assigneeId === user?.id && t.status !== 'FAIT') ? NEXT_ACTION[t.status] : undefined;
+                  const generated = isGenerated(t);
+                  const withForm = completesWithForm(t) && isOpen(t) && canAct;
+                  const next = withForm
+                    ? undefined
+                    : canManage || (t.assigneeId === user?.id && t.status !== 'FAIT') || (generated && canAct && t.status !== 'FAIT')
+                      ? NEXT_ACTION[t.status]
+                      : undefined;
                   const rowBusy = setStatus.isPending && setStatus.variables?.task.id === t.id && !cancelling;
                   return (
                     <tr key={t.id} className="border-t border-slate-100 align-top">
                       <Td className={classNames('max-w-md', !isOpen(t) && 'opacity-60')}>
                         <div className="font-medium text-slate-900">{t.title}</div>
                         {t.notes ? <div className="mt-0.5 whitespace-pre-line text-xs text-slate-500">{t.notes}</div> : null}
+                        <TaskSourceBadge source={t.source} />
                       </Td>
                       <Td label="Assignée à">{memberName(t.assigneeId) ?? (t.assigneeId ? '—' : <span className="text-slate-400">Tâche libre</span>)}</Td>
                       <Td label="Lot" className="md:max-lg:hidden">{batchName(t.batchId) ?? <span className="text-slate-400">—</span>}</Td>
@@ -186,6 +200,12 @@ export function TasksPage() {
                       </Td>
                       <Td>
                         <div className="flex items-center justify-end gap-1.5">
+                          {withForm ? (
+                            <Button tone="secondary" className="whitespace-nowrap !px-2.5 !py-1 !text-xs" onClick={() => setCompleting(t)}>
+                              <Check className="h-3.5 w-3.5" />
+                              Terminer
+                            </Button>
+                          ) : null}
                           {next ? (
                             <Button
                               tone="secondary"
@@ -197,12 +217,12 @@ export function TasksPage() {
                               {next.label}
                             </Button>
                           ) : null}
-                          {canManage ? (
+                          {canManage && !generated ? (
                             <IconButton label="Modifier" onClick={() => setForm({ task: t })}>
                               <Pencil className="h-4 w-4" />
                             </IconButton>
                           ) : null}
-                          {!canManage ? null : t.status === 'ANNULEE' ? (
+                          {!canManage || t.source === 'PROGRAMME_VACCIN' || (generated && t.status === 'ANNULEE') ? null : t.status === 'ANNULEE' ? (
                             <IconButton
                               label="Supprimer la tâche"
                               danger
@@ -243,6 +263,27 @@ export function TasksPage() {
           members={members.data ?? []}
           batches={batches.data ?? []}
           onClose={() => setForm(null)}
+        />
+      ) : null}
+
+      {completing?.source === 'PROGRAMME_VACCIN' && completing.batchId ? (
+        <CareTaskCompletion
+          task={completing}
+          lot={{
+            id: completing.batchId,
+            liveCount: batches.data?.find((b) => b.id === completing.batchId)?.metrics.liveCount ?? 0,
+            batchName: batchName(completing.batchId),
+            code: null,
+          }}
+          onClose={() => setCompleting(null)}
+        />
+      ) : null}
+      {/* The weighing goes through the daily entry: lot and day prefilled, the server closes the task. */}
+      {completing?.source === 'PESEE' && completing.batchId ? (
+        <DailyEntryModal
+          initialBatchId={completing.batchId}
+          initialDate={completing.dueDate < todayIso() ? completing.dueDate : todayIso()}
+          onClose={() => setCompleting(null)}
         />
       ) : null}
 

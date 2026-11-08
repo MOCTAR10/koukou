@@ -26,6 +26,7 @@ import { AdvisoryEngine } from './advisory.engine.js';
 import { KOUKOU_EVENTS, koukouBus } from '../../common/utils/event-bus.js';
 import { BandeOpeningService } from './poufa/bande-opening.service.js';
 import { isRealIsoDate, todayLocal } from '../../common/utils/date.utils.js';
+import { TaskSyncService } from '../tasks/task-sync.service.js';
 
 @Injectable()
 export class BatchesService {
@@ -46,6 +47,7 @@ export class BatchesService {
     private readonly accountingService: AccountingService,
     private readonly dataSource: DataSource,
     private readonly bandeOpening: BandeOpeningService,
+    private readonly taskSync: TaskSyncService,
   ) {}
 
   async create(
@@ -108,6 +110,8 @@ export class BatchesService {
       this.bandeOpening.open(em, farm, batch, dto),
     );
     await this.afterChange(user, farmId, batch);
+    // Weighing plan of the new lot (care tasks follow the care calendar).
+    await this.taskSync.syncBatch(batch.id);
 
     // Auto-create expense for chick purchase cost (ACHAT_POUSSINS)
     if (dto.chickUnitPriceFcfa && dto.chickUnitPriceFcfa > 0) {
@@ -378,6 +382,9 @@ export class BatchesService {
     // The advisory run resolves the lot's live alerts (AdvisoryEngine).
     await this.afterChange(user, farmId, batch);
     koukouBus.emit(KOUKOU_EVENTS.BATCH_CLOSED, { farmId, batchId });
+    // Open generated tasks cancelled, cleaning task created (also done by the
+    // BATCH_CLOSED listener for the closures made elsewhere: idempotent).
+    await this.taskSync.syncBatch(batchId);
     return this.findOne(user, farmId, batchId);
   }
 

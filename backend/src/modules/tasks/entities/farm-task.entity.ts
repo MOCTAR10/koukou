@@ -8,11 +8,17 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { TaskSource } from '../../../common/enums/task-source.enum.js';
 import { TaskStatus } from '../../../common/enums/task-status.enum.js';
 import { ProductionBatch } from '../../batches/entities/production-batch.entity.js';
 import { Farm } from '../../farms/entities/farm.entity.js';
 import { User } from '../../users/entities/user.entity.js';
 
+/** One generated task per (batch, source, step): regenerating never duplicates. */
+@Index('UQ_farm_tasks_generated', ['batchId', 'source', 'stepId'], {
+  unique: true,
+  where: '"step_id" IS NOT NULL',
+})
 @Entity('farm_tasks')
 export class FarmTask {
   @PrimaryGeneratedColumn('uuid')
@@ -40,6 +46,14 @@ export class FarmTask {
 
   @Column({ name: 'batch_id', type: 'uuid', nullable: true })
   batchId: string | null;
+
+  /** MANUELLE, or the programme the task was generated from. */
+  @Column({ type: 'varchar', length: 30, default: TaskSource.MANUELLE })
+  source: TaskSource;
+
+  /** Step of the programme (see `TaskSource`); null for a manual task. */
+  @Column({ name: 'step_id', type: 'varchar', length: 120, nullable: true })
+  stepId: string | null;
 
   @Column()
   title: string;
