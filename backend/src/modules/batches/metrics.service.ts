@@ -159,6 +159,9 @@ export interface MetricsPreload {
     string,
     Array<{ batchId: string; date: string; quantity: number }>
   >;
+  /** Egg alveoles sold / transferred-and-unsold per band (see eggStockForBatch). */
+  eggSold: Map<string, number>;
+  eggTransferred: Map<string, number>;
 }
 
 const METRIC_CONSTANT_KEYS = [
@@ -220,6 +223,8 @@ export class MetricsService {
       deaths,
       holds,
       removals,
+      eggSoldRows,
+      eggTransferRows,
     ] = await Promise.all([
         this.constants.getMany(METRIC_CONSTANT_KEYS),
         farmIds.length
@@ -256,6 +261,35 @@ export class MetricsService {
         this.flockReconciliation.deathEvents(ids),
         sanitaryHoldsMany(this.alertRepo.manager, ids),
         this.flockReconciliation.removalsByDateMany(ids),
+        ids.length
+          ? this.saleItemRepo
+              .createQueryBuilder('i')
+              .innerJoin(Sale, 's', 's.id = i.sale_id')
+              .select('i.batch_id', 'batchId')
+              .addSelect('COALESCE(SUM(i.quantity), 0)', 'n')
+              .where('i.batch_id IN (:...ids)', { ids })
+              .andWhere('i.product_type = :pt', {
+                pt: SaleItemProductType.OEUFS,
+              })
+              .andWhere('s.status != :cx', { cx: SaleStatus.CANCELLED })
+              .groupBy('i.batch_id')
+              .getRawMany<{ batchId: string; n: string }>()
+          : Promise.resolve([] as { batchId: string; n: string }[]),
+        ids.length
+          ? this.stockTransferRepo
+              .createQueryBuilder('t')
+              .select('t.batch_id', 'batchId')
+              .addSelect('COALESCE(SUM(t.quantity - t.quantity_sold), 0)', 'n')
+              .where('t.batch_id IN (:...ids)', { ids })
+              .andWhere('t.product_type = :pt', {
+                pt: StockTransferProductType.OEUFS,
+              })
+              .andWhere('t.status = :st', {
+                st: StockTransferStatus.TRANSFERRED,
+              })
+              .groupBy('t.batch_id')
+              .getRawMany<{ batchId: string; n: string }>()
+          : Promise.resolve([] as { batchId: string; n: string }[]),
       ]);
     const out: MetricsPreload = {
       constants,
@@ -267,6 +301,10 @@ export class MetricsService {
       holds,
       removals,
       deathEvents: new Map(),
+      eggSold: new Map(eggSoldRows.map((r) => [r.batchId, Number(r.n)])),
+      eggTransferred: new Map(
+        eggTransferRows.map((r) => [r.batchId, Number(r.n)]),
+      ),
     };
     for (const id of breedIds) out.standards.set(id, []);
     for (const st of standards) out.standards.get(st.breedId)?.push(st);
@@ -456,6 +494,7 @@ export class MetricsService {
             batch.farmId,
             batch.id,
             eggBreakdown.sellable,
+            pre,
           )
         : { availableEggs: 0, availableAlveoles: 0 };
     // Taux de ponte = fenêtre glissante de 7 jours (aligné sur la cible
@@ -675,7 +714,21 @@ export class MetricsService {
     farmId: string,
     batchId: string,
     sellableEggs: number,
+    pre?: MetricsPreload,
   ): Promise<{ availableEggs: number; availableAlveoles: number }> {
+    if (pre) {
+      const availableEggs = Math.max(
+        0,
+        sellableEggs -
+          ((pre.eggSold.get(batchId) ?? 0) +
+            (pre.eggTransferred.get(batchId) ?? 0)) *
+            EGGS_PER_ALVEOL,
+      );
+      return {
+        availableEggs,
+        availableAlveoles: Math.floor(availableEggs / EGGS_PER_ALVEOL),
+      };
+    }
     const nonCancelled = await this.saleRepo.find({
       where: { farmId, status: Not(SaleStatus.CANCELLED) },
     });
