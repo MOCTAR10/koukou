@@ -1,3 +1,4 @@
+import { librevilleDay } from '@/utils/libreville';
 import type { Alert, FarmTask, HealthOverviewRow } from '@/api/types';
 
 export type Priority = 'CRITIQUE' | 'IMPORTANT';
@@ -42,10 +43,7 @@ const PRIORITY_WEIGHT: Record<Priority, number> = { CRITIQUE: 0, IMPORTANT: 1 };
 
 /** Date du jour au format YYYY-MM-DD (local), alignée sur les `dueDate` serveur. */
 export function todayKey(now: Date = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return librevilleDay(now);
 }
 
 /** Clé de jour locale d'un timestamp ISO (évite le décalage UTC de `toISOString`). */

@@ -1,14 +1,16 @@
 export function fcfa(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return '—';
-  return `${Math.round(n).toLocaleString('fr-FR')} FCFA`;
+  // Math.round(-0.4) is -0, which fr-FR prints as « -0 ».
+  const whole = Math.round(n) || 0;
+  return `${whole.toLocaleString('fr-FR')} FCFA`;
 }
 
 export function fcfaShort(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return '—';
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace('.0', '')} M FCFA`;
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')} M FCFA`;
   if (abs >= 1_000) return `${(n / 1_000).toFixed(0)} k FCFA`;
-  return `${n} FCFA`;
+  return `${Math.round(n) || 0} FCFA`;
 }
 
 export function num(n: number | null | undefined, digits = 1): string {

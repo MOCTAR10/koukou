@@ -10,6 +10,7 @@ import type {
   RecolteUnit,
 } from '../../api/types-agri';
 import { dateFr, num } from '../../lib/format';
+import { librevilleDay } from '../../lib/libreville';
 
 export const CROP_CATEGORY_LABELS: Record<CropCategory, string> = {
   TUBERCULE: 'Tubercule',
@@ -151,9 +152,7 @@ export function parseDecimal(raw: string): number | null {
 
 /** Today on the farmer's calendar; the API tolerates a one-day lead over UTC. */
 export function localYmd(d = new Date()): string {
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${d.getFullYear()}-${month}-${day}`;
+  return librevilleDay(d);
 }
 
 export function useParcelles(farmId: string | null) {

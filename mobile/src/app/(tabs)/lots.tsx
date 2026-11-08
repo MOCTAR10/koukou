@@ -271,7 +271,7 @@ const splitCareLabel = (label: string): { action: string; detail: string } => {
 };
 
 // Les dates sanitaires sont stockées en UTC (YYYY-MM-DD) côté serveur.
-const fromUtc = (epochMs: number) => new Date(epochMs).toISOString().slice(0, 10);
+const fromUtc = (epochMs: number) => librevilleDay(epochMs);
 
 function careChips(prophylaxis: ProphylaxisEvent[] | undefined): CareChipData[] {
   const chips: CareChipData[] = [];

@@ -19,7 +19,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { fetchBatches } from '@/api';
-import { localYmd } from '@/api/mutations';
+import { librevilleDay } from '@/utils/libreville';
 import { attachDeliveryBand, fetchFarmDelivery, type DeliveryView, type OpenBandHint } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { confirmDeliveryQueued, useOfflineQueue } from '@/offline';
@@ -189,7 +189,7 @@ export default function DeliveryScreen() {
   const view = delivery.data;
 
   const [drafts, setDrafts] = useState<LineDraft[]>([]);
-  const [receivedDate, setReceivedDate] = useState(localYmd(new Date()));
+  const [receivedDate, setReceivedDate] = useState(librevilleDay());
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<OpenBandHint | null>(null);
   const [lotOpen, setLotOpen] = useState(false);
@@ -218,7 +218,7 @@ export default function DeliveryScreen() {
     [bandHint],
   );
 
-  const refusal = view ? confirmRefusal({ drafts, receivedDate, shippedAt: view.shippedAt, today: localYmd(new Date()) }) : null;
+  const refusal = view ? confirmRefusal({ drafts, receivedDate, shippedAt: view.shippedAt, today: librevilleDay() }) : null;
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['input-deliveries', farmId] });

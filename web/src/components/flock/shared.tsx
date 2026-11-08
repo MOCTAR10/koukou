@@ -22,6 +22,7 @@ import { useCanRead } from '../../app/useMenuAccess';
 import { classNames } from '../../lib/format';
 import { Card, IconTile, type IconTone } from '../ui';
 import { inlineInputCls, DateInput } from '../form';
+import { librevilleDay, shiftDay } from '../../lib/libreville';
 
 export const EGGS_PER_ALVEOL = 30;
 
@@ -118,18 +119,16 @@ export const LEVEL_LABEL: Record<AlertLevel, string> = {
 
 /** Local calendar date (toISOString would give yesterday before 01:00 in Gabon, UTC+1). */
 export function localYmd(d: Date = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return librevilleDay(d);
 }
 
 /** Sanitary dates are stored and compared in UTC by the server. */
 export function utcYmd(epochMs: number = Date.now()): string {
-  return new Date(epochMs).toISOString().slice(0, 10);
+  return librevilleDay(epochMs);
 }
 
 export function addLocalDays(ymd: string, days: number): string {
-  const d = new Date(`${ymd.slice(0, 10)}T12:00:00`);
-  d.setDate(d.getDate() + days);
-  return localYmd(d);
+  return shiftDay(ymd, days);
 }
 
 export function addUtcDays(ymd: string, days: number): string {

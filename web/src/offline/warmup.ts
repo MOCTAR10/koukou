@@ -4,6 +4,7 @@
 import { api, getStoredUser } from '../api/client';
 import type { ReadDomain } from '../app/menu-access';
 import { isOnline } from './connectivity';
+import { librevilleDaysBack } from '../lib/libreville';
 
 /** Slow on purpose: the server allows 120 requests a minute per IP, offices share one. */
 const PACE_MS = 800;
@@ -28,14 +29,12 @@ interface WarmProtocol {
 }
 
 function localDay(daysBack = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() - daysBack);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return librevilleDaysBack(daysBack);
 }
 
 /** The sales pages count their days in UTC (todayIso), unlike the dashboard. */
 function utcDay(daysBack = 0): string {
-  return new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return librevilleDaysBack(daysBack);
 }
 
 /** Whether the account reads a backend domain (`useMenuAccess().canRead`): an institution skips what would answer 403. */

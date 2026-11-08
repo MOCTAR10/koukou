@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { librevilleDay } from '../../lib/libreville';
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   PENDING: 'En attente',
@@ -33,8 +34,7 @@ export const DEFAULT_AVG_WEIGHT_KG = 1.8;
 
 /** Local date (YYYY-MM-DD): toISOString() would shift by one day around midnight. */
 export function localDateIso(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return librevilleDay(d);
 }
 
 export function addDaysIso(iso: string, days: number): string {

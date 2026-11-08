@@ -3,6 +3,7 @@ import { AlertTriangle, CalendarDays, Loader2, X } from 'lucide-react';
 import { ApiError } from '../api/client';
 import { checkTypedDate } from '../lib/dateInput';
 import { classNames, isoToFr } from '../lib/format';
+import { librevilleDay } from '../lib/libreville';
 
 export const inputCls =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
@@ -185,9 +186,9 @@ export function Modal({
   );
 }
 
-/** Today in the same UTC calendar the backend compares dates with. */
+/** Today on the Gabon calendar (the API tolerates a one-day lead over UTC). */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return librevilleDay();
 }
 
 /**
