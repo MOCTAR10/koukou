@@ -6,6 +6,32 @@ export function isUniqueViolation(err: unknown): boolean {
   return (err as { code?: unknown })?.code === '23505';
 }
 
+/** 23505 raised by a unique index on a generated reference (not an idempotency key). */
+export function isReferenceCollision(err: unknown): boolean {
+  if (!isUniqueViolation(err)) return false;
+  const e = err as { constraint?: string; detail?: string };
+  return /reference/i.test(`${e.constraint ?? ''} ${e.detail ?? ''}`);
+}
+
+/**
+ * Generated references (VTE-/CMD-/ECR- + 6 random digits) are checked before
+ * insert, but two concurrent transactions can still draw the same one: the
+ * loser fails with 23505. Re-run the whole unit of work (new draw) instead of
+ * answering 500.
+ */
+export async function retryOnReferenceCollision<T>(
+  work: () => Promise<T>,
+  attempts = 4,
+): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await work();
+    } catch (err) {
+      if (i >= attempts || !isReferenceCollision(err)) throw err;
+    }
+  }
+}
+
 /**
  * Offline replay guard: runs `create` unless a row with the same
  * (farmId, idempotencyKey) already exists, in which case that row is returned.

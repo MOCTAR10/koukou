@@ -454,6 +454,25 @@ export class AccountingService {
       .getOne();
   }
 
+  /**
+   * Refuses (400) a business operation dated inside a CLOSED exercice: its
+   * result was already carried forward, a late entry would silently change a
+   * frozen year. Called by the write paths that accept a back-dated `date`.
+   */
+  async assertPeriodOpen(
+    em: EntityManager,
+    farmId: string,
+    date: string | null | undefined,
+  ): Promise<void> {
+    if (!date) return;
+    const exercice = await this.exerciceAt(em, farmId, date);
+    if (exercice?.status === ExerciceStatus.CLOSED) {
+      throw new BadRequestException(
+        `L’exercice « ${exercice.label} » est clôturé : impossible d’enregistrer une opération datée du ${date}.`,
+      );
+    }
+  }
+
   /** Retourne l'exercice courant contenant `date`, en le créant si besoin. */
   async ensureExercice(
     em: EntityManager,
@@ -529,7 +548,7 @@ export class AccountingService {
           await this.post(em, {
             farmId,
             date: session.closedAt
-              ? session.closedAt.toISOString().slice(0, 10)
+              ? todayLocal(session.closedAt)
               : session.openedAt,
             label: `Clôture de caisse du ${session.openedAt} — écart`,
             source: 'CAISSE',
@@ -664,7 +683,7 @@ export class AccountingService {
           const recognized = await this.netSaleRevenue(em, farmId, sale.id);
           if (recognized <= 0) continue;
           const cancelledDate = sale.cancelledAt
-            ? sale.cancelledAt.toISOString().slice(0, 10)
+            ? todayLocal(sale.cancelledAt)
             : sale.saleDate;
           const refunded = movements
             .filter(
@@ -1296,7 +1315,7 @@ export class AccountingService {
         const outKg = t.unit === FeedUnit.SAC ? out * sacKg : out;
         const outLotUnits = lot.unit === FeedUnit.KG ? outKg : outKg / sacKg;
         removedQty += outLotUnits;
-        if (asOf && t.createdAt.toISOString().slice(0, 10) > asOf) {
+        if (asOf && todayLocal(t.createdAt) > asOf) {
           removedAfterAsOfQty += outLotUnits;
         }
       }

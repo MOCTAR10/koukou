@@ -66,6 +66,7 @@ import { CashMovement } from '../finance/entities/cash-movement.entity.js';
 import { CashSession } from '../finance/entities/cash-session.entity.js';
 import { Customer } from '../finance/entities/customer.entity.js';
 import { Payment } from '../finance/entities/payment.entity.js';
+import { refundByAccount } from '../accounting/posting-map.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
 import { normalizePhone, CustomersService } from '../finance/customers.service.js';
@@ -96,6 +97,7 @@ import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import { todayLocal } from '../../common/utils/date.utils.js';
+import { retryOnReferenceCollision } from '../../common/utils/idempotency.js';
 
 const ORDER_PREFIX = 'CMD';
 const ORDERABLE_TYPES = [
@@ -236,8 +238,10 @@ export class OrdersService {
       }
     }
 
-    const order = await this.dataSource.transaction((em) =>
-      this.createWithin(em, user, farm, dto),
+    const order = await retryOnReferenceCollision(() =>
+      this.dataSource.transaction((em) =>
+        this.createWithin(em, user, farm, dto),
+      ),
     ).catch(async (err: unknown) => {
       // Deux créations concurrentes avec la même clé : l'index unique
       // (ferme, clé) tranche → on renvoie la commande existante.
@@ -1059,54 +1063,84 @@ export class OrdersService {
   ): Promise<void> {
     if (paid <= total) return;
     const excess = paid - total;
-    const session = await em.getRepository(CashSession).findOne({
-      where: { farmId, status: CashSessionStatus.OPEN },
-      lock: { mode: 'pessimistic_write' },
-    });
-    if (!session) {
-      throw new BadRequestException(
-        `Le total final (${total} FCFA) est inférieur aux acomptes encaissés (${paid} FCFA) : ouvrir une session de caisse pour tracer le remboursement de ${excess} FCFA.`,
-      );
-    }
-    const movements = await em.getRepository(CashMovement).find({
-      where: { cashSessionId: session.id },
-    });
-    let inFcfa = 0;
-    let outFcfa = 0;
-    for (const m of movements) {
-      if (m.type === CashMovementType.IN) inFcfa += m.amountFcfa;
-      else outFcfa += m.amountFcfa;
-    }
-    const available = session.openingBalanceFcfa + inFcfa - outFcfa;
-    if (excess > available) {
-      throw new BadRequestException(
-        `Remboursement du surplus d'acompte (${excess} FCFA) refusé : solde de caisse disponible ${available} FCFA. Une caisse ne peut pas être négative.`,
-      );
-    }
-    const movement = await em.getRepository(CashMovement).save(
-      em.getRepository(CashMovement).create({
-        farmId,
-        cashSessionId: session.id,
-        type: CashMovementType.OUT,
-        source: CashMovementSource.REFUND,
-        amountFcfa: excess,
-        reason: `Remboursement surplus d'acomptes commande ${order.referenceNumber}`,
-        saleId: sale.id,
-        movementDate: todayLocal(),
-        createdById: order.createdById ?? null,
-      }),
-    );
 
-    // Comptabilité : surplus d'acompte rendu → Clients / Caisse.
+    // Give the excess back by the method it came in with (newest payment
+    // first): only the cash part moves the caisse, a mobile-money deposit is
+    // returned outside the register.
+    const payments = await em.getRepository(Payment).find({
+      where: { saleId: sale.id, status: PaymentStatus.CONFIRMED },
+      order: { createdAt: 'DESC' },
+    });
+    let left = excess;
+    const refunds: { method: string; amountFcfa: number }[] = [];
+    for (const p of payments) {
+      if (left <= 0) break;
+      const part = Math.min(left, p.amountFcfa);
+      refunds.push({ method: p.method, amountFcfa: part });
+      left -= part;
+    }
+    const cashExcess = refunds
+      .filter((r) => r.method === PaymentMethod.CASH)
+      .reduce((n, r) => n + r.amountFcfa, 0);
+
+    let movementId = `${order.id}:${total}`;
+    let movementDate = todayLocal();
+    if (cashExcess > 0) {
+      const session = await em.getRepository(CashSession).findOne({
+        where: { farmId, status: CashSessionStatus.OPEN },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!session) {
+        throw new BadRequestException(
+          `Le total final (${total} FCFA) est inférieur aux acomptes encaissés (${paid} FCFA) : ouvrir une session de caisse pour tracer le remboursement de ${cashExcess} FCFA.`,
+        );
+      }
+      const movements = await em.getRepository(CashMovement).find({
+        where: { cashSessionId: session.id },
+      });
+      let inFcfa = 0;
+      let outFcfa = 0;
+      for (const m of movements) {
+        if (m.type === CashMovementType.IN) inFcfa += m.amountFcfa;
+        else outFcfa += m.amountFcfa;
+      }
+      const available = session.openingBalanceFcfa + inFcfa - outFcfa;
+      if (cashExcess > available) {
+        throw new BadRequestException(
+          `Remboursement du surplus d'acompte (${cashExcess} FCFA) refusé : solde de caisse disponible ${available} FCFA. Une caisse ne peut pas être négative.`,
+        );
+      }
+      const movement = await em.getRepository(CashMovement).save(
+        em.getRepository(CashMovement).create({
+          farmId,
+          cashSessionId: session.id,
+          type: CashMovementType.OUT,
+          source: CashMovementSource.REFUND,
+          amountFcfa: cashExcess,
+          reason: `Remboursement surplus d'acomptes commande ${order.referenceNumber}`,
+          saleId: sale.id,
+          movementDate,
+          createdById: order.createdById ?? null,
+        }),
+      );
+      movementId = movement.id;
+      movementDate = movement.movementDate;
+    }
+
+    // Comptabilité : surplus d'acompte rendu → Clients / Trésorerie.
     await this.accountingService.post(em, {
       farmId,
-      date: movement.movementDate,
+      date: movementDate,
       label: `Remboursement surplus d’acompte — ${order.referenceNumber}`,
       source: 'ORDER',
-      sourceId: `refund:${movement.id}`,
+      sourceId: `refund:${movementId}`,
       lines: [
         { account: '411', debit: excess, label: 'Clients — créances' },
-        { account: '571', credit: excess, label: 'Caisse — espèces' },
+        ...[...refundByAccount(refunds)].map(([account, amount]) => ({
+          account,
+          credit: amount,
+          label: 'Trésorerie — remboursement',
+        })),
       ],
       operatorId: order.createdById ?? null,
     });

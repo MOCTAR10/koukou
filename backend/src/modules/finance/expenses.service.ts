@@ -148,6 +148,7 @@ export class ExpensesService {
     cls: { category: ExpenseCategory; posteCharge: string },
   ): Promise<Expense> {
     return this.dataSource.transaction(async (em) => {
+      await this.accountingService.assertPeriodOpen(em, farmId, dto.expenseDate);
       let cashMovement: CashMovement | null = null;
       if (dto.paidByCaisse) {
         const session = await em.getRepository(CashSession).findOne({
@@ -270,6 +271,13 @@ export class ExpensesService {
       }
 
       const oldCategory = expense.category;
+      if (newCategory != null && newCategory !== oldCategory) {
+        await this.accountingService.assertPeriodOpen(
+          em,
+          farmId,
+          expense.expenseDate,
+        );
+      }
       if (newCategory != null) expense.category = newCategory;
       if (cls) expense.posteCharge = cls.posteCharge;
       // An empty (or null) text clears the field; absent keeps it.

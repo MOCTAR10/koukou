@@ -156,3 +156,19 @@ export function inputValueFcfa(input: {
   }
   return 0;
 }
+
+/**
+ * Montants à créditer par compte de trésorerie pour rendre des paiements
+ * (espèces 571, autres moyens 52) : un remboursement mobile money ne touche
+ * jamais la caisse.
+ */
+export function refundByAccount(
+  payments: { method: string; amountFcfa: number }[],
+): Map<string, number> {
+  const byAccount = new Map<string, number>();
+  for (const p of payments) {
+    const account = cashAccountForMethod(p.method);
+    byAccount.set(account, (byAccount.get(account) ?? 0) + p.amountFcfa);
+  }
+  return byAccount;
+}
