@@ -68,18 +68,20 @@ export type MenuRule =
 
 const consult = (domain: AccessDomain): MenuRule => ({ kind: 'grant', any: [[domain, 'CONSULTER']] });
 const fermia = (why: string): MenuRule => ({ kind: 'never', why });
+/** A farm module (reads farms/:id/…): it also needs a scope that reaches farms, or the page would be empty. */
+const farmPage = (domain: AccessDomain): MenuRule => ({ kind: 'grant', any: [[domain, 'CONSULTER']], farms: true });
 
 export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
-  '/app/dashboard': consult('TECHNIQUE'),
-  '/app/alerts': consult('TECHNIQUE'),
-  '/app/tasks': consult('TECHNIQUE'),
-  '/app/batches': consult('TECHNIQUE'),
-  '/app/activities': consult('TECHNIQUE'),
-  '/app/sanitary': consult('SANITAIRE'),
-  '/app/stock': consult('INTRANTS'),
-  '/app/slaughter': consult('TRACABILITE'),
-  '/app/reports': consult('ECONOMIQUE'),
-  '/app/expenses': consult('ECONOMIQUE'),
+  '/app/dashboard': farmPage('TECHNIQUE'),
+  '/app/alerts': farmPage('TECHNIQUE'),
+  '/app/tasks': farmPage('TECHNIQUE'),
+  '/app/batches': farmPage('TECHNIQUE'),
+  '/app/activities': farmPage('TECHNIQUE'),
+  '/app/sanitary': farmPage('SANITAIRE'),
+  '/app/stock': farmPage('INTRANTS'),
+  '/app/slaughter': farmPage('TRACABILITE'),
+  '/app/reports': farmPage('ECONOMIQUE'),
+  '/app/expenses': farmPage('ECONOMIQUE'),
   // The server refuses the list to scopes that reach no farm (AGGREGATE,
   // and FINANCED until the farmer consent exists): no dead entry.
   '/app/registre': { kind: 'grant', any: [['REGISTRE', 'CONSULTER']], farms: true },
@@ -103,20 +105,20 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   // --- end programme administration ---
   // POUFA W6: programme inputs, the farm deliveries, traceability (lots, code lookup, operators registry).
   '/app/intrants': consult('INTRANTS'),
-  '/app/livraisons': consult('INTRANTS'),
+  '/app/livraisons': farmPage('INTRANTS'),
   // POUFA visites: TECHNIQUE:CONSULTER (DGE, agent technique) or SANITAIRE:CONSULTER (veterinary services).
   '/app/visites': { kind: 'grant', any: [['TECHNIQUE', 'CONSULTER'], ['SANITAIRE', 'CONSULTER']] },
   '/app/tracabilite': { kind: 'grant', any: [['TRACABILITE', 'CONSULTER'], ['ADMINISTRATION', 'CONSULTER']] },
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   // POUFA lot A droits: Fermia modules, consultation only, granted through the matrix.
-  '/app/finance': consult('VENTES'),
-  '/app/orders': consult('VENTES'),
-  '/app/market': consult('MARCHE'),
-  '/app/points-of-sale': consult('VENTES'),
-  '/app/accounting': consult('COMPTABILITE'),
-  '/app/team': consult('EQUIPE'),
-  '/app/hr': consult('EQUIPE'),
+  '/app/finance': farmPage('VENTES'),
+  '/app/orders': farmPage('VENTES'),
+  '/app/market': farmPage('MARCHE'),
+  '/app/points-of-sale': farmPage('VENTES'),
+  '/app/accounting': farmPage('COMPTABILITE'),
+  '/app/team': farmPage('EQUIPE'),
+  '/app/hr': farmPage('EQUIPE'),
   // The server returns nothing outside a farm scope (BCEG FINANCED, MAEDR AGGREGATE…): no entry there.
   '/app/economie': { kind: 'grant', any: [['ECONOMIQUE', 'CONSULTER']], farms: true },
   // POUFA lot A droits (end)

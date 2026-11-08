@@ -307,7 +307,29 @@ describe('POUFA visites menu row', () => {
 describe('POUFA W6 menu rows', () => {
   it('maps the inputs and traceability pages to their domains', () => {
     expect(menuRuleFor('/app/intrants')).toEqual({ kind: 'grant', any: [['INTRANTS', 'CONSULTER']] });
-    expect(menuRuleFor('/app/livraisons')).toEqual({ kind: 'grant', any: [['INTRANTS', 'CONSULTER']] });
+    expect(menuRuleFor('/app/livraisons')).toEqual({ kind: 'grant', any: [['INTRANTS', 'CONSULTER']], farms: true });
     expect(menuRuleFor('/app/tracabilite/operateurs')).toEqual(INSTITUTION_MENU['/app/tracabilite']);
+  });
+});
+
+describe('farm modules need a scope that reaches farms', () => {
+  it('hides them from aggregate, financed and audit scopes, even when the domain is granted', () => {
+    const farmPages = ['/app/dashboard', '/app/batches', '/app/sanitary', '/app/stock', '/app/reports', '/app/finance/ventes', '/app/team'];
+    const all: AccessMatrix = { TECHNIQUE: ['CONSULTER'], SANITAIRE: ['CONSULTER'], INTRANTS: ['CONSULTER'], ECONOMIQUE: ['CONSULTER'], VENTES: ['CONSULTER'], EQUIPE: ['CONSULTER'] };
+    for (const kind of ['AGGREGATE', 'FINANCED', 'AUDIT'] as ScopeKind[]) {
+      for (const page of farmPages) expect(institutionShowsEntry(page, p(kind, all))).toBe(false);
+    }
+    for (const kind of ['ALL', 'PROVINCES', 'FARMS'] as ScopeKind[]) {
+      for (const page of farmPages) expect(institutionShowsEntry(page, p(kind, all))).toBe(true);
+    }
+  });
+  it('MAEDR and ANINF see no farm module', () => {
+    for (const page of Object.keys(INSTITUTION_MENU).filter((k) => {
+      const r = INSTITUTION_MENU[k];
+      return r.kind === 'grant' && r.farms;
+    })) {
+      expect(institutionShowsEntry(page, MAEDR)).toBe(false);
+      expect(institutionShowsEntry(page, ANINF)).toBe(false);
+    }
   });
 });
