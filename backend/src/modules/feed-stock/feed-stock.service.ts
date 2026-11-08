@@ -964,19 +964,20 @@ export class FeedStockService {
         where: { batchId: In(batchIds), entryDate: MoreThanOrEqual(since) },
       });
       if (windowEntries.length > 0) {
-        const daysInWindow = new Set(windowEntries.map((e) => e.entryDate))
-          .size;
         for (const phase of Object.values(FeedPhase)) {
-          const sum = windowEntries
-            .filter(
-              (e) =>
-                (e.feedPhase ??
-                  FOOD_TYPE_TO_FEED_PHASE[e.feedType ?? ''] ??
-                  null) === phase,
-            )
-            .reduce((s, e) => s + e.feedQuantity, 0);
-          if (sum > 0) {
-            dailyAvgByPhase.set(phase, round(sum / daysInWindow, 2));
+          const phaseEntries = windowEntries.filter(
+            (e) =>
+              (e.feedPhase ??
+                FOOD_TYPE_TO_FEED_PHASE[e.feedType ?? ''] ??
+                null) === phase && e.feedQuantity > 0,
+          );
+          const sum = phaseEntries.reduce((s, e) => s + e.feedQuantity, 0);
+          // Average over the days that consumed THIS phase: a day with only
+          // another phase (phase switch) or no feed (mortality-only entry)
+          // must not halve the average and double the autonomy.
+          const phaseDays = new Set(phaseEntries.map((e) => e.entryDate)).size;
+          if (sum > 0 && phaseDays > 0) {
+            dailyAvgByPhase.set(phase, round(sum / phaseDays, 2));
           }
         }
       }

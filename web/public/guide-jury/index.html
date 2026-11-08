@@ -201,7 +201,7 @@ const D = {"slides":[{"id":"couverture","kind":"cover","label":"Fermia, platefor
     $('#notesWrap').style.display = sl.notes || sl.kind === 'fig' ? '' : 'none';
     document.title = sl.title + ' · Fermia · Guide du jury';
     $('#page').style.display = ov ? 'none' : '';
-    $('#ov').style.display = ov ? '' : 'none';
+    $('#ov').classList.toggle('hidden', !ov); // the class, not the style: Tailwind's .hidden wins over display ''
     $('#ovBtn').setAttribute('aria-pressed', String(ov));
     renderSide();
   }
