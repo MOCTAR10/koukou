@@ -173,6 +173,8 @@ function NavItems({ items, onNavigate }: { items: Array<{ to: string; label: str
   );
 }
 
+const HELP_PATH = '/app/help';
+
 export function Shell() {
   const { user, logout } = useAuth();
   const { farms, farmId, farm, setFarm, farmsLoading, farmsFailed, refetchFarms } = useFarm();
@@ -236,7 +238,14 @@ export function Shell() {
   ];
   // Platform admin and institutions work from the programme console: programme sections first, farm modules folded below.
   const consoleMode = isAdmin || user?.role === 'INSTITUTION';
-  const programmeItems = consoleMode ? [...adminItems].sort((a, b) => programmeRank(a.to) - programmeRank(b.to)) : adminItems;
+  // The help is not a farm module: in the console it closes the programme list, so an account with no
+  // farm module (MAEDR, ANINF, BCEG…) gets no « Modules de gestion des fermes » section at all.
+  const programmeItems = consoleMode
+    ? [
+        ...[...adminItems].sort((a, b) => programmeRank(a.to) - programmeRank(b.to)),
+        ...(showEntry(HELP_PATH) ? [{ to: HELP_PATH, label: 'Aide', icon: LifeBuoy }] : []),
+      ]
+    : adminItems;
   const nav = NAV.map((group) => ({
     ...group,
     items: [
@@ -245,7 +254,10 @@ export function Shell() {
         : []),
       // Without a farm, only the pages that work without one.
       ...group.items.filter(
-        (item) => (space === 'ready' || worksWithoutFarm(item.to)) && showEntry(item.to, item.perms),
+        (item) =>
+          !(consoleMode && item.to === HELP_PATH) &&
+          (space === 'ready' || worksWithoutFarm(item.to)) &&
+          showEntry(item.to, item.perms),
       ),
     ],
   })).filter((group) => group.items.length > 0);
