@@ -325,9 +325,9 @@ export function CustomerDetail({
               <Figure label="Total dépensé" value={fcfa(stats.data.totalSpentFcfa)} icon={<Coins />} />
               <Figure label="Panier moyen" value={fcfa(stats.data.avgBasketFcfa)} icon={<ShoppingCart />} />
             </div>
-            {stats.data.favorites.length > 0 ? (
+            {(stats.data.favorites?.length ?? 0) > 0 ? (
               <p className="text-sm text-slate-500">
-                Aime : {stats.data.favorites.map((f) => f.label || productTypeLabel(f.productType)).join(', ')}
+                Aime : {(stats.data.favorites ?? []).map((f) => f.label || productTypeLabel(f.productType)).join(', ')}
               </p>
             ) : null}
             {stats.data.lastPurchaseDate ? (

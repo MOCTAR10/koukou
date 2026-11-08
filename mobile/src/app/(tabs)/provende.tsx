@@ -56,6 +56,7 @@ import type {
 import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 import { FEED_STOCK_WARN_DAYS } from '@/constants/stock';
 import { errorText } from '@/api/errorText';
+import { parseDecimalFr } from '@/utils/number';
 
 const MOVEMENT_TYPE_LABEL: Record<FeedMovementType, string> = {
   CONSOMMATION: 'Consommation',
@@ -728,7 +729,7 @@ export default function ProvendeScreen() {
               <NumberInput
                 value={lossQty > 0 ? String(lossQty) : ''}
                 onChangeText={(t) => {
-                  const next = lossUnit === 'KG' ? parseFloat(t) || 0 : parseInt(t, 10) || 0;
+                  const next = lossUnit === 'KG' ? parseDecimalFr(t) ?? 0 : parseInt(t, 10) || 0;
                   setLossQty(Math.min(next, lossCap));
                   setLossError(null);
                 }}

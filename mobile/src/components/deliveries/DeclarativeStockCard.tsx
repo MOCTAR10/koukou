@@ -12,6 +12,7 @@ import { fetchDeclarativeStock } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { fmtQty, sortStockRows } from '@/poufa/deliveries';
 import { color, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 /**
  * Declarative stock of the programme inputs (CDC 18): received minus what the
@@ -39,7 +40,7 @@ export function DeclarativeStockCard({ farmId }: { farmId: string }) {
           <Spinner label="Lecture du stock…" />
         ) : stock.isError ? (
           <AppText size="caption" color="danger" style={styles.pad}>
-            {stock.error instanceof Error ? stock.error.message : 'Stock indisponible.'}
+            {errorText(stock.error, 'Stock indisponible.')}
           </AppText>
         ) : rows.length === 0 ? (
           <AppText size="caption" color="muted" style={styles.pad}>

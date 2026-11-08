@@ -19,6 +19,7 @@ import { invalidateFarmQueries } from '@/api/invalidate';
 import { fetchBuildings, fetchBreeds, fetchBreedStandards, fetchProtocols, fetchSanitaryProgram } from '@/api';
 import type { BatchType, Building, FeedPhase, Species } from '@/api/types';
 import { endOfLayStandard } from '@/constants/flock';
+import { errorText } from '@/api/errorText';
 // POUFA lot A bande: average weight on arrival (MAX_ARRIVAL_WEIGHT_G, parseArrivalWeightG).
 import {
   addIsoDays,
@@ -1436,7 +1437,7 @@ export function CreateLotSheet({ visible, onClose, prefill, onCreated }: CreateL
       <View style={styles.submitArea}>
         {createMutation.isError && (
           <AppText size='small' color='danger'>
-            {(createMutation.error as Error).message ?? 'Erreur lors de la création'}
+            {errorText(createMutation.error, 'Erreur lors de la création')}
           </AppText>
         )}
         <Button

@@ -333,7 +333,7 @@ export function StockPage() {
 
       {tab === 'lots' && stock.data ? (
         <SectionCard title="Lots reçus" icon={<Package />} subtitle="Traçabilité fournisseur et péremption" flush>
-          {stock.data.lots.length === 0 ? (
+          {(stock.data.lots ?? []).length === 0 ? (
             <div className="p-4">
               <EmptyState message="Aucun lot reçu." icon={<Package />} />
             </div>
@@ -353,7 +353,7 @@ export function StockPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {stock.data.lots.map((l) => (
+                  {(stock.data.lots ?? []).map((l) => (
                     <tr key={l.id} className="border-t border-slate-100">
                       <Td className="font-medium">{l.productName}</Td>
                       <Td label="Type">

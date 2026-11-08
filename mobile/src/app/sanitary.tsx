@@ -96,6 +96,7 @@ import type {
 } from '@/api/types';
 import { color, palette, fontFamily, semantic } from '@/constants/theme';
 import { normalizeMortalityStatus } from '@/constants/health';
+import { INVALID_NUMBER_MESSAGE, parseDecimalFr } from '@/utils/number';
 import { ageZeroDay } from '@/utils/band';
 // POUFA M2: offline declaration (signs, suspicion, photos), vets' band list, official alerts.
 import { DeclarationExtras, useClinicalSigns } from '@/components/sanitary/DeclarationExtras';
@@ -1643,10 +1644,12 @@ function CreateScheduleWizard({
         setErr('Sélectionnez le lot de médicament à sortir du stock.');
         return;
       }
-      const qty = Number(medQty);
-      if (!Number.isFinite(qty) || qty <= 0 || qty > (selectedMed?.quantity ?? 0)) {
+      const qty = parseDecimalFr(medQty);
+      if (qty == null || qty <= 0 || qty > (selectedMed?.quantity ?? 0)) {
         setErr(
-          `Quantité invalide — il reste ${selectedMed?.quantity ?? 0} ${selectedMed?.doseUnit ?? medUnit} de « ${selectedMed?.productName ?? ''} ».`,
+          qty == null && medQty.trim() !== ''
+            ? INVALID_NUMBER_MESSAGE
+            : `Quantité invalide — il reste ${selectedMed?.quantity ?? 0} ${selectedMed?.doseUnit ?? medUnit} de « ${selectedMed?.productName ?? ''} ».`,
         );
         return;
       }
@@ -1674,7 +1677,7 @@ function CreateScheduleWizard({
         if (fromStock) {
           payload.decrementStock = true;
           payload.medicationLotId = medLotId;
-          payload.medicationQty = Number(medQty);
+          payload.medicationQty = parseDecimalFr(medQty) ?? 0;
           payload.medicationUnit = selectedMed?.doseUnit ?? medUnit;
         } else {
           payload.decrementStock = false;
@@ -2008,7 +2011,7 @@ function CreateScheduleWizard({
                 <AppText size="caption" color="muted">
                   {CARE_TYPE_LABEL[type]}
                   {activeMode === 'manuel' ? ` · le ${fmtFrDate(date || todayStr())}` : ''}
-                  {fromStock ? ` · sortie de stock ${Number(medQty) || 0} ${medUnit}` : ' · externe au stock'}
+                  {fromStock ? ` · sortie de stock ${parseDecimalFr(medQty) ?? 0} ${medUnit}` : ' · externe au stock'}
                   {route ? ` · ${route}` : ''}
                   {dosage.trim() ? ` · ${dosage.trim()}` : ''}
                   {withdrawal > 0 ? ` · délai d’attente ${withdrawal} j` : ''}

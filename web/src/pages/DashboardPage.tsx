@@ -352,7 +352,7 @@ function LivestockDashboard() {
               ))}
             </select>
           </div>
-          {curve.data?.weekly.length ? (
+          {curve.data?.weekly?.length ? (
             <>
               <LineChart
                 data={curve.data.weekly.map((w) => w.avgWeightKg ?? null)}

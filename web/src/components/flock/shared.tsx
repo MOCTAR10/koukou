@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { parseDecimalFr } from '../../lib/number';
 import { api } from '../../api/client';
 import type {
   AlertLevel,
@@ -144,10 +145,13 @@ export function daysBetween(a: string, b: string): number {
 
 /** Blank field = undefined, comma accepted as a decimal separator. */
 export function parseNum(raw: string): number | undefined {
-  const t = raw.trim().replace(',', '.');
-  if (t === '') return undefined;
-  const n = Number(t);
-  return Number.isFinite(n) ? n : undefined;
+  // Strict French reader: « 1 200,5 » parses, « 1,2,3 » or « abc » is undefined (never a silent 0).
+  return parseDecimalFr(raw) ?? undefined;
+}
+
+/** A typed number that doesn't read: for an inline « Nombre invalide » hint. */
+export function isInvalidNum(raw: string): boolean {
+  return raw.trim() !== '' && parseDecimalFr(raw) === null;
 }
 
 export function lotName(b: { batchName?: string | null } | null | undefined): string {

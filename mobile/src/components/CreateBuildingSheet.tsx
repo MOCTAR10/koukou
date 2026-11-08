@@ -10,6 +10,7 @@ import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { createBuilding, localYmd } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
+import { errorText } from '@/api/errorText';
 
 /**
  * Densités recommandées au Gabon (fin de cycle) :
@@ -260,7 +261,7 @@ export function CreateBuildingSheet({ visible, onClose }: CreateBuildingSheetPro
 
       {createMutation.isError && (
         <AppText size='small' color='danger'>
-          {(createMutation.error as Error).message ?? 'Erreur lors de la création'}
+          {errorText(createMutation.error, 'Erreur lors de la création')}
         </AppText>
       )}
       <Button

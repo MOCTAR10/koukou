@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import type { RefItem } from '../../api/types-programme';
 import type { CreateExpenseBody, Expense, ExpenseCategory, UpdateExpenseBody } from '../../api/types-finance';
 import { classNames, fcfa } from '../../lib/format';
+import { parseDecimalFr } from '../../lib/number';
 import { Button, ErrorNote, Field, Modal, inputCls } from '../form';
 
 export const EXPENSE_CATEGORIES: { key: ExpenseCategory; label: string; account: string }[] = [
@@ -68,7 +69,7 @@ export function ExpenseFormModal({
       }
       const body: CreateExpenseBody = {
         posteCharge: selectedPoste,
-        amountFcfa: Math.round(Number(amount)),
+        amountFcfa: Math.round(parseDecimalFr(amount) ?? 0),
         paidByCaisse,
         idempotencyKey,
         ...(label.trim() ? { label: label.trim() } : {}),
@@ -86,7 +87,7 @@ export function ExpenseFormModal({
       setFormError('Choisissez un poste de charge.');
       return;
     }
-    if (!editing && !(Math.round(Number(amount)) > 0)) {
+    if (!editing && !(Math.round(parseDecimalFr(amount) ?? 0) > 0)) {
       setFormError('Montant invalide.');
       return;
     }

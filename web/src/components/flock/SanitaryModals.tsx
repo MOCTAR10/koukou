@@ -37,10 +37,12 @@ import {
   kindLabel,
   localYmd,
   lotName,
+  isInvalidNum,
   parseNum,
   useInvalidateFarm,
   utcYmd,
 } from './shared';
+import { INVALID_NUMBER_MESSAGE } from '../../lib/number';
 // POUFA lot A2 sante: reference steps and the vets' product list (CDC n° 22-23).
 import { EMPTY_PRODUCT_LIST_NOTE, REFERENCE_STEP_HINT, UNKNOWN_PRODUCT_LIST_NOTE } from './sanitaryRecords';
 
@@ -738,6 +740,7 @@ export function PlanCareModal({
                   </Field>
                   <Field label="Quantité à sortir *">
                     <input className={inputCls} inputMode="decimal" value={medQty} onChange={(e) => setMedQty(e.target.value)} required />
+                    {isInvalidNum(medQty) ? <p className="mt-1 text-xs text-red-600">{INVALID_NUMBER_MESSAGE}</p> : null}
                   </Field>
                 </>
               ) : null}
@@ -785,7 +788,7 @@ export function PlanCareModal({
                   Aperçu pour {first.batchName ?? first.code ?? lotName(first)} (J{first.ageDays})
                 </p>
                 <ul className="max-h-48 space-y-0.5 overflow-y-auto text-sm text-slate-700">
-                  {program.data.steps
+                  {(program.data.steps ?? [])
                     .filter((s) => s.active)
                     .sort((a, b) => a.dayFrom - b.dayFrom)
                     .map((s) => {

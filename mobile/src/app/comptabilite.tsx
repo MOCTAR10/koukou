@@ -166,7 +166,7 @@ function ComptabiliteContent() {
       invalidate();
       toast.success('Comptabilité à jour', 'Plan comptable et historique passés en écritures.');
     },
-    onError: (e: Error) => toast.error('Synchronisation impossible', e.message),
+    onError: (e: Error) => toast.error('Synchronisation impossible', errorText(e)),
   });
 
   const exportPdf = async () => {
@@ -196,7 +196,7 @@ function ComptabiliteContent() {
       }
       toast.success('Exercice clôturé', `${res.exercice.label} est clôturé. ${res.next.label} est ouvert.${details.length ? `\n${details.join('\n')}` : ''}`);
     },
-    onError: (e: Error) => toast.error('Clôture impossible', e.message),
+    onError: (e: Error) => toast.error('Clôture impossible', errorText(e)),
   });
 
   const confirmClose = (ex: ExerciceInfo) => {
@@ -662,7 +662,7 @@ function RegularisationSheet({
       toast.success('Écriture posée', 'La régularisation équilibrée a été enregistrée au journal.');
       onDone();
     },
-    onError: (e: Error) => toast.error('Écriture refusée', e.message),
+    onError: (e: Error) => toast.error('Écriture refusée', errorText(e)),
   });
 
   return (

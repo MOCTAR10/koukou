@@ -8,6 +8,7 @@ import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
 import type { CustomerType, Farm, PublicUser } from '@/api/types';
 import { INVALID_LOGIN_ANSWER, isSessionRevoked, readLoginAnswer, resolveActiveFarmId, type OtpChallenge } from './session-rules';
+import { errorText } from '@/api/errorText';
 
 export interface RegisterBuyerInput {
   phone: string;
@@ -122,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await openSession(answer.accessToken, answer.user);
         return 'signed-in';
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Erreur inconnue lors de la connexion.');
+        setError(errorText(e, 'Erreur inconnue lors de la connexion.'));
         return 'failed';
       } finally {
         setBusy(false);
@@ -148,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setOtpChallenge(null);
         return true;
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Erreur inconnue lors de la vérification du code.');
+        setError(errorText(e, 'Erreur inconnue lors de la vérification du code.'));
         return false;
       } finally {
         setBusy(false);
@@ -172,7 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await openSession(answer.accessToken, answer.user);
         return true;
       } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : fallbackError);
+        setError(errorText(e, fallbackError));
         return false;
       } finally {
         setBusy(false);
