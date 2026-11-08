@@ -1,3 +1,4 @@
+import { librevilleDay } from '../../lib/libreville';
 /**
  * Filters of the steering screens (period, provinces, cohort, status) ↔ the
  * page URL and the API query strings. Pure, unit-tested. Mirrors the
@@ -30,9 +31,9 @@ export function isDay(value: string | null | undefined): value is string {
   return !!value && DAY_RE.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
-/** Today in UTC (the server's days are UTC). */
+/** Today on the Gabon calendar. */
 export function utcToday(now: Date = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return librevilleDay(now);
 }
 
 export function addDays(day: string, days: number): string {

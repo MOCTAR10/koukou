@@ -11,7 +11,7 @@ import { TextField } from '@/components/ui/TextField';
 import { confirm, errorMessage, toast } from '@/components/ui/Feedback';
 import { DateField, Labeled, PillRow } from '@/components/market/shared';
 import { invalidateFarmQueries } from '@/api/invalidate';
-import { localYmd } from '@/api/mutations';
+import { librevilleDay } from '@/utils/libreville';
 import { fetchOperators, fetchProgramList } from '@/api/poufa';
 import { cachedRead, isNetworkFailure } from '@/offline/ref-cache';
 import { createSortieQueued } from '@/offline';
@@ -41,11 +41,11 @@ interface Props {
  */
 export function SortieSheet({ visible, onClose, farmId, batch, has }: Props) {
   const qc = useQueryClient();
-  const [draft, setDraft] = useState<SortieDraft>(() => emptySortieDraft(localYmd(new Date())));
+  const [draft, setDraft] = useState<SortieDraft>(() => emptySortieDraft(librevilleDay()));
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (visible) setDraft(emptySortieDraft(localYmd(new Date())));
+    if (visible) setDraft(emptySortieDraft(librevilleDay()));
   }, [visible]);
 
   const reasons = useQuery({
@@ -69,7 +69,7 @@ export function SortieSheet({ visible, onClose, farmId, batch, has }: Props) {
     family,
     alive: batch.quantityAlive,
     integrationDate: batch.integrationDate,
-    today: localYmd(new Date()),
+    today: librevilleDay(),
     closed: batch.status === 'CLOTURE',
   });
   const set = (patch: Partial<SortieDraft>) => setDraft((d) => ({ ...d, ...patch }));

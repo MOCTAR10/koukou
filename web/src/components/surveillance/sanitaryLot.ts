@@ -1,6 +1,7 @@
 import type { Lot } from '../../api/types-flock';
 import type { SanitaryLotView } from '../../api/types-surveillance';
 import { ageZeroDay } from '../flock/band';
+import { librevilleDay } from '../../lib/libreville';
 
 /**
  * A band as the sanitary screens need it. Two sources: the farm's lots
@@ -49,7 +50,7 @@ export function refFromLot(lot: Lot): SanitaryLotRef {
 }
 
 /** `today` is the UTC day the server counted `ageDays` on. */
-export function refFromSanitaryLot(lot: SanitaryLotView, today: string = new Date().toISOString().slice(0, 10)): SanitaryLotRef {
+export function refFromSanitaryLot(lot: SanitaryLotView, today: string = librevilleDay()): SanitaryLotRef {
   return {
     id: lot.id,
     code: lot.code,

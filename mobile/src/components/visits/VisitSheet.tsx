@@ -10,7 +10,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { TextField } from '@/components/ui/TextField';
 import { confirm, errorMessage, toast } from '@/components/ui/Feedback';
 import { DateField, Labeled, PillRow } from '@/components/market/shared';
-import { localYmd } from '@/api/mutations';
+import { librevilleDay } from '@/utils/libreville';
 import { fetchBandHistory, fetchVisitGrid, type BiosecurityAnswer, type DeclarationPhoto, type VisitType } from '@/api/poufa';
 import { getCurrentPosition } from '@/location/current-position';
 import { cachedRead } from '@/offline/ref-cache';
@@ -42,14 +42,14 @@ const ANSWERS: BiosecurityAnswer[] = ['CONFORME', 'NON_CONFORME', 'NA'];
  */
 export function VisitSheet({ visible, onClose, farmId, onSaved }: { visible: boolean; onClose: () => void; farmId: string; onSaved: () => void }) {
   const qc = useQueryClient();
-  const [draft, setDraft] = useState<VisitDraft>(() => emptyVisitDraft(localYmd(new Date())));
+  const [draft, setDraft] = useState<VisitDraft>(() => emptyVisitDraft(librevilleDay()));
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [photos, setPhotos] = useState<DeclarationPhoto[]>([]);
 
   useEffect(() => {
     if (visible) {
-      setDraft(emptyVisitDraft(localYmd(new Date())));
+      setDraft(emptyVisitDraft(librevilleDay()));
       setPhotos([]);
     }
   }, [visible]);
@@ -72,7 +72,7 @@ export function VisitSheet({ visible, onClose, farmId, onSaved }: { visible: boo
   const score = scoreOf(criteria, draft.answers);
   const klass = classOf(score, thresholds);
   const band = (bands.data ?? []).find((b) => b.id === draft.batchId) ?? null;
-  const today = localYmd(new Date());
+  const today = librevilleDay();
   const refusal = visitRefusal(draft, { today, bandStart: band?.integrationDate });
   const set = (patch: Partial<VisitDraft>) => setDraft((d) => ({ ...d, ...patch }));
 

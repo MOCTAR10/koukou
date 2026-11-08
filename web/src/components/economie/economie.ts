@@ -2,6 +2,7 @@ import type { Role } from '../../api/client';
 import type { EconomieColumns, EconomieFormat, EconomieRow } from '../../api/types-economie';
 import type { MyAccess } from '../../api/types-access';
 import { grantsAccess, scopeReachesFarms } from '../../app/menu-access';
+import { librevilleDay } from '../../lib/libreville';
 
 /**
  * POUFA lot A droits: pure rules of the programme economic synthesis
@@ -28,10 +29,8 @@ export interface EconomieFilters {
 
 /** Default period: the 1st of the current month to today (local dates). */
 export function defaultPeriod(now: Date = new Date()): { from: string; to: string } {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const y = now.getFullYear();
-  const m = pad(now.getMonth() + 1);
-  return { from: `${y}-${m}-01`, to: `${y}-${m}-${pad(now.getDate())}` };
+  const to = librevilleDay(now);
+  return { from: `${to.slice(0, 7)}-01`, to };
 }
 
 /** French error of the period, or null. */

@@ -303,7 +303,7 @@ function scoreHex(score: number): string {
 }
 
 // Les dates sanitaires sont stockées en UTC (YYYY-MM-DD) côté serveur.
-const fromUtc = (epochMs: number) => new Date(epochMs).toISOString().slice(0, 10);
+const fromUtc = (epochMs: number) => librevilleDay(epochMs);
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 
 type CareStatus = {

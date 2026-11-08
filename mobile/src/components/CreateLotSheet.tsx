@@ -14,6 +14,7 @@ import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES } from '@/constants/breedImages';
 import { useAuth } from '@/auth/AuthContext';
 import { createBatch, createTreatment, localYmd } from '@/api/mutations';
+import { librevilleDay } from '@/utils/libreville';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { fetchBuildings, fetchBreeds, fetchBreedStandards, fetchProtocols, fetchSanitaryProgram } from '@/api';
 import type { BatchType, Building, FeedPhase, Species } from '@/api/types';
@@ -56,7 +57,7 @@ function digitsOnly(text: string): string {
 
 /** Today's local day (module scope: keeps `Date.now` out of render). */
 function todayYmd(): string {
-  return localYmd(new Date());
+  return librevilleDay();
 }
 
 /** `YYYY-MM-DD` → local midnight Date (for the date-based advisory). */
