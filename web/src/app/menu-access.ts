@@ -62,6 +62,8 @@ export type MenuRule =
       any: ReadonlyArray<readonly [AccessDomain, AccessAction]>;
       /** The page also needs a scope that reaches farms (ALL, PROVINCES, FARMS), like the server. */
       farms?: boolean;
+      /** The page needs the national scope (ALL), like the server's data recovery routes. */
+      national?: boolean;
     };
 
 const consult = (domain: AccessDomain): MenuRule => ({ kind: 'grant', any: [[domain, 'CONSULTER']] });
@@ -95,7 +97,7 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
     ],
   },
   '/app/audit': consult('AUDIT'),
-  '/app/reprise': consult('REGISTRE'),
+  '/app/reprise': { kind: 'grant', any: [['REGISTRE', 'CONSULTER']], national: true },
   // --- end programme administration ---
   // POUFA W6: programme inputs, the farm deliveries, traceability (lots, code lookup, operators registry).
   '/app/intrants': consult('INTRANTS'),
@@ -165,6 +167,7 @@ function ruleAllows(rule: MenuRule, access: Pick<MyAccess['profile'], 'matrix' |
   if (rule.kind === 'always') return true;
   if (rule.kind === 'never') return false;
   if (rule.farms && !scopeReachesFarms(access.scopeKind)) return false;
+  if (rule.national && access.scopeKind !== 'ALL') return false;
   return rule.any.some(([d, a]) => grantsAccess(access, d, a));
 }
 

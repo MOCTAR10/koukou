@@ -185,6 +185,10 @@ describe('Fermia modules for institutions (POUFA lot A droits)', () => {
     // The synthesis needs a farm scope: the BCEG (FINANCED) holds ECONOMIQUE but reaches no farm yet.
     expect(institutionShowsEntry('/app/economie', p('FINANCED', { ECONOMIQUE: ['CONSULTER'] }))).toBe(false);
     expect(institutionShowsEntry('/app/economie', p('AGGREGATE', { ECONOMIQUE: ['CONSULTER'] }))).toBe(false);
+    // data recovery is national only (RecoveryPage + server imports)
+    expect(institutionShowsEntry('/app/reprise', DGE)).toBe(true);
+    expect(institutionShowsEntry('/app/reprise', p('FINANCED', { REGISTRE: ['CONSULTER'] }))).toBe(false);
+    expect(institutionShowsEntry('/app/reprise', AGENT_TECHNIQUE)).toBe(false);
   });
 });
 
