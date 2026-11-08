@@ -21,6 +21,7 @@ import type { Alert } from '../api/types';
 import type { AdvisoryNextActions, NextAction, OwnerDashboard } from '../api/types-sales';
 import { useFarm } from '../app/FarmContext';
 import { useFarmProfile } from '../app/useFarmProfile';
+import { useMenuAccess } from '../app/useMenuAccess';
 import { Button, ErrorNote, todayIso } from '../components/form';
 // POUFA lot A2 sante: « Fait » through the shared completion form and the offline queue (CDC n° 22).
 import { CompleteCareModal, type CareLotRef, type CompletableCare } from '../components/flock/CompleteCareModal';
@@ -89,6 +90,7 @@ function ActionRow({
   onCare: () => void;
 }) {
   const { hasPermission } = useFarmProfile();
+  const { canWrite } = useMenuAccess();
   const [open, setOpen] = useState(false);
   const isReady = action.id.startsWith('ready:');
   const why = recommendation ?? action.description;
@@ -104,7 +106,7 @@ function ActionRow({
     if (action.acknowledged) return <span className="text-xs font-medium text-slate-400">Acquittée</span>;
     switch (action.category) {
       case 'ALERTE':
-        return action.alertId ? (
+        return action.alertId && canWrite('TECHNIQUE') ? (
           <Button className="px-2.5 py-1 text-xs" busy={acking} onClick={onAck}>
             <Check className="h-3.5 w-3.5" /> Acquitter
           </Button>

@@ -106,7 +106,7 @@ export function SalesPage() {
 
   const allPos = useMemo(() => pointsOfSale.data ?? [], [pointsOfSale.data]);
   const activePos = useMemo(() => allPos.filter((p) => p.isActive), [allPos]);
-  const pos = activePos.find((p) => p.id === posId) ?? null;
+  const pos = canSell ? (activePos.find((p) => p.id === posId) ?? null) : null;
   const isBoutique = pos?.kind === 'BOUTIQUE';
   const onlyPosId = activePos.length === 1 ? activePos[0]!.id : '';
 

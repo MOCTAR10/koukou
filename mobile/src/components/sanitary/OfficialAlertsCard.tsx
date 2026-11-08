@@ -13,6 +13,7 @@ import { cachedRead } from '@/offline/ref-cache';
 import { officialAlertRows } from '@/poufa/official-alerts';
 import { palette, semantic } from '@/constants/theme';
 import { useClinicalSigns } from './DeclarationExtras';
+import { errorText } from '@/api/errorText';
 
 /**
  * Official sanitary alerts of the farm (L5 `SanitaryAlert`, `AS-YYYY-NNNN`):
@@ -51,7 +52,7 @@ export function OfficialAlertsCard({ farmId }: { farmId: string }) {
           <Spinner label="Lecture des alertes officielles…" />
         ) : alerts.isError ? (
           <AppText size="caption" color="danger" style={styles.pad}>
-            {alerts.error instanceof Error ? alerts.error.message : 'Alertes officielles indisponibles.'}
+            {errorText(alerts.error, 'Alertes officielles indisponibles.')}
           </AppText>
         ) : rows.length === 0 ? (
           <AppText size="caption" color="muted" style={styles.pad}>

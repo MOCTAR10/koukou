@@ -21,6 +21,7 @@ import {
   pendingStateDeliveries,
 } from '../supply/stateDeliveryMatch';
 import { farmDeliveryRights } from '../supply/supplyAccess';
+import { INVALID_NUMBER_MESSAGE } from '../../lib/number';
 import { Button, ErrorNote, Field, Modal, inputCls, DateInput } from '../form';
 import {
   ENTRY_TYPE_LABEL,
@@ -31,6 +32,7 @@ import {
   Note,
   Tabs,
   localYmd,
+  isInvalidNum,
   parseNum,
   phaseLabel,
   useInvalidateFarm,
@@ -475,6 +477,7 @@ export function LossModal({ stock, onClose }: { stock: FeedStockSummary | undefi
         <div className="grid gap-4 sm:grid-cols-2">
           <IconField label="Quantité perdue *" icon={<PackageX />}>
             <input className={inputCls} inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} required />
+            {isInvalidNum(quantity) ? <p className="mt-1 text-xs text-red-600">{INVALID_NUMBER_MESSAGE}</p> : null}
           </IconField>
           <Field label="Unité" hint={unit === 'SAC' ? `Sac de ${sacKg} kg` : undefined}>
             <select className={inputCls} value={unit} onChange={(e) => setUnit(e.target.value as 'KG' | 'SAC')}>

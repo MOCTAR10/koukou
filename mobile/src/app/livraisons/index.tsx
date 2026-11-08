@@ -28,6 +28,7 @@ import {
   queuedDeliveryIds,
 } from '@/poufa/deliveries';
 import { color, palette, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 function frDay(iso: string | null): string {
   if (!iso) return '—';
@@ -122,7 +123,7 @@ export default function DeliveriesScreen() {
       ) : list.isError ? (
         <Card style={styles.card}>
           <AppText size="body" color="danger">
-            {list.error instanceof Error ? list.error.message : 'Livraisons indisponibles.'}
+            {errorText(list.error, 'Livraisons indisponibles.')}
           </AppText>
         </Card>
       ) : (

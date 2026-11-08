@@ -1273,7 +1273,7 @@ export default function LotDetailScreen() {
                 onPrimary={(alert) => {
                   if (alert.category === 'ALERTE' && alert.alertId) {
                     acknowledgeAlert(farmId, alert.alertId)
-                      .catch(() => {})
+                      .catch((e) => toast.error('Acquittement impossible', errorText(e, 'Réessayez.')))
                       .finally(() => void advisoryQ.refetch());
                   } else if (alert.category === 'SOIN') {
                     setMainTab('health');

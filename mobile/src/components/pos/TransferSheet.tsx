@@ -29,6 +29,7 @@ import { librevilleDay } from '@/utils/libreville';
 import { formatEggAlveoles } from './helpers';
 import { transferRemaining } from './catalog';
 import { errorText } from '@/api/errorText';
+import { parseDecimalFr } from '@/utils/number';
 
 const EGG_FALLBACK_MAX_ALVEOLES = 100000;
 const DEFAULT_SACK_KG = 50;
@@ -635,7 +636,7 @@ export function TransferSheet({
               <NumberInput
                 value={quantity > 0 ? String(quantity) : ''}
                 onChangeText={(t) => {
-                  const next = unit === 'KG' ? parseFloat(t) || 0 : parseInt(t, 10) || 0;
+                  const next = unit === 'KG' ? parseDecimalFr(t) ?? 0 : parseInt(t, 10) || 0;
                   setQuantity(Math.min(next, Math.max(maxQuantity, 1)));
                   setError(null);
                 }}

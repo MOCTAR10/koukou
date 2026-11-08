@@ -150,9 +150,9 @@ export function PlatformPage() {
               <div className="space-y-4">
                 <Card className="p-4">
                   <h2 className="mb-3 text-sm font-semibold text-slate-700">Alertes actives par niveau</h2>
-                  {metrics.data.alerts.byLevel.length ? (
+                  {metrics.data.alerts?.byLevel?.length ? (
                     <div className="flex flex-wrap gap-2">
-                      {metrics.data.alerts.byLevel.map((l) => (
+                      {(metrics.data.alerts?.byLevel ?? []).map((l) => (
                         <Link
                           key={l.level}
                           to="/app/alerts"

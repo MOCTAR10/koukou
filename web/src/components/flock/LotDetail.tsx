@@ -61,7 +61,7 @@ import type {
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
-import { useCanRead } from '../../app/useMenuAccess';
+import { useCanRead, useMenuAccess } from '../../app/useMenuAccess';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { dateFr, fcfa, num, plural } from '../../lib/format';
 import { BarChart, LineChart } from '../Charts';
@@ -376,6 +376,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canRead = useCanRead();
+  const canAck = useMenuAccess().canWrite('TECHNIQUE');
   const canReports = hasPermission('compta:rapports') && canRead('ECONOMIQUE');
   const invalidate = useInvalidateFarm();
   const m = lot.metrics;
@@ -681,6 +682,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
                       <p className="mt-1 text-sm font-medium text-slate-800">{a.title}</p>
                       <p className="text-xs text-slate-500">{a.description}</p>
                     </div>
+                    {canAck ? (
                     <Button
                       tone="secondary"
                       className="shrink-0"
@@ -694,6 +696,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
                     >
                       <Check className="h-4 w-4" /> Acquitter
                     </Button>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -833,7 +836,7 @@ function CurvesTab({ lot }: { lot: Lot }) {
       <ChartCard title="Morts par semaine" icon={<Skull />} iconTone="red" hint="Tout pic mérite une visite du bâtiment.">
         <BarChart data={weekly.map((w) => w.deaths)} labels={labels} color="#dc2626" />
       </ChartCard>
-      {isLayer && pondage.data?.weekly.length ? (
+      {isLayer && pondage.data?.weekly?.length ? (
         <ChartCard title="Taux de ponte (%)" icon={<Egg />} iconTone="accent" hint="Œufs collectés rapportés aux poules présentes.">
           <Line
             data={pondage.data.weekly.map((w) => w.layRatePercent)}
