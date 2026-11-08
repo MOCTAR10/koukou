@@ -6,7 +6,7 @@ export function fcfa(n: number | null | undefined): string {
 }
 
 export function fcfaShort(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(n)) return '—';
+  if (n == null || !Number.isFinite(n)) return '—';
   const abs = Math.abs(n);
   if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')} M FCFA`;
   if (abs >= 1_000) return `${(n / 1_000).toFixed(0)} k FCFA`;
