@@ -307,7 +307,7 @@ describe('POUFA visites menu row', () => {
 describe('POUFA W6 menu rows', () => {
   it('maps the inputs and traceability pages to their domains', () => {
     expect(menuRuleFor('/app/intrants')).toEqual({ kind: 'grant', any: [['INTRANTS', 'CONSULTER']] });
-    expect(menuRuleFor('/app/livraisons')).toEqual({ kind: 'grant', any: [['INTRANTS', 'CONSULTER']] });
+    expect(menuRuleFor('/app/livraisons')).toEqual({ kind: 'grant', any: [['INTRANTS', 'CONSULTER']], farms: true });
     expect(menuRuleFor('/app/tracabilite/operateurs')).toEqual(INSTITUTION_MENU['/app/tracabilite']);
   });
 });
