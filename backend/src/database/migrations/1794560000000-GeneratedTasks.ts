@@ -4,8 +4,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Tasks generated from the programmes: origin (`source`) and step (`step_id`)
  * of a task, unique per batch + source + step so regenerating never duplicates.
  */
-export class GeneratedTasks1794550000000 implements MigrationInterface {
-  name = 'GeneratedTasks1794550000000';
+export class GeneratedTasks1794560000000 implements MigrationInterface {
+  name = 'GeneratedTasks1794560000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
