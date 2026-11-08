@@ -1135,6 +1135,8 @@ export interface CreateExpenseInput {
   /** Sortie de caisse automatique (session ouverte requise). */
   paidByCaisse?: boolean;
   batchId?: string;
+  /** Replay guard: one per sheet opening; a repeat returns the stored expense. */
+  idempotencyKey?: string;
 }
 
 export function createExpense(farmId: string, input: CreateExpenseInput): Promise<Expense> {

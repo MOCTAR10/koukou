@@ -21,7 +21,7 @@ import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
 import { EGGS_PER_ALVEOL } from '../../common/constants/stock.constants.js';
-import { isoWeekStart } from '../../common/utils/date.utils.js';
+import { isoWeekStart, todayLocal } from '../../common/utils/date.utils.js';
 import {
   DailyEntryCreatedEvent,
   KOUKOU_EVENTS,
@@ -65,7 +65,7 @@ type DeathEvent = Awaited<
 >[number];
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function addDays(date: string, days: number): string {

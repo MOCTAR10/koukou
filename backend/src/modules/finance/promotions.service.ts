@@ -12,9 +12,10 @@ import { Customer } from './entities/customer.entity.js';
 import { Promotion } from './entities/promotion.entity.js';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto.js';
 import { PromotionType } from '../../common/enums/promotion-type.enum.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function isUniqueViolation(err: unknown): boolean {

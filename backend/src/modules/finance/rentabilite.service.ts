@@ -33,6 +33,7 @@ import { Sale } from './entities/sale.entity.js';
 import { SaleItem } from './entities/sale-item.entity.js';
 import { Expense } from './entities/expense.entity.js';
 import { Payment } from './entities/payment.entity.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ACHAT_POUSSINS: 'Achat de poussins',
@@ -60,7 +61,7 @@ const PRODUCT_LABELS: Record<string, string> = {
 };
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function daysAgoStr(n: number): string {

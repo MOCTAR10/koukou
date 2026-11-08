@@ -64,9 +64,10 @@ import {
   referenceStepRemovalRefusal,
 } from './care-reference-rules.js';
 import { isReferenceProtocol } from './reference-calendar.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function addDays(date: string, days: number): string {

@@ -14,10 +14,17 @@ import { ProductionBatch } from '../../batches/entities/production-batch.entity.
 import { User } from '../../users/entities/user.entity.js';
 import { CashMovement } from './cash-movement.entity.js';
 
+@Index('UQ_expenses_farm_idem', ['farmId', 'idempotencyKey'], {
+  unique: true,
+})
 @Entity('expenses')
 export class Expense {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /** Offline replay key: a second create with it returns this expense. */
+  @Column({ name: 'idempotency_key', type: 'varchar', nullable: true })
+  idempotencyKey: string | null;
 
   @ManyToOne(() => Farm, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'farm_id' })

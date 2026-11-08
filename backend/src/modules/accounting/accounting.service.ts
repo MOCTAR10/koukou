@@ -56,6 +56,7 @@ import {
   inputValueFcfa,
   revenueLines,
 } from './posting-map.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 export const ENTRY_PREFIX = 'EC';
 
@@ -87,7 +88,7 @@ export interface AccountSoldes {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 @Injectable()

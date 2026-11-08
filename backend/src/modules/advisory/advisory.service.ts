@@ -20,6 +20,7 @@ import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { ProphylaxisEvent } from '../sanitary/entities/prophylaxis-event.entity.js';
 import { MetricsService } from '../batches/metrics.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 export type NextActionCategory =
   | 'ALERTE'
@@ -81,7 +82,7 @@ const LEVEL_ORDER: Record<AlertLevel, number> = {
 };
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function addDaysIso(date: string, days: number): string {

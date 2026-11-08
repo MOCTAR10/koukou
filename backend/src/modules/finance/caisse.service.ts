@@ -17,9 +17,10 @@ import {
   UpdateCashMovementDto,
 } from './dto/caisse.dto.js';
 import { AccountingService } from '../accounting/accounting.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 export interface CaisseSummary {

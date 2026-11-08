@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { plural } from '@/utils/plural';
 import { toast, confirm } from '@/components/ui/Feedback';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -110,6 +110,8 @@ export default function DepensesScreen() {
   const [notes, setNotes] = useState('');
   const [paid, setPaid] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Generated when the create sheet opens, reused by every resend of that form.
+  const createKey = useRef('');
   const [formError, setFormError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -132,6 +134,7 @@ export default function DepensesScreen() {
   };
 
   const openCreate = () => {
+    createKey.current = `mobile-expense-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     setCat('ALIMENTS');
     setAmount('');
     setLabel('');
@@ -171,6 +174,7 @@ export default function DepensesScreen() {
           ...(supplier.trim() ? { supplier: supplier.trim() } : {}),
           ...(notes.trim() ? { notes: notes.trim() } : {}),
           paidByCaisse: paid,
+          idempotencyKey: createKey.current || undefined,
         });
         setSheet(null);
         refresh();

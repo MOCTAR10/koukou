@@ -80,7 +80,9 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/slaughter': consult('TRACABILITE'),
   '/app/reports': consult('ECONOMIQUE'),
   '/app/expenses': consult('ECONOMIQUE'),
-  '/app/registre': consult('REGISTRE'),
+  // The server refuses the list to scopes that reach no farm (AGGREGATE,
+  // and FINANCED until the farmer consent exists): no dead entry.
+  '/app/registre': { kind: 'grant', any: [['REGISTRE', 'CONSULTER']], farms: true },
   '/app/acces': consult('ADMINISTRATION'),
   '/app/pilotage': consult('PILOTAGE'),
   // POUFA L5 (begin): sanitary surveillance and notifications.

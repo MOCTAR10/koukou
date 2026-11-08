@@ -52,6 +52,7 @@ import {
   MAX_OPEN_REQUESTS_PER_BUYER,
   REQUEST_LIFETIME_MS,
 } from './market-order-rules.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const PRODUCT_LINE: Record<MarketProduct, SaleItemProductType> = {
   [MarketProduct.BIRDS]: SaleItemProductType.POULET_PIECE,
@@ -63,7 +64,7 @@ const DEPOSIT_EXPIRED_REASON = 'Acompte non reçu dans le délai de 24 heures.';
 const BUYER_CANCEL_REASON = 'Annulée par l’acheteur sur le Market.';
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 @Injectable()

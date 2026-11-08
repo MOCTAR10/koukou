@@ -95,6 +95,7 @@ import {
 import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const ORDER_PREFIX = 'CMD';
 const ORDERABLE_TYPES = [
@@ -170,7 +171,7 @@ export enum BuyerCancelOutcome {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function makeReference(prefix: string): string {

@@ -1720,16 +1720,12 @@ export class SalesService {
   ): Promise<unknown[]> {
     const unique = [...new Set(batchIds.filter(Boolean))];
     if (unique.length === 0) return [];
-    const alerts = await this.alertsService.listForFarm(farmId);
+    const alerts = await this.alertsService.listActiveForBatches(
+      farmId,
+      unique as string[],
+      [AlertKind.DELAI_ATTENTE, AlertKind.VENTE, AlertKind.TRACABILITE],
+    );
     return alerts
-      .filter(
-        (a) =>
-          a.batchId != null &&
-          unique.includes(a.batchId) &&
-          (a.kind === AlertKind.DELAI_ATTENTE ||
-            a.kind === AlertKind.VENTE ||
-            a.kind === AlertKind.TRACABILITE),
-      )
       .map((a) => ({
         kind: a.kind,
         level: a.level,

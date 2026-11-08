@@ -14,3 +14,21 @@ export function isAfterTomorrowUtc(date: string): boolean {
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
   return date.slice(0, 10) > tomorrow;
 }
+
+/** Business time zone: Gabon (UTC+1, no daylight saving). */
+export const APP_TIME_ZONE = 'Africa/Libreville';
+
+const LOCAL_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/**
+ * Today's date (YYYY-MM-DD) in Gabon. The server runs in UTC: between local
+ * midnight and 01:00 a UTC "today" would still be yesterday for the farms.
+ */
+export function todayLocal(now: Date = new Date()): string {
+  return LOCAL_DAY.format(now);
+}

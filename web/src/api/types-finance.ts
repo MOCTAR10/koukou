@@ -40,6 +40,8 @@ export interface CreateExpenseBody {
   supplier?: string;
   notes?: string;
   paidByCaisse: boolean;
+  /** Replay guard: one per form opening; a repeat returns the stored expense. */
+  idempotencyKey?: string;
 }
 
 export interface UpdateExpenseBody {

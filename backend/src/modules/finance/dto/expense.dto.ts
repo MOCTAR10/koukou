@@ -8,9 +8,10 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
+import { IdempotentDto } from '../../../common/utils/idempotency.js';
 import { ExpenseCategory } from '../../../common/enums/expense-category.enum.js';
 
-export class CreateExpenseDto {
+export class CreateExpenseDto extends IdempotentDto {
   @IsOptional()
   @IsDateString(
     {},
