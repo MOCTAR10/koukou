@@ -31,6 +31,7 @@ describe('farmIndicators', () => {
     ]);
     expect(out.layingBySpecies).toHaveLength(1);
     expect(out.layingBySpecies[0]!.layRatePercent).toBe(45);
+    expect(out.layRatePercent).toBe(45);
   });
 
   it('ignores closed lots and meat lots for the laying rate', () => {

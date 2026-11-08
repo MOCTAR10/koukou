@@ -20,6 +20,8 @@ export interface FarmIndicators {
   windowDays: number;
   /** Laying rate per species, hen-days weighted (open layer lots). */
   layingBySpecies: FarmLayingRate[];
+  /** All the open layer lots together, hen-days weighted. */
+  layRatePercent: number | null;
   /** Feed per bird-day (kg/bird/day), on the birds present (open lots). */
   feedPerBirdDayKg: number | null;
 }
@@ -74,8 +76,14 @@ export function farmIndicators(lots: readonly LotLike[]): FarmIndicators {
   }
   const feedKg = open.reduce((s, l) => s + l.metrics.feedWindowKg, 0);
   const birdDays = open.reduce((s, l) => s + l.metrics.feedWindowBirdDays, 0);
+  const allEggs = [...groups.values()].reduce((s, g) => s + g.eggs, 0);
+  const allHenDays = [...groups.values()].reduce((s, g) => s + g.henDays, 0);
   return {
     windowDays: 7,
+    layRatePercent:
+      allHenDays > 0
+        ? round2(Math.min(100, (allEggs / allHenDays) * 100))
+        : null,
     layingBySpecies: [...groups.values()].map((g) => ({
       species: g.species,
       customSpecies: g.custom,

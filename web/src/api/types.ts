@@ -102,8 +102,45 @@ export interface ProductionBatch {
   createdAt: string;
 }
 
-export interface BatchWithMetrics extends ProductionBatch {
+/** Official production cost per kg of a lot (server side, bilan formula). */
+export interface LotProductionCost {
+  /** FCFA per kg of live weight produced; null with a reason when undefined. */
+  coutProductionKg?: number | null;
+  coutProductionReason?: 'NO_WEIGHT_PRODUCED' | 'NO_CHARGES' | 'RESTRICTED' | 'NOT_COMPUTABLE' | null;
+  coutProductionSource?: 'BILAN' | 'EN_COURS' | null;
+}
+
+export interface BatchWithMetrics extends ProductionBatch, LotProductionCost {
   metrics: BatchMetrics;
+}
+
+/** Farm indicators computed by the server (hen-days weighted, present birds). */
+export interface FarmIndicators {
+  windowDays: number;
+  layingBySpecies: Array<{
+    species: string;
+    customSpecies: string | null;
+    layRatePercent: number | null;
+    eggs: number;
+    henDays: number;
+    lots: number;
+  }>;
+  /** All the open layer lots together. */
+  layRatePercent: number | null;
+  /** kg per bird per day, on the birds present. */
+  feedPerBirdDayKg: number | null;
+}
+
+/** Admin-managed thresholds the indicators are coloured with. */
+export interface IndicatorThresholds {
+  fcrAbsoluteWarn: number;
+  fcrDeviationWarnPct: number;
+  fcrDeviationGoodPct: number;
+  layRateDeviationWarnPct: number;
+  mortalityWarnPct: number;
+  mortalityCriticalPct: number;
+  waterDropWarnPct: number;
+  waterDropCriticalPct: number;
 }
 
 export interface BatchMetrics {
@@ -130,6 +167,9 @@ export interface DashboardHealth {
 export interface DashboardData {
   farmId: string;
   generatedAt: string;
+  /** Absent from an older server (cached offline answer). */
+  farmIndicators?: FarmIndicators;
+  thresholds?: IndicatorThresholds;
   liveStock: number;
   batches: { total: number; actif: number; enVente: number; cloture: number };
   mortalityPercent: number | null;

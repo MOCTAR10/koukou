@@ -113,6 +113,22 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
 
 export const GLOSSARY_KEYS = Object.keys(GLOSSARY) as GlossaryKey[];
 
+const COST_PRODUCED_REASONS: Record<string, string> = {
+  NO_WEIGHT_PRODUCED: 'Pas encore de poids vif produit (aucune pesée ni sortie).',
+  NO_CHARGES: 'Aucune charge enregistrée sur ce lot.',
+  RESTRICTED: 'Données économiques non accessibles avec votre profil.',
+  NOT_COMPUTABLE: 'Bilan indisponible pour le moment.',
+};
+
+/** Coût de production officiel calculé par le serveur : valeur, sinon la raison. */
+export function costPerKgProducedView(
+  costFcfa: number | null | undefined,
+  reason: string | null | undefined,
+): { value: number | null; note: string | null } {
+  if (costFcfa != null) return { value: costFcfa, note: null };
+  return { value: null, note: (reason && COST_PRODUCED_REASONS[reason]) || null };
+}
+
 /** Valeur du « coût par kg vendu » : « — » et la raison quand il n’est pas applicable. */
 export function costPerKgSoldView(
   costPerKgFcfa: number | null | undefined,

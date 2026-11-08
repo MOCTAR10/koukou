@@ -561,7 +561,7 @@ function LivestockDashboard() {
           <div className="space-y-6">
             {kpisMore}
             {curve_card}
-            {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
+            {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} layRate={d.farmIndicators?.layRatePercent} /> : null}
             {tables_row}
             <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} showFinance={canReports} showClients={canClients} />
           </div>
@@ -583,7 +583,7 @@ function LivestockDashboard() {
             {curve_card}
           </div>
           <ActionQueue advisory={advisory.data} error={advisory.isError} />
-          {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} /> : null}
+          {layerIds.length > 0 ? <EggStockPanel stock={d.eggStock} batches={batchList} series={eggSeries.data ?? []} layRate={d.farmIndicators?.layRatePercent} /> : null}
           <Ranking dash={d} batches={batchList} typeLabel={statusLabel} />
           {tables_row}
           <OwnerStats dash={d} batches={batchList} slaughter={slaughter.data ?? []} pnl={pnl.data} clients={clients.data} showFinance={canReports} showClients={canClients} />

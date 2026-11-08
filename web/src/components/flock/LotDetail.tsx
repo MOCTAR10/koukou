@@ -71,7 +71,7 @@ import { BandSummaryTab } from '../bandes/BandSummaryTab';
 import { ProgrammeBadge } from '../bandes/ProgrammeBadge';
 // POUFA lot A indic: the official band indicators head the Performance card.
 import { OfficialMetric } from '../bandes/OfficialHeadline';
-import { costPerKgSoldView } from '../help/glossary';
+import { COST_PER_KG_PRODUCED_TERM, costPerKgProducedView, costPerKgSoldView } from '../help/glossary';
 import { GlossaryButton } from '../help/GlossaryButton';
 import { COST_PER_KG_SOLD_LABEL, CONDUITE_LABEL, FERMIA_FORMULAS, findIndicator, marginLabel } from '../bandes/headline';
 import type { BandeIndicators } from '../../api/types-pilotage';
@@ -120,6 +120,8 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const invalidate = useInvalidateFarm();
+  // Official cost per kg produced: computed by the server, never recomputed here.
+  const costProduced = costPerKgProducedView(lot.coutProductionKg, lot.coutProductionReason);
   const [tab, setTab] = useState<TabKey>('vue');
   const [entry, setEntry] = useState<{ date?: string } | null>(null);
   const [closing, setClosing] = useState(false);
@@ -615,15 +617,16 @@ function OverviewTab({ lot }: { lot: Lot }) {
                 fermiaText={pnl.data.marginPct != null ? `${num(pnl.data.marginPct)} %` : '—'}
                 fermiaFormula={FERMIA_FORMULAS.marginPct}
               />
-              {officialOf('cout_production_kg') ? (
-                <OfficialMetric
-                  label={officialOf('cout_production_kg')!.label}
-                  icon={<Coins />}
-                  indicator={officialOf('cout_production_kg')}
-                  fermiaText={null}
-                  fermiaFormula=""
-                />
-              ) : null}
+              <Metric
+                label={COST_PER_KG_PRODUCED_TERM}
+                icon={<Coins />}
+                value={
+                  <span title={officialOf('cout_production_kg')?.expression ?? FERMIA_FORMULAS.costPerKgProduced}>
+                    {costProduced.value != null ? fcfa(costProduced.value) : '—'}
+                  </span>
+                }
+                sub={costProduced.note ?? (lot.coutProductionSource === 'BILAN' ? 'Bilan figé à la clôture' : 'Calculé à ce jour')}
+              />
               <Metric
                 label={COST_PER_KG_SOLD_LABEL}
                 icon={<Coins />}

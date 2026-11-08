@@ -43,7 +43,6 @@ import { Card, IconTile, PhotoThumb, type IconTone } from '../ui';
 import { EGG_IMAGES } from '../../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct } from '../../lib/format';
 import { MetricInfoButtons } from './MetricInfoModal';
-import { weightedMean } from '../../lib/weightedMean';
 import { GlossaryButton } from '../help/GlossaryButton';
 // POUFA lot A indic: official IC/GMQ head the tiles, Fermia's second.
 import { CONDUITE_LABEL, fcrQualification, officialText, type HeadlineKey } from '../bandes/headline';
@@ -348,14 +347,16 @@ export function EggStockPanel({
   stock,
   batches,
   series,
+  layRate,
 }: {
   stock: OwnerDashboard['eggStock'];
   batches: PosBatch[];
   series: Array<{ date: string; count: number }>;
+  /** Server-side laying rate of the open layer lots (hen-days weighted). */
+  layRate?: number | null;
 }) {
   const [inTrays, setInTrays] = useState(false);
   const layers = batches.filter((b) => b.status !== 'CLOTURE' && b.type === 'PONDEUSE');
-  const layRate = weightedMean(layers.map((b) => ({ value: b.metrics.layRatePercent, weight: b.metrics.liveCount })));
   const breakdown = { collected: 0, sellable: 0, cracked: 0, small: 0, doubleYolk: 0, dirty: 0 };
   for (const b of layers) {
     const e = b.metrics.eggBreakdown;
