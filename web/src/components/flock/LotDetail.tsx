@@ -376,7 +376,15 @@ function useSlaughterOrders() {
 
 function OverviewTab({ lot }: { lot: Lot }) {
   // Official cost per kg produced: computed by the server, never recomputed here.
-  const costProduced = costPerKgProducedView(lot.coutProductionKg, lot.coutProductionReason);
+  // The list carries no cost (one bilan per lot): the detail endpoint does.
+  const { farmId: costFarmId } = useFarm();
+  const costQuery = useQuery({
+    queryKey: ['lot-cost', costFarmId, lot.id],
+    queryFn: () => api.get<Lot>(`/farms/${costFarmId}/batches/${lot.id}`),
+    enabled: !!costFarmId,
+    staleTime: 60_000,
+  });
+  const costProduced = costPerKgProducedView(costQuery.data?.coutProductionKg, costQuery.data?.coutProductionReason);
   const { farmId } = useFarm();
   const { hasPermission } = useFarmProfile();
   const canRead = useCanRead();
@@ -625,7 +633,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
                     {costProduced.value != null ? fcfa(costProduced.value) : '—'}
                   </span>
                 }
-                sub={costProduced.note ?? (lot.coutProductionSource === 'BILAN' ? 'Bilan figé à la clôture' : 'Calculé à ce jour')}
+                sub={costProduced.note ?? (costQuery.data?.coutProductionSource === 'BILAN' ? 'Bilan figé à la clôture' : 'Calculé à ce jour')}
               />
               <Metric
                 label={COST_PER_KG_SOLD_LABEL}
