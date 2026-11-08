@@ -610,7 +610,7 @@ function EntryForm({
             <Metric label="Total collecté" image={EGG_IMAGES.oeuf} value={num(eggs, 0)} />
             <Metric label="Commercialisables" icon={<PackageCheck />} value={num(sellable, 0)} />
             <Metric
-              label="Taux de ponte"
+              label="Taux de ponte du jour (aperçu)"
               icon={<Egg />}
               value={layRate != null ? `${num(layRate)} %` : '—'}
               sub={targetLay != null ? `cible souche ${num(targetLay)} %` : undefined}

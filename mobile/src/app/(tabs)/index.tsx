@@ -37,6 +37,7 @@ import { EleveurSimpleHome } from '@/components/home/EleveurSimpleHome';
 import { CurrentBandCard } from '@/components/band/CurrentBandCard';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
+import { GlossaryLink } from '@/components/GlossaryLink';
 import { fcrQualification } from '@/poufa/official-headline';
 import { readCached } from '@/offline/ref-cache';
 import { librevilleDay, librevilleDaysBack, librevilleTime } from '@/utils/libreville';
@@ -466,10 +467,11 @@ export default function AccueilScreen() {
             }
           />
 
+          <GlossaryLink keys={['ic_officiel', 'ic_technique', 'gmq', 'ipe', 'mortalite', 'viabilite', 'taux_ponte', 'autonomie_provende', 'rendement_carcasse', 'vide_sanitaire', 'classe_biosecurite']} />
           {/* ── Performance row: IC, GMQ, IPE — always one row ── */}
           <View style={styles.metricGridNoWrap}>
             <MetricTile
-              label='IC Fermia'
+              label='IC technique'
               value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
               sub={fcrQualification(avgFcr, avgFcrDeviation)}
               tone={avgFcr != null && (avgFcrDeviation != null ? avgFcrDeviation > 10 : avgFcr > 2.2) ? 'red' : avgFcrDeviation != null && avgFcrDeviation <= -3 ? 'green' : 'default'}

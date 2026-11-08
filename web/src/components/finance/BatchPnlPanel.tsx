@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import type { BatchPnl } from '../../api/types-finance';
 import type { BandeIndicators } from '../../api/types-pilotage';
 import { useCanRead } from '../../app/useMenuAccess';
+import { costPerKgSoldView } from '../help/glossary';
 import { COST_PER_KG_SOLD_LABEL, CONDUITE_LABEL, findIndicator, marginLabel, officialText } from '../bandes/headline';
 import { classNames, fcfa, num, pct, statusLabel } from '../../lib/format';
 import { Button, ErrorNote } from '../form';
@@ -88,8 +89,11 @@ export function BatchPnlPanel({ farmId, pnl }: { farmId: string; pnl: BatchPnl }
           <div className="mt-2">
             <KeyValue
               label={`${COST_PER_KG_SOLD_LABEL} — ${CONDUITE_LABEL}`}
-              value={pnl.costPerKgFcfa != null ? fcfa(pnl.costPerKgFcfa) : '—'}
+              value={costPerKgSoldView(pnl.costPerKgFcfa, pnl.kgSold).applicable ? fcfa(pnl.costPerKgFcfa!) : '—'}
             />
+            {costPerKgSoldView(pnl.costPerKgFcfa, pnl.kgSold).note ? (
+              <p className="text-xs text-slate-500">{costPerKgSoldView(pnl.costPerKgFcfa, pnl.kgSold).note}</p>
+            ) : null}
           </div>
         </div>
         {pnl.enrichment ? (

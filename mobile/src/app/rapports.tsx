@@ -396,7 +396,7 @@ function BatchPnlCard({ pnl, onExport }: { pnl: BatchPnl; onExport: () => void }
         </View>
         <View style={styles.marginHead}>
           <AppText size="small" color="muted" style={{ flex: 1 }}>
-            Coût de revient / kg
+            Coût par kg vendu
           </AppText>
           <AppText size="small" weight="bold" color="text">
             {pnl.costPerKgFcfa != null ? fmtFcfa(pnl.costPerKgFcfa) : '—'}

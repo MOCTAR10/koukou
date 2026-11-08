@@ -20,9 +20,9 @@ export const HEADLINE: readonly { key: HeadlineKey; label: string }[] = [
 /** Fermia's own formulas, shown under its figures. */
 export const FERMIA_FORMULAS = {
   mortality: 'Fermia : morts déclarés ÷ sujets mis en place, à date.',
-  fcr: 'Fermia : aliment consommé ÷ poids vif de tous les oiseaux nourris, à la dernière pesée.',
+  fcr: 'IC technique (Fermia) : aliment consommé ÷ poids vif de tous les oiseaux nourris (dont les morts, au poids estimé), à la dernière pesée. L’IC officiel (bilan) = aliment ÷ poids vif produit.',
   gmq: 'Fermia : gain de poids depuis l’arrivée ÷ âge, à la dernière pesée.',
-  costPerKgSold: 'Fermia : toutes les charges du lot ÷ kg vendus.',
+  costPerKgSold: 'Coût par kg vendu = charges du lot ÷ kg vendus au poids (« — » si vente à l’unité). Le coût de production officiel se rapporte au kg de poids vif produit.',
   marginPct: 'Fermia : (revenus − charges) ÷ revenus.',
 } as const;
 

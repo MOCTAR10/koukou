@@ -43,6 +43,8 @@ import { Card, IconTile, PhotoThumb, type IconTone } from '../ui';
 import { EGG_IMAGES } from '../../lib/animalImages';
 import { classNames, dateFr, fcfa, num, pct } from '../../lib/format';
 import { MetricInfoButtons } from './MetricInfoModal';
+import { weightedMean } from '../../lib/weightedMean';
+import { GlossaryButton } from '../help/GlossaryButton';
 // POUFA lot A indic: official IC/GMQ head the tiles, Fermia's second.
 import { CONDUITE_LABEL, fcrQualification, officialText, type HeadlineKey } from '../bandes/headline';
 import { batchPhoto } from './pos';
@@ -193,10 +195,11 @@ export function PerformanceTiles({ batches, official, fcrDeviationPct }: { batch
       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-700">
         <Activity className="h-4 w-4 text-brand-600" /> Performance moyenne des lots
         <MetricInfoButtons />
+        <GlossaryButton keys={['ic_officiel', 'ic_technique', 'gmq', 'ipe', 'mortalite', 'viabilite']} />
       </h2>
       <div className="grid grid-cols-3 gap-3">
         <Tile
-          label={official ? 'IC moyen (officiel)' : 'IC moyen'}
+          label={official ? 'IC officiel (bilan) moyen' : 'IC technique moyen'}
           icon={Activity}
           value={fcr != null ? officialText({ value: fcr, unit: 'kg aliment/kg vif' }) : '—'}
           sub={`${fcrQualification(fcr, fcrDeviationPct)}${fermiaLine(fermiaFcr != null ? num(fermiaFcr, 2) : '—')}`}
@@ -352,8 +355,7 @@ export function EggStockPanel({
 }) {
   const [inTrays, setInTrays] = useState(false);
   const layers = batches.filter((b) => b.status !== 'CLOTURE' && b.type === 'PONDEUSE');
-  const live = layers.reduce((s, b) => s + b.metrics.liveCount, 0);
-  const layRate = live > 0 ? layers.reduce((s, b) => s + (b.metrics.layRatePercent ?? 0) * b.metrics.liveCount, 0) / live : null;
+  const layRate = weightedMean(layers.map((b) => ({ value: b.metrics.layRatePercent, weight: b.metrics.liveCount })));
   const breakdown = { collected: 0, sellable: 0, cracked: 0, small: 0, doubleYolk: 0, dirty: 0 };
   for (const b of layers) {
     const e = b.metrics.eggBreakdown;
@@ -432,7 +434,7 @@ export function Ranking({ dash, batches, typeLabel }: { dash: OwnerDashboard; ba
             icon={Medal}
             photo={batchPhoto(lotOf(top.batchId))}
             value={top.batchName ?? 'Lot'}
-            sub={`${typeLabel(top.type)} · IC Fermia ${top.fcr != null ? num(top.fcr, 2) : '—'} · ${num(top.liveCount)} vivants`}
+            sub={`${typeLabel(top.type)} · IC technique ${top.fcr != null ? num(top.fcr, 2) : '—'} · ${num(top.liveCount)} vivants`}
           />
         ) : null}
         {best?.breedStatus ? (

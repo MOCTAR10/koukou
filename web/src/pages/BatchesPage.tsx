@@ -51,6 +51,7 @@ import {
 import { Button, ErrorNote, inputCls, DateInput } from '../components/form';
 // POUFA lot A indic: official headline per band, Fermia's figure second, band history.
 import { BandHistoryCard, ConduiteValue, OfficialMetric, OfficialValue, useBandHistory } from '../components/bandes/OfficialHeadline';
+import { GlossaryButton } from '../components/help/GlossaryButton';
 import { FERMIA_FORMULAS, currentBand, findIndicator, openBandsHeadline, summariesById, type HeadlineKey } from '../components/bandes/headline';
 import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { EGG_IMAGES, lotImage } from '../lib/animalImages';
@@ -230,6 +231,8 @@ export function BatchesPage() {
             title="Vue d'ensemble"
             icon={<Gauge />}
             actions={
+              <>
+              <GlossaryButton keys={['ic_officiel', 'ic_technique', 'gmq', 'mortalite', 'viabilite', 'taux_ponte', 'autonomie_provende', 'vide_sanitaire']} />
               <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-slate-500">
                 Situation au
                 <DateInput
@@ -240,6 +243,7 @@ export function BatchesPage() {
                   className={`${inputCls} w-auto py-1 text-xs`}
                 />
               </label>
+              </>
             }
           >
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
@@ -252,7 +256,7 @@ export function BatchesPage() {
                 fermiaFormula={FERMIA_FORMULAS.mortality}
               />
               <OfficialMetric
-                label="IC moyen"
+                label="IC officiel (bilan) moyen"
                 icon={<Scale />}
                 indicator={headlineIndicator('ic')}
                 fermiaText={summary.fcr != null ? num(summary.fcr, 2) : null}
@@ -357,7 +361,7 @@ export function BatchesPage() {
                     <Th>Âge</Th>
                     <Th>Vivants</Th>
                     <Th>Mortalité (officielle)</Th>
-                    <Th>IC (officiel)</Th>
+                    <Th>IC officiel (bilan)</Th>
                     <Th className="hidden lg:table-cell">Ponte</Th>
                     <Th>Étape</Th>
                     <Th>État</Th>

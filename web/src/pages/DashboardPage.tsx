@@ -394,7 +394,7 @@ function LivestockDashboard() {
                   <Th>Type</Th>
                   <Th>Âge</Th>
                   <Th>Perf.</Th>
-                  <Th>IC (officiel)</Th>
+                  <Th>IC officiel (bilan)</Th>
                   <Th>Vivants</Th>
                 </tr>
               </thead>

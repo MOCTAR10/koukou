@@ -444,7 +444,7 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
   const birdsByKey = new Map<string, number>();
   const eggsByKey = new Map<string, number>();
   const feedByKey = new Map<string, number>();
-  const laySumByKey = new Map<string, { sum: number; n: number }>();
+  const laySumByKey = new Map<string, { sum: number; w: number }>();
   for (const b of list) {
     const key = `${b.species ?? 'POULET'}|${b.type}`;
     if (!labelByKey.has(key)) {
@@ -455,9 +455,9 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
     feedByKey.set(key, (feedByKey.get(key) ?? 0) + (b.metrics.totalFeedKg ?? 0));
     const lr = b.metrics.layRatePercent;
     if (lr != null) {
-      const cur = laySumByKey.get(key) ?? { sum: 0, n: 0 };
-      cur.sum += lr;
-      cur.n += 1;
+      const cur = laySumByKey.get(key) ?? { sum: 0, w: 0 };
+      cur.sum += lr * b.metrics.liveCount;
+      cur.w += b.metrics.liveCount;
       laySumByKey.set(key, cur);
     }
   }
@@ -468,7 +468,7 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
       birds: birdsByKey.get(key) ?? 0,
       eggs: eggsByKey.get(key) ?? 0,
       feedKg: feedByKey.get(key) ?? 0,
-      layRate: lay && lay.n > 0 ? lay.sum / lay.n : null,
+      layRate: lay && lay.w > 0 ? lay.sum / lay.w : null,
     };
   });
   const totalEggs = [...eggsByKey.values()].reduce((s, v) => s + v, 0);
@@ -1961,7 +1961,7 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
                     </AppText>
                     <AppText size="caption" color="faint">
                       {b.type === 'CHAIR' ? 'Chair' : 'Pondeuse'} · J{b.metrics.ageDays}
-                      {b.metrics.fcr != null ? ` · IC Fermia (conduite) ${b.metrics.fcr.toLocaleString('fr-FR')}` : ''}
+                      {b.metrics.fcr != null ? ` · IC technique ${b.metrics.fcr.toLocaleString('fr-FR')}` : ''}
                       {(b.metrics.eggsCollectedTotal ?? 0) > 0 ? ` · ${fmt(b.metrics.eggsCollectedTotal ?? 0)} œufs` : ''}
                     </AppText>
                   </View>
@@ -2790,7 +2790,7 @@ function LotExpandedDetail({ batch, official, health, pnl, prophylaxis, treatmen
               <View style={styles.financeFootRow}>
                 {pnl.costPerKgFcfa != null && (
                   <View style={styles.financeFootCell}>
-                    <AppText size="caption" color="faint">Coût de revient</AppText>
+                    <AppText size="caption" color="faint">Coût par kg vendu</AppText>
                     <AppText size="small" weight="bold" color="text">{pnl.costPerKgFcfa.toLocaleString('fr-FR')} FCFA/kg</AppText>
                   </View>
                 )}

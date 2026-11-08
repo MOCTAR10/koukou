@@ -71,6 +71,8 @@ import { BandSummaryTab } from '../bandes/BandSummaryTab';
 import { ProgrammeBadge } from '../bandes/ProgrammeBadge';
 // POUFA lot A indic: the official band indicators head the Performance card.
 import { OfficialMetric } from '../bandes/OfficialHeadline';
+import { costPerKgSoldView } from '../help/glossary';
+import { GlossaryButton } from '../help/GlossaryButton';
 import { COST_PER_KG_SOLD_LABEL, CONDUITE_LABEL, FERMIA_FORMULAS, findIndicator, marginLabel } from '../bandes/headline';
 import type { BandeIndicators } from '../../api/types-pilotage';
 import { DailyEntryModal } from './DailyEntryModal';
@@ -465,7 +467,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
-        <SectionCard title="Performance" icon={<Gauge />}>
+        <SectionCard title="Performance" icon={<Gauge />} actions={<GlossaryButton keys={['ic_officiel', 'ic_technique', 'gmq', 'ipe', 'mortalite', 'viabilite', 'taux_ponte', 'cout_kg_vendu', 'cout_kg_produit']} />}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Metric label="Vivants" icon={<Bird />} value={num(m.liveCount)} sub={`sur ${num(lot.quantityAtStart)}`} />
             <OfficialMetric
@@ -485,7 +487,7 @@ function OverviewTab({ lot }: { lot: Lot }) {
               fermiaFormula={FERMIA_FORMULAS.viability}
             />
             <OfficialMetric
-              label="Indice de consommation"
+              label="IC officiel (bilan)"
               icon={<Scale />}
               indicator={officialOf('ic')}
               fermiaText={m.fcr != null ? num(m.fcr, 2) : '—'}
@@ -625,8 +627,8 @@ function OverviewTab({ lot }: { lot: Lot }) {
               <Metric
                 label={COST_PER_KG_SOLD_LABEL}
                 icon={<Coins />}
-                value={<span title={FERMIA_FORMULAS.costPerKgSold}>{pnl.data.costPerKgFcfa != null ? fcfa(pnl.data.costPerKgFcfa) : '—'}</span>}
-                sub={CONDUITE_LABEL}
+                value={<span title={FERMIA_FORMULAS.costPerKgSold}>{costPerKgSoldView(pnl.data.costPerKgFcfa, pnl.data.kgSold).applicable ? fcfa(pnl.data.costPerKgFcfa!) : '—'}</span>}
+                sub={costPerKgSoldView(pnl.data.costPerKgFcfa, pnl.data.kgSold).note ?? CONDUITE_LABEL}
               />
               <Metric label="Kg vendus" icon={<Scale />} value={num(pnl.data.kgSold)} />
               <Metric label="Oiseaux vendus" icon={<Bird />} value={num(pnl.data.birdsSold)} />
