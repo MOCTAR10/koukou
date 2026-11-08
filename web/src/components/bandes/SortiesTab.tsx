@@ -112,7 +112,7 @@ export function SortiesTab({ lot }: { lot: Lot }) {
           </tbody>
         </DataTable>
       ) : null}
-      <p className="px-4 py-3 text-xs text-slate-400">
+      <p className="px-4 py-3 text-xs text-slate-500">
         Les ventes faites au point de vente et les ordres d’abattage créés depuis l’écran Abattage retirent déjà leurs sujets de la bande :
         ne les enregistrez pas une seconde fois ici. Une sortie ne dépasse jamais l’effectif présent.
       </p>

@@ -206,7 +206,7 @@ export function MembershipsView({
                   <Td className="font-medium text-slate-900">
                     <button type="button" className="text-left" onClick={(e) => { e.stopPropagation(); open(m); }}>
                       {m.user?.fullName ?? '—'}
-                      {m.user?.id === selfUserId ? <span className="ml-1.5 text-xs font-normal text-slate-400">(vous)</span> : null}
+                      {m.user?.id === selfUserId ? <span className="ml-1.5 text-xs font-normal text-slate-500">(vous)</span> : null}
                       <span className="block text-xs font-normal text-slate-500">{m.user?.phone}</span>
                     </button>
                   </Td>
@@ -378,7 +378,7 @@ function MembershipPanel({
           <div>
             <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Fermes ({farms.length})</h3>
             {farms.length > 8 ? (
-              <input className={`${inputCls} mb-2`} type="search" value={farmQuery} onChange={(e) => setFarmQuery(e.target.value)} placeholder="Filtrer les fermes…" />
+              <input aria-label="Filtrer les fermes" className={`${inputCls} mb-2`} type="search" value={farmQuery} onChange={(e) => setFarmQuery(e.target.value)} placeholder="Filtrer les fermes…" />
             ) : null}
             <ul className="max-h-60 space-y-1 overflow-y-auto text-sm text-slate-700">
               {shownFarms.map((f) => (

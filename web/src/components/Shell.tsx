@@ -428,7 +428,7 @@ export function Shell() {
                     {farm.code}
                   </span>
                 ) : null}
-                <span className="ml-2 hidden text-xs font-normal text-slate-400 sm:inline">
+                <span className="ml-2 hidden text-xs font-normal text-slate-500 sm:inline">
                   {farmProvince ? `${farmProvince} · ` : ''}
                   {farm.administrativeCity} · {farm.active ? 'ferme active' : 'ferme suspendue'}
                 </span>
@@ -451,7 +451,7 @@ export function Shell() {
               adminHeader
             )}
           </div>
-          <div className="ml-auto hidden items-center gap-2 text-xs text-slate-400 lg:flex">
+          <div className="ml-auto hidden items-center gap-2 text-xs text-slate-500 lg:flex">
             {!onProgramme && farm?.capacityPlaces ? <span>Capacité {farm.capacityPlaces.toLocaleString('fr-FR')} places</span> : null}
           </div>
           <div className="shrink-0 lg:ml-0">{!onProgramme && farmId ? <QuickCreate /> : null}</div>

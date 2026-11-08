@@ -88,7 +88,7 @@ export function LotTraceTab({ batchId }: { batchId: string }) {
       flush
     >
       <FarmLotsTable batchId={batchId} />
-      <p className="px-4 py-3 text-xs text-slate-400">
+      <p className="px-4 py-3 text-xs text-slate-500">
         Une sortie vers un opérateur du programme (abattoir, acheteur, distributeur…) crée un sous-lot cédé. Le QR code indique l’origine du
         produit ; il ne constitue pas un certificat sanitaire.
       </p>

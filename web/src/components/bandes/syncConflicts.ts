@@ -53,8 +53,8 @@ function timeLabel(iso: string | null | undefined): string {
   if (!iso) return 'à une heure inconnue';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return 'à une heure inconnue';
-  const day = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-  const hour = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const day = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', timeZone: 'Africa/Libreville' });
+  const hour = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Libreville' });
   return `le ${day} à ${hour}`;
 }
 

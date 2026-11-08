@@ -131,7 +131,7 @@ export function RowsSection({ job, canCorrect }: { job: ImportJob; canCorrect: b
                     {o.outcome ? (
                       <>
                         <Pill tone={OUTCOME_TONES[o.outcome]}>{OUTCOME_LABELS[o.outcome]}</Pill>
-                        <span className="block text-[11px] text-slate-400">{o.phase ? OUTCOME_PHASE_LABELS[o.phase] : ''}</span>
+                        <span className="block text-[11px] text-slate-500">{o.phase ? OUTCOME_PHASE_LABELS[o.phase] : ''}</span>
                       </>
                     ) : (
                       ''
@@ -271,7 +271,7 @@ function RowPanel({
             <pre className="mt-1 overflow-x-auto rounded bg-slate-50 p-2">{JSON.stringify(row.details, null, 2)}</pre>
           </details>
         ) : null}
-        {row.sourceKey ? <p className="text-[11px] text-slate-400">Clé source : {row.sourceKey}</p> : null}
+        {row.sourceKey ? <p className="text-[11px] text-slate-500">Clé source : {row.sourceKey}</p> : null}
       </div>
     </Modal>
   );

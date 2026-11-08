@@ -44,6 +44,7 @@ import { StockTransfer } from '../points-of-sale/entities/stock-transfer.entity.
 import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
 import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
+import type { BatchMetrics } from './models/batch-metrics.model.js';
 import { ageOn } from './poufa/bande-rules.js';
 import { BatchesService } from './batches.service.js';
 import { BreedStatus, MetricsService } from './metrics.service.js';
@@ -387,13 +388,17 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       missingEntries,
     );
     const deltas = this.computeDeltas(batches, entries, deathEvents, refDate);
-    const leaderboard = await this.computeLeaderboard(user, farmId);
+    // Metrics computed once per band (leaderboard and health overview share them).
+    const withMetrics = await this.batchesService.findAll(user, farmId);
+    const leaderboard = this.computeLeaderboard(withMetrics);
+    const metricsById = new Map(withMetrics.map((b) => [b.id, b.metrics]));
     const healthOverview = await this.computeHealthOverview(
       batches,
       entries,
       deathEvents,
       alerts,
       refDate,
+      metricsById,
     );
     const eggStock = await this.evaluateEggStockAlerts(farmId, persist);
     // La météo ne doit jamais dégrader le dashboard (échec réseau → null) ni
@@ -684,7 +689,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     deathEvents: DeathEvent[],
     alerts: Alert[],
     refDate: string,
+    metricsById: Map<string, BatchMetrics>,
   ): Promise<HealthOverviewRow[]> {
+    const preload = await this.metricsService.preload(batches);
     const weekStart = isoWeekStart(refDate);
     const rows: HealthOverviewRow[] = [];
 
@@ -738,7 +745,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
           lastEntryDate && b.status !== BatchStatus.CLOTURE
             ? daysBetween(lastEntryDate, refDate)
             : null,
-        breedStatus: await this.metricsService.breedStatus(b),
+        breedStatus: await this.metricsService.breedStatus(b, {
+          metrics: metricsById.get(b.id),
+          preload,
+        }),
       });
     }
 
@@ -752,11 +762,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
 
   // ---------- Palmarès des bandes (leaderboard) ----------
 
-  private async computeLeaderboard(
-    user: AuthUser,
-    farmId: string,
-  ): Promise<LeaderboardRow[]> {
-    const batches = await this.batchesService.findAll(user, farmId);
+  private computeLeaderboard(
+    batches: Array<ProductionBatch & { metrics: BatchMetrics }>,
+  ): LeaderboardRow[] {
     return batches
       .map((b) => {
         const m = b.metrics;

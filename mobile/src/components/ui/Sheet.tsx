@@ -119,7 +119,7 @@ export function Sheet({ visible, title, subtitle, icon, accentColor, footer, sti
                   ) : null}
                 </View>
               </View>
-              <Pressable onPress={onClose} hitSlop={10} style={styles.close}>
+              <Pressable accessibilityLabel="Fermer" onPress={onClose} hitSlop={10} style={styles.close}>
                 <X size={20} color={color.ink[600]} />
               </Pressable>
             </View>

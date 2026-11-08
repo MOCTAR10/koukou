@@ -86,6 +86,56 @@ export class FlockReconciliationService {
   }
 
   /**
+   * removalsByDate for several bands in four queries (not four per band).
+   * Same rules; the map is keyed by batch id.
+   */
+  async removalsByDateMany(
+    batchIds: string[],
+    em?: EntityManager,
+  ): Promise<Map<string, Map<string, number>>> {
+    const out = new Map<string, Map<string, number>>();
+    for (const id of batchIds) out.set(id, new Map());
+    if (batchIds.length === 0) return out;
+    type Row = { batchId: string; day: string; total: string };
+    const [sold, slaughtered, sanitary, retraits] = await Promise.all([
+      this.soldQuery(batchIds, em)
+        .select('item.batch_id', 'batchId')
+        .addSelect("TO_CHAR(sale.sale_date, 'YYYY-MM-DD')", 'day')
+        .addSelect('COALESCE(SUM(COALESCE(item.piece_count, 0)), 0)', 'total')
+        .groupBy('item.batch_id')
+        .addGroupBy('sale.sale_date')
+        .getRawMany<Row>(),
+      this.slaughterQuery(batchIds, em)
+        .select('order.batch_id', 'batchId')
+        .addSelect(`TO_CHAR(${SLAUGHTER_DAY}, 'YYYY-MM-DD')`, 'day')
+        .addSelect('COALESCE(SUM(order.bird_count), 0)', 'total')
+        .groupBy('order.batch_id')
+        .addGroupBy(SLAUGHTER_DAY)
+        .getRawMany<Row>(),
+      this.sanitaryQuery(batchIds, em)
+        .select('event.batch_id', 'batchId')
+        .addSelect("TO_CHAR(event.occurred_at, 'YYYY-MM-DD')", 'day')
+        .addSelect('COALESCE(SUM(event.quantity), 0)', 'total')
+        .groupBy('event.batch_id')
+        .addGroupBy('event.occurred_at')
+        .getRawMany<Row>(),
+      this.retraitQuery(batchIds, em)
+        .select('sortie.batch_id', 'batchId')
+        .addSelect("TO_CHAR(sortie.sortie_date, 'YYYY-MM-DD')", 'day')
+        .addSelect('COALESCE(SUM(sortie.count), 0)', 'total')
+        .groupBy('sortie.batch_id')
+        .addGroupBy('sortie.sortie_date')
+        .getRawMany<Row>(),
+    ]);
+    for (const r of [...sold, ...slaughtered, ...sanitary, ...retraits]) {
+      const n = Number(r.total) || 0;
+      const days = out.get(r.batchId);
+      if (n > 0 && days) days.set(r.day, (days.get(r.day) ?? 0) + n);
+    }
+    return out;
+  }
+
+  /**
    * Deaths declared as MORTALITE health events (they are NOT also typed in
    * the daily entries). Every mortality figure must add them to the
    * daily-entry deaths. Dates are YYYY-MM-DD.
@@ -115,7 +165,7 @@ export class FlockReconciliationService {
       .filter((r) => r.quantity > 0);
   }
 
-  private soldQuery(batchId: string, em?: EntityManager) {
+  private soldQuery(batchId: string | string[], em?: EntityManager) {
     const repo = em ? em.getRepository(SaleItem) : this.saleItemRepo;
     return repo
       .createQueryBuilder('item')
@@ -125,7 +175,7 @@ export class FlockReconciliationService {
         'sale.id = item.sale_id AND sale.status <> :cancelled',
         { cancelled: SaleStatus.CANCELLED },
       )
-      .where('item.batch_id = :batchId', { batchId })
+      .where('item.batch_id IN (:...batchIds)', { batchIds: [batchId].flat() })
       .andWhere('item.product_type IN (:...types)', {
         types: [
           SaleItemProductType.POULET_PIECE,
@@ -151,12 +201,12 @@ export class FlockReconciliationService {
    * mis en place − morts − sorties »: the sortie itself takes the birds out;
    * the order follows, and cancelling it gives them back).
    */
-  private slaughterQuery(batchId: string, em?: EntityManager) {
+  private slaughterQuery(batchId: string | string[], em?: EntityManager) {
     const repo = em ? em.getRepository(SlaughterOrder) : this.slaughterRepo;
     return repo
       .createQueryBuilder('order')
       .leftJoin(Sortie, 'sortie', 'sortie.slaughter_order_id = order.id')
-      .where('order.batch_id = :batchId', { batchId })
+      .where('order.batch_id IN (:...batchIds)', { batchIds: [batchId].flat() })
       .andWhere(
         new Brackets((qb) =>
           qb
@@ -173,11 +223,11 @@ export class FlockReconciliationService {
       );
   }
 
-  private sanitaryQuery(batchId: string, em?: EntityManager) {
+  private sanitaryQuery(batchId: string | string[], em?: EntityManager) {
     const repo = em ? em.getRepository(HealthEvent) : this.healthEventRepo;
     return repo
       .createQueryBuilder('event')
-      .where('event.batch_id = :batchId', { batchId })
+      .where('event.batch_id IN (:...batchIds)', { batchIds: [batchId].flat() })
       .andWhere('event.kind IN (:...kinds)', {
         kinds: [HealthEventKind.REFORME, HealthEventKind.MORTALITE],
       });
@@ -188,11 +238,11 @@ export class FlockReconciliationService {
    * VENTE and ABATTOIR sorties are counted through their sale or slaughter
    * order, never here.
    */
-  private retraitQuery(batchId: string, em?: EntityManager) {
+  private retraitQuery(batchId: string | string[], em?: EntityManager) {
     const repo = em ? em.getRepository(Sortie) : this.sortieRepo;
     return repo
       .createQueryBuilder('sortie')
-      .where('sortie.batch_id = :batchId', { batchId })
+      .where('sortie.batch_id IN (:...batchIds)', { batchIds: [batchId].flat() })
       .andWhere('sortie.reason_family IN (:...retraitFamilies)', {
         retraitFamilies: RETRAIT_FAMILIES,
       });

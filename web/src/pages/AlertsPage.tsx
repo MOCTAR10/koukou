@@ -103,7 +103,7 @@ function ActionRow({
     ) : null;
 
   const primary = (() => {
-    if (action.acknowledged) return <span className="text-xs font-medium text-slate-400">Acquittée</span>;
+    if (action.acknowledged) return <span className="text-xs font-medium text-slate-500">Acquittée</span>;
     switch (action.category) {
       case 'ALERTE':
         return action.alertId && canWrite('TECHNIQUE') ? (
@@ -151,8 +151,8 @@ function ActionRow({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <AlertLevelBadge level={action.level} />
-              <span className="text-xs text-slate-400">{kindLabel(kindOf(action))}</span>
-              {action.dueDate ? <span className="text-xs text-slate-400">· Échéance {dateFr(action.dueDate)}</span> : null}
+              <span className="text-xs text-slate-500">{kindLabel(kindOf(action))}</span>
+              {action.dueDate ? <span className="text-xs text-slate-500">· Échéance {dateFr(action.dueDate)}</span> : null}
             </div>
             <p className="mt-1 text-sm font-medium text-slate-800">{action.title}</p>
             {action.batchName ? <p className="text-xs text-slate-500">{action.batchName}</p> : null}
@@ -300,7 +300,7 @@ export function AlertsPage() {
               )}
             >
               {health ? health.score : '—'}
-              <span className="text-sm font-medium text-slate-400"> /100</span>
+              <span className="text-sm font-medium text-slate-500"> /100</span>
             </p>
             <p className="text-xs text-slate-500">{health ? (HEALTH_LABEL[health.grade] ?? '—') : '—'}</p>
           </div>

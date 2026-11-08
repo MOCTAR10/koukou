@@ -39,11 +39,11 @@ export function ScopeBanner({ scope, period, generatedAt }: { scope: PilotageSco
 
 /** A figure, or its « masqué » mention in muted italics. */
 export function FigureText({ shown, className }: { shown: Shown; className?: string }) {
-  return <span className={classNames(shown.suppressed ? 'text-xs font-normal italic text-slate-400' : undefined, className)}>{shown.text}</span>;
+  return <span className={classNames(shown.suppressed ? 'text-xs font-normal italic text-slate-500' : undefined, className)}>{shown.text}</span>;
 }
 
 export function Suppressed({ k }: { k: number }) {
-  return <span className="text-xs italic text-slate-400">{suppressedLabel(k)}</span>;
+  return <span className="text-xs italic text-slate-500">{suppressedLabel(k)}</span>;
 }
 
 /** Methods served with the figures (`notes`, `method`). */

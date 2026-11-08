@@ -91,7 +91,7 @@ export function SaleDetail({
           <Row label="Payé" value={fcfa(paid)} />
           {sale.status === 'OUTSTANDING' ? <Row label="Reste dû" value={fcfa(Math.max(sale.totalAmountFcfa - paid, 0))} /> : null}
           {sale.payments.map((p) => (
-            <p key={p.id} className="text-xs text-slate-400">
+            <p key={p.id} className="text-xs text-slate-500">
               {statusLabel(p.method)} · {fcfa(p.amountFcfa)} · {dateFr(p.paymentDate)} · {statusLabel(p.status)}
             </p>
           ))}

@@ -290,12 +290,12 @@ export function ActivitiesPage() {
                         ))}
                       </ul>
                       {g.totalEntries > g.entries.length ? (
-                        <p className="mt-1 text-xs text-slate-400">et {g.totalEntries - g.entries.length} autre(s)</p>
+                        <p className="mt-1 text-xs text-slate-500">et {g.totalEntries - g.entries.length} autre(s)</p>
                       ) : null}
                     </div>
                   ))}
                   {journal.truncatedGroups > 0 ? (
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-500">
                       {plural(journal.truncatedGroups, 'jour plus ancien non affiché', 'jours plus anciens non affichés')}.
                     </p>
                   ) : null}

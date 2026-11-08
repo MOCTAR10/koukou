@@ -138,7 +138,7 @@ export function FarmPicker({
             {matches.length === 0 ? <li className="px-3 py-3 text-sm text-slate-500">Aucune ferme ne correspond.</li> : null}
           </ul>
           {withSearch ? (
-            <p className="border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-400">
+            <p className="border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-500">
               {matches.length} ferme{matches.length > 1 ? 's' : ''} sur {farms.length}
             </p>
           ) : null}

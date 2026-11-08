@@ -1,12 +1,12 @@
 export function fcfa(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(n)) return '—';
+  if (n == null || !Number.isFinite(n)) return '—';
   // Math.round(-0.4) is -0, which fr-FR prints as « -0 ».
   const whole = Math.round(n) || 0;
   return `${whole.toLocaleString('fr-FR')} FCFA`;
 }
 
 export function fcfaShort(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(n)) return '—';
+  if (n == null || !Number.isFinite(n)) return '—';
   const abs = Math.abs(n);
   if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')} M FCFA`;
   if (abs >= 1_000) return `${(n / 1_000).toFixed(0)} k FCFA`;
@@ -14,18 +14,31 @@ export function fcfaShort(n: number | null | undefined): string {
 }
 
 export function num(n: number | null | undefined, digits = 1): string {
-  if (n == null || Number.isNaN(n)) return '—';
+  if (n == null || !Number.isFinite(n)) return '—';
   return n.toLocaleString('fr-FR', {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
   });
 }
 
+const LIBREVILLE_TZ = 'Africa/Libreville';
+
+/**
+ * Date of a day or of an instant. A bare « AAAA-MM-JJ » is a calendar day and
+ * is never shifted; an instant (with a clock) is read in Gabon time, so 23:30Z
+ * is already the next day, whatever the browser time zone.
+ */
 export function dateFr(iso: string | null | undefined): string {
   if (!iso) return '—';
-  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  const withClock = /[T ]\d{2}:\d{2}/.test(iso);
+  const d = withClock ? new Date(iso) : new Date(`${iso.slice(0, 10)}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: withClock ? LIBREVILLE_TZ : 'UTC',
+  });
 }
 
 export function dateTimeFr(iso: string | null | undefined): string {
@@ -38,11 +51,12 @@ export function dateTimeFr(iso: string | null | undefined): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: LIBREVILLE_TZ,
   });
 }
 
 export function pct(n: number | null | undefined, digits = 1): string {
-  if (n == null || Number.isNaN(n)) return '—';
+  if (n == null || !Number.isFinite(n)) return '—';
   return `${n.toLocaleString('fr-FR', { maximumFractionDigits: digits })} %`;
 }
 

@@ -164,12 +164,12 @@ export function AuthLayout({
               ) : null}
             </div>
             {programme ? (
-              <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400 [@media(max-height:760px)]:mt-3">
+              <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500 [@media(max-height:760px)]:mt-3">
                 <LifeBuoy className="h-3.5 w-3.5" /> Code oublié ou compte bloqué : contactez l’administrateur du programme
               </p>
             ) : null}
             {programme ? (
-              <p className="mt-2 text-center text-[11px] text-slate-400">Version {__APP_VERSION__}
+              <p className="mt-2 text-center text-[11px] text-slate-500">Version {__APP_VERSION__}
               </p>
             ) : null}
           </motion.div>

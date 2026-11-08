@@ -21,7 +21,7 @@ import { TypeHistoryEntry } from './entities/type-history-entry.entity.js';
 import { CreateBatchDto } from './dto/create-batch.dto.js';
 import { ChangeTypeDto } from './dto/change-type.dto.js';
 import { UpdateBatchDto } from './dto/update-batch.dto.js';
-import { MetricsService } from './metrics.service.js';
+import { MetricsService, type MetricsPreload } from './metrics.service.js';
 import { AdvisoryEngine } from './advisory.engine.js';
 import { KOUKOU_EVENTS, koukouBus } from '../../common/utils/event-bus.js';
 import { BandeOpeningService } from './poufa/bande-opening.service.js';
@@ -251,6 +251,7 @@ export class BatchesService {
       ...page,
     });
     const economics = await this.farmsService.readsEconomics(user);
+    const preload = await this.metricsService.preload(batches);
     // Bounded fan-out: each band's metrics costs ~10 queries, and firing them
     // all at once for a farm with dozens of (closed) bands starved the
     // connection pool and queued every other request behind it.
@@ -260,7 +261,7 @@ export class BatchesService {
       while (next < batches.length) {
         const i = next++;
         out[i] = this.gateEconomics(
-          await this.withMetrics(batches[i]!, asOf),
+          await this.withMetrics(batches[i]!, asOf, preload),
           economics,
         );
       }
@@ -429,11 +430,12 @@ export class BatchesService {
   private async withMetrics(
     batch: ProductionBatch,
     asOf?: string,
+    preload?: MetricsPreload,
   ): Promise<BatchWithMetrics> {
-    const metrics = await this.metricsService.compute(
-      batch,
-      asOf ? { asOf } : undefined,
-    );
+    const metrics = await this.metricsService.compute(batch, {
+      ...(asOf ? { asOf } : {}),
+      ...(preload ? { preload } : {}),
+    });
     return { ...batch, metrics };
   }
 }

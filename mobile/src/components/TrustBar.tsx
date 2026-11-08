@@ -25,7 +25,7 @@ export function TrustBar({ status, onRefresh }: { status: SyncStatus; onRefresh?
           {status.pending > 0 ? `${status.pending} en attente` : 'synchronisé'}
         </AppText>
       </View>
-      <Pressable onPress={onRefresh} hitSlop={10} style={styles.refresh} accessibilityRole="button">
+      <Pressable accessibilityLabel="Actualiser" onPress={onRefresh} hitSlop={10} style={styles.refresh} accessibilityRole="button">
         <RefreshCw size={15} color={color.brand[600]} />
       </Pressable>
     </View>

@@ -62,7 +62,7 @@ export function ListHistoryPanel({ listType, onClose }: { listType: ProgramListT
                   ))}
                 </ul>
               ) : null}
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-slate-500">
                 {dateTimeFr(e.at)} · {e.actorName ? `par ${e.actorName}` : e.actorUserId ? `compte ${e.actorUserId.slice(0, 8)}…` : 'par le serveur'}
               </p>
             </li>

@@ -49,7 +49,7 @@ export function PublicLotPage() {
             </div>
             <h1 className="text-lg font-semibold text-slate-900">{state.title}</h1>
             <p className="mt-1 text-sm text-slate-600">{state.message}</p>
-            {code ? <p className="mt-3 font-mono text-xs text-slate-400">{code}</p> : null}
+            {code ? <p className="mt-3 font-mono text-xs text-slate-500">{code}</p> : null}
           </div>
         )}
         <p className="flex items-start gap-2 rounded-xl bg-white px-3 py-2 text-xs text-slate-600 ring-1 ring-slate-200">

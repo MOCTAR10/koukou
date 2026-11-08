@@ -26,7 +26,7 @@ export function ShareBars({ rows, empty, rowIcon }: { rows: ShareRow[]; empty: s
               <div className="flex items-baseline justify-between gap-3 text-sm">
                 <span className="min-w-0 font-medium text-slate-800">
                   {r.label}
-                  {r.meta ? <span className="ml-2 text-xs font-normal text-slate-400">{r.meta}</span> : null}
+                  {r.meta ? <span className="ml-2 text-xs font-normal text-slate-500">{r.meta}</span> : null}
                 </span>
                 <span className="shrink-0 tabular-nums">
                   <span className="font-semibold text-slate-800">{fcfa(r.amountFcfa)}</span>

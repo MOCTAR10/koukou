@@ -45,7 +45,7 @@ export function ProfilesView({
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
           <ShieldCheck className="h-4 w-4 text-slate-400" />
           <h2 className="text-sm font-semibold text-slate-700">Profils d’accès ({rows.length})</h2>
-          <span className="text-xs text-slate-400">Chaque compte reçoit les droits de son profil.</span>
+          <span className="text-xs text-slate-500">Chaque compte reçoit les droits de son profil.</span>
           {canWrite ? (
             <Button className="ml-auto" disabled={!catalog.data} onClick={() => { setSuccess(null); setForm({ profile: null }); }}>
               <Plus className="h-4 w-4" /> Nouveau profil

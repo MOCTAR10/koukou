@@ -71,7 +71,7 @@ export function ListsView({ rights }: { rights: AdminRights['lists'] }) {
           <div>
             <h2 className="text-base font-semibold text-slate-900">{listLabel(listType)}</h2>
             <p className="text-sm text-slate-500">{def?.help}</p>
-            <p className="font-mono text-[11px] text-slate-400">{listType}</p>
+            <p className="font-mono text-[11px] text-slate-500">{listType}</p>
           </div>
           {canWrite ? (
             <Button onClick={() => setCreating(true)}>

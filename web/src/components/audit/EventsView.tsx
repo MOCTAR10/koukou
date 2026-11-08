@@ -172,7 +172,7 @@ export function EventsView({ onRowChanges }: { onRowChanges: (requestId: string)
                       }}
                     >
                       <span className="block whitespace-nowrap font-medium text-slate-900 hover:underline">{dateTimeFr(e.occurredAt)}</span>
-                      <span className="block font-mono text-[11px] text-slate-400">n° {e.id}</span>
+                      <span className="block font-mono text-[11px] text-slate-500">n° {e.id}</span>
                     </button>
                   </Td>
                   <Td label="Action">

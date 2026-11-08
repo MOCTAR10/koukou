@@ -237,7 +237,7 @@ export function AddressField({
           ))}
         </ul>
       ) : (
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-slate-500">
           {located
             ? 'Adresse localisée sur la carte.'
             : 'Tapez au moins 3 lettres pour chercher sur OpenStreetMap, ou gardez votre saisie.'}

@@ -73,7 +73,7 @@ function Stat({ value, label, tone }: { value: number; label: string; tone: stri
   return (
     <div className="min-w-0 flex-1 text-center">
       <p className={classNames('text-sm font-bold tabular-nums', tone)}>{num(value)}</p>
-      <p className="text-xs text-slate-400">{label}</p>
+      <p className="text-xs text-slate-500">{label}</p>
     </div>
   );
 }
@@ -108,7 +108,7 @@ export function CheptelModal({
                 <PhotoThumb src={g.image} size="lg" className="!h-16 !w-16" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-slate-900">{g.label}</p>
-                  <p className="truncate text-xs text-slate-400">
+                  <p className="truncate text-xs text-slate-500">
                     {g.speciesCaption}
                     {g.code ? ` · ${g.code}` : ''}
                   </p>

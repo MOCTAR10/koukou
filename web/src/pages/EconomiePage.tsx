@@ -377,7 +377,7 @@ export function EconomiePage() {
             <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-3">
               <Landmark className="h-4 w-4 text-brand-600" />
               <h2 className="text-sm font-semibold text-slate-700">Par ferme ({farms.length})</h2>
-              <span className="text-xs text-slate-400">Marge la plus faible en premier ; cliquez une ferme pour ouvrir sa page {view === 'comptabilite' ? 'comptable' : view === 'market' ? 'Market' : view === 'production' ? 'des lots' : view === 'biosecurite' ? 'des visites' : 'de rentabilité'}.</span>
+              <span className="text-xs text-slate-500">Marge la plus faible en premier ; cliquez une ferme pour ouvrir sa page {view === 'comptabilite' ? 'comptable' : view === 'market' ? 'Market' : view === 'production' ? 'des lots' : view === 'biosecurite' ? 'des visites' : 'de rentabilité'}.</span>
             </div>
             {farms.length === 0 ? (
               <div className="p-4">
@@ -416,7 +416,7 @@ export function EconomiePage() {
               </DataTable>
             )}
           </Card>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Chiffre d’affaires = ventes non annulées de la période ; charges = dépenses de la période ; marge et taux de marge = formules du programme
             (FORMULE_MARGE_FCFA, FORMULE_TAUX_MARGE). La masse salariale est celle des employés actifs (salaire mensuel des dossiers RH), le stock celui
             de l’aliment disponible aujourd’hui. Comptabilité : produits (classe 7) et charges (classe 6) de la période, trésorerie (classe 5) et créances

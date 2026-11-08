@@ -43,7 +43,7 @@ export function LineChart({
   const values = data.map((v, i) => (v == null ? null : ({ i, v }))).filter((x): x is { i: number; v: number } => x !== null);
   if (values.length === 0) {
     return (
-      <div style={{ height }} className="flex items-center justify-center text-xs text-slate-400">
+      <div style={{ height }} className="flex items-center justify-center text-xs text-slate-500">
         Pas encore de données
       </div>
     );

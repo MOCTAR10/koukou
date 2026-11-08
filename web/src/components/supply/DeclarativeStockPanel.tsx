@@ -100,7 +100,7 @@ export function DeclarativeStockPanel() {
           </tbody>
         </DataTable>
       ) : null}
-      <p className="px-4 py-3 text-xs text-slate-400">
+      <p className="px-4 py-3 text-xs text-slate-500">
         Le stock physique (FEFO) ne descend jamais sous zéro ; le stock déclaratif, si : un chiffre négatif signale une utilisation enregistrée
         au-delà de ce que le programme a livré. Les intrants reçus hors programme n’y comptent pas.
       </p>

@@ -108,7 +108,7 @@ export function FarmIdentityCard({ farm }: { farm: FarmWithLogo }) {
             </Button>
           </>
         ) : (
-          <span className="text-xs text-slate-400">Sans logo, c’est la marque Fermia qui s’affiche. PNG, JPEG ou WEBP, 2 Mo maximum.</span>
+          <span className="text-xs text-slate-500">Sans logo, c’est la marque Fermia qui s’affiche. PNG, JPEG ou WEBP, 2 Mo maximum.</span>
         )}
       </div>
       ) : null}

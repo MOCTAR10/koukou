@@ -929,7 +929,7 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
                   <Td label="Morts">{num(r.deaths, 0)}</Td>
                   <Td label="Aliment">
                     {r.feedQuantity > 0 ? `${num(r.feedQuantity)} kg` : '—'}
-                    {r.skipStockDeduction ? <span className="ml-1 text-xs text-slate-400">(hors stock)</span> : null}
+                    {r.skipStockDeduction ? <span className="ml-1 text-xs text-slate-500">(hors stock)</span> : null}
                   </Td>
                   <Td label="Phase">{phaseLabel(r.feedPhase, r.customFeedPhaseName)}</Td>
                   <Td label="Eau">{r.waterL > 0 ? `${num(r.waterL)} L` : '—'}</Td>

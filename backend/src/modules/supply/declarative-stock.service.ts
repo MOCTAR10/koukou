@@ -287,9 +287,13 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
     for (const farmId of farmIds) {
       const farm = farmRows.find((f) => f.id === farmId);
       const units = farm ? unitsByProgram.get(farm.programId) : undefined;
-      const stock = await this.compute(farmId);
       const of = (s: InputDeliveryStatus) =>
         counts.find((c) => c.farm_id === farmId && c.status === s);
+      // compute() answers empty rows for a farm without confirmed delivery:
+      // the grouped counts above already tell, so skip its two queries.
+      const stock: DeclarativeStock = of(InputDeliveryStatus.CONFIRMEE)
+        ? await this.compute(farmId)
+        : { farmId, rows: [], negative: false };
       const intrants = new Map<string, FarmSupplySummary['intrants'][number]>(
         stock.rows.map((r) => [
           r.key,

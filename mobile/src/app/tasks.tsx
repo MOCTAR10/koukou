@@ -468,7 +468,7 @@ export default function TasksScreen() {
           back
           right={
             canManage ? (
-              <Pressable onPress={() => setCreateOpen(true)} style={styles.addBtn} accessibilityRole="button">
+              <Pressable accessibilityLabel="Nouvelle tâche" onPress={() => setCreateOpen(true)} style={styles.addBtn} accessibilityRole="button">
                 <Plus size={22} color={color.surface} />
               </Pressable>
             ) : undefined

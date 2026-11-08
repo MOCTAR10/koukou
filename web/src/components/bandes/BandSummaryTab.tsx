@@ -221,13 +221,13 @@ function IndicatorCard({ i }: { i: OfficialIndicator }) {
   return (
     <div className="rounded-lg bg-slate-50 px-3 py-2">
       <p className="text-[11px] uppercase tracking-wide text-slate-500">{i.label}</p>
-      <p className={classNames('mt-0.5 text-lg font-bold tabular-nums', i.value == null ? 'text-sm font-medium text-slate-400' : 'text-slate-800')}>
+      <p className={classNames('mt-0.5 text-lg font-bold tabular-nums', i.value == null ? 'text-sm font-medium text-slate-500' : 'text-slate-800')}>
         {indicatorValueLabel(i)}
       </p>
       <p className="mt-1 break-words font-mono text-[11px] text-slate-600" title="Formule">
         {i.expression}
       </p>
-      <p className="mt-0.5 text-[11px] text-slate-400">{formulaVersionLabel(i, dateFr)}</p>
+      <p className="mt-0.5 text-[11px] text-slate-500">{formulaVersionLabel(i, dateFr)}</p>
     </div>
   );
 }
@@ -336,7 +336,7 @@ function ComparisonCard({ query }: { query: { data?: BandComparison; error: unkn
                       <Td key={f} label={COMPARISON_LABELS[f]}>
                         <span className={classNames('font-medium tabular-nums', tone ? TONE_CLS[tone] : undefined)}>{comparisonValueLabel(f, w.band?.[f])}</span>
                         <span className="text-slate-400"> / </span>
-                        <span className={cell.suppressed ? 'text-xs italic text-slate-400' : 'tabular-nums text-slate-600'}>{cell.text}</span>
+                        <span className={cell.suppressed ? 'text-xs italic text-slate-500' : 'tabular-nums text-slate-600'}>{cell.text}</span>
                       </Td>
                     );
                   })}

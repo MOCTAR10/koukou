@@ -11,7 +11,7 @@ import { dismissQueuedNotice, getQueuedNotice, subscribeQueuedNotice } from '../
 import { oldestShownDate, resetShownDate, subscribeShownDate } from '../offline/readCache';
 import { isSyncing, onSyncCentreRequest, setSyncing, subscribeSyncing } from '../offline/pulse';
 import { warmOfflineCache } from '../offline/warmup';
-import { fcfa } from '../lib/format';
+import { dateTimeFr, fcfa } from '../lib/format';
 import { shouldApplyUpdate } from '../lib/updatePolicy';
 import { Button, hasOpenDialog, Modal } from './form';
 
@@ -52,7 +52,7 @@ function SyncCentre({ onClose, onSync, syncing }: { onClose: () => void; onSync:
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-slate-800">{op.label}</span>
                     <span className="text-xs text-slate-500">
-                      {new Date(op.createdAt).toLocaleString('fr-FR')}
+                      {dateTimeFr(op.createdAt)}
                       {op.heldByClosedCaisse ? ' · attend l’ouverture de la caisse' : ''}
                     </span>
                   </span>

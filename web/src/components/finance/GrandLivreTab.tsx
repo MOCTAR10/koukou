@@ -119,7 +119,7 @@ export function GrandLivreTab({
                   <tr key={`${m.reference}-${i}`} className="border-t border-slate-100">
                     <Td label="Date" className="whitespace-nowrap text-slate-500">{dateFr(m.date)}</Td>
                     <Td label="Libellé">
-                      {m.label} <span className="font-mono text-xs text-slate-400">{m.reference}</span>
+                      {m.label} <span className="font-mono text-xs text-slate-500">{m.reference}</span>
                     </Td>
                     <Td label="Débit" className="whitespace-nowrap text-right tabular-nums">{m.debitFcfa > 0 ? fcfa(m.debitFcfa) : ''}</Td>
                     <Td label="Crédit" className="whitespace-nowrap text-right tabular-nums">{m.creditFcfa > 0 ? fcfa(m.creditFcfa) : ''}</Td>

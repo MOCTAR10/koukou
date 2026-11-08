@@ -26,7 +26,7 @@ export function EventDetailPanel({ event, onClose, onOpenRowChanges }: { event: 
         <dl className="grid grid-cols-[9rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
           <dt className="text-slate-500">Date (UTC)</dt>
           <dd>
-            {dateTimeFr(event.occurredAt)} <span className="font-mono text-[11px] text-slate-400">{event.occurredAt}</span>
+            {dateTimeFr(event.occurredAt)} <span className="font-mono text-[11px] text-slate-500">{event.occurredAt}</span>
           </dd>
           <dt className="text-slate-500">Action</dt>
           <dd>{ACTION_LABELS[event.action] ?? event.action}</dd>

@@ -116,7 +116,7 @@ export function DeliveryDetail({ delivery, actions }: { delivery: DeliveryView; 
           <p className="font-semibold tabular-nums text-emerald-700">{fcfa(confirmed ? delivery.totals.subsidyFcfa : expected.subsidyFcfa)}</p>
         </div>
       </div>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         À la confirmation, chaque ligne reçue devient un lot du stock de la ferme ; seul le coût après subvention est passé en dépense, la
         subvention n’est jamais une charge de la ferme.
       </p>

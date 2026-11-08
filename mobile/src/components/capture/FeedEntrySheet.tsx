@@ -877,7 +877,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
                 {fmtExpiry()}
               </AppText>
               {expirationDate ? (
-                <Pressable onPress={clearExpiry} hitSlop={10} style={styles.dateClear} accessibilityRole="button">
+                <Pressable accessibilityLabel="Effacer la date de péremption" onPress={clearExpiry} hitSlop={10} style={styles.dateClear} accessibilityRole="button">
                   <X size={15} color={color.ink[500]} />
                 </Pressable>
               ) : null}

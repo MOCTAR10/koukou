@@ -279,7 +279,7 @@ function FactGrid({ items }: { items: Array<{ title: string; text: string; sourc
           <div>
             <p className="font-semibold text-slate-900">{p.title}</p>
             <p className="mt-0.5 text-[17px] text-slate-600">{p.text}</p>
-            <p className="mt-1 font-mono text-[11px] text-slate-400">{p.source}</p>
+            <p className="mt-1 font-mono text-[11px] text-slate-500">{p.source}</p>
           </div>
         </li>
       ))}

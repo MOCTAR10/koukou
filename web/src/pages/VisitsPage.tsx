@@ -12,7 +12,7 @@ import { VisitFormModal } from '../components/visits/VisitFormModal';
 import { useFarmVisits, useProgrammeVisits } from '../components/visits/queries';
 import { CLASS_LABEL, VISIT_TYPE_LABEL, visitRights } from '../components/visits/visitRules';
 import { Card, DataTable, EmptyState, Loading, PageHeader, Td, Th } from '../components/ui';
-import { dateFr } from '../lib/format';
+import { dateFr, dateTimeFr } from '../lib/format';
 import { dismissRejected, useOfflineQueue } from '../offline';
 
 type TabKey = 'ferme' | 'programme';
@@ -138,7 +138,7 @@ export function VisitsPage() {
             <p key={op.id} className="flex items-start gap-2 text-sm text-amber-800">
               <CloudOff className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                <b>En attente d’envoi</b> · {op.label} · enregistrée le {new Date(op.createdAt).toLocaleString('fr-FR')} (partira au retour de la connexion).
+                <b>En attente d’envoi</b> · {op.label} · enregistrée le {dateTimeFr(op.createdAt)} (partira au retour de la connexion).
               </span>
             </p>
           ))}

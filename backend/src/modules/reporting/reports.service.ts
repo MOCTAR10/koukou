@@ -9,7 +9,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, type SelectQueryBuilder } from 'typeorm';
+import {
+  DataSource,
+  In,
+  Repository,
+  type SelectQueryBuilder,
+} from 'typeorm';
 import { isUuid } from '../../common/context/request-context.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
@@ -645,11 +650,20 @@ export class ReportsService {
       [template.programId, BatchStatus.CLOTURE, since, template.id],
     );
     let created = 0;
+    // Two batched reads for the whole page of bands (was two per band).
+    const found = rows.length
+      ? await this.batches.find({ where: { id: In(rows.map((r) => r.id)) } })
+      : [];
+    const batchById = new Map(found.map((b) => [b.id, b]));
+    const farmRows = found.length
+      ? await this.farmRepo.find({
+          where: { id: In([...new Set(found.map((b) => b.farmId))]) },
+        })
+      : [];
+    const farmById = new Map(farmRows.map((f) => [f.id, f]));
     for (const { id } of rows) {
-      const batch = await this.batches.findOne({ where: { id } });
-      const farm = batch
-        ? await this.farmRepo.findOne({ where: { id: batch.farmId } })
-        : null;
+      const batch = batchById.get(id);
+      const farm = batch ? (farmById.get(batch.farmId) ?? null) : null;
       if (!batch || !farm) continue;
       // One faulty band must not stop the reports of the others.
       try {

@@ -78,7 +78,7 @@ export function AddressSearchSheet({
             autoCorrect={false}
           />
           {query.length > 0 ? (
-            <Pressable onPress={() => setQuery('')} style={styles.inputIcon}>
+            <Pressable accessibilityLabel="Effacer la recherche" onPress={() => setQuery('')} style={styles.inputIcon}>
               <X size={16} color={color.ink[400]} />
             </Pressable>
           ) : null}

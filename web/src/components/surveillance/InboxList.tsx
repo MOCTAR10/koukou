@@ -31,7 +31,7 @@ export function InboxList({ items, onOpen, compact = false }: { items: InboxItem
                   {!compact ? <Pill tone={severityTone(n.severity)}>{EVENT_SHORT_LABELS[n.event] ?? n.event}</Pill> : null}
                 </span>
                 <span className={classNames('block text-sm text-slate-600', compact && 'line-clamp-2')}>{n.body}</span>
-                <span className="block text-xs text-slate-400">
+                <span className="block text-xs text-slate-500">
                   {dateTimeFr(n.createdAt)}
                   {unread ? ' · non lue' : ''}
                 </span>
