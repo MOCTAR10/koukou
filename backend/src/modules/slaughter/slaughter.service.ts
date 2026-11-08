@@ -338,7 +338,7 @@ export class SlaughterService {
         order.internalBatchCode =
           dto.internalBatchCode ??
           order.internalBatchCode ??
-          (await this.nextInternalCode());
+          (await this.nextInternalCode(em));
       } else if (dto.abattoirLotCode !== undefined) {
         order.abattoirLotCode = dto.abattoirLotCode;
       }
@@ -782,12 +782,21 @@ export class SlaughterService {
     return `${SLAUGHTER_PREFIX}-${date}-${suffix}-I`;
   }
 
-  private async nextInternalCode(): Promise<string> {
+  /**
+   * Internal tracking code (no unique index: operators may type their own).
+   * Concurrent sends serialise on a transaction-scoped advisory lock so two
+   * of them never draw the same code; the check reads in the caller's
+   * transaction.
+   */
+  private async nextInternalCode(em: EntityManager): Promise<string> {
+    await em.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      'slaughter-internal-code',
+    ]);
     for (let attempt = 0; attempt < 5; attempt++) {
       const candidate = this.makeInternalCode();
-      const existing = await this.orderRepo.findOne({
-        where: { internalBatchCode: candidate },
-      });
+      const existing = await em
+        .getRepository(SlaughterOrder)
+        .findOne({ where: { internalBatchCode: candidate } });
       if (!existing) return candidate;
     }
     throw new BadRequestException(

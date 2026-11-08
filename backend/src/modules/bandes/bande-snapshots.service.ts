@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
+import { UserRole } from '../../common/enums/role.enum.js';
 import {
   KOUKOU_EVENTS,
   koukouBus,
@@ -149,7 +150,10 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
   ): Promise<BandeSnapshot[]> {
     const { batch } = await this.bandes.load(user, farmId, batchId);
     // The bus listener may still be running right after the close.
-    if (batch.status === BatchStatus.CLOTURE) {
+    if (
+      batch.status === BatchStatus.CLOTURE &&
+      user.role !== UserRole.INSTITUTION
+    ) {
       await this.ensureClosureSnapshot(batch.id);
     }
     return this.snapshots.find({
@@ -174,7 +178,11 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
     const sheets = await this.bandes.list(user, farmId, status);
     const out: (BandSheet & { summary: BandSummary | null })[] = [];
     for (const sheet of sheets) {
-      out.push({ ...sheet, summary: await this.summaryOf(farm, sheet) });
+      const mayWrite = user.role !== UserRole.INSTITUTION;
+      out.push({
+        ...sheet,
+        summary: await this.summaryOf(farm, sheet, mayWrite),
+      });
     }
     return out;
   }
@@ -182,10 +190,11 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
   private async summaryOf(
     farm: Farm,
     sheet: BandSheet,
+    mayWrite = true,
   ): Promise<BandSummary | null> {
     try {
       if (sheet.status === BatchStatus.CLOTURE) {
-        await this.ensureClosureSnapshot(sheet.id);
+        if (mayWrite) await this.ensureClosureSnapshot(sheet.id);
         const last = await this.snapshots.findOne({
           where: { batchId: sheet.id },
           order: { version: 'DESC' },

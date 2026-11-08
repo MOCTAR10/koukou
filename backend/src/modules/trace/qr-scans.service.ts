@@ -17,6 +17,9 @@ import { isLotCodeShape } from './trace-codes.js';
 import { TraceConfigService } from './trace-config.service.js';
 import { effectiveLotStatus } from './trace-lots.service.js';
 
+/** Postgres text cannot hold a NUL byte (a hostile %00 would fail the insert). */
+const noNul = (s: string): string => s.replace(/\0/g, '');
+
 export interface ScanRequest {
   code: string;
   signature: string | null | undefined;
@@ -118,10 +121,10 @@ export class QrScansService {
 
     await this.journal({
       lotId: lot?.id ?? null,
-      code: code.slice(0, 80) || '-',
-      token: signature?.slice(0, 64) ?? null,
+      code: noNul(code).slice(0, 80) || '-',
+      token: signature ? noNul(signature).slice(0, 64) : null,
       ipHash: this.config.hashIp(req.ip),
-      userAgent: req.userAgent ? req.userAgent.slice(0, 300) : null,
+      userAgent: req.userAgent ? noNul(req.userAgent).slice(0, 300) : null,
       geoCell: geoCellOf(req.lat, req.lng),
       result,
     });
