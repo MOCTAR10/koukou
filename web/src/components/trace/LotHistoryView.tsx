@@ -1,3 +1,4 @@
+import { safeHref } from '../../lib/safeUrl';
 import {
   Activity,
   AlertTriangle,
@@ -169,7 +170,7 @@ export function LotHistoryView({
             Valider le lot
           </Button>
         ) : null}
-        <a href={lot.qrUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
+        <a href={safeHref(lot.qrUrl) ?? undefined} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline">
           <QrCode className="h-3.5 w-3.5" /> Page publique du QR code
         </a>
       </div>

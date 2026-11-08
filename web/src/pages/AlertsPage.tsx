@@ -281,7 +281,10 @@ export function AlertsPage() {
         iconTone="amber"
       />
 
-      <ErrorNote error={advisory.error ?? history.error ?? ack.error} />
+      <ErrorNote
+        error={advisory.error ?? history.error ?? ack.error}
+        onRetry={advisory.error || history.error ? () => void Promise.all([advisory.refetch(), history.refetch()]) : undefined}
+      />
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="space-y-6 xl:sticky xl:top-24 xl:order-2">

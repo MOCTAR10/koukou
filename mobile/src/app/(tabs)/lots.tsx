@@ -2360,8 +2360,8 @@ function FinanceSheet({ visible, pnl, sales, expenses, orders, finLabel, onClose
           {ordersList.map((o, i) => (
             <FinanceRow
               key={o.id}
-              left={`${o.referenceNumber} · ${CANAL_LABELS[o.canal]}`}
-              caption={`${STATUS_LABELS[o.status]}${o.depositFcfa > 0 ? ` · acompte ${compactFcfa(o.depositFcfa)}` : ''}`}
+              left={`${o.referenceNumber} · ${CANAL_LABELS[o.canal] ?? o.canal}`}
+              caption={`${STATUS_LABELS[o.status] ?? o.status}${o.depositFcfa > 0 ? ` · acompte ${compactFcfa(o.depositFcfa)}` : ''}`}
               right={compactFcfa(o.totalAmountFcfa)}
               divider
               last={i === ordersList.length - 1}

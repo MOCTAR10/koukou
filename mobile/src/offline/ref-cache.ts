@@ -35,8 +35,35 @@ export function readCached<T>(key: string): Entry<T> | null {
   }
 }
 
+function indexKey(userId: string): string {
+  return `${PREFIX}${userId}.__keys`;
+}
+
+function readIndex(userId: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(storage.getItem(indexKey(userId)) ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Forgets every saved answer of an account (logout): the phone keeps no farm data of a signed-out user. */
+export function clearUserCache(userId: string | undefined): void {
+  if (!userId) return;
+  try {
+    for (const key of readIndex(userId)) storage.removeItem(`${PREFIX}${userId}.${key}`);
+    storage.removeItem(indexKey(userId));
+  } catch {
+    // Nothing readable to forget.
+  }
+}
+
 export function writeCached<T>(key: string, value: T, now = new Date()): void {
   try {
+    const userId = loadSession()?.user?.id ?? 'anonyme';
+    const known = readIndex(userId);
+    if (!known.includes(key)) storage.setItem(indexKey(userId), JSON.stringify([...known, key]));
     storage.setItem(storageKey(key), JSON.stringify({ savedAt: now.toISOString(), value }));
   } catch {
     // A full disk must not break the screen: the live answer is still shown.

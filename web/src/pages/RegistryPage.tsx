@@ -241,7 +241,7 @@ export function RegistryPage() {
         ) : null}
       </Card>
 
-      <ErrorNote error={list.error ?? provinces.error} />
+      <ErrorNote error={list.error ?? provinces.error} onRetry={() => void Promise.all([list.refetch(), provinces.refetch()])} />
 
       <Card className="overflow-hidden">
         {list.isLoading ? (

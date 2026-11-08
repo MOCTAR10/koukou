@@ -5,6 +5,7 @@ import { API_BASE } from '../api/client';
 import { Logo } from '../components/Logo';
 import { fetchPublicLot, PUBLIC_LOT_NOTICE, producerLine, type PublicLotState } from '../components/trace/publicLot';
 import { dateFr, num } from '../lib/format';
+import { safeHref } from '../lib/safeUrl';
 
 /**
  * The page a consumer opens by scanning a lot's QR code (`/l/:code?s=…`).
@@ -120,7 +121,7 @@ function LotCard({ state }: { state: Extract<PublicLotState, { kind: 'ok' }> }) 
         </dl>
       </div>
       <a
-        href={v.consommonsGabonais.url}
+        href={safeHref(v.consommonsGabonais.url) ?? undefined}
         target="_blank"
         rel="noreferrer"
         className="flex items-center justify-between rounded-2xl bg-brand-600 px-5 py-4 text-sm font-semibold text-white shadow-sm hover:bg-brand-700"

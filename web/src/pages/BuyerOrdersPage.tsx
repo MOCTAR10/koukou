@@ -10,6 +10,7 @@ import { invalidateBuyerQueries, listingPhoto, listingTitle, MarketStatusBadge, 
 import { ConfirmDialog } from '../components/orders/shared';
 import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
 import { dateFr, dateTimeFr, fcfa } from '../lib/format';
+import { telHref } from '../lib/safeUrl';
 
 export function BuyerOrdersPage() {
   const query = useQuery({
@@ -197,7 +198,7 @@ export function BuyerOrderPage() {
             ) : null}
           </dl>
           {order.farm.phone ? (
-            <a href={`tel:${order.farm.phone}`} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:text-brand-800">
+            <a href={telHref(order.farm.phone) ?? undefined} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:text-brand-800">
               <Phone className="h-4 w-4" /> Appeler la ferme : {order.farm.phone}
             </a>
           ) : null}

@@ -137,7 +137,7 @@ export function TasksPage() {
         ))}
       </div>
 
-      <ErrorNote error={tasks.error ?? (cancelling ? null : setStatus.error)} />
+      <ErrorNote error={tasks.error ?? (cancelling ? null : setStatus.error)} onRetry={tasks.error ? () => void tasks.refetch() : undefined} />
 
       {tasks.isLoading ? (
         <Loading label="Chargement des tâches…" />

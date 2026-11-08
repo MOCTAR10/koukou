@@ -233,7 +233,7 @@ export function SalesPage() {
         }
       />
 
-      <ErrorNote error={loadError} />
+      <ErrorNote error={loadError} onRetry={() => void Promise.all([pointsOfSale.refetch(), batches.refetch()])} />
 
       {!canSell ? (
         <ReadOnlyNotice what="ventes et reçus" />

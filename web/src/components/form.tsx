@@ -72,17 +72,28 @@ export function errorMessage(err: unknown): string {
   return 'Impossible de contacter le serveur. Réessayez plus tard.';
 }
 
-export function ErrorNote({ error }: { error: unknown }) {
+/** `onRetry`: a « Réessayer » button, for a list that failed to load. */
+export function ErrorNote({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   if (!error) return null;
   return (
-    <div className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
+    <div role="alert" className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>{typeof error === 'string' ? error : errorMessage(error)}</span>
+      <span className="min-w-0 flex-1">{typeof error === 'string' ? error : errorMessage(error)}</span>
+      {onRetry ? (
+        <button type="button" onClick={onRetry} className="shrink-0 rounded font-semibold underline hover:text-red-900">
+          Réessayer
+        </button>
+      ) : null}
     </div>
   );
 }
 
 const openDialogs: object[] = [];
+
+/** A dialog (often a form being filled) is open. */
+export function hasOpenDialog(): boolean {
+  return openDialogs.length > 0;
+}
 
 /** A long form on a computer: the main fields, then a narrower column. One column, in the same order, below `lg`. */
 export function FormColumns({ children }: { children: ReactNode }) {

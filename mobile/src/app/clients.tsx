@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { telUrl } from '@/utils/safeUrl';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownWideNarrow, Banknote, Check, ChevronDown, ChevronRight, Pencil, Phone, Plus, Search, UserPlus, UserRound } from 'lucide-react-native';
 
@@ -785,7 +786,7 @@ export default function ClientsScreen() {
                             </Pressable>
                           ) : null}
                           {c.phone ? (
-                            <Pressable onPress={() => Linking.openURL(`tel:${c.phone}`)} style={[styles.actionBtn, { marginLeft: due > 0 ? 0 : 'auto' }]} accessibilityRole="button" hitSlop={6}>
+                            <Pressable onPress={() => { const url = telUrl(c.phone); if (url) void Linking.openURL(url); }} style={[styles.actionBtn, { marginLeft: due > 0 ? 0 : 'auto' }]} accessibilityRole="button" hitSlop={6}>
                               <Phone size={13} color={color.brand[700]} />
                               <AppText size="small" weight="bold" color="brand">
                                 Appeler

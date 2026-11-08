@@ -225,7 +225,7 @@ export function BatchesPage() {
         <BuildingsPanel />
       ) : (
         <>
-          <ErrorNote error={lots.error} />
+          <ErrorNote error={lots.error} onRetry={() => void lots.refetch()} />
           <SectionCard
             title="Vue d'ensemble"
             icon={<Gauge />}

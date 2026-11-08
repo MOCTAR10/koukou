@@ -12,6 +12,7 @@ import { invalidateBuyerQueries, listingPhoto, listingTitle } from '../component
 import { Segmented } from '../components/orders/shared';
 import { Card, EmptyState, Loading } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
+import { safeHref } from '../lib/safeUrl';
 import { useIdempotencyKey } from '../lib/idempotency';
 import { isGabonPhoneValid, normalizeGabonPhone } from '../lib/phone';
 
@@ -192,7 +193,7 @@ export function MarketListingPage() {
             {listing.traceLot ? (
               // POUFA lot A indic: the band's public traceability page.
               <a
-                href={listing.traceLot.path}
+                href={safeHref(listing.traceLot.path) ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-2.5 py-1 text-sm font-medium text-brand-700 ring-1 ring-brand-200 hover:bg-brand-100"

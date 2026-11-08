@@ -194,7 +194,7 @@ export function SlaughterPage() {
         }
       />
       <ReadOnlyNotice what="ordres d’abattage" />
-      <ErrorNote error={orders.error ?? action.error} />
+      <ErrorNote error={orders.error ?? action.error} onRetry={orders.error ? () => void orders.refetch() : undefined} />
       <div className="flex flex-wrap items-center gap-3">
         <Tabs<Horizon>
           value={horizon}
