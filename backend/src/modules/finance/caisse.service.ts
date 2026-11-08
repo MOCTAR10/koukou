@@ -133,7 +133,7 @@ export class CaisseService {
       if (difference !== 0) {
         await this.accountingService.post(em, {
           farmId,
-          date: saved.closedAt ? saved.closedAt.toISOString().slice(0, 10) : saved.openedAt,
+          date: saved.closedAt ? todayLocal(saved.closedAt) : saved.openedAt,
           label:
             difference < 0
               ? `Clôture de caisse du ${saved.openedAt} — écart négatif ${difference} FCFA`
@@ -173,6 +173,7 @@ export class CaisseService {
           'Aucune session de caisse ouverte. Ouvrir la caisse avant d’enregistrer un mouvement.',
         );
       }
+      await this.accountingService.assertPeriodOpen(em, farmId, dto.movementDate);
       if (dto.type === CashMovementType.OUT) {
         const movements = await em.getRepository(CashMovement).find({
           where: { cashSessionId: session.id },
@@ -259,6 +260,11 @@ export class CaisseService {
           'Session de caisse clôturée : les mouvements sont immuables.',
         );
       }
+      await this.accountingService.assertPeriodOpen(
+        em,
+        farmId,
+        dto.movementDate ?? movement.movementDate,
+      );
       const nextAmount = dto.amountFcfa ?? movement.amountFcfa;
       if (
         movement.type === CashMovementType.OUT &&

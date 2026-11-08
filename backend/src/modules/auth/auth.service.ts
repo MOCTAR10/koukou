@@ -28,6 +28,10 @@ import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
 import { phoneLoginCandidates } from '../../common/utils/phone.js';
 
+/** Neutral wording: does not say whether the number already has an account. */
+const REGISTER_REFUSED =
+  'Inscription impossible avec ce numéro. Si vous avez déjà un compte, connectez-vous.';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -46,11 +50,7 @@ export class AuthService {
   /** A buyer has an account and a profile, but no farm. */
   async registerBuyer(dto: RegisterBuyerDto) {
     const taken = await this.usersRepo.exists({ where: { phone: dto.phone } });
-    if (taken) {
-      throw new ConflictException(
-        'Un compte existe déjà avec ce numéro de téléphone.',
-      );
-    }
+    if (taken) throw new ConflictException(REGISTER_REFUSED);
     const passwordHash = await bcrypt.hash(dto.code, 10);
     try {
       const user = await this.dataSource.transaction(async (em) => {
@@ -75,9 +75,7 @@ export class AuthService {
       return this.buildAuthResponse(user);
     } catch (err) {
       if (isUniqueViolation(err)) {
-        throw new ConflictException(
-          'Un compte existe déjà avec ce numéro de téléphone.',
-        );
+        throw new ConflictException(REGISTER_REFUSED);
       }
       throw err;
     }
@@ -120,7 +118,11 @@ export class AuthService {
         `Compte temporairement verrouillé après trop d’échecs de connexion. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''} ou contactez l’administrateur.`,
       );
     }
-    if (user && !ok) await this.registerFailure(user);
+    // A failure on an already locked account is not counted: otherwise a
+    // script failing every few minutes would renew the lock for ever (the
+    // owner could never come back). The lock simply runs out.
+    const locked = !!user?.lockedUntil && user.lockedUntil.getTime() > Date.now();
+    if (user && !ok && !locked) await this.registerFailure(user);
     if (!user || !ok) {
       throw new UnauthorizedException(
         'Identifiants invalides. Vérifiez le numéro de téléphone et le code.',

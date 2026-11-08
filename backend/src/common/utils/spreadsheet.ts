@@ -119,6 +119,49 @@ function cellText(value: ExcelJS.CellValue): string {
   return String(value);
 }
 
+/** A real farm workbook is far below these; a zip bomb is far above. */
+const XLSX_MAX_UNCOMPRESSED_BYTES = 60 * 1024 * 1024;
+const XLSX_MAX_ENTRIES = 500;
+
+/**
+ * Zip-bomb guard: reads the zip central directory (declared sizes only, no
+ * inflate) and refuses a workbook that would expand past the limits, before
+ * exceljs inflates anything into memory.
+ */
+export function assertXlsxNotBomb(buffer: Buffer): void {
+  const bad = () =>
+    new SpreadsheetError(
+      'Fichier Excel refusé : contenu compressé anormalement volumineux.',
+    );
+  if (!looksLikeXlsx(buffer)) return;
+  // End of central directory record: last 22 bytes + up to 64 KB of comment.
+  const minStart = Math.max(0, buffer.length - 22 - 0xffff);
+  let eocd = -1;
+  for (let i = buffer.length - 22; i >= minStart; i--) {
+    if (buffer.readUInt32LE(i) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) return; // exceljs will report an unreadable file
+  const entries = buffer.readUInt16LE(eocd + 10);
+  let offset = buffer.readUInt32LE(eocd + 16);
+  if (entries > XLSX_MAX_ENTRIES) throw bad();
+  let total = 0;
+  for (let n = 0; n < entries; n++) {
+    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== 0x02014b50) {
+      return;
+    }
+    total += buffer.readUInt32LE(offset + 24);
+    if (total > XLSX_MAX_UNCOMPRESSED_BYTES) throw bad();
+    offset +=
+      46 +
+      buffer.readUInt16LE(offset + 28) +
+      buffer.readUInt16LE(offset + 30) +
+      buffer.readUInt16LE(offset + 32);
+  }
+}
+
 /**
  * Rows of the first sheet, each a list of raw text cells (not trimmed), from
  * column A to the last filled column. Blank rows are dropped, like
@@ -130,6 +173,7 @@ export async function readXlsx(
   buffer: Buffer,
   options?: { maxRows?: number },
 ): Promise<string[][]> {
+  assertXlsxNotBomb(buffer);
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(buffer as unknown as ArrayBuffer);

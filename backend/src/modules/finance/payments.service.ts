@@ -101,6 +101,11 @@ export class PaymentsService {
       if (existing) return existing;
     }
 
+    await this.accountingService.assertPeriodOpen(
+      em,
+      input.farm.id,
+      input.paymentDate,
+    );
     const remaining = await this.computeRemainingDue(em, input.sale.id);
     if (input.amountFcfa > remaining) {
       throw new BadRequestException(

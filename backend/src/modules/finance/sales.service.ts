@@ -57,7 +57,7 @@ import { PaymentsService } from './payments.service.js';
 import { RentabiliteService } from './rentabilite.service.js';
 import { PromotionsService } from './promotions.service.js';
 import { AccountingService, type PostingLine } from '../accounting/accounting.service.js';
-import { revenueLines } from '../accounting/posting-map.js';
+import { refundByAccount, revenueLines } from '../accounting/posting-map.js';
 import { normalizePhone, CustomersService } from './customers.service.js';
 import { PdfService } from '../../common/services/pdf.service.js';
 import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
@@ -70,6 +70,7 @@ import { SaleCessionService } from '../trace/sale-cession.service.js';
 import { TraceLotsService } from '../trace/trace-lots.service.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import { todayLocal } from '../../common/utils/date.utils.js';
+import { retryOnReferenceCollision } from '../../common/utils/idempotency.js';
 
 const SALE_PREFIX = 'VTE';
 const ITEM_LABELS: Record<SaleItemProductType, string> = {
@@ -252,6 +253,7 @@ export class SalesService {
         await this.assertBatchInFarm(em, farmId, dto.batchId);
       }
 
+      await this.accountingService.assertPeriodOpen(em, farmId, dto.saleDate);
       const sale = await saleRepo.save(
         saleRepo.create({
           farmId,
@@ -381,7 +383,9 @@ export class SalesService {
         warnings: [],
       };
     }
-    const result = await this.dataSource.transaction(book).catch(async (err: unknown) => {
+    const result = await retryOnReferenceCollision(() =>
+      this.dataSource.transaction(book),
+    ).catch(async (err: unknown) => {
       // Deux créations concurrentes avec la même clé : l'index unique
       // (ferme, clé) tranche → on renvoie la vente existante.
       if (!dto.idempotencyKey || !isUniqueViolation(err)) throw err;
@@ -1559,14 +1563,24 @@ export class SalesService {
       const confirmed = await em.getRepository(Payment).find({
         where: { saleId, status: PaymentStatus.CONFIRMED },
       });
-      if (confirmed.length > 0) {
+      // Only cash left the caisse: a mobile-money / transfer payment is given
+      // back outside the register, so it never moves cash (nor needs a session).
+      const cashPayments = confirmed.filter(
+        (p) => p.method === PaymentMethod.CASH,
+      );
+      for (const payment of confirmed) {
+        if (payment.method === PaymentMethod.CASH) continue;
+        payment.status = PaymentStatus.REFUNDED;
+        await em.getRepository(Payment).save(payment);
+      }
+      if (cashPayments.length > 0) {
         const cashSession = await em.getRepository(CashSession).findOne({
           where: { farmId, status: CashSessionStatus.OPEN },
           lock: { mode: 'pessimistic_write' },
         });
         if (!cashSession) {
           throw new BadRequestException(
-            `Impossible d’annuler : ouvrir une session de caisse pour tracer le remboursement (${confirmed.length} paiement(s) confirmé(s)).`,
+            `Impossible d’annuler : ouvrir une session de caisse pour tracer le remboursement (${cashPayments.length} paiement(s) en espèces).`,
           );
         }
         const movements = await em.getRepository(CashMovement).find({
@@ -1579,13 +1593,13 @@ export class SalesService {
           else outFcfa += m.amountFcfa;
         }
         const available = cashSession.openingBalanceFcfa + inFcfa - outFcfa;
-        const refundTotal = confirmed.reduce((s, p) => s + p.amountFcfa, 0);
+        const refundTotal = cashPayments.reduce((s, p) => s + p.amountFcfa, 0);
         if (refundTotal > available) {
           throw new BadRequestException(
             `Remboursement de ${refundTotal} FCFA refusé : solde de caisse disponible ${available} FCFA. La caisse ne peut pas être négative.`,
           );
         }
-        for (const payment of confirmed) {
+        for (const payment of cashPayments) {
           payment.status = PaymentStatus.REFUNDED;
           await em.getRepository(Payment).save(payment);
           await em.getRepository(CashMovement).save(
@@ -1634,8 +1648,8 @@ export class SalesService {
         if (unpaid > 0) {
           reversal.push({ account: '411', credit: unpaid, label: 'Clients — créances' });
         }
-        if (refunded > 0) {
-          reversal.push({ account: '571', credit: refunded, label: 'Caisse — espèces' });
+        for (const [account, amount] of refundByAccount(confirmed)) {
+          reversal.push({ account, credit: amount, label: 'Trésorerie — remboursement' });
         }
         await this.accountingService.post(em, {
           farmId,
@@ -1655,7 +1669,11 @@ export class SalesService {
           sourceId: `cancel-deposits:${sale.id}`,
           lines: [
             { account: '411', debit: refunded, label: 'Clients — créances' },
-            { account: '571', credit: refunded, label: 'Caisse — espèces' },
+            ...[...refundByAccount(confirmed)].map(([account, amount]) => ({
+              account,
+              credit: amount,
+              label: 'Trésorerie — remboursement',
+            })),
           ],
           operatorId: user.id,
         });
