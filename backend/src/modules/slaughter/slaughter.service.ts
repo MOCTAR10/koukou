@@ -183,11 +183,16 @@ export class SlaughterService {
     return this.getOne(user, farmId, order.id);
   }
 
-  async list(user: AuthUser, farmId: string): Promise<SlaughterOrder[]> {
+  async list(
+    user: AuthUser,
+    farmId: string,
+    page: { take?: number; skip?: number } = {},
+  ): Promise<SlaughterOrder[]> {
     await this.farmsService.assertAccessible(user, farmId);
     return this.orderRepo.find({
       where: { farmId },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'ASC' },
+      ...page,
     });
   }
 

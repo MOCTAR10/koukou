@@ -5,10 +5,12 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   StreamableFile,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { pageOptions } from '../../common/utils/pagination.js';
 import type { Response } from 'express';
 import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -54,8 +56,17 @@ export class SlaughterController {
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Lister les ordres d’abattage de la ferme' })
   @ApiParam({ name: 'farmId' })
-  list(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
-    return this.slaughterService.list(user, farmId);
+  list(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.slaughterService.list(
+      user,
+      farmId,
+      pageOptions(limit, offset),
+    );
   }
 
   @Get(':orderId')

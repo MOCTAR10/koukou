@@ -8,6 +8,7 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { StockTransferProductType } from '../../common/enums/stock-transfer-product-type.enum.js';
 import { StockTransfersService } from './stock-transfers.service.js';
 import { CreateStockTransferDto } from './dto/stock-transfer.dto.js';
+import { pageOptions } from '../../common/utils/pagination.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 
@@ -32,8 +33,16 @@ export class StockTransfersController {
     @Param('farmId') farmId: string,
     @Query('pointOfSaleId') pointOfSaleId?: string,
     @Query('productType') productType?: StockTransferProductType,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.transfersService.list(user, farmId, pointOfSaleId, productType);
+    return this.transfersService.list(
+      user,
+      farmId,
+      pointOfSaleId,
+      productType,
+      pageOptions(limit, offset),
+    );
   }
 
   @Post()

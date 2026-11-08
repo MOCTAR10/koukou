@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { pageOptions } from '../../common/utils/pagination.js';
 import { FeedStockService } from './feed-stock.service.js';
 import { CreateLossDto } from './dto/create-loss.dto.js';
 import { Domain, InstitutionReadOnly } from '../../common/decorators/domain.decorator.js';
@@ -47,8 +48,17 @@ export class FeedStockController {
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @ApiOperation({ summary: 'Lister les pertes de provende' })
   @ApiParam({ name: 'farmId' })
-  listLosses(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
-    return this.feedStockService.listLosses(user, farmId);
+  listLosses(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.feedStockService.listLosses(
+      user,
+      farmId,
+      pageOptions(limit, offset),
+    );
   }
 
   @Get('movements')

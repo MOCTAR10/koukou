@@ -345,6 +345,7 @@ export class DailyEntriesService {
         (dto as unknown as Record<string, unknown>)[field] = undefined;
       }
     }
+    this.assertEggClasses(dto, existing);
     if (dto.sampleSize != null) {
       const weight = dto.avgWeightKg ?? existing?.avgWeightKg ?? null;
       if (weight == null || weight <= 0) {
@@ -365,7 +366,51 @@ export class DailyEntriesService {
     return sync;
   }
 
-  async listForBatch(user: AuthUser, farmId: string, batchId: string) {
+  /**
+   * The classes taken out of the clean eggs (cracked, small, double yolk,
+   * dirty) and the sellable eggs cannot exceed the eggs collected that day,
+   * or the egg stock (collected - classes) goes negative.
+   */
+  private assertEggClasses(
+    dto: CreateDailyEntryDto,
+    existing: DailyEntry | null,
+  ): void {
+    const touched = [
+      dto.eggsCollected,
+      dto.eggsSellable,
+      dto.eggsCracked,
+      dto.eggsSmall,
+      dto.eggsDoubleYolk,
+      dto.eggsDirty,
+    ].some((v) => v !== undefined);
+    if (!touched) return;
+    const pick = (sent: number | undefined, kept: number | undefined) =>
+      sent ?? kept ?? 0;
+    const collected = pick(dto.eggsCollected, existing?.eggsCollected);
+    const classes =
+      pick(dto.eggsCracked, existing?.eggsCracked) +
+      pick(dto.eggsSmall, existing?.eggsSmall) +
+      pick(dto.eggsDoubleYolk, existing?.eggsDoubleYolk) +
+      pick(dto.eggsDirty, existing?.eggsDirty);
+    if (classes > collected) {
+      throw new BadRequestException(
+        `Œufs incohérents : ${classes} œuf(s) fêlé(s), petit(s), double jaune ou sale(s) pour ${collected} collecté(s).`,
+      );
+    }
+    const sellable = pick(dto.eggsSellable, existing?.eggsSellable);
+    if (sellable > collected) {
+      throw new BadRequestException(
+        `Œufs incohérents : ${sellable} commercialisable(s) pour ${collected} collecté(s).`,
+      );
+    }
+  }
+
+  async listForBatch(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    page: { take?: number; skip?: number } = {},
+  ) {
     await this.farmsService.assertAccessible(user, farmId);
     const batch = await this.batchRepo.findOne({
       where: { id: batchId, farmId },
@@ -374,6 +419,7 @@ export class DailyEntriesService {
     return this.entryRepo.find({
       where: { batchId },
       order: { entryDate: 'ASC' },
+      ...page,
     });
   }
 

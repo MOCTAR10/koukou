@@ -224,11 +224,16 @@ export class FeedStockService {
     );
   }
 
-  async listLosses(user: AuthUser, farmId: string): Promise<FeedStockLoss[]> {
+  async listLosses(
+    user: AuthUser,
+    farmId: string,
+    page: { take?: number; skip?: number } = {},
+  ): Promise<FeedStockLoss[]> {
     await this.farmsService.assertAccessible(user, farmId);
     return this.lossRepo.find({
       where: { farmId },
-      order: { occurredAt: 'DESC', createdAt: 'DESC' },
+      order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'ASC' },
+      ...page,
     });
   }
 

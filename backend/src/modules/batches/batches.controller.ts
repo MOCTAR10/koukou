@@ -12,6 +12,7 @@ import { PondageService } from './pondage.service.js';
 import { ChangeTypeDto } from './dto/change-type.dto.js';
 import { CreateBatchDto } from './dto/create-batch.dto.js';
 import { UpdateBatchDto } from './dto/update-batch.dto.js';
+import { pageOptions } from '../../common/utils/pagination.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Lots (Module 1)')
@@ -47,11 +48,19 @@ export class BatchesController {
     @Param('farmId') farmId: string,
     @Query('asOf') asOf?: string,
     @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     // Optional and additive: without it (older clients) every band is listed.
     const scope =
       status === 'active' || status === 'closed' ? status : 'all';
-    return this.batchesService.findAll(user, farmId, asOf, scope);
+    return this.batchesService.findAll(
+      user,
+      farmId,
+      asOf,
+      scope,
+      pageOptions(limit, offset),
+    );
   }
 
   @Get(':batchId')
