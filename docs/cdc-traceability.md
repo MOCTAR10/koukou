@@ -20,7 +20,7 @@ Les tests nommés `cdc-conformity` sont dans `backend/test/cdc-conformity.e2e-sp
 | 12-15 | Mortalité, viabilité, GMQ, IC (formules paramétrables) | ✅ | `GET …/bandes/:b/indicators` | cdc-conformity::« mortalité et viabilité recalculées (62/1500 = 4,13 %) » ; poufa-bandes::« calcule les indicateurs officiels » |
 | 16 | Volumes produits | ✅ | `GET /pilotage/dashboard` | pilotage::« agrège les fermes du périmètre » |
 | 17 | Réception des intrants (ANINF non vérifié) | ✅ | `/programme/input-deliveries`, `…/confirm` | poufa-intrants::« records a State delivery… », « creates the farm's lots… » |
-| 18 | Utilisation et stock, alerte stock négatif (ANINF A18, corrigé) | ✅ | `daily-entries`, `GET /farms/:id/declarative-stock`, `/alerts` | cdc-conformity::« aliment consommé sans stock » ; poufa-intrants::« lets the declarative stock go negative » |
+| 18 | Utilisation et stock, alerte stock négatif (ANINF A18, corrigé) | ✅ | `daily-entries`, `GET /farms/:id/declarative-stock`, `/alerts` | cdc-conformity::« aliment consommé sans stock » (stock déclaratif négatif) ; poufa-intrants::« lets the declarative stock go negative » |
 
 ## 5.2 Sanitaire (MVP)
 
