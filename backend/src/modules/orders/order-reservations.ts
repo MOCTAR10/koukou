@@ -96,3 +96,41 @@ export async function sentSlaughterBirds(
   const row = await qb.getRawOne<{ birds: string | number }>();
   return Number(row?.birds ?? 0);
 }
+
+/** Birds promised to open orders or sent to the abattoir, per batch (two grouped reads). */
+export async function batchReservedBirdsMany(
+  em: EntityManager,
+  batchIds: string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (batchIds.length === 0) return out;
+  const [open, sent] = await Promise.all([
+    em.getRepository(Order).find({
+      where: {
+        batchId: In(batchIds),
+        status: Not(In([OrderStatus.CANCELLED, OrderStatus.LIVRE])),
+      },
+    }),
+    em
+      .getRepository(SlaughterOrder)
+      .createQueryBuilder('o')
+      .select('o.batch_id', 'batchId')
+      .addSelect('COALESCE(SUM(o.bird_count), 0)', 'birds')
+      .where('o.batch_id IN (:...batchIds)', { batchIds })
+      .andWhere('o.status = :status', { status: SlaughterStatus.SENT })
+      .andWhere(
+        'NOT EXISTS (SELECT 1 FROM sorties s WHERE s.slaughter_order_id = o.id)',
+      )
+      .groupBy('o.batch_id')
+      .getRawMany<{ batchId: string; birds: string | number }>(),
+  ]);
+  for (const o of open) {
+    if (!o.batchId) continue;
+    const n = (o.items ?? []).reduce((s, it) => s + birdsOf(it), 0);
+    out.set(o.batchId, (out.get(o.batchId) ?? 0) + n);
+  }
+  for (const r of sent) {
+    out.set(r.batchId, (out.get(r.batchId) ?? 0) + Number(r.birds ?? 0));
+  }
+  return out;
+}

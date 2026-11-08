@@ -49,6 +49,7 @@ import {
   JournalEntry,
   JournalEntryStatus,
 } from './entities/journal-entry.entity.js';
+import { slicePage } from '../../common/utils/pagination.js';
 import { JournalEntryLine } from './entities/journal-entry-line.entity.js';
 import {
   cashAccountForMethod,
@@ -881,6 +882,7 @@ export class AccountingService {
     farmId: string,
     from?: string,
     to?: string,
+    page: { take?: number; skip?: number } = {},
   ) {
     await this.farmsService.assertAccessible(user, farmId);
     const qb = this.entryRepo
@@ -904,7 +906,8 @@ export class AccountingService {
       },
       { debit: 0, credit: 0 },
     );
-    return { entries, totals };
+    // Totals cover the whole period; only the listed entries are paged.
+    return { entries: slicePage(entries, page), totals };
   }
 
   /** Soldes par compte sur la période (débit, crédit, solde net). */
@@ -991,6 +994,7 @@ export class AccountingService {
       lines.andWhere('line.account_code = :accountCode', { accountCode });
     }
     const rows = await lines.getMany();
+    const soldeByCode = new Map(soldes.map((s) => [s.code, s]));
     const groups = new Map<
       string,
       {
@@ -1008,7 +1012,7 @@ export class AccountingService {
     >();
     for (const line of rows) {
       const group = groups.get(line.accountCode) ?? {
-        solde: soldes.find((s) => s.code === line.accountCode),
+        solde: soldeByCode.get(line.accountCode),
         mouvements: [],
       };
       group.mouvements.push({
@@ -1023,7 +1027,7 @@ export class AccountingService {
       groups.set(line.accountCode, group);
     }
     if (accountCode && !groups.has(accountCode)) {
-      const solde = soldes.find((s) => s.code === accountCode);
+      const solde = soldeByCode.get(accountCode);
       groups.set(accountCode, {
         solde,
         mouvements: [],

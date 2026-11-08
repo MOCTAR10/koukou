@@ -90,6 +90,7 @@ import {
 } from './entities/order.entity.js';
 import {
   batchReservation,
+  batchReservedBirdsMany,
   birdsOf,
   sentSlaughterBirds,
 } from './order-reservations.js';
@@ -1593,6 +1594,23 @@ export class OrdersService {
     return Math.max(0, batch.quantityAlive - reserved - atAbattoir);
   }
 
+  /** `freeBirds` for many loaded batches, in two grouped reads. */
+  async freeBirdsMany(
+    em: EntityManager,
+    batches: ProductionBatch[],
+  ): Promise<Map<string, number>> {
+    const reserved = await batchReservedBirdsMany(
+      em,
+      batches.map((b) => b.id),
+    );
+    return new Map(
+      batches.map((b) => [
+        b.id,
+        Math.max(0, b.quantityAlive - (reserved.get(b.id) ?? 0)),
+      ]),
+    );
+  }
+
   /** Egg trays a new order could take from this batch, within the farm's stock. */
   async freeEggAlveoles(
     em: EntityManager,
@@ -1605,6 +1623,118 @@ export class OrdersService {
       farmAlveoles,
       await this.availableBatchEggAlveoles(em, farmId, batchId),
     );
+  }
+
+  /**
+   * `freeEggAlveoles` for many (farm, batch) pairs in six grouped reads
+   * instead of ~10 queries per pair. Keyed by batch id.
+   */
+  async freeEggAlveolesMany(
+    em: EntityManager,
+    pairs: Array<{ farmId: string; batchId: string }>,
+  ): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (pairs.length === 0) return out;
+    const farmIds = [...new Set(pairs.map((p) => p.farmId))];
+    const batchIds = [...new Set(pairs.map((p) => p.batchId))];
+    const sellable =
+      'COALESCE(SUM(e.eggsCollected - e.eggsCracked - e.eggsSmall - e.eggsDoubleYolk - e.eggsDirty), 0)';
+    type Row = { k: string; n: string | number };
+    const [farmProduced, batchProduced, farmSold, batchSold, transfers] =
+      await Promise.all([
+        em
+          .getRepository(DailyEntry)
+          .createQueryBuilder('e')
+          .innerJoin(ProductionBatch, 'b', 'b.id = e.batchId')
+          .select('b.farmId', 'k')
+          .addSelect(sellable, 'n')
+          .where('b.farmId IN (:...farmIds)', { farmIds })
+          .groupBy('b.farmId')
+          .getRawMany<Row>(),
+        em
+          .getRepository(DailyEntry)
+          .createQueryBuilder('e')
+          .select('e.batchId', 'k')
+          .addSelect(sellable, 'n')
+          .where('e.batchId IN (:...batchIds)', { batchIds })
+          .groupBy('e.batchId')
+          .getRawMany<Row>(),
+        em
+          .getRepository(SaleItem)
+          .createQueryBuilder('i')
+          .innerJoin(Sale, 's', 's.id = i.saleId')
+          .select('s.farmId', 'k')
+          .addSelect('COALESCE(SUM(i.quantity), 0)', 'n')
+          .where('s.farmId IN (:...farmIds)', { farmIds })
+          .andWhere('s.status <> :cancelled', { cancelled: SaleStatus.CANCELLED })
+          .andWhere('i.productType = :oeufs', {
+            oeufs: SaleItemProductType.OEUFS,
+          })
+          .groupBy('s.farmId')
+          .getRawMany<Row>(),
+        em
+          .getRepository(SaleItem)
+          .createQueryBuilder('i')
+          .innerJoin(Sale, 's', 's.id = i.saleId')
+          .select('i.batchId', 'k')
+          .addSelect('COALESCE(SUM(i.quantity), 0)', 'n')
+          .where('i.batchId IN (:...batchIds)', { batchIds })
+          .andWhere('s.farmId IN (:...farmIds)', { farmIds })
+          .andWhere('s.status <> :cancelled', { cancelled: SaleStatus.CANCELLED })
+          .andWhere('i.productType = :oeufs', {
+            oeufs: SaleItemProductType.OEUFS,
+          })
+          .groupBy('i.batchId')
+          .getRawMany<Row>(),
+        em
+          .getRepository(StockTransfer)
+          .createQueryBuilder('t')
+          .select('t.farmId', 'farmId')
+          .addSelect('t.batchId', 'batchId')
+          .addSelect('COALESCE(SUM(t.quantity - t.quantitySold), 0)', 'n')
+          .where('t.farmId IN (:...farmIds)', { farmIds })
+          .andWhere('t.productType = :oeufs', {
+            oeufs: StockTransferProductType.OEUFS,
+          })
+          .andWhere('t.status = :transferred', {
+            transferred: StockTransferStatus.TRANSFERRED,
+          })
+          .groupBy('t.farmId')
+          .addGroupBy('t.batchId')
+          .getRawMany<{ farmId: string; batchId: string | null; n: string }>(),
+      ]);
+    const num = (rows: Row[]) => new Map(rows.map((r) => [r.k, Number(r.n)]));
+    const farmProducedBy = num(farmProduced);
+    const batchProducedBy = num(batchProduced);
+    const farmSoldBy = num(farmSold);
+    const batchSoldBy = num(batchSold);
+    const farmTransferred = new Map<string, number>();
+    const batchTransferred = new Map<string, number>();
+    for (const t of transfers) {
+      const n = Number(t.n);
+      farmTransferred.set(t.farmId, (farmTransferred.get(t.farmId) ?? 0) + n);
+      if (t.batchId) {
+        batchTransferred.set(t.batchId, (batchTransferred.get(t.batchId) ?? 0) + n);
+      }
+    }
+    for (const { farmId, batchId } of pairs) {
+      const farmEggs =
+        (farmProducedBy.get(farmId) ?? 0) -
+        (farmSoldBy.get(farmId) ?? 0) * EGGS_PER_ALVEOL -
+        (farmTransferred.get(farmId) ?? 0) * EGGS_PER_ALVEOL;
+      const batchEggs =
+        (batchProducedBy.get(batchId) ?? 0) -
+        (batchSoldBy.get(batchId) ?? 0) * EGGS_PER_ALVEOL -
+        (batchTransferred.get(batchId) ?? 0) * EGGS_PER_ALVEOL;
+      out.set(
+        batchId,
+        Math.min(
+          Math.max(0, Math.floor(farmEggs / EGGS_PER_ALVEOL)),
+          Math.max(0, Math.floor(batchEggs / EGGS_PER_ALVEOL)),
+        ),
+      );
+    }
+    return out;
   }
 
   /** Garde de stock œufs (identique au POS/dashboard). */
