@@ -385,10 +385,13 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       refDate,
     );
     const eggStock = await this.evaluateEggStockAlerts(farmId);
-    // La météo ne doit jamais dégrader le dashboard (échec réseau → null).
-    const weather = await this.weatherService
-      .forecastForFarm(farmId)
-      .catch(() => null);
+    // La météo ne doit jamais dégrader le dashboard (échec réseau → null) ni
+    // le ralentir : au-delà de 2 s on répond sans elle (le cache servira au
+    // prochain chargement, l'appel continue en arrière-plan).
+    const weather = await Promise.race([
+      this.weatherService.forecastForFarm(farmId).catch(() => null),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+    ]);
 
     // ── Eau : consommation totale aujourd'hui + variation vs veille ──
     const activeBatchIds = activeBatches.map((b) => b.id);
@@ -619,6 +622,9 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
         context: { missingBatchIds: missingIds },
       },
       { farmId },
+      // An acknowledgement survives the next dashboard load while the same
+      // lots are still missing.
+      { keepAcknowledgedIfUnchanged: true },
     );
     return missingIds;
   }
@@ -943,7 +949,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
           w.weightCount > 0 ? round2(w.weightSum / w.weightCount) : null,
         feedKg: round2(w.feedKg),
         waterL: round2(w.waterL),
-        waterLPerBird: waterDays > 0 ? round2(waterPerBird) : null,
+        // Mean of the days with a reading: L/bird/day, like the lot metrics.
+        waterLPerBird: waterDays > 0 ? round2(waterPerBird / waterDays) : null,
         deaths: w.deaths,
         cumFeedKg: round2(accumulatedFeed),
         fcrCumulative,
