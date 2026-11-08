@@ -152,9 +152,16 @@ describe('Pondage — indicateurs de ponte par lot (e2e)', () => {
       [dayCurr2, 65],
     ].filter(([d]) => (d as string) >= since);
     const eggs = recent.reduce((s, [, n]) => s + (n as number), 0);
+    // Hens present on each recorded day (1 death per entry): 99, 98, 97, 96.
+    const present: Record<string, number> = {
+      [dayPrev1]: 99,
+      [dayPrev2]: 98,
+      [dayCurr1]: 97,
+      [dayCurr2]: 96,
+    };
+    const henDays = recent.reduce((s, [d]) => s + present[d as string], 0);
     const expected =
-      Math.round(Math.min(100, (eggs / (96 * recent.length)) * 100) * 100) /
-      100;
+      Math.round(Math.min(100, (eggs / henDays) * 100) * 100) / 100;
     expect(body.layRatePercent).toBe(recent.length > 0 ? expected : null);
     expect(body.layRatePercent ?? 0).toBeLessThanOrEqual(100);
     expect(body.weekly).toHaveLength(2);

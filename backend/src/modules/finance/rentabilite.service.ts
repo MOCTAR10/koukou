@@ -28,6 +28,7 @@ import { ReferenceConstantsService } from '../reference-constants/reference-cons
 import { PdfService } from '../../common/services/pdf.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
+import { inputValueFcfa } from '../accounting/posting-map.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { Sale } from './entities/sale.entity.js';
 import { SaleItem } from './entities/sale-item.entity.js';
@@ -411,7 +412,7 @@ export class RentabiliteService {
     });
     if (feedLots.length > 0) {
       const total = feedLots.reduce(
-        (s, l) => s + l.quantity * (l.unitPriceFcfa ?? 0),
+        (s, l) => s + inputValueFcfa(l),
         0,
       );
       feedLotsCostFcfa = total > 0 ? total : null;
@@ -435,7 +436,7 @@ export class RentabiliteService {
       );
     const unexpensedFeedFcfa = feedLots
       .filter((l) => !expensedLotIds.has(l.id) && !legacyLotExpensed(l))
-      .reduce((s, l) => s + l.quantity * (l.unitPriceFcfa ?? 0), 0);
+      .reduce((s, l) => s + inputValueFcfa(l), 0);
     const inputsCostFcfa =
       (chickExpensed ? 0 : (chickCostFcfa ?? 0)) + unexpensedFeedFcfa;
     const totalCostFcfa = expensesFcfa + inputsCostFcfa;
