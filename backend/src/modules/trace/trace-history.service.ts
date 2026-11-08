@@ -166,7 +166,10 @@ export class TraceHistoryService {
   ): Promise<LotView[]> {
     await this.farms.assertAccessible(user, farmId);
     if (batchId !== undefined && !isUuid(batchId)) return [];
-    await this.lots.ensureRootLots(farmId, batchId);
+    // A read-only institution consulting the farm must not create lots.
+    if (user.role !== UserRole.INSTITUTION) {
+      await this.lots.ensureRootLots(farmId, batchId);
+    }
     const rows = await this.dataSource.getRepository(TraceLot).find({
       where: { farmId, ...(batchId ? { batchId } : {}) },
       relations: { batch: true },
