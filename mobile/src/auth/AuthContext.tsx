@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/api/client';
 import { clearSession, loadSession, saveSession, type StoredSession } from '@/api/token';
 import { clearUserQueue, clearUserRejected, countUserOps, subscribeFlush } from '@/offline';
+import { clearUserCache } from '@/offline/ref-cache';
 import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
 import type { CustomerType, Farm, PublicUser } from '@/api/types';
@@ -205,6 +206,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await unregisterForPush();
     clearSession();
     clearUserQueue(userId);
+    clearUserCache(userId);
     clearUserRejected(userId);
     setSession(null);
     setOtpChallenge(null);

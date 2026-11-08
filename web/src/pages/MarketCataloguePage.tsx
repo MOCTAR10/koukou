@@ -117,7 +117,7 @@ export function MarketCataloguePage() {
 
       <div className="min-w-0">
       {query.isLoading ? <Loading /> : null}
-      {query.error ? <ErrorNote error={query.error} /> : null}
+      {query.error ? <ErrorNote error={query.error} onRetry={() => void query.refetch()} /> : null}
       {!query.isLoading && !query.error && items.length === 0 ? (
         <EmptyState message="Aucune annonce pour le moment avec ces critères." icon={<Store className="h-5 w-5" />} />
       ) : null}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Linking, View } from 'react-native';
+import { safeExternalUrl } from '@/utils/safeUrl';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { CalendarClock, MapPin, QrCode, Store } from 'lucide-react-native';
@@ -67,7 +68,10 @@ export default function ListingScreen() {
                 size="sm"
                 block={false}
                 icon={QrCode}
-                onPress={() => void Linking.openURL(listing.traceLot!.url)}
+                onPress={() => {
+                  const url = safeExternalUrl(listing.traceLot!.url);
+                  if (url) void Linking.openURL(url);
+                }}
               />
             ) : null}
           </Card>

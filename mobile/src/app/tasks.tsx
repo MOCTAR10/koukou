@@ -323,7 +323,7 @@ function TaskCard({
             {batchName ? ` · ${batchName}` : ''}
           </AppText>
         </View>
-        <Chip label={STATUS_LABELS[task.status]} tone={STATUS_TONES[task.status]} />
+        <Chip label={STATUS_LABELS[task.status] ?? task.status} tone={STATUS_TONES[task.status] ?? 'neutral'} />
       </View>
 
       <View style={styles.taskFooter}>

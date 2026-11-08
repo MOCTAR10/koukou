@@ -46,6 +46,7 @@ import { farmSpaceState, worksWithoutFarm } from '../app/roles';
 import { useMenuAccess } from '../app/useMenuAccess';
 import { Logo } from './Logo';
 import { PageNotOpen } from './access/PageNotOpen';
+import { PageErrorBoundary } from './PageErrorBoundary';
 import { NoFarmScreen } from './NoFarmScreen';
 import { Loading } from './ui';
 import { ConnectionPulse } from './ConnectionPulse';
@@ -483,7 +484,9 @@ export function Shell() {
           >
             {space === 'ready' || worksWithoutFarm(pathname) ? (
               canOpen(pathname) ? (
-                <Outlet />
+                <PageErrorBoundary key={pathname}>
+                  <Outlet />
+                </PageErrorBoundary>
               ) : accessLoading ? (
                 <Loading />
               ) : (

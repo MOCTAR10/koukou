@@ -636,7 +636,7 @@ function HealthEventRow({
             <AppText size="body" weight="semibold" color="text" style={{ flex: 1 }}>
               {e.title}
             </AppText>
-            <Chip label={KIND_LABEL[e.kind] ?? e.kind} tone={KIND_CHIP_TONE[e.kind]} dot />
+            <Chip label={KIND_LABEL[e.kind] ?? e.kind} tone={KIND_CHIP_TONE[e.kind] ?? 'outline'} dot />
           </View>
           <AppText size="caption" color="muted">
             {KIND_LABEL[e.kind] ?? e.kind}

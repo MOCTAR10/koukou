@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Linking, View } from 'react-native';
+import { telUrl } from '@/utils/safeUrl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { AlertTriangle, CalendarClock, ClipboardList, Phone } from 'lucide-react-native';
@@ -109,7 +110,7 @@ export default function BuyerOrderScreen() {
                 icon={Phone}
                 tone="ghost"
                 size="md"
-                onPress={() => void Linking.openURL(`tel:${order.farm.phone}`)}
+                onPress={() => { const url = telUrl(order.farm.phone); if (url) void Linking.openURL(url); }}
               />
             ) : null}
           </Card>

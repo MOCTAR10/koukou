@@ -127,7 +127,7 @@ export function ExpensesPage() {
 
       <ErrorNote error={sync.error} />
       {syncNote ? <SuccessNote>{syncNote}</SuccessNote> : null}
-      <ErrorNote error={expenses.error} />
+      <ErrorNote error={expenses.error} onRetry={() => void expenses.refetch()} />
 
       {expenses.isLoading ? (
         <Loading label="Chargement des dépenses…" />

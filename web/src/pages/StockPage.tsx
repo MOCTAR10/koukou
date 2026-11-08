@@ -206,7 +206,7 @@ export function StockPage() {
         }
       />
       <ReadOnlyNotice what="stock FEFO" />
-      <ErrorNote error={stock.error} />
+      <ErrorNote error={stock.error} onRetry={() => void stock.refetch()} />
       {canWrite ? <PendingDeliveriesNote /> : null}
       <Tabs<TabKey>
         value={tab}

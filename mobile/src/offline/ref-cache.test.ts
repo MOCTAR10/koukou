@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api/client';
 import { clearSession } from '@/api/token';
 
-import { cachedRead, isNetworkFailure, readCached, writeCached } from './ref-cache';
+import { cachedRead, clearUserCache, isNetworkFailure, readCached, writeCached } from './ref-cache';
 
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: '192.168.1.10:8081' } },
@@ -45,6 +45,14 @@ describe('ref-cache', () => {
         throw new ApiError(403, 'Accès refusé');
       }),
     ).rejects.toThrow('Accès refusé');
+  });
+
+  it('la déconnexion efface les copies du compte', () => {
+    const k = key();
+    writeCached(k, ['A']);
+    expect(readCached(k)).not.toBeNull();
+    clearUserCache('anonyme');
+    expect(readCached(k)).toBeNull();
   });
 
   it('hors ligne sans copie : l’erreur réseau remonte', async () => {

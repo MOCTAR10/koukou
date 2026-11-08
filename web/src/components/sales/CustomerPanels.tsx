@@ -7,6 +7,7 @@ import type { CustomerFull, CustomerStats, SaleFull } from '../../api/types-sale
 import { Button, ErrorNote, Field, inputCls, Modal } from '../form';
 import { IconTile, Loading } from '../ui';
 import { classNames, dateFr, fcfa, num } from '../../lib/format';
+import { telHref } from '../../lib/safeUrl';
 import { CustomerPicker } from './Checkout';
 import { CUSTOMER_TYPE_LABEL, CUSTOMER_TYPES, productTypeLabel, SEGMENT_LABEL } from './labels';
 import { useIdempotencyKey } from '../../lib/idempotency';
@@ -273,7 +274,7 @@ export function CustomerDetail({
           <div className="flex flex-wrap items-center gap-2">
             {customer.phone ? (
               <a
-                href={`tel:${customer.phone}`}
+                href={telHref(customer.phone) ?? undefined}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 <Phone className="h-4 w-4" /> Appeler
