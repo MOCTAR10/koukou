@@ -175,7 +175,7 @@ function todayStr(): string {
 }
 
 function makeReference(prefix: string): string {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const date = todayLocal().replace(/-/g, '');
   const suffix = Math.floor(100000 + Math.random() * 900000);
   return `${prefix}-${date}-${suffix}`;
 }
@@ -1092,7 +1092,7 @@ export class OrdersService {
         amountFcfa: excess,
         reason: `Remboursement surplus d'acomptes commande ${order.referenceNumber}`,
         saleId: sale.id,
-        movementDate: new Date().toISOString().slice(0, 10),
+        movementDate: todayLocal(),
         createdById: order.createdById ?? null,
       }),
     );

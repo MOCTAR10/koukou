@@ -34,6 +34,7 @@ import {
   type RowResult,
   type StagedRow,
 } from './recovery-types.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 /** A business rule refused one line of a band (its savepoint is rolled back). */
 class BandLineRefused extends Error {
@@ -182,7 +183,7 @@ export class BandRecoveryService {
       });
     }
     return {
-      today: new Date().toISOString().slice(0, 10),
+      today: todayLocal(),
       farms: farms
         .filter((f) => !!f.code)
         .map((f) => {

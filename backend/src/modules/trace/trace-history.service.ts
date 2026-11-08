@@ -42,6 +42,7 @@ import { rearingTimeline, type RearingItem } from './rearing-timeline.js';
 import { deliveryBand, type BandWindow } from './delivery-attribution.js';
 import { TraceConfigService } from './trace-config.service.js';
 import { TraceLotsService, effectiveLotStatus } from './trace-lots.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 export interface LotOperatorRef {
   id: string;
@@ -410,7 +411,7 @@ export class TraceHistoryService {
   private async rearingDeliveries(band: ProductionBatch, programId: string | null) {
     const end = band.closedAt
       ? band.closedAt.toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
+      : todayLocal();
     const candidates: {
       id: string;
       code: string;
@@ -548,7 +549,7 @@ export class TraceHistoryService {
   private async rearingVisits(band: ProductionBatch) {
     const end = band.closedAt
       ? band.closedAt.toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10);
+      : todayLocal();
     const rows: {
       id: string;
       visitDate: string;

@@ -61,7 +61,7 @@ export class CaisseService {
         `Une session de caisse est déjà ouverte depuis le ${open.openedAt}. La clôturer avant d'en ouvrir une nouvelle.`,
       );
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocal();
     try {
       return await this.dataSource.transaction(async (em) => {
         const session = await em.getRepository(CashSession).save(
@@ -199,7 +199,7 @@ export class CaisseService {
           source: CashMovementSource.MANUAL,
           amountFcfa: dto.amountFcfa,
           reason: dto.reason ?? null,
-          movementDate: dto.movementDate ?? new Date().toISOString().slice(0, 10),
+          movementDate: dto.movementDate ?? todayLocal(),
           createdById: user.id,
         }),
       );

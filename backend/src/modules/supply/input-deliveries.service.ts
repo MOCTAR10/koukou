@@ -20,7 +20,7 @@ import { InputKind } from '../../common/enums/input-kind.enum.js';
 import { ProgramListType } from '../../common/enums/program-list-type.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { isUuid } from '../../common/context/request-context.js';
-import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
+import { isAfterTomorrowUtc, todayLocal } from '../../common/utils/date.utils.js';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
 import {
   scopeReachesFarms,
@@ -146,7 +146,7 @@ export interface ConfirmResult extends DeliveryView {
 }
 
 function utcToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 /**

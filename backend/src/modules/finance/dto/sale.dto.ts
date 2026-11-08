@@ -12,6 +12,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -34,6 +35,7 @@ export class CreateSaleItemDto {
 
   @IsNumber({}, { message: 'La quantité doit être un nombre.' })
   @IsPositive({ message: 'La quantité doit être strictement positive.' })
+  @Max(1_000_000, { message: 'La quantité est trop élevée (1 000 000 au plus).' })
   quantity: number;
 
   @ApiPropertyOptional({ enum: SaleItemUnit })
@@ -48,6 +50,7 @@ export class CreateSaleItemDto {
 
   @IsInt({ message: 'Le prix unitaire doit être un entier.' })
   @Min(1, { message: 'Le prix unitaire doit être positif (FCFA).' })
+  @Max(100_000_000, { message: 'Le prix unitaire est trop élevé (100 000 000 FCFA au plus).' })
   unitPriceFcfa: number;
 
   @IsOptional()

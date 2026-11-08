@@ -14,6 +14,7 @@ import {
 } from './pilotage-programme.js';
 import { ageWeek, round } from './pilotage-rules.js';
 import { PilotageScopeService } from './pilotage-scope.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 export interface ComparisonValues {
   /** Cumulative deaths / birds placed × 100, at the end of the age week. */
@@ -137,7 +138,7 @@ export class BandComparisonService {
   async perimeter(user: AuthUser, farmId: string): Promise<ProgrammePerimeter> {
     const farm = await this.bandes.programmeFarm(user, farmId);
     const resolver = await this.parameters.resolver(farm.programId);
-    const rules = pilotageRulesAt(resolver, new Date().toISOString().slice(0, 10));
+    const rules = pilotageRulesAt(resolver, todayLocal());
     return {
       eligibleBandTypes: rules.eligibleBandKeys.map((k) => {
         const [species, type] = k.split(':');
@@ -154,7 +155,7 @@ export class BandComparisonService {
   ): Promise<BandComparison> {
     const k = await this.scope.minGroupSize(programId);
     const resolver = await this.parameters.resolver(programId);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayLocal();
     const rules = pilotageRulesAt(resolver, today);
     const last: { age_days: number }[] = await this.dataSource.query(
       `SELECT age_days FROM bande_daily_stats WHERE batch_id = $1 ORDER BY day DESC LIMIT 1`,

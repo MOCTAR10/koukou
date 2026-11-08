@@ -37,6 +37,7 @@ import {
   expenseAccountForCategory,
   inputValueFcfa,
 } from '../accounting/posting-map.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 /** Map InputKind → ExpenseCategory for auto-created expense records. */
 function expenseCategoryForInputKind(kind: InputKind): ExpenseCategory {
@@ -182,7 +183,7 @@ export class ExpensesService {
             amountFcfa: dto.amountFcfa,
             reason: dto.label ?? cls.category,
             movementDate:
-              dto.expenseDate ?? new Date().toISOString().slice(0, 10),
+              dto.expenseDate ?? todayLocal(),
             createdById: user.id,
           }),
         );
@@ -192,7 +193,7 @@ export class ExpensesService {
         em.getRepository(Expense).create({
           farmId,
           idempotencyKey: dto.idempotencyKey || null,
-          expenseDate: dto.expenseDate ?? new Date().toISOString().slice(0, 10),
+          expenseDate: dto.expenseDate ?? todayLocal(),
           category: cls.category,
           posteCharge: cls.posteCharge,
           amountFcfa: dto.amountFcfa,
@@ -367,7 +368,7 @@ export class ExpensesService {
       const chargeAccount = expenseAccountForCategory(expense.category);
       await this.accountingService.post(em, {
         farmId,
-        date: new Date().toISOString().slice(0, 10),
+        date: todayLocal(),
         label: expense.label
           ? `Suppression dépense ${expense.label}`
           : `Suppression dépense ${expense.category}`,

@@ -20,6 +20,7 @@ import { CashSessionStatus } from '../../common/enums/cash-session-status.enum.j
 import { Sale } from './entities/sale.entity.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import { cashAccountForMethod } from '../accounting/posting-map.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 export interface RecordPaymentInput {
   farm: Farm;
@@ -131,7 +132,7 @@ export class PaymentsService {
         amountFcfa: input.amountFcfa,
         method,
         status: PaymentStatus.CONFIRMED,
-        paymentDate: input.paymentDate ?? new Date().toISOString().slice(0, 10),
+        paymentDate: input.paymentDate ?? todayLocal(),
         idempotencyKey: input.idempotencyKey ?? null,
         cashSessionId: cashSession?.id ?? null,
         operatorId: input.operatorId,
@@ -149,7 +150,7 @@ export class PaymentsService {
           reason: `Encaissement vente ${input.sale.referenceNumber}`,
           saleId: input.sale.id,
           movementDate:
-            input.paymentDate ?? new Date().toISOString().slice(0, 10),
+            input.paymentDate ?? todayLocal(),
           createdById: input.operatorId,
         }),
       );
@@ -158,7 +159,7 @@ export class PaymentsService {
     // Comptabilité : encaissement → Caisse / Client (idempotent par paiement).
     await this.accountingService.post(em, {
       farmId: input.farm.id,
-      date: input.paymentDate ?? new Date().toISOString().slice(0, 10),
+      date: input.paymentDate ?? todayLocal(),
       label: `Encaissement vente ${input.sale.referenceNumber}`,
       source: 'PAYMENT',
       sourceId: `payment:${payment.id}`,

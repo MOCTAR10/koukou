@@ -69,6 +69,7 @@ import { lockFarmEggStock } from '../../common/utils/egg-stock-lock.js';
 import { SaleCessionService } from '../trace/sale-cession.service.js';
 import { TraceLotsService } from '../trace/trace-lots.service.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const SALE_PREFIX = 'VTE';
 const ITEM_LABELS: Record<SaleItemProductType, string> = {
@@ -83,11 +84,11 @@ const ITEM_LABELS: Record<SaleItemProductType, string> = {
 };
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function makeReferenceNumber(): string {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const date = todayLocal().replace(/-/g, '');
   const suffix = Math.floor(100000 + Math.random() * 900000);
   return `${SALE_PREFIX}-${date}-${suffix}`;
 }

@@ -38,6 +38,17 @@ export class User {
   @Column({ name: 'locked_until', type: 'timestamptz', nullable: true })
   lockedUntil: Date | null;
 
+  /**
+   * Last reset of the login code: tokens issued before it are refused, so a
+   * lost phone or a leaked code is cut off at once (not at token expiry).
+   */
+  @Column({
+    name: 'credentials_changed_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  credentialsChangedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
