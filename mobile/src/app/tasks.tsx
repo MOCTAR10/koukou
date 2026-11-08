@@ -26,11 +26,13 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchAssignableTeam, fetchBatches, fetchTasks } from '@/api';
+import { librevilleDay } from '@/utils/libreville';
 import { createTask, updateTask, deleteTask, type TaskStatusValue } from '@/api/mutations';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { canManageFarm } from '@/api/roles';
 import type { FarmTask, TaskStatus } from '@/api/types';
 import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   A_FAIRE: 'À faire',
@@ -53,7 +55,7 @@ function toLocalDateString(d: Date): string {
 }
 
 function todayStr(): string {
-  return toLocalDateString(new Date());
+  return librevilleDay();
 }
 
 /** Échéance vs aujourd'hui (UTC-safe : chaînes YYYY-MM-DD comparées lexicalement). */
@@ -135,7 +137,7 @@ function TaskFormSheet({
       invalidateFarmQueries(queryClient, { farmId });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement.');
+      setError(errorText(e, 'Erreur lors de l’enregistrement.'));
       setBusy(false);
     }
   };

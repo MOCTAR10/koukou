@@ -99,6 +99,7 @@ import { fetchFarmVisits } from '@/api/poufa';
 import { readsVisits, visitHistoryLabel, visitInBand } from '@/poufa/visits';
 import { readsProgrammeDomain } from '@/poufa/access';
 import { librevilleDay } from '@/utils/libreville';
+import { errorText } from '@/api/errorText';
 // ── end POUFA ──
 
 // ── Tabs ──
@@ -624,7 +625,7 @@ export default function LotDetailScreen() {
     try {
       await downloadPdf(`/farms/${farmId}/batches/${batchId}/passeport`, `passeport-${batchId}.pdf`);
       toast.success('Passeport sanitaire', 'PDF prêt.');
-    } catch (e) { toast.error('Erreur', e instanceof Error ? e.message : 'Inattendue.'); }
+    } catch (e) { toast.error('Erreur', errorText(e, 'Inattendue.')); }
     finally { setPdfBusy(false); }
   };
 

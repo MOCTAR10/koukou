@@ -24,6 +24,7 @@ import { CUSTOMER_TYPES, customerTypeLabel } from '@/constants/customers';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { Fonts, color, palette, fmt, fmtFcfa, radii, spacing, fontFamily, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 const SEGMENT_LABEL: Record<CustomerSegment, string> = {
   NOUVEAU: 'Nouveau',
@@ -525,7 +526,7 @@ export default function ClientsScreen() {
       setCreateOpen(false);
       await invalidateFarmQueries(queryClient, { farmId });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la création du client.');
+      setError(errorText(e, 'Erreur lors de la création du client.'));
     } finally {
       setBusy(false);
     }
@@ -538,7 +539,7 @@ export default function ClientsScreen() {
       await updateCustomer(farmId, editTarget.id, { type });
       await invalidateFarmQueries(queryClient, { farmId });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors du changement de type.');
+      setError(errorText(e, 'Erreur lors du changement de type.'));
     }
   };
 
@@ -579,7 +580,7 @@ export default function ClientsScreen() {
       await invalidateFarmQueries(queryClient, { farmId });
       setCollectResult(res.status === 'sent' ? 'sent' : 'queued');
     } catch (e) {
-      setCollectError(e instanceof Error ? e.message : 'Erreur lors de l’encaissement.');
+      setCollectError(errorText(e, 'Erreur lors de l’encaissement.'));
     } finally {
       setCollectBusy(false);
     }

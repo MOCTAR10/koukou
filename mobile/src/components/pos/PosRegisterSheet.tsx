@@ -18,6 +18,7 @@ import { findPromotion, totalsFor } from './helpers';
 import type { PosLine } from './types';
 // POUFA lot A bande (F4): traced cession and no double entry of a band sale.
 import { posCessionHints } from '@/poufa/cession-hints';
+import { errorText } from '@/api/errorText';
 
 interface PosRegisterSheetProps {
   visible: boolean;
@@ -125,7 +126,7 @@ export function PosRegisterSheet({
       });
       if (result.status !== 'sent') setTimeout(onClose, 1600);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’encaissement.');
+      setError(errorText(e, 'Erreur lors de l’encaissement.'));
       setSelling(false);
     }
   };
@@ -170,6 +171,7 @@ export function PosRegisterSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
+      dirty={!selling && (tendered > 0 || promoCode.trim() !== '' || customer !== null)}
       title="Encaissement"
       subtitle={isCredit ? 'Vente à crédit · crédit client' : 'Espèces · caisse journalière'}
       icon={isCredit ? <Wallet size={22} color={color.brand[600]} /> : <Banknote size={22} color={color.green[600]} />}

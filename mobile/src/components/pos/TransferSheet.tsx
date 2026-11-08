@@ -28,6 +28,7 @@ import { ageOnDay } from '@/utils/band';
 import { librevilleDay } from '@/utils/libreville';
 import { formatEggAlveoles } from './helpers';
 import { transferRemaining } from './catalog';
+import { errorText } from '@/api/errorText';
 
 const EGG_FALLBACK_MAX_ALVEOLES = 100000;
 const DEFAULT_SACK_KG = 50;
@@ -374,7 +375,7 @@ export function TransferSheet({
       onChanged();
       setQuantity(0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors du transfert.');
+      setError(errorText(e, 'Erreur lors du transfert.'));
     } finally {
       setBusy(false);
     }
@@ -395,7 +396,7 @@ export function TransferSheet({
           await cancelStockTransferQueued(farmId, transfer.id);
           onChanged();
         } catch (e) {
-          setError(e instanceof Error ? e.message : 'Erreur lors de l’annulation.');
+          setError(errorText(e, 'Erreur lors de l’annulation.'));
         }
       })();
     });

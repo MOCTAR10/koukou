@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { Image, type ImageProps } from 'expo-image';
 
 import { AppText } from './AppText';
+import { createPressGuard } from './pressGuard';
 import { radii, semantic } from '@/constants/theme';
 import type { TextSize } from '@/constants/theme';
 
@@ -39,10 +40,11 @@ export function Button({
 }: ButtonProps) {
   const t = TONES[tone];
   const active = !disabled && !loading;
+  const guard = useRef(createPressGuard()).current;
 
   return (
     <Pressable
-      onPress={active ? onPress : undefined}
+      onPress={active ? () => guard.run(onPress) : undefined}
       disabled={!active}
       style={({ pressed }) => [
         styles.button,

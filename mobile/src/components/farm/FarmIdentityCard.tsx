@@ -14,6 +14,7 @@ import type { Farm } from '@/api/types';
 import { farmProvinceLabel } from '@/api/format';
 import { color, palette, radii, semantic } from '@/constants/theme';
 import { Camera, Check, Lock, Trash2, X } from 'lucide-react-native';
+import { errorText } from '@/api/errorText';
 
 const LOGO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -65,7 +66,7 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
       });
       await refreshFarms();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Envoi du logo impossible.');
+      setError(errorText(e, 'Envoi du logo impossible.'));
     } finally {
       setBusy(false);
       setPicking(false);
@@ -79,7 +80,7 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
       await deleteFarmLogo(farm.id);
       await refreshFarms();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Suppression du logo impossible.');
+      setError(errorText(e, 'Suppression du logo impossible.'));
     } finally {
       setBusy(false);
     }

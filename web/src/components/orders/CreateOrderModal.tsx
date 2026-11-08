@@ -1,3 +1,4 @@
+import { INVALID_NUMBER_MESSAGE, parseDecimalOrZero } from '../../lib/number';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClipboardList, Contact, Home, MapPin, Package, Plus, Search, Store, Trash2, Truck, UserPlus, Wallet, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -195,7 +196,8 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
   const lotAlveoles = lot ? alveolesOf(lot) : batches.reduce((s, b) => s + alveolesOf(b), 0);
   const maxQty = product === 'OEUF' ? lotAlveoles : (lot?.quantityAlive ?? 1000);
   const isKg = product === 'KG';
-  const weightKg = parseFloat(weightText.replace(',', '.')) || 0;
+  const parsedWeight = parseDecimalOrZero(weightText);
+  const weightKg = parsedWeight ?? 0;
   const estimatedKg = Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 100) / 100;
 
   const total = items.reduce((a, i) => a + i.amountFcfa, 0);
@@ -230,6 +232,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
   };
 
   const addItem = () => {
+    if (parsedWeight === null) return setLocalError(INVALID_NUMBER_MESSAGE);
     if (qty <= 0) return setLocalError('Indiquez une quantité.');
     if (price <= 0) return setLocalError('Indiquez un prix unitaire.');
     if (!lotId) return setLocalError('Sélectionnez un lot.');

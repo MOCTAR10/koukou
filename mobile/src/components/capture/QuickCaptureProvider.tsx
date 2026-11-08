@@ -37,6 +37,7 @@ export function QuickCaptureProvider({ children }: { children: React.ReactNode }
   const [targetBatch, setTargetBatch] = useState<string | undefined>(undefined);
   const [dailySticky, setDailySticky] = useState<React.ReactNode>(undefined);
   const [dailyFooter, setDailyFooter] = useState<React.ReactNode>(undefined);
+  const [dailyDirty, setDailyDirty] = useState(false);
 
   // En quittant le mode « saisie du jour », on ne laisse pas trainer son pied de page.
   useEffect(() => {
@@ -91,6 +92,7 @@ export function QuickCaptureProvider({ children }: { children: React.ReactNode }
       <Sheet
         visible={mode !== 'none'}
         onClose={close}
+        dirty={mode === 'daily' && dailyDirty}
         title={meta?.title}
         subtitle={meta?.subtitle}
         icon={meta?.icon}
@@ -108,7 +110,7 @@ export function QuickCaptureProvider({ children }: { children: React.ReactNode }
             }}
           />
         )}
-        {mode === 'daily' && <DailyEntrySheet initialBatchId={targetBatch} onClose={close} onStickyChange={setDailySticky} onFooterChange={setDailyFooter} />}
+        {mode === 'daily' && <DailyEntrySheet initialBatchId={targetBatch} onClose={close} onStickyChange={setDailySticky} onFooterChange={setDailyFooter} onDirtyChange={setDailyDirty} />}
         {mode === 'feed' && <FeedEntrySheet onClose={close} />}
       </Sheet>
     </QuickCaptureContext.Provider>

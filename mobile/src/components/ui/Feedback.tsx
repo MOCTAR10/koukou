@@ -7,6 +7,7 @@ import { AlertTriangle, CircleAlert, CircleCheck, Info, type LucideIcon } from '
 
 import { AppText } from './AppText';
 import { Button } from './Button';
+import { errorText } from '@/api/errorText';
 import { radii, semantic, shadow } from '@/constants/theme';
 import { durations, reduceMotion } from '@/constants/motion';
 
@@ -87,8 +88,8 @@ export function confirm(opts: Omit<ConfirmRequest, 'resolve'>): Promise<boolean>
 }
 
 /** Error message from an unknown thrown value (French fallback). */
-export function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : 'Erreur inattendue.';
+export function errorMessage(e: unknown, fallback?: string): string {
+  return errorText(e, fallback);
 }
 
 const TONES: Record<ToastTone, { icon: LucideIcon; tint: string; soft: string }> = {

@@ -32,6 +32,8 @@ import { downloadPdf } from '@/api/pdf';
 import { librevilleDay } from '@/utils/libreville';
 import type { AccountSoldes, BalanceData, BilanData, CompteResultatData, ExerciceInfo, JournalData, StockProvende } from '@/api/types';
 import { color, radii, fmtFcfa, fontFamily } from '@/constants/theme';
+import { parseDecimalFr } from '@/utils/number';
+import { errorText } from '@/api/errorText';
 
 type Tab = 'journal' | 'balance' | 'resultat' | 'bilan' | 'stock' | 'exercices';
 
@@ -175,7 +177,7 @@ function ComptabiliteContent() {
       );
       toast.success('Rapport téléchargé', `${REPORT_NAME[tab]} exporté (PDF).`);
     } catch (e) {
-      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', errorText(e, 'Erreur inattendue.'));
     }
   };
 
@@ -637,8 +639,8 @@ function RegularisationSheet({
   const [creditAccount, setCreditAccount] = useState('471');
   const [creditAmount, setCreditAmount] = useState('');
 
-  const debit = Number(debitAmount) || 0;
-  const credit = Number(creditAmount) || 0;
+  const debit = parseDecimalFr(debitAmount) ?? 0;
+  const credit = parseDecimalFr(creditAmount) ?? 0;
   const balanced = debit > 0 && debit === credit;
   const valid = label.trim().length > 0 && debitAccount.trim() && creditAccount.trim() && balanced;
 

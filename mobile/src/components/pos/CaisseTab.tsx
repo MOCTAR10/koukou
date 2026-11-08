@@ -16,6 +16,7 @@ import { fetchCaisseSessions } from '@/api';
 import { closeCaisse, createCashMovement, deleteCashMovement, openCaisse, updateCashMovement } from '@/api/mutations';
 import type { CashMovement, CashMovementType, CashSession, CaisseSummary } from '@/api/types';
 import { color, fmtFcfa, radii, spacing, fontFamily, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 export const SOURCE_LABEL: Record<string, string> = {
   SALE_PAYMENT: 'Vente',
@@ -174,7 +175,7 @@ export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClo
       setAmount('');
       onChanged();
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Erreur lors de l’opération de caisse.';
+      const message = errorText(e, 'Erreur lors de l’opération de caisse.');
       setError(message);
     } finally {
       setBusy(false);
@@ -212,7 +213,7 @@ export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClo
       setMvReason('');
       onChanged();
     } catch (e) {
-      setMvError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement du mouvement.');
+      setMvError(errorText(e, 'Erreur lors de l’enregistrement du mouvement.'));
     } finally {
       setMvBusy(false);
     }
@@ -236,7 +237,7 @@ export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClo
       setEditMv(null);
       onChanged();
     } catch (e) {
-      setMvError(e instanceof Error ? e.message : 'Erreur lors de la modification du mouvement.');
+      setMvError(errorText(e, 'Erreur lors de la modification du mouvement.'));
     } finally {
       setMvBusy(false);
     }
@@ -262,7 +263,7 @@ export function CaisseTab({ farmId, current, loading, canManage, canOpen, canClo
       await deleteCashMovement(farmId, m.id);
       onChanged();
     } catch (e) {
-      toast.error('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', errorText(e, 'Erreur inattendue.'));
     } finally {
       setDeletingId(null);
     }

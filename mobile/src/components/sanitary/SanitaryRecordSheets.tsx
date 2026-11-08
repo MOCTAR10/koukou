@@ -31,6 +31,7 @@ import {
   treatmentBody,
   withdrawalEndPreview,
 } from '@/poufa/sanitary-records';
+import { errorText } from '@/api/errorText';
 
 export const CARE_TYPE_LABELS: Record<CareType, string> = {
   VACCIN: 'Vaccin',
@@ -204,7 +205,7 @@ export function TreatmentSheet({ visible, farmId, lot, onClose }: { visible: boo
       }
       onClose();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Enregistrement du traitement impossible.');
+      setErr(errorText(e, 'Enregistrement du traitement impossible.'));
     } finally {
       setBusy(false);
     }
@@ -384,7 +385,7 @@ export function CompleteCareSheet({
       }
       onClose();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Impossible de marquer le soin comme réalisé.');
+      setErr(errorText(e, 'Impossible de marquer le soin comme réalisé.'));
     } finally {
       setBusy(false);
     }

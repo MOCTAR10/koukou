@@ -35,6 +35,7 @@ import {
   sharePct,
   sumFcfa,
 } from '@/components/finance/pnlAnalytics';
+import { errorText } from '@/api/errorText';
 
 const DEFAULT_SPAN = 30;
 
@@ -134,7 +135,7 @@ export default function RapportsScreen() {
       await downloadPdf(`/farms/${farmId}/rentabilite/overview/export${query}`, 'rapport-pnl.pdf');
       toast.success('Rapport téléchargé', 'P&L de période exporté (PDF).');
     } catch (e) {
-      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', errorText(e, 'Erreur inattendue.'));
     }
   };
 
@@ -144,7 +145,7 @@ export default function RapportsScreen() {
       await downloadPdf(`/farms/${farmId}/rentabilite/batches/${batchId}/export`, `pnl-lot-${batchId}.pdf`);
       toast.success('Rapport téléchargé', 'P&L du lot exporté (PDF).');
     } catch (e) {
-      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', errorText(e, 'Erreur inattendue.'));
     }
   };
 

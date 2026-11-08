@@ -9,6 +9,7 @@ import { PHOTOS_SURVIVE_OFFLINE } from '@/offline/photo-files';
 import { photoMimeType, photoRefusal } from '@/poufa/declaration';
 import { MAX_VISIT_PHOTOS, visitPhotoSlotsLeft } from '@/poufa/visits';
 import { color, palette, radii, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 /**
  * Photos of a visit: camera or gallery (expo-image-picker, compressed), shown
@@ -49,7 +50,7 @@ export function VisitPhotoPicker({ photos, onPhotos, disabled }: { photos: Decla
       }
       onPhotos(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Photo indisponible.');
+      setError(errorText(e, 'Photo indisponible.'));
     }
   };
 

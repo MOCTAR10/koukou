@@ -42,6 +42,7 @@ import { cancelOrderQueued, deliverOrderQueued, recordOrderPaymentQueued } from 
 import type { OrderFull, OrderPassport } from '@/api/types';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 function OrderItems({ order }: { order: OrderFull }) {
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);
@@ -333,7 +334,7 @@ function DepositSheet({ order, onClose }: { order: OrderFull; onClose: () => voi
       await queryClient.invalidateQueries({ queryKey: ['order', farmId, order.id] });
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’encaissement.');
+      setError(errorText(e, 'Erreur lors de l’encaissement.'));
       setBusy(false);
     }
   };
@@ -428,7 +429,7 @@ export default function CommandeDetailScreen() {
           await invalidateFarmQueries(queryClient, { farmId });
           await orderQuery.refetch();
         })
-        .catch((e) => toast.error('Annulation impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
+        .catch((e) => toast.error('Annulation impossible', errorText(e, 'Erreur inattendue.')))
         .finally(() => setBusy(false));
     });
   };
@@ -457,7 +458,7 @@ Livrer ?`
           await orderQuery.refetch();
           toast.success('Commande livrée', `${order.referenceNumber} : cheptel mis à jour et bon de commande généré.`);
         })
-        .catch((e) => toast.error('Livraison impossible', e instanceof Error ? e.message : 'Erreur inattendue.'))
+        .catch((e) => toast.error('Livraison impossible', errorText(e, 'Erreur inattendue.')))
         .finally(() => setBusy(false));
     });
   };
@@ -465,7 +466,7 @@ Livrer ?`
   const doPdf = () => {
     downloadPdf(`/farms/${farmId}/orders/${order.id}/bon-de-commande`, `${order.referenceNumber}.pdf`)
       .then(() => toast.success('Bon de commande', `« ${order.referenceNumber}.pdf » enregistré sur votre appareil.`))
-      .catch((e) => toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.'));
+      .catch((e) => toast.error('Téléchargement impossible', errorText(e, 'Erreur inattendue.')));
   };
 
   const remaining = Math.max(order.totalAmountFcfa - order.depositFcfa, 0);

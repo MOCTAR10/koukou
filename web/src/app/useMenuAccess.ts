@@ -1,3 +1,4 @@
+import type { AccessDomain } from '../api/types-access';
 import { useAuth } from '../auth/AuthContext';
 import { registryRights, type RegistryRights } from '../components/registry/registryAccess';
 import { pilotageRights, type PilotageRights } from '../components/pilotage/pilotageAccess';
@@ -8,6 +9,7 @@ import {
   institutionOpensPath,
   institutionReads,
   institutionShowsEntry,
+  institutionWrites,
   menuRuleFor,
   type ReadDomain,
 } from './menu-access';
@@ -26,6 +28,14 @@ export interface MenuAccess {
    * Gate with it every query a page makes outside its own domain.
    */
   canRead: (domain: ReadDomain) => boolean;
+  /**
+   * Whether the account may write in a backend domain. Farm accounts: always
+   * true here (their farm permission codes gate each button, see
+   * `useFarmProfile().hasPermission`); INSTITUTION: a non-read action of the
+   * matrix on that domain (`institutionWrites`). Combine with the page's
+   * permission code to show a write button.
+   */
+  canWrite: (domain: AccessDomain) => boolean;
   /** The decision isn't known yet: guards wait instead of redirecting. */
   isLoading: boolean;
   isGroundEleveur: boolean;
@@ -66,6 +76,7 @@ export function useMenuAccess(): MenuAccess {
       showEntry: (_to, perms) => !perms || hasPermission(...perms),
       canOpen: (_path, perms) => !perms || hasPermission(...perms),
       canRead: () => true,
+      canWrite: () => true,
       isLoading: profileLoading,
       isGroundEleveur,
       showPlatform: isAdmin,
@@ -92,6 +103,7 @@ export function useMenuAccess(): MenuAccess {
     showEntry: (to, perms) => decide(to, perms, true),
     canOpen: (path, perms) => decide(path, perms, false),
     canRead: (domain) => !inst.pending && !inst.revoked && institutionReads(access?.profile ?? null, domain),
+    canWrite: (domain) => !inst.pending && !inst.revoked && institutionWrites(access?.profile ?? null, domain),
     isLoading: inst.pending || (!access && profileLoading),
     // The ground home is the farm éleveur's.
     isGroundEleveur: false,

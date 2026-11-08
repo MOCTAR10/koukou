@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { AppText } from './AppText';
-import { ToastViewport } from './Feedback';
+import { confirm, ToastViewport } from './Feedback';
 import { color, layout, radii, shadow, semantic } from '@/constants/theme';
 
 interface SheetProps {
@@ -24,6 +24,8 @@ interface SheetProps {
   /** Contenu fixe affiché entre le titre et la zone défilante (ex. indicateur d'étapes). */
   stickyHeader?: React.ReactNode;
   onClose: () => void;
+  /** Unsaved input: closing by the backdrop, the X or the back button asks « Abandonner la saisie ? » first. */
+  dirty?: boolean;
   children: React.ReactNode;
 }
 
@@ -31,7 +33,13 @@ const MAX_H = 0.92;
 /** Durée de l'animation de sortie — le Modal reste monté pendant ce délai. */
 const EXIT_MS = 220;
 
-export function Sheet({ visible, title, subtitle, icon, accentColor, footer, stickyHeader, onClose, children }: SheetProps) {
+export function Sheet({ visible, title, subtitle, icon, accentColor, footer, stickyHeader, onClose: onCloseProp, dirty = false, children }: SheetProps) {
+  const onClose = () => {
+    if (!dirty) return onCloseProp();
+    void confirm({ title: 'Abandonner la saisie ?', message: 'Les informations saisies ne seront pas enregistrées.', confirmLabel: 'Abandonner', cancelLabel: 'Continuer la saisie', destructive: true }).then((ok) => {
+      if (ok) onCloseProp();
+    });
+  };
   const { height: screenH } = useWindowDimensions();
   // Edge-to-edge (SDK 54) : la barre système Android (3 boutons) est dessinée
   // par-dessus le contenu — le panneau doit se terminer AU-DESSUS de cette barre.
