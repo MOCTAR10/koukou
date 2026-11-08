@@ -109,28 +109,41 @@ function queueOp(op: NewOp): void {
  * first; if some are still pending, queue behind them.
  */
 async function mustQueueBehind(farmId: string): Promise<boolean> {
-  const pending = () => loadOps().some((o) => o.farmId === farmId && ownedByCurrentUser(o));
+  const pending = () =>
+    loadOps().some((o) => o.farmId === farmId && !inFlight.has(o.id) && ownedByCurrentUser(o));
   if (!pending()) return false;
   await flushQueue();
   return pending();
 }
 
-/** Live attempt (or queued behind older ops); network failure → queued. */
+/** Ops written to the queue before their live attempt: the replay pass leaves them to it. */
+const inFlight = new Set<string>();
+
+/**
+ * Persist-before-send: the op is in the queue BEFORE the network attempt, so a
+ * kill between the request and the bookkeeping can never lose it (the replay
+ * reuses the same id as idempotency key, the server dedupes). It leaves the
+ * queue only after success or a definitive refusal (4xx), which is thrown to
+ * the caller; a network/5xx failure just leaves it queued.
+ */
 async function sendOrQueue(op: NewOp, live: () => Promise<string | void>): Promise<SendResult> {
   if (await mustQueueBehind(op.farmId)) {
     // A flush just ran and left older ops: the next auto-sync sends them in order.
     queueOp(op);
     return { status: 'queued' };
   }
+  queueOp(op);
+  inFlight.add(op.id);
   try {
     const reference = await live();
+    inFlight.delete(op.id);
+    removeOp(op.id);
     void flushQueue();
     return reference ? { status: 'sent', reference } : { status: 'sent' };
   } catch (e) {
-    if (shouldQueue(e)) {
-      queueOp(op);
-      return { status: 'queued' };
-    }
+    inFlight.delete(op.id);
+    if (shouldQueue(e)) return { status: 'queued' };
+    removeOp(op.id);
     throw e;
   }
 }
@@ -1055,7 +1068,7 @@ async function runFlush(): Promise<FlushSummary> {
   // bloquer une opération entrée après le snapshot initial.
   const skipped = new Set<string>();
   for (let round = 0; round < 20; round++) {
-    const ops = loadOps().filter((op) => !skipped.has(op.id));
+    const ops = loadOps().filter((op) => !skipped.has(op.id) && !inFlight.has(op.id));
     if (ops.length === 0) break;
     let roundSynced = 0;
     let roundDropped = 0;

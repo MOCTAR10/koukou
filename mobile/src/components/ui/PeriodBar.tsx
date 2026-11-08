@@ -7,6 +7,7 @@ import { CalendarRange, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, In
 import { AppText } from '@/components/ui/AppText';
 import { Sheet } from '@/components/ui/Sheet';
 import { palette, radii, semantic } from '@/constants/theme';
+import { librevilleDay, librevilleDaysBack } from '@/utils/libreville';
 
 // ── Fenêtre de période exposée au parent ──
 export interface PeriodWindow {
@@ -23,11 +24,10 @@ export function toDateStr(d: Date): string {
 
 /** Fenêtre initiale pour setUpstate côté parent : span jours se terminant aujourd'hui. */
 export function periodWindow(defaultSpan: number | 'all', now: Date = new Date()): PeriodWindow {
-  const to = toDateStr(now);
+  // Gabon day, not the phone's: the backend filters on todayLocal().
+  const to = librevilleDay(now);
   if (defaultSpan === 'all') return { isFiltered: false, span: 'all', from: undefined, to };
-  const from = new Date(now);
-  from.setDate(now.getDate() - (defaultSpan - 1));
-  return { isFiltered: false, span: defaultSpan, from: toDateStr(from), to };
+  return { isFiltered: false, span: defaultSpan, from: librevilleDaysBack(defaultSpan - 1, now), to };
 }
 
 const SPAN_CHOICES: { value: number | 'all'; label: string }[] = [

@@ -10,6 +10,18 @@ export function librevilleDay(at: Date | number | string = new Date()): string {
   return new Date(ms + OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/** `HH:mm` of the instant in Gabon time. */
+export function librevilleTime(at: Date | number = new Date()): string {
+  const ms = at instanceof Date ? at.getTime() : at;
+  return new Date(ms + OFFSET_MS).toISOString().slice(11, 16);
+}
+
+/** Gabon day `days` days before the instant (0 = today). Gabon has no DST. */
+export function librevilleDaysBack(days: number, at: Date | number = new Date()): string {
+  const ms = at instanceof Date ? at.getTime() : at;
+  return librevilleDay(ms - days * 86_400_000);
+}
+
 /** ISO instant written in Gabon time (`…+01:00`): same instant, its date part is the Gabon day. */
 export function librevilleIso(at: Date | number = new Date()): string {
   const ms = at instanceof Date ? at.getTime() : at;

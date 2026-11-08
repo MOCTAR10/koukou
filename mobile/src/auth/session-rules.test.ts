@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { readLoginAnswer, resolveActiveFarmId } from './session-rules';
+import { isSessionRevoked, readLoginAnswer, resolveActiveFarmId } from './session-rules';
+
+describe('isSessionRevoked', () => {
+  it('401 only: network errors and 5xx keep the session', () => {
+    expect(isSessionRevoked({ status: 401 })).toBe(true);
+    expect(isSessionRevoked({ status: 403 })).toBe(false);
+    expect(isSessionRevoked({ status: 503 })).toBe(false);
+    expect(isSessionRevoked(new TypeError('Network request failed'))).toBe(false);
+    expect(isSessionRevoked(null)).toBe(false);
+  });
+});
 
 const user = { id: 'u-1', fullName: 'M. Test', phone: '+24177000000', role: 'PROPRIETAIRE' };
 

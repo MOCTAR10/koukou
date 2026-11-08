@@ -53,6 +53,7 @@ import { fetchBandSheet } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { withEntryBase } from '@/poufa/entry-sync';
 import { defaultSampleSize, sampleSizeRefusal, sampleTip } from '@/poufa/weighing';
+import { hasUserInput, shouldApplyPrefill } from './prefill';
 
 interface DailyEntrySheetProps {
   initialBatchId?: string;
@@ -579,7 +580,11 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     // refetch) showed a blank form and the next save replaced the entry.
     if (!entriesQuery.isFetched || entriesQuery.isFetching) return;
     const stamp = `${lot.id}|${entryDateStr}`;
-    if (prefilled === stamp) return;
+    if (!shouldApplyPrefill({ alreadyPrefilledStamp: prefilled, stamp, dirty: hasUserInput(values, baseline) })) {
+      // Typed before the data arrived: keep the user's values.
+      if (prefilled !== stamp) setPrefilled(stamp);
+      return;
+    }
     const rec = existingEntry;
     const suggested = suggestedPhaseFor(lot);
     const allowed = phasesForLot(lot);

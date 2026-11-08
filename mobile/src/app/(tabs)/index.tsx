@@ -29,7 +29,7 @@ import { BrandLoader } from '@/components/ui/BrandLoader';
 import { MetricInfoSheet } from '@/components/MetricInfoSheet';
 import type { MetricKey } from '@/components/MetricInfoSheet';
 import { CheptelModal } from '@/components/CheptelModal';
-import { PeriodBar, periodWindow, toDateStr, type PeriodWindow } from '@/components/ui/PeriodBar';
+import { PeriodBar, periodWindow, type PeriodWindow } from '@/components/ui/PeriodBar';
 import type { BatchWithMetrics, DashboardData, FarmWeather } from '@/api/types';
 import { ipeStatus } from '@/constants/flock';
 // POUFA lot A indic: « Ma bande en cours » (official indicators) heads the home screen.
@@ -39,6 +39,7 @@ import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
 import { fcrQualification } from '@/poufa/official-headline';
 import { readCached } from '@/offline/ref-cache';
+import { librevilleDay, librevilleDaysBack, librevilleTime } from '@/utils/libreville';
 
 function weatherHint(w: FarmWeather): string {
   const t = w.temperatureC ?? 0;
@@ -55,12 +56,7 @@ function weatherHint(w: FarmWeather): string {
 /** Les 7 derniers jours (du plus ancien à aujourd'hui), au format ISO. */
 function lastSevenDays(): string[] {
   const days: string[] = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i);
-    days.push(toDateStr(d));
-  }
+  for (let i = 6; i >= 0; i--) days.push(librevilleDaysBack(i));
   return days;
 }
 
@@ -92,7 +88,7 @@ export default function AccueilScreen() {
     return () => clearInterval(id);
   }, []);
 
-  const isToday = window.to === toDateStr(liveNow);
+  const isToday = window.to === librevilleDay(liveNow);
 
   const formatDayShort = (d: Date) =>
     d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
@@ -103,10 +99,10 @@ export default function AccueilScreen() {
 
   // Query params: in live mode we snap to the current minute so the dashboard
   // only refetches once per minute instead of every second (clock ticks in the UI).
-  const queryDateStr = window.isFiltered ? (window.to ?? toDateStr(liveNow)) : toDateStr(liveNow);
+  const queryDateStr = window.isFiltered ? (window.to ?? librevilleDay(liveNow)) : librevilleDay(liveNow);
   const queryTimeStr = window.isFiltered
     ? (window.time ?? '12:00')
-    : `${String(liveNow.getHours()).padStart(2, '0')}:${String(liveNow.getMinutes()).padStart(2, '0')}`;
+    : librevilleTime(liveNow);
   const dashboard = useQuery({
     queryKey: ['dashboard', farmId, queryDateStr, queryTimeStr],
     queryFn: () => fetchDashboard(farmId, queryDateStr, queryTimeStr),

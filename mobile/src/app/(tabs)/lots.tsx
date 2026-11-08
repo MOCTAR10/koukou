@@ -52,7 +52,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PulsarDot } from '@/components/ui/PulsarDot';
 import { Sheet } from '@/components/ui/Sheet';
-import { PeriodBar, periodWindow, toDateStr, type PeriodBarHandle, type PeriodWindow } from '@/components/ui/PeriodBar';
+import { PeriodBar, periodWindow, type PeriodBarHandle, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { color, fmt, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useAuth } from '@/auth/AuthContext';
@@ -75,6 +75,7 @@ import { ageOnDay, bandCycle, lotSearchText } from '@/utils/band';
 // POUFA lot A2 divers: official values first on the Lots tab.
 import { fetchBandHistory, type BandSummaryIndicator } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
+import { librevilleDay } from '@/utils/libreville';
 import { fermiaFcrText, fermiaGmqText, fermiaMortalityText, lotHeadlines, officialByBand, overviewCell } from '@/poufa/lot-headline';
 
 // ── Filters ──
@@ -544,7 +545,7 @@ export default function LotsScreen() {
       return;
     }
     if (finMode === 'periode') {
-      const todayStr = toDateStr(new Date());
+      const todayStr = librevilleDay();
       if (w.isFiltered && w.from != null && w.from === w.to && w.to === todayStr) {
         setFinMode('jour');
       }
