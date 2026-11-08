@@ -47,6 +47,15 @@ export function readLoginAnswer(raw: unknown): LoginAnswer {
   return { kind: 'session', accessToken: raw.accessToken, user: user as unknown as PublicUser };
 }
 
+/**
+ * The server no longer accepts our token (expired, or revoked by a code
+ * reset): the session must end cleanly. Only an explicit 401 counts, a
+ * network failure or a 5xx keeps the session (offline use).
+ */
+export function isSessionRevoked(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { status?: unknown }).status === 401;
+}
+
 /** French message shown when the server answer can't open a session. */
 export const INVALID_LOGIN_ANSWER = 'Réponse inattendue du serveur. Réessayez dans un instant.';
 

@@ -82,6 +82,45 @@ describe('sendOrQueue', () => {
     expect(loadOps()).toHaveLength(0);
   });
 
+  it('persists the op BEFORE the request (a closed tab loses nothing)', async () => {
+    let queuedDuringRequest = -1;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        if ((init.method ?? 'GET') === 'POST') queuedDuringRequest = loadOps().length;
+        return new Response(url.includes('caisse/current') ? JSON.stringify({ session: {} }) : '{}', { status: 200 });
+      }),
+    );
+    const res = await sendOrQueue(sale);
+    expect(res.status).toBe('sent');
+    expect(queuedDuringRequest).toBe(1);
+    expect(loadOps()).toHaveLength(0);
+  });
+
+  it('a replay pass does not resend an op whose live attempt is in flight', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    let posts = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        if ((init.method ?? 'GET') === 'POST') {
+          posts += 1;
+          await gate;
+        }
+        return new Response(url.includes('caisse/current') ? JSON.stringify({ session: {} }) : '{}', { status: 200 });
+      }),
+    );
+    const live = sendOrQueue(sale);
+    await new Promise((r) => setTimeout(r, 0));
+    await flushQueue();
+    expect(posts).toBe(1);
+    release();
+    await live;
+    expect(posts).toBe(1);
+    expect(loadOps()).toHaveLength(0);
+  });
+
   it('does not overtake older ops of the farm', async () => {
     route('POST', /sales/, 'network');
     await sendOrQueue(sale);

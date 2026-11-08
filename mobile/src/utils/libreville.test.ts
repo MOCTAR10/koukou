@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { librevilleDay, librevilleIso } from './libreville';
+import { librevilleDay, librevilleDaysBack, librevilleIso, librevilleTime } from './libreville';
+
+describe('Gabon day helpers', () => {
+  it('librevilleTime is the Gabon wall clock', () => {
+    expect(librevilleTime(new Date('2026-11-03T23:30:00Z'))).toBe('00:30');
+    expect(librevilleTime(new Date('2026-11-03T08:05:00Z'))).toBe('09:05');
+  });
+  it('librevilleDaysBack counts Gabon days, across month ends', () => {
+    const at = new Date('2026-11-30T23:30:00Z'); // already 1 December in Gabon
+    expect(librevilleDaysBack(0, at)).toBe('2026-12-01');
+    expect(librevilleDaysBack(6, at)).toBe('2026-11-25');
+    expect(librevilleDaysBack(1, new Date('2026-03-01T00:30:00Z'))).toBe('2026-02-28');
+  });
+});
 
 describe('Gabon day', () => {
   it('moves to the next day from 23:00 UTC', () => {

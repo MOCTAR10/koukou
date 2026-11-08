@@ -1,13 +1,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { apiFetch, ApiError } from '@/api/client';
+import { apiFetch } from '@/api/client';
 import { clearSession, loadSession, saveSession, type StoredSession } from '@/api/token';
-import { clearUserQueue, clearUserRejected, countUserOps } from '@/offline';
+import { clearUserQueue, clearUserRejected, countUserOps, subscribeFlush } from '@/offline';
 import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
 import type { CustomerType, Farm, PublicUser } from '@/api/types';
-import { INVALID_LOGIN_ANSWER, readLoginAnswer, resolveActiveFarmId, type OtpChallenge } from './session-rules';
+import { INVALID_LOGIN_ANSWER, isSessionRevoked, readLoginAnswer, resolveActiveFarmId, type OtpChallenge } from './session-rules';
 
 export interface RegisterBuyerInput {
   phone: string;
@@ -63,12 +63,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession((prev) => (prev?.token ? { ...prev, farms } : prev));
       })
       .catch((e: unknown) => {
-        if (e instanceof ApiError && e.status === 401) {
+        if (isSessionRevoked(e)) {
           clearSession();
           setSession(null);
         }
       });
   }, [session?.token]);
+
+  // A flush pass that met a 401 (token expired or revoked by a code reset):
+  // confirm with /farms, then end the session cleanly. The queue is kept (cash
+  // must never vanish) and replays after the same account signs in again;
+  // without a session no op is sent, so there is no retry loop.
+  useEffect(
+    () =>
+      subscribeFlush((summary) => {
+        if (!summary.unauthorized) return;
+        apiFetch<Farm[]>('/farms').catch((e: unknown) => {
+          if (isSessionRevoked(e)) {
+            clearSession();
+            setSession(null);
+            queryClient.clear();
+          }
+        });
+      }),
+    [queryClient],
+  );
 
   /** Stores the token, loads the farms, then publishes the session. */
   const openSession = useCallback(

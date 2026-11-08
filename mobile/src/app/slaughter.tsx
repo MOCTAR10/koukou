@@ -186,7 +186,7 @@ export default function SlaughterScreen() {
         destination: dest,
         plannedDate: date || today,
         birdCount: birds,
-        ...(liveWeight.trim() ? { totalWeightKg: parseFloat(liveWeight) } : {}),
+        ...(Number.isFinite(parseFloat(liveWeight)) ? { totalWeightKg: parseFloat(liveWeight) } : {}),
         ...(abattoirCode.trim() ? { abattoirLotCode: abattoirCode.trim() } : {}),
         ...(notes.trim() ? { abattoirNotes: notes.trim() } : {}),
         ...(slaughterOperatorId(dest, operatorId, abattoirs) ? { operatorId: slaughterOperatorId(dest, operatorId, abattoirs) } : {}),

@@ -118,13 +118,22 @@ export async function ensureCashOpen(farmId: string, collectedAt?: string): Prom
  * land after the delivery). Flush first; if some remain, queue behind them.
  */
 async function mustQueueBehind(farmId: string): Promise<boolean> {
-  const pending = () => loadOps().some((o) => o.farmId === farmId && ownedByCurrentUser(o));
+  const pending = () =>
+    loadOps().some((o) => o.farmId === farmId && !inFlight.has(o.id) && ownedByCurrentUser(o));
   if (!pending()) return false;
   await flushQueue();
   return pending();
 }
 
-/** Sends now, or keeps the write for later when the server can't be reached. */
+/** Ops written to the queue before their live attempt: the replay pass leaves them to it. */
+const inFlight = new Set<string>();
+
+/**
+ * Sends now, or keeps the write for later when the server can't be reached.
+ * Persist-before-send: the op is queued BEFORE the request, so closing the tab
+ * between the request and the bookkeeping cannot lose it (replay reuses the
+ * same key). It leaves the queue after success or a definitive refusal (4xx).
+ */
 export async function sendOrQueue<T = unknown>(req: OfflineRequest): Promise<SendResult<T>> {
   const id = nextId(req.kind);
   const createdAt = new Date().toISOString();
@@ -150,16 +159,19 @@ export async function sendOrQueue<T = unknown>(req: OfflineRequest): Promise<Sen
     enqueueOp(op);
     return { status: 'queued' };
   }
+  enqueueOp(op);
+  inFlight.add(op.id);
   try {
     if ((op.cashFcfa ?? 0) > 0) await ensureCashOpen(op.farmId);
     const data = await send<T>(op);
+    inFlight.delete(op.id);
+    removeOp(op.id);
     void flushQueue();
     return { status: 'sent', data };
   } catch (e) {
-    if (shouldQueue(e)) {
-      enqueueOp(op);
-      return { status: 'queued' };
-    }
+    inFlight.delete(op.id);
+    if (shouldQueue(e)) return { status: 'queued' };
+    removeOp(op.id);
     throw e;
   }
 }
@@ -213,7 +225,7 @@ async function runFlush(): Promise<FlushSummary> {
   const farmIds = new Set<string>();
   const skipped = new Set<string>();
   for (let round = 0; round < 20; round++) {
-    const ops = loadOps().filter((op) => !skipped.has(op.id));
+    const ops = loadOps().filter((op) => !skipped.has(op.id) && !inFlight.has(op.id));
     if (ops.length === 0) break;
     let progress = 0;
     for (const op of ops) {
