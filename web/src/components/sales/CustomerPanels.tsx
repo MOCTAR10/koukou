@@ -16,6 +16,7 @@ import { invalidateCash } from './pos';
 import { salePaid } from './SaleDetail';
 import { CustomerOperatorField } from '../trace/CustomerOperatorField';
 import { useFarmProfile } from '../../app/useFarmProfile';
+import { creditBadges, parseOptionalCount } from '../../lib/credit';
 
 export function CreateCustomerModal({ farmId, onClose }: { farmId: string | null; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -23,12 +24,19 @@ export function CreateCustomerModal({ farmId, onClose }: { farmId: string | null
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [type, setType] = useState('PARTICULIER');
+  const [limit, setLimit] = useState('');
+  const [term, setTerm] = useState('');
+  const limitValue = parseOptionalCount(limit);
+  const termValue = parseOptionalCount(term);
+  const creditInvalid = Number.isNaN(limitValue) || Number.isNaN(termValue);
 
   const create = useMutation({
     mutationFn: () =>
       api.post<Customer>(`/farms/${farmId}/customers`, {
         fullName: name.trim(),
         type,
+        ...(limitValue != null ? { creditLimitFcfa: limitValue } : {}),
+        ...(termValue != null ? { paymentTermDays: termValue } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
         ...(city.trim() ? { city: city.trim() } : {}),
       }),
@@ -67,12 +75,20 @@ export function CreateCustomerModal({ farmId, onClose }: { farmId: string | null
             ))}
           </select>
         </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Plafond de crédit (FCFA)" hint="Vide = plafond par défaut de la ferme.">
+            <input className={inputCls} inputMode="numeric" value={limit} onChange={(e) => setLimit(e.target.value)} />
+          </Field>
+          <Field label="Délai de paiement (jours)" hint="Vide = délai par défaut de la ferme.">
+            <input className={inputCls} inputMode="numeric" value={term} onChange={(e) => setTerm(e.target.value)} />
+          </Field>
+        </div>
         <ErrorNote error={create.error} />
         <div className="flex justify-end gap-2">
           <Button tone="secondary" onClick={onClose} disabled={create.isPending}>
             Annuler
           </Button>
-          <Button type="submit" busy={create.isPending} disabled={!name.trim()}>
+          <Button type="submit" busy={create.isPending} disabled={!name.trim() || creditInvalid}>
             {create.isPending ? null : <UserPlus className="h-4 w-4" />}
             Créer la fiche
           </Button>
@@ -229,6 +245,61 @@ function Figure({ label, value, tone, icon }: { label: string; value: string; to
   );
 }
 
+/** Credit ceiling and payment term of a customer (blank = the farm default applies). */
+function CreditTermsEditor({ farmId, customer, canEdit }: { farmId: string | null; customer: CustomerFull; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const [limit, setLimit] = useState(customer.creditLimitFcfa != null ? String(customer.creditLimitFcfa) : '');
+  const [term, setTerm] = useState(customer.paymentTermDays != null ? String(customer.paymentTermDays) : '');
+  const limitValue = parseOptionalCount(limit);
+  const termValue = parseOptionalCount(term);
+  const invalid = Number.isNaN(limitValue) || Number.isNaN(termValue);
+  const dirty = limitValue !== (customer.creditLimitFcfa ?? null) || termValue !== (customer.paymentTermDays ?? null);
+  const save = useMutation({
+    mutationFn: () => api.patch<Customer>(`/farms/${farmId}/customers/${customer.id}`, { creditLimitFcfa: limitValue, paymentTermDays: termValue }),
+    onSuccess: () => invalidateCash(queryClient, farmId),
+  });
+  const badges = creditBadges(customer);
+  const inForce = [
+    customer.effectiveCreditLimitFcfa != null ? `plafond ${fcfa(customer.effectiveCreditLimitFcfa)}` : 'sans plafond',
+    customer.effectivePaymentTermDays != null ? `délai ${customer.effectivePaymentTermDays} j` : 'sans délai',
+  ].join(' · ');
+
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-semibold text-slate-700">Crédit</h3>
+        <span className="text-xs text-slate-500">En vigueur : {inForce}</span>
+        {badges.map((b) => (
+          <span key={b.label} title={b.title} className={classNames('rounded-full px-2 py-0.5 text-[11px] font-semibold', b.tone === 'red' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>
+            {b.label}
+          </span>
+        ))}
+      </div>
+      {(customer.overdueAmount ?? 0) > 0 ? (
+        <p className="text-xs text-red-600">
+          {fcfa(customer.overdueAmount ?? 0)} échus, le plus ancien depuis {customer.oldestOverdueDays ?? 0} jour(s).
+        </p>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Plafond de crédit (FCFA)" hint="Vide = plafond par défaut de la ferme.">
+          <input className={inputCls} inputMode="numeric" disabled={!canEdit} value={limit} onChange={(e) => setLimit(e.target.value)} />
+        </Field>
+        <Field label="Délai de paiement (jours)" hint="Vide = délai par défaut de la ferme.">
+          <input className={inputCls} inputMode="numeric" disabled={!canEdit} value={term} onChange={(e) => setTerm(e.target.value)} />
+        </Field>
+      </div>
+      <ErrorNote error={save.error} />
+      {canEdit ? (
+        <div className="flex justify-end">
+          <Button tone="secondary" busy={save.isPending} disabled={!dirty || invalid} onClick={() => save.mutate()}>
+            Enregistrer le crédit
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** Customer file: balances, recovery rate, stats, favourites and purchase history. */
 export function CustomerDetail({
   farmId,
@@ -298,6 +369,7 @@ export function CustomerDetail({
           </select>
         </Field>
         <ErrorNote error={setType.error} />
+        <CreditTermsEditor key={customer.id} farmId={farmId} customer={customer} canEdit={canEdit} />
         {/* POUFA W6: link the customer to a programme operator (traceability). */}
         <CustomerOperatorField farmId={farmId} customer={customer} />
 
@@ -362,6 +434,11 @@ export function CustomerDetail({
                       <p className={classNames('text-xs', salePaidFcfa >= s.totalAmountFcfa ? 'text-emerald-600' : 'text-amber-600')}>
                         payé {fcfa(salePaidFcfa)}
                       </p>
+                      {s.dueDate && (s.remainingFcfa ?? 0) > 0 ? (
+                        <p className={classNames('text-xs', s.overdue ? 'font-semibold text-red-600' : 'text-slate-500')}>
+                          {s.overdue ? 'En retard · échue le' : 'à payer avant le'} {dateFr(s.dueDate)}
+                        </p>
+                      ) : null}
                     </div>
                   </li>
                 );

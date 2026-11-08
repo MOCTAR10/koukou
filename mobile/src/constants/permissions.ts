@@ -37,6 +37,7 @@ export const PERMISSION_GROUPS_LOCAL: { key: string; label: string; items: { cod
       { code: 'vente:annuler', label: 'Annuler des ventes' },
       { code: 'vente:commande', label: 'Bons de commande' },
       { code: 'vente:promotion', label: 'Promotions' },
+      { code: 'vente:depasser-credit', label: 'Dépasser le plafond de crédit' },
     ],
   },
   {

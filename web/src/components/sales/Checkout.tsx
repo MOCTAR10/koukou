@@ -8,6 +8,7 @@ import { localYmd } from '../flock/shared';
 import { Card } from '../ui';
 import { readFcfaInput, WHOLE_FCFA_MESSAGE } from '../../lib/amount';
 import { classNames, fcfa, num } from '../../lib/format';
+import { creditRefusal } from '../../lib/credit';
 import { customerTypeLabel } from './labels';
 import { useIdempotencyKey } from '../../lib/idempotency';
 import { QUEUED_MESSAGE, sendOrQueue } from '../../offline';
@@ -150,9 +151,12 @@ export function Checkout({
   const canSell = total > 0 && !needsRecipient && (isCredit ? customer !== null : received >= total);
 
   const saleKey = useIdempotencyKey('sale');
+  // Credit ceiling refused by the server: a user with the right may validate the overrun.
+  const refusal = creditRefusal(sell.error);
   const sell = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (override?: boolean) => {
       const body = {
+        ...(override ? { overrideCreditLimit: true } : {}),
         // Explicit: a sale queued offline must keep its real day when it's replayed.
         saleDate: localYmd(),
         items: lines.map(buildSaleItem),
@@ -357,6 +361,11 @@ export function Checkout({
       )}
 
       <ErrorNote error={sell.error} />
+      {refusal?.overridable ? (
+        <Button tone="secondary" className="w-full" busy={sell.isPending} onClick={() => sell.mutate(true)}>
+          Valider quand même le dépassement du plafond
+        </Button>
+      ) : null}
 
       <Button className="w-full" busy={sell.isPending} disabled={!canSell} onClick={() => sell.mutate()}>
         {isCredit ? <Wallet className="h-4 w-4" /> : <Check className="h-4 w-4" />}

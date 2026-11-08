@@ -13,6 +13,7 @@ import { CollectModal, CreateCustomerModal, CustomerDetail } from '../components
 import { CUSTOMER_TYPE_LABEL, CUSTOMER_TYPES, SEGMENT_LABEL } from '../components/sales/labels';
 import { FilterChip } from '../components/sales/shared';
 import { dateFr, fcfa, num } from '../lib/format';
+import { creditBadges } from '../lib/credit';
 
 type DebtState = 'TOUS' | 'DUES' | 'SOLVES';
 
@@ -216,6 +217,15 @@ export function CustomersPage() {
                           <button type="button" className="text-left text-brand-700 hover:underline" onClick={() => setOpenId(c.id)}>
                             {c.fullName}
                           </button>
+                          {creditBadges(c).map((b) => (
+                            <span
+                              key={b.label}
+                              title={b.title}
+                              className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${b.tone === 'red' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}
+                            >
+                              {b.label}
+                            </span>
+                          ))}
                         </span>
                       </Td>
                       <Td label="Code" className="md:max-lg:hidden">

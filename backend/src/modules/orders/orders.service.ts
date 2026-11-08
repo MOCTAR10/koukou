@@ -70,6 +70,7 @@ import { refundByAccount } from '../accounting/posting-map.js';
 import { Sale } from '../finance/entities/sale.entity.js';
 import { SaleItem } from '../finance/entities/sale-item.entity.js';
 import { normalizePhone, CustomersService } from '../finance/customers.service.js';
+import { CreditService } from '../finance/credit.service.js';
 import { PaymentsService } from '../finance/payments.service.js';
 import { RentabiliteService } from '../finance/rentabilite.service.js';
 import { SalesService } from '../finance/sales.service.js';
@@ -213,6 +214,7 @@ export class OrdersService {
     private readonly paymentsService: PaymentsService,
     private readonly salesService: SalesService,
     private readonly customersService: CustomersService,
+    private readonly creditService: CreditService,
     private readonly rentabiliteService: RentabiliteService,
     private readonly metricsService: MetricsService,
     private readonly batchesService: BatchesService,
@@ -536,6 +538,17 @@ export class OrdersService {
         await saleRepo.save(sale);
       }
     }
+
+    // Credit ceiling: the part of the order not covered by the deposit is
+    // credit. Refusal rolls the order and its sale back.
+    await this.creditService.assertCreditAllowed(em, user, {
+      farmId,
+      customerId,
+      newUnpaidFcfa: total - depositFcfa,
+      excludeSaleId: sale.id,
+      override: dto.overrideCreditLimit,
+      operation: `Commande (vente ${sale.referenceNumber})`,
+    });
 
     // A pre-order can be delivered too. Without an address it is a pickup:
     // mobile can still send coordinates left over from an earlier choice.

@@ -27,6 +27,10 @@ export interface SaleFull extends Omit<Sale, 'items'> {
   pointOfSaleId: string | null;
   cancelledReason: string | null;
   createdAt: string;
+  /** Customer statement only: due day (null without a payment term), amount still due, lateness. */
+  dueDate?: string | null;
+  remainingFcfa?: number;
+  overdue?: boolean;
 }
 
 export interface SaleCreated {

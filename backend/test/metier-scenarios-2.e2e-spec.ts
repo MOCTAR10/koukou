@@ -7,6 +7,8 @@ import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
 import { WeighingsService } from './../src/modules/bandes/weighings.service.js';
 import { readXlsx } from './../src/common/utils/spreadsheet.js';
+import { todayLocal } from './../src/common/utils/date.utils.js';
+import { addDays } from './../src/modules/finance/credit.js';
 import {
   KOUKOU_EVENTS,
   koukouBus,
@@ -855,9 +857,210 @@ describe('Scénarios métier 2 : intrants, abattage, clients, visites, tâches, 
     it.todo(
       'numérotation des factures : VTE-AAAAMMJJ-XXXXXX et CMD-… sont aléatoires (6 chiffres tirés au hasard, 5 essais) ; elles sont uniques mais pas continues ni chronologiques ; à valider avec la DGI / le plan SYSCOHADA si une facture normalisée à numérotation séquentielle est exigée',
     );
-    it.todo(
-      'crédit client : aucun plafond de crédit ni échéance de paiement par client ; le dû n’est pas bloquant à la commande suivante ; à valider avec la DGE',
-    );
+
+    describe('Plafond de crédit et délai de paiement', () => {
+      /*
+       * Client A : plafond 100 000 F, délai 10 jours.
+       *   V1 : 20 poulets × 3 000 = 60 000 à crédit, datée J-15 (Libreville) => dû 60 000, échue depuis J-5.
+       *   V2 : 60 000 à crédit => 60 000 + 60 000 = 120 000 > 100 000 : refusée (409).
+       *   V3 : 60 000 payés comptant => jamais bloquée.
+       *   Commande 50 000 sans acompte => 110 000 : refusée ; avec 20 000 d'acompte => 80 000 : acceptée.
+       *   Dépassement : refusé (403) sans le droit, accepté avec « vente:depasser-credit » et tracé au journal.
+       * Défaut de ferme (plafond 10 000, délai 5 jours) pour un client B sans réglage propre.
+       */
+      let ownerToken: string;
+      let creditFarm: string;
+      let creditBatch: string;
+      let custA: string;
+      let custB: string;
+      let plainAdmin: string;
+      let creditAdmin: string;
+
+      const credit = (customerId: string, amount: number, extra: object = {}) =>
+        post(
+          `/farms/${creditFarm}/sales`,
+          {
+            customerId,
+            items: [
+              {
+                productType: 'POULET_PIECE',
+                quantity: amount / 3000,
+                unit: 'PIECE',
+                unitPriceFcfa: 3000,
+                batchId: creditBatch,
+              },
+            ],
+            ...extra,
+          },
+          ownerToken,
+        );
+      const customerView = async (id: string) =>
+        ((await get(`/farms/${creditFarm}/customers`, ownerToken).expect(200)).body as any[]).find(
+          (c) => c.id === id,
+        );
+      const overdueAlerts = async () =>
+        ((await get(`/farms/${creditFarm}/alerts`, ownerToken).expect(200)).body as any[]).filter(
+          (a) => a.kind === 'CREANCE_RETARD' && a.status === 'ACTIVE',
+        );
+      const member = async (name: string, permissions: string[]) => {
+        const phone = uniquePhone();
+        await post(
+          `/farms/${creditFarm}/eleveurs`,
+          { phone, fullName: `${name} ${tag}`, code: 'secret456', role: 'ADMIN', jobTitle: 'Gestionnaire', permissions },
+          ownerToken,
+        ).expect(201);
+        return login(server, phone, 'secret456');
+      };
+
+      beforeAll(async () => {
+        const farm = await createProgrammeFarm(server, adminToken, { name: `Ferme Credit ${tag}` });
+        creditFarm = farm.farmId;
+        ownerToken = farm.ownerToken;
+        await post(`/farms/${creditFarm}/caisse/open`, { openingBalanceFcfa: 0 }, ownerToken).expect(201);
+        creditBatch = (
+          await post(
+            `/farms/${creditFarm}/batches`,
+            { batchName: `Crédit ${tag}`, type: 'CHAIR', integrationDate: day(-40), quantityAtStart: 300 },
+            ownerToken,
+          ).expect(201)
+        ).body.id;
+        custA = (
+          await post(
+            `/farms/${creditFarm}/customers`,
+            { fullName: `Client A ${tag}`, phone: `+24166${digits}`, creditLimitFcfa: 100_000, paymentTermDays: 10 },
+            ownerToken,
+          ).expect(201)
+        ).body.id;
+        custB = (
+          await post(`/farms/${creditFarm}/customers`, { fullName: `Client B ${tag}`, phone: `+24165${digits}` }, ownerToken).expect(201)
+        ).body.id;
+        plainAdmin = await member('Vendeur', ['vente:creer', 'vente:commande']);
+        creditAdmin = await member('Responsable', ['vente:creer', 'vente:commande', 'vente:depasser-credit']);
+      }, 120_000);
+
+      it('sous le plafond la vente à crédit passe ; la fiche porte plafond, délai et retard calculés au jour de Libreville', async () => {
+        const saleDay = addDays(todayLocal(), -15);
+        await credit(custA, 60_000, { saleDate: saleDay }).expect(201);
+        const view = await customerView(custA);
+        expect(view).toMatchObject({
+          creditLimitFcfa: 100_000,
+          paymentTermDays: 10,
+          effectiveCreditLimitFcfa: 100_000,
+          effectivePaymentTermDays: 10,
+          outstandingFcfa: 60_000,
+          overdueAmount: 60_000,
+          oldestOverdueDays: 5,
+          overdue: true,
+          limitReached: false,
+        });
+        // The statement shows the due date of the invoice.
+        const lines = (await get(`/farms/${creditFarm}/customers/${custA}/history`, ownerToken).expect(200)).body as any[];
+        expect(lines).toHaveLength(1);
+        expect(lines[0]).toMatchObject({ dueDate: addDays(saleDay, 10), remainingFcfa: 60_000, overdue: true });
+      });
+
+      it('au-delà du plafond : refus 409 en français avec dû et plafond ; la vente n’est pas enregistrée', async () => {
+        const res = await credit(custA, 60_000).expect(409);
+        expect(String(res.body.message)).toMatch(/Plafond de crédit dépassé/);
+        expect(String(res.body.message)).toMatch(/60\s000 FCFA/);
+        expect(String(res.body.message)).toMatch(/100\s000 FCFA/);
+        expect(res.body).toMatchObject({
+          code: 'PLAFOND_CREDIT',
+          outstandingFcfa: 60_000,
+          creditLimitFcfa: 100_000,
+          requestedFcfa: 60_000,
+          overridable: true,
+        });
+        expect((await customerView(custA)).outstandingFcfa).toBe(60_000);
+      });
+
+      it('une vente payée comptant n’est jamais bloquée ; un acompte réduit la part à crédit', async () => {
+        await credit(custA, 60_000, { payments: [{ method: 'CASH', amountFcfa: 60_000 }] }).expect(201);
+        expect((await customerView(custA)).outstandingFcfa).toBe(60_000);
+        // 60 000 on credit with 45 000 paid now: 15 000 unpaid, 75 000 in total.
+        await credit(custA, 60_000, { payments: [{ method: 'CASH', amountFcfa: 45_000 }] }).expect(201);
+        expect((await customerView(custA)).outstandingFcfa).toBe(75_000);
+      });
+
+      it('commande : refusée si la part non couverte par l’acompte dépasse le plafond, acceptée sinon', async () => {
+        const order = (deposit?: number, extra: object = {}) =>
+          post(
+            `/farms/${creditFarm}/orders`,
+            {
+              canal: 'FERME',
+              customerId: custA,
+              items: [{ productType: 'POULET_PIECE', quantity: 25, unit: 'PIECE', unitPriceFcfa: 3000, batchId: creditBatch }],
+              ...(deposit ? { deposit: { amountFcfa: deposit } } : {}),
+              ...extra,
+            },
+            ownerToken,
+          );
+        // 75 000 due + 75 000 unpaid = 150 000 > 100 000.
+        const refused = await order().expect(409);
+        expect(refused.body.code).toBe('PLAFOND_CREDIT');
+        // 75 000 + (75 000 - 50 000) = 100 000 = the ceiling: accepted.
+        await order(50_000).expect(201);
+      });
+
+      it('dépassement : 403 sans le droit, accepté avec « vente:depasser-credit » et tracé au journal', async () => {
+        const body = {
+          customerId: custA,
+          overrideCreditLimit: true,
+          items: [{ productType: 'POULET_PIECE', quantity: 10, unit: 'PIECE', unitPriceFcfa: 3000, batchId: creditBatch }],
+        };
+        // Without the right: the refusal says so (not overridable), the flag is refused.
+        const plain = await post(`/farms/${creditFarm}/sales`, { ...body, overrideCreditLimit: false }, plainAdmin).expect(409);
+        expect(plain.body.overridable).toBe(false);
+        await post(`/farms/${creditFarm}/sales`, body, plainAdmin).expect(403);
+        expect((await customerView(custA)).outstandingFcfa).toBe(75_000);
+
+        // With the right granted in the matrix: allowed, 30 000 more on credit.
+        await post(`/farms/${creditFarm}/sales`, body, creditAdmin).expect(201);
+        expect((await customerView(custA)).outstandingFcfa).toBe(105_000);
+        expect((await customerView(custA)).limitReached).toBe(true);
+
+        const journal = (
+          await get(`/audit/events?farmId=${creditFarm}&action=SYSTEM&limit=50`, adminToken).expect(200)
+        ).body.items as any[];
+        const entry = journal.find((e) => e.route === 'CREDIT_LIMIT_OVERRIDE');
+        expect(entry).toBeDefined();
+        expect(entry.summary).toMatchObject({ outstandingFcfa: 75_000, creditLimitFcfa: 100_000, newUnpaidFcfa: 30_000 });
+      });
+
+      it('retard : une seule alerte active (dédupliquée) malgré les relectures, résolue une fois les impayés soldés', async () => {
+        await get(`/farms/${creditFarm}/customers`, ownerToken).expect(200);
+        await get(`/farms/${creditFarm}/customers`, ownerToken).expect(200);
+        const alerts = await overdueAlerts();
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0].message).toMatch(/1 client en retard/);
+        expect(alerts[0].message).toMatch(/5 jours de retard/);
+
+        // The oldest invoices are paid first: everything is settled.
+        await post(`/farms/${creditFarm}/customers/${custA}/payments`, { amountFcfa: 105_000 }, ownerToken).expect(201);
+        expect(await overdueAlerts()).toHaveLength(0);
+        expect(await customerView(custA)).toMatchObject({ overdue: false, overdueAmount: 0, outstandingFcfa: 0 });
+      });
+
+      it('défaut de ferme : appliqué au client sans réglage propre ; réservé au droit « reglages:ferme »', async () => {
+        await patch(`/farms/${creditFarm}`, { defaultCreditLimitFcfa: 10_000, defaultPaymentTermDays: 5 }, plainAdmin).expect(403);
+        await patch(`/farms/${creditFarm}`, { defaultCreditLimitFcfa: 10_000, defaultPaymentTermDays: 5 }, ownerToken).expect(200);
+        expect(await customerView(custB)).toMatchObject({
+          creditLimitFcfa: null,
+          effectiveCreditLimitFcfa: 10_000,
+          effectivePaymentTermDays: 5,
+        });
+        const refused = await credit(custB, 15_000).expect(409);
+        expect(refused.body).toMatchObject({ code: 'PLAFOND_CREDIT', creditLimitFcfa: 10_000 });
+        await credit(custB, 9_000).expect(201);
+        // The customer's own ceiling wins over the farm default; null falls back to it.
+        await patch(`/farms/${creditFarm}/customers/${custB}`, { creditLimitFcfa: 500_000 }, ownerToken).expect(200);
+        await credit(custB, 15_000).expect(201);
+        await patch(`/farms/${creditFarm}/customers/${custB}`, { creditLimitFcfa: null }, ownerToken).expect(200);
+        expect((await customerView(custB)).effectiveCreditLimitFcfa).toBe(10_000);
+        // Not a negative or fractional ceiling.
+        await patch(`/farms/${creditFarm}/customers/${custB}`, { creditLimitFcfa: -5 }, ownerToken).expect(400);
+      });
+    });
   });
 
   // ──────────────────────────────────────────────────────────────────────

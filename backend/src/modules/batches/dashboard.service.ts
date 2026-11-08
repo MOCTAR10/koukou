@@ -206,6 +206,7 @@ const NON_SANITAIRE_KINDS = new Set<AlertKind>([
   AlertKind.PEREMPTION,
   AlertKind.STOCK_OEUF,
   AlertKind.VENTE,
+  AlertKind.CREANCE_RETARD,
 ]);
 
 @Injectable()

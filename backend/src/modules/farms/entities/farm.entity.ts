@@ -60,6 +60,14 @@ export class Farm {
   @Column({ name: 'default_sac_kg', type: 'float', default: 50 })
   defaultSacKg: number;
 
+  /** Farm-wide credit ceiling (FCFA) for customers without their own; null = no limit. */
+  @Column({ name: 'default_credit_limit_fcfa', type: 'int', nullable: true })
+  defaultCreditLimitFcfa: number | null;
+
+  /** Farm-wide payment term (days) for customers without their own; null = none. */
+  @Column({ name: 'default_payment_term_days', type: 'int', nullable: true })
+  defaultPaymentTermDays: number | null;
+
   /** Chemin public du logo de la ferme (ex. « /uploads/logos/<farmId>.png »),
    *  servi par les assets statiques de l'API. Null = logo Fermia par défaut. */
   @Column({ name: 'logo_url', type: 'varchar', nullable: true })

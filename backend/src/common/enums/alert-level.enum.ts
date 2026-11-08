@@ -34,4 +34,6 @@ export enum AlertKind {
   MALADIE = 'MALADIE',
   /** Declarative input stock (received − used) below zero (POUFA L4). */
   STOCK_NEGATIF = 'STOCK_NEGATIF',
+  /** Customer invoices unpaid beyond their payment term (one farm-level alert). */
+  CREANCE_RETARD = 'CREANCE_RETARD',
 }

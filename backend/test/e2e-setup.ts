@@ -6,6 +6,7 @@ process.env.PROGRAM_CODE = 'POUFA';
 // sweep (tests call TasksService.sweepOverdue() directly when needed).
 process.env.TASK_SWEEP_DISABLED = 'true';
 process.env.MARKET_SWEEP_DISABLED = 'true';
+process.env.CREDIT_SWEEP_DISABLED = 'true';
 // No hourly POUFA band sweep (late weighings, stale projections).
 process.env.WEIGHING_SWEEP_DISABLED = 'true';
 // No hourly visit reminders: the visits-reminders spec calls VisitRemindersService.sweep().

@@ -71,6 +71,14 @@ export class Customer {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  /** Credit ceiling in FCFA on the outstanding balance; null = the farm default applies. */
+  @Column({ name: 'credit_limit_fcfa', type: 'int', nullable: true })
+  creditLimitFcfa: number | null;
+
+  /** Days after the invoice day before an unpaid invoice is overdue; null = farm default. */
+  @Column({ name: 'payment_term_days', type: 'int', nullable: true })
+  paymentTermDays: number | null;
+
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'created_by' })
   createdBy: User | null;

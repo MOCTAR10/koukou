@@ -23,7 +23,9 @@ import { CashSession } from './entities/cash-session.entity.js';
 import { CashMovement } from './entities/cash-movement.entity.js';
 import { Expense } from './entities/expense.entity.js';
 import { Promotion } from './entities/promotion.entity.js';
+import { AuditModule } from '../audit/audit.module.js';
 import { CustomersService } from './customers.service.js';
+import { CreditService } from './credit.service.js';
 import { PaymentsService } from './payments.service.js';
 import { CaisseService } from './caisse.service.js';
 import { ExpensesService } from './expenses.service.js';
@@ -65,6 +67,7 @@ import { PromotionsController } from './promotions.controller.js';
     AccountingModule,
     PointsOfSaleModule,
     AlertsModule,
+    AuditModule,
     ReferenceConstantsModule,
     BatchesModule,
     FeedStockModule,
@@ -83,6 +86,7 @@ import { PromotionsController } from './promotions.controller.js';
   ],
   providers: [
     CustomersService,
+    CreditService,
     PaymentsService,
     CaisseService,
     ExpensesService,
@@ -93,6 +97,7 @@ import { PromotionsController } from './promotions.controller.js';
   ],
   exports: [
     CustomersService,
+    CreditService,
     PaymentsService,
     CaisseService,
     ExpensesService,

@@ -59,6 +59,7 @@ import { PromotionsService } from './promotions.service.js';
 import { AccountingService, type PostingLine } from '../accounting/accounting.service.js';
 import { refundByAccount, revenueLines } from '../accounting/posting-map.js';
 import { normalizePhone, CustomersService } from './customers.service.js';
+import { CreditService } from './credit.service.js';
 import { PdfService } from '../../common/services/pdf.service.js';
 import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
 import { CreatePaymentDto } from './dto/payment.dto.js';
@@ -123,6 +124,7 @@ export class SalesService {
     private readonly rentabiliteService: RentabiliteService,
     private readonly promotionsService: PromotionsService,
     private readonly customersService: CustomersService,
+    private readonly creditService: CreditService,
     private readonly feedStockService: FeedStockService,
     private readonly batchesService: BatchesService,
     private readonly alertsService: AlertsService,
@@ -326,6 +328,16 @@ export class SalesService {
       }
 
       const paidSum = payments.reduce((s, p) => s + p.amountFcfa, 0);
+      // Credit ceiling: only what stays unpaid counts, a sale paid in full
+      // (cash / POS) is never blocked. Refusal rolls the whole sale back.
+      await this.creditService.assertCreditAllowed(em, user, {
+        farmId,
+        customerId: resolvedCustomerId,
+        newUnpaidFcfa: sale.totalAmountFcfa - paidSum,
+        excludeSaleId: sale.id,
+        override: dto.overrideCreditLimit,
+        operation: `Vente ${sale.referenceNumber}`,
+      });
       sale.status =
         paidSum >= sale.totalAmountFcfa
           ? SaleStatus.SETTLED

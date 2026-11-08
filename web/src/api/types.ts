@@ -24,6 +24,9 @@ export interface Farm {
   capacityPerBuilding: number | null;
   buildingAreaM2: number | null;
   defaultSacKg: number;
+  /** Farm-wide credit defaults for customers without their own (null = none). */
+  defaultCreditLimitFcfa?: number | null;
+  defaultPaymentTermDays?: number | null;
   longitude: number | null;
   latitude: number | null;
   isVerified: boolean;
@@ -237,6 +240,19 @@ export interface Customer {
   operatorId?: string | null;
   createdAt: string;
   balance?: CustomerBalance;
+  /** Credit ceiling of this customer (FCFA); null = the farm default applies. */
+  creditLimitFcfa?: number | null;
+  /** Payment term in days; null = the farm default applies. */
+  paymentTermDays?: number | null;
+  /** Ceiling and term in force (own, else farm default) and the lateness, computed by the server. */
+  effectiveCreditLimitFcfa?: number | null;
+  effectivePaymentTermDays?: number | null;
+  overdueAmount?: number;
+  oldestOverdueDays?: number;
+  /** « Plafond atteint ». */
+  limitReached?: boolean;
+  /** « En retard ». */
+  overdue?: boolean;
 }
 
 export interface CustomerBalance {

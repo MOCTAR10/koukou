@@ -40,6 +40,7 @@ export const PERMISSION_DOMAINS: Readonly<
   'vente:annuler': { domain: 'VENTES', action: 'MODIFIER' },
   'vente:commande': { domain: 'VENTES', action: 'CREER' },
   'vente:promotion': { domain: 'VENTES', action: 'MODIFIER' },
+  'vente:depasser-credit': { domain: 'VENTES', action: 'MODIFIER' },
   'market:publier': { domain: 'MARCHE', action: 'CREER' },
   'compta:depense': { domain: 'ECONOMIQUE', action: 'CREER' },
   'compta:client': { domain: 'VENTES', action: 'MODIFIER' },
@@ -77,6 +78,7 @@ export const PERMISSION_DOMAINS: Readonly<
  */
 export const INSTITUTION_EXCLUDED_CODES: ReadonlySet<PermissionCode> = new Set<PermissionCode>([
   'compta:depense',
+  'vente:depasser-credit',
   'stock:gerer',
   'production:abattage',
 ]);
