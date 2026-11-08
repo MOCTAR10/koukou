@@ -46,7 +46,7 @@ import {
 import { RefListsService } from '../programme/ref-lists.service.js';
 import { SanitaryAlertsService } from '../surveillance/sanitary-alerts.service.js';
 import { HealthEventPhoto } from './entities/health-event-photo.entity.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { isAfterTomorrowUtc, todayLocal } from '../../common/utils/date.utils.js';
 
 const EGGS_PER_TRAY = 30;
 
@@ -267,6 +267,18 @@ export class HealthService {
           'Ce lot est clôturé : aucun oiseau ne peut plus en être retiré.',
         );
       }
+      // The removal is dated like a daily-entry death: not before the
+      // placement, not in the future (the headcount timeline would break).
+      if (dto.occurredAt.slice(0, 10) < batch.integrationDate.slice(0, 10)) {
+        throw new BadRequestException(
+          `La date ne peut pas précéder la mise en place du lot (${batch.integrationDate.slice(0, 10)}).`,
+        );
+      }
+      if (isAfterTomorrowUtc(dto.occurredAt)) {
+        throw new BadRequestException(
+          'La date de la mortalité ou de la réforme ne peut pas être dans le futur.',
+        );
+      }
       const live = Math.max(0, batch.quantityAlive);
       if (quantity > live) {
         throw new BadRequestException(
@@ -311,7 +323,39 @@ export class HealthService {
       () =>
         // The declaration and the alert of a suspicion commit together.
         this.dataSource.transaction(async (em) => {
+          if (
+            (dto.kind === HealthEventKind.REFORME ||
+              dto.kind === HealthEventKind.MORTALITE) &&
+            quantity > 0
+          ) {
+            // Re-checked under the batch lock: two concurrent declarations
+            // (or a daily entry) must not remove more birds than alive. The
+            // live count is rebuilt under that lock (the stored one is only
+            // refreshed after a declaration commits).
+            await this.flockReconciliation.recomputeLiveCount(em, batchId);
+            const locked = await em
+              .getRepository(ProductionBatch)
+              .findOne({ where: { id: batchId } });
+            if (!locked || locked.status === BatchStatus.CLOTURE) {
+              throw new BadRequestException(
+                'Ce lot est clôturé : aucun oiseau ne peut plus en être retiré.',
+              );
+            }
+            if (quantity > Math.max(0, locked.quantityAlive)) {
+              throw new BadRequestException(
+                `Le retrait (${quantity} oiseaux) dépasse l'effectif vivant (${Math.max(0, locked.quantityAlive)}).`,
+              );
+            }
+          }
           const row = await em.getRepository(HealthEvent).save(event);
+          if (
+            (row.kind === HealthEventKind.REFORME ||
+              row.kind === HealthEventKind.MORTALITE) &&
+            quantity > 0
+          ) {
+            // Visible to the next declaration waiting on the batch lock.
+            await this.flockReconciliation.recomputeLiveCount(em, batchId);
+          }
           if (row.suspicion) {
             await this.sanitaryAlerts.raiseFromDeclaration(em, row, farm);
           }
@@ -375,7 +419,7 @@ export class HealthService {
     // Gated by @Permissions('sanitaire:gerer') on the route (owner, platform
     // admin and ADMIN staff holding it), not by the global user role.
     await this.farmsService.assertAccessible(user, farmId);
-    await this.assertBatchInFarm(farmId, batchId);
+    const batch = await this.assertBatchInFarm(farmId, batchId);
     const event = await this.eventRepo.findOne({
       where: { id: eventId, farmId, batchId },
     });
@@ -384,6 +428,12 @@ export class HealthService {
       (event.kind === HealthEventKind.REFORME ||
         event.kind === HealthEventKind.MORTALITE) &&
       event.quantity > 0;
+    // Deleting a removal would give birds back to a closed (immutable) band.
+    if (alreadyApplied && batch.status === BatchStatus.CLOTURE) {
+      throw new BadRequestException(
+        'Lot clôturé : ce retrait d’oiseaux ne peut plus être supprimé.',
+      );
+    }
     const photos = await this.photoRepo.find({
       where: { healthEventId: event.id },
     });

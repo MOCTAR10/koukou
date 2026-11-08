@@ -63,6 +63,7 @@ export class StockTransfersService {
     farmId: string,
     pointOfSaleId?: string,
     productType?: StockTransferProductType,
+    page: { take?: number; skip?: number } = {},
   ): Promise<StockTransfer[]> {
     await this.farmsService.assertAccessible(user, farmId);
     return this.repo.find({
@@ -71,7 +72,8 @@ export class StockTransfersService {
         ...(pointOfSaleId ? { pointOfSaleId } : {}),
         ...(productType ? { productType } : {}),
       },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'ASC' },
+      ...page,
     });
   }
 

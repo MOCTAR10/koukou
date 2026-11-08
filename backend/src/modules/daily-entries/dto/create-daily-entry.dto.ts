@@ -65,7 +65,7 @@ export class CreateDailyEntryDto {
   })
   @IsOptional()
   @IsNumber()
-  @Min(0)
+  @Min(0.1, { message: 'Le poids du sac doit être positif.' })
   bagSizeKg?: number;
 
   @ApiPropertyOptional({ enum: FeedPhase, description: "Phase d'aliment" })

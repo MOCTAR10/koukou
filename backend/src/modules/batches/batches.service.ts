@@ -25,7 +25,7 @@ import { MetricsService } from './metrics.service.js';
 import { AdvisoryEngine } from './advisory.engine.js';
 import { KOUKOU_EVENTS, koukouBus } from '../../common/utils/event-bus.js';
 import { BandeOpeningService } from './poufa/bande-opening.service.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { isRealIsoDate, todayLocal } from '../../common/utils/date.utils.js';
 
 @Injectable()
 export class BatchesService {
@@ -236,8 +236,10 @@ export class BatchesService {
     farmId: string,
     asOf?: string,
     scope: 'all' | 'active' | 'closed' = 'all',
+    page: { take?: number; skip?: number } = {},
   ): Promise<BatchWithMetrics[]> {
     await this.farmsService.assertAccessible(user, farmId);
+    this.assertAsOf(asOf);
     const batches = await this.batchRepo.find({
       where:
         scope === 'all'
@@ -245,7 +247,8 @@ export class BatchesService {
           : scope === 'closed'
             ? { farmId, status: BatchStatus.CLOTURE }
             : { farmId, status: Not(BatchStatus.CLOTURE) },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'ASC' },
+      ...page,
     });
     const economics = await this.farmsService.readsEconomics(user);
     // Bounded fan-out: each band's metrics costs ~10 queries, and firing them
@@ -268,6 +271,14 @@ export class BatchesService {
     return out;
   }
 
+  private assertAsOf(asOf?: string): void {
+    if (asOf !== undefined && !isRealIsoDate(asOf)) {
+      throw new BadRequestException(
+        'Paramètre « asOf » invalide : date AAAA-MM-JJ attendue.',
+      );
+    }
+  }
+
   // POUFA lot A droits: the chick price for economic readers only (audit F6).
   private gateEconomics<T extends { chickUnitPriceFcfa: number | null }>(
     batch: T,
@@ -283,6 +294,7 @@ export class BatchesService {
     asOf?: string,
   ): Promise<BatchWithMetrics> {
     await this.farmsService.assertAccessible(user, farmId);
+    this.assertAsOf(asOf);
     const batch = await this.batchRepo.findOne({
       where: { id: batchId, farmId },
     });

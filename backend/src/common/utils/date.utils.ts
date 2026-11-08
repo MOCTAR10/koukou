@@ -15,6 +15,13 @@ export function isAfterTomorrowUtc(date: string): boolean {
   return date.slice(0, 10) > tomorrow;
 }
 
+/** True for a real calendar day written YYYY-MM-DD (2026-02-30 is not). */
+export function isRealIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
 /** Business time zone: Gabon (UTC+1, no daylight saving). */
 export const APP_TIME_ZONE = 'Africa/Libreville';
 

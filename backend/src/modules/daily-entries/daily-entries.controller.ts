@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Logger, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -9,6 +9,7 @@ import { BatchesService } from '../batches/batches.service.js';
 import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { DailyEntriesService } from './daily-entries.service.js';
 import { CreateDailyEntryDto } from './dto/create-daily-entry.dto.js';
+import { pageOptions } from '../../common/utils/pagination.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Saisie journalière (Ouvrier)')
@@ -73,7 +74,14 @@ export class DailyEntriesController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('batchId') batchId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.entriesService.listForBatch(user, farmId, batchId);
+    return this.entriesService.listForBatch(
+      user,
+      farmId,
+      batchId,
+      pageOptions(limit, offset),
+    );
   }
 }
