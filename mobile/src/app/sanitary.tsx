@@ -113,6 +113,7 @@ import { CompleteCareSheet, TreatmentSheet } from '@/components/sanitary/Sanitar
 import { treatmentPeriodLabel } from '@/poufa/sanitary-records';
 import { reviewBadge } from '@/poufa/declaration-review';
 import { librevilleDay } from '@/utils/libreville';
+import { errorText } from '@/api/errorText';
 
 type TabKey = 'sante' | 'check' | 'maladies' | 'traitements' | 'alertes';
 
@@ -871,7 +872,7 @@ export default function SanitaryScreen() {
                 await deleteSchedule(farmId, batchId, e.id);
                 await invalidateFarmQueries(queryClient, { farmId, batchId });
               } catch (err) {
-                setError(err instanceof Error ? err.message : 'Suppression impossible.');
+                setError(errorText(err, 'Suppression impossible.'));
               } finally {
                 setBusy(null);
               }
@@ -928,7 +929,7 @@ export default function SanitaryScreen() {
         }
         await invalidate(batchId);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Erreur lors de la mise à jour du soin.');
+        setError(errorText(e, 'Erreur lors de la mise à jour du soin.'));
       } finally {
         setBusy(null);
       }
@@ -1044,7 +1045,7 @@ export default function SanitaryScreen() {
         );
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement de l’événement.');
+      setError(errorText(e, 'Erreur lors de l’enregistrement de l’événement.'));
     } finally {
       setBusy(null);
     }
@@ -1058,7 +1059,7 @@ export default function SanitaryScreen() {
       await resolveHealthEvent(farmId, batchId, e.id);
       await invalidate(batchId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la résolution.');
+      setError(errorText(err, 'Erreur lors de la résolution.'));
     } finally {
       setBusy(null);
     }
@@ -1077,7 +1078,7 @@ export default function SanitaryScreen() {
             await deleteHealthEvent(farmId, batchId, e.id);
             await invalidate(batchId);
           } catch (err) {
-            setError(err instanceof Error ? err.message : 'Erreur lors de la suppression.');
+            setError(errorText(err, 'Erreur lors de la suppression.'));
           } finally {
             setBusy(null);
           }
@@ -1686,7 +1687,7 @@ function CreateScheduleWizard({
       }
       onClose();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erreur lors de la planification.');
+      setErr(errorText(e, 'Erreur lors de la planification.'));
     } finally {
       setBusy(false);
     }
@@ -2140,7 +2141,7 @@ function EditScheduleSheet({
       toast.success('Soin mis à jour', 'La nouvelle date reprogramme l’échéance si nécessaire.');
       onClose();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Édition impossible (soin réalisé ?).');
+      setErr(errorText(e, 'Édition impossible (soin réalisé ?).'));
     } finally {
       setBusy(false);
     }

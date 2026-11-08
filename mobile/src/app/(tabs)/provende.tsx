@@ -41,7 +41,7 @@ import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
 import { fetchFeedMovements, fetchFeedStock } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
-import { localYmd } from '@/api/mutations';
+import { librevilleDay, librevilleDaysBack } from '@/utils/libreville';
 import { FEED_ENTRY_TYPE_LABELS, FEED_PHASE_LABELS } from '@/api/format';
 import { recordStockLossQueued } from '@/offline';
 import type {
@@ -55,6 +55,7 @@ import type {
 } from '@/api/types';
 import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
 import { FEED_STOCK_WARN_DAYS } from '@/constants/stock';
+import { errorText } from '@/api/errorText';
 
 const MOVEMENT_TYPE_LABEL: Record<FeedMovementType, string> = {
   CONSOMMATION: 'Consommation',
@@ -159,17 +160,10 @@ function TypeCard({ t, pricePerKg }: { t: FeedTypeStock; pricePerKg: number | nu
 
 /** Insight consommation provende : rythme / jour, tendance, couverture et ordre suggéré. */
 function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]; mvts: FeedMovement[]; refDate?: string }) {
-  const today = useMemo(() => {
-    if (refDate) {
-      const t = new Date(`${refDate}T12:00:00Z`);
-      return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()));
-    }
-    const t = new Date();
-    return new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()));
-  }, [refDate]);
-  const dayStr = (d: Date) => localYmd(d);
-  const d7 = dayStr(new Date(today.getTime() - 7 * 86_400_000));
-  const d14 = dayStr(new Date(today.getTime() - 14 * 86_400_000));
+  // Business day in Gabon time (not the phone's zone); `refDate` pins it for a past view.
+  const noon = new Date(`${refDate ?? librevilleDay()}T12:00:00Z`);
+  const d7 = librevilleDaysBack(7, noon);
+  const d14 = librevilleDaysBack(14, noon);
 
   const { avg7, days7, avg14, days14 } = useMemo(() => {
     const byDay = new Map<string, number>();
@@ -409,7 +403,7 @@ export default function ProvendeScreen() {
       setLossQty(0);
       setLossNotes('');
     } catch (e) {
-      setLossError(e instanceof Error ? e.message : 'Erreur lors de la déclaration de perte.');
+      setLossError(errorText(e, 'Erreur lors de la déclaration de perte.'));
     } finally {
       setLossSaving(false);
     }

@@ -22,6 +22,7 @@ import { createExpense, deleteExpense, syncExpenses, updateExpense } from '@/api
 import type { Expense, ExpenseCategory } from '@/api/types';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { color, fmtFcfa, radii, spacing, fontFamily } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 const CATEGORIES: { key: ExpenseCategory; label: string; account: string; tone: ChipTone }[] = [
   { key: 'ACHAT_POUSSINS', label: 'Achat poussins', account: '6010', tone: 'amber' },
@@ -179,7 +180,7 @@ export default function DepensesScreen() {
         setSheet(null);
         refresh();
       } catch (e) {
-        setFormError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement de la dépense.');
+        setFormError(errorText(e, 'Erreur lors de l’enregistrement de la dépense.'));
       } finally {
         setBusy(false);
       }
@@ -197,7 +198,7 @@ export default function DepensesScreen() {
         setSheet(null);
         refresh();
       } catch (e) {
-        setFormError(e instanceof Error ? e.message : 'Erreur lors de la modification de la dépense.');
+        setFormError(errorText(e, 'Erreur lors de la modification de la dépense.'));
       } finally {
         setBusy(false);
       }
@@ -216,7 +217,7 @@ export default function DepensesScreen() {
       await deleteExpense(farmId ?? '', e.id);
       refresh();
     } catch (err) {
-      toast.error('Suppression impossible', err instanceof Error ? err.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', errorText(err, 'Erreur inattendue.'));
     } finally {
       setDeletingId(null);
     }
@@ -234,7 +235,7 @@ export default function DepensesScreen() {
       }
       refresh();
     } catch (err) {
-      toast.error('Erreur', err instanceof Error ? err.message : 'Erreur lors de la synchronisation.');
+      toast.error('Erreur', errorText(err, 'Erreur lors de la synchronisation.'));
     } finally {
       setSyncing(false);
     }
@@ -340,6 +341,7 @@ export default function DepensesScreen() {
       )}
 
       <Sheet
+        dirty={sheet === 'create' && !busy && (amount.trim() !== '' || label.trim() !== '' || supplier.trim() !== '' || notes.trim() !== '')}
         visible={sheet === 'create'}
         title="Nouvelle dépense"
         subtitle="Sortie de caisse ou achat à crédit, comptabilisée immédiatement."

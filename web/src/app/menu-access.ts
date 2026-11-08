@@ -167,6 +167,20 @@ export function grantsAccess(access: Pick<MyAccess['profile'], 'matrix' | 'scope
   return Array.isArray(actions) && actions.includes(action);
 }
 
+/** Matrix actions that change data (everything but CONSULTER). */
+export const WRITE_ACTIONS: readonly AccessAction[] = ['CREER', 'MODIFIER', 'VALIDER', 'ADMINISTRER'];
+
+/**
+ * Whether the access profile may write in `domain`: at least one non-read
+ * action granted by the admin-managed matrix (never a hard-coded role). `null`
+ * access (unknown): false, so a write button never shows on a guess; the
+ * server stays the authority.
+ */
+export function institutionWrites(access: Pick<MyAccess['profile'], 'matrix' | 'scopeKind'> | null, domain: AccessDomain): boolean {
+  if (!access) return false;
+  return WRITE_ACTIONS.some((a) => grantsAccess(access, domain, a));
+}
+
 function ruleAllows(rule: MenuRule, access: Pick<MyAccess['profile'], 'matrix' | 'scopeKind'>): boolean {
   if (rule.kind === 'always') return true;
   if (rule.kind === 'never') return false;

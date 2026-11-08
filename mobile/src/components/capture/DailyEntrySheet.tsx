@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { plural } from '@/utils/plural';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, View, type ImageSourcePropType } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -54,6 +54,7 @@ import { cachedRead } from '@/offline/ref-cache';
 import { withEntryBase } from '@/poufa/entry-sync';
 import { defaultSampleSize, sampleSizeRefusal, sampleTip } from '@/poufa/weighing';
 import { hasUserInput, shouldApplyPrefill } from './prefill';
+import { errorText } from '@/api/errorText';
 
 interface DailyEntrySheetProps {
   initialBatchId?: string;
@@ -62,6 +63,8 @@ interface DailyEntrySheetProps {
   onStickyChange?: (node: React.ReactNode) => void;
   /** Reçoit la barre d'actions (Retour / Suivant / Enregistrer) à fixer en pied de Sheet. */
   onFooterChange?: (node: React.ReactNode) => void;
+  /** True while the form holds input the user typed and has not saved. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 /** Typed text to a non-negative number; '', '.' or any NaN give 0. */
@@ -511,7 +514,7 @@ function FeedAdviceCard({
 
 // ── Composant principal ──────────────────────────────────────────────────
 
-export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFooterChange }: DailyEntrySheetProps) {
+export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFooterChange, onDirtyChange }: DailyEntrySheetProps) {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
 
@@ -788,8 +791,8 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
 
   // ── Contexte date sélectionnée ──
   const daysFromNow = useMemo(() => {
-    const t = new Date();
-    const todayUTC = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+    const [ty, tm, td] = todayStr().split('-').map(Number);
+    const todayUTC = Date.UTC(ty, tm - 1, td);
     const [y, m, d] = entryDateStr.split('-').map(Number);
     return Math.round((Date.UTC(y, m - 1, d) - todayUTC) / 86_400_000);
   }, [entryDateStr]);
@@ -890,7 +893,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
       if (result.status === 'sent') invalidateFarmQueries(queryClient, { farmId, batchId: lot.id });
       success(result.status === 'queued');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la sauvegarde.');
+      setError(errorText(e, 'Erreur lors de la sauvegarde.'));
       setSaving(false);
     }
   }, [
@@ -943,6 +946,17 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     ),
     [error, step, steps, saving, existingEntry, hasAnything, deathsExceedLive, rejectsExceed, sampleRefusal, ctx?.live, values.deaths, save],
   );
+  // Values right after the prefill from today's existing entry are the clean state: only later edits are unsaved input.
+  const cleanSnapshot = useRef<string>(JSON.stringify(baseline));
+  useEffect(() => {
+    cleanSnapshot.current = JSON.stringify(values);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefilled]);
+  const dirty = !saved && JSON.stringify(values) !== cleanSnapshot.current;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+    return () => onDirtyChange?.(false);
+  }, [dirty, onDirtyChange]);
   useEffect(() => {
     if (!onFooterChange) return;
     onFooterChange(saved || batches.length === 0 ? undefined : actionsNode);

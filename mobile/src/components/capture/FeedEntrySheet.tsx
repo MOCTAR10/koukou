@@ -51,6 +51,7 @@ import {
 } from '@/poufa/state-deliveries';
 import { pendingDeliveries } from '@/poufa/deliveries';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
+import { errorText } from '@/api/errorText';
 
 interface FeedEntrySheetProps {
   onClose: () => void;
@@ -443,7 +444,7 @@ export function FeedEntrySheet({ onClose }: FeedEntrySheetProps) {
       setSaved(true);
       setTimeout(onClose, 1100);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement.');
+      setError(errorText(e, 'Erreur lors de l’enregistrement.'));
       setSaving(false);
       return;
     }

@@ -34,9 +34,11 @@ import { breedImageForLot } from '@/constants/breedImages';
 import { customerTypeLabel } from '@/constants/customers';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
+import { INVALID_NUMBER_MESSAGE, parseDecimalOrZero } from '@/utils/number';
 import type { Customer, OrderFull, OrderStatus } from '@/api/types';
 import { color, palette, radii, spacing, fmt, fmtFcfa, Fonts, fontFamily, semantic } from '@/constants/theme';
 import { durations, easing, enter, layout, staggeredEnter, timed } from '@/constants/motion';
+import { errorText } from '@/api/errorText';
 
 const FILTERS: { key: OrderStatus | 'ALL'; label: string }[] = [
   { key: 'ALL', label: 'Toutes' },
@@ -292,6 +294,10 @@ function CreateOrderSheet({ onClose }: { onClose: () => void }) {
       setError('Indiquez un prix unitaire.');
       return;
     }
+    if (parsedWeightKg === null) {
+      setError(INVALID_NUMBER_MESSAGE);
+      return;
+    }
     if (product !== 'OEUF' && !lotId) {
       setError('Sélectionnez un lot.');
       return;
@@ -401,13 +407,14 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
         setBusy(false);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la création.');
+      setError(errorText(e, 'Erreur lors de la création.'));
       setBusy(false);
     }
   };
 
   const isKg = product === 'KG';
-  const weightKg = parseFloat(weightKgText) || 0;
+  const parsedWeightKg = parseDecimalOrZero(weightKgText);
+  const weightKg = parsedWeightKg ?? 0;
   const maxQty = product === 'OEUF' ? Math.max(lotAlveoles, 0) : lot?.quantityAlive ?? 1000;
 
   return (

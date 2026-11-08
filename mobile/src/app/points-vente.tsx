@@ -25,6 +25,7 @@ import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
+import { errorText } from '@/api/errorText';
 
 function addDaysIso(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -185,7 +186,7 @@ function PdvForm({
         setBusy(false);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’enregistrement.');
+      setError(errorText(e, 'Erreur lors de l’enregistrement.'));
       setBusy(false);
     }
   };
@@ -511,7 +512,7 @@ export default function PointsVenteScreen() {
       toast.success('Point de vente supprimé', res.status === 'queued' ? 'Suppression mise en file, synchronisation en attente.' : 'Le point de vente a été retiré de la liste.');
     } catch (e) {
       setConfirmDelete(null);
-      toast.error('Suppression impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Suppression impossible', errorText(e, 'Erreur inattendue.'));
     } finally {
       setDeleting(false);
     }

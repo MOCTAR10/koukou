@@ -11,6 +11,7 @@ import { cachedRead } from '@/offline/ref-cache';
 import { PHOTOS_SURVIVE_OFFLINE } from '@/offline/photo-files';
 import { clinicalSignOptions, photoMimeType, photoRefusal, photoSlotsLeft, toggleSign } from '@/poufa/declaration';
 import { color, palette, radii, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 /** SIGNE_CLINIQUE items, kept on the phone for offline declarations. */
 export function useClinicalSigns() {
@@ -80,7 +81,7 @@ export function DeclarationExtras({ signs, onSigns, suspicion, onSuspicion, phot
       }
       onPhotos(next);
     } catch (e) {
-      setPhotoError(e instanceof Error ? e.message : 'Photo indisponible.');
+      setPhotoError(errorText(e, 'Photo indisponible.'));
     }
   };
 

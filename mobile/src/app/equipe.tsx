@@ -22,6 +22,7 @@ import { CREATE_ADMIN_DEFAULT_PERMISSIONS, LOCAL_PERMISSION_GROUPS, STAFF_PROFIL
 import { CONTRACT_TYPES, contractTypeLabel } from '@/constants/hr';
 import { color, fmt, palette, fontFamily, semantic } from '@/constants/theme';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
+import { errorText } from '@/api/errorText';
 
 /** Clé du profil « sur mesure » (non fourni par le serveur) : rôle Admin, droits à cocher. */
 const CUSTOM_PROFILE_KEY = '__custom__';
@@ -454,7 +455,7 @@ export default function EquipeScreen() {
       setSuccess('Compte créé et rattaché à la ferme.');
       void queryClient.invalidateQueries({ queryKey: ['farm-members', farmId] });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la création du compte.');
+      setError(errorText(e, 'Erreur lors de la création du compte.'));
     } finally {
       setBusy(false);
     }
@@ -509,7 +510,7 @@ export default function EquipeScreen() {
       void queryClient.invalidateQueries({ queryKey: ['farm-members', farmId] });
       void queryClient.invalidateQueries({ queryKey: ['farm-profile', farmId] });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la mise à jour.');
+      setError(errorText(e, 'Erreur lors de la mise à jour.'));
     } finally {
       setBusy(false);
     }

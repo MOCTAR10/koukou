@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigation } from 'expo-router';
 import { toast, confirm } from '@/components/ui/Feedback';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +27,7 @@ import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
+import { INVALID_NUMBER_MESSAGE, parseDecimalFr } from '@/utils/number';
 import { speciesLabel } from '@/api/format';
 import { breedImageForLot } from '@/constants/breedImages';
 import {
@@ -38,6 +40,7 @@ import {
 import { lotAvailability, projectOrder, slaughterRefs, type Horizon } from '@/utils/slaughterInsights';
 import type { ProductionBatch, SlaughterDestination, SlaughterOrder, SlaughterType } from '@/api/types';
 import { color, palette, radii, fontFamily, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 type SubView = 'new' | 'orders';
 
@@ -109,6 +112,18 @@ export default function SlaughterScreen() {
   const [liveWeight, setLiveWeight] = useState('');
   const [abattoirCode, setAbattoirCode] = useState('');
   const [notes, setNotes] = useState('');
+  // Leaving the screen with a half-filled order asks first.
+  const navigation = useNavigation();
+  const formDirty = birds > 0 || liveWeight.trim() !== '' || abattoirCode.trim() !== '' || notes.trim() !== '';
+  useEffect(() => {
+    if (!formDirty) return;
+    return navigation.addListener('beforeRemove', (ev) => {
+      ev.preventDefault();
+      void confirm({ title: 'Abandonner la saisie ?', message: 'Les informations saisies ne seront pas enregistrées.', confirmLabel: 'Abandonner', cancelLabel: 'Continuer la saisie', destructive: true }).then((ok) => {
+        if (ok) navigation.dispatch(ev.data.action);
+      });
+    });
+  }, [formDirty, navigation]);
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [processWeights, setProcessWeights] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -147,7 +162,7 @@ export default function SlaughterScreen() {
       await downloadPdf(`/farms/${farmId}/slaughter-orders/${order.id}/bordereau`, `${order.referenceNumber}.pdf`);
       toast.success('Bordereau téléchargé', `Partagez « ${order.referenceNumber}.pdf » avec l’abattoir.`);
     } catch (e) {
-      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', errorText(e, 'Erreur inattendue.'));
     } finally {
       setBusy(null);
     }
@@ -159,7 +174,7 @@ export default function SlaughterScreen() {
       await downloadPdf(`/farms/${farmId}/batches/${b.id}/passeport`, `passeport-${b.batchName ?? b.id}.pdf`);
       toast.success('Passeport sanitaire', `« passeport-${b.batchName ?? b.id}.pdf » enregistré : il certifie la conformité sanitaire du lot pour l’abattoir.`);
     } catch (e) {
-      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', errorText(e, 'Erreur inattendue.'));
     } finally {
       setBusy(null);
     }
@@ -177,6 +192,11 @@ export default function SlaughterScreen() {
   const create = async () => {
     const lotNow = lot;
     if (!lotNow || birds <= 0) return;
+    const liveWeightKg = parseDecimalFr(liveWeight);
+    if (liveWeight.trim() && liveWeightKg === null) {
+      setError(INVALID_NUMBER_MESSAGE);
+      return;
+    }
     setError(null);
     setBusy('create');
     try {
@@ -186,7 +206,7 @@ export default function SlaughterScreen() {
         destination: dest,
         plannedDate: date || today,
         birdCount: birds,
-        ...(Number.isFinite(parseFloat(liveWeight)) ? { totalWeightKg: parseFloat(liveWeight) } : {}),
+        ...(liveWeightKg !== null && liveWeightKg > 0 ? { totalWeightKg: liveWeightKg } : {}),
         ...(abattoirCode.trim() ? { abattoirLotCode: abattoirCode.trim() } : {}),
         ...(notes.trim() ? { abattoirNotes: notes.trim() } : {}),
         ...(slaughterOperatorId(dest, operatorId, abattoirs) ? { operatorId: slaughterOperatorId(dest, operatorId, abattoirs) } : {}),
@@ -198,7 +218,7 @@ export default function SlaughterScreen() {
       setNotes('');
       await invalidate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de la création de l’ordre.');
+      setError(errorText(e, 'Erreur lors de la création de l’ordre.'));
     } finally {
       setBusy(null);
     }
@@ -211,25 +231,30 @@ export default function SlaughterScreen() {
       await sendSlaughterOrder(farmId, order.id, { abattoirLotCode: order.abattoirLotCode ?? undefined });
       await invalidate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’envoi de l’ordre.');
+      setError(errorText(e, 'Erreur lors de l’envoi de l’ordre.'));
     } finally {
       setBusy(null);
     }
   };
 
   const processOrder = async (order: SlaughterOrder) => {
-    const w = parseFloat(processWeights[order.id] ?? '');
+    const rawW = processWeights[order.id] ?? '';
+    const w = parseDecimalFr(rawW);
+    if (rawW.trim() && w === null) {
+      setError(INVALID_NUMBER_MESSAGE);
+      return;
+    }
     setError(null);
     setBusy(order.id);
     try {
       await processSlaughterOrder(farmId, order.id, {
-        carcassWeightKg: Number.isFinite(w) && w > 0 ? w : undefined,
+        carcassWeightKg: w !== null && w > 0 ? w : undefined,
         abattoirLotCode: order.abattoirLotCode ?? undefined,
       });
       setProcessWeights((prev) => ({ ...prev, [order.id]: '' }));
       await invalidate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors du traitement de l’ordre.');
+      setError(errorText(e, 'Erreur lors du traitement de l’ordre.'));
     } finally {
       setBusy(null);
     }
@@ -242,7 +267,7 @@ export default function SlaughterScreen() {
       await cancelSlaughterOrder(farmId, order.id, 'Annulé depuis le mobile');
       await invalidate();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur lors de l’annulation de l’ordre.');
+      setError(errorText(e, 'Erreur lors de l’annulation de l’ordre.'));
     } finally {
       setBusy(null);
     }

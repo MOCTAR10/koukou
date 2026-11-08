@@ -10,6 +10,7 @@ import { downloadPdf } from '@/api/pdf';
 import type { SaleSummary } from '@/api/types';
 import { customerTypeLabel } from '@/constants/customers';
 import { color, fmt, fmtFcfa, palette, radii, spacing, semantic } from '@/constants/theme';
+import { errorText } from '@/api/errorText';
 
 interface ReceiptPreviewSheetProps {
   visible: boolean;
@@ -50,7 +51,7 @@ export function ReceiptPreviewSheet({ visible, sale, farmName, pdvName, onClose 
         toast.success('Reçu téléchargé', `« ${sale.referenceNumber}.pdf » téléchargé.`);
       }
     } catch (e) {
-      toast.error('Téléchargement impossible', e instanceof Error ? e.message : 'Erreur inattendue.');
+      toast.error('Téléchargement impossible', errorText(e, 'Erreur inattendue.'));
     } finally {
       setDownloading(false);
     }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { INVALID_NUMBER_MESSAGE, parseDecimalOrZero } from '../../lib/number';
 import { Check, ShoppingCart } from 'lucide-react';
 import type { FeedStockSummary } from '../../api/types';
 import type { CarcassPool, PointOfSale, PosBatch, StockTransfer } from '../../api/types-sales';
@@ -159,9 +160,12 @@ export function LineForm({
     }
   })();
 
-  const parsedQty = Number(qty.replace(',', '.')) || 0;
-  const parsedWeight = roundKg(Number(weight.replace(',', '.')) || 0);
-  const parsedPrice = Number(price) || 0;
+  const rawQty = parseDecimalOrZero(qty);
+  const rawWeight = parseDecimalOrZero(weight);
+  const rawPrice = parseDecimalOrZero(price);
+  const parsedQty = rawQty ?? 0;
+  const parsedWeight = roundKg(rawWeight ?? 0);
+  const parsedPrice = rawPrice ?? 0;
   const amount = lineAmount({ product, qty: parsedQty, weightKg: parsedWeight, unitPriceFcfa: parsedPrice });
   const meta = productMeta(pos.kind, product);
 
@@ -215,6 +219,7 @@ export function LineForm({
   };
 
   const save = () => {
+    if (rawQty === null || rawWeight === null || rawPrice === null) return setError(INVALID_NUMBER_MESSAGE);
     if (parsedQty <= 0) return setError('Indiquez une quantité.');
     const mustBeWhole = product === 'PIECE' || isAbattu(product) || kg || product === 'OEUF';
     if (mustBeWhole && !Number.isInteger(parsedQty)) return setError('Cette quantité doit être un nombre entier.');

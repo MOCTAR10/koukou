@@ -11,6 +11,7 @@ import {
   institutionReads,
   institutionOpensPath,
   institutionShowsEntry,
+  institutionWrites,
   menuRuleFor,
   MY_ACCESS_PATH,
   pagesOfDomain,
@@ -331,5 +332,28 @@ describe('farm modules need a scope that reaches farms', () => {
       expect(institutionShowsEntry(page, MAEDR)).toBe(false);
       expect(institutionShowsEntry(page, ANINF)).toBe(false);
     }
+  });
+});
+
+describe('institutionWrites (canWrite)', () => {
+  it('is driven by the matrix, never by the role', () => {
+    expect(institutionWrites(DGE_FERMIA, 'REGISTRE')).toBe(true);
+    expect(institutionWrites(DGE_FERMIA, 'PARAMETRES')).toBe(true);
+    expect(institutionWrites(VETERINAIRE, 'SANITAIRE')).toBe(true);
+  });
+  it('is false for a read-only domain, even one the profile can read', () => {
+    expect(institutionWrites(DGE_FERMIA, 'TECHNIQUE')).toBe(false);
+    expect(institutionWrites(DGE_FERMIA, 'VENTES')).toBe(false);
+    expect(institutionWrites(DGE_FERMIA, 'COMPTABILITE')).toBe(false);
+    expect(institutionWrites(AGENT_TECHNIQUE, 'INTRANTS')).toBe(false);
+  });
+  it('is false for a domain absent from the matrix, the AUDIT scope and unknown access', () => {
+    expect(institutionWrites(MAEDR, 'REGISTRE')).toBe(false);
+    expect(institutionWrites(ANINF, 'SANITAIRE')).toBe(false);
+    expect(institutionWrites(null, 'REGISTRE')).toBe(false);
+  });
+  it('follows an admin edit of the matrix', () => {
+    expect(institutionWrites(p('ALL', { VENTES: ['CONSULTER', 'CREER'] }), 'VENTES')).toBe(true);
+    expect(institutionWrites(p('ALL', { VENTES: ['CONSULTER'] }), 'VENTES')).toBe(false);
   });
 });
