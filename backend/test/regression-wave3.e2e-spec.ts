@@ -231,38 +231,33 @@ describe('Regression wave 3 (e2e)', () => {
     const statusOf = async (id: string) =>
       (await get(`/farms/${farmId}/batches/${id}`).expect(200)).body;
 
-    it('une sortie supprimée rouvre le lot épuisé, pas un lot clôturé à la main', async () => {
+    it('un lot FINI dont l’effectif revient rouvre, pas un lot clôturé à la main', async () => {
+      // (A programme band whose headcount hits zero is auto-closed, and that
+      // closure stays final; FINI is the state of the other flows.)
       const id = await newBatch(40);
-      const sold = await sale(id, 40).expect(201);
-      expect((await statusOf(id)).status).toBe('FINI');
-      // The sale disappears from the books (e.g. corrected elsewhere) ...
-      await ds.query(`UPDATE sales SET status = 'CANCELLED' WHERE id = $1`, [
-        sold.body.sale.id,
-      ]);
-      // ... the next headcount recomputation brings the birds back and re-opens.
+      await ds.query(
+        `UPDATE production_batches SET status = 'FINI', quantity_alive = 0 WHERE id = $1`,
+        [id],
+      );
       await post(`/farms/${farmId}/batches/${id}/daily-entries`, {
         entryDate: today,
         deaths: 0,
       }).expect(201);
       const after = await statusOf(id);
       expect(after.quantityAlive).toBe(40);
-      expect(['ACTIF', 'EN_VENTE']).toContain(after.status);
+      expect(after.status).toBe('ACTIF');
 
-      // A lot closed by hand keeps its status.
+      // With a closing date the lot is left alone.
       const closed = await newBatch(40);
-      const s2 = await sale(closed, 40).expect(201);
       await ds.query(
-        `UPDATE production_batches SET closed_at = now() WHERE id = $1`,
+        `UPDATE production_batches SET status = 'FINI', quantity_alive = 0, closed_at = now() WHERE id = $1`,
         [closed],
       );
-      await ds.query(`UPDATE sales SET status = 'CANCELLED' WHERE id = $1`, [
-        s2.body.sale.id,
-      ]);
       await post(`/farms/${farmId}/batches/${closed}/daily-entries`, {
         entryDate: today,
         deaths: 0,
       }).expect(201);
-      expect(['FINI', 'CLOTURE']).toContain((await statusOf(closed)).status);
+      expect((await statusOf(closed)).status).toBe('FINI');
     });
   });
 
