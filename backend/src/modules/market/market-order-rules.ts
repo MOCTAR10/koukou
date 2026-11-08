@@ -40,6 +40,28 @@ export async function acceptedQuantity(
   return Number(row?.quantity ?? 0);
 }
 
+/** acceptedQuantity for several listings in one grouped query. */
+export async function acceptedQuantities(
+  em: EntityManager,
+  listingIds: readonly string[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (listingIds.length === 0) return out;
+  const rows = await em
+    .getRepository(MarketOrder)
+    .createQueryBuilder('mo')
+    .select('mo.listingId', 'listingId')
+    .addSelect('COALESCE(SUM(mo.quantity), 0)', 'quantity')
+    .innerJoin('mo.order', 'o')
+    .where('mo.listingId IN (:...listingIds)', { listingIds: [...listingIds] })
+    .andWhere('mo.state = :state', { state: MarketOrderState.ACCEPTED })
+    .andWhere('o.status <> :cancelled', { cancelled: OrderStatus.CANCELLED })
+    .groupBy('mo.listingId')
+    .getRawMany<{ listingId: string; quantity: string | number }>();
+  for (const r of rows) out.set(r.listingId, Number(r.quantity ?? 0));
+  return out;
+}
+
 /** The status a buyer sees. Read from the order, so it can't drift from it. */
 export function buyerStatus(
   mo: {

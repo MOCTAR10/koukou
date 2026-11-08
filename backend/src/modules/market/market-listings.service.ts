@@ -22,7 +22,11 @@ import { FarmsService } from '../farms/farms.service.js';
 import { OrdersService } from '../orders/orders.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { SlaughterOrder } from '../slaughter/entities/slaughter-order.entity.js';
-import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
+import {
+  sanitaryHolds,
+  sanitaryHoldsMany,
+  type SanitaryHolds,
+} from '../sanitary/sanitary-holds.js';
 import {
   CreateMarketListingDto,
   MarketCatalogueQueryDto,
@@ -35,7 +39,7 @@ import {
   hiddenReason,
   suggestReadyDate,
 } from './listing-rules.js';
-import { acceptedQuantity } from './market-order-rules.js';
+import { acceptedQuantities, acceptedQuantity } from './market-order-rules.js';
 import type { Farm } from '../farms/entities/farm.entity.js';
 import { TraceConfigService } from '../trace/trace-config.service.js';
 import { lotQrUrl } from '../trace/qr-signature.js';
@@ -47,6 +51,12 @@ const CATALOGUE_SCAN_LIMIT = 200;
 
 function todayStr(): string {
   return todayLocal();
+}
+
+/** Reads shared by many listings (see prefetchState). */
+interface StatePrefetch {
+  holds: Map<string, SanitaryHolds>;
+  accepted: Map<string, number>;
 }
 
 interface ListingState {
@@ -290,7 +300,9 @@ export class MarketListingsService {
       relations: { farm: true, batch: { breed: true }, slaughterOrder: true },
       order: { createdAt: 'DESC' },
     });
-    return Promise.all(listings.map((l) => this.toFarmView(l)));
+    const pre = await this.prefetchState(this.dataSource.manager, listings);
+    const lots = await this.traceLots(listings.map((l) => l.batchId));
+    return Promise.all(listings.map((l) => this.toFarmView(l, pre, lots)));
   }
 
   async getForFarm(user: AuthUser, farmId: string, listingId: string) {
@@ -369,10 +381,11 @@ export class MarketListingsService {
     // Visibility depends on stock and sanitary state, so it can't be a filter
     // in the query. Stops once it has one more than the page, to know of a next.
     const em = this.dataSource.manager;
+    const pre = await this.prefetchState(em, candidates);
     const visible: { listing: MarketListing; availableQuantity: number }[] = [];
     let skipped = 0;
     for (const listing of candidates) {
-      const state = await this.stateOf(em, listing);
+      const state = await this.stateOf(em, listing, pre);
       if (state.hiddenReason) continue;
       if (skipped < offset) {
         skipped++;
@@ -527,14 +540,39 @@ export class MarketListingsService {
     return this.ordersService.freeBirds(em, batch);
   }
 
+  /** Holds and accepted quantities of many listings, in two grouped reads. */
+  private async prefetchState(
+    em: EntityManager,
+    listings: MarketListing[],
+  ): Promise<StatePrefetch> {
+    const [holds, accepted] = await Promise.all([
+      sanitaryHoldsMany(em, [...new Set(listings.map((l) => l.batchId))]),
+      acceptedQuantities(
+        em,
+        listings.map((l) => l.id),
+      ),
+    ]);
+    return { holds, accepted };
+  }
+
   async stateOf(
     em: EntityManager,
     listing: MarketListing,
+    pre?: StatePrefetch,
   ): Promise<ListingState> {
     const [free, holds, accepted, operational] = await Promise.all([
       this.freeStock(em, listing),
-      sanitaryHolds(em, listing.farmId, listing.batchId),
-      acceptedQuantity(em, listing.id),
+      pre
+        ? Promise.resolve(
+            pre.holds.get(listing.batchId) ?? {
+              withdrawalEndDate: null,
+              prophylaxisOverdue: false,
+            },
+          )
+        : sanitaryHolds(em, listing.farmId, listing.batchId),
+      pre
+        ? Promise.resolve(pre.accepted.get(listing.id) ?? 0)
+        : acceptedQuantity(em, listing.id),
       this.farmOperational(em, listing.farm),
     ]);
     const availableQuantity = Math.max(
@@ -558,9 +596,13 @@ export class MarketListingsService {
     };
   }
 
-  private async toFarmView(listing: MarketListing) {
-    const state = await this.stateOf(this.dataSource.manager, listing);
-    const lots = await this.traceLots([listing.batchId]);
+  private async toFarmView(
+    listing: MarketListing,
+    pre?: StatePrefetch,
+    prefetchedLots?: Map<string, ListingTraceLot>,
+  ) {
+    const state = await this.stateOf(this.dataSource.manager, listing, pre);
+    const lots = prefetchedLots ?? (await this.traceLots([listing.batchId]));
     const { farm: _farm, batch, slaughterOrder: _source, ...fields } = listing;
     return {
       ...fields,

@@ -171,60 +171,114 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
 
   /** Declarative stock of a farm per intrant (no access check). */
   async compute(farmId: string): Promise<DeclarativeStock> {
-    const farm = await this.farms.findOne({ where: { id: farmId } });
-    if (!farm) return { farmId, rows: [], negative: false };
-    const sacKg = farm.defaultSacKg ?? DEFAULT_BAG_KG;
-    const confirmed = await this.deliveries.find({
-      where: { farmId, status: InputDeliveryStatus.CONFIRMEE },
+    return (
+      (await this.computeMany([farmId])).get(farmId) ?? {
+        farmId,
+        rows: [],
+        negative: false,
+      }
+    );
+  }
+
+  /**
+   * Declarative stock of several farms in one round of grouped reads (farms,
+   * confirmed deliveries and lines, lots and their usage, bands and entries),
+   * instead of ~8 queries per farm. Same figures as compute() farm by farm.
+   */
+  async computeMany(
+    farmIds: readonly string[],
+  ): Promise<Map<string, DeclarativeStock>> {
+    const out = new Map<string, DeclarativeStock>();
+    const empty = (farmId: string): DeclarativeStock => ({
+      farmId,
+      rows: [],
+      negative: false,
     });
-    if (confirmed.length === 0) return { farmId, rows: [], negative: false };
-    const shippedAt = new Map(confirmed.map((d) => [d.id, d.shippedAt]));
-    const [lines, units, intrants] = await Promise.all([
-      this.lines.find({
-        where: { deliveryId: In(confirmed.map((d) => d.id)) },
-      }),
-      this.items(farm.programId, ProgramListType.UNITE),
-      this.items(farm.programId, ProgramListType.INTRANT),
-    ]);
-
-    const factor = (line: InputDeliveryLine): number => {
-      if (line.intrantFamily !== INTRANT_FAMILY.ALIMENT) return 1;
-      const unit = units.get(line.unitCode);
-      return (
-        (unit ? kgPerUnit(unit, line.bagSizeKg, sacKg) : null) ??
-        line.bagSizeKg ??
-        1
-      );
-    };
-    const declLines: DeclarativeLine[] = lines.map((l) => ({
-      intrantCode: l.intrantCode,
-      intrantFamily: l.intrantFamily,
-      unitCode: l.unitCode,
-      feedPhase: l.feedPhase,
-      received: (l.receivedQuantity ?? 0) * factor(l),
-      shippedAt: shippedAt.get(l.deliveryId) ?? '',
-      inputLotId: l.inputLotId,
-    }));
-
-    const usage = await this.lotUsage(lines, factor, sacKg);
-    const unlinked = await this.unlinkedUse(farmId);
-    const shippedByKey = new Map<string, number>();
-    for (const l of lines) {
-      const row = declarativeKey(l);
-      shippedByKey.set(
-        row,
-        (shippedByKey.get(row) ?? 0) + l.quantity * factor(l),
+    const ids = [...new Set(farmIds)];
+    for (const id of ids) out.set(id, empty(id));
+    if (ids.length === 0) return out;
+    const farmRows = await this.farms.find({ where: { id: In(ids) } });
+    if (farmRows.length === 0) return out;
+    const confirmedAll = await this.deliveries.find({
+      where: {
+        farmId: In(farmRows.map((f) => f.id)),
+        status: InputDeliveryStatus.CONFIRMEE,
+      },
+    });
+    if (confirmedAll.length === 0) return out;
+    const farmOfDelivery = new Map(confirmedAll.map((d) => [d.id, d.farmId]));
+    const allLines = await this.lines.find({
+      where: { deliveryId: In(confirmedAll.map((d) => d.id)) },
+    });
+    const withConfirmed = farmRows.filter((f) =>
+      confirmedAll.some((d) => d.farmId === f.id),
+    );
+    const programIds = [...new Set(withConfirmed.map((f) => f.programId))];
+    const unitsBy = new Map<string, Map<string, RefItem>>();
+    const intrantsBy = new Map<string, Map<string, RefItem>>();
+    for (const programId of programIds) {
+      unitsBy.set(programId, await this.items(programId, ProgramListType.UNITE));
+      intrantsBy.set(
+        programId,
+        await this.items(programId, ProgramListType.INTRANT),
       );
     }
-    const rows = computeDeclarativeStock(declLines, usage, unlinked).map(
-      (r): DeclarativeStockRow => ({
-        ...r,
-        intrantLabel: intrants.get(r.intrantCode)?.label ?? null,
-        unitLabel: unitLabelOf(units.get(r.unitCode)) ?? r.unitCode,
-        shipped: round3(shippedByKey.get(r.key) ?? 0),
-      }),
+    const lotData = await this.lotData(allLines);
+    const unlinkedBy = await this.unlinkedUseMany(
+      withConfirmed.map((f) => f.id),
     );
-    return { farmId, rows, negative: rows.some((r) => r.negative) };
+
+    for (const farm of withConfirmed) {
+      const farmId = farm.id;
+      const sacKg = farm.defaultSacKg ?? DEFAULT_BAG_KG;
+      const confirmed = confirmedAll.filter((d) => d.farmId === farmId);
+      const shippedAt = new Map(confirmed.map((d) => [d.id, d.shippedAt]));
+      const lines = allLines.filter(
+        (l) => farmOfDelivery.get(l.deliveryId) === farmId,
+      );
+      const units = unitsBy.get(farm.programId)!;
+      const intrants = intrantsBy.get(farm.programId)!;
+
+      const factor = (line: InputDeliveryLine): number => {
+        if (line.intrantFamily !== INTRANT_FAMILY.ALIMENT) return 1;
+        const unit = units.get(line.unitCode);
+        return (
+          (unit ? kgPerUnit(unit, line.bagSizeKg, sacKg) : null) ??
+          line.bagSizeKg ??
+          1
+        );
+      };
+      const declLines: DeclarativeLine[] = lines.map((l) => ({
+        intrantCode: l.intrantCode,
+        intrantFamily: l.intrantFamily,
+        unitCode: l.unitCode,
+        feedPhase: l.feedPhase,
+        received: (l.receivedQuantity ?? 0) * factor(l),
+        shippedAt: shippedAt.get(l.deliveryId) ?? '',
+        inputLotId: l.inputLotId,
+      }));
+
+      const usage = this.lotUsage(lines, factor, sacKg, lotData);
+      const unlinked = unlinkedBy.get(farmId) ?? { feed: [], chicks: [] };
+      const shippedByKey = new Map<string, number>();
+      for (const l of lines) {
+        const row = declarativeKey(l);
+        shippedByKey.set(
+          row,
+          (shippedByKey.get(row) ?? 0) + l.quantity * factor(l),
+        );
+      }
+      const rows = computeDeclarativeStock(declLines, usage, unlinked).map(
+        (r): DeclarativeStockRow => ({
+          ...r,
+          intrantLabel: intrants.get(r.intrantCode)?.label ?? null,
+          unitLabel: unitLabelOf(units.get(r.unitCode)) ?? r.unitCode,
+          shipped: round3(shippedByKey.get(r.key) ?? 0),
+        }),
+      );
+      out.set(farmId, { farmId, rows, negative: rows.some((r) => r.negative) });
+    }
+    return out;
   }
 
   /**
@@ -283,6 +337,13 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    const stocks = await this.computeMany(
+      farmIds.filter((id) =>
+        counts.some(
+          (c) => c.farm_id === id && c.status === InputDeliveryStatus.CONFIRMEE,
+        ),
+      ),
+    );
     const out: FarmSupplySummary[] = [];
     for (const farmId of farmIds) {
       const farm = farmRows.find((f) => f.id === farmId);
@@ -291,9 +352,9 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
         counts.find((c) => c.farm_id === farmId && c.status === s);
       // compute() answers empty rows for a farm without confirmed delivery:
       // the grouped counts above already tell, so skip its two queries.
-      const stock: DeclarativeStock = of(InputDeliveryStatus.CONFIRMEE)
-        ? await this.compute(farmId)
-        : { farmId, rows: [], negative: false };
+      const stock: DeclarativeStock = (of(InputDeliveryStatus.CONFIRMEE)
+        ? stocks.get(farmId)
+        : undefined) ?? { farmId, rows: [], negative: false };
       const intrants = new Map<string, FarmSupplySummary['intrants'][number]>(
         stock.rows.map((r) => [
           r.key,
@@ -358,16 +419,16 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
     return out;
   }
 
-  /** Use recorded against the lots the confirmed deliveries created. */
-  private async lotUsage(
-    lines: InputDeliveryLine[],
-    factor: (l: InputDeliveryLine) => number,
-    sacKg: number,
-  ): Promise<Map<string, LotUsage>> {
-    const usage = new Map<string, LotUsage>();
-    const withLot = lines.filter((l) => l.inputLotId != null);
-    if (withLot.length === 0) return usage;
-    const lotIds = withLot.map((l) => l.inputLotId as string);
+  /** Lots, entries, losses and sales behind the lines, read once for many farms. */
+  private async lotData(lines: InputDeliveryLine[]): Promise<LotData> {
+    const lotIds = [
+      ...new Set(
+        lines.map((l) => l.inputLotId).filter((x): x is string => x != null),
+      ),
+    ];
+    if (lotIds.length === 0) {
+      return { lots: [], entries: [], losses: [], sales: [] };
+    }
     const [lots, entries, losses, sales] = await Promise.all([
       this.lots.find({ where: { id: In(lotIds) } }),
       this.entries.find({
@@ -377,6 +438,20 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
       this.losses.find({ where: { inputLotId: In(lotIds) } }),
       this.feedSales.find({ where: { inputLotId: In(lotIds) } }),
     ]);
+    return { lots, entries, losses, sales };
+  }
+
+  /** Use recorded against the lots the confirmed deliveries created. */
+  private lotUsage(
+    lines: InputDeliveryLine[],
+    factor: (l: InputDeliveryLine) => number,
+    sacKg: number,
+    data: LotData,
+  ): Map<string, LotUsage> {
+    const usage = new Map<string, LotUsage>();
+    const withLot = lines.filter((l) => l.inputLotId != null);
+    if (withLot.length === 0) return usage;
+    const { lots, entries, losses, sales } = data;
     const sum = <T extends { inputLotId: string | null }>(
       rows: T[],
       id: string,
@@ -418,17 +493,28 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
     return usage;
   }
 
-  /** Feed typed with no lot, and chicks placed in the bands opened. */
-  private async unlinkedUse(farmId: string): Promise<UnlinkedUse> {
+  /** Feed typed with no lot, and chicks placed in the bands opened, per farm. */
+  private async unlinkedUseMany(
+    farmIds: string[],
+  ): Promise<Map<string, UnlinkedUse>> {
+    type Mutable = {
+      feed: Array<{ phase: FeedPhase; date: string; kg: number }>;
+      chicks: Array<{ date: string; heads: number }>;
+    };
+    const out = new Map<string, Mutable>();
+    for (const id of farmIds) out.set(id, { feed: [], chicks: [] });
+    if (farmIds.length === 0) return out;
     const bands = await this.batches.find({
-      where: { farmId },
+      where: { farmId: In(farmIds) },
       select: {
         id: true,
+        farmId: true,
         integrationDate: true,
         quantityAtStart: true,
       },
     });
-    if (bands.length === 0) return { feed: [], chicks: [] };
+    if (bands.length === 0) return out;
+    const farmOfBand = new Map(bands.map((b) => [b.id, b.farmId]));
     const entries = await this.entries.find({
       where: {
         batchId: In(bands.map((b) => b.id)),
@@ -437,26 +523,27 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
       },
       select: {
         id: true,
+        batchId: true,
         entryDate: true,
         feedQuantity: true,
         feedPhase: true,
         feedType: true,
       },
     });
-    const feed: Array<{ phase: FeedPhase; date: string; kg: number }> = [];
     for (const e of entries) {
       const phase = entryPhaseKeyOf(e);
-      if (phase) {
-        feed.push({ phase, date: e.entryDate, kg: e.feedQuantity });
+      const target = out.get(farmOfBand.get(e.batchId) ?? '');
+      if (phase && target) {
+        target.feed.push({ phase, date: e.entryDate, kg: e.feedQuantity });
       }
     }
-    return {
-      feed,
-      chicks: bands.map((b) => ({
+    for (const b of bands) {
+      out.get(b.farmId)?.chicks.push({
         date: String(b.integrationDate).slice(0, 10),
         heads: b.quantityAtStart,
-      })),
-    };
+      });
+    }
+    return out;
   }
 
   private async items(
@@ -466,6 +553,13 @@ export class DeclarativeStockService implements OnModuleInit, OnModuleDestroy {
     const rows = await this.refItems.find({ where: { programId, listType } });
     return new Map(rows.map((r) => [r.code, r]));
   }
+}
+
+interface LotData {
+  lots: InputLot[];
+  entries: Array<Pick<DailyEntry, 'id' | 'inputLotId' | 'feedQuantity'>>;
+  losses: FeedStockLoss[];
+  sales: FeedStockSale[];
 }
 
 function unitLabelOf(unit: RefItem | undefined): string | null {
