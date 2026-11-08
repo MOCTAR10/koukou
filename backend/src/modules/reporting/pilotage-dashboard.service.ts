@@ -5,7 +5,6 @@ import {
   biosecurityBlock,
   type BiosecurityBlock,
 } from './pilotage-biosecurity.js';
-import { dashboardCacheKey, TtlCache } from './pilotage-cache.js';
 import { PilotageBiosecurityService } from './pilotage-biosecurity.service.js';
 import {
   INPUT_RECONCILIATION_SOURCE,
@@ -162,9 +161,6 @@ export interface DashboardContext {
 const SUPPRESSION_NOTE = (k: number) =>
   `Données agrégées seulement : un agrégat calculé sur moins de ${k} fermes est masqué, ainsi que le plus petit groupe voisin quand il permettrait de le retrouver par différence.`;
 
-const DASHBOARD_CACHE_TTL_MS = 60_000;
-const DASHBOARD_CACHE_MAX_ENTRIES = 200;
-
 /**
  * Province and national dashboards (CDC « Tableaux de bord province et
  * national »): headcounts, mortality, volumes produced and sold, prices,
@@ -173,12 +169,6 @@ const DASHBOARD_CACHE_MAX_ENTRIES = 200;
  */
 @Injectable()
 export class PilotageDashboardService {
-  /** 60 s cache of the dashboard responses, keyed by view, filters and period. */
-  private readonly cache = new TtlCache<PilotageDashboard>(
-    DASHBOARD_CACHE_TTL_MS,
-    DASHBOARD_CACHE_MAX_ENTRIES,
-  );
-
   constructor(
     private readonly scope: PilotageScopeService,
     private readonly data: PilotageDataService,
@@ -241,13 +231,8 @@ export class PilotageDashboardService {
     query: PilotageQuery,
     today: string = utcDay(),
   ): Promise<PilotageDashboard> {
-    const key = dashboardCacheKey(view, query, today);
-    const cached = this.cache.get(key);
-    if (cached) return cached;
     const ctx = await this.context(view, query, today);
-    const dashboard = await this.build(ctx, today);
-    this.cache.set(key, dashboard);
-    return dashboard;
+    return this.build(ctx, today);
   }
 
   async build(
