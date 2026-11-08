@@ -594,24 +594,24 @@ describe('Régression finance + auth (e2e)', () => {
       const stillWrong = await wrong();
       expect(stillWrong.body.message).toBe(unknown.body.message);
       // ... and does not push the end of the lock further.
-      const [row] = await ds.query(
-        `SELECT locked_until, failed_logins FROM users WHERE phone = $1`,
-        [buyer.phone],
-      );
-      expect(Number(row.failed_logins)).toBe(0);
+      // The lock is per account + IP (login_failures); the account-wide
+      // counter keeps counting towards its much higher ceiling.
+      const lockSql = `SELECT f.locked_until, u.failed_logins FROM login_failures f
+         JOIN users u ON u.id = f.user_id WHERE u.phone = $1`;
+      const [row] = await ds.query(lockSql, [buyer.phone]);
+      expect(Number(row.failed_logins)).toBe(5);
       const until = new Date(row.locked_until).getTime();
       expect(until).toBeGreaterThan(Date.now());
       expect(until).toBeLessThanOrEqual(Date.now() + 15 * 60_000 + 5_000);
       await wrong();
-      const [after] = await ds.query(
-        `SELECT locked_until FROM users WHERE phone = $1`,
-        [buyer.phone],
-      );
+      const [after] = await ds.query(lockSql, [buyer.phone]);
       expect(new Date(after.locked_until).getTime()).toBe(until);
+      expect(Number(after.failed_logins)).toBe(5);
 
       // The lock is time-bounded: once it ran out, the right code works.
       await ds.query(
-        `UPDATE users SET locked_until = now() - interval '1 minute' WHERE phone = $1`,
+        `UPDATE login_failures SET locked_until = now() - interval '1 minute'
+         WHERE user_id = (SELECT id FROM users WHERE phone = $1)`,
         [buyer.phone],
       );
       expect(await login(server, buyer.phone, buyer.code)).toBeTruthy();

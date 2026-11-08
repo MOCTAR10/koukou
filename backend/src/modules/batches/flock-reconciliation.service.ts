@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, EntityManager, Repository } from 'typeorm';
+import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { SaleItemProductType } from '../../common/enums/sale-item-type.enum.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
 import { SlaughterStatus } from '../../common/enums/slaughter-status.enum.js';
@@ -306,6 +307,19 @@ export class FlockReconciliationService {
         sanitaryRemovedBirds -
         retraitBirds,
     );
+    // A removal that is deleted/corrected brings birds back: a lot switched to
+    // FINI because its headcount hit zero re-opens (never a manually closed
+    // lot: that one is CLOTURE with a closedAt).
+    if (
+      locked.status === BatchStatus.FINI &&
+      !locked.closedAt &&
+      locked.quantityAlive > 0
+    ) {
+      locked.status =
+        soldBirds + slaughteredBirds + retraitBirds > 0
+          ? BatchStatus.EN_VENTE
+          : BatchStatus.ACTIF;
+    }
     await em.getRepository(ProductionBatch).save(locked);
   }
 }

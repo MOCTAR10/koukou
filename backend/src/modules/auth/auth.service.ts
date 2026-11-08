@@ -15,6 +15,7 @@ import { CustomerType } from '../../common/enums/customer-type.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
+import { LoginFailure } from './entities/login-failure.entity.js';
 import { BuyerProfileDto, RegisterBuyerDto } from './dto/buyer.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { VerifyOtpDto } from './dto/verify-otp.dto.js';
@@ -39,6 +40,8 @@ export class AuthService {
     private readonly usersRepo: Repository<User>,
     @InjectRepository(BuyerProfile)
     private readonly buyerProfileRepo: Repository<BuyerProfile>,
+    @InjectRepository(LoginFailure)
+    private readonly failuresRepo: Repository<LoginFailure>,
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly challenges: LoginChallengeService,
@@ -98,7 +101,8 @@ export class AuthService {
     return this.getBuyerProfile(user);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, clientIp?: string) {
+    const ip = (clientIp || 'unknown').slice(0, 64);
     // Accounts created before phone normalization may still hold spaces.
     const raw = dto.phone.trim();
     const user = await this.usersRepo.findOne({
@@ -108,21 +112,24 @@ export class AuthService {
       dto.code,
       user ? user.passwordHash : DUMMY_PASSWORD_HASH,
     );
+    // Lock = account-wide ceiling (users.locked_until) or this account seen
+    // from this IP (login_failures). A stranger failing from his own address
+    // therefore never locks the owner out from another one.
+    const ipRow = user ? await this.currentFailureRow(user, ip) : null;
+    const lockedUntil = [user?.lockedUntil, ipRow?.lockedUntil]
+      .filter((d): d is Date => !!d && d.getTime() > Date.now())
+      .sort((a, b) => b.getTime() - a.getTime())[0];
     // The lock message only answers the right code: a wrong code on a locked
     // account reads like any wrong code (no account enumeration).
-    if (ok && user?.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
-      const minutes = Math.ceil(
-        (user.lockedUntil.getTime() - Date.now()) / 60000,
-      );
+    if (ok && lockedUntil) {
+      const minutes = Math.ceil((lockedUntil.getTime() - Date.now()) / 60000);
       throw new UnauthorizedException(
         `Compte temporairement verrouillé après trop d’échecs de connexion. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''} ou contactez l’administrateur.`,
       );
     }
-    // A failure on an already locked account is not counted: otherwise a
-    // script failing every few minutes would renew the lock for ever (the
-    // owner could never come back). The lock simply runs out.
-    const locked = !!user?.lockedUntil && user.lockedUntil.getTime() > Date.now();
-    if (user && !ok && !locked) await this.registerFailure(user);
+    // A failure while locked is not counted: otherwise a script failing every
+    // few minutes would renew the lock for ever. The lock simply runs out.
+    if (user && !ok && !lockedUntil) await this.registerFailure(user, ip);
     if (!user || !ok) {
       throw new UnauthorizedException(
         'Identifiants invalides. Vérifiez le numéro de téléphone et le code.',
@@ -134,6 +141,7 @@ export class AuthService {
         lockedUntil: null,
       });
     }
+    if (ipRow) await this.failuresRepo.delete({ userId: user.id, ip });
     if (user.active === false) {
       throw new UnauthorizedException(
         'Ce compte a été suspendu. Contactez l’administrateur.',
@@ -156,24 +164,46 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
+  /** The (account, ip) counter, ignored when older than the last code reset. */
+  private async currentFailureRow(
+    user: User,
+    ip: string,
+  ): Promise<LoginFailure | null> {
+    const row = await this.failuresRepo.findOne({
+      where: { userId: user.id, ip },
+    });
+    if (!row) return null;
+    if (
+      user.credentialsChangedAt &&
+      row.updatedAt.getTime() < user.credentialsChangedAt.getTime()
+    ) {
+      return null;
+    }
+    return row;
+  }
+
   /**
-   * Counts a failed password (atomic increment). At LOGIN_MAX_FAILURES
-   * (default 5) the account is locked for LOGIN_LOCK_MINUTES (default 15) and
-   * the lockout is written to the audit journal. An admin code reset unlocks.
+   * Counts a failed password (atomic increments). From one IP, at
+   * LOGIN_MAX_FAILURES (default 5) that account+IP pair is locked for
+   * LOGIN_LOCK_MINUTES (default 15). Across all IPs the account itself only
+   * locks at LOGIN_GLOBAL_MAX_FAILURES (default 50), a backstop against
+   * distributed guessing. Lockouts are written to the audit journal; an admin
+   * code reset unlocks everything.
    */
-  private async registerFailure(user: User): Promise<void> {
+  private async registerFailure(user: User, ip: string): Promise<void> {
     const max = positiveInt(this.config.get('LOGIN_MAX_FAILURES'), 5);
-    const minutes = positiveInt(this.config.get('LOGIN_LOCK_MINUTES'), 15);
-    const raw: unknown = await this.usersRepo.query(
-      `UPDATE "users" SET "failed_logins" = "failed_logins" + 1 WHERE "id" = $1 RETURNING "failed_logins" AS n`,
-      [user.id],
+    const globalMax = Math.max(
+      max,
+      positiveInt(this.config.get('LOGIN_GLOBAL_MAX_FAILURES'), 50),
     );
-    // pg driver: [rows, affected] for UPDATE ... RETURNING.
-    const rows = (Array.isArray(raw) && Array.isArray(raw[0]) ? raw[0] : raw) as Array<{
-      n: number;
-    }>;
-    const count = Number(rows[0]?.n ?? 0);
-    if (count >= max) {
+    const minutes = positiveInt(this.config.get('LOGIN_LOCK_MINUTES'), 15);
+    const count = await this.firstCount(
+      this.usersRepo.query(
+        `UPDATE "users" SET "failed_logins" = "failed_logins" + 1 WHERE "id" = $1 RETURNING "failed_logins" AS n`,
+        [user.id],
+      ),
+    );
+    if (count >= globalMax) {
       const until = new Date(Date.now() + minutes * 60000);
       await this.usersRepo.update(user.id, {
         failedLogins: 0,
@@ -182,9 +212,46 @@ export class AuthService {
       await this.audit.recordSystem('AUTH_ACCOUNT_LOCKED', {
         userId: user.id,
         failures: count,
+        scope: 'account',
         lockedUntil: until.toISOString(),
       });
     }
+    const ipCount = await this.firstCount(
+      this.failuresRepo.query(
+        `INSERT INTO "login_failures" ("user_id", "ip", "failures", "updated_at")
+         VALUES ($1, $2, 1, now())
+         ON CONFLICT ("user_id", "ip") DO UPDATE SET
+           "failures" = CASE WHEN "login_failures"."updated_at" <
+             COALESCE((SELECT "credentials_changed_at" FROM "users" WHERE "id" = $1), '-infinity'::timestamptz)
+             THEN 1 ELSE "login_failures"."failures" + 1 END,
+           "updated_at" = now()
+         RETURNING "failures" AS n`,
+        [user.id, ip],
+      ),
+    );
+    if (ipCount >= max) {
+      const until = new Date(Date.now() + minutes * 60000);
+      await this.failuresRepo.update(
+        { userId: user.id, ip },
+        { failures: 0, lockedUntil: until },
+      );
+      await this.audit.recordSystem('AUTH_ACCOUNT_LOCKED', {
+        userId: user.id,
+        failures: ipCount,
+        scope: 'ip',
+        ip,
+        lockedUntil: until.toISOString(),
+      });
+    }
+  }
+
+  private async firstCount(query: Promise<unknown>): Promise<number> {
+    const raw = await query;
+    // pg driver: [rows, affected] for UPDATE ... RETURNING.
+    const rows = (Array.isArray(raw) && Array.isArray(raw[0])
+      ? raw[0]
+      : raw) as Array<{ n: number }>;
+    return Number(rows[0]?.n ?? 0);
   }
 
   /** Second step of an institutional login: the SMS code opens an 8 h session. */

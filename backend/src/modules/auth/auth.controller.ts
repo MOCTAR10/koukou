@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -52,8 +53,8 @@ export class AuthController {
     summary:
       'Connexion (téléphone + code). Compte institutionnel : renvoie otpRequired et envoie un code par SMS',
   })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.authService.login(dto, req.ip);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })

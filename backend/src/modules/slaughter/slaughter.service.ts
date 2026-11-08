@@ -1,3 +1,4 @@
+import { retryReferenceInSavepoint } from '../../common/utils/idempotency.js';
 import {
   BadRequestException,
   Injectable,
@@ -178,7 +179,14 @@ export class SlaughterService {
       createdById: user.id,
     });
     this.refreshRendement(order);
-    await orderRepo.save(order);
+    // Concurrent creations can draw the same reference: redo the insert only.
+    await retryReferenceInSavepoint(
+      opts?.em ?? this.orderRepo.manager,
+      async (sub) => {
+        order.referenceNumber = await this.nextReference();
+        await sub.getRepository(SlaughterOrder).save(order);
+      },
+    );
     if (opts?.em) return order;
     return this.getOne(user, farmId, order.id);
   }

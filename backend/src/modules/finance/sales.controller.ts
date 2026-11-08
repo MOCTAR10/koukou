@@ -1,3 +1,4 @@
+import { pageOptions } from '../../common/utils/pagination.js';
 import {
   Body,
   Controller,
@@ -46,8 +47,18 @@ export class SalesController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('status') status?: SaleStatus,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.salesService.list(user, farmId, from, to, status);
+    // Optional and additive: without limit/offset every sale is listed.
+    return this.salesService.list(
+      user,
+      farmId,
+      from,
+      to,
+      status,
+      pageOptions(limit, offset),
+    );
   }
 
   @Post()

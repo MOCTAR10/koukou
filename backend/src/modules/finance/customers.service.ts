@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OrderStatus } from '../../common/enums/order-status.enum.js';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import { UserRole } from '../../common/enums/role.enum.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { SaleStatus } from '../../common/enums/sale-status.enum.js';
@@ -184,8 +185,24 @@ export class CustomersService {
   async ensureCode(customer: Customer, manager?: EntityManager): Promise<Customer> {
     if (customer.code) return customer;
     const em = manager ?? this.customerRepo.manager;
-    customer.code = await this.nextCode(em, customer.farmId);
-    return em.save(customer);
+    const code = await this.nextCode(em, customer.farmId);
+    try {
+      // Only fills a still-empty code (no stale overwrite of a concurrent edit).
+      const res = await em
+        .getRepository(Customer)
+        .update({ id: customer.id, code: IsNull() }, { code });
+      if (res.affected) customer.code = code;
+      else {
+        const fresh = await em
+          .getRepository(Customer)
+          .findOneBy({ id: customer.id });
+        if (fresh?.code) customer.code = fresh.code;
+      }
+    } catch (err) {
+      // A concurrent reader took the same code: leave it for the next read.
+      if (!isUniqueViolation(err)) throw err;
+    }
+    return customer;
   }
 
   // ── CRUD public ─────────────────────────────────────────────────────────────
@@ -281,8 +298,9 @@ export class CustomersService {
     const customers = await qb.orderBy('c.fullName', 'ASC').getMany();
 
     // backfill code des lignes legacy
+    // (a read-only institution never writes).
     for (const c of customers) {
-      if (!c.code) await this.ensureCode(c);
+      if (!c.code && user.role !== UserRole.INSTITUTION) await this.ensureCode(c);
     }
 
     const rows = await this.customerRepo.manager
@@ -413,7 +431,7 @@ export class CustomersService {
       where: { id: customerId, farmId },
     });
     if (!customer) throw new NotFoundException('Client introuvable.');
-    await this.ensureCode(customer);
+    if (user.role !== UserRole.INSTITUTION) await this.ensureCode(customer);
     const [balance, segment] = await Promise.all([
       this.getCustomerFinance(farmId, customerId),
       this.getSegment(farmId, customerId),

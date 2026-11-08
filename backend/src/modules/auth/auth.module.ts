@@ -19,12 +19,13 @@ import { AuthService } from './auth.service.js';
 import { resolveJwtSecret } from './auth.secret.js';
 import { JwtStrategy } from './jwt.strategy.js';
 import { LoginChallenge } from './entities/login-challenge.entity.js';
+import { LoginFailure } from './entities/login-failure.entity.js';
 import { LoginChallengeService } from './login-challenge.service.js';
 import { SMS_SENDER, createSmsSender } from './sms/sms-sender.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, BuyerProfile, LoginChallenge]),
+    TypeOrmModule.forFeature([User, BuyerProfile, LoginChallenge, LoginFailure]),
     UsersModule,
     FarmsModule,
     AccessCoreModule,

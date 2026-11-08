@@ -43,6 +43,7 @@ import { FarmCityFromLocalite1794430000000 } from './1794430000000-FarmCityFromL
 import { AgentReadsDeclarations1794500100000 } from './1794500100000-AgentReadsDeclarations.js';
 import { ExpenseIdempotency1794510000000 } from './1794510000000-ExpenseIdempotency.js';
 import { CredentialsChangedAt1794520000000 } from './1794520000000-CredentialsChangedAt.js';
+import { LoginFailuresPerIp1794530000000 } from './1794530000000-LoginFailuresPerIp.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -97,4 +98,5 @@ export const MIGRATIONS = [
   AgentReadsDeclarations1794500100000,
   ExpenseIdempotency1794510000000,
   CredentialsChangedAt1794520000000,
+  LoginFailuresPerIp1794530000000,
 ];

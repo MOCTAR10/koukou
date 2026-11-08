@@ -1,3 +1,4 @@
+import { slicePage } from '../../common/utils/pagination.js';
 import {
   BadRequestException,
   Injectable,
@@ -590,7 +591,11 @@ export class FeedStockService {
 
   // ---------- Journal des mouvements (traçabilité 360°) ----------
 
-  async listMovements(user: AuthUser, farmId: string) {
+  async listMovements(
+    user: AuthUser,
+    farmId: string,
+    page: { take?: number; skip?: number } = {},
+  ) {
     await this.farmsService.assertAccessible(user, farmId);
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
     const sacKg = farm?.defaultSacKg ?? 50;
@@ -668,14 +673,20 @@ export class FeedStockService {
         createdAt: e.createdAt,
       })),
     ];
+    // Three sources merged in memory: the page is cut after a stable sort
+    // (date, createdAt, id), so pages never overlap.
     movements.sort((a, b) =>
-      a.date === b.date
-        ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        : a.date < b.date
+      a.date !== b.date
+        ? a.date < b.date
           ? 1
-          : -1,
+          : -1
+        : new Date(b.createdAt).getTime() !== new Date(a.createdAt).getTime()
+          ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          : a.id < b.id
+            ? 1
+            : -1,
     );
-    return movements;
+    return slicePage(movements, page);
   }
 
   // ---------- Évaluation de l'alerte stock (ALIMENT) ----------

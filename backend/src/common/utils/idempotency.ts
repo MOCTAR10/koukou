@@ -1,5 +1,5 @@
 import { IsOptional, IsString, MaxLength } from 'class-validator';
-import type { FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
+import type { EntityManager, FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
 
 /** Postgres unique_violation (23505). */
 export function isUniqueViolation(err: unknown): boolean {
@@ -30,6 +30,18 @@ export async function retryOnReferenceCollision<T>(
       if (i >= attempts || !isReferenceCollision(err)) throw err;
     }
   }
+}
+
+/**
+ * Same retry for a reference inserted INSIDE a caller's transaction: a failed
+ * statement aborts a Postgres transaction, so each attempt runs in its own
+ * savepoint (nested `em.transaction`) and only that insert is redone.
+ */
+export function retryReferenceInSavepoint<T>(
+  em: EntityManager,
+  work: (sub: EntityManager) => Promise<T>,
+): Promise<T> {
+  return retryOnReferenceCollision(() => em.transaction(work));
 }
 
 /**

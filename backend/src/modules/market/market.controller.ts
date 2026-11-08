@@ -1,3 +1,4 @@
+import { pageOptions } from '../../common/utils/pagination.js';
 import {
   Body,
   Controller,
@@ -179,8 +180,12 @@ export class BuyerMarketOrdersController {
 
   @Get()
   @ApiOperation({ summary: 'Mes commandes Market' })
-  mine(@CurrentUser() user: AuthUser) {
-    return this.orders.listForBuyer(user);
+  mine(
+    @CurrentUser() user: AuthUser,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.orders.listForBuyer(user, pageOptions(limit, offset));
   }
 
   @Get(':id')
