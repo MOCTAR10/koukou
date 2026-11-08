@@ -857,7 +857,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
                 <AppText size="body" weight="bold" color="text">
                   {fmt(i.amountFcfa)} FCFA
                 </AppText>
-                <Pressable onPress={() => setItems((prev) => prev.filter((_, n) => n !== idx))} hitSlop={8} accessibilityRole="button">
+                <Pressable accessibilityLabel="Retirer la ligne" onPress={() => setItems((prev) => prev.filter((_, n) => n !== idx))} hitSlop={8} accessibilityRole="button">
                   <Trash2 size={16} color={color.red[500]} />
                 </Pressable>
               </Card>

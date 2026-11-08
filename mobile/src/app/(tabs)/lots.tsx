@@ -983,7 +983,7 @@ export default function LotsScreen() {
           autoCapitalize="none"
         />
         {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')} hitSlop={10}>
+          <Pressable accessibilityLabel="Effacer la recherche" onPress={() => setSearch('')} hitSlop={10}>
             <X size={16} color={color.ink[400]} />
           </Pressable>
         )}

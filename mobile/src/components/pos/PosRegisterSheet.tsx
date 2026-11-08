@@ -402,7 +402,7 @@ export function PosRegisterSheet({
                   </AppText>
                 ) : null}
               </View>
-              <Pressable
+              <Pressable accessibilityLabel="Retirer le client"
                 onPress={() => {
                   setCustomer(null);
                   setError(null);

@@ -694,7 +694,7 @@ export function TransferSheet({
                       <View style={styles.reserveHead}>
                         <Chip label={PRODUCT_LABEL[t.productType]} tone={productTone(t.productType)} />
                         <View style={{ flex: 1 }} />
-                        <Pressable
+                        <Pressable accessibilityLabel="Annuler le transfert"
                           onPress={() => cancelTransfer(t)}
                           hitSlop={8}
                           style={styles.cancelBtn}

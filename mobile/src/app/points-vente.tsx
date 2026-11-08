@@ -560,7 +560,7 @@ export default function PointsVenteScreen() {
               </AppText>
             </View>
             {!p.isDefault && canManage ? (
-              <Pressable
+              <Pressable accessibilityLabel="Supprimer le point de vente"
                 onPress={() => setConfirmDelete(p)}
                 hitSlop={8}
                 style={styles.deleteBtn}
@@ -624,7 +624,7 @@ export default function PointsVenteScreen() {
           left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
           right={
             canManage ? (
-              <Pressable onPress={openNew} style={styles.addBtn} accessibilityRole="button">
+              <Pressable accessibilityLabel="Ajouter un point de vente" onPress={openNew} style={styles.addBtn} accessibilityRole="button">
                 <Plus size={22} color={color.surface} />
               </Pressable>
             ) : undefined
@@ -757,7 +757,7 @@ export default function PointsVenteScreen() {
               </AppText>
             </Pressable>
             {filterProvince ? (
-              <Pressable onPress={() => setFilterProvince(null)} hitSlop={6} accessibilityRole="button" style={{ padding: 4 }}>
+              <Pressable accessibilityLabel="Retirer le filtre de province" onPress={() => setFilterProvince(null)} hitSlop={6} accessibilityRole="button" style={{ padding: 4 }}>
                 <X size={14} color={color.ink[400]} />
               </Pressable>
             ) : null}

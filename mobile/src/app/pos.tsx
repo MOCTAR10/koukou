@@ -473,7 +473,7 @@ export default function PosScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           {router.canGoBack() ? (
-            <Pressable onPress={() => router.back()} style={styles.settingsBtn} accessibilityRole="button">
+            <Pressable accessibilityLabel="Retour" onPress={() => router.back()} style={styles.settingsBtn} accessibilityRole="button">
               <ChevronLeft size={22} color={color.ink[700]} />
             </Pressable>
           ) : null}
@@ -487,7 +487,7 @@ export default function PosScreen() {
             </AppText>
           </View>
           {readOnly ? null : (
-          <Pressable onPress={() => router.push('/points-vente')} style={styles.settingsBtn} accessibilityRole="button">
+          <Pressable accessibilityLabel="Gérer les points de vente" onPress={() => router.push('/points-vente')} style={styles.settingsBtn} accessibilityRole="button">
             <Settings2 size={20} color={color.ink[600]} />
           </Pressable>
           )}
@@ -905,7 +905,7 @@ export default function PosScreen() {
                       <AppText size="body" weight="bold" color="accent">
                         {fmt(lineAmount(l))} FCFA
                       </AppText>
-                      <Pressable
+                      <Pressable accessibilityLabel="Retirer la ligne"
                         onPress={() => setLines((prev) => prev.filter((x) => x.uid !== l.uid))}
                         hitSlop={8}
                         style={styles.deleteBtn}

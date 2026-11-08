@@ -1095,7 +1095,7 @@ export default function SanitaryScreen() {
         <>
           {/* ── HEADER + DATE BAR (fixes, comme Accueil) ── */}
           <View style={styles.customHeader}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button">
+            <Pressable accessibilityLabel="Retour" onPress={() => router.back()} style={styles.backBtn} accessibilityRole="button">
               <ChevronLeft size={22} color={color.ink[800]} />
             </Pressable>
             <Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} />
@@ -1378,7 +1378,7 @@ export default function SanitaryScreen() {
                 iconColor={palette.green[600]}
                 iconBg={semantic.successSoft}
                 right={
-                  <Pressable
+                  <Pressable accessibilityLabel="Filtrer les soins"
                     onPress={() => setTreatFilterOpen((o) => !o)}
                     accessibilityRole="button"
                     style={[
