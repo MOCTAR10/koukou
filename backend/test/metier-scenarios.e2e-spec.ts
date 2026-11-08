@@ -1459,7 +1459,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       const page = await request(server)
         .get(`/public/lots/${url.pathname.split('/').pop()}${url.search}`)
         .expect(200);
-      expect(page.body.code).toBe(batchCode);
+      expect(page.body.code).toBe(listing.traceLot.code);
       expect(JSON.stringify(page.body)).not.toContain(farmId);
       expect(JSON.stringify(page.body)).not.toContain(batchId);
     });
