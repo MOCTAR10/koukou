@@ -96,7 +96,7 @@ export function TeamPage() {
           <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3">
             <Users className="h-4 w-4 text-slate-400" />
             <h2 className="text-sm font-semibold text-slate-700">Membres ({members.length + (ownerName ? 1 : 0)})</h2>
-            <span className="text-xs text-slate-400">Propriétaire, administrateurs et éleveurs</span>
+            <span className="text-xs text-slate-500">Propriétaire, administrateurs et éleveurs</span>
           </div>
           <DataTable>
               <thead className="bg-slate-50">

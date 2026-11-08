@@ -202,7 +202,7 @@ export function HarvestsPage() {
                     </DataTable>
                 </Card>
               )}
-              <p className="text-xs text-slate-400">Se vend au point de vente Ferme avec l’article « Récolte ».</p>
+              <p className="text-xs text-slate-500">Se vend au point de vente Ferme avec l’article « Récolte ».</p>
             </section>
           </div>
 

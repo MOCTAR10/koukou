@@ -157,7 +157,7 @@ export function MapView({ filters, colourKeyParam, onColourKey }: { filters: Pil
               <tr key={c.provinceId || 'none'}>
                 <Td>
                   <span className="font-medium text-slate-800">{c.code ? `${c.code} · ` : ''}{c.name}</span>
-                  {!c.centroid ? <span className="ml-1 text-xs text-slate-400">(non placée)</span> : null}
+                  {!c.centroid ? <span className="ml-1 text-xs text-slate-500">(non placée)</span> : null}
                 </Td>
                 <Td label="Fermes">{c.farms}</Td>
                 <Td label="Placées">{c.farmsWithGps}</Td>

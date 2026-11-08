@@ -409,7 +409,7 @@ export function SalesPage() {
                                   <PhotoThumb src={batchPhoto(b)} />
                                   <div className="min-w-0">
                                     {b.batchName ?? 'Lot'}
-                                    <span className="block text-xs font-normal text-slate-400">
+                                    <span className="block text-xs font-normal text-slate-500">
                                       {statusLabel(b.type)} · J{b.metrics.ageDays}
                                       {sold > 0 ? ` · ${plural(sold, 'article vendu', 'articles vendus')} aujourd’hui` : ''}
                                     </span>
@@ -420,7 +420,7 @@ export function SalesPage() {
                               <Td label="Carcasses" className="text-right tabular-nums">{num(carcassesByBatch.get(b.id) ?? 0)}</Td>
                               <Td label="Œufs">{hasEggs(b) ? formatEggAlveoles(b.metrics.eggStockAvailableEggs ?? 0) : '—'}</Td>
                               <Td label="État">
-                                <span className={classNames('text-xs font-medium', !open ? 'text-slate-400' : ready ? 'text-emerald-600' : 'text-slate-500')}>
+                                <span className={classNames('text-xs font-medium', !open ? 'text-slate-500' : ready ? 'text-emerald-600' : 'text-slate-500')}>
                                   {!open ? 'Fermé' : ready ? 'Prêt' : 'En cours'}
                                 </span>
                               </Td>

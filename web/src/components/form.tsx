@@ -6,7 +6,7 @@ import { classNames, isoToFr } from '../lib/format';
 import { librevilleDay } from '../lib/libreville';
 
 export const inputCls =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-400';
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-500';
 
 /**
  * `inputCls` without `w-full`, for a field sized by its own width class
@@ -29,7 +29,7 @@ export function Field({
     <label className={classNames('block', className)}>
       <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
       {children}
-      {hint ? <span className="mt-1 block text-xs text-slate-400">{hint}</span> : null}
+      {hint ? <span className="mt-1 block text-xs text-slate-500">{hint}</span> : null}
     </label>
   );
 }
@@ -139,6 +139,28 @@ export function Modal({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Focus trap: Tab and Shift+Tab cycle inside the dialog on top.
+      if (e.key === 'Tab' && !e.defaultPrevented && openDialogs[openDialogs.length - 1] === self.current && dialog.current) {
+        const items = Array.from(
+          dialog.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+        const first = items[0];
+        const last = items[items.length - 1];
+        const active = document.activeElement;
+        if (!first || !last) {
+          e.preventDefault();
+          dialog.current.focus();
+        } else if (e.shiftKey && (active === first || active === dialog.current || !dialog.current.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !dialog.current.contains(active))) {
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
       // Escape closes only the dialog on top: a confirmation opened from a panel must leave the panel open.
       if (e.key !== 'Escape' || e.defaultPrevented || openDialogs[openDialogs.length - 1] !== self.current) return;
       e.preventDefault();

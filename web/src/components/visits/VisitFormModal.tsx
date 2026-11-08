@@ -209,7 +209,7 @@ export function VisitFormModal({ farmId, onClose, onSaved }: { farmId: string; o
                   <li key={c.code} className="space-y-1 py-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-sm text-slate-800">
-                        {c.label} <span className="text-xs text-slate-400">(poids {c.weight})</span>
+                        {c.label} <span className="text-xs text-slate-500">(poids {c.weight})</span>
                       </span>
                       <div className="flex gap-1" role="group" aria-label={c.label}>
                         {ANSWERS.map((a) => (
@@ -230,7 +230,7 @@ export function VisitFormModal({ farmId, onClose, onSaved }: { farmId: string; o
                       </div>
                     </div>
                     {answers[c.code] === 'NON_CONFORME' ? (
-                      <input
+                      <input aria-label="Constat (facultatif)"
                         className={inputCls}
                         placeholder="Constat (facultatif)"
                         maxLength={500}

@@ -236,7 +236,7 @@ export function BuyerOrderPage() {
             {order.timeline.map((e) => (
               <li key={`${e.type}-${e.at}`} className="flex items-baseline justify-between gap-3 text-sm">
                 <span className="text-slate-700">{TIMELINE_LABEL[e.type] ?? e.type}</span>
-                <span className="shrink-0 text-xs text-slate-400">{dateTimeFr(e.at)}</span>
+                <span className="shrink-0 text-xs text-slate-500">{dateTimeFr(e.at)}</span>
               </li>
             ))}
           </ol>

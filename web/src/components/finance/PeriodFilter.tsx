@@ -69,7 +69,7 @@ export function PeriodFilter({
           onChange={(e) => setFrom(e.target.value)}
           className={classNames(inlineInputCls, 'w-40')}
         />
-        <span className="text-sm text-slate-400">au</span>
+        <span className="text-sm text-slate-500">au</span>
         <DateInput
           
           aria-label="Date de fin"

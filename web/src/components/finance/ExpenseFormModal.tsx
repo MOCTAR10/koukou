@@ -200,7 +200,7 @@ export function ExpenseFormModal({
                 </button>
               ))}
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500">
               « Payée à la caisse » décaisse immédiatement l’espèce (session ouverte requise).
             </p>
           </div>

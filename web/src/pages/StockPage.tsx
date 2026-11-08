@@ -85,7 +85,7 @@ function TypeStatCard({ entryType, lots }: { entryType: FeedEntryType; lots: Sto
     <Card className="flex flex-col items-center gap-1 p-3 text-center">
       <IconTile icon={<Icon />} tone={hasData ? 'accent' : 'slate'} />
       <p className="mt-1 text-xs font-semibold text-slate-500">{ENTRY_TYPE_LABEL[entryType]}</p>
-      <p className={hasData ? 'text-base font-bold tabular-nums text-slate-900' : 'text-base font-bold text-slate-400'}>{total}</p>
+      <p className={hasData ? 'text-base font-bold tabular-nums text-slate-900' : 'text-base font-bold text-slate-500'}>{total}</p>
     </Card>
   );
 }

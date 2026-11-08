@@ -137,7 +137,7 @@ export function CustomersPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-64 flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher par nom, téléphone ou code…" className={`${inputCls} pl-9`} />
+            <input aria-label="Rechercher par nom, téléphone ou code" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher par nom, téléphone ou code…" className={`${inputCls} pl-9`} />
           </div>
           <div className="w-56">
             <select aria-label="Type de client" className={inputCls} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
@@ -268,7 +268,7 @@ export function CustomersPage() {
         )}
       </Card>
 
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-slate-500">
         Le solde = total des ventes non annulées moins les paiements confirmés. Une vente à crédit se décide au point de vente et augmente le solde dû. Le type de client est indicatif ; les segments sont calculés par le serveur.
       </p>
 

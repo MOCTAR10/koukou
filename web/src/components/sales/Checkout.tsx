@@ -70,7 +70,7 @@ export function CustomerPicker({
 
   return (
     <div className="space-y-1">
-      <input className={inputCls} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher : nom, code ou téléphone" />
+      <input aria-label="Rechercher : nom, code ou téléphone" className={inputCls} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher : nom, code ou téléphone" />
       {needle ? (
         <ul className="max-h-44 overflow-y-auto rounded-lg border border-slate-200">
           {rows.map((c) => (
@@ -84,7 +84,7 @@ export function CustomerPicker({
                 className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-slate-50"
               >
                 <span className="truncate">{c.fullName}</span>
-                <span className="shrink-0 text-xs text-slate-400">{c.code ?? c.phone ?? ''}</span>
+                <span className="shrink-0 text-xs text-slate-500">{c.code ?? c.phone ?? ''}</span>
               </button>
             </li>
           ))}
@@ -362,7 +362,7 @@ export function Checkout({
         {isCredit ? <Wallet className="h-4 w-4" /> : <Check className="h-4 w-4" />}
         {isCredit ? `Vendre à crédit ${fcfa(total)}` : `Encaisser ${fcfa(total)}`}
       </Button>
-      <p className="text-center text-xs text-slate-400">{posName} · Espèces ou crédit client</p>
+      <p className="text-center text-xs text-slate-500">{posName} · Espèces ou crédit client</p>
 
       {sold ? (
         <Modal title={sold.credit ? 'Vente à crédit enregistrée' : 'Vente encaissée'} onClose={() => setSold(null)}>

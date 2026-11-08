@@ -410,7 +410,7 @@ export function BatchesPage() {
                           {pill ? (
                             <Pill tone={pill.tone}>{pill.label}</Pill>
                           ) : b.status === 'CLOTURE' ? (
-                            <span className="text-xs text-slate-400">—</span>
+                            <span className="text-xs text-slate-500">—</span>
                           ) : (
                             <Pill tone={levelTone(b.metrics.status)}>{LEVEL_LABEL[b.metrics.status]}</Pill>
                           )}

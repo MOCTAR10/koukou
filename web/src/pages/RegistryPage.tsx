@@ -336,7 +336,7 @@ export function RegistryPage() {
                           <StatusBadge tone={f.biosecurity.classification === 'A' ? 'ok' : 'neutral'} label={`Classe ${f.biosecurity.classification}${f.biosecurity.stale ? ' · ancien' : ''}`} />
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-400">Jamais contrôlée</span>
+                        <span className="text-xs text-slate-500">Jamais contrôlée</span>
                       )}
                     </Td>
                   ) : null}

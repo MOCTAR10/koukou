@@ -17,7 +17,7 @@ import { OPERATOR_CESSION_NOTICE, hasBirdLines } from '../sales/cession';
 function Info({ label, icon, children }: { label: string; icon: ReactNode; children: ReactNode }) {
   return (
     <div>
-      <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-500 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 [&>svg]:text-slate-400">
+      <dt className="flex items-center gap-1.5 text-xs font-medium text-slate-500 [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 [&>svg]:text-slate-500">
         {icon}
         {label}
       </dt>

@@ -124,7 +124,7 @@ export function FarmMultiPicker({
                 })
               )}
               {search.data && search.data.total > items.length ? (
-                <p className="px-3 py-2 text-xs text-slate-400">
+                <p className="px-3 py-2 text-xs text-slate-500">
                   {search.data.total - items.length} autre(s) : précisez la recherche.
                 </p>
               ) : null}

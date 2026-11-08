@@ -70,7 +70,7 @@ export function VaccinationCalendarsAdmin({ canCreate, canEdit }: { canCreate: b
               <tr key={p.id} className="cursor-pointer border-t border-slate-100 hover:bg-slate-50" onClick={() => setOpenId(p.id)}>
                 <Td>
                   <span className="font-medium">{p.name}</span>
-                  <span className="block font-mono text-xs text-slate-400">{p.code}</span>
+                  <span className="block font-mono text-xs text-slate-500">{p.code}</span>
                 </Td>
                 <Td label="Espèce">{SPECIES_LABEL[p.species] ?? p.species}</Td>
                 <Td label="Type">{TYPE_LABEL[p.type] ?? p.type}</Td>

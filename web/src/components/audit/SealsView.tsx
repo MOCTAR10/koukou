@@ -109,7 +109,7 @@ export function SealsView() {
                 <tr key={s.day} className="border-t border-slate-100">
                   <Td>
                     <span className="font-medium text-slate-900">{dateFr(s.day)}</span>
-                    <span className="block font-mono text-[11px] text-slate-400">{s.day}</span>
+                    <span className="block font-mono text-[11px] text-slate-500">{s.day}</span>
                   </Td>
                   <Td label="Actions">
                     <span className="tabular-nums">{num(s.eventsCount, 0)}</span>

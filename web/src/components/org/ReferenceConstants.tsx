@@ -163,7 +163,7 @@ export function ReferenceConstants() {
         </div>
       ) : null}
 
-      <p className="flex items-center gap-1.5 border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
+      <p className="flex items-center gap-1.5 border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
         <Lock className="h-3.5 w-3.5" /> Constantes globales, modifiables uniquement par la plateforme.
       </p>
     </Card>

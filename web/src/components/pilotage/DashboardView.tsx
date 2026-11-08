@@ -116,7 +116,7 @@ export function DashboardView({ filters, aggregateOnly }: { filters: PilotageFil
         </SectionCard>
         <SectionCard title="Alertes sanitaires" subtitle="Publiées par les services vétérinaires" icon={<AlertTriangle />} iconTone="amber">
           <FigureRow label="Alertes sanitaires publiées">
-            {d.publishedAlerts.available ? d.publishedAlerts.count : <span className="text-xs italic text-slate-400">source indisponible</span>}
+            {d.publishedAlerts.available ? d.publishedAlerts.count : <span className="text-xs italic text-slate-500">source indisponible</span>}
           </FigureRow>
           <p className="mt-2 text-xs text-slate-500">Seules les alertes publiées comptent comme « alerte ». Les alertes nationales et provinciales comptent dans le total, pas dans une ferme.</p>
           {/* POUFA lot A pilot: Fermia advisory alerts, apart and never « alerte ». */}
@@ -353,7 +353,7 @@ function BiosecurityCard({ d }: { d: PilotageDashboard }) {
       flush
     >
       {b.suppressed || !b.total ? (
-        <p className="px-4 py-3 text-sm italic text-slate-400">{suppressedSentence(k)}</p>
+        <p className="px-4 py-3 text-sm italic text-slate-500">{suppressedSentence(k)}</p>
       ) : (
         <DataTable>
           <thead>
@@ -404,7 +404,7 @@ function InputsCard({ d }: { d: PilotageDashboard }) {
       {!i.available ? (
         <p className="text-sm text-slate-500">Le module des intrants ne fournit pas encore de données.</p>
       ) : i.suppressed ? (
-        <p className="text-sm italic text-slate-400">{suppressedSentence(k)}</p>
+        <p className="text-sm italic text-slate-500">{suppressedSentence(k)}</p>
       ) : !i.figures ? (
         <p className="text-sm text-slate-500">Aucune livraison ni stock déclaré dans le périmètre.</p>
       ) : (

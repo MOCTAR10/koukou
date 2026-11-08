@@ -112,7 +112,7 @@ export function ConfirmDeliveryModal({
                         onChange={(e) => setDraft(l.id, { reason: e.target.value })}
                       />
                     ) : (
-                      <span className="text-xs text-slate-400">Conforme</span>
+                      <span className="text-xs text-slate-500">Conforme</span>
                     )}
                   </Td>
                   <Td label="N° de lot lu">

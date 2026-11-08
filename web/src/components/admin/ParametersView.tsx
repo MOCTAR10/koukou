@@ -170,7 +170,7 @@ export function ParametersView({ rights }: { rights: AdminRights['parameters'] }
                             <Plus className="h-3.5 w-3.5" /> Nouvelle valeur
                           </button>
                         ) : null}
-                        <span className="inline-flex items-center gap-1 px-1 text-xs text-slate-400">
+                        <span className="inline-flex items-center gap-1 px-1 text-xs text-slate-500">
                           <History className="h-3.5 w-3.5" />
                           <ChevronRight className="h-4 w-4" />
                         </span>

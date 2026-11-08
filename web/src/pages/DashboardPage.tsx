@@ -340,7 +340,7 @@ function LivestockDashboard() {
             <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <TrendingUp className="h-4 w-4 text-brand-600" /> Courbe de croissance (poids moyen / IC)
             </h2>
-            <select
+            <select aria-label="Lot affiché sur la courbe de croissance"
               value={selectedCurveBatch}
               onChange={(e) => setCurveBatchId(e.target.value)}
               className="max-w-[220px] rounded-lg border border-slate-300 px-2 py-1 text-xs outline-none focus:border-brand-500"
@@ -453,7 +453,7 @@ function LivestockDashboard() {
                         <PhotoThumb src={lotPhoto(b.batchId)} size="sm" />
                         <div className="min-w-0">
                           <div>{b.batchName ?? 'Lot'}</div>
-                          <div className="text-xs text-slate-400">
+                          <div className="text-xs text-slate-500">
                             {statusLabel(b.type)} · {b.ageDays} j · {num(b.liveCount)} vivants
                           </div>
                         </div>
@@ -464,7 +464,7 @@ function LivestockDashboard() {
                       <div className="flex items-center gap-1">
                         {b.alertesRouges > 0 ? <AlertLevelBadge level="ROUGE" /> : null}
                         {b.alertesJaunes > 0 ? <AlertLevelBadge level="JAUNE" /> : null}
-                        {b.alertesRouges === 0 && b.alertesJaunes === 0 ? <span className="text-xs text-slate-400">—</span> : null}
+                        {b.alertesRouges === 0 && b.alertesJaunes === 0 ? <span className="text-xs text-slate-500">—</span> : null}
                       </div>
                     </Td>
                     <Td label="Dernière saisie">

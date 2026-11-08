@@ -63,7 +63,7 @@ export function HrPage() {
               <IconTile icon={<UserRound className="h-4 w-4" />} size="sm" />
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-slate-700">Employés ({list.length})</h2>
-                <p className="text-xs text-slate-400">Contrat, poste et rémunération</p>
+                <p className="text-xs text-slate-500">Contrat, poste et rémunération</p>
               </div>
             </div>
             {list.length === 0 ? (

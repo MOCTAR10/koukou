@@ -170,7 +170,7 @@ export function ExpensesPage() {
                         ) : null}
                       </Td>
                       <Td label="Catégorie" className="whitespace-nowrap">
-                        {cat.label} <span className="text-xs text-slate-400">({cat.account})</span>
+                        {cat.label} <span className="text-xs text-slate-500">({cat.account})</span>
                       </Td>
                       <Td label="Fournisseur" className="md:max-lg:hidden">{e.supplier ?? '—'}</Td>
                       <Td label="Paiement" className="md:max-lg:hidden">
@@ -181,7 +181,7 @@ export function ExpensesPage() {
                       </Td>
                       <Td label="Actions" className="whitespace-nowrap text-right">
                         {auto || !canWrite ? (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="text-xs text-slate-500">—</span>
                         ) : (
                           <div className="flex justify-end gap-1">
                             <button

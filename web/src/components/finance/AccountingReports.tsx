@@ -86,7 +86,7 @@ export function JournalTab({
                           Annulée
                         </span>
                       ) : null}
-                      <span className="ml-auto font-mono text-xs text-slate-400">{entry.reference}</span>
+                      <span className="ml-auto font-mono text-xs text-slate-500">{entry.reference}</span>
                     </div>
                   </td>
                 </tr>
@@ -442,7 +442,7 @@ export function ExercicesTab({
                       Exercice en cours : clôture possible après le {dateFr(ex.endDate)}.
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-400">—</span>
+                    <span className="text-xs text-slate-500">—</span>
                   )}
                 </Td>
               </tr>

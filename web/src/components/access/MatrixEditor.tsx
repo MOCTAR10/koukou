@@ -64,10 +64,10 @@ export function MatrixEditor({
             )}
           >
             <div className="mb-2 flex items-center gap-2 md:mb-0">
-              <span className={classNames('min-w-0 text-sm font-medium', lock ? 'text-slate-400' : 'text-slate-800')}>
+              <span className={classNames('min-w-0 text-sm font-medium', lock ? 'text-slate-500' : 'text-slate-800')}>
                 {d.label}
                 {lock ? (
-                  <span className="mt-0.5 flex items-center gap-1 text-xs font-normal text-slate-400">
+                  <span className="mt-0.5 flex items-center gap-1 text-xs font-normal text-slate-500">
                     <Lock className="h-3 w-3 shrink-0" /> {lock}
                   </span>
                 ) : null}

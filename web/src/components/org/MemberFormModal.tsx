@@ -237,7 +237,7 @@ export function MemberFormModal({
             <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
               <UserCog className="h-3.5 w-3.5 text-brand-600" /> Profil métier
             </p>
-            <p className="mb-2 text-xs text-slate-400">Choisissez un profil : rôle, poste et droits sont pré-remplis.</p>
+            <p className="mb-2 text-xs text-slate-500">Choisissez un profil : rôle, poste et droits sont pré-remplis.</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {[...profiles, CUSTOM_PROFILE].map((p) => {
                 const on = profileKey === p.key;
@@ -254,7 +254,7 @@ export function MemberFormModal({
                     )}
                   >
                     <span className="block text-sm font-semibold">{p.label}</span>
-                    <span className={classNames('block text-xs', on ? 'text-brand-100' : 'text-slate-400')}>{sub}</span>
+                    <span className={classNames('block text-xs', on ? 'text-brand-100' : 'text-slate-500')}>{sub}</span>
                   </button>
                 );
               })}
@@ -324,7 +324,7 @@ export function MemberFormModal({
                         />
                         <span>
                           <span className="block text-sm text-slate-800">{item.label}</span>
-                          <span className="block text-xs text-slate-400">{item.description}</span>
+                          <span className="block text-xs text-slate-500">{item.description}</span>
                         </span>
                       </label>
                     ))}
@@ -385,7 +385,7 @@ export function MemberFormModal({
         <ErrorNote error={formError ?? save.error} />
 
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-slate-400">Rôle : {STAFF_ROLE_LABEL[role]}</span>
+          <span className="text-xs text-slate-500">Rôle : {STAFF_ROLE_LABEL[role]}</span>
           <div className="flex gap-2">
             <Button tone="secondary" onClick={onClose} disabled={save.isPending}>
               Annuler

@@ -217,11 +217,11 @@ export function PlatformPage() {
                           {sheet?.code ? <span className="mr-1.5 font-mono text-xs text-slate-500">{sheet.code}</span> : null}
                           {r.farm.name}
                         </Link>
-                        <p className="text-xs text-slate-400">{r.farm.administrativeCity ?? ''}</p>
+                        <p className="text-xs text-slate-500">{r.farm.administrativeCity ?? ''}</p>
                       </Td>
                       <Td label="Exploitant">
                         <p>{exploitant ?? '—'}</p>
-                        {!r.owner && !sheet?.ownerId ? <p className="text-xs text-slate-400">Compte non activé</p> : null}
+                        {!r.owner && !sheet?.ownerId ? <p className="text-xs text-slate-500">Compte non activé</p> : null}
                       </Td>
                       <Td label="Lots / cheptel">
                         {plural(r.lots.active, 'lot')} · {plural(r.lots.cheptel, 'tête')}
@@ -263,7 +263,7 @@ export function PlatformPage() {
                             />
                           </Link>
                         ) : (
-                          <span className="text-xs text-slate-400">{r.farm.active ? 'Active' : 'Suspendue'}</span>
+                          <span className="text-xs text-slate-500">{r.farm.active ? 'Active' : 'Suspendue'}</span>
                         )}
                       </Td>
                     </tr>
@@ -310,7 +310,7 @@ export function PlatformPage() {
                     <Td className="font-medium">{u.fullName}</Td>
                     <Td label="Contact">
                       <div>{u.phone}</div>
-                      {u.email ? <div className="text-xs text-slate-400">{u.email}</div> : null}
+                      {u.email ? <div className="text-xs text-slate-500">{u.email}</div> : null}
                     </Td>
                     <Td label="Rôle"><StatusBadge status={u.role} /></Td>
                     <Td label="Statut"><StatusBadge status={u.active ? 'active' : 'inactive'} /></Td>
@@ -334,7 +334,7 @@ export function PlatformPage() {
                           {u.active ? 'Suspendre' : 'Réactiver'}
                         </button>
                       ) : (
-                        <span className="text-xs text-slate-400">Protégé</span>
+                        <span className="text-xs text-slate-500">Protégé</span>
                       )}
                     </Td>
                   </tr>
@@ -402,7 +402,7 @@ export function PlatformPage() {
                   <tr key={c.key} className="border-t border-slate-100">
                     <Td className="font-mono text-xs">{c.key}</Td>
                     <Td label="Valeur"><b>{num(c.value)}</b></Td>
-                    <Td label="Description" className="text-xs text-slate-400">{c.description ?? '—'}</Td>
+                    <Td label="Description" className="text-xs text-slate-500">{c.description ?? '—'}</Td>
                     <Td>
                       {c.isEditable ? (
                         <form
@@ -415,7 +415,7 @@ export function PlatformPage() {
                           }}
                         >
                           {/* step="any": thresholds such as 0.2 L/oiseau/j are fractional. */}
-                          <input
+                          <input aria-label={`Valeur de ${c.key}`}
                             type="number"
                             name="v"
                             min={0}
@@ -423,7 +423,7 @@ export function PlatformPage() {
                             defaultValue={c.value}
                             className="w-28 rounded-lg border border-slate-300 px-2 py-1 text-xs"
                           />
-                          <button
+                          <button type="submit" aria-label={`Enregistrer ${c.key}`}
                             disabled={patchConstant.isPending}
                             className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                           >
@@ -431,7 +431,7 @@ export function PlatformPage() {
                           </button>
                         </form>
                       ) : (
-                        <span className="text-xs text-slate-400">Non modifiable</span>
+                        <span className="text-xs text-slate-500">Non modifiable</span>
                       )}
                       {patchConstant.isError && patchConstant.variables?.key === c.key ? (
                         <p className="mt-1 text-xs text-red-600">{(patchConstant.error as Error).message}</p>
@@ -562,9 +562,9 @@ function PaymentMethods() {
                 <Td label="Statut"><StatusBadge status={m.enabled ? 'active' : 'inactive'} /></Td>
                 <Td>
                   {m.cash ? (
-                    <span className="text-xs text-slate-400">Non désactivable</span>
+                    <span className="text-xs text-slate-500">Non désactivable</span>
                   ) : (
-                    <span className="text-xs text-slate-400">Bientôt disponible</span>
+                    <span className="text-xs text-slate-500">Bientôt disponible</span>
                   )}
                 </Td>
               </tr>

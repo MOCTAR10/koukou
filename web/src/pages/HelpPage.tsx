@@ -274,7 +274,7 @@ export function HelpPage() {
       ))}
       </div>
 
-      <p className="flex items-center justify-center gap-2 text-sm text-slate-400">
+      <p className="flex items-center justify-center gap-2 text-sm text-slate-500">
         <LifeBuoy className="h-4 w-4" /> Besoin d’aide ? Contactez l’équipe Fermia.
       </p>
     </div>

@@ -35,7 +35,7 @@ export function ThresholdsView({ rights }: { rights: AdminRights['parameters'] }
       <Card className="p-4">
         <div className="relative max-w-md">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un seuil…" className={`${inputCls} pl-9`} />
+          <input aria-label="Rechercher un seuil" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un seuil…" className={`${inputCls} pl-9`} />
         </div>
       </Card>
       <ErrorNote error={constants.error} />
@@ -63,12 +63,12 @@ export function ThresholdsView({ rights }: { rights: AdminRights['parameters'] }
                   <tr key={r.key} className="border-t border-slate-100">
                     <Td className="min-w-48">
                       <span className="font-medium text-slate-900">{r.description ?? r.key}</span>
-                      <span className="block font-mono text-xs text-slate-400">{r.key}</span>
+                      <span className="block font-mono text-xs text-slate-500">{r.key}</span>
                     </Td>
                     <Td label="Valeur" className="whitespace-nowrap text-right font-semibold tabular-nums">{num(r.value, 2)}</Td>
                     <Td label="Propriétaire">
                       <Pill tone={ownerOf(r) === 'VETERINAIRE' ? 'emerald' : 'brand'}>{ownerLabel(ownerOf(r))}</Pill>
-                      {!r.isEditable ? <span className="ml-2 text-xs text-slate-400">non modifiable</span> : null}
+                      {!r.isEditable ? <span className="ml-2 text-xs text-slate-500">non modifiable</span> : null}
                     </Td>
                     <Td className="text-right">
                       {mayEditThreshold(rights, r) ? (
