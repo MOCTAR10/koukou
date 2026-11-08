@@ -1,3 +1,4 @@
+import { pageOptions } from '../../common/utils/pagination.js';
 import {
   BadRequestException,
   Injectable,
@@ -121,6 +122,11 @@ export class ExpensesService {
       qb.andWhere('expense.category = :category', { category: query.category });
     if (query.batchId)
       qb.andWhere('expense.batch_id = :batchId', { batchId: query.batchId });
+    // Optional and additive: without limit/offset every expense is listed.
+    const page = pageOptions(query.limit, query.offset);
+    qb.addOrderBy('expense.id', 'DESC');
+    if (page.take !== undefined) qb.limit(page.take);
+    if (page.skip !== undefined) qb.offset(page.skip);
     return qb.getMany();
   }
 

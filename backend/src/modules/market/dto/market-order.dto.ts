@@ -72,4 +72,14 @@ export class FarmMarketOrdersQueryDto {
   @IsOptional()
   @IsEnum(MarketOrderState, { message: 'État invalide.' })
   state?: MarketOrderState;
+
+  @ApiPropertyOptional({ description: 'Pagination facultative : taille.' })
+  @IsOptional()
+  @IsString()
+  limit?: string;
+
+  @ApiPropertyOptional({ description: 'Pagination facultative : décalage.' })
+  @IsOptional()
+  @IsString()
+  offset?: string;
 }

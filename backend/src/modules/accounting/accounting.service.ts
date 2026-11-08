@@ -1,3 +1,4 @@
+import { retryReferenceInSavepoint } from '../../common/utils/idempotency.js';
 import {
   BadRequestException,
   Injectable,
@@ -160,19 +161,25 @@ export class AccountingService {
     }
 
     const exercice = await this.ensureExercice(em, spec.farmId, spec.date);
-    const entry = await entryRepo.save(
-      entryRepo.create({
-        farmId: spec.farmId,
-        exerciceId: exercice.id,
-        reference: await this.nextReference(em, spec.date),
-        entryDate: spec.date,
-        label: spec.label,
-        source: spec.source,
-        sourceId: spec.sourceId,
-        status: JournalEntryStatus.POSTED,
-        createdById: spec.operatorId ?? null,
-      }),
-    );
+    // Two concurrent postings can draw the same EC- reference: the loser's
+    // insert is redone with a new draw, in a savepoint (the caller's
+    // transaction survives).
+    const entry = await retryReferenceInSavepoint(em, async (sub) => {
+      const repo = sub.getRepository(JournalEntry);
+      return repo.save(
+        repo.create({
+          farmId: spec.farmId,
+          exerciceId: exercice.id,
+          reference: await this.nextReference(sub, spec.date),
+          entryDate: spec.date,
+          label: spec.label,
+          source: spec.source,
+          sourceId: spec.sourceId,
+          status: JournalEntryStatus.POSTED,
+          createdById: spec.operatorId ?? null,
+        }),
+      );
+    });
     await em.getRepository(JournalEntryLine).save(
       cleanLines.map((l) =>
         em.getRepository(JournalEntryLine).create({

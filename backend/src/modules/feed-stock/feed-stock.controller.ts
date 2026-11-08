@@ -68,7 +68,16 @@ export class FeedStockController {
     summary: 'Journal des mouvements (consommations liées + pertes)',
   })
   @ApiParam({ name: 'farmId' })
-  movements(@CurrentUser() user: AuthUser, @Param('farmId') farmId: string) {
-    return this.feedStockService.listMovements(user, farmId);
+  movements(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.feedStockService.listMovements(
+      user,
+      farmId,
+      pageOptions(limit, offset),
+    );
   }
 }

@@ -108,4 +108,14 @@ export class ListExpensesQueryDto {
   @IsOptional()
   @IsUUID('4', { message: 'Identifiant de lot de production invalide.' })
   batchId?: string;
+
+  @ApiPropertyOptional({ description: 'Pagination facultative : taille.' })
+  @IsOptional()
+  @IsString()
+  limit?: string;
+
+  @ApiPropertyOptional({ description: 'Pagination facultative : décalage.' })
+  @IsOptional()
+  @IsString()
+  offset?: string;
 }

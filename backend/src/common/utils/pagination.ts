@@ -3,6 +3,16 @@ import { BadRequestException } from '@nestjs/common';
 /** Largest page a client can ask for on an opt-in paginated list. */
 export const MAX_PAGE_SIZE = 500;
 
+/** Applies `pageOptions` to an already-built array (merged or filtered lists). */
+export function slicePage<T>(
+  rows: T[],
+  page: { take?: number; skip?: number },
+): T[] {
+  if (page.take === undefined && page.skip === undefined) return rows;
+  const skip = page.skip ?? 0;
+  return rows.slice(skip, page.take === undefined ? undefined : skip + page.take);
+}
+
 /**
  * Optional `?limit=&offset=` of list endpoints. Without them (older clients)
  * the list stays whole: `{}` is spread into the TypeORM options. Invalid

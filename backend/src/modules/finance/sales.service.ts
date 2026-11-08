@@ -1324,6 +1324,7 @@ export class SalesService {
     from?: string,
     to?: string,
     status?: SaleStatus,
+    page: { take?: number; skip?: number } = {},
   ): Promise<Sale[]> {
     await this.farmsService.assertAccessible(user, farmId);
     const qb = this.saleRepo
@@ -1337,7 +1338,28 @@ export class SalesService {
     if (from) qb.andWhere('sale.sale_date >= :from', { from });
     if (to) qb.andWhere('sale.sale_date <= :to', { to });
     if (status) qb.andWhere('sale.status = :status', { status });
-    return qb.getMany();
+    if (page.take === undefined && page.skip === undefined) return qb.getMany();
+    // Page the sales themselves (not the joined rows): ids first, then the
+    // full rows in the same order. `id` breaks ties so pages never overlap.
+    const idQb = this.saleRepo
+      .createQueryBuilder('sale')
+      .select('sale.id', 'id')
+      .where('sale.farm_id = :farmId', { farmId });
+    if (from) idQb.andWhere('sale.sale_date >= :from', { from });
+    if (to) idQb.andWhere('sale.sale_date <= :to', { to });
+    if (status) idQb.andWhere('sale.status = :status', { status });
+    const idRows = await idQb
+      .orderBy('sale.sale_date', 'DESC')
+      .addOrderBy('sale.created_at', 'DESC')
+      .addOrderBy('sale.id', 'DESC')
+      .limit(page.take)
+      .offset(page.skip)
+      .getRawMany<{ id: string }>();
+    if (idRows.length === 0) return [];
+    return qb
+      .andWhere('sale.id IN (:...pageIds)', { pageIds: idRows.map((r) => r.id) })
+      .addOrderBy('sale.id', 'DESC')
+      .getMany();
   }
 
   async getOne(

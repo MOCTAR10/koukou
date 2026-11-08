@@ -1,3 +1,4 @@
+import { pageOptions, slicePage } from '../../common/utils/pagination.js';
 import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import {
   BadRequestException,
@@ -38,8 +39,11 @@ export class AlertsController {
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Query('status') status?: AlertStatus,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
     await this.farmsService.assertAccessible(user, farmId);
+    const page = pageOptions(limit, offset);
     // An unknown value would reach the Postgres enum (500).
     if (
       status !== undefined &&
@@ -48,9 +52,13 @@ export class AlertsController {
       throw new BadRequestException('Statut d’alerte invalide.');
     }
     // POUFA lot A droits: margin and sales alerts for economic readers only (F6).
-    return visibleAlerts(
-      await this.alertsService.listForFarm(farmId, status),
-      await this.farmsService.readsEconomics(user),
+    // Paged after the visibility filter so pages stay stable per reader.
+    return slicePage(
+      visibleAlerts(
+        await this.alertsService.listForFarm(farmId, status),
+        await this.farmsService.readsEconomics(user),
+      ),
+      page,
     );
   }
 

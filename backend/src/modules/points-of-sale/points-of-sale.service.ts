@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
+import { UserRole } from '../../common/enums/role.enum.js';
 import { PointOfSaleKind } from '../../common/enums/point-of-sale-kind.enum.js';
 import { createOnce } from '../../common/utils/idempotency.js';
 import { FarmsService } from '../farms/farms.service.js';
@@ -29,31 +30,49 @@ export class PointsOfSaleService {
 
   /** Garantit qu’un point de vente « ferme » par défaut existe toujours. */
   async ensureDefault(farmId: string): Promise<PointOfSale> {
-    const existing = await this.repo.findOne({
-      where: { farmId, kind: PointOfSaleKind.FERME },
-      order: { createdAt: 'ASC' },
-    });
+    const find = (repo: Repository<PointOfSale>) =>
+      repo.findOne({
+        where: { farmId, kind: PointOfSaleKind.FERME },
+        order: { createdAt: 'ASC' },
+      });
+    const existing = await find(this.repo);
     if (existing) return existing;
-    const farm = await this.farmRepo.findOne({ where: { id: farmId } });
-    return this.repo.save(
-      this.repo.create({
-        farmId,
-        kind: PointOfSaleKind.FERME,
-        name: farm?.name ?? 'Point de vente ferme',
-        city: farm?.administrativeCity ?? null,
-        isActive: true,
-        isDefault: true,
-      }),
-    );
+    // No unique index on the default point: serialize the creation per farm
+    // so two concurrent first reads don't each insert one.
+    return this.repo.manager.transaction(async (em) => {
+      await em.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `pos-default:${farmId}`,
+      ]);
+      const again = await find(em.getRepository(PointOfSale));
+      if (again) return again;
+      const farm = await em.getRepository(Farm).findOne({ where: { id: farmId } });
+      return em.getRepository(PointOfSale).save(
+        em.getRepository(PointOfSale).create({
+          farmId,
+          kind: PointOfSaleKind.FERME,
+          name: farm?.name ?? 'Point de vente ferme',
+          city: farm?.administrativeCity ?? null,
+          isActive: true,
+          isDefault: true,
+        }),
+      );
+    });
   }
 
-  async list(user: AuthUser, farmId: string): Promise<PointOfSale[]> {
-    await this.farmsService.assertAccessible(user, farmId);
-    await this.ensureDefault(farmId);
+  /** Read-only variant: never creates the default point. */
+  private async listReadOnly(farmId: string): Promise<PointOfSale[]> {
     return this.repo.find({
       where: { farmId },
       order: { isDefault: 'DESC', createdAt: 'ASC' },
     });
+  }
+
+  async list(user: AuthUser, farmId: string): Promise<PointOfSale[]> {
+    await this.farmsService.assertAccessible(user, farmId);
+    // A read-only institution consulting a farm must not create its default point.
+    if (user.role === UserRole.INSTITUTION) return this.listReadOnly(farmId);
+    await this.ensureDefault(farmId);
+    return this.listReadOnly(farmId);
   }
 
   async getOne(

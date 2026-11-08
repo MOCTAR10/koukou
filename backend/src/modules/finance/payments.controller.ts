@@ -1,3 +1,4 @@
+import { pageOptions } from '../../common/utils/pagination.js';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
@@ -30,8 +31,17 @@ export class PaymentsController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('saleId') saleId?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.paymentsService.listPayments(user, farmId, from, to, saleId);
+    return this.paymentsService.listPayments(
+      user,
+      farmId,
+      from,
+      to,
+      saleId,
+      pageOptions(limit, offset),
+    );
   }
 }
 

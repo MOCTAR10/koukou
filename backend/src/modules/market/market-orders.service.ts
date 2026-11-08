@@ -1,3 +1,4 @@
+import { pageOptions } from '../../common/utils/pagination.js';
 import {
   BadRequestException,
   Injectable,
@@ -187,8 +188,11 @@ export class MarketOrdersService {
     }
   }
 
-  async listForBuyer(user: AuthUser) {
-    const rows = await this.loadViews({ buyerUserId: user.id });
+  async listForBuyer(
+    user: AuthUser,
+    page: { take?: number; skip?: number } = {},
+  ) {
+    const rows = await this.loadViews({ buyerUserId: user.id }, page);
     return rows.map((mo) => this.toBuyerView(mo));
   }
 
@@ -255,19 +259,22 @@ export class MarketOrdersService {
     query: FarmMarketOrdersQueryDto,
   ) {
     await this.farmsService.assertAccessible(user, farmId);
-    return this.farmViews({
-      farmId,
-      ...(query.state ? { state: query.state } : {}),
-    });
+    return this.farmViews(
+      {
+        farmId,
+        ...(query.state ? { state: query.state } : {}),
+      },
+      pageOptions(query.limit, query.offset),
+    );
   }
 
   private async farmViews(where: {
     id?: string;
     farmId: string;
     state?: MarketOrderState;
-  }) {
+  }, page: { take?: number; skip?: number } = {}) {
     const { farmId } = where;
-    const rows = await this.loadViews(where);
+    const rows = await this.loadViews(where, page);
     const profiles = await this.profileRepo.find({
       where: { userId: In([...new Set(rows.map((r) => r.buyerUserId))]) },
     });
@@ -676,8 +683,9 @@ export class MarketOrdersService {
     farmId?: string;
     buyerUserId?: string;
     state?: MarketOrderState;
-  }) {
+  }, page: { take?: number; skip?: number } = {}) {
     return this.marketOrderRepo.find({
+      ...page,
       where,
       relations: {
         order: true,
@@ -685,7 +693,7 @@ export class MarketOrdersService {
         farm: { owner: true },
         listing: { batch: { breed: true } },
       },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'DESC' },
     });
   }
 

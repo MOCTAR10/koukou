@@ -199,6 +199,7 @@ export class PaymentsService {
     from?: string,
     to?: string,
     saleId?: string,
+    page: { take?: number; skip?: number } = {},
   ): Promise<Payment[]> {
     await this.farmsService.assertAccessible(user, farmId);
     const qb = this.paymentRepo
@@ -209,6 +210,9 @@ export class PaymentsService {
     if (from) qb.andWhere('payment.payment_date >= :from', { from });
     if (to) qb.andWhere('payment.payment_date <= :to', { to });
     if (saleId) qb.andWhere('payment.sale_id = :saleId', { saleId });
+    qb.addOrderBy('payment.id', 'DESC');
+    if (page.take !== undefined) qb.limit(page.take);
+    if (page.skip !== undefined) qb.offset(page.skip);
     return qb.getMany();
   }
 }
