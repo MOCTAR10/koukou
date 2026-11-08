@@ -10,6 +10,7 @@ import { Spinner } from '../ui/Spinner';
 import { fetchCustomers } from '@/api';
 import type { Customer } from '@/api/types';
 import { customerTypeLabel } from '@/constants/customers';
+import { creditBadges } from '@/utils/credit';
 import { color, radii, spacing, fmtFcfa, fontFamily, semantic } from '@/constants/theme';
 
 interface ClientPickerSheetProps {
@@ -111,6 +112,11 @@ export function ClientPickerSheet({
                     <AppText size="small" weight="semibold" color={due > 0 ? 'danger' : 'success'} numberOfLines={1}>
                       {due > 0 ? `Dû ${fmtFcfa(due)}` : 'Soldé'}
                     </AppText>
+                    {creditBadges(c).map((b) => (
+                      <AppText key={b.label} size="caption" weight="semibold" color={b.tone} numberOfLines={1}>
+                        {b.label}
+                      </AppText>
+                    ))}
                   </View>
                 </Card>
               );

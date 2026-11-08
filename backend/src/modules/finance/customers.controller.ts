@@ -9,6 +9,7 @@ import { UserRole } from '../../common/enums/role.enum.js';
 import { CustomerType } from '../../common/enums/customer-type.enum.js';
 import type { CustomerSegment } from './customers.service.js';
 import { CustomersService } from './customers.service.js';
+import { CreditService } from './credit.service.js';
 import {
   CreateCustomerDto,
   CustomerPaymentDto,
@@ -20,7 +21,10 @@ import { Domain } from '../../common/decorators/domain.decorator.js';
 @Domain('VENTES')
 @Controller('farms/:farmId/customers')
 export class CustomersController {
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly credit: CreditService,
+  ) {}
 
   @Get()
   @AuditRead('Liste des clients (données personnelles)')
@@ -32,18 +36,23 @@ export class CustomersController {
   @ApiQuery({ name: 'search', required: false, description: 'Filtrer par nom ou téléphone' })
   @ApiQuery({ name: 'type', required: false, enum: CustomerType })
   @ApiQuery({ name: 'segment', required: false, enum: ['NOUVEAU', 'REGULIER', 'TOP'] })
-  list(
+  async list(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Query('search') search?: string,
     @Query('type') type?: CustomerType,
     @Query('segment') segment?: CustomerSegment,
   ) {
-    return this.customersService.listWithBalances(user, farmId, {
+    const opts = {
       search: search?.trim() || undefined,
       type: type && Object.values(CustomerType).includes(type) ? type : undefined,
       segment: segment && ['NOUVEAU', 'REGULIER', 'TOP'].includes(segment) ? segment : undefined,
-    });
+    };
+    const customers = await this.customersService.listWithBalances(user, farmId, opts);
+    const views = await this.credit.viewsFor(farmId, customers);
+    // Reads never write: the overdue alert is refreshed after a payment and
+    // by the hourly sweep.
+    return customers.map((c) => ({ ...c, ...views.get(c.id) }));
   }
 
   @Get('summary')
@@ -89,12 +98,14 @@ export class CustomersController {
     summary: 'Profil d\'un client (coordonnées + solde + segment)',
   })
   @ApiParam({ name: 'farmId' })
-  getOne(
+  async getOne(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('customerId') customerId: string,
   ) {
-    return this.customersService.getOne(user, farmId, customerId);
+    const customer = await this.customersService.getOne(user, farmId, customerId);
+    const views = await this.credit.viewsFor(farmId, [customer]);
+    return { ...customer, ...views.get(customer.id) };
   }
 
   @Get(':customerId/history')
@@ -104,12 +115,24 @@ export class CustomersController {
     summary: 'Historique d\'achats d\'un client (articles + paiements)',
   })
   @ApiParam({ name: 'farmId' })
-  history(
+  async history(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('customerId') customerId: string,
   ) {
-    return this.customersService.history(user, farmId, customerId);
+    const sales = await this.customersService.history(user, farmId, customerId);
+    const customer = await this.customersService.getOne(user, farmId, customerId);
+    // Statement: the due date and lateness of each invoice.
+    const lines = await this.credit.statementOf(farmId, customer);
+    return sales.map((s) => {
+      const line = lines.get(s.id);
+      return {
+        ...s,
+        dueDate: line?.dueDate ?? null,
+        remainingFcfa: line?.remainingFcfa ?? 0,
+        overdue: line?.overdue ?? false,
+      };
+    });
   }
 
   @Get(':customerId/stats')
@@ -149,18 +172,20 @@ export class CustomersController {
     summary: 'Encaisser depuis la fiche client (répartit sur les ventes impayées)',
   })
   @ApiParam({ name: 'farmId' })
-  recordPayment(
+  async recordPayment(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Param('customerId') customerId: string,
     @Body() dto: CustomerPaymentDto,
   ) {
-    return this.customersService.recordCustomerPayment(
+    const result = await this.customersService.recordCustomerPayment(
       user,
       farmId,
       customerId,
       dto.amountFcfa,
       dto.idempotencyKey,
     );
+    await this.credit.refreshOverdueAlert(farmId);
+    return result;
   }
 }

@@ -46,6 +46,9 @@ export interface FarmDetailsInput {
   capacityPerBuilding?: unknown;
   buildingAreaM2?: unknown;
   defaultSacKg?: number;
+  /** Customer credit defaults of the farm; null clears them. */
+  defaultCreditLimitFcfa?: number | null;
+  defaultPaymentTermDays?: number | null;
   /** Refused (400): the GPS point belongs to the registry (history, province check). */
   longitude?: unknown;
   latitude?: unknown;
@@ -528,6 +531,12 @@ export class FarmsService {
       farm.administrativeCity = input.administrativeCity;
     }
     if (input.defaultSacKg != null) farm.defaultSacKg = input.defaultSacKg;
+    if (input.defaultCreditLimitFcfa !== undefined) {
+      farm.defaultCreditLimitFcfa = input.defaultCreditLimitFcfa ?? null;
+    }
+    if (input.defaultPaymentTermDays !== undefined) {
+      farm.defaultPaymentTermDays = input.defaultPaymentTermDays ?? null;
+    }
     if (input.isVerified != null) farm.isVerified = input.isVerified;
     return this.farmRepo.save(farm);
   }

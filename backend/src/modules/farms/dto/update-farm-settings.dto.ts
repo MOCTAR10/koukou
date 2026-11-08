@@ -1,10 +1,12 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   Allow,
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -37,4 +39,25 @@ export class UpdateFarmSettingsDto {
   @IsNumber({}, { message: "Le poids du sac doit être un nombre." })
   @Min(1, { message: 'Le poids du sac doit être supérieur à 0 kg.' })
   defaultSacKg?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Plafond de crédit par défaut des clients (FCFA) ; null = pas de plafond',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt({ message: 'Le plafond de crédit doit être un nombre entier de FCFA.' })
+  @Min(0, { message: 'Le plafond de crédit ne peut pas être négatif.' })
+  @Max(1_000_000_000, { message: 'Le plafond de crédit est trop élevé.' })
+  defaultCreditLimitFcfa?: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Délai de paiement par défaut (jours) ; null = aucun délai',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt({ message: 'Le délai de paiement doit être un nombre entier de jours.' })
+  @Min(0, { message: 'Le délai de paiement ne peut pas être négatif.' })
+  @Max(365, { message: 'Le délai de paiement ne peut pas dépasser 365 jours.' })
+  defaultPaymentTermDays?: number | null;
 }

@@ -152,6 +152,8 @@ export class CustomersService {
       city?: string | null;
       notes?: string | null;
       type?: CustomerType;
+      creditLimitFcfa?: number | null;
+      paymentTermDays?: number | null;
       createdById?: string | null;
     },
   ): Promise<Customer> {
@@ -167,6 +169,8 @@ export class CustomersService {
             city: data.city ?? null,
             notes: data.notes ?? null,
             type: data.type ?? CustomerType.PARTICULIER,
+            creditLimitFcfa: data.creditLimitFcfa ?? null,
+            paymentTermDays: data.paymentTermDays ?? null,
             createdById: data.createdById ?? null,
             code: await this.nextCode(manager, data.farmId),
           }),
@@ -221,6 +225,8 @@ export class CustomersService {
       city: dto.city,
       notes: dto.notes,
       type: dto.type,
+      creditLimitFcfa: dto.creditLimitFcfa ?? null,
+      paymentTermDays: dto.paymentTermDays ?? null,
       createdById: user.id,
     });
   }
@@ -243,6 +249,12 @@ export class CustomersService {
     if (dto.city != null) customer.city = dto.city;
     if (dto.notes != null) customer.notes = dto.notes;
     if (dto.type != null) customer.type = dto.type;
+    if (dto.creditLimitFcfa !== undefined) {
+      customer.creditLimitFcfa = dto.creditLimitFcfa;
+    }
+    if (dto.paymentTermDays !== undefined) {
+      customer.paymentTermDays = dto.paymentTermDays;
+    }
     if (dto.operatorId !== undefined) {
       if (dto.operatorId) await this.assertOperator(farmId, dto.operatorId);
       customer.operatorId = dto.operatorId ?? null;
