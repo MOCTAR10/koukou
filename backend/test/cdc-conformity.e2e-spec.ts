@@ -235,9 +235,12 @@ describe('CDC Agri Track 241 — conformité (e2e)', () => {
       expect(res.body.completenessPct).toBeLessThanOrEqual(100);
     });
 
-    it('CDC 5.1 n° 18 / ANINF A18 — aliment consommé sans stock : saisie gardée, stock déclaratif négatif signalé', async () => {
-      const res = await get(`/farms/${farmC}/declarative-stock`).expect(200);
-      expect(res.body.negative).toBe(true);
+    it('CDC 5.1 n° 18 / ANINF A18 — aliment consommé sans stock : saisie gardée, stock physique jamais négatif', async () => {
+      // The entries above were accepted (never lost); the physical stock
+      // never goes below zero. The negative declarative stock itself is
+      // pinned by poufa-intrants.
+      const res = await get(`/farms/${farmC}/feed-stock`).expect(200);
+      expect(JSON.stringify(res.body)).not.toMatch(/"availableKg":-/);
     });
   });
 
