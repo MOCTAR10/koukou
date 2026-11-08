@@ -333,6 +333,7 @@ describe('Scénarios métier 2 : intrants, abattage, clients, visites, tâches, 
         },
         token,
       ).expect(201);
+      await get(`/farms/${farmId}/points-of-sale`, token).expect(200); // creates the FERME point
       await post(
         `/farms/${farmId}/stock-transfers`,
         {
@@ -681,7 +682,7 @@ describe('Scénarios métier 2 : intrants, abattage, clients, visites, tâches, 
       const slip = await binary(`/farms/${farmId}/slaughter-orders/${o1}/bordereau`, token).expect(200);
       expect(slip.headers['content-type']).toContain('application/pdf');
       expect((slip.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
-      const passport = await binary(`/farms/${farmId}/slaughter-orders/${batchId}/passeport`, token).expect(200);
+      const passport = await binary(`/farms/${farmId}/batches/${batchId}/passeport`, token).expect(200);
       expect((passport.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
     });
 
@@ -1203,6 +1204,7 @@ describe('Scénarios métier 2 : intrants, abattage, clients, visites, tâches, 
       await post(
         `/farms/${farmId}/sales`,
         {
+          customerName: 'Client Marché',
           items: [{ productType: 'POULET_PIECE', quantity: 10, unit: 'PIECE', unitPriceFcfa: 5000, batchId: bandA }],
           payments: [{ method: 'CASH', amountFcfa: 50_000 }],
         },
@@ -1305,6 +1307,7 @@ describe('Scénarios métier 2 : intrants, abattage, clients, visites, tâches, 
       await post(
         `/farms/${farmId}/sales`,
         {
+          customerName: 'Client Marché',
           items: [{ productType: 'POULET_PIECE', quantity: 10, unit: 'PIECE', unitPriceFcfa: 5000, batchId: bandId }],
           payments: [{ method: 'CASH', amountFcfa: 50_000 }],
         },
