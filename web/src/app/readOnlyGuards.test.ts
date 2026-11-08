@@ -9,7 +9,7 @@ import { institutionWrites } from './menu-access';
 /** An institution granted « Consulter » on every domain it can read: the read-only access of the audit. */
 const readOnlyMatrix: AccessMatrix = Object.fromEntries(GRANTABLE_DOMAINS.map((d) => [d, ['CONSULTER']]));
 const SCOPES: ScopeKind[] = ['ALL', 'PROVINCES', 'FARMS', 'FINANCED', 'OPERATOR', 'AGGREGATE', 'AUDIT'];
-const readOnly = (scopeKind: ScopeKind) => ({ scopeKind, matrix: readOnlyMatrix });
+const readOnly = (scopeKind: ScopeKind) => ({ code: 'LECTURE', scopeKind, matrix: readOnlyMatrix });
 
 describe('read-only institution access', () => {
   it('institutionWrites (canWrite) is false for every domain', () => {
