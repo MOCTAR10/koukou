@@ -329,13 +329,13 @@ export class HealthService {
             quantity > 0
           ) {
             // Re-checked under the batch lock: two concurrent declarations
-            // (or a daily entry) must not remove more birds than alive.
+            // (or a daily entry) must not remove more birds than alive. The
+            // live count is rebuilt under that lock (the stored one is only
+            // refreshed after a declaration commits).
+            await this.flockReconciliation.recomputeLiveCount(em, batchId);
             const locked = await em
               .getRepository(ProductionBatch)
-              .createQueryBuilder('batch')
-              .setLock('pessimistic_write')
-              .where('batch.id = :id', { id: batchId })
-              .getOne();
+              .findOne({ where: { id: batchId } });
             if (!locked || locked.status === BatchStatus.CLOTURE) {
               throw new BadRequestException(
                 'Ce lot est clôturé : aucun oiseau ne peut plus en être retiré.',
@@ -348,6 +348,14 @@ export class HealthService {
             }
           }
           const row = await em.getRepository(HealthEvent).save(event);
+          if (
+            (row.kind === HealthEventKind.REFORME ||
+              row.kind === HealthEventKind.MORTALITE) &&
+            quantity > 0
+          ) {
+            // Visible to the next declaration waiting on the batch lock.
+            await this.flockReconciliation.recomputeLiveCount(em, batchId);
+          }
           if (row.suspicion) {
             await this.sanitaryAlerts.raiseFromDeclaration(em, row, farm);
           }

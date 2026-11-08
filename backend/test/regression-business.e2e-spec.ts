@@ -435,6 +435,8 @@ describe('Régression métier (e2e)', () => {
     let pondId: string;
 
     beforeAll(async () => {
+      // Creates the default « ferme » point of sale (the transfer source).
+      await get(`/farms/${farmId}/points-of-sale`).expect(200);
       const boutique = await post(`/farms/${farmId}/points-of-sale`, {
         kind: 'BOUTIQUE',
         name: 'Boutique régression',
