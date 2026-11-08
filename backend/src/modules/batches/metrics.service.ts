@@ -19,7 +19,11 @@ import {
 import { StockTransferStatus } from '../../common/enums/stock-transfer-status.enum.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { Alert } from '../alerts/entities/alert.entity.js';
-import { sanitaryHolds } from '../sanitary/sanitary-holds.js';
+import {
+  sanitaryHolds,
+  sanitaryHoldsMany,
+  type SanitaryHolds,
+} from '../sanitary/sanitary-holds.js';
 import { BreedStandard } from '../breeds/entities/breed-standard.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { Farm } from '../farms/entities/farm.entity.js';
@@ -138,6 +142,34 @@ export interface BreedStatus {
   layRateDeviationPct: number | null;
 }
 
+/**
+ * Reads shared by the bands of one list or dashboard, fetched once instead of
+ * once per band (see MetricsService.preload).
+ */
+export interface MetricsPreload {
+  constants: Record<string, number>;
+  farms: Map<string, Farm>;
+  standards: Map<string, BreedStandard[]>;
+  buildings: Map<string, Building>;
+  entries: Map<string, DailyEntry[]>;
+  activeAlerts: Map<string, number>;
+  holds: Map<string, SanitaryHolds>;
+  removals: Map<string, Map<string, number>>;
+  deathEvents: Map<
+    string,
+    Array<{ batchId: string; date: string; quantity: number }>
+  >;
+}
+
+const METRIC_CONSTANT_KEYS = [
+  ReferenceKey.STANDARD_MODULE,
+  ReferenceKey.DENSITY_WARN,
+  ReferenceKey.DENSITY_CRITICAL,
+  ReferenceKey.VENTE_AGE_MIN_DAYS,
+  ReferenceKey.VENTE_FCR_DEV_MAX_PCT,
+  ReferenceKey.REFORME_LAY_RATE_FALL_PCT,
+];
+
 @Injectable()
 export class MetricsService {
   constructor(
@@ -159,10 +191,99 @@ export class MetricsService {
     private readonly flockReconciliation: FlockReconciliationService,
   ) {}
 
+  /**
+   * One round of batched reads for a set of bands: constants, farms,
+   * buildings, breed curves, daily entries, active alert counts and MORTALITE
+   * events, so that compute() does not repeat them per band. Only a cache:
+   * compute() without it returns the same figures.
+   */
+  async preload(batches: ProductionBatch[]): Promise<MetricsPreload> {
+    const ids = batches.map((b) => b.id);
+    const farmIds = [...new Set(batches.map((b) => b.farmId))];
+    const breedIds = [
+      ...new Set(
+        batches.map((b) => b.breed?.id).filter((x): x is string => !!x),
+      ),
+    ];
+    const buildingIds = [
+      ...new Set(
+        batches.map((b) => b.buildingId).filter((x): x is string => !!x),
+      ),
+    ];
+    const [
+      constants,
+      farms,
+      standards,
+      buildings,
+      entries,
+      alertRows,
+      deaths,
+      holds,
+      removals,
+    ] = await Promise.all([
+        this.constants.getMany(METRIC_CONSTANT_KEYS),
+        farmIds.length
+          ? this.farmRepo.find({ where: { id: In(farmIds) } })
+          : Promise.resolve([] as Farm[]),
+        breedIds.length
+          ? this.standardRepo.find({
+              where: { breedId: In(breedIds) },
+              order: { week: 'ASC' },
+            })
+          : Promise.resolve([] as BreedStandard[]),
+        buildingIds.length
+          ? this.farmRepo.manager.find(Building, {
+              where: { id: In(buildingIds) },
+              select: { id: true, capacity: true },
+            })
+          : Promise.resolve([] as Building[]),
+        ids.length
+          ? this.entriesRepo.find({
+              where: { batchId: In(ids) },
+              order: { entryDate: 'ASC' },
+            })
+          : Promise.resolve([] as DailyEntry[]),
+        ids.length
+          ? this.alertRepo
+              .createQueryBuilder('a')
+              .select('a.batch_id', 'batchId')
+              .addSelect('COUNT(*)', 'n')
+              .where('a.batch_id IN (:...ids)', { ids })
+              .andWhere('a.status = :st', { st: AlertStatus.ACTIVE })
+              .groupBy('a.batch_id')
+              .getRawMany<{ batchId: string; n: string }>()
+          : Promise.resolve([] as { batchId: string; n: string }[]),
+        this.flockReconciliation.deathEvents(ids),
+        sanitaryHoldsMany(this.alertRepo.manager, ids),
+        this.flockReconciliation.removalsByDateMany(ids),
+      ]);
+    const out: MetricsPreload = {
+      constants,
+      farms: new Map(farms.map((f) => [f.id, f])),
+      standards: new Map(),
+      buildings: new Map(buildings.map((b) => [b.id, b])),
+      entries: new Map(),
+      activeAlerts: new Map(alertRows.map((r) => [r.batchId, Number(r.n)])),
+      holds,
+      removals,
+      deathEvents: new Map(),
+    };
+    for (const id of breedIds) out.standards.set(id, []);
+    for (const st of standards) out.standards.get(st.breedId)?.push(st);
+    for (const id of ids) {
+      out.entries.set(id, []);
+      out.deathEvents.set(id, []);
+    }
+    for (const e of entries) out.entries.get(e.batchId)?.push(e);
+    for (const d of deaths) out.deathEvents.get(d.batchId)?.push(d);
+    return out;
+  }
+
   async compute(
     batch: ProductionBatch,
-    opts?: { asOf?: string },
+    opts?: { asOf?: string; preload?: MetricsPreload },
   ): Promise<BatchMetrics> {
+    const pre = opts?.preload;
     const asOf = opts?.asOf;
     const refDate = asOf ?? todayIso();
     const historical = asOf != null && asOf < todayIso();
@@ -177,34 +298,41 @@ export class MetricsService {
       farm,
       building,
     ] = await Promise.all([
-      this.entriesRepo.find({
-        where: { batchId: batch.id },
-        order: { entryDate: 'ASC' },
-      }),
+      pre?.entries.has(batch.id)
+        ? Promise.resolve(pre.entries.get(batch.id)!)
+        : this.entriesRepo.find({
+            where: { batchId: batch.id },
+            order: { entryDate: 'ASC' },
+          }),
       // One query for the six thresholds (was six: recette A16, N queries per lot).
-      this.constants.getMany([
-        ReferenceKey.STANDARD_MODULE,
-        ReferenceKey.DENSITY_WARN,
-        ReferenceKey.DENSITY_CRITICAL,
-        ReferenceKey.VENTE_AGE_MIN_DAYS,
-        ReferenceKey.VENTE_FCR_DEV_MAX_PCT,
-        ReferenceKey.REFORME_LAY_RATE_FALL_PCT,
-      ]),
-      this.loadStandards(batch),
-      this.alertRepo.count({
-        where: { batchId: batch.id, status: AlertStatus.ACTIVE },
-      }),
-      sanitaryHolds(this.alertRepo.manager, batch.farmId, batch.id),
+      pre?.constants ?? this.constants.getMany(METRIC_CONSTANT_KEYS),
+      this.loadStandards(batch, pre),
+      pre?.activeAlerts
+        ? Promise.resolve(pre.activeAlerts.get(batch.id) ?? 0)
+        : this.alertRepo.count({
+            where: { batchId: batch.id, status: AlertStatus.ACTIVE },
+          }),
+      pre?.holds.has(batch.id)
+        ? Promise.resolve(pre.holds.get(batch.id)!)
+        : sanitaryHolds(this.alertRepo.manager, batch.farmId, batch.id),
       // Independent reads fired together with the rest (were sequential
       // round-trips further down: ~7 serial queries per band in a list).
-      this.flockReconciliation.deathEvents([batch.id]),
-      this.flockReconciliation.removalsByDate(batch.id),
-      this.farmRepo.findOne({ where: { id: batch.farmId } }),
+      pre?.deathEvents.has(batch.id)
+        ? Promise.resolve(pre.deathEvents.get(batch.id)!)
+        : this.flockReconciliation.deathEvents([batch.id]),
+      pre?.removals.has(batch.id)
+        ? Promise.resolve(pre.removals.get(batch.id)!)
+        : this.flockReconciliation.removalsByDate(batch.id),
+      pre?.farms.has(batch.farmId)
+        ? Promise.resolve(pre.farms.get(batch.farmId)!)
+        : this.farmRepo.findOne({ where: { id: batch.farmId } }),
       batch.buildingId
-        ? this.farmRepo.manager.findOne(Building, {
-            where: { id: batch.buildingId },
-            select: { id: true, capacity: true },
-          })
+        ? pre?.buildings.has(batch.buildingId)
+          ? Promise.resolve(pre.buildings.get(batch.buildingId)!)
+          : this.farmRepo.manager.findOne(Building, {
+              where: { id: batch.buildingId },
+              select: { id: true, capacity: true },
+            })
         : Promise.resolve(null),
     ]);
 
@@ -445,8 +573,13 @@ export class MetricsService {
     };
   }
 
-  private async loadStandards(batch: ProductionBatch): Promise<BreedStandard[]> {
+  private async loadStandards(
+    batch: ProductionBatch,
+    pre?: MetricsPreload,
+  ): Promise<BreedStandard[]> {
     if (!batch.breed) return [];
+    const cached = pre?.standards.get(batch.breed.id);
+    if (cached) return cached;
     return this.standardRepo.find({
       where: { breedId: batch.breed.id },
       order: { week: 'ASC' },
@@ -473,12 +606,17 @@ export class MetricsService {
    * semaine du référentiel). Retourne null si le lot n'a pas de souche ou que
    * la souche n'a pas de référentiel (souche personnalisée).
    */
-  async breedStatus(batch: ProductionBatch): Promise<BreedStatus | null> {
-    const standards = await this.loadStandards(batch);
+  async breedStatus(
+    batch: ProductionBatch,
+    opts?: { metrics?: BatchMetrics; preload?: MetricsPreload },
+  ): Promise<BreedStatus | null> {
+    const standards = await this.loadStandards(batch, opts?.preload);
     const standard = this.pickStandard(standards, batch, todayIso());
     if (!standard) return null;
 
-    const metrics = await this.compute(batch);
+    const metrics =
+      opts?.metrics ??
+      (await this.compute(batch, { preload: opts?.preload }));
     // Weight and FCR are measured at the last weighing: compare them with the
     // curve at THAT age, not at today's week.
     const atWeighing = metrics.lastWeighingDate
