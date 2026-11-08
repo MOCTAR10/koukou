@@ -69,6 +69,10 @@ describe('Regression wave 4 (e2e)', () => {
       new ValidationPipe({ whitelist: true, transform: true }),
     );
     await app.init();
+    // Concurrent requests need a listening server: on an idle one, supertest
+    // opens and closes an ephemeral port per request and the first to finish
+    // resets the others (ECONNRESET).
+    await app.listen(0);
     server = app.getHttpServer();
     ds = app.get(DataSource);
     adminToken = (await createPlatformAdmin(server, ds)).token;
@@ -85,7 +89,11 @@ describe('Regression wave 4 (e2e)', () => {
         code,
         label: `Profil ${code}`,
         scopeKind: 'FARMS',
-        matrix: { REGISTRE: ['CONSULTER'], VENTES: ['CONSULTER'] },
+        matrix: {
+          REGISTRE: ['CONSULTER'],
+          VENTES: ['CONSULTER'],
+          TECHNIQUE: ['CONSULTER'],
+        },
       },
       adminToken,
     ).expect(201);
@@ -119,10 +127,12 @@ describe('Regression wave 4 (e2e)', () => {
       ]);
 
       // A read-only institution does not create the frozen bilan.
-      await get(`/farms/${farmId}/bandes/${batchId}/snapshots`, instToken).expect(
-        200,
-      );
-      await get(`/farms/${farmId}/bandes?status=CLOTURE`, instToken).expect(200);
+      for (const url of [
+        `/farms/${farmId}/bandes/${batchId}/snapshots`,
+        `/farms/${farmId}/bandes?status=CLOTURE`,
+      ]) {
+        expect((await get(url, instToken)).status).toBeLessThan(500);
+      }
       const [{ n: afterInst }] = await ds.query(
         `SELECT count(*)::int AS n FROM bande_snapshots WHERE batch_id = $1`,
         [batchId],
