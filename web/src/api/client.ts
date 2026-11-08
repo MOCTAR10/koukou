@@ -13,6 +13,8 @@ const WRITE_TIMEOUT_MS = 45_000;
 
 const TOKEN_KEY = 'koukou.token';
 const USER_KEY = 'koukou.user';
+/** Selected farm (FarmContext): belongs to the account, never to the device. */
+export const FARM_KEY = 'koukou.farmId';
 
 /**
  * Account roles (backend `UserRole`). ACHETEUR: Market customer only, never a
@@ -60,6 +62,8 @@ export function getStoredUser(): AuthUser | null {
 export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  // The next account must not open on this account's farm.
+  localStorage.removeItem(FARM_KEY);
 }
 
 function buildUrl(path: string): string {

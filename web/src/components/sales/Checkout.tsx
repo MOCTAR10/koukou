@@ -6,6 +6,7 @@ import type { CustomerFull, PromotionFull, SaleCreated } from '../../api/types-s
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso } from '../form';
 import { localYmd } from '../flock/shared';
 import { Card } from '../ui';
+import { readFcfaInput, WHOLE_FCFA_MESSAGE } from '../../lib/amount';
 import { classNames, fcfa, num } from '../../lib/format';
 import { customerTypeLabel } from './labels';
 import { useIdempotencyKey } from '../../lib/idempotency';
@@ -116,6 +117,7 @@ export function Checkout({
   const [mode, setMode] = useState<'CASH' | 'CREDIT'>('CASH');
   const [promoCode, setPromoCode] = useState('');
   const [tendered, setTendered] = useState('');
+  const [tenderedNote, setTenderedNote] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerFull | null>(null);
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
@@ -309,7 +311,19 @@ export function Checkout({
         <div className="space-y-2">
           <div className="flex items-end gap-2">
             <Field label="Espèces reçues (FCFA)" className="flex-1">
-              <input className={inputCls} inputMode="numeric" value={tendered} onChange={(e) => setTendered(e.target.value.replace(/\D/g, ''))} />
+              <input
+                className={inputCls}
+                inputMode="numeric"
+                value={tendered}
+                onChange={(e) => {
+                  const read = readFcfaInput(e.target.value);
+                  if (read.ok) {
+                    setTendered(read.digits);
+                    setTenderedNote(null);
+                  } else setTenderedNote(WHOLE_FCFA_MESSAGE);
+                }}
+              />
+              {tenderedNote ? <span className="mt-1 block text-xs text-red-600">{tenderedNote}</span> : null}
             </Field>
             <Button tone="secondary" disabled={total <= 0} onClick={() => setTendered(String(total))}>
               <Banknote className="h-4 w-4" /> Exact

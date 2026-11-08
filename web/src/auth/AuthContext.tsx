@@ -2,7 +2,7 @@ import { plural } from '../lib/format';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, clearSession, getStoredUser, setSession } from '../api/client';
+import { api, clearSession, FARM_KEY, getStoredUser, setSession } from '../api/client';
 import type { AuthUser } from '../api/client';
 import { landingAfterLogin } from '../app/roles';
 import { clearReadCache } from '../offline/readCache';
@@ -56,7 +56,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const startSession = (res: LoginSession, from?: string) => {
       // Never show the previous account's cached data.
       queryClient.clear();
-      if (getStoredUser()?.id !== res.user.id) void clearReadCache();
+      if (getStoredUser()?.id !== res.user.id) {
+        void clearReadCache();
+        localStorage.removeItem(FARM_KEY);
+      }
       setSession(res.accessToken, res.user);
       setUser(res.user);
       navigate(landingAfterLogin(res.user.role, from));
@@ -102,9 +105,8 @@ Se déconnecter quand même ?`,
         clearOfflineOps();
         void clearReadCache();
         clearSession();
-        // The 401 path reloads the page; a manual logout must drop the cache
-        // and the selected farm itself.
-        localStorage.removeItem('koukou.farmId');
+        // The 401 path reloads the page; a manual logout must drop the cache itself
+        // (clearSession already forgot the selected farm).
         queryClient.clear();
         setUser(null);
         navigate('/login');

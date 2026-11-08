@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../api/client';
+import { api, FARM_KEY } from '../api/client';
 import type { Farm } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { scopeReachesFarms } from './menu-access';
@@ -20,13 +20,19 @@ interface FarmContextValue {
 
 const FarmContext = createContext<FarmContextValue | null>(null);
 
-const STORAGE_KEY = 'koukou.farmId';
+const STORAGE_KEY = FARM_KEY;
 
 export function FarmProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [farmId, setFarmId] = useState<string | null>(() =>
     localStorage.getItem(STORAGE_KEY),
   );
+
+  // A sign-in or sign-out wiped the stored farm: drop the previous account's farm held in memory.
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    setFarmId(localStorage.getItem(STORAGE_KEY) || null);
+  }, [userId]);
 
   // An institution whose scope reaches no farm (aggregate, audit, financed)
   // would only get a 403, journaled: it never asks for the list.

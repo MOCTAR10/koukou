@@ -108,11 +108,12 @@ describe('flushQueue', () => {
     expect(loadRejected()[0]?.reason).toBe('Stock insuffisant');
   });
 
-  it('drops a refused state change', async () => {
+  it('keeps a refused state change in the rejected list with its message', async () => {
     await queueOne({ kind: 'order-deliver', farmId: FARM, path: `/farms/${FARM}/orders/o/livrer`, label: 'Livraison' });
     route('POST', /livrer/, { status: 400, body: { message: 'Déjà livrée' } });
-    expect((await flushQueue()).dropped).toBe(1);
-    expect(loadRejected()).toHaveLength(0);
+    expect((await flushQueue()).rejected).toBe(1);
+    expect(loadOps()).toHaveLength(0);
+    expect(loadRejected()[0]).toMatchObject({ kind: 'order-deliver', reason: 'Déjà livrée' });
   });
 
   it('replays an order delivery with the time it was recorded', async () => {

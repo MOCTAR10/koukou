@@ -309,6 +309,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
 
   const submit = () => {
     if (items.length === 0) return setLocalError('Ajoutez au moins un article.');
+    if (!expectedDate || expectedDate < today) return setLocalError('Indiquez une date prévue valide, à partir d’aujourd’hui.');
     if (place === 'PDV' && !pdvId) return setLocalError('Sélectionnez le point de vente de retrait.');
     if (place === 'LIVRAISON' && !where.address.trim()) return setLocalError('Indiquez l’adresse de livraison.');
     if (deposit > total) return setLocalError('L’acompte ne peut pas dépasser le total.');
@@ -585,7 +586,7 @@ export function CreateOrderModal({ onClose, onCreated }: { onClose: () => void; 
           <Button tone="secondary" onClick={onClose} disabled={create.isPending}>
             Fermer
           </Button>
-          <Button type="submit" busy={create.isPending} disabled={items.length === 0}>
+          <Button type="submit" busy={create.isPending} disabled={items.length === 0 || !expectedDate || expectedDate < today}>
             {create.isPending ? null : deposit > 0 ? <Wallet className="h-4 w-4" /> : <ClipboardList className="h-4 w-4" />}
             {deposit > 0 ? `Créer et encaisser ${fcfa(deposit)}` : 'Créer la commande'}
           </Button>

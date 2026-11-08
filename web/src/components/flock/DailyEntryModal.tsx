@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -92,6 +92,18 @@ export function DailyEntryModal({
   const [lotId, setLotId] = useState(initialBatchId ?? '');
   const lot = active.find((b) => b.id === lotId) ?? active[0];
   const [date, setDate] = useState(initialDate ?? localYmd());
+  // Set by the form: values typed and not saved yet.
+  const unsaved = useRef(false);
+  const confirmLeave = () =>
+    !unsaved.current || window.confirm('Les valeurs saisies pour ce lot et cette date seront perdues. Continuer ?');
+  const changeDate = (next: string) => {
+    if (!next || next === date) return;
+    if (confirmLeave()) setDate(next);
+  };
+  const changeLot = (id: string) => {
+    if (id === lot?.id) return;
+    if (confirmLeave()) setLotId(id);
+  };
 
   const entries = useQuery({
     queryKey: ['daily-entries', farmId, lot?.id],
@@ -103,6 +115,11 @@ export function DailyEntryModal({
 
   const today = localYmd();
   const yesterday = addLocalDays(today, -1);
+
+  // The spinner only covers the first read (a cached list would prefill a stale entry); later refetches
+  // (reconnection, invalidation) keep the form mounted, so typed values survive.
+  const awaitingEntries =
+    !entries.isError && entries.fetchStatus !== 'paused' && (entries.isLoading || !entries.isFetchedAfterMount);
 
   return (
     <Modal title="Saisie journalière" onClose={onClose} large>
@@ -116,7 +133,7 @@ export function DailyEntryModal({
             <Field label="Lot">
               <div className="flex items-center gap-2">
                 <PhotoThumb src={lotImage(lot.breedName, lot.species)} />
-                <select className={`${inputCls} min-w-0`} value={lot.id} onChange={(e) => setLotId(e.target.value)}>
+                <select className={`${inputCls} min-w-0`} value={lot.id} onChange={(e) => changeLot(e.target.value)}>
                   {active.map((b) => (
                     <option key={b.id} value={b.id}>
                       {lotOption(b)}
@@ -127,20 +144,19 @@ export function DailyEntryModal({
             </Field>
             <IconField label="Date de la saisie" icon={<CalendarDays />}>
               <div className="flex items-center gap-1">
-                <DateChip active={date === today} onClick={() => setDate(today)}>
+                <DateChip active={date === today} onClick={() => changeDate(today)}>
                   Aujourd'hui
                 </DateChip>
-                <DateChip active={date === yesterday} onClick={() => setDate(yesterday)}>
+                <DateChip active={date === yesterday} onClick={() => changeDate(yesterday)}>
                   Hier
                 </DateChip>
                 <DateInput
-                  
                   className={inputCls}
                   aria-label="Date de la saisie"
                   max={today}
                   min={lot.integrationDate.slice(0, 10)}
                   value={date}
-                  onChange={(e) => setDate(e.target.value || today)}
+                  onChange={(e) => changeDate(e.target.value)}
                 />
               </div>
             </IconField>
@@ -152,10 +168,17 @@ export function DailyEntryModal({
             {' '}· mortalité {num(lot.metrics.mortalityPercent)} %
           </p>
           <ErrorNote error={entries.error} />
-          {entries.isLoading || entries.isFetching ? (
+          {awaitingEntries ? (
             <Loading label="Lecture des saisies du lot…" />
           ) : (
-            <EntryForm key={`${lot.id}|${date}`} lot={lot} date={date} entries={entries.data ?? []} onClose={onClose} />
+            <EntryForm
+              key={`${lot.id}|${date}`}
+              lot={lot}
+              date={date}
+              entries={entries.data ?? []}
+              unsaved={unsaved}
+              onClose={onClose}
+            />
           )}
         </div>
       )}
@@ -184,11 +207,13 @@ function EntryForm({
   lot,
   date,
   entries,
+  unsaved,
   onClose,
 }: {
   lot: Lot;
   date: string;
   entries: DailyEntryRecord[];
+  unsaved: MutableRefObject<boolean>;
   onClose: () => void;
 }) {
   const { farmId, farm } = useFarm();
@@ -300,6 +325,16 @@ function EntryForm({
   const weightDev = weightGN > 0 && targetWeight ? ((weightGN / 1000 - targetWeight) / targetWeight) * 100 : null;
   const weightDelta = weightGN > 0 && prevWeightG != null ? weightGN - prevWeightG : null;
   const layRate = live > 0 && eggs > 0 ? (eggs / live) * 100 : null;
+
+  // Typed-in values differ from what the form opened with: warn before a date or lot change drops them.
+  const formSignature = JSON.stringify([deaths, feedMode, feedKg, feedSacs, bagSize, phase, customPhase, source, water, weightG, eggs, cracked, small, doubleYolk, dirty]);
+  const initialSignature = useRef(formSignature);
+  useEffect(() => {
+    unsaved.current = formSignature !== initialSignature.current;
+    return () => {
+      unsaved.current = false;
+    };
+  }, [formSignature, unsaved]);
 
   const hasAnything =
     deathsN > 0 || feedKgEq > 0 || waterN > 0 || weightGN > 0 || eggs > 0 || rejects > 0 || existing != null;

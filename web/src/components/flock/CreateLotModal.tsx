@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Bird,
@@ -25,7 +25,7 @@ import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import { EGG_IMAGES, SPECIES_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames, dateFr, num, plural } from '../../lib/format';
-import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
+import { Button, ErrorNote, errorMessage, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
 import { PhotoThumb } from '../ui';
 import {
   bandOpening,
@@ -130,6 +130,10 @@ export function CreateLotModal({
   const [chickPrice, setChickPrice] = useState('');
   const [doneSteps, setDoneSteps] = useState<string[]>([]);
   const [addingBuilding, setAddingBuilding] = useState(false);
+  // The lot is created once: a retry after a failed care record must not POST it again (no server idempotency key on lots).
+  const createdLot = useRef<Lot | null>(null);
+  const recordedSteps = useRef<Set<string>>(new Set());
+  const [careFailure, setCareFailure] = useState<string | null>(null);
 
   const isAutre = species === 'AUTRE';
   // POUFA band opening (J+x): age, feed phase and care due count from the birds' J0.
@@ -218,9 +222,13 @@ export function CreateLotModal({
       if (chickLot.trim()) body.chickLotNumber = chickLot.trim();
       if (hatchDate) body.hatchDate = hatchDate;
       if (chickPrice.trim() && !prefill) body.chickUnitPriceFcfa = parseInt(chickPrice, 10);
-      const lot = await api.post<Lot>(`/farms/${farmId}/batches`, body);
-      const selected = running && canRecordCare ? dueSteps.filter((s) => doneSteps.includes(s.id)) : [];
-      await Promise.all(
+      const lot = createdLot.current ?? (await api.post<Lot>(`/farms/${farmId}/batches`, body));
+      createdLot.current = lot;
+      const selected =
+        running && canRecordCare
+          ? dueSteps.filter((s) => doneSteps.includes(s.id) && !recordedSteps.current.has(s.id))
+          : [];
+      const results = await Promise.allSettled(
         selected.map((step) =>
           api.post(`/farms/${farmId}/batches/${lot.id}/treatments`, {
             careType: step.careType,
@@ -239,11 +247,24 @@ export function CreateLotModal({
           }),
         ),
       );
-      return lot;
+      const failed: string[] = [];
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') recordedSteps.current.add(selected[i].id);
+        else failed.push(`${selected[i].name} (${errorMessage(r.reason)})`);
+      });
+      return { lot, failed };
     },
-    onSuccess: async (lot) => {
+    onSuccess: async ({ lot, failed }) => {
+      // The lot exists whatever happened to its care records.
       await invalidate();
-      onCreated(lot.id);
+      if (failed.length === 0) {
+        setCareFailure(null);
+        onCreated(lot.id);
+      } else {
+        setCareFailure(
+          `Lot créé ; ${failed.length} ${failed.length > 1 ? 'soins non enregistrés' : 'soin non enregistré'} : ${failed.join(' ; ')}. Réessayez pour enregistrer les soins manquants, ou ouvrez le lot et saisissez-les depuis son suivi sanitaire.`,
+        );
+      }
     },
   });
 
@@ -604,13 +625,19 @@ export function CreateLotModal({
         </div>
         </FormColumns>
 
-        <ErrorNote error={create.error} />
+        <ErrorNote error={create.error ?? careFailure} />
         <div className="flex justify-end gap-2">
           <Button tone="secondary" onClick={onClose}>
-            Annuler
+            {careFailure ? 'Fermer' : 'Annuler'}
           </Button>
+          {careFailure && createdLot.current ? (
+            <Button tone="secondary" onClick={() => createdLot.current && onCreated(createdLot.current.id)}>
+              Ouvrir le lot
+            </Button>
+          ) : null}
           <Button type="submit" busy={create.isPending} disabled={!canSubmit}>
-            <Check className="h-4 w-4" /> {running ? 'Ajouter le lot' : 'Créer le lot'}
+            <Check className="h-4 w-4" />{' '}
+            {careFailure ? 'Réessayer les soins' : running ? 'Ajouter le lot' : 'Créer le lot'}
           </Button>
         </div>
       </form>

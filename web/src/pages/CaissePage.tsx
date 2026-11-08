@@ -12,6 +12,7 @@ import { Card, DataTable, EmptyState, Loading, PageHeader, StatusBadge, Td, Th }
 import { MOVEMENT_SOURCE_LABEL } from '../components/sales/labels';
 import { lastClosingOf } from '../components/sales/pos';
 import { ConfirmDialog } from '../components/sales/shared';
+import { readFcfaInput, WHOLE_FCFA_MESSAGE } from '../lib/amount';
 import { classNames, dateFr, dateTimeFr, fcfa } from '../lib/format';
 
 function parseAmount(s: string): number {
@@ -61,7 +62,16 @@ function MovementForm({
           {editing ? ' L’écriture comptable est ajustée automatiquement.' : ''}
         </p>
         <Field label="Montant (FCFA)">
-          <input className={inputCls} inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))} autoFocus />
+          <input className={inputCls} inputMode="numeric" value={amount}
+            onChange={(e) => {
+              const read = readFcfaInput(e.target.value);
+              if (read.ok) {
+                setAmount(read.digits);
+                setInvalid(null);
+              } else setInvalid(WHOLE_FCFA_MESSAGE);
+            }}
+            autoFocus
+          />
         </Field>
         <Field label="Motif (facultatif)">
           <input className={inputCls} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ex. petit matériel" />
@@ -269,8 +279,11 @@ export function CaissePage() {
                 inputMode="numeric"
                 value={amount}
                 onChange={(e) => {
-                  setAmount(e.target.value.replace(/\D/g, ''));
-                  setFieldError(null);
+                  const read = readFcfaInput(e.target.value);
+                  if (read.ok) {
+                    setAmount(read.digits);
+                    setFieldError(null);
+                  } else setFieldError(WHOLE_FCFA_MESSAGE);
                 }}
               />
             </Field>
