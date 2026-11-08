@@ -1,15 +1,29 @@
 import { useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Egg, Wheat } from 'lucide-react';
 import { api } from '../../api/client';
-import type { BatchHealth, Lot } from '../../api/types-flock';
+import type { FlockDashboard, Lot } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
-import { useCanRead } from '../../app/useMenuAccess';
 import { lotImage } from '../../lib/animalImages';
 import { num } from '../../lib/format';
 import { PhotoThumb } from '../ui';
 import { weightedMean } from '../../lib/weightedMean';
+import type { FarmIndicators } from '../../api/types';
 import { kindLabel, lotName, Metric } from './shared';
+
+/**
+ * Laying rate of a species/type group: the server's hen-days weighted value of its species;
+ * the lots' own rates weighted by headcount only when the server has none (past date, old server).
+ */
+function groupLayRate(items: Lot[], farmIndicators: FarmIndicators | undefined): number | null {
+  const first = items[0];
+  if (!first || first.type !== 'PONDEUSE') return null;
+  const server = farmIndicators?.layingBySpecies.find(
+    (g) => g.species === (first.species ?? 'POULET') && (g.customSpecies ?? null) === (first.customSpecies ?? null),
+  );
+  if (server) return server.layRatePercent;
+  return weightedMean(items.map((b) => ({ value: b.metrics.layRatePercent, weight: b.metrics.liveCount })));
+}
 
 /**
  * Feed consumption and species/strain breakdown of the running lots, ported
@@ -18,35 +32,23 @@ import { kindLabel, lotName, Metric } from './shared';
  */
 export function LotsBreakdown({ lots, historical }: { lots: Lot[]; historical: boolean }) {
   const { farmId } = useFarm();
-  // The daily health figures are SANITAIRE: without it, feed over bird-days, like a past date.
-  const sanitary = useCanRead()('SANITAIRE');
-  const healthList = useQueries({
-    queries: lots.map((b) => ({
-      // Same key as the lot detail, so both share one call.
-      queryKey: ['health', farmId, b.id],
-      queryFn: () => api.get<BatchHealth>(`/farms/${farmId}/batches/${b.id}/health`),
-      enabled: !!farmId && !historical && sanitary,
-      staleTime: 60_000,
-    })),
+  // Farm indicators come from the server (hen-days weighted laying rate, feed per bird-day on the
+  // birds present); a past "situation au" date has none, so it falls back to feed over bird-days.
+  const dashboard = useQuery({
+    queryKey: ['dashboard', farmId],
+    queryFn: () => api.get<FlockDashboard>(`/farms/${farmId}/dashboard`),
+    enabled: !!farmId && !historical,
+    staleTime: 60_000,
   });
+  const farmIndicators = historical ? undefined : dashboard.data?.farmIndicators;
 
   const totalFeedKg = lots.reduce((sum, b) => sum + (b.metrics.totalFeedKg ?? 0), 0);
   const totalBirds = lots.reduce((sum, b) => sum + b.metrics.liveCount, 0);
 
-  let gramSum = 0;
-  let gramBirds = 0;
-  healthList.forEach((q, i) => {
-    const grams = q.data?.feedPerBirdGrams;
-    const lot = lots[i];
-    if (grams != null && grams > 0 && lot) {
-      gramSum += grams * lot.metrics.liveCount;
-      gramBirds += lot.metrics.liveCount;
-    }
-  });
   const birdDays = lots.reduce((sum, b) => sum + Math.max(0, b.metrics.liveCount) * Math.max(1, b.metrics.ageDays), 0);
   const feedPerBirdDay =
-    !historical && gramBirds > 0
-      ? gramSum / gramBirds
+    farmIndicators?.feedPerBirdDayKg != null
+      ? farmIndicators.feedPerBirdDayKg * 1000
       : totalFeedKg > 0 && birdDays > 0
         ? (totalFeedKg * 1000) / birdDays
         : null;
@@ -66,10 +68,10 @@ export function LotsBreakdown({ lots, historical }: { lots: Lot[]; historical: b
         birds: items.reduce((sum, b) => sum + b.metrics.liveCount, 0),
         eggs: items.reduce((sum, b) => sum + (b.metrics.eggsCollectedTotal ?? 0), 0),
         feedKg: items.reduce((sum, b) => sum + (b.metrics.totalFeedKg ?? 0), 0),
-        layRate: weightedMean(items.map((b) => ({ value: b.metrics.layRatePercent, weight: b.metrics.liveCount }))),
+        layRate: groupLayRate(items, farmIndicators),
       };
     });
-  }, [lots]);
+  }, [lots, farmIndicators]);
 
   if (lots.length === 0) return null;
 

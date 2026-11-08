@@ -567,9 +567,24 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       expect(official.variables.charges_fcfa).toBe(pnl.expensesFcfa);
     });
 
-    it.todo(
-      'Coût de production : la rentabilité (coût / kg VENDU en vente au kilo seulement, ex. 1650,49 FCFA/kg, null si tout est vendu à la pièce) et l’indicateur officiel (charges / poids vif produit, ex. 1218,46 FCFA/kg) ne mesurent pas la même chose — libeller ou aligner',
-    );
+    it('coût de production officiel (charges / poids vif produit) = 1218,46 sur la fiche et la liste, distinct du coût par kg vendu', async () => {
+      // 2 550 000 / 2 092,8 kg produits (bilan figé), pas / 1 545 kg vendus.
+      expect(lot.coutProductionKg).toBe(1218.46);
+      expect(lot.coutProductionKg).toBeCloseTo(COSTS / 2092.8, 2);
+      expect(lot.coutProductionSource).toBe('BILAN');
+      expect(lot.coutProductionReason).toBeNull();
+      const list = (await get(`/farms/${farmId}/batches?withCost=true`, token).expect(200)).body;
+      const row = list.find((b: { id: string }) => b.id === batchId);
+      expect(row.coutProductionKg).toBe(1218.46);
+      // Without the opt-in the list stays cost-free (constant query count).
+      const plain = (await get(`/farms/${farmId}/batches`, token).expect(200)).body;
+      expect(plain.find((b: { id: string }) => b.id === batchId)).not.toHaveProperty('coutProductionKg');
+      const pnl = (await get(`/farms/${farmId}/rentabilite/batches/${batchId}`, token).expect(200)).body;
+      expect(pnl.costPerKgFcfa).toBeCloseTo(COSTS / SOLD_KG, 1);
+      expect(pnl.costPerKgFcfa).not.toBe(lot.coutProductionKg);
+      // Same value as the frozen bilan indicator.
+      expect(lot.coutProductionKg).toBeCloseTo(indicator(snapshot.indicators, 'cout_production_kg')!, 2);
+    });
 
     it('traitements : calendrier de référence enregistré + antibiotique, délai d’attente écoulé', async () => {
       const treatments = (await get(`/farms/${farmId}/batches/${batchId}/treatments`, token).expect(200)).body;
@@ -789,6 +804,29 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
         (r: { batchId: string }) => r.batchId === batchId,
       );
       expect(board.layRatePercent).toBeCloseTo(expected, 6);
+    });
+
+    it('tableau de bord : taux de ponte de la ferme par espèce (poules-jours) = 74,6 %', async () => {
+      const expected = (2960 / (496 * 8)) * 100;
+      const dash = await dashboard();
+      expect(dash.farmIndicators.windowDays).toBe(7);
+      const poulet = dash.farmIndicators.layingBySpecies.find(
+        (g: { species: string }) => g.species === 'POULET',
+      );
+      expect(poulet).toMatchObject({ eggs: 2960, henDays: 496 * 8, lots: 1 });
+      expect(poulet.layRatePercent).toBeCloseTo(expected, 1);
+      expect(poulet.layRatePercent).toBeCloseTo(74.6, 1);
+      // No feed typed on the layer lot: nothing to divide.
+      expect(dash.farmIndicators.feedPerBirdDayKg).toBeNull();
+      // Seeded thresholds, same shape the mobile used to hard-code.
+      expect(dash.thresholds).toMatchObject({
+        fcrAbsoluteWarn: 2.2,
+        fcrDeviationWarnPct: 10,
+        fcrDeviationGoodPct: 5,
+        layRateDeviationWarnPct: 10,
+        waterDropWarnPct: 10,
+        waterDropCriticalPct: 25,
+      });
     });
 
     it('taux de ponte vs courbe de la souche (ISA Brown) à la semaine d’âge', async () => {

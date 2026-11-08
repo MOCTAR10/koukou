@@ -57,10 +57,10 @@ import { color, fmt, palette, radii, fontFamily, semantic } from '@/constants/th
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
-import { fetchBatches, fetchBatchHealth, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
+import { fetchBatches, fetchBatchHealth, fetchDashboard, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
 // POUFA lot A sante: a care completion goes through the offline queue (CDC n° 22).
 import { CompleteCareSheet } from '@/components/sanitary/SanitaryRecordSheets';
-import type { BatchHealth, BatchPnl, BatchStatus, BatchType, BatchWithMetrics, Expense, OrderCanal, OrderFull, OrderStatus, OverviewPnl, ProphylaxisEvent, ProtocolStep, ReadyReason, SaleSummary, SanitaryProtocol, SanitaryProtocolWithSteps, Species, TreatmentRecord } from '@/api/types';
+import type { BatchHealth, BatchPnl, FarmIndicators, BatchStatus, BatchType, BatchWithMetrics, Expense, OrderCanal, OrderFull, OrderStatus, OverviewPnl, ProphylaxisEvent, ProtocolStep, ReadyReason, SaleSummary, SanitaryProtocol, SanitaryProtocolWithSteps, Species, TreatmentRecord } from '@/api/types';
 import { speciesLabel } from '@/api/format';
 import { SPECIES_IMAGES } from '@/constants/speciesImages';
 import { BREED_IMAGES, breedImageForLot } from '@/constants/breedImages';
@@ -427,7 +427,10 @@ function nextCareInsight(
 
 // ── Vue d'ensemble : agrégats moyens/par espèces sur une liste de lots ──
 // (liste en direct OU reconstituée à une date via ?asOf=)
-function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
+// `indicators`: the server's farm indicators (hen-days weighted laying rate, feed per bird-day on
+// the birds present), passed only when `list` is the whole farm; a filtered or dated list has no
+// server figure and keeps the lot-based approximation.
+function buildOverviewSummary(list: BatchWithMetrics[], indicators?: FarmIndicators | null): OverviewSummary {
   if (list.length === 0) return null;
   const totalBirds = list.reduce((s, b) => s + b.metrics.liveCount, 0);
   const avgOf = (pick: (m: BatchWithMetrics['metrics']) => number | null | undefined) => {
@@ -436,7 +439,7 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
   };
   const avgFcr = avgOf((m) => m.fcr);
   const avgGmq = avgOf((m) => m.gmqGramsPerDay);
-  const avgLayRate = avgOf((m) => m.layRatePercent);
+  const avgLayRate = indicators ? indicators.layRatePercent : avgOf((m) => m.layRatePercent);
   const avgMortality = avgOf((m) => m.mortalityPercent);
   const activeCount = list.filter((b) => b.status === 'ACTIF').length;
   const sellingCount = list.filter((b) => b.status === 'EN_VENTE').length;
@@ -463,18 +466,20 @@ function buildOverviewSummary(list: BatchWithMetrics[]): OverviewSummary {
   }
   const speciesGroups = [...labelByKey.entries()].map(([key, label]) => {
     const lay = laySumByKey.get(key);
+    const [species, type] = key.split('|');
+    const server = indicators && type === 'PONDEUSE' ? indicators.layingBySpecies.find((g) => g.species === species) : undefined;
     return {
       label,
       birds: birdsByKey.get(key) ?? 0,
       eggs: eggsByKey.get(key) ?? 0,
       feedKg: feedByKey.get(key) ?? 0,
-      layRate: lay && lay.w > 0 ? lay.sum / lay.w : null,
+      layRate: server ? server.layRatePercent : lay && lay.w > 0 ? lay.sum / lay.w : null,
     };
   });
   const totalEggs = [...eggsByKey.values()].reduce((s, v) => s + v, 0);
   const totalFeedKg = [...feedByKey.values()].reduce((s, v) => s + v, 0);
   const birdDays = list.reduce((s, b) => s + Math.max(0, b.metrics.liveCount) * Math.max(1, b.metrics.ageDays), 0);
-  const feedPerBirdDay = totalFeedKg > 0 && birdDays > 0 ? (totalFeedKg * 1000) / birdDays : null;
+  const feedPerBirdDay = indicators?.feedPerBirdDayKg != null ? indicators.feedPerBirdDayKg * 1000 : totalFeedKg > 0 && birdDays > 0 ? (totalFeedKg * 1000) / birdDays : null;
   const readyBatches = list.filter((b) => b.metrics.readyForSale);
   const readyCount = readyBatches.length;
   const readyBirds = readyBatches.reduce((s, b) => s + b.metrics.liveCount, 0);
@@ -682,7 +687,11 @@ export default function LotsScreen() {
   }, [filteredList, sortKey, sortDir, search]);
 
   // ── Slim summary totals (Vue d'ensemble, sur le filtre — pas la recherche) ──
-  const summary = useMemo(() => buildOverviewSummary(filteredList), [filteredList]);
+  // Server farm indicators apply only when the list is the whole farm (no filter) and live.
+  const dashboard = useQuery({ queryKey: ['dashboard', farmId], queryFn: () => fetchDashboard(farmId), staleTime: 60_000 });
+  const farmIndicators = dashboard.data?.farmIndicators ?? null;
+  const wholeFarm = (batches.data?.length ?? 0) > 0 && filteredList.length === batches.data?.length;
+  const summary = useMemo(() => buildOverviewSummary(filteredList, wholeFarm ? farmIndicators : null), [filteredList, wholeFarm, farmIndicators]);
 
   // ── Vue d'ensemble datée (option B) : quand une période/journal est filtré,
   // la sheet reconstruit le cheptel à cette date via GET /batches?asOf= — la
@@ -700,7 +709,7 @@ export default function LotsScreen() {
     if (overviewLive) return filteredList;
     return applyFilter(overviewBatches.data ?? []);
   }, [overviewLive, filteredList, applyFilter, overviewBatches.data]);
-  const overviewSummary = useMemo(() => buildOverviewSummary(overviewList), [overviewList]);
+  const overviewSummary = useMemo(() => buildOverviewSummary(overviewList, overviewLive && wholeFarm ? farmIndicators : null), [overviewList, overviewLive, wholeFarm, farmIndicators]);
 
   // ── Farm-wide stats (tuiles, indépendantes du filtre) ──
   const farmStats = useMemo(() => {
@@ -709,17 +718,14 @@ export default function LotsScreen() {
     const totalEggs = list.reduce((s, b) => s + (b.metrics.eggsCollectedTotal ?? 0), 0);
     const chairCount = list.filter((b) => b.type === 'CHAIR').reduce((s, b) => s + b.metrics.liveCount, 0);
     const pondeuseCount = list.filter((b) => b.type === 'PONDEUSE').reduce((s, b) => s + b.metrics.liveCount, 0);
-    const pondeuseBatches = list.filter((b) => b.type === 'PONDEUSE' && b.metrics.layRatePercent != null);
-    const pondeuseLive = pondeuseBatches.reduce((s, b) => s + b.metrics.liveCount, 0);
-    const avgLayRatePondeuse = pondeuseLive > 0
-      ? pondeuseBatches.reduce((s, b) => s + (b.metrics.layRatePercent ?? 0) * b.metrics.liveCount, 0) / pondeuseLive
-      : null;
+    // Laying rate of the open layer lots: computed by the server (hen-days weighted).
+    const avgLayRatePondeuse = farmIndicators?.layRatePercent ?? null;
     const activeCount = list.filter((b) => b.status === 'ACTIF').length;
     const sellingCount = list.filter((b) => b.status === 'EN_VENTE').length;
     const readyBirds = list.filter((b) => b.metrics.readyForSale).reduce((s, b) => s + b.metrics.liveCount, 0);
     const totalAlveoles = Math.floor(totalEggs / EGGS_PER_ALVEOL);
     return { totalBirds, totalEggs, chairCount, pondeuseCount, avgLayRatePondeuse, activeCount, sellingCount, readyBirds, totalAlveoles };
-  }, [batches.data]);
+  }, [batches.data, farmIndicators]);
 
   // Empty-state helpers
   const hasAnyBatch = (batches.data?.length ?? 0) > 0;
@@ -1634,13 +1640,6 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
       staleTime: 60_000,
     })),
   });
-  const healthList = useQueries({
-    queries: lots.map((b) => ({
-      queryKey: ['batch-health', farmId, b.id],
-      queryFn: () => fetchBatchHealth(farmId, b.id),
-      staleTime: 60_000,
-    })),
-  });
 
   // Protocoles par (espèce, type) — mêmes clés que la carte lot (cache partagé).
   const speciesTypeKeys = useMemo(
@@ -1715,18 +1714,8 @@ function OverviewSheet({ visible, summary, lots, farmId, filterLabel, revenueFcf
     0,
   );
 
-  let feedGramSum = 0;
-  let feedBirds = 0;
-  let feedAvail = 0;
-  healthList.forEach((q, i) => {
-    const g = q.data?.feedPerBirdGrams;
-    if (g != null && g > 0) {
-      feedGramSum += g * lots[i].metrics.liveCount;
-      feedBirds += lots[i].metrics.liveCount;
-      feedAvail += 1;
-    }
-  });
-  const feedPerBirdDay = feedBirds > 0 && feedAvail > 0 ? feedGramSum / feedBirds : (summary?.feedPerBirdDay ?? null);
+  // Feed per bird-day: the server's value when the sheet covers the whole farm (see buildOverviewSummary).
+  const feedPerBirdDay = summary?.feedPerBirdDay ?? null;
 
   if (!summary) return null;
 

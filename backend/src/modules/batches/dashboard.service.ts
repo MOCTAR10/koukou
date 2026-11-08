@@ -54,6 +54,12 @@ import {
   performanceAtLastWeighing,
   waterPerBirdOn,
 } from './flock-performance.js';
+import { farmIndicators, type FarmIndicators } from './farm-indicators.js';
+import {
+  INDICATOR_THRESHOLD_KEYS,
+  indicatorThresholds,
+  type IndicatorThresholds,
+} from './indicator-thresholds.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { FarmWeather, WeatherService } from '../weather/weather.service.js';
@@ -173,6 +179,13 @@ export interface DashboardData {
   totalAreaM2: number | null;
   /** Densité globale ferme = liveStock / totalAreaM2 (oiseaux/m²). */
   farmDensityPerM2: number | null;
+  /**
+   * Server-side farm indicators (clients no longer recompute them): laying
+   * rate per species (hen-days weighted) and feed per bird-day.
+   */
+  farmIndicators: FarmIndicators;
+  /** Admin-managed thresholds the clients colour the indicators with. */
+  thresholds: IndicatorThresholds;
 }
 
 export interface CurveWeek {
@@ -480,6 +493,10 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       buildingsCount,
       totalAreaM2,
       farmDensityPerM2,
+      farmIndicators: farmIndicators(withMetrics),
+      thresholds: indicatorThresholds(
+        await this.constants.getMany(INDICATOR_THRESHOLD_KEYS),
+      ),
     };
   }
 

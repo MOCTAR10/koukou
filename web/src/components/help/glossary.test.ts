@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GLOSSARY, GLOSSARY_KEYS, IC_OFFICIEL_LABEL, IC_TECHNIQUE_LABEL, costPerKgSoldView } from './glossary';
+import { GLOSSARY, GLOSSARY_KEYS, IC_OFFICIEL_LABEL, IC_TECHNIQUE_LABEL, costPerKgProducedView, costPerKgSoldView } from './glossary';
 
 describe('glossaire', () => {
   it('définit chaque indicateur affiché', () => {
@@ -20,5 +20,12 @@ describe('glossaire', () => {
     expect(costPerKgSoldView(1200, 50).applicable).toBe(true);
     expect(costPerKgSoldView(null, 0).note).toContain('vente à l’unité');
     expect(costPerKgSoldView(1200, 0).applicable).toBe(false);
+  });
+
+  it('coût de production officiel : valeur du serveur, sinon la raison', () => {
+    expect(costPerKgProducedView(1218.46, null)).toEqual({ value: 1218.46, note: null });
+    expect(costPerKgProducedView(null, 'NO_WEIGHT_PRODUCED').note).toContain('poids vif');
+    expect(costPerKgProducedView(null, 'RESTRICTED').value).toBeNull();
+    expect(costPerKgProducedView(null, undefined)).toEqual({ value: null, note: null });
   });
 });

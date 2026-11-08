@@ -65,6 +65,14 @@ export interface BatchMetrics {
    */
   eggStockAvailableAlveoles: number;
   layRatePercent: number | null;
+  /** Eggs of the 7-day lay window (layers only, else 0). */
+  layWindowEggs: number;
+  /** Hen-days of that window (hens present on each recorded day). */
+  layWindowHenDays: number;
+  /** Feed (kg) typed over the 7-day window. */
+  feedWindowKg: number;
+  /** Bird-days present on the days with feed typed in that window. */
+  feedWindowBirdDays: number;
   status: AlertLevel;
   densityPerM2: number | null;
   moduleFraction: number;

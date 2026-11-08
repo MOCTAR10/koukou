@@ -50,6 +50,7 @@ export class BatchesController {
     @Query('status') status?: string,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('withCost') withCost?: string,
   ) {
     // Optional and additive: without it (older clients) every band is listed.
     const scope =
@@ -60,6 +61,8 @@ export class BatchesController {
       asOf,
       scope,
       pageOptions(limit, offset),
+      // Opt-in: the official cost costs a bilan per lot (list stays constant-query by default).
+      { withCost: withCost === 'true' || withCost === '1' },
     );
   }
 
@@ -73,7 +76,9 @@ export class BatchesController {
     @Param('batchId') batchId: string,
     @Query('asOf') asOf?: string,
   ) {
-    return this.batchesService.findOne(user, farmId, batchId, asOf);
+    return this.batchesService.findOne(user, farmId, batchId, asOf, {
+      withCost: true,
+    });
   }
 
   @Get(':batchId/pondage')

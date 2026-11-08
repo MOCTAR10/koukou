@@ -104,13 +104,17 @@ export function showsBandEconomics(list: readonly ({ economicMasked?: boolean } 
  * deviation decides (recette A11: « Excellent » at +8 % above the reference was
  * wrong); without it only an absurdly high IC is flagged, never « Excellent ».
  */
-export function fcrQualification(fcr: number | null | undefined, deviationPct?: number | null): string {
+export function fcrQualification(
+  fcr: number | null | undefined,
+  deviationPct?: number | null,
+  thresholds: { fcrAbsoluteWarn: number; fcrDeviationWarnPct: number; fcrDeviationGoodPct: number } = { fcrAbsoluteWarn: 2.2, fcrDeviationWarnPct: 10, fcrDeviationGoodPct: 3 },
+): string {
   if (fcr == null) return 'Pas de donnée';
   if (deviationPct != null && Number.isFinite(deviationPct)) {
-    if (deviationPct <= -3) return 'Meilleur que la référence';
+    if (deviationPct <= -thresholds.fcrDeviationGoodPct) return 'Meilleur que la référence';
     if (deviationPct <= 3) return 'Conforme à la référence';
-    if (deviationPct <= 10) return 'Au-dessus de la référence';
+    if (deviationPct <= thresholds.fcrDeviationWarnPct) return 'Au-dessus de la référence';
     return 'Élevé';
   }
-  return fcr > 2.2 ? 'Élevé' : 'Conforme';
+  return fcr > thresholds.fcrAbsoluteWarn ? 'Élevé' : 'Conforme';
 }

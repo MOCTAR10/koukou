@@ -31,6 +31,7 @@ export const FERMIA_FORMULAS = {
   gmq: 'Fermia : gain de poids depuis l’arrivée ÷ âge, à la dernière pesée.',
   ipe: 'Fermia : indice de performance européen (viabilité × poids ÷ âge ÷ IC), à la dernière pesée.',
   costPerKgSold: 'Coût par kg vendu = charges du lot ÷ kg vendus au poids (« — » si vente à l’unité). Le coût de production officiel se rapporte au kg de poids vif produit.',
+  costPerKgProduced: 'Coût de production officiel = charges du lot ÷ kg de poids vif produit (formule du bilan, calculée par le serveur ; figée à la clôture).',
   marginPct: 'Fermia : (revenus − charges) ÷ revenus × 100.',
 } as const;
 

@@ -26,6 +26,11 @@ import {
   type BandStatusFilter,
   type BandSummary,
 } from './band-summary.js';
+import { productionCostOf } from './band-production-cost.js';
+import type {
+  BandProductionCostPort,
+  LotProductionCost,
+} from '../indicators/official-band-indicators.port.js';
 import { BandesService, type BandSheet } from './bandes.service.js';
 import {
   BandeSnapshot,
@@ -50,7 +55,9 @@ const toFcfa = (n: number | null): number | null =>
  * version: earlier ones are never rewritten (DB trigger).
  */
 @Injectable()
-export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
+export class BandeSnapshotsService
+  implements OnModuleInit, OnModuleDestroy, BandProductionCostPort
+{
   private readonly logger = new Logger(BandeSnapshotsService.name);
 
   constructor(
@@ -187,9 +194,24 @@ export class BandeSnapshotsService implements OnModuleInit, OnModuleDestroy {
     return out;
   }
 
+  /** Official production cost per kg of one band (lot sheet, lot list). */
+  async productionCost(
+    farm: Farm,
+    batch: ProductionBatch,
+    mayWrite = true,
+  ): Promise<LotProductionCost> {
+    return productionCostOf(
+      await this.summaryOf(
+        farm,
+        { id: batch.id, status: batch.status },
+        mayWrite,
+      ),
+    );
+  }
+
   private async summaryOf(
     farm: Farm,
-    sheet: BandSheet,
+    sheet: Pick<BandSheet, 'id' | 'status'>,
     mayWrite = true,
   ): Promise<BandSummary | null> {
     try {

@@ -99,7 +99,7 @@ import { fetchFarmVisits } from '@/api/poufa';
 import { readsVisits, visitHistoryLabel, visitInBand } from '@/poufa/visits';
 import { readsProgrammeDomain } from '@/poufa/access';
 import { GlossaryLink } from '@/components/GlossaryLink';
-import { costPerKgSoldView } from '@/poufa/glossary';
+import { COST_PER_KG_PRODUCED_TERM, costPerKgProducedView, costPerKgSoldView } from '@/poufa/glossary';
 import { librevilleDay } from '@/utils/libreville';
 import { errorText } from '@/api/errorText';
 // ── end POUFA ──
@@ -284,6 +284,8 @@ export default function LotDetailScreen() {
   const [pdfBusy, setPdfBusy] = useState(false);
 
   const b = batchQ.data;
+  // Official cost per kg produced: computed by the server (live, or frozen at closure).
+  const costProduced = costPerKgProducedView(b?.coutProductionKg, b?.coutProductionReason);
   const m = b?.metrics;
   const isLayer = b?.type === 'PONDEUSE';
   const buildingName = useMemo(
@@ -1035,12 +1037,13 @@ export default function LotDetailScreen() {
                     </AppText>
                   </View>
                 ) : null}
-                {official('cout_production_kg') ? (
-                  <View style={styles.healthStat}>
-                    <AppText size="small" color="muted">{official('cout_production_kg')!.label} (officiel)</AppText>
-                    <AppText size="body" weight="bold" color="text">{officialText(official('cout_production_kg'))}</AppText>
-                  </View>
-                ) : null}
+                <View style={styles.healthStat}>
+                  <AppText size="small" color="muted">{COST_PER_KG_PRODUCED_TERM}</AppText>
+                  <AppText size="body" weight="bold" color="text">
+                    {costProduced.value != null ? `${fmtFcfa(costProduced.value)}/kg` : '—'}
+                  </AppText>
+                  {costProduced.note ? <AppText size="caption" color="faint">{costProduced.note}</AppText> : null}
+                </View>
               </View>
             </Card>
           )}

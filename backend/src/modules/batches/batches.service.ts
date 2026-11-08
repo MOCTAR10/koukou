@@ -27,6 +27,18 @@ import { KOUKOU_EVENTS, koukouBus } from '../../common/utils/event-bus.js';
 import { BandeOpeningService } from './poufa/bande-opening.service.js';
 import { isRealIsoDate, todayLocal } from '../../common/utils/date.utils.js';
 import { TaskSyncService } from '../tasks/task-sync.service.js';
+import { ModuleRef } from '@nestjs/core';
+import { UserRole } from '../../common/enums/role.enum.js';
+import type { Farm } from '../farms/entities/farm.entity.js';
+import {
+  BAND_PRODUCTION_COST,
+  type BandProductionCostPort,
+  type LotProductionCost,
+} from '../indicators/official-band-indicators.port.js';
+import {
+  RESTRICTED_COST,
+  unavailableCost,
+} from '../bandes/band-production-cost.js';
 
 @Injectable()
 export class BatchesService {
@@ -48,6 +60,7 @@ export class BatchesService {
     private readonly dataSource: DataSource,
     private readonly bandeOpening: BandeOpeningService,
     private readonly taskSync: TaskSyncService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   async create(
@@ -241,8 +254,9 @@ export class BatchesService {
     asOf?: string,
     scope: 'all' | 'active' | 'closed' = 'all',
     page: { take?: number; skip?: number } = {},
+    opts: { withCost?: boolean } = {},
   ): Promise<BatchWithMetrics[]> {
-    await this.farmsService.assertAccessible(user, farmId);
+    const farm = await this.farmsService.assertAccessible(user, farmId);
     this.assertAsOf(asOf);
     const batches = await this.batchRepo.find({
       where:
@@ -264,10 +278,16 @@ export class BatchesService {
     const worker = async () => {
       while (next < batches.length) {
         const i = next++;
-        out[i] = this.gateEconomics(
+        const row = this.gateEconomics(
           await this.withMetrics(batches[i]!, asOf, preload),
           economics,
         );
+        out[i] = opts.withCost
+          ? {
+              ...row,
+              ...(await this.productionCost(user, farm, batches[i]!, economics)),
+            }
+          : row;
       }
     };
     await Promise.all(
@@ -284,6 +304,32 @@ export class BatchesService {
     }
   }
 
+  /**
+   * Official production cost per kg (bilan formula), resolved lazily from the
+   * bands module (no module cycle). Economic readers only.
+   */
+  private async productionCost(
+    user: AuthUser,
+    farm: Farm,
+    batch: ProductionBatch,
+    readsEconomics: boolean,
+  ): Promise<LotProductionCost> {
+    if (!readsEconomics) return RESTRICTED_COST;
+    try {
+      const port = this.moduleRef.get<BandProductionCostPort>(
+        BAND_PRODUCTION_COST,
+        { strict: false },
+      );
+      return await port.productionCost(
+        farm,
+        batch,
+        user.role !== UserRole.INSTITUTION,
+      );
+    } catch {
+      return unavailableCost('NOT_COMPUTABLE');
+    }
+  }
+
   // POUFA lot A droits: the chick price for economic readers only (audit F6).
   private gateEconomics<T extends { chickUnitPriceFcfa: number | null }>(
     batch: T,
@@ -297,18 +343,23 @@ export class BatchesService {
     farmId: string,
     batchId: string,
     asOf?: string,
+    opts: { withCost?: boolean } = {},
   ): Promise<BatchWithMetrics> {
-    await this.farmsService.assertAccessible(user, farmId);
+    const farm = await this.farmsService.assertAccessible(user, farmId);
     this.assertAsOf(asOf);
     const batch = await this.batchRepo.findOne({
       where: { id: batchId, farmId },
     });
     if (!batch)
       throw new NotFoundException('Lot introuvable dans cette ferme.');
-    return this.gateEconomics(
+    const economics = await this.farmsService.readsEconomics(user);
+    const out = this.gateEconomics(
       await this.withMetrics(batch, asOf),
-      await this.farmsService.readsEconomics(user),
+      economics,
     );
+    return opts.withCost
+      ? { ...out, ...(await this.productionCost(user, farm, batch, economics)) }
+      : out;
   }
 
   async changeType(
@@ -452,4 +503,4 @@ const METRICS_CONCURRENCY = 3;
 
 export type BatchWithMetrics = ProductionBatch & {
   metrics: import('./models/batch-metrics.model.js').BatchMetrics;
-};
+} & Partial<LotProductionCost>;

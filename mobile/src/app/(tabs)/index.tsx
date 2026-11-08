@@ -39,6 +39,7 @@ import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
 import { GlossaryLink } from '@/components/GlossaryLink';
 import { fcrQualification } from '@/poufa/official-headline';
+import { breedTone, fcrTileTone, thresholdsOf, waterDropLevel } from '@/utils/thresholds';
 import { readCached } from '@/offline/ref-cache';
 import { librevilleDay, librevilleDaysBack, librevilleTime } from '@/utils/libreville';
 
@@ -217,17 +218,11 @@ export default function AccueilScreen() {
     weightedAvg((b) => (b.metrics.ipe != null && b.metrics.ipeTarget != null ? pick(b.metrics) : null));
   const ipeState = ipeStatus(withTarget((m) => m.ipe) ?? avgIpe, withTarget((m) => m.ipeTarget));
   // Taux de ponte only for laying batches
-  const layerBatches = activeBatches.filter((b) => b.type === 'PONDEUSE' && b.metrics.layRatePercent != null);
-  const layerLive = layerBatches.reduce((s, b) => s + b.metrics.liveCount, 0);
-  const avgLayRate = layerLive > 0
-    ? layerBatches.reduce((s, b) => s + (b.metrics.layRatePercent ?? 0) * b.metrics.liveCount, 0) / layerLive
-    : null;
-  // Taux de ponte by type
-  const pondeuseBatches = activeBatches.filter((b) => b.type === 'PONDEUSE');
-  const pondeuseLive = pondeuseBatches.reduce((s, b) => s + b.metrics.liveCount, 0);
-  const pondeuseLayRate = pondeuseLive > 0
-    ? pondeuseBatches.reduce((s, b) => s + (b.metrics.layRatePercent ?? 0) * b.metrics.liveCount, 0) / pondeuseLive
-    : null;
+  // Computed by the server (hen-days weighted); never recomputed here.
+  const avgLayRate = d?.farmIndicators?.layRatePercent ?? null;
+  const pondeuseLayRate = avgLayRate;
+  const thr = thresholdsOf(d?.thresholds);
+  const waterLevel = waterDropLevel(d?.waterDropPercent, thr);
 
 
   // --- Leaderboard top performer ---
@@ -473,8 +468,8 @@ export default function AccueilScreen() {
             <MetricTile
               label='IC technique'
               value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
-              sub={fcrQualification(avgFcr, avgFcrDeviation)}
-              tone={avgFcr != null && (avgFcrDeviation != null ? avgFcrDeviation > 10 : avgFcr > 2.2) ? 'red' : avgFcrDeviation != null && avgFcrDeviation <= -3 ? 'green' : 'default'}
+              sub={fcrQualification(avgFcr, avgFcrDeviation, thr)}
+              tone={fcrTileTone(avgFcr, avgFcrDeviation, thr)}
               icon={Activity}
               onPress={() => setMetricInfo('IC')}
               threeCol
@@ -648,12 +643,12 @@ export default function AccueilScreen() {
                     <AppText size='small' color='muted'>Eau (jour)</AppText>
                     <View style={styles.statsValueRow}>
                       <AppText size='bodyM' weight='bold'
-                        color={d.waterDropPercent != null && d.waterDropPercent > 25 ? palette.red[500] : d.waterDropPercent != null && d.waterDropPercent > 10 ? palette.amber[500] : 'text'}>
+                        color={waterLevel === 'critical' ? palette.red[500] : waterLevel === 'warn' ? palette.amber[500] : 'text'}>
                         {d.waterConsumptionTodayL != null ? `${Math.round(d.waterConsumptionTodayL)} L` : '—'}
                       </AppText>
                     </View>
                     <AppText size='small' color='faint'>
-                      {d.waterDropPercent != null ? (d.waterDropPercent > 25 ? 'Chute critique' : d.waterDropPercent > 10 ? 'En baisse' : d.waterDropPercent < -5 ? '↑ Hausse' : 'Stable') : 'Pas de données'}
+                      {{ critical: 'Chute critique', warn: 'En baisse', rising: '↑ Hausse', stable: 'Stable', unknown: 'Pas de données' }[waterLevel]}
                     </AppText>
                   </View>
                 </View>
@@ -793,7 +788,7 @@ export default function AccueilScreen() {
                 label='Breed Intel'
                 value={[bestBreedEntry.breedStatus!.breedCode, bestBreedEntry.breedStatus!.breedName].filter(Boolean).join(' · ')}
                 sub={bestBreedEntry.breedStatus!.fcrDeviationPct != null ? `IC ${bestBreedEntry.breedStatus!.fcrDeviationPct > 0 ? '+' : ''}${bestBreedEntry.breedStatus!.fcrDeviationPct.toFixed(1)}% vs cible` : bestBreedEntry.breedStatus!.layRateDeviationPct != null ? `Ponte ${bestBreedEntry.breedStatus!.layRateDeviationPct > 0 ? '+' : ''}${bestBreedEntry.breedStatus!.layRateDeviationPct.toFixed(1)}% vs cible` : 'Semaine ' + bestBreedEntry.breedStatus!.week}
-                tone={bestBreedEntry.breedStatus!.fcrDeviationPct != null ? (bestBreedEntry.breedStatus!.fcrDeviationPct > 10 ? 'red' : bestBreedEntry.breedStatus!.fcrDeviationPct < -5 ? 'green' : 'amber') : bestBreedEntry.breedStatus!.layRateDeviationPct != null ? (bestBreedEntry.breedStatus!.layRateDeviationPct < -10 ? 'amber' : 'green') : 'default'}
+                tone={breedTone(bestBreedEntry.breedStatus!.fcrDeviationPct, bestBreedEntry.breedStatus!.layRateDeviationPct, thr)}
                 icon={BarChart3}
                 onPress={() => router.push(`/lot/${bestBreedEntry.batchId}`)}
               />

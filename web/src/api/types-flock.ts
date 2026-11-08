@@ -1,6 +1,6 @@
 // Types of the flock area (lots, sanitary, feed stock, slaughter, activities).
 // `api/types.ts` stays the shared source for what it already defines.
-import type { AlertStatus, BatchMetrics, BatchType, DashboardData, ProductionBatch } from './types';
+import type { AlertStatus, BatchMetrics, BatchType, DashboardData, LotProductionCost, ProductionBatch } from './types';
 
 export type AlertLevel = 'ROUGE' | 'JAUNE' | 'VERT';
 export type ReadyReason = 'READY' | 'TOO_YOUNG' | 'FCR' | 'SANITARY' | 'N_A';
@@ -28,7 +28,7 @@ export interface LotMetrics extends BatchMetrics {
   readyReason: ReadyReason;
 }
 
-export interface Lot extends Omit<ProductionBatch, 'species'> {
+export interface Lot extends Omit<ProductionBatch, 'species'>, LotProductionCost {
   species: string;
   customSpecies?: string | null;
   customBreed?: string | null;
