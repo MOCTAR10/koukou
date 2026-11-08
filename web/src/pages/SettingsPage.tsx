@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   User,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -23,6 +24,7 @@ import { useFarmProfile } from '../app/useFarmProfile';
 import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
 import { SectionTitle } from '../components/finance/shared';
+import { FarmCreditCard } from '../components/org/FarmCreditCard';
 import { FarmIdentityCard } from '../components/org/FarmIdentityCard';
 import { FarmLogo } from '../components/org/FarmLogo';
 import { ReferenceConstants } from '../components/org/ReferenceConstants';
@@ -127,6 +129,10 @@ export function SettingsPage() {
 
       <Section title="Ma ferme" subtitle={hasPermission('reglages:ferme') ? 'Logo modifiable ; nom et code tenus par le registre' : 'Informations de la ferme'} icon={<Crosshair className="h-4 w-4" />}>
         {farm ? <FarmIdentityCard key={farm.id} farm={farm} /> : <Loading />}
+      </Section>
+
+      <Section title="Crédit client" subtitle="Plafond et délai de paiement par défaut" icon={<Wallet className="h-4 w-4" />}>
+        {farm ? <FarmCreditCard key={farm.id} farm={farm} /> : <Loading />}
       </Section>
 
       <ReferenceConstants />

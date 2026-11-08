@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -149,4 +150,12 @@ export class CreateSaleDto {
   @ValidateNested({ each: true })
   @Type(() => PaymentInputDto)
   payments?: PaymentInputDto[];
+
+  /**
+   * Goes through the customer's credit ceiling. Honoured only for a user who
+   * holds « vente:depasser-credit » (403 otherwise); the override is journaled.
+   */
+  @IsOptional()
+  @IsBoolean({ message: 'L’option de dépassement du plafond doit être vrai ou faux.' })
+  overrideCreditLimit?: boolean;
 }

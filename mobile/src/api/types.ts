@@ -95,6 +95,7 @@ export type PermissionCode =
   | 'vente:annuler'
   | 'vente:commande'
   | 'vente:promotion'
+  | 'vente:depasser-credit'
   | 'market:publier'
   | 'compta:depense'
   | 'compta:client'
@@ -1022,6 +1023,14 @@ export interface Customer {
   /** POUFA lot A bande: operator of the programme register this customer is linked to
    *  (a poultry sale to it creates the traced cession). */
   operatorId?: string | null;
+  /** Credit ceiling / payment term of this customer (null = farm default). */
+  creditLimitFcfa?: number | null;
+  paymentTermDays?: number | null;
+  /** Computed by the server: « Plafond atteint » / « En retard ». */
+  limitReached?: boolean;
+  overdue?: boolean;
+  overdueAmount?: number;
+  oldestOverdueDays?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -83,6 +83,12 @@ export const PERMISSION_CATALOG = [
         label: 'Gérer les promotions',
         description: 'Créer et administrer les codes promotion.',
       },
+      {
+        code: 'vente:depasser-credit',
+        label: 'Dépasser le plafond de crédit client',
+        description:
+          'Valider une vente à crédit ou une commande qui dépasse le plafond de crédit du client (opération tracée dans le journal).',
+      },
     ],
   },
   {
