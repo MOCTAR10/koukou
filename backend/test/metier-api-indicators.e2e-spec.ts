@@ -176,7 +176,7 @@ describe('Indicateurs métier côté serveur (e2e)', () => {
         lot.coutProductionReason,
       );
     }
-    const list = (await get(`/farms/${farmId}/batches`, token).expect(200)).body;
+    const list = (await get(`/farms/${farmId}/batches?withCost=true`, token).expect(200)).body;
     const row = list.find((r: { id: string }) => r.id === broilerC);
     expect(row.coutProductionKg).toBe(lot.coutProductionKg);
     // A layer with no weight produced: never a made-up number.

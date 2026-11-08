@@ -548,7 +548,7 @@ export function useLots(asOf?: string | null) {
   const canRead = useCanRead();
   return useQuery({
     queryKey: asOf ? ['batches', farmId, asOf] : ['batches', farmId],
-    queryFn: () => api.get<Lot[]>(`/farms/${farmId}/batches${asOf ? `?asOf=${asOf}` : ''}`),
+    queryFn: () => api.get<Lot[]>(`/farms/${farmId}/batches?withCost=true${asOf ? `&asOf=${asOf}` : ''}`),
     enabled: !!farmId && canRead('TECHNIQUE'),
     // The batch payload carries breedId only.
     select: (rows) =>

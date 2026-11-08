@@ -573,9 +573,12 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       expect(lot.coutProductionKg).toBeCloseTo(COSTS / 2092.8, 2);
       expect(lot.coutProductionSource).toBe('BILAN');
       expect(lot.coutProductionReason).toBeNull();
-      const list = (await get(`/farms/${farmId}/batches`, token).expect(200)).body;
+      const list = (await get(`/farms/${farmId}/batches?withCost=true`, token).expect(200)).body;
       const row = list.find((b: { id: string }) => b.id === batchId);
       expect(row.coutProductionKg).toBe(1218.46);
+      // Without the opt-in the list stays cost-free (constant query count).
+      const plain = (await get(`/farms/${farmId}/batches`, token).expect(200)).body;
+      expect(plain.find((b: { id: string }) => b.id === batchId)).not.toHaveProperty('coutProductionKg');
       const pnl = (await get(`/farms/${farmId}/rentabilite/batches/${batchId}`, token).expect(200)).body;
       expect(pnl.costPerKgFcfa).toBeCloseTo(COSTS / SOLD_KG, 1);
       expect(pnl.costPerKgFcfa).not.toBe(lot.coutProductionKg);
