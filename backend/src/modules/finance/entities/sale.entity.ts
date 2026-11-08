@@ -21,6 +21,7 @@ import { Payment } from './payment.entity.js';
 @Index('UQ_sales_farm_idempotency', ['farmId', 'idempotencyKey'], {
   unique: true,
 })
+@Index('IDX_sales_farm_date', ['farmId', 'saleDate'])
 @Entity('sales')
 export class Sale {
   @PrimaryGeneratedColumn('uuid')

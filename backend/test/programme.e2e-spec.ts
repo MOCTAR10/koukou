@@ -55,6 +55,8 @@ describe('Programme POUFA — registre, listes, paramètres versionnés, GPS (e2
       new ValidationPipe({ whitelist: true, transform: true }),
     );
     await app.init();
+    // Concurrent requests need a listening server (else ECONNRESET).
+    await app.listen(0);
     server = app.getHttpServer();
     ds = app.get(DataSource);
 

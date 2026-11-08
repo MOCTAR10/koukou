@@ -135,6 +135,8 @@ describe('Market : demandes, acceptation et délai d’acompte (e2e)', () => {
       new ValidationPipe({ whitelist: true, transform: true }),
     );
     await app.init();
+    // Concurrent requests need a listening server (else ECONNRESET).
+    await app.listen(0);
     server = app.getHttpServer();
     dataSource = app.get(DataSource);
     sweep = app.get(MarketSweepService);

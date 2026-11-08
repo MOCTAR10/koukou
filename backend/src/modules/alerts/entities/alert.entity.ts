@@ -12,6 +12,7 @@ import {
   AlertStatus,
 } from '../../../common/enums/alert-level.enum.js';
 
+@Index('IDX_alerts_farm_status', ['farmId', 'status'])
 @Entity('alerts')
 export class Alert {
   @PrimaryGeneratedColumn('uuid')

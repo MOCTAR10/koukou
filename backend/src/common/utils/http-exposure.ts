@@ -42,6 +42,24 @@ export function corsOriginsSetting(
   return '*';
 }
 
+type TimeoutTarget = {
+  requestTimeout: number;
+  headersTimeout: number;
+  keepAliveTimeout: number;
+};
+
+/**
+ * Slow-client (slowloris) bounds on the Node HTTP server. A whole request
+ * (headers + body) has 2 minutes, the headers 30 s; keep-alive stays above a
+ * typical reverse-proxy idle timeout (60 s) so the proxy never reuses a socket
+ * Node has just closed (502).
+ */
+export function applyServerTimeouts(server: TimeoutTarget): void {
+  server.requestTimeout = 120_000;
+  server.headersTimeout = 30_000;
+  server.keepAliveTimeout = 65_000;
+}
+
 type HeaderRes = {
   setHeader(name: string, value: string): unknown;
   removeHeader(name: string): unknown;
