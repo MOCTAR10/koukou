@@ -104,7 +104,9 @@ export class PondageService {
           : null,
       layRatePercent:
         batch.type === BatchType.PONDEUSE
-          ? this.recentLayRate(entries, timeline)
+          ? liveCount > 0
+            ? this.recentLayRate(entries, timeline)
+            : null
           : null,
       weekly: this.buildWeekly(entries, batch, timeline),
     };
