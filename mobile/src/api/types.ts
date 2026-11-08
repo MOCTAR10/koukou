@@ -1259,6 +1259,8 @@ export type TaskStatus = 'A_FAIRE' | 'EN_COURS' | 'FAIT' | 'ANNULEE';
 
 /** Tâche d'équipe (GET/POST/PATCH /farms/:farmId/tasks) — PROPRIETAIRE gère tout,
  *  ELEVEUR ne voit et ne modifie que le statut de ses tâches assignées. */
+export type TaskSource = 'MANUELLE' | 'PROGRAMME_VACCIN' | 'PESEE' | 'VIDE_SANITAIRE';
+
 export interface FarmTask {
   id: string;
   farmId: string;
@@ -1270,6 +1272,10 @@ export interface FarmTask {
   dueDate: string;
   status: TaskStatus;
   completedAt: string | null;
+  /** Origine : MANUELLE ou générée par un programme (absent des anciens caches = MANUELLE). */
+  source?: TaskSource;
+  /** Tâche générée : le soin (PROGRAMME_VACCIN) ou l’étape de pesée (PESEE). */
+  stepId?: string | null;
   createdById: string | null;
   createdAt: string;
   updatedAt: string;

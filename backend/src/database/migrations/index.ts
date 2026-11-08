@@ -45,6 +45,7 @@ import { ExpenseIdempotency1794510000000 } from './1794510000000-ExpenseIdempote
 import { CredentialsChangedAt1794520000000 } from './1794520000000-CredentialsChangedAt.js';
 import { LoginFailuresPerIp1794530000000 } from './1794530000000-LoginFailuresPerIp.js';
 import { HotPathIndexes1794540000000 } from './1794540000000-HotPathIndexes.js';
+import { GeneratedTasks1794550000000 } from './1794550000000-GeneratedTasks.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -101,4 +102,5 @@ export const MIGRATIONS = [
   CredentialsChangedAt1794520000000,
   LoginFailuresPerIp1794530000000,
   HotPathIndexes1794540000000,
+  GeneratedTasks1794550000000,
 ];

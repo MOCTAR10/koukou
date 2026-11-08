@@ -9,6 +9,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Not, Repository } from 'typeorm';
+import {
+  SOURCES_ALERTED_ELSEWHERE,
+  SOURCES_COMPLETED_WITH_DATA,
+  TaskSource,
+} from '../../common/enums/task-source.enum.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import {
   AlertKind,
@@ -90,10 +95,14 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
     // Administrateur : toutes les tâches de l'équipe.
     const onlyMine =
       resolution !== 'ALL' && resolution?.role === FarmStaffRole.ELEVEUR;
-    const where = {
-      farmId,
-      ...(onlyMine ? { assigneeId: user.id } : {}),
-    };
+    // Generated tasks (vaccination, weighing, cleaning) belong to the whole
+    // team: an Éleveur sees them besides his own.
+    const where = onlyMine
+      ? [
+          { farmId, assigneeId: user.id },
+          { farmId, source: Not(TaskSource.MANUELLE) },
+        ]
+      : { farmId };
     // Opening the list reflects tasks that went overdue since the last sweep
     // (a read-only institution consulting the farm must not trigger it).
     if (user.role !== UserRole.INSTITUTION) {
@@ -121,6 +130,7 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
     dto: UpdateTaskDto,
   ): Promise<FarmTask> {
     const task = await this.getScoped(user, farmId, taskId);
+    this.assertGeneratedUpdate(task, dto);
     const resolution = await this.farmsService.resolveEffectivePermissions(
       user,
       farmId,
@@ -144,7 +154,10 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
           'Un membre terraine ne peut modifier que le statut de ses propres tâches.',
         );
       }
-      if (task.assigneeId !== user.id) {
+      if (
+        task.assigneeId !== user.id &&
+        task.source === TaskSource.MANUELLE
+      ) {
         throw new ForbiddenException(
           'Accès refusé : vous ne pouvez modifier que les tâches qui vous sont assignées.',
         );
@@ -185,6 +198,11 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
 
   async remove(user: AuthUser, farmId: string, taskId: string): Promise<void> {
     const task = await this.getScoped(user, farmId, taskId);
+    if (task.source !== TaskSource.MANUELLE) {
+      throw new BadRequestException(
+        'Une tâche générée par un programme ne se supprime pas : annulez-la (ou annulez le soin / la pesée).',
+      );
+    }
     const resolution = await this.farmsService.resolveEffectivePermissions(
       user,
       farmId,
@@ -219,13 +237,44 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
     if (
       resolution !== 'ALL' &&
       (resolution === null || resolution.role === FarmStaffRole.ELEVEUR) &&
-      task.assigneeId !== user.id
+      task.assigneeId !== user.id &&
+      task.source === TaskSource.MANUELLE
     ) {
       throw new ForbiddenException(
         'Accès refusé : vous ne pouvez accéder qu’aux tâches qui vous sont assignées.',
       );
     }
     return task;
+  }
+
+  /**
+   * A generated task mirrors the lot: the care or weighing is recorded
+   * through `POST …/tasks/:id/complete` (or directly, which closes the task),
+   * its date follows the programme, and a care is cancelled on the care.
+   */
+  private assertGeneratedUpdate(task: FarmTask, dto: UpdateTaskDto): void {
+    if (task.source === TaskSource.MANUELLE) return;
+    if (dto.dueDate !== undefined && dto.dueDate !== task.dueDate) {
+      throw new BadRequestException(
+        'L’échéance d’une tâche générée suit le programme : reportez le soin ou décalez la mise en place.',
+      );
+    }
+    if (
+      dto.status === TaskStatus.FAIT &&
+      SOURCES_COMPLETED_WITH_DATA.includes(task.source)
+    ) {
+      throw new BadRequestException(
+        'Cette tâche met à jour le lot : utilisez « Terminer » pour saisir la vaccination ou la pesée.',
+      );
+    }
+    if (
+      dto.status === TaskStatus.ANNULEE &&
+      task.source === TaskSource.PROGRAMME_VACCIN
+    ) {
+      throw new BadRequestException(
+        'Annulez le soin lui-même : la tâche suit son état.',
+      );
+    }
   }
 
   private async assertAssignable(
@@ -275,6 +324,7 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
       const rows: Array<{ farm_id: string }> = await this.taskRepo.query(
         `SELECT DISTINCT farm_id FROM farm_tasks
           WHERE due_date < $1 AND status NOT IN ($2, $3)
+            AND source <> ALL($7)
          UNION
          SELECT DISTINCT farm_id FROM alerts
           WHERE kind = $4 AND status IN ($5, $6)
@@ -286,6 +336,7 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
           AlertKind.TACHE,
           AlertStatus.ACTIVE,
           AlertStatus.ACQUITTEE,
+          [...SOURCES_ALERTED_ELSEWHERE],
         ],
       );
       for (const { farm_id } of rows) {
@@ -323,6 +374,8 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
         farmId,
         dueDate: LessThan(todayUtc()),
         status: Not(In([TaskStatus.FAIT, TaskStatus.ANNULEE])),
+        // PROPHYLAXIE / WEIGHING_LATE already alert on these (one source of truth).
+        source: Not(In([...SOURCES_ALERTED_ELSEWHERE])),
       },
       order: { dueDate: 'ASC', createdAt: 'ASC' },
     });

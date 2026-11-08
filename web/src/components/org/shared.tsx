@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { api, API_BASE, ApiError } from '../../api/client';
-import type { ContractType, FarmWithLogo, StaffRole, TaskStatus } from '../../api/types-org';
+import type { ContractType, FarmWithLogo, StaffRole, TaskSource, TaskStatus } from '../../api/types-org';
 import { classNames } from '../../lib/format';
 import { Button, ErrorNote, Modal } from '../form';
 
@@ -56,6 +56,18 @@ export function TaskStatusBadge({ status }: { status: TaskStatus }) {
       {TASK_STATUS_LABEL[status]}
     </span>
   );
+}
+
+/** Where a generated task comes from (a manual task shows nothing). */
+export const TASK_SOURCE_LABEL: Record<Exclude<TaskSource, 'MANUELLE'>, string> = {
+  PROGRAMME_VACCIN: 'Programme sanitaire',
+  PESEE: 'Pesée',
+  VIDE_SANITAIRE: 'Vide sanitaire',
+};
+
+export function TaskSourceBadge({ source }: { source?: TaskSource }) {
+  if (!source || source === 'MANUELLE') return null;
+  return <Pill tone="brand">{TASK_SOURCE_LABEL[source]}</Pill>;
 }
 
 export function SuccessNote({ children }: { children: ReactNode }) {

@@ -40,6 +40,7 @@ import { ProgrammeModule } from '../programme/programme.module.js';
 import { BandeDailyStat } from './entities/bande-daily-stat.entity.js';
 import { BandeOpeningService } from './poufa/bande-opening.service.js';
 import { BandeStatsService } from './poufa/bande-stats.service.js';
+import { TasksModule } from '../tasks/tasks.module.js';
 import { TraceCoreModule } from '../trace/trace-core.module.js';
 
 @Module({
@@ -73,6 +74,7 @@ import { TraceCoreModule } from '../trace/trace-core.module.js';
     WeatherModule,
     ProgrammeModule,
     TraceCoreModule,
+    TasksModule,
   ],
   controllers: [
     BatchesController,

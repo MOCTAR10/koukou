@@ -25,6 +25,7 @@ import { MarketModule } from './modules/market/market.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { PointsOfSaleModule } from './modules/points-of-sale/points-of-sale.module.js';
 import { TasksModule } from './modules/tasks/tasks.module.js';
+import { TaskCompletionModule } from './modules/tasks/completion/task-completion.module.js';
 import { WeatherModule } from './modules/weather/weather.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 import { AdvisoryModule } from './modules/advisory/advisory.module.js';
@@ -111,6 +112,7 @@ import {
     MarketModule,
     PointsOfSaleModule,
     TasksModule,
+    TaskCompletionModule,
     WeatherModule,
     PlatformModule,
     AdvisoryModule,

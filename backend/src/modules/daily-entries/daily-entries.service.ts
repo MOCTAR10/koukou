@@ -25,6 +25,7 @@ import {
 } from '../feed-stock/feed-stock.service.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import { isCatchUp } from '../batches/poufa/bande-rules.js';
+import { TaskSyncService } from '../tasks/task-sync.service.js';
 import {
   SyncService,
   type DailyEntryReconciliation,
@@ -45,6 +46,7 @@ export class DailyEntriesService {
     private readonly feedStock: FeedStockService,
     private readonly bandeStats: BandeStatsService,
     private readonly sync: SyncService,
+    private readonly taskSync: TaskSyncService,
   ) {}
 
   /**
@@ -285,8 +287,10 @@ export class DailyEntriesService {
         await this.bandeStats.refresh(em, batch.id);
         return entry;
       })
-      .then((entry) => {
+      .then(async (entry) => {
         if (within) return entry;
+        // A recorded weighing closes the matching open weighing task.
+        if (dto.avgWeightKg != null) await this.taskSync.syncBatch(batchId);
         koukouBus.emit(KOUKOU_EVENTS.DAILY_ENTRY_CREATED, {
           farmId,
           batchId,
