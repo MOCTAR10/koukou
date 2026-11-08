@@ -278,16 +278,16 @@ export class MetricsService {
         ids.length
           ? this.stockTransferRepo
               .createQueryBuilder('t')
-              .select('t.batch_id', 'batchId')
-              .addSelect('COALESCE(SUM(t.quantity - t.quantity_sold), 0)', 'n')
-              .where('t.batch_id IN (:...ids)', { ids })
-              .andWhere('t.product_type = :pt', {
+              .select('t.batchId', 'batchId')
+              .addSelect('COALESCE(SUM(t.quantity - t.quantitySold), 0)', 'n')
+              .where('t.batchId IN (:...ids)', { ids })
+              .andWhere('t.productType = :pt', {
                 pt: StockTransferProductType.OEUFS,
               })
               .andWhere('t.status = :st', {
                 st: StockTransferStatus.TRANSFERRED,
               })
-              .groupBy('t.batch_id')
+              .groupBy('t.batchId')
               .getRawMany<{ batchId: string; n: string }>()
           : Promise.resolve([] as { batchId: string; n: string }[]),
       ]);
