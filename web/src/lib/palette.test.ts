@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 // WCAG 2.x contrast of the colour tokens declared in the @theme block of
 // index.css: body text must reach 4.5:1 on the surfaces it is drawn on.
-import css from '../index.css?raw';
+import { readFileSync } from 'node:fs';
+
+const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8');
 
 const tokens = new Map<string, string>();
 for (const m of css.matchAll(/--color-([a-z]+-\d+):\s*(#[0-9a-fA-F]{6})\s*;/g)) tokens.set(m[1]!, m[2]!);
