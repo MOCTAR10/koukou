@@ -60,6 +60,7 @@ export class BatchesController {
       asOf,
       scope,
       pageOptions(limit, offset),
+      { withCost: true },
     );
   }
 
@@ -73,7 +74,9 @@ export class BatchesController {
     @Param('batchId') batchId: string,
     @Query('asOf') asOf?: string,
   ) {
-    return this.batchesService.findOne(user, farmId, batchId, asOf);
+    return this.batchesService.findOne(user, farmId, batchId, asOf, {
+      withCost: true,
+    });
   }
 
   @Get(':batchId/pondage')

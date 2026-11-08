@@ -32,4 +32,8 @@ export enum ReferenceKey {
   VENTE_AGE_MIN_DAYS = 'vente_age_min_days',
   VENTE_FCR_DEV_MAX_PCT = 'vente_fcr_dev_max_pct',
   REFORME_LAY_RATE_FALL_PCT = 'reforme_lay_rate_fall_pct',
+  FCR_ABSOLUTE_WARN = 'fcr_absolute_warn',
+  FCR_DEVIATION_WARN_PCT = 'fcr_deviation_warn_pct',
+  FCR_DEVIATION_GOOD_PCT = 'fcr_deviation_good_pct',
+  LAY_RATE_DEVIATION_WARN_PCT = 'lay_rate_deviation_warn_pct',
 }

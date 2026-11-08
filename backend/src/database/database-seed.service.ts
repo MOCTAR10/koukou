@@ -209,6 +209,30 @@ const DEFAULT_CONSTANTS: SeedConstant[] = [
     description:
       'Réforme : signal « prête à vendre » d’une pondeuse quand la ponte chute de X % sous la cible de la souche',
   },
+  {
+    key: ReferenceKey.FCR_ABSOLUTE_WARN,
+    value: 2.2,
+    description:
+      'Affichage : IC (kg aliment / kg vif) au-delà duquel l’indicateur passe au rouge quand la souche n’a pas de courbe',
+  },
+  {
+    key: ReferenceKey.FCR_DEVIATION_WARN_PCT,
+    value: 10,
+    description:
+      'Affichage : écart d’IC (%) vs courbe de la souche au-delà duquel l’indicateur passe au rouge',
+  },
+  {
+    key: ReferenceKey.FCR_DEVIATION_GOOD_PCT,
+    value: 5,
+    description:
+      'Affichage : écart d’IC (%) sous la courbe de la souche à partir duquel l’indicateur passe au vert',
+  },
+  {
+    key: ReferenceKey.LAY_RATE_DEVIATION_WARN_PCT,
+    value: 10,
+    description:
+      'Affichage : écart de ponte (%) sous la courbe de la souche au-delà duquel l’indicateur passe à l’orange',
+  },
 ];
 
 const DEFAULT_BREEDS: {

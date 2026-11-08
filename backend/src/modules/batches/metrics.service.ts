@@ -540,6 +540,21 @@ export class MetricsService {
       batch.type === BatchType.PONDEUSE && rawLayRate != null
         ? Math.min(100, rawLayRate)
         : null;
+    // Raw terms of the 7-day window, so the farm-level rates (dashboard) are
+    // hen-days weighted sums instead of means of rates.
+    const isLayer = batch.type === BatchType.PONDEUSE;
+    const layWindowEggs = isLayer
+      ? windowEntries.reduce((s, e) => s + e.eggsCollected, 0)
+      : 0;
+    const layWindowHenDays = isLayer && recordedDays > 0 ? henDays : 0;
+    const feedWindowEntries = windowEntries.filter((e) => e.feedQuantity > 0);
+    const feedWindowKg = feedWindowEntries.reduce(
+      (s, e) => s + e.feedQuantity,
+      0,
+    );
+    const feedWindowBirdDays = [
+      ...new Set(feedWindowEntries.map((e) => e.entryDate)),
+    ].reduce((s, d) => s + populationOn(timeline, d), 0);
 
     const densityPerM2 =
       batch.buildingAreaM2 != null && batch.buildingAreaM2 > 0
@@ -622,6 +637,10 @@ export class MetricsService {
       eggStockAvailableEggs,
       eggStockAvailableAlveoles,
       layRatePercent,
+      layWindowEggs,
+      layWindowHenDays,
+      feedWindowKg,
+      feedWindowBirdDays,
       status,
       densityPerM2,
       moduleFraction,
