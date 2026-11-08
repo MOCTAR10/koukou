@@ -23,6 +23,7 @@ import { CreateRegularisationDto } from './dto/accounting.dto.js';
 import type { AccountSoldes } from './accounting.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
 import { todayLocal } from '../../common/utils/date.utils.js';
+import { pageOptions } from '../../common/utils/pagination.js';
 
 @ApiTags('Comptabilité SYSCOHADA')
 @Domain('COMPTABILITE')
@@ -79,13 +80,23 @@ export class AccountingController {
   @ApiParam({ name: 'farmId' })
   @ApiQuery({ name: 'from', required: false, example: '2026-08-01' })
   @ApiQuery({ name: 'to', required: false, example: '2026-08-31' })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'offset', required: false })
   journal(
     @CurrentUser() user: AuthUser,
     @Param('farmId') farmId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.accountingService.journal(user, farmId, from, to);
+    return this.accountingService.journal(
+      user,
+      farmId,
+      from,
+      to,
+      pageOptions(limit, offset),
+    );
   }
 
   @Get('grand-livre')

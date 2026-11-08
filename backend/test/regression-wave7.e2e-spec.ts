@@ -126,7 +126,7 @@ describe('Regression wave 7 - pondeuses, intrants, temps de reponse (e2e)', () =
       `[perf7] pondeuses: liste 1 lot=${listOne} 6 lots=${listSix} | dashboard 1 lot=${dashOne} 6 lots=${dashSix}`,
     );
     expect(listSix - listOne).toBeLessThanOrEqual(5);
-    expect(dashSix - dashOne).toBeLessThanOrEqual(8);
+    expect(dashSix - dashOne).toBeLessThanOrEqual(5);
   }, 180_000);
 
   it('pilotage : les resumes d intrants ne coutent pas ~8 requetes par ferme livree', async () => {
