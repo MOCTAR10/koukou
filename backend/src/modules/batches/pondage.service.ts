@@ -81,6 +81,13 @@ export class PondageService {
     const daysRecorded = entries.filter((e) => e.eggsCollected > 0).length;
 
     const liveCount = Math.max(0, batch.quantityAlive);
+    const timeline: FlockTimeline = {
+      integrationDate: batch.integrationDate,
+      quantityAtStart: batch.quantityAtStart,
+      day1WeightKg: 0,
+      entries,
+      removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
+    };
 
     return {
       batchId: batch.id,
@@ -97,15 +104,9 @@ export class PondageService {
           : null,
       layRatePercent:
         batch.type === BatchType.PONDEUSE
-          ? this.recentLayRate(entries, liveCount)
+          ? this.recentLayRate(entries, timeline)
           : null,
-      weekly: this.buildWeekly(entries, batch, {
-        integrationDate: batch.integrationDate,
-        quantityAtStart: batch.quantityAtStart,
-        day1WeightKg: 0,
-        entries,
-        removalsByDate: await this.flockReconciliation.removalsByDate(batch.id),
-      }),
+      weekly: this.buildWeekly(entries, batch, timeline),
     };
   }
 
@@ -116,7 +117,7 @@ export class PondageService {
    */
   private recentLayRate(
     entries: DailyEntry[],
-    liveCount: number,
+    timeline: FlockTimeline,
   ): number | null {
     const since = new Date(Date.now() - 7 * 86_400_000)
       .toISOString()
@@ -125,9 +126,15 @@ export class PondageService {
       (e) => e.entryDate >= since && e.eggsCollected > 0,
     );
     const days = new Set(recent.map((e) => e.entryDate)).size;
-    if (liveCount <= 0 || days === 0) return null;
+    // Hens present on each recorded day, like MetricsService: a cull today
+    // must not inflate the rate of the days before it.
+    const henDays = [...new Set(recent.map((e) => e.entryDate))].reduce(
+      (s, d) => s + populationOn(timeline, d),
+      0,
+    );
+    if (henDays <= 0 || days === 0) return null;
     const eggs = recent.reduce((s, e) => s + e.eggsCollected, 0);
-    return round2(Math.min(100, (eggs / (liveCount * days)) * 100));
+    return round2(Math.min(100, (eggs / henDays) * 100));
   }
 
   private buildWeekly(

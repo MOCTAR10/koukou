@@ -45,6 +45,7 @@ import {
   FlockTimeline,
   ipeOf,
   performanceAtLastWeighing,
+  populationOn,
 } from './flock-performance.js';
 import {
   BatchMetrics,
@@ -56,6 +57,14 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 function todayIso(): string {
   return todayLocal();
+}
+
+/** Reading date of a band: today, or its closure day once closed. */
+function defaultRefDate(batch: Pick<ProductionBatch, 'closedAt'>): string {
+  const today = todayIso();
+  if (!batch.closedAt) return today;
+  const closed = new Date(batch.closedAt).toISOString().slice(0, 10);
+  return closed < today ? closed : today;
 }
 
 function addDaysIso(date: string, days: number): string {
@@ -323,7 +332,9 @@ export class MetricsService {
   ): Promise<BatchMetrics> {
     const pre = opts?.preload;
     const asOf = opts?.asOf;
-    const refDate = asOf ?? todayIso();
+    // A closed band is read as of its closure day, like its bilan and its
+    // sheet: its age and rates do not keep moving after it ended.
+    const refDate = asOf ?? defaultRefDate(batch);
     const historical = asOf != null && asOf < todayIso();
     const [
       entriesRaw,
@@ -511,10 +522,18 @@ export class MetricsService {
     const recordedDays = new Set(
       windowEntries.filter((e) => e.eggsCollected > 0).map((e) => e.entryDate),
     ).size;
+    // Hens present on each recorded day (not today's headcount): a cull or
+    // a death spike today must not inflate the rate of the days before it.
+    const henDays = [
+      ...new Set(
+        windowEntries
+          .filter((e) => e.eggsCollected > 0)
+          .map((e) => e.entryDate),
+      ),
+    ].reduce((s, d) => s + populationOn(timeline, d), 0);
     const rawLayRate =
-      liveCount > 0 && recordedDays > 0
-        ? (windowEntries.reduce((s, e) => s + e.eggsCollected, 0) /
-            (liveCount * recordedDays)) *
+      henDays > 0 && recordedDays > 0
+        ? (windowEntries.reduce((s, e) => s + e.eggsCollected, 0) / henDays) *
           100
         : null;
     const layRatePercent =
@@ -650,7 +669,7 @@ export class MetricsService {
     opts?: { metrics?: BatchMetrics; preload?: MetricsPreload },
   ): Promise<BreedStatus | null> {
     const standards = await this.loadStandards(batch, opts?.preload);
-    const standard = this.pickStandard(standards, batch, todayIso());
+    const standard = this.pickStandard(standards, batch, defaultRefDate(batch));
     if (!standard) return null;
 
     const metrics =
