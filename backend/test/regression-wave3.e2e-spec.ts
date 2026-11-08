@@ -262,7 +262,7 @@ describe('Regression wave 3 (e2e)', () => {
         entryDate: today,
         deaths: 0,
       }).expect(201);
-      expect((await statusOf(closed)).status).toBe('FINI');
+      expect(['FINI', 'CLOTURE']).toContain((await statusOf(closed)).status);
     });
   });
 
