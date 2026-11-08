@@ -50,16 +50,8 @@ export class CustomersController {
     };
     const customers = await this.customersService.listWithBalances(user, farmId, opts);
     const views = await this.credit.viewsFor(farmId, customers);
-    // An unfiltered read refreshes the farm's overdue alert (a read-only
-    // institution never writes).
-    if (
-      user.role !== UserRole.INSTITUTION &&
-      !opts.search &&
-      !opts.type &&
-      !opts.segment
-    ) {
-      await this.credit.refreshOverdueAlert(farmId);
-    }
+    // Reads never write: the overdue alert is refreshed after a payment and
+    // by the hourly sweep.
     return customers.map((c) => ({ ...c, ...views.get(c.id) }));
   }
 

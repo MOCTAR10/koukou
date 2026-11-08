@@ -1028,15 +1028,18 @@ describe('Scénarios métier 2 : intrants, abattage, clients, visites, tâches, 
       });
 
       it('retard : une seule alerte active (dédupliquée) malgré les relectures, résolue une fois les impayés soldés', async () => {
+        // Reads never raise it; a payment leaving the invoice late does (twice: still one alert).
         await get(`/farms/${creditFarm}/customers`, ownerToken).expect(200);
-        await get(`/farms/${creditFarm}/customers`, ownerToken).expect(200);
+        expect(await overdueAlerts()).toHaveLength(0);
+        await post(`/farms/${creditFarm}/customers/${custA}/payments`, { amountFcfa: 5_000 }, ownerToken).expect(201);
+        await post(`/farms/${creditFarm}/customers/${custA}/payments`, { amountFcfa: 5_000 }, ownerToken).expect(201);
         const alerts = await overdueAlerts();
         expect(alerts).toHaveLength(1);
         expect(alerts[0].message).toMatch(/1 client en retard/);
         expect(alerts[0].message).toMatch(/5 jours de retard/);
 
         // The oldest invoices are paid first: everything is settled.
-        await post(`/farms/${creditFarm}/customers/${custA}/payments`, { amountFcfa: 105_000 }, ownerToken).expect(201);
+        await post(`/farms/${creditFarm}/customers/${custA}/payments`, { amountFcfa: 95_000 }, ownerToken).expect(201);
         expect(await overdueAlerts()).toHaveLength(0);
         expect(await customerView(custA)).toMatchObject({ overdue: false, overdueAmount: 0, outstandingFcfa: 0 });
       });
