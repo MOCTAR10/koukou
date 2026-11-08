@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch, ApiError } from '@/api/client';
 import { clearSession, loadSession, saveSession, type StoredSession } from '@/api/token';
-import { clearQueue, clearRejected, loadOps } from '@/offline';
+import { clearUserQueue, clearUserRejected, countUserOps } from '@/offline';
 import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
 import type { CustomerType, Farm, PublicUser } from '@/api/types';
@@ -169,11 +169,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     // The queue may hold unsynced cash sales: never wipe it silently.
-    const pending = loadOps().length;
+    const userId = loadSession()?.user?.id;
+    const pending = countUserOps(userId);
     if (pending > 0) {
       const ok = await confirm({
         title: 'Opérations non synchronisées',
-        message: `${pending} opération(s) (ventes, saisies…) n’ont pas encore été envoyées au serveur. Elles seront perdues si vous vous déconnectez maintenant.\n\nReconnectez-vous à Internet et attendez la synchronisation, ou confirmez la déconnexion.`,
+        message: `${pending} opération(s) (ventes, saisies… y compris celles refusées par le serveur) n’ont pas encore été envoyées ou corrigées. Elles seront perdues si vous vous déconnectez maintenant.\n\nReconnectez-vous à Internet et attendez la synchronisation, ou confirmez la déconnexion.`,
         cancelLabel: 'Rester connecté',
         confirmLabel: 'Se déconnecter',
         destructive: true,
@@ -183,8 +184,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // While the session token is still there: stop push for this account.
     await unregisterForPush();
     clearSession();
-    clearQueue();
-    clearRejected();
+    clearUserQueue(userId);
+    clearUserRejected(userId);
     setSession(null);
     setOtpChallenge(null);
     setError(null);

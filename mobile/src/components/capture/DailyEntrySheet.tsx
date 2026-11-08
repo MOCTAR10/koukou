@@ -63,6 +63,17 @@ interface DailyEntrySheetProps {
   onFooterChange?: (node: React.ReactNode) => void;
 }
 
+/** Typed text to a non-negative number; '', '.' or any NaN give 0. */
+function safeFloat(t: string): number {
+  const n = parseFloat(t);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function safeInt(t: string): number {
+  const n = parseInt(t, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 const baseline: DailyEntryValues = {
   deaths: 0,
   feedKg: 0,
@@ -525,7 +536,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
   const [showDatePicker, setShowDatePicker] = useState(false);
   const entryDateStr =
     dateMode === 'today' ? todayStr()
-    : dateMode === 'yesterday' ? fmtLocalDate(addDays(new Date(), -1))
+    : dateMode === 'yesterday' ? fmtLocalDate(addDays(new Date(`${todayStr()}T12:00:00`), -1))
     : fmtLocalDate(customDate);
   const entryDateLabel = fmtDay(new Date(entryDateStr + 'T12:00:00'));
 
@@ -988,6 +999,26 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
     );
   }
 
+  if (batchesQuery.data === undefined) {
+    if (batchesQuery.isError) {
+      return (
+        <View style={styles.savedWrap}>
+          <AlertTriangle size={40} color={palette.amber[600]} />
+          <AppText size="h3" weight="bold" color="text">Lots indisponibles</AppText>
+          <AppText size="caption" color="muted" align="center">
+            Impossible de charger vos lots (hors ligne et aucune copie enregistrée). Vérifiez le réseau puis réessayez.
+          </AppText>
+          <Button label="Réessayer" tone="ghost" size="md" block={false} onPress={() => { void batchesQuery.refetch(); }} />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.savedWrap}>
+        <AppText size="caption" color="muted" align="center">Chargement des lots…</AppText>
+      </View>
+    );
+  }
+
   if (batches.length === 0) {
     return (
       <View style={styles.savedWrap}>
@@ -1126,7 +1157,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
           <SectionHeader icon={Skull} title="Morts" done={values.deaths > 0} accent={palette.red[500]} />
           <NumberInput
             value={values.deaths > 0 ? String(values.deaths) : ''}
-            onChangeText={(t) => set('deaths')(t ? parseInt(t, 10) : 0)}
+            onChangeText={(t) => set('deaths')(safeInt(t))}
             suffix="oiseaux"
             placeholder="0"
           />
@@ -1344,8 +1375,8 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
               ? (values.feedKg > 0 ? String(values.feedKg) : '')
               : (values.feedSacs > 0 ? String(values.feedSacs) : '')}
             onChangeText={(t) => {
-              if (modeFeed === 'kg') set('feedKg')(t ? parseFloat(t) : 0);
-              else set('feedSacs')(t ? parseInt(t, 10) : 0);
+              if (modeFeed === 'kg') set('feedKg')(safeFloat(t));
+              else set('feedSacs')(safeInt(t));
             }}
             suffix={modeFeed === 'kg' ? 'kg' : 'sacs'}
             decimal={modeFeed === 'kg'}
@@ -1379,7 +1410,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
           </View>
           <NumberInput
             value={values.waterL > 0 ? String(values.waterL) : ''}
-            onChangeText={(t) => set('waterL')(t ? parseFloat(t) : 0)}
+            onChangeText={(t) => set('waterL')(safeFloat(t))}
             suffix="L"
             decimal
             placeholder="0"
@@ -1569,7 +1600,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
           <NumberInput
             value={values.weightG > 0 ? String(values.weightG) : ''}
             onChangeText={(t) => {
-              const g = t ? parseInt(t, 10) : 0;
+              const g = safeInt(t);
               setValues((v) => ({
                 ...v,
                 weightG: g,
@@ -1586,7 +1617,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
               <AppText size="label" weight="semibold" color="muted">Sujets pesés (obligatoire)</AppText>
               <NumberInput
                 value={values.sampleSize && values.sampleSize > 0 ? String(values.sampleSize) : ''}
-                onChangeText={(t) => set('sampleSize')(t ? parseInt(t, 10) : 0)}
+                onChangeText={(t) => set('sampleSize')(safeInt(t))}
                 suffix="sujets"
                 placeholder={expectedSample != null ? String(expectedSample) : '0'}
               />

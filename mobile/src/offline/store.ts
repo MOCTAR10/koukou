@@ -75,9 +75,67 @@ function readOps(): OfflineOp[] {
     parsed = null;
   }
   if (Array.isArray(parsed)) return parsed as OfflineOp[];
-  storage.setItem(`${KEY}.corrupt.${Date.now()}`, raw);
-  storage.setItem(KEY, '[]');
-  return [];
+  // Unreadable queue: keep the raw copy, salvage the valid ops, and tell the
+  // user (see consumeQueueRecovery) instead of silently emptying it.
+  const backupKey = `${KEY}.corrupt.${Date.now()}`;
+  storage.setItem(backupKey, raw);
+  const salvaged = salvageOps(raw);
+  storage.setItem(KEY, JSON.stringify(salvaged));
+  recovery = { recovered: salvaged.length, backupKey };
+  return salvaged;
+}
+
+let recovery: { recovered: number; backupKey: string } | null = null;
+
+/** Set once after a corrupt queue was found; returns it then forgets it. */
+export function consumeQueueRecovery(): { recovered: number; backupKey: string } | null {
+  const r = recovery;
+  recovery = null;
+  return r;
+}
+
+function isOpShape(v: unknown): v is OfflineOp {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.id === 'string' && typeof o.kind === 'string' && typeof o.farmId === 'string' && typeof o.createdAt === 'string';
+}
+
+/**
+ * Best-effort recovery of a truncated JSON array: scans the top-level
+ * objects (brace depth, string-aware) and keeps those that parse as ops.
+ */
+export function salvageOps(raw: string): OfflineOp[] {
+  const out: OfflineOp[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (c === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        try {
+          const candidate: unknown = JSON.parse(raw.slice(start, i + 1));
+          if (isOpShape(candidate)) out.push(candidate);
+        } catch {
+          // Damaged object: skipped.
+        }
+        start = -1;
+      }
+    }
+  }
+  return out;
 }
 
 /** Display-safe read: an unreadable queue shows as empty (nothing is written). */
@@ -131,6 +189,25 @@ export function clearQueue(): void {
   notify();
 }
 
+/** An op queued without an account (older versions) counts as the current user's. */
+function belongsTo(op: OfflineOp, userId: string | undefined): boolean {
+  return op.userId == null || op.userId === userId;
+}
+
+/** Pending plus refused ops of one account (what a sign-out would lose). */
+export function countUserOps(userId: string | undefined): number {
+  return (
+    loadOps().filter((o) => belongsTo(o, userId)).length +
+    loadRejected().filter((o) => belongsTo(o, userId)).length
+  );
+}
+
+/** Sign-out: removes only this account's pending ops; other accounts keep theirs. */
+export function clearUserQueue(userId: string | undefined): void {
+  persist(readOps().filter((o) => !belongsTo(o, userId)));
+  notify();
+}
+
 /* ── Rejected ops: refused by the server but kept (cash must never vanish) ── */
 
 export interface RejectedOp extends OfflineOp {
@@ -166,6 +243,15 @@ export function rejectOp(op: OfflineOp, reason: string, code?: string): void {
 /** Sign-out: the next user must not see (or act on) our refused ops. */
 export function clearRejected(): void {
   storage.setItem(REJECTED_KEY, '[]');
+  notify();
+}
+
+/** Sign-out: removes only this account's refused ops. */
+export function clearUserRejected(userId: string | undefined): void {
+  storage.setItem(
+    REJECTED_KEY,
+    JSON.stringify(loadRejected().filter((o) => !belongsTo(o, userId))),
+  );
   notify();
 }
 

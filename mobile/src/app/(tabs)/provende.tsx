@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import { toast } from '@/components/ui/Feedback';
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -400,6 +401,9 @@ export default function ProvendeScreen() {
           queryClient.invalidateQueries({ queryKey: ['feed-stock'] }),
           invalidateFarmQueries(queryClient, { farmId }),
         ]);
+        toast.success('Perte enregistrée');
+      } else {
+        toast.info('Perte en attente de réseau', 'Elle sera envoyée dès le retour de la connexion.');
       }
       setLossOpen(false);
       setLossQty(0);

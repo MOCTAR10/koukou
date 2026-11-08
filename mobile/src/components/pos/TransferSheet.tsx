@@ -25,6 +25,7 @@ import type {
 import { breedImageForLot } from '@/constants/breedImages';
 import { color, radii, spacing, fmt } from '@/constants/theme';
 import { ageOnDay } from '@/utils/band';
+import { librevilleDay } from '@/utils/libreville';
 import { formatEggAlveoles } from './helpers';
 import { transferRemaining } from './catalog';
 
@@ -71,7 +72,7 @@ function typeLabel(type: 'CHAIR' | 'PONDEUSE'): string {
 /** Age of the lot today (J+x aware, same rule as the served `metrics.ageDays`). */
 function lotAgeToday(batch: { integrationDate?: string | null; initialAgeDays?: number | null }): number | null {
   if (!batch.integrationDate || Number.isNaN(Date.parse(batch.integrationDate))) return null;
-  return Math.max(0, ageOnDay(batch.integrationDate, batch.initialAgeDays, new Date().toISOString().slice(0, 10)));
+  return Math.max(0, ageOnDay(batch.integrationDate, batch.initialAgeDays, librevilleDay()));
 }
 
 interface SourceStat {
