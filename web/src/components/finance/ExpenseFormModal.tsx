@@ -50,6 +50,9 @@ export function ExpenseFormModal({
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [paidByCaisse, setPaidByCaisse] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
+  // One key per opening of the form: a double tap or a resend after a timeout
+  // returns the stored expense instead of booking it twice.
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   const save = useMutation({
     mutationFn: async () => {
@@ -67,6 +70,7 @@ export function ExpenseFormModal({
         posteCharge: selectedPoste,
         amountFcfa: Math.round(Number(amount)),
         paidByCaisse,
+        idempotencyKey,
         ...(label.trim() ? { label: label.trim() } : {}),
         ...(supplier.trim() ? { supplier: supplier.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),

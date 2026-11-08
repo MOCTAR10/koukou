@@ -39,13 +39,14 @@ import { acceptedQuantity } from './market-order-rules.js';
 import type { Farm } from '../farms/entities/farm.entity.js';
 import { TraceConfigService } from '../trace/trace-config.service.js';
 import { lotQrUrl } from '../trace/qr-signature.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const DEFAULT_PAGE = 20;
 /** Listings looked at per catalogue read: each one costs stock and sanitary queries. */
 const CATALOGUE_SCAN_LIMIT = 200;
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 interface ListingState {

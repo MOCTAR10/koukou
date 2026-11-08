@@ -10,9 +10,10 @@ import { Alert } from '../alerts/entities/alert.entity.js';
 import { ReferenceConstant } from '../reference-constants/entities/reference-constant.entity.js';
 import { ProphylaxisEvent } from './entities/prophylaxis-event.entity.js';
 import { TreatmentRecord } from './entities/treatment-record.entity.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function daysBefore(date: string, days: number): string {

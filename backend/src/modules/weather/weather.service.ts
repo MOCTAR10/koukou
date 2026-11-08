@@ -10,6 +10,7 @@ import {
   WeatherObservation,
   WeatherZone,
 } from './entities/weather-observation.entity.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -77,7 +78,7 @@ export function zoneLevel(zone: WeatherZone): AlertLevel | null {
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 async function fetchJson(url: string): Promise<Record<string, unknown>> {

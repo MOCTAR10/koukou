@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Logger, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -15,6 +15,8 @@ import { Domain } from '../../common/decorators/domain.decorator.js';
 @Domain('TECHNIQUE')
 @Controller('farms/:farmId/batches/:batchId/daily-entries')
 export class DailyEntriesController {
+  private readonly logger = new Logger(DailyEntriesController.name);
+
   constructor(
     private readonly entriesService: DailyEntriesService,
     private readonly batchesService: BatchesService,
@@ -37,19 +39,27 @@ export class DailyEntriesController {
     @Body() dto: CreateDailyEntryDto,
   ) {
     const entry = await this.entriesService.create(user, farmId, batchId, dto);
-    await this.batchesService.runAdvisoryForBatch(batchId);
-    await this.feedStockService.evaluateStockAlerts(farmId);
-    // Alerte stock négatif : la saisie est conservée (terrain hors ligne) mais
-    // le client doit afficher l'avertissement.
+    // The entry is committed: a failure of the advice or the alerts after it
+    // must not answer 500 (the field user would think the entry was lost).
     let stockWarning: string | null = null;
-    if (
-      entry.feedQuantity > 0 &&
-      !entry.skipStockDeduction &&
-      entry.inputLotId == null
-    ) {
-      const deficit = await this.feedStockService.uncoveredKg(farmId);
-      if (deficit > 0)
-        stockWarning = `Stock d’aliment négatif : ${deficit} kg consommés sans stock enregistré. Enregistrez une entrée de provende pour régulariser.`;
+    try {
+      await this.batchesService.runAdvisoryForBatch(batchId);
+      await this.feedStockService.evaluateStockAlerts(farmId);
+      // Alerte stock négatif : la saisie est conservée (terrain hors ligne)
+      // mais le client doit afficher l'avertissement.
+      if (
+        entry.feedQuantity > 0 &&
+        !entry.skipStockDeduction &&
+        entry.inputLotId == null
+      ) {
+        const deficit = await this.feedStockService.uncoveredKg(farmId);
+        if (deficit > 0)
+          stockWarning = `Stock d’aliment négatif : ${deficit} kg consommés sans stock enregistré. Enregistrez une entrée de provende pour régulariser.`;
+      }
+    } catch (err) {
+      this.logger.error(
+        `Saisie ${entry.id} enregistrée, conseils/alertes en échec : ${(err as Error).message}`,
+      );
     }
     return Object.assign(entry, { stockWarning });
   }

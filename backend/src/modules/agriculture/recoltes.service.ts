@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
+import { isAfterTomorrowUtc, todayLocal } from '../../common/utils/date.utils.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -27,7 +27,7 @@ export interface ParcelleStock {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 @Injectable()

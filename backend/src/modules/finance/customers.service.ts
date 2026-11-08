@@ -76,9 +76,9 @@ const NOT_UNDELIVERED_ORDER = `NOT EXISTS (SELECT 1 FROM orders o WHERE o.sale_i
 function cappedPaidQuery(
   manager: EntityManager,
   farmId: string,
-  customerId: string,
+  customerId: string | null,
 ) {
-  return manager
+  const qb = manager
     .createQueryBuilder()
     .select(
       'COALESCE(SUM(LEAST(sale.total_amount_fcfa, paid.amount)), 0)',
@@ -99,11 +99,29 @@ function cappedPaidQuery(
       'paid.sale_id = sale.id',
     )
     .where('sale.farm_id = :farmId', { farmId })
-    .andWhere('sale.customer_id = :customerId', { customerId })
     .andWhere('sale.status != :cancelled', {
       cancelled: SaleStatus.CANCELLED,
     })
     .andWhere(NOT_UNDELIVERED_ORDER);
+  if (customerId != null) {
+    return qb.andWhere('sale.customer_id = :customerId', { customerId });
+  }
+  // Farm-wide variant: one row per customer.
+  return qb
+    .addSelect('sale.customer_id', 'customerId')
+    .andWhere('sale.customer_id IS NOT NULL')
+    .groupBy('sale.customer_id');
+}
+
+export function buildCustomerBalance(
+  invoiced: number,
+  paid: number,
+): CustomerBalance {
+  return {
+    totalInvoicedFcfa: invoiced,
+    paidFcfa: paid,
+    outstandingFcfa: Math.max(0, invoiced - paid),
+  };
 }
 
 @Injectable()
@@ -287,16 +305,15 @@ export class CustomersService {
         spent: Number(row.spent),
       });
     }
-    const results = await Promise.all(
-      customers.map(async (c) => {
-        const stats = byId.get(c.id) ?? { visits: 0, spent: 0 };
-        return {
-          ...c,
-          balance: await this.getCustomerFinance(farmId, c.id),
-          segment: this.computeSegment(stats.visits, stats.spent, constants),
-        };
-      }),
-    );
+    const finance = await this.getFarmCustomerFinance(farmId);
+    const results = customers.map((c) => {
+      const stats = byId.get(c.id) ?? { visits: 0, spent: 0 };
+      return {
+        ...c,
+        balance: finance.get(c.id) ?? buildCustomerBalance(0, 0),
+        segment: this.computeSegment(stats.visits, stats.spent, constants),
+      };
+    });
 
     if (opts?.segment) {
       return results.filter((r) => r.segment === opts.segment);
@@ -333,8 +350,9 @@ export class CustomersService {
     const byType: Record<string, { count: number; outstandingFcfa: number }> = {};
     const bySegment: Record<string, number> = {};
 
-    const balances = await Promise.all(
-      customers.map((c) => this.getCustomerFinance(farmId, c.id)),
+    const finance = await this.getFarmCustomerFinance(farmId);
+    const balances = customers.map(
+      (c) => finance.get(c.id) ?? buildCustomerBalance(0, 0),
     );
 
     const totals = balances.reduce(
@@ -527,13 +545,52 @@ export class CustomersService {
       customerId,
     ).getRawOne();
 
-    const invoiced = Number(invoicedRow?.total ?? 0);
-    const paid = Number(paidRow?.total ?? 0);
-    return {
-      totalInvoicedFcfa: invoiced,
-      paidFcfa: paid,
-      outstandingFcfa: Math.max(0, invoiced - paid),
-    };
+    return buildCustomerBalance(
+      Number(invoicedRow?.total ?? 0),
+      Number(paidRow?.total ?? 0),
+    );
+  }
+
+  /**
+   * Same figures as `getCustomerFinance` for every customer of the farm, in
+   * two GROUP BY queries instead of two per customer. Customers without any
+   * live sale are absent from the map (balance zero).
+   */
+  async getFarmCustomerFinance(
+    farmId: string,
+  ): Promise<Map<string, CustomerBalance>> {
+    const manager = this.customerRepo.manager;
+    const [invoicedRows, paidRows] = await Promise.all([
+      manager
+        .createQueryBuilder()
+        .select('sale.customer_id', 'customerId')
+        .addSelect('COALESCE(SUM(sale.total_amount_fcfa), 0)', 'total')
+        .from('sales', 'sale')
+        .where('sale.farm_id = :farmId', { farmId })
+        .andWhere('sale.customer_id IS NOT NULL')
+        .andWhere('sale.status != :cancelled', {
+          cancelled: SaleStatus.CANCELLED,
+        })
+        .andWhere(NOT_UNDELIVERED_ORDER)
+        .groupBy('sale.customer_id')
+        .getRawMany<{ customerId: string; total: string | number }>(),
+      cappedPaidQuery(manager, farmId, null).getRawMany<{
+        customerId: string;
+        total: string | number;
+      }>(),
+    ]);
+    const invoiced = new Map<string, number>();
+    for (const r of invoicedRows) invoiced.set(r.customerId, Number(r.total));
+    const paid = new Map<string, number>();
+    for (const r of paidRows) paid.set(r.customerId, Number(r.total));
+    const out = new Map<string, CustomerBalance>();
+    for (const id of new Set([...invoiced.keys(), ...paid.keys()])) {
+      out.set(
+        id,
+        buildCustomerBalance(invoiced.get(id) ?? 0, paid.get(id) ?? 0),
+      );
+    }
+    return out;
   }
 
   // ── Encaissement client ──────────────────────────────────────────────────

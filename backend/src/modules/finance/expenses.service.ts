@@ -31,6 +31,7 @@ import {
   UpdateExpenseDto,
   ListExpensesQueryDto,
 } from './dto/expense.dto.js';
+import { createOnce } from '../../common/utils/idempotency.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import {
   expenseAccountForCategory,
@@ -131,6 +132,20 @@ export class ExpensesService {
     const batch = await this.resolveBatch(farmId, dto.batchId);
     const cls = await this.classify(dto.category, dto.posteCharge);
 
+    // Offline replay / double tap: same key returns the stored expense, with no
+    // second cash movement nor journal entry (the whole transaction is skipped).
+    return createOnce(this.expenseRepo, farmId, dto.idempotencyKey, () =>
+      this.persistCreate(user, farmId, dto, batch, cls),
+    );
+  }
+
+  private persistCreate(
+    user: AuthUser,
+    farmId: string,
+    dto: CreateExpenseDto,
+    batch: ProductionBatch | null,
+    cls: { category: ExpenseCategory; posteCharge: string },
+  ): Promise<Expense> {
     return this.dataSource.transaction(async (em) => {
       let cashMovement: CashMovement | null = null;
       if (dto.paidByCaisse) {
@@ -176,6 +191,7 @@ export class ExpensesService {
       const expense = await em.getRepository(Expense).save(
         em.getRepository(Expense).create({
           farmId,
+          idempotencyKey: dto.idempotencyKey || null,
           expenseDate: dto.expenseDate ?? new Date().toISOString().slice(0, 10),
           category: cls.category,
           posteCharge: cls.posteCharge,

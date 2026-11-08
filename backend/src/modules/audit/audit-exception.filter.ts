@@ -1,6 +1,12 @@
-import { ArgumentsHost, Catch, Injectable } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  BadRequestException,
+  Catch,
+  Injectable,
+} from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import type { Request, Response } from 'express';
+import { QueryFailedError } from 'typeorm';
 import {
   AUDIT_PLAN,
   AUDIT_RECORDED,
@@ -15,6 +21,26 @@ type AuditedRequest = Request & {
   [AUDIT_RECORDED]?: boolean;
 };
 
+/** Postgres codes of a malformed client value (uuid, date, number). */
+const BAD_INPUT_CODES = new Set(['22P02', '22007', '22008', '22003']);
+
+/**
+ * A malformed id, date or enum in the URL reaches Postgres or `Date` and
+ * would answer 500. It is the client's input: answer 400 instead.
+ */
+export function asClientError(exception: unknown): unknown {
+  if (exception instanceof QueryFailedError) {
+    const code = (exception.driverError as { code?: string } | undefined)?.code;
+    if (code && BAD_INPUT_CODES.has(code)) {
+      return new BadRequestException('Paramètre invalide');
+    }
+  }
+  if (exception instanceof RangeError && /Invalid time value/.test(exception.message)) {
+    return new BadRequestException('Date invalide');
+  }
+  return exception;
+}
+
 /**
  * Journals the requests that failed before `AuditInterceptor` could see them:
  * refused by a guard (401, 403, 429), unknown route (404), malformed body.
@@ -27,7 +53,8 @@ export class AuditExceptionFilter extends BaseExceptionFilter {
     super();
   }
 
-  async catch(exception: unknown, host: ArgumentsHost): Promise<void> {
+  async catch(raw: unknown, host: ArgumentsHost): Promise<void> {
+    const exception = asClientError(raw);
     if (host.getType() === 'http') {
       const req = host.switchToHttp().getRequest<AuditedRequest>();
       const res = host.switchToHttp().getResponse<Response>();

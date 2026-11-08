@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
+import { Species } from '../../common/enums/species.enum.js';
 import { BatchStatus, BatchType } from '../../common/enums/batch-type.enum.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { Building } from '../buildings/entities/building.entity.js';
@@ -40,6 +41,31 @@ function daysBetween(from: string, to: string): number {
   );
 }
 
+type WaterDrop = {
+  todayPerBird: number;
+  baselinePerBird: number;
+  dropPct: number;
+  baselineDays: number;
+};
+
+/** Minimum age (days) from which the per-bird water norm applies. */
+export const WATER_NORM_MIN_AGE_DAYS = 21;
+
+/**
+ * The 0.2 L/bird/day norm targets broiler chickens of at least 21 days.
+ * Chicks and other species are not judged against it.
+ */
+export function isWaterNormApplicable(
+  batch: Pick<ProductionBatch, 'type' | 'species'>,
+  metrics: Pick<BatchMetrics, 'ageDays'>,
+): boolean {
+  return (
+    batch.type === BatchType.CHAIR &&
+    batch.species === Species.POULET &&
+    metrics.ageDays >= WATER_NORM_MIN_AGE_DAYS
+  );
+}
+
 @Injectable()
 export class AdvisoryEngine {
   constructor(
@@ -71,11 +97,18 @@ export class AdvisoryEngine {
       return;
     }
 
+    // Computed once and shared by the two water evaluations.
+    const waterWindowDays = await this.constants.get(
+      ReferenceKey.WATER_WINDOW_DAYS,
+      3,
+    );
+    const drop = await this.computeWaterDrop(batch, waterWindowDays);
+
     await Promise.all([
       this.evaluateMortality(batch, metrics, farmId, batchId),
       this.evaluateDensity(batch, metrics, farmId, batchId),
-      this.evaluateWater(batch, metrics, farmId, batchId),
-      this.evaluateWaterHealth(batch, metrics, farmId, batchId),
+      this.evaluateWater(batch, metrics, farmId, batchId, drop),
+      this.evaluateWaterHealth(batch, metrics, farmId, batchId, drop),
       this.evaluateIpeGmq(batch, metrics, farmId, batchId),
       this.evaluateGmq(batch, metrics, farmId, batchId),
       this.evaluateExpiration(batch, farmId, batchId),
@@ -442,12 +475,7 @@ export class AdvisoryEngine {
   private async computeWaterDrop(
     batch: ProductionBatch,
     baselineWindowDays: number,
-  ): Promise<{
-    todayPerBird: number;
-    baselinePerBird: number;
-    dropPct: number;
-    baselineDays: number;
-  } | null> {
+  ): Promise<WaterDrop | null> {
     const entries = await this.entriesRepo.find({
       where: { batchId: batch.id },
       order: { entryDate: 'DESC' },
@@ -498,12 +526,8 @@ export class AdvisoryEngine {
     metrics: BatchMetrics,
     farmId: string,
     batchId: string,
+    drop: WaterDrop | null,
   ) {
-    const windowDays = await this.constants.get(
-      ReferenceKey.WATER_WINDOW_DAYS,
-      3,
-    );
-    const drop = await this.computeWaterDrop(batch, windowDays);
     const warnPct = await this.constants.get(
       ReferenceKey.WATER_DROP_WARN_PCT,
       10,
@@ -513,10 +537,9 @@ export class AdvisoryEngine {
       25,
     );
 
-    if (!drop) {
-      await this.alertsService.clearKind(farmId, batchId, AlertKind.EAU);
-      return;
-    }
+    // No usable reading (last entry without water, no baseline): existing
+    // alerts are left untouched, only a measurement can resolve them.
+    if (!drop) return;
 
     if (drop.dropPct > critPct) {
       await this.alertsService.raise(
@@ -553,6 +576,13 @@ export class AdvisoryEngine {
     } else {
       // Pas de chute : on signale un écart à la norme par oiseau (consommation
       // anormalement basse OU haute), car cela peut aussi être un mauvais signe.
+      // La norme (0,2 L/oiseau/jour) ne vise que le poulet de chair d'au moins
+      // 21 jours : un poussin boit 0,02 à 0,15 L/j, les autres espèces ont
+      // d'autres besoins. Hors périmètre : aucune alerte de norme.
+      if (!isWaterNormApplicable(batch, metrics)) {
+        await this.alertsService.clearKind(farmId, batchId, AlertKind.EAU);
+        return;
+      }
       const norm = await this.constants.get(
         ReferenceKey.WATER_PER_BIRD_L_DAY,
         0.2,
@@ -597,17 +627,15 @@ export class AdvisoryEngine {
     metrics: BatchMetrics,
     farmId: string,
     batchId: string,
+    drop: WaterDrop | null,
   ) {
-    const windowDays = await this.constants.get(
-      ReferenceKey.WATER_WINDOW_DAYS,
-      3,
-    );
-    const drop = await this.computeWaterDrop(batch, windowDays);
+    // Missing reading: existing alert left unchanged.
+    if (!drop) return;
     const warnPct = await this.constants.get(
       ReferenceKey.WATER_DROP_WARN_PCT,
       10,
     );
-    if (!drop || drop.dropPct <= warnPct) {
+    if (drop.dropPct <= warnPct) {
       await this.alertsService.clearKind(farmId, batchId, AlertKind.MALADIE);
       return;
     }

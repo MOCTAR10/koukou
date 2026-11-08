@@ -46,6 +46,7 @@ import {
 import { RefListsService } from '../programme/ref-lists.service.js';
 import { SanitaryAlertsService } from '../surveillance/sanitary-alerts.service.js';
 import { HealthEventPhoto } from './entities/health-event-photo.entity.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const EGGS_PER_TRAY = 30;
 
@@ -85,7 +86,7 @@ const DISEASE_SEVERITY_TO_LEVEL: Record<DiseaseSeverity, AlertLevel> = {
 };
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function addDaysIso(date: string, days: number): string {

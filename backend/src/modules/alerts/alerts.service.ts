@@ -219,6 +219,26 @@ export class AlertsService {
     return this.alertRepo.find({ where, order: { createdAt: 'DESC' } });
   }
 
+  /** Alertes ACTIVES de certains lots et types, filtrées en SQL. */
+  async listActiveForBatches(
+    farmId: string,
+    batchIds: string[],
+    kinds: AlertKind[],
+  ): Promise<Alert[]> {
+    if (batchIds.length === 0 || kinds.length === 0) return [];
+    return this.alertRepo.find({
+      where: {
+        farmId,
+        // Acknowledged is still in force (a withdrawal period stays a
+        // withdrawal period once seen); resolved is history.
+        status: In([AlertStatus.ACTIVE, AlertStatus.ACQUITTEE]),
+        batchId: In(batchIds),
+        kind: In(kinds),
+      },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   /** Historique COMPLET (actives + acquittées + résolues) pour les rapports 360°. */
   async historyForFarm(farmId: string): Promise<Alert[]> {
     return this.alertRepo.find({

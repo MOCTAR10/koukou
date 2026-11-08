@@ -46,11 +46,12 @@ import {
   BatchMetrics,
   ReadyReason,
 } from './models/batch-metrics.model.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function addDaysIso(date: string, days: number): string {

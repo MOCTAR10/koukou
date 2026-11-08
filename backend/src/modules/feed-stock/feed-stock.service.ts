@@ -33,11 +33,12 @@ import {
 import { FeedStockSale } from './entities/feed-stock-sale.entity.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { createOnce } from '../../common/utils/idempotency.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
 
 const CONSUMPTION_WINDOW_DAYS = 3;
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayLocal();
 }
 
 function daysAgoStr(n: number): string {
