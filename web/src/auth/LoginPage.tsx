@@ -187,6 +187,10 @@ export function LoginPage() {
             <Link to="/guide" className={authLinkCls + ' mt-3 block text-xs'}>
               Guide de la plateforme
             </Link>
+            {/* Static guide (outside the SPA): plain link, slide « livrables ». */}
+            <a href="/guide-jury/#livrables" className={authLinkCls + ' mt-1.5 block text-xs'}>
+              Documents du programme
+            </a>
           </>
         )
       }

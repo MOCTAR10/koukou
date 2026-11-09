@@ -6,3 +6,5 @@ Le contenu (index.html + img/) est GENERE hors depot par `node C:\dev\koukou\gui
 (lance depuis C:\dev\koukou\guide-jury), puis copie ici. Ne pas editer a la main : regenerer et recopier.
 Non precache par le service worker (globIgnores + navigateFallbackDenylist dans `vite.config.ts`).
 Charge Tailwind (cdn.tailwindcss.com) et Inter (Google Fonts) : aucun CSP n'est defini cote nginx.
+
+Les PDF de livrables/ (cahier de recette, documentation technique, modeles de rapports) sont copies par le generateur depuis C:\dev\koukou\livrables ; source HTML dans C:\dev\koukou\livrables\<doc>\index.html.
