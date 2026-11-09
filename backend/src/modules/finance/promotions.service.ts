@@ -12,7 +12,7 @@ import { Customer } from './entities/customer.entity.js';
 import { Promotion } from './entities/promotion.entity.js';
 import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto.js';
 import { PromotionType } from '../../common/enums/promotion-type.enum.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 function todayStr(): string {
   return todayLocal();
@@ -169,11 +169,11 @@ export class PromotionsService {
     if (!promo.active) throw new BadRequestException('Code promo inactif.');
     if (promo.startDate && promo.startDate > today)
       throw new BadRequestException(
-        `Ce code promo n'est pas encore actif (actif à partir du ${promo.startDate}).`,
+        `Ce code promo n'est pas encore actif (actif à partir du ${dateFr(promo.startDate)}).`,
       );
     if (promo.endDate && promo.endDate < today)
       throw new BadRequestException(
-        `Ce code promo a expiré le ${promo.endDate}.`,
+        `Ce code promo a expiré le ${dateFr(promo.endDate)}.`,
       );
     if (promo.minSubtotalFcfa != null && subtotalFcfa < promo.minSubtotalFcfa) {
       throw new BadRequestException(

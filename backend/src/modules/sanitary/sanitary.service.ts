@@ -1124,7 +1124,7 @@ export class SanitaryService {
         {
           kind: AlertKind.DELAI_ATTENTE,
           level: AlertLevel.ROUGE,
-          message: `Délai d'attente actif sur le lot : commercialisation et vente suspendues jusqu'au ${endDate} (sécurité alimentaire).`,
+          message: `Délai d'attente actif sur le lot : commercialisation et vente suspendues jusqu'au ${dateFr(endDate)} (sécurité alimentaire).`,
           recommendation: `Attendre le ${endDate} avant toute vente ou publication sur le marché. Respecter scrupuleusement le délai d'élimination de la molécule.`,
           context: {
             withdrawalEndDate: endDate,

@@ -22,7 +22,7 @@ import {
 import { ageOn } from './poufa/bande-rules.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { BatchMetrics } from './models/batch-metrics.model.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 function addDaysIso(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
@@ -845,7 +845,7 @@ export class AdvisoryEngine {
         {
           kind: AlertKind.PEREMPTION,
           level: expiringSoon.length > 0 ? AlertLevel.ROUGE : AlertLevel.JAUNE,
-          message: `Péremption proche : ${urgent.productName} expire le ${urgent.expirationDate}.`,
+          message: `Péremption proche : ${urgent.productName} expire le ${dateFr(urgent.expirationDate)}.`,
           recommendation:
             'Planifier l’utilisation avant la date de péremption.',
           context: {

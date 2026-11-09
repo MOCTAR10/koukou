@@ -58,7 +58,7 @@ import {
   inputValueFcfa,
   revenueLines,
 } from './posting-map.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 export const ENTRY_PREFIX = 'EC';
 
@@ -476,7 +476,7 @@ export class AccountingService {
     const exercice = await this.exerciceAt(em, farmId, date);
     if (exercice?.status === ExerciceStatus.CLOSED) {
       throw new BadRequestException(
-        `L’exercice « ${exercice.label} » est clôturé : impossible d’enregistrer une opération datée du ${date}.`,
+        `L’exercice « ${exercice.label} » est clôturé : impossible d’enregistrer une opération datée du ${dateFr(date)}.`,
       );
     }
   }
@@ -544,7 +544,7 @@ export class AccountingService {
           await this.post(em, {
             farmId,
             date: session.openedAt,
-            label: `Ouverture de caisse — caisse du ${session.openedAt}`,
+            label: `Ouverture de caisse — caisse du ${dateFr(session.openedAt)}`,
             source: 'CAISSE',
             sourceId: `open:${session.id}`,
             lines: openLines,
@@ -558,7 +558,7 @@ export class AccountingService {
             date: session.closedAt
               ? todayLocal(session.closedAt)
               : session.openedAt,
-            label: `Clôture de caisse du ${session.openedAt} — écart`,
+            label: `Clôture de caisse du ${dateFr(session.openedAt)} — écart`,
             source: 'CAISSE',
             sourceId: `close:${session.id}`,
             lines:
@@ -843,7 +843,7 @@ export class AccountingService {
       const exercice = await this.exerciceAt(em, farmId, dto.date);
       if (exercice?.status === ExerciceStatus.CLOSED) {
         throw new BadRequestException(
-          `L’exercice « ${exercice.label} » est clôturé : impossible d’y passer une régularisation datée du ${dto.date}.`,
+          `L’exercice « ${exercice.label} » est clôturé : impossible d’y passer une régularisation datée du ${dateFr(dto.date)}.`,
         );
       }
       await this.ensureAccounts(em, farmId);
@@ -1409,7 +1409,7 @@ export class AccountingService {
       const now = todayStr();
       if (ex.endDate > now) {
         throw new BadRequestException(
-          `Impossible de clôturer l’exercice ${ex.label} : il se termine le ${ex.endDate}, période en cours — clôture réservée aux exercices passés.`,
+          `Impossible de clôturer l’exercice ${ex.label} : il se termine le ${dateFr(ex.endDate)}, période en cours — clôture réservée aux exercices passés.`,
         );
       }
 
