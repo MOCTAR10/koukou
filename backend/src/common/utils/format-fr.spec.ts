@@ -1,4 +1,4 @@
-import { dateFr, fcfaFr } from './date.utils';
+import { dateFr, fcfaFr } from './date.utils.js';
 
 describe('dateFr (server-written messages)', () => {
   it('formats a calendar day without shifting it', () => {
