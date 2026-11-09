@@ -1,6 +1,6 @@
 import type { Role } from '../../api/client';
 import type { MyAccess } from '../../api/types-access';
-import { grantsAccess } from '../../app/menu-access';
+import { grantsAccess, scopeReachesFarms } from '../../app/menu-access';
 
 /** What the registry screens offer. The server stays the authority (scope, matrix). */
 export interface RegistryRights {
@@ -52,7 +52,9 @@ export function registryRights(
   const administer = grantsAccess(access, 'ADMINISTRATION', 'ADMINISTRER');
   const edit = grantsAccess(access, 'REGISTRE', 'MODIFIER');
   return {
-    view: grantsAccess(access, 'REGISTRE', 'CONSULTER'),
+    // The server refuses the list to scopes that reach no farm (AGGREGATE, AUDIT,
+    // FINANCED until the farmer consent exists): no dead menu entry.
+    view: grantsAccess(access, 'REGISTRE', 'CONSULTER') && scopeReachesFarms(access.scopeKind),
     create,
     edit,
     activateOwner: administer,

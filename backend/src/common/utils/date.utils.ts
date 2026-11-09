@@ -39,3 +39,29 @@ const LOCAL_DAY = new Intl.DateTimeFormat('en-CA', {
 export function todayLocal(now: Date = new Date()): string {
   return LOCAL_DAY.format(now);
 }
+
+/**
+ * Day shown to a reader in a server-written message (« 08 nov. 2026 »), like
+ * the web `dateFr`. A bare AAAA-MM-JJ is a calendar day and is never shifted;
+ * an instant is read in Gabon time. Unparsable input is returned unchanged.
+ */
+export function dateFr(value: string | Date | null | undefined): string {
+  if (value == null || value === '') return '—';
+  const s = value instanceof Date ? value.toISOString() : String(value);
+  const withClock = /[T ]\d{2}:\d{2}/.test(s);
+  const d = withClock ? new Date(s) : new Date(`${s.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: withClock ? APP_TIME_ZONE : 'UTC',
+  });
+}
+
+/** Amount in a server-written message: « 975 000 FCFA » (rounded, no -0). */
+export function fcfaFr(n: number | string | null | undefined): string {
+  const v = Number(n);
+  if (n == null || !Number.isFinite(v)) return '—';
+  return `${(Math.round(v) || 0).toLocaleString('fr-FR')} FCFA`;
+}

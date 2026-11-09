@@ -35,7 +35,7 @@ import { FarmsService } from '../farms/farms.service.js';
 import { FarmTask } from './entities/farm-task.entity.js';
 import { CreateTaskDto } from './dto/create-task.dto.js';
 import { UpdateTaskDto } from './dto/update-task.dto.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -386,7 +386,7 @@ export class TasksService implements OnApplicationBootstrap, OnModuleDestroy {
     await this.notifyNewlyOverdue(farmId, overdue);
     const listed = overdue
       .slice(0, 3)
-      .map((t) => `« ${t.title} » (échéance ${t.dueDate})`)
+      .map((t) => `« ${t.title} » (échéance ${dateFr(t.dueDate)})`)
       .join(', ');
     const more = overdue.length > 3 ? ` et ${overdue.length - 3} ${overdue.length - 3 > 1 ? 'autres' : 'autre'}` : '';
     await this.alertsService.raise(

@@ -1,6 +1,6 @@
 import { RotateCcw } from 'lucide-react';
 import { useInstitutionAccess } from '../../app/useInstitutionAccess';
-import { classNames } from '../../lib/format';
+import { classNames, dateFr } from '../../lib/format';
 import { Field, inputCls, DateInput } from '../form';
 import { useFarmStatusItems } from '../programme/FarmStatusModal';
 import { useProgrammeList, useProvinces } from '../registry/queries';
@@ -40,7 +40,7 @@ export function PilotageFiltersBar({
   const periodChanged = withPeriod && (filters.from !== def.from || filters.to !== def.to);
   const activeCount = (periodChanged ? 1 : 0) + (filters.provinces.length > 0 ? 1 : 0) + (filters.cohort ? 1 : 0) + (filters.status ? 1 : 0);
   const summary = [
-    withPeriod ? `${filters.from} au ${filters.to}` : null,
+    withPeriod ? `${dateFr(filters.from)} au ${dateFr(filters.to)}` : null,
     filters.provinces.length > 0 ? filters.provinces.join(', ') : 'toutes provinces',
     filters.cohort || null,
     filters.status || null,

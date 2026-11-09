@@ -65,7 +65,7 @@ import {
   referenceStepRemovalRefusal,
 } from './care-reference-rules.js';
 import { isReferenceProtocol } from './reference-calendar.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 import { TaskSyncService } from '../tasks/task-sync.service.js';
 
 function todayStr(): string {
@@ -1094,7 +1094,7 @@ export class SanitaryService {
         {
           kind: AlertKind.PROPHYLAXIE,
           level: AlertLevel.JAUNE,
-          message: `Soin à venir : « ${next.name} » planifié le ${next.scheduledDate}.`,
+          message: `Soin à venir : « ${next.name} » planifié le ${dateFr(next.scheduledDate)}.`,
           recommendation:
             'Préparer le produit et l’abreuvement avant la date prévue pour ne pas dépasser la fenêtre recommandée.',
           context: { nextDate: next.scheduledDate },
