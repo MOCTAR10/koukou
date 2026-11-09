@@ -173,6 +173,14 @@ describe('flushQueue', () => {
     expect(loadRejected()).toHaveLength(0);
   });
 
+  it.each([408, 425, 429])('keeps the op queued on %i (transient), like the mobile', async (status) => {
+    await queueOne();
+    route('POST', /sales/, { status });
+    await flushQueue();
+    expect(loadOps()).toHaveLength(1);
+    expect(loadRejected()).toHaveLength(0);
+  });
+
   it('never replays another account’s op', async () => {
     await queueOne();
     memory.set('koukou.user', JSON.stringify({ id: 'u2', fullName: 'B', role: 'ELEVEUR' }));
