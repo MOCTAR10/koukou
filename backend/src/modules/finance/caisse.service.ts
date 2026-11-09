@@ -17,7 +17,7 @@ import {
   UpdateCashMovementDto,
 } from './dto/caisse.dto.js';
 import { AccountingService } from '../accounting/accounting.service.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 function todayStr(): string {
   return todayLocal();
@@ -81,7 +81,7 @@ export class CaisseService {
           await this.accountingService.post(em, {
             farmId,
             date: session.openedAt,
-            label: `Fonds de caisse du ${session.openedAt}`,
+            label: `Fonds de caisse du ${dateFr(session.openedAt)}`,
             source: 'CAISSE',
             sourceId: `open:${session.id}`,
             lines: openLines,

@@ -10,7 +10,7 @@ import {
   WeatherObservation,
   WeatherZone,
 } from './entities/weather-observation.entity.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
@@ -280,7 +280,7 @@ export class WeatherService {
       {
         kind: AlertKind.HEAT,
         level: today.level,
-        message: `Stress thermique (${zoneLabel}) : THI ${today.thi.toFixed(0)} prévu ${today.date} (température max ${today.tempC}°C, humidité ${today.humidityPct}%).`,
+        message: `Stress thermique (${zoneLabel}) : THI ${today.thi.toFixed(0)} prévu ${dateFr(today.date)} (température max ${today.tempC}°C, humidité ${today.humidityPct}%).`,
         recommendation: recommendations[today.zone],
         // Single key (jsonb reorders keys): an acknowledged alert stays
         // acknowledged until the day or the THI zone changes.

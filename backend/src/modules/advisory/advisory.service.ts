@@ -20,7 +20,7 @@ import { FeedStockService } from '../feed-stock/feed-stock.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { ProphylaxisEvent } from '../sanitary/entities/prophylaxis-event.entity.js';
 import { MetricsService } from '../batches/metrics.service.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 export type NextActionCategory =
   | 'ALERTE'
@@ -240,7 +240,7 @@ export class AdvisoryService {
         category: 'SOIN',
         level: overdue ? AlertLevel.ROUGE : AlertLevel.JAUNE,
         title: `${overdue ? 'Soin en retard' : 'Soin à venir'} : ${ev.name}${ev.route ? ` (${ev.route})` : ''}`,
-        description: `Lot ${batchName.get(ev.batchId) ?? `#${ev.batchId.slice(0, 8)}`} — planifié le ${ev.scheduledDate}${ev.isReference && ev.originalDate ? ` (date de référence : ${ev.originalDate}, reporté)` : ''}.`,
+        description: `Lot ${batchName.get(ev.batchId) ?? `#${ev.batchId.slice(0, 8)}`} — planifié le ${dateFr(ev.scheduledDate)}${ev.isReference && ev.originalDate ? ` (date de référence : ${dateFr(ev.originalDate)}, reporté)` : ''}.`,
         dueDate: ev.scheduledDate,
         batchId: ev.batchId,
         batchName: batchName.get(ev.batchId) ?? null,

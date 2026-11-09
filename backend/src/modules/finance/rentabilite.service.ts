@@ -34,7 +34,7 @@ import { Sale } from './entities/sale.entity.js';
 import { SaleItem } from './entities/sale-item.entity.js';
 import { Expense } from './entities/expense.entity.js';
 import { Payment } from './entities/payment.entity.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { fcfaFr, todayLocal } from '../../common/utils/date.utils.js';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ACHAT_POUSSINS: 'Achat de poussins',
@@ -522,7 +522,7 @@ export class RentabiliteService {
         {
           kind: AlertKind.RENTABILITE,
           level: AlertLevel.ROUGE,
-          message: `Le lot ${pnl.batchName ?? ''} est en perte : revenus ${pnl.revenueFcfa} FCFA pour des dépenses de ${pnl.expensesFcfa} FCFA.`,
+          message: `Le lot ${pnl.batchName ?? ''} est en perte : revenus ${fcfaFr(pnl.revenueFcfa)} pour des dépenses de ${fcfaFr(pnl.expensesFcfa)}.`,
           recommendation:
             'Réviser la structure de coûts (aliment, intrants) et/ou le prix de vente avant clôture définitive — objectiver la décision d’arrêt du lot.',
           context: { netFcfa: pnl.netFcfa, marginPct: pnl.marginPct },

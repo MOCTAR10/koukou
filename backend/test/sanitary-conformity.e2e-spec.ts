@@ -5,6 +5,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { dateFr } from './../src/common/utils/date.utils.js';
 import {
   auth,
   createPlatformAdmin,
@@ -384,7 +385,7 @@ describe('Sanitaire conforme — traitements et vaccinations (e2e)', () => {
         }>
       ).find((a) => a.id === `care:${care.id}`);
       expect(action?.level).toBe('ROUGE');
-      expect(action?.description).toContain(day(-5));
+      expect(action?.description).toContain(dateFr(day(-5)));
       // The SOIN action carries what the « Fait » form needs.
       expect(action?.care).toMatchObject({ eventId: care.id, liveCount: 400, isReference: true, originalDate: day(-5) });
     });
