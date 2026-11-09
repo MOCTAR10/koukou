@@ -70,13 +70,25 @@ function ownedByCurrentUser(op: OfflineOp): boolean {
   return op.userId == null || op.userId === getStoredUser()?.id;
 }
 
-function shouldQueue(e: unknown): boolean {
-  return e instanceof OfflineError || (e instanceof ApiError && e.status >= 500);
+/** Timeout (408), too early (425), rate limited (429): the same request can pass later (same rule as mobile). */
+function isTransientStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429;
 }
 
-/** 4xx: invalid data. Not 401: an expired token retries after the next sign-in. */
+function shouldQueue(e: unknown): boolean {
+  return e instanceof OfflineError || (e instanceof ApiError && (e.status >= 500 || isTransientStatus(e.status)));
+}
+
+/** 4xx: invalid data. Not 401 (an expired token retries after the next sign-in) nor 408/425/429 (transient). */
 function shouldDrop(e: unknown): boolean {
-  return e instanceof ApiError && !(e instanceof OfflineError) && e.status >= 400 && e.status < 500 && e.status !== 401;
+  return (
+    e instanceof ApiError &&
+    !(e instanceof OfflineError) &&
+    e.status >= 400 &&
+    e.status < 500 &&
+    e.status !== 401 &&
+    !isTransientStatus(e.status)
+  );
 }
 
 function send<T>(op: Pick<OfflineOp, 'method' | 'path' | 'body'> & { kind?: OfflineKind }): Promise<T> {
