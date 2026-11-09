@@ -191,6 +191,10 @@ export function LoginPage() {
             <a href="/guide-jury/#livrables" className={authLinkCls + ' mt-1.5 block text-xs'}>
               Documents du programme
             </a>
+            {/* Static training page (outside the SPA). */}
+            <a href="/formation/" className={authLinkCls + ' mt-1.5 block text-xs'}>
+              Formation en vidéo
+            </a>
           </>
         )
       }

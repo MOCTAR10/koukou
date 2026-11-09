@@ -30,14 +30,14 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,webp,svg,woff2}'],
         // The guide's screenshots (4 MB) are cached when viewed, not precached with the app.
-        globIgnores: ['guide/**', 'guide-jury/**'],
+        globIgnores: ['guide/**', 'guide-jury/**', 'formation/**'],
         // A new version takes over at once (no waiting for every tab to close),
         // so navigation rules such as the /guide-jury exclusion reach existing installs.
         // Open pages keep running until reloaded: no forced reload, no lost form.
         skipWaiting: true,
         clientsClaim: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/apk\//, /^\/guide-jury(\/|$)/],
+        navigateFallbackDenylist: [/^\/api/, /^\/apk\//, /^\/guide-jury(\/|$)/, /^\/formation(\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /\/guide\/.*\.webp$/,
