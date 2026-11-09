@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module.js';
+import { dateFr } from './../src/common/utils/date.utils.js';
 import { DataSource } from 'typeorm';
 import {
   auth,
@@ -241,7 +242,7 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
     );
     expect(dela).toBeTruthy();
     expect(dela.level).toBe('ROUGE');
-    expect(dela.message).toContain(treatment.body.withdrawalEndDate);
+    expect(dela.message).toContain(dateFr(treatment.body.withdrawalEndDate));
   });
 
   it('délai d’attente expiré → aucune alerte DELAI_ATTENTE (déjà purgée)', async () => {
