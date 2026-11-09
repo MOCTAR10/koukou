@@ -14,7 +14,7 @@ export function isReferenceCollision(err: unknown): boolean {
 }
 
 /**
- * Generated references (VTE-/CMD-/ECR- + 6 random digits) are checked before
+ * Generated references (VTE-/CMD-/ABT-/EC- + day + 6 random digits) are checked before
  * insert, but two concurrent transactions can still draw the same one: the
  * loser fails with 23505. Re-run the whole unit of work (new draw) instead of
  * answering 500.
