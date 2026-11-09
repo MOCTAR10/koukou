@@ -249,7 +249,7 @@ export function SalesPage() {
           ) : null}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {activePos.map((p) => {
             const s = statsFor(p.id);
             const selected = p.id === posId;
@@ -261,7 +261,7 @@ export function SalesPage() {
                 aria-pressed={selected}
                 onClick={() => selectPos(p.id)}
                 className={classNames(
-                  'flex items-start gap-3 rounded-2xl border bg-white p-4 text-left transition',
+                  'flex min-w-0 items-start gap-3 rounded-2xl border bg-white p-4 text-left transition',
                   selected ? 'border-brand-600 ring-2 ring-brand-100' : 'border-slate-200 hover:border-slate-300',
                 )}
               >
