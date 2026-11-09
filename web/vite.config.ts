@@ -37,7 +37,7 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/apk\//, /^\/guide-jury(\/|$)/, /^\/formation(\/|$)/],
+        navigateFallbackDenylist: [/^\/api/, /^\/apk\//, /^\/guide-jury(\/|$)/, /^\/formation(\/|$)/, /^\/guide(\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /\/guide\/.*\.webp$/,

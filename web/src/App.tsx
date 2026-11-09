@@ -67,8 +67,11 @@ import { EconomiePage } from './pages/EconomiePage';
  * needed: nginx redirects /guide too, this covers SPA links and the installed PWA (service worker
  * navigation fallback). The former React guide (pages/guide) is kept but no longer routed.
  */
+/** /guide is a static landing page outside the SPA (two doors: jury guide, video training); old #slide links open the jury guide. */
 function GuideRedirect() {
-  window.location.replace('/guide-jury/' + window.location.hash);
+  // Already on /guide/ yet served by the SPA (an old service worker): go to the jury guide, never loop.
+  const onLanding = window.location.pathname.startsWith('/guide/');
+  window.location.replace(window.location.hash.length > 1 || onLanding ? '/guide-jury/' + window.location.hash : '/guide/');
   return <Loading />;
 }
 
