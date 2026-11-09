@@ -53,7 +53,7 @@ import {
   MAX_OPEN_REQUESTS_PER_BUYER,
   REQUEST_LIFETIME_MS,
 } from './market-order-rules.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 const PRODUCT_LINE: Record<MarketProduct, SaleItemProductType> = {
   [MarketProduct.BIRDS]: SaleItemProductType.POULET_PIECE,
@@ -365,7 +365,7 @@ export class MarketOrdersService {
       if (blockedBySanitaryHold(listing, holds)) {
         throw new BadRequestException(
           holds.withdrawalEndDate
-            ? `Acceptation impossible : délai d’attente en cours sur ce lot jusqu’au ${holds.withdrawalEndDate}.`
+            ? `Acceptation impossible : délai d’attente en cours sur ce lot jusqu’au ${dateFr(holds.withdrawalEndDate)}.`
             : 'Acceptation impossible : un soin est en retard sur ce lot.',
         );
       }
@@ -468,7 +468,7 @@ export class MarketOrdersService {
       const holds = await sanitaryHolds(em, farmId, listing.batchId);
       if (holds.withdrawalEndDate && holds.withdrawalEndDate >= readyDate) {
         throw new BadRequestException(
-          `Délai d’attente en cours sur ce lot jusqu’au ${holds.withdrawalEndDate} : choisissez une date après.`,
+          `Délai d’attente en cours sur ce lot jusqu’au ${dateFr(holds.withdrawalEndDate)} : choisissez une date après.`,
         );
       }
 

@@ -34,7 +34,7 @@ import { Sale } from './entities/sale.entity.js';
 import { SaleItem } from './entities/sale-item.entity.js';
 import { Expense } from './entities/expense.entity.js';
 import { Payment } from './entities/payment.entity.js';
-import { fcfaFr, todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, fcfaFr, todayLocal } from '../../common/utils/date.utils.js';
 
 const CATEGORY_LABELS: Record<string, string> = {
   ACHAT_POUSSINS: 'Achat de poussins',
@@ -643,7 +643,7 @@ export class RentabiliteService {
     return this.pdfService.createPnlReportPdf({
       farmName: farm.name,
       title: 'Rapport de période — Commerce & résultats',
-      period: `Du ${overview.period.from} au ${overview.period.to} — ${overview.sales.count} vente(s)`,
+      period: `Du ${dateFr(overview.period.from)} au ${dateFr(overview.period.to)} — ${overview.sales.count} vente(s)`,
       rows,
       totals,
       grossMarginPct:

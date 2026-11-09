@@ -14,6 +14,7 @@ import {
   utcDayBounds,
 } from './audit-canonical.js';
 import { AuditService } from './audit.service.js';
+import { dateFr } from '../../common/utils/date.utils.js';
 
 const SEAL_INTERVAL_MS = 60 * 60 * 1000;
 /** A day is sealed 15 minutes after it ends (UTC), see `lastSealableDay`. */
@@ -148,7 +149,7 @@ export class AuditSealService
     if (sealed.length > 0) {
       const lastSeal = sealed[sealed.length - 1];
       this.logger.log(
-        `Journal d’audit scellé : ${sealed.length} jour(s), jusqu’au ${lastSeal.day}.`,
+        `Journal d’audit scellé : ${sealed.length} jour(s), jusqu’au ${dateFr(lastSeal.day)}.`,
       );
       await this.audit.recordSystem('audit:seal', {
         days: sealed.map((s) => s.day),
@@ -283,7 +284,7 @@ export class AuditSealService
         return fail({
           day: seal.day,
           reason: 'GAP',
-          message: `Sceau manquant entre le ${previous.day} et le ${seal.day}.`,
+          message: `Sceau manquant entre le ${dateFr(previous.day)} et le ${dateFr(seal.day)}.`,
         });
       }
       const expectedPrev = previous?.hash ?? null;
@@ -291,7 +292,7 @@ export class AuditSealService
         return fail({
           day: seal.day,
           reason: 'CHAIN',
-          message: `Le sceau du ${seal.day} ne référence pas le sceau précédent : chaîne rompue.`,
+          message: `Le sceau du ${dateFr(seal.day)} ne référence pas le sceau précédent : chaîne rompue.`,
           expected: expectedPrev,
           actual: seal.prevHash,
         });
@@ -308,7 +309,7 @@ export class AuditSealService
         return fail({
           day: seal.day,
           reason: 'COUNT',
-          message: `Le nombre de lignes du ${seal.day} ne correspond plus au sceau : des lignes ont été ajoutées ou retirées.`,
+          message: `Le nombre de lignes du ${dateFr(seal.day)} ne correspond plus au sceau : des lignes ont été ajoutées ou retirées.`,
           expected: {
             events: seal.eventsCount,
             rowChanges: seal.rowChangesCount,
@@ -323,7 +324,7 @@ export class AuditSealService
         return fail({
           day: seal.day,
           reason: 'HASH',
-          message: `L’empreinte du ${seal.day} ne correspond plus au sceau : le journal de ce jour a été modifié.`,
+          message: `L’empreinte du ${dateFr(seal.day)} ne correspond plus au sceau : le journal de ce jour a été modifié.`,
           expected: seal.hash,
           actual: recomputed.hash,
         });

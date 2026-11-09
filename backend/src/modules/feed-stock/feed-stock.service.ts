@@ -34,7 +34,7 @@ import {
 import { FeedStockSale } from './entities/feed-stock-sale.entity.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { createOnce } from '../../common/utils/idempotency.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 const CONSUMPTION_WINDOW_DAYS = 3;
 
@@ -744,7 +744,7 @@ export class FeedStockService {
         {
           kind: AlertKind.PEREMPTION,
           level: isUrgent ? AlertLevel.ROUGE : AlertLevel.JAUNE,
-          message: `Provende à écouler avant péremption : ${urgent.productName} expire le ${urgent.expirationDate}.`,
+          message: `Provende à écouler avant péremption : ${urgent.productName} expire le ${dateFr(urgent.expirationDate)}.`,
           recommendation:
             'Planifier l’utilisation avant la date de péremption (rotation du stock).',
           context: {

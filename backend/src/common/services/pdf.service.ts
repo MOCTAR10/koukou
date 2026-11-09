@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { OrderPassportSnapshot } from '../../modules/orders/entities/order.entity.js';
+import { dateFr } from '../utils/date.utils.js';
 
 export interface ReceiptItemData {
   label: string;
@@ -216,7 +217,7 @@ export class PdfService {
         { text: data.farmName, style: 'header' },
         { text: 'Reçu de vente', style: 'subheader' },
         {
-          text: `Référence : ${data.referenceNumber}\nDate : ${data.saleDate}\nClient : ${data.customerName ?? 'Client comptoir'}`,
+          text: `Référence : ${data.referenceNumber}\nDate : ${dateFr(data.saleDate)}\nClient : ${data.customerName ?? 'Client comptoir'}`,
           style: 'meta',
         },
         {
@@ -671,7 +672,7 @@ export class PdfService {
           ? p.withdrawals
               .map(
                 (w) =>
-                  `- ${w.productName} (${w.careTypeLabel}) : retrait jusqu'au ${w.withdrawalEndDate}`,
+                  `- ${w.productName} (${w.careTypeLabel}) : retrait jusqu'au ${dateFr(w.withdrawalEndDate)}`,
               )
               .join('\n')
           : 'Aucun retrait en cours';

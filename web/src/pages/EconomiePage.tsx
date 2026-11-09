@@ -29,7 +29,7 @@ import {
 } from '../components/economie/economie';
 import { Button, ErrorNote, Field, inputCls, DateInput } from '../components/form';
 import { Card, DataTable, EmptyState, Loading, PageHeader, StatCard, Td, Th } from '../components/ui';
-import { classNames, fcfa, num, pct, plural } from '../lib/format';
+import { classNames, dateFr, fcfa, num, pct, plural } from '../lib/format';
 
 const FORMATS: Array<{ format: EconomieFormat; label: string }> = [
   { format: 'csv', label: 'CSV' },
@@ -293,8 +293,8 @@ export function EconomiePage() {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard label="Produits (classe 7)" value={fcfa(total.accountingProductsFcfa)} hint={`Charges : ${fcfa(total.accountingChargesFcfa)}`} icon={<BookOpen />} tone="accent" />
               <StatCard label="Résultat SYSCOHADA" value={fcfa(total.accountingResultFcfa)} hint="Produits − charges de la période" icon={<Scale />} tone={marginTone(total.accountingResultFcfa)} />
-              <StatCard label="Trésorerie" value={fcfa(total.treasuryFcfa)} hint={`Au ${data.to}`} icon={<Wallet />} />
-              <StatCard label="Créances clients" value={fcfa(total.receivablesFcfa)} hint={`Au ${data.to}`} icon={<Banknote />} />
+              <StatCard label="Trésorerie" value={fcfa(total.treasuryFcfa)} hint={`Au ${dateFr(data.to)}`} icon={<Wallet />} />
+              <StatCard label="Créances clients" value={fcfa(total.receivablesFcfa)} hint={`Au ${dateFr(data.to)}`} icon={<Banknote />} />
             </div>
           ) : view === 'market' ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

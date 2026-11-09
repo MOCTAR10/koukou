@@ -22,7 +22,7 @@ import { AccountingService } from './accounting.service.js';
 import { CreateRegularisationDto } from './dto/accounting.dto.js';
 import type { AccountSoldes } from './accounting.service.js';
 import { Domain } from '../../common/decorators/domain.decorator.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 import { pageOptions } from '../../common/utils/pagination.js';
 
 @ApiTags('Comptabilité SYSCOHADA')
@@ -37,7 +37,7 @@ export class AccountingController {
 
   private periodLabel(from?: string, to?: string): string {
     if (from && to) return `Période : ${from} → ${to}`;
-    if (from) return `Depuis le ${from}`;
+    if (from) return `Depuis le ${dateFr(from)}`;
     if (to) return `Jusqu'au ${to}`;
     return 'Toute la période';
   }
@@ -280,7 +280,7 @@ export class AccountingController {
                 : 'Bilan',
       period:
         kind === 'bilan'
-          ? `Situation arrêtée au ${to ?? todayLocal()}`
+          ? `Situation arrêtée au ${dateFr(to ?? todayLocal())}`
           : this.periodLabel(from, to),
       generatedAtLabel: new Date().toLocaleString('fr-FR'),
       sections: reportData.sections,

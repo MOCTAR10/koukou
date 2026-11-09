@@ -17,7 +17,7 @@ import {
   UpdateCashMovementDto,
 } from './dto/caisse.dto.js';
 import { AccountingService } from '../accounting/accounting.service.js';
-import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, fcfaFr, todayLocal } from '../../common/utils/date.utils.js';
 
 function todayStr(): string {
   return todayLocal();
@@ -58,7 +58,7 @@ export class CaisseService {
     const open = await this.findOpen(farmId);
     if (open) {
       throw new BadRequestException(
-        `Une session de caisse est déjà ouverte depuis le ${open.openedAt}. La clôturer avant d'en ouvrir une nouvelle.`,
+        `Une session de caisse est déjà ouverte depuis le ${dateFr(open.openedAt)}. La clôturer avant d'en ouvrir une nouvelle.`,
       );
     }
     const today = todayLocal();
@@ -96,7 +96,7 @@ export class CaisseService {
       if (isUniqueViolation(err)) {
         const winner = await this.findOpen(farmId);
         throw new BadRequestException(
-          `Une session de caisse est déjà ouverte${winner ? ` depuis le ${winner.openedAt}` : ''}. La clôturer avant d'en ouvrir une nouvelle.`,
+          `Une session de caisse est déjà ouverte${winner ? ` depuis le ${dateFr(winner.openedAt)}` : ''}. La clôturer avant d'en ouvrir une nouvelle.`,
         );
       }
       throw err;
@@ -136,8 +136,8 @@ export class CaisseService {
           date: saved.closedAt ? todayLocal(saved.closedAt) : saved.openedAt,
           label:
             difference < 0
-              ? `Clôture de caisse du ${saved.openedAt} — écart négatif ${difference} FCFA`
-              : `Clôture de caisse du ${saved.openedAt} — écart positif +${difference} FCFA`,
+              ? `Clôture de caisse du ${dateFr(saved.openedAt)} — écart négatif ${fcfaFr(difference)}`
+              : `Clôture de caisse du ${dateFr(saved.openedAt)} — écart positif +${fcfaFr(difference)}`,
           source: 'CAISSE',
           sourceId: `close:${saved.id}`,
           lines:

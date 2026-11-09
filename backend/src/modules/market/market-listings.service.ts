@@ -43,7 +43,7 @@ import { acceptedQuantities, acceptedQuantity } from './market-order-rules.js';
 import type { Farm } from '../farms/entities/farm.entity.js';
 import { TraceConfigService } from '../trace/trace-config.service.js';
 import { lotQrUrl } from '../trace/qr-signature.js';
-import { todayLocal } from '../../common/utils/date.utils.js';
+import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
 
 const DEFAULT_PAGE = 20;
 /** Listings looked at per catalogue read: each one costs stock and sanitary queries. */
@@ -265,7 +265,7 @@ export class MarketListingsService {
     if (blockedBySanitaryHold(listing, holds)) {
       throw new BadRequestException(
         holds.withdrawalEndDate
-          ? `Publication impossible : délai d’attente en cours sur ce lot jusqu’au ${holds.withdrawalEndDate}.`
+          ? `Publication impossible : délai d’attente en cours sur ce lot jusqu’au ${dateFr(holds.withdrawalEndDate)}.`
           : 'Publication impossible : un soin est en retard sur ce lot.',
       );
     }
