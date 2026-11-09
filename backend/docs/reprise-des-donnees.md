@@ -9,7 +9,7 @@ Cette procédure décrit comment reprendre dans Fermia les données existantes d
   - `BANDES_HISTORIQUES` : `modele-reprise-bandes.csv`, une ligne par saisie journalière. Les colonnes de la bande sont soit répétées sur chaque ligne, soit portées par la première ligne de la bande. Sont obligatoires `ref_bande`, la ferme (`code_ferme` ou `ref_ami`), `date_mise_en_place` et `effectif_initial`.
   - `OUTIL_TRANSITOIRE` : `modele-reprise-outil-transitoire.csv`. Il fonctionne comme le précédent, avec l'identifiant de bande de l'outil (`id_bande_outil`). La ferme est retrouvée par son code POUFA, ou à défaut par son nom et sa province.
 - Le fichier est un CSV dont le séparateur est `,` ou `;`, encodé en UTF-8 ou en Latin-1 (l'enregistrement « CSV » d'Excel convient). Une même reprise accepte au plus 5 000 lignes et un fichier de 5 Mo.
-- Les classeurs Excel (`.xlsx`) ne sont pas encore lus directement : enregistrez la feuille au format CSV avant le dépôt.
+- Les classeurs Excel `.xlsx` et `.xlsm` sont lus directement : seule la première feuille est prise, les cellules telles qu'affichées et les dates au format `aaaa-mm-jj` (`src/modules/data-import/import-file-readers.ts`). Les anciens formats `.xls` et `.ods` sont refusés avec un message clair : enregistrez la feuille en `.xlsx` ou en CSV avant le dépôt.
 - Les dates s'écrivent `jj/mm/aaaa` ou `aaaa-mm-jj`. Pour les nombres décimaux, la virgule et le point sont tous deux acceptés.
 - Les colonnes peuvent porter d'autres noms courants (« Nom de la ferme », « N° bande », « Mortalité »…), qui sont reconnus automatiquement. Une colonne inconnue est ignorée et signalée.
 
