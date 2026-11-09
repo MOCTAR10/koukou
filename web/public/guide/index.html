@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Découvrir Fermia · Programme POUFA</title>
+<meta name="description" content="Découvrir Fermia, la plateforme du programme POUFA : le guide complet de la plateforme et la formation en vidéo.">
+<link rel="icon" href="/formation/fermia-icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+  // Old deep links (/guide#slide) keep opening the jury guide at that slide.
+  if (location.hash.length > 1) location.replace('/guide-jury/' + location.hash);
+</script>
+<!-- Static landing page outside the SPA (nginx: location = /guide/). Two doors: the jury guide and the video training. -->
+<style>
+:root{--navy:#132f3f;--navy2:#0c2331;--navy3:#081a25;--green:#6bb84a;--green-d:#2f6b17;--green-bg:#e3f1d9;--orange:#f1992e;--ink:#1f2a33;--muted:#5d6b76}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;font-family:Inter,"Segoe UI",system-ui,sans-serif;color:#fff;-webkit-font-smoothing:antialiased;background:var(--navy3);
+  background-image:radial-gradient(1000px 560px at 15% -5%,#1f5571 0%,rgba(31,85,113,0) 60%),radial-gradient(900px 600px at 100% 110%,rgba(107,184,74,.22),rgba(107,184,74,0) 60%),linear-gradient(180deg,var(--navy) 0%,var(--navy2) 55%,var(--navy3) 100%);background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(ellipse at 50% 20%,#000,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 50% 20%,#000,transparent 75%);pointer-events:none}
+a{color:inherit}
+.wrap{position:relative;max-width:1180px;margin:0 auto;padding:0 28px}
+nav{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;font-weight:800;font-size:20px;letter-spacing:-.01em}
+.brand img{width:36px;height:36px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.brand small{display:block;font-weight:600;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:#9fb6c4}
+.cta-top{text-decoration:none;font-size:14px;font-weight:700;color:var(--navy);background:#fff;padding:9px 16px;border-radius:999px;transition:.2s}
+.cta-top:hover{background:var(--green-bg)}
+.hero{text-align:center;padding:22px 0 30px}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--green);font-weight:700;font-size:12px;letter-spacing:.22em;text-transform:uppercase;background:rgba(107,184,74,.1);border:1px solid rgba(107,184,74,.25);padding:7px 14px;border-radius:999px}
+h1{font-size:clamp(32px,4.2vw,52px);line-height:1.05;margin:16px 0 12px;font-weight:800;letter-spacing:-.03em}
+h1 em{font-style:normal;background:linear-gradient(90deg,#e1f3d6,var(--green));-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{font-size:18px;line-height:1.55;color:#b9cbd6;margin:0 auto;max-width:680px}
+.doors{display:grid;grid-template-columns:1fr 1fr;gap:26px;padding-bottom:30px}
+.door{position:relative;display:flex;flex-direction:column;text-decoration:none;border-radius:26px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);box-shadow:0 30px 80px rgba(0,0,0,.35);transition:transform .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s,border-color .35s;isolation:isolate}
+.door::after{content:"";position:absolute;inset:0;border-radius:26px;padding:1px;background:linear-gradient(135deg,rgba(107,184,74,.7),rgba(241,153,46,0) 40%,rgba(255,255,255,0) 60%,rgba(107,184,74,.4));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;opacity:0;transition:opacity .35s;pointer-events:none}
+.door:hover{transform:translateY(-6px);box-shadow:0 40px 100px rgba(0,0,0,.45);border-color:rgba(107,184,74,.35)}
+.door:hover::after{opacity:1}
+.visual{position:relative;aspect-ratio:16/7.2;overflow:hidden;background:var(--navy)}
+.visual img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top left;transform:scale(1.02);transition:transform 1.2s cubic-bezier(.2,.7,.2,1)}
+.door:hover .visual img{transform:scale(1.08)}
+.visual::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,26,37,0) 30%,rgba(8,26,37,.85) 100%)}
+.badge{position:absolute;z-index:1;left:20px;top:20px;display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;padding:7px 12px;border-radius:999px;background:rgba(8,26,37,.75);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15)}
+.badge i{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.playbtn{position:absolute;z-index:1;left:50%;top:46%;width:74px;height:74px;margin:-37px 0 0 -37px;border-radius:50%;background:rgba(255,255,255,.95);display:grid;place-items:center;box-shadow:0 0 0 10px rgba(255,255,255,.12),0 16px 40px rgba(0,0,0,.4);transition:transform .35s}
+.door:hover .playbtn{transform:scale(1.1)}
+.playbtn svg{margin-left:5px}
+.body{position:relative;padding:4px 30px 30px;margin-top:-34px;z-index:1;display:flex;flex-direction:column;flex:1}
+.ico{width:58px;height:58px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--green),#3f8a27);box-shadow:0 12px 30px rgba(107,184,74,.35);margin-bottom:16px}
+.ico.o{background:linear-gradient(135deg,#f6b35a,var(--orange));box-shadow:0 12px 30px rgba(241,153,46,.35)}
+.door h2{margin:0 0 8px;font-size:30px;letter-spacing:-.02em;line-height:1.1}
+.door p{margin:0;color:#b9cbd6;font-size:16px;line-height:1.55}
+.door ul{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:9px}
+.door li{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:#dbe6ec;line-height:1.4}
+.door li::before{content:"";flex:none;width:18px;height:18px;margin-top:1px;border-radius:50%;background:rgba(107,184,74,.18) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 12.5l4.2 4.2L19 7' fill='none' stroke='%236bb84a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:auto;padding-top:24px;flex-wrap:wrap}
+.facts{display:flex;gap:18px;color:#9fb6c4;font-size:13.5px}
+.facts b{color:#fff;font-size:18px;display:block;font-weight:800}
+.go{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:15px;color:var(--navy);background:#fff;padding:12px 18px;border-radius:999px;transition:.25s}
+.go svg{transition:transform .25s}
+.door:hover .go{background:var(--green-bg)}
+.door:hover .go svg{transform:translateX(4px)}
+.more{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;padding:10px 0 50px}
+.more a{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-size:14px;font-weight:600;color:#c7d6df;padding:10px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);transition:.2s}
+.more a:hover{background:rgba(255,255,255,.1);color:#fff}
+.bar{position:fixed;left:0;right:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--navy) 0 60%,var(--green) 60% 85%,var(--orange) 85%)}
+.rise{opacity:0;transform:translateY(18px);animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards}
+.d1{animation-delay:.08s}.d2{animation-delay:.18s}.d3{animation-delay:.28s}.d4{animation-delay:.38s}
+@keyframes rise{to{opacity:1;transform:none}}
+@media (max-width:900px){.doors{grid-template-columns:1fr}.hero{padding-top:26px}.door h2{font-size:26px}}
+@media (max-width:520px){.wrap{padding:0 18px}.body{padding:4px 22px 24px}.lead{font-size:16px}.facts{gap:14px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.rise{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav aria-label="Navigation principale">
+    <a class="brand" href="/guide/"><img src="/formation/fermia-icon.svg" alt=""><span>Fermia<small>Programme POUFA</small></span></a>
+    <a class="cta-top" href="/login">Se connecter</a>
+  </nav>
+
+  <header class="hero">
+    <div class="eyebrow rise">Découvrir la plateforme</div>
+    <h1 class="rise d1">Tout comprendre de <em>Fermia</em>,<br>à votre rythme</h1>
+    <p class="lead rise d2">Parcourez le guide complet de la plateforme, ou suivez la formation en vidéo, profil par profil.</p>
+  </header>
+
+  <main class="doors">
+    <a class="door rise d3" href="/guide-jury/" aria-label="Ouvrir le guide de la plateforme">
+      <div class="visual">
+        <img src="/guide-jury/img/carte.webp" alt="">
+        <span class="badge"><i></i>Lecture libre · web et mobile</span>
+      </div>
+      <div class="body">
+        <div class="ico o"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V5a2 2 0 012-2h13v16H6.5A2.5 2.5 0 004 21.5z"/><path d="M8 7h7M8 11h5"/></svg></div>
+        <h2>Guide de la plateforme</h2>
+        <p>La visite complète de Fermia, écran par écran, avec un parcours adapté à chaque profil.</p>
+        <ul>
+          <li>Le cahier des charges, exigence par exigence</li>
+          <li>Un parcours pour l’éleveur, l’agent, le vétérinaire et les institutions</li>
+          <li>Les documents du programme : recette, documentation, rapports</li>
+        </ul>
+        <div class="foot">
+          <div class="facts"><span><b>290+</b>pages</span><span><b>5</b>parcours</span></div>
+          <span class="go">Ouvrir le guide <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </div>
+    </a>
+
+    <a class="door rise d4" href="/formation/" aria-label="Ouvrir la formation en vidéo">
+      <div class="visual">
+        <img id="fPoster" src="/formation/media/fermia-dge-pilotage.jpg" alt="">
+        <span class="badge"><i></i>Vidéos courtes · avec voix off</span>
+        <span class="playbtn"><svg width="28" height="28" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" fill="#132f3f"/></svg></span>
+      </div>
+      <div class="body">
+        <div class="ico"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="#fff"/></svg></div>
+        <h2>Formation en vidéo</h2>
+        <p>De courtes vidéos animées pour prendre en main la plateforme, du registre au pilotage national.</p>
+        <ul>
+          <li>Une vidéo par usage, de moins d’une minute</li>
+          <li>Chapitres cliquables, avec ou sans voix off</li>
+          <li>De nouvelles vidéos ajoutées au fil du programme</li>
+        </ul>
+        <div class="foot">
+          <div class="facts"><span><b id="fCount">—</b>vidéos</span><span><b id="fMin">—</b>de formation</span></div>
+          <span class="go">Voir les vidéos <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </div>
+      </div>
+    </a>
+  </main>
+
+  <div class="more">
+    <a href="/guide-jury/#livrables"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/></svg>Documents du programme</a>
+    <a href="/apk/fermia.apk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Application Android</a>
+    <a href="/marche"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9M3 9h18v11H3zM9 13h6"/></svg>Marché Fermia</a>
+  </div>
+</div>
+<div class="bar" aria-hidden="true"></div>
+<script>
+  // Live figures and poster from the training catalog.
+  fetch('/formation/media/catalog.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
+    if (!c || !c.videos || !c.videos.length) return;
+    var n = c.videos.length, s = c.videos.reduce(function (a, v) { return a + (v.duration || 0); }, 0);
+    document.getElementById('fCount').textContent = n;
+    document.getElementById('fMin').textContent = Math.max(1, Math.round(s / 60)) + ' min';
+    if (c.videos[0].poster) document.getElementById('fPoster').src = '/formation/media/' + c.videos[0].poster;
+  }).catch(function () {});
+</script>
+</body>
+</html>
