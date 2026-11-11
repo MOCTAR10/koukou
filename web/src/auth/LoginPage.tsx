@@ -155,6 +155,8 @@ export function LoginPage() {
   return (
     <AuthLayout
       audience={buying ? 'buyer' : 'programme'}
+      backTo={buying ? '/marche' : undefined}
+      backLabel={buying ? 'Retour au marché' : undefined}
       eyebrow={buying ? 'Marché Fermia' : 'Espace sécurisé'}
       title={buying ? 'Connexion' : 'Bienvenue'}
       subtitle={buying ? 'Connectez-vous avec votre téléphone et votre code secret.' : undefined}

@@ -71,49 +71,15 @@ export function AuthLayout({
   const copy = AUDIENCES[audience];
   const programme = audience === 'programme';
   return (
-    <div className={'min-h-screen bg-white lg:grid ' + (audience === 'programme' ? 'lg:h-screen lg:overflow-hidden ' : '') + (audience === 'programme' ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]')}>
-      {audience === 'programme' ? <ProgrammeAside /> : (
-      <aside className="relative hidden overflow-hidden bg-gradient-to-br from-brand-800 via-brand-900 to-brand-950 text-white lg:block">
-        <div aria-hidden className="pointer-events-none absolute -right-40 -top-40 h-[28rem] w-[28rem] rounded-full bg-brand-400/20 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-48 -left-32 h-[28rem] w-[28rem] rounded-full bg-emerald-500/10 blur-3xl" />
-        <div className="relative flex min-h-screen flex-col justify-between gap-8 p-10 xl:p-14 [@media(max-height:720px)]:gap-5 [@media(max-height:720px)]:px-10 [@media(max-height:720px)]:py-7">
-          <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-16 w-fit xl:h-20 [@media(max-height:720px)]:h-12" />
-          <div className="max-w-lg">
-            <h2 className="text-display font-bold leading-[1.1] tracking-tight [@media(max-height:720px)]:text-3xl">{copy.headline}</h2>
-            <p className="mt-4 text-base text-brand-100 xl:text-lg [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:text-sm">{copy.intro}</p>
-            <ul className="mt-7 space-y-3 [@media(max-height:720px)]:mt-4 [@media(max-height:720px)]:space-y-2">
-              {copy.points.map((point) => (
-                <li key={point} className="flex items-start gap-3 text-sm text-brand-50 xl:text-base [@media(max-height:720px)]:text-sm">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15">
-                    <Check className="h-3 w-3" />
-                  </span>
-                  {point}
-                </li>
-              ))}
-            </ul>
-          </div>
-          {copy.insight ? (
-            <div className="flex max-w-lg items-start gap-4 rounded-2xl border border-white/15 bg-white/10 p-4 xl:p-5 [@media(max-height:720px)]:p-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                <Store className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-sm font-semibold xl:text-base [@media(max-height:720px)]:text-sm">{copy.insight.title}</p>
-                <p className="mt-1 text-sm text-brand-100">{copy.insight.text}</p>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </aside>
-      )}
+    <div className={'min-h-screen bg-white lg:grid lg:h-screen lg:overflow-hidden ' + (programme ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-2 xl:grid-cols-[minmax(0,7fr)_minmax(0,6fr)]')}>
+      {programme ? <ProgrammeAside /> : <MarketAside copy={copy} />}
 
-      <div className={'relative flex min-h-screen flex-col lg:min-h-0 ' + (programme ? 'lg:h-screen lg:overflow-hidden ' : 'lg:overflow-y-auto ') + (programme ? 'bg-slate-50' : '')}>
-        {programme ? (
-          <>
-            <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px]" />
-            <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-600 via-amber-400 to-sky-600" />
-          </>
-        ) : null}
+      <div className={'relative flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:min-h-0 ' + (programme ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px]" />
+        <div
+          aria-hidden
+          className={'pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ' + (programme ? 'from-emerald-600 via-amber-400 to-sky-600' : 'from-emerald-500 via-brand-500 to-accent-500')}
+        />
         <div className="absolute right-3 top-3 z-10 lg:right-5 lg:top-4">
           <ConnectionPulse />
         </div>
@@ -121,24 +87,29 @@ export function AuthLayout({
           {programme ? (
             <ProgrammeLockup />
           ) : (
-            <img src="/fermia-lockup-light.png" alt="Fermia — Gérez votre ferme" className="h-12 w-auto" />
+            <MarketBrand />
           )}
         </div>
         {backTo ? (
-          <div className="px-5 pt-5 sm:px-10">
+          <div className="relative px-5 pt-5 sm:px-10 [@media(max-height:760px)]:lg:pt-3">
             <Link to={backTo} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
               <ArrowLeft className="h-4 w-4" /> {backLabel}
             </Link>
           </div>
         ) : null}
-        <div className="relative flex flex-1 items-start justify-center px-5 py-8 sm:px-10 lg:items-center lg:py-10 [@media(max-height:760px)]:lg:py-4">
+        <div className="relative flex flex-1 items-start justify-center px-4 py-6 sm:px-10 sm:py-8 lg:items-center lg:py-8 [@media(max-height:760px)]:lg:py-3">
           <motion.div
             className={wide ? 'w-full max-w-xl' : 'w-full max-w-md'}
             initial={reduced ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: durations.base, ease: EASE }}
           >
-            <div className={programme ? 'rounded-3xl bg-white p-7 shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 sm:p-9 [@media(max-height:760px)]:p-6' : ''}>
+            <div
+              className={
+                'rounded-3xl bg-white shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 ' +
+                (programme ? 'p-7 sm:p-9 [@media(max-height:760px)]:p-6' : 'p-5 sm:p-8 [@media(max-height:820px)]:lg:p-6')
+              }
+            >
               {programme ? (
                 <div className="flex items-center gap-2.5">
                   <img src="/logo.png" alt="" className="h-11 w-auto [@media(max-height:760px)]:h-9" />
@@ -151,14 +122,16 @@ export function AuthLayout({
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{eyebrow}</p>
               ) : null}
               <h1
-                className={`${programme ? 'mt-4 lg:text-[2.25rem] [@media(max-height:760px)]:mt-2 [@media(max-height:760px)]:lg:text-[1.75rem]' : 'mt-1 lg:text-[2rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
+                className={`${programme ? 'mt-4 lg:text-[2.25rem] [@media(max-height:760px)]:mt-2 [@media(max-height:760px)]:lg:text-[1.75rem]' : 'mt-1 lg:text-[1.75rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
               >
                 {title}
               </h1>
-              {subtitle ? <p className="mt-2 text-sm text-slate-500 lg:text-base">{subtitle}</p> : null}
-              <div className={`mt-6 lg:mt-8 ${programme ? '[@media(max-height:760px)]:lg:mt-4' : ''}`}>{children}</div>
+              {subtitle ? <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p> : null}
+              <div className={programme ? 'mt-6 lg:mt-8 [@media(max-height:760px)]:lg:mt-4' : 'mt-5 [@media(max-height:820px)]:lg:mt-4'}>{children}</div>
               {footer ? (
-                <div className={`mt-6 space-y-2 text-center text-sm text-slate-500 ${programme ? 'border-t border-slate-100 pt-5 [@media(max-height:760px)]:mt-4 [@media(max-height:760px)]:pt-4' : ''}`}>
+                <div
+                  className={`space-y-2 text-center text-slate-500 ${programme ? 'mt-6 border-t border-slate-100 pt-5 text-sm [@media(max-height:760px)]:mt-4 [@media(max-height:760px)]:pt-4' : 'mt-4 text-xs leading-relaxed'}`}
+                >
                   {footer}
                 </div>
               ) : null}
@@ -176,6 +149,56 @@ export function AuthLayout({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Fermia leaf, name and the « Marché » pill, on navy. */
+function MarketBrand() {
+  return (
+    <span className="flex items-center gap-2.5">
+      <img src="/fermia-leaf.svg" alt="" className="h-8 w-8" />
+      <span className="text-xl font-bold tracking-tight text-white">Fermia</span>
+      <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200 ring-1 ring-inset ring-white/15">
+        Marché
+      </span>
+    </span>
+  );
+}
+
+/** Market sign-in and sign-up: the programme's field photo, the Market promise over it. */
+function MarketAside({ copy }: { copy: (typeof AUDIENCES)[keyof typeof AUDIENCES] }) {
+  return (
+    <aside className="relative hidden h-screen overflow-hidden bg-brand-950 text-white lg:block">
+      <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_30%]" />
+      <div aria-hidden className="absolute inset-0 bg-brand-950/30" />
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950/95 via-brand-950/50 via-45% to-transparent" />
+      <div aria-hidden className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black/50 to-transparent" />
+      <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
+        <MarketBrand />
+        <div className="mt-auto max-w-xl">
+          <h2 className="text-balance text-[clamp(1.75rem,2.6vw,2.75rem)] font-bold leading-[1.1] tracking-tight drop-shadow-[0_2px_10px_rgb(0_0_0/0.5)]">
+            {copy.headline}
+          </h2>
+          <p className="mt-3 text-base text-brand-50/90 drop-shadow xl:text-lg [@media(max-height:780px)]:text-sm">{copy.intro}</p>
+          <ul className="mt-6 grid grid-cols-2 gap-x-5 gap-y-2.5 [@media(max-height:780px)]:mt-4">
+            {copy.points.map((point) => (
+              <li key={point} className="flex items-center gap-2.5 text-[13px] font-semibold leading-snug drop-shadow-[0_1px_3px_rgb(0_0_0/0.7)]">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 ring-1 ring-emerald-300/40">
+                  <Check className="h-3.5 w-3.5 text-emerald-200" aria-hidden />
+                </span>
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="mt-8 flex items-center gap-3 border-t border-white/15 pt-5 text-sm font-medium text-white/85 [@media(max-height:780px)]:mt-5 [@media(max-height:780px)]:pt-4">
+          Plateforme propulsée par
+          <span className="rounded-lg bg-[#f6f3ee] px-3 py-1.5 shadow-lg shadow-black/30">
+            <img src="/okoume-labs.webp" alt="Okoumé Labs" className="h-5 w-auto" />
+          </span>
+        </p>
+      </div>
+    </aside>
   );
 }
 
