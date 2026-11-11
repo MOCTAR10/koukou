@@ -84,6 +84,35 @@ export function TracePill() {
   return <OverlayPill icon={<QrCode size={12} color={color.brand[600]} />} label="Lot tracé" tint={color.ink[700]} />;
 }
 
+/** Small square photo of a listing, for rows of orders and listings. */
+export function ListingThumb({ listing, size = 64 }: { listing: Parameters<typeof listingPhoto>[0]; size?: number }) {
+  return <ListingPhoto listing={listing} ratio={1} style={{ width: size, borderRadius: radii.lg, borderWidth: 1, borderColor: semantic.border }} />;
+}
+
+/** One fact of a listing or an order: icon, small label, value. Two per row. */
+export function FactTile({ icon: Icon, label, value, muted = false }: { icon: LucideIcon; label: string; value: string; muted?: boolean }) {
+  return (
+    <View style={styles.fact}>
+      <View style={[styles.factIcon, muted && styles.factIconMuted]}>
+        <Icon size={18} color={muted ? color.ink[400] : color.brand[600]} />
+      </View>
+      <View style={styles.factText}>
+        <AppText size="label" color="muted" numberOfLines={1}>
+          {label}
+        </AppText>
+        <AppText size="small" weight="semibold" color={muted ? 'muted' : 'text'} numberOfLines={1}>
+          {value}
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
+/** Wrapping row that holds `FactTile`s. */
+export function FactGrid({ children }: { children: React.ReactNode }) {
+  return <View style={styles.factGrid}>{children}</View>;
+}
+
 const STATUS: Record<MarketBuyerStatus, { label: string; tone: ChipTone }> = {
   PENDING: { label: 'En attente de la ferme', tone: 'amber' },
   REJECTED: { label: 'Refusée', tone: 'red' },
@@ -289,6 +318,38 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: 'rgba(255,255,255,0.95)',
     ...shadow.card,
+  },
+  factGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  fact: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: semantic.border,
+    backgroundColor: semantic.surface,
+  },
+  factIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: semantic.primarySoft,
+  },
+  factIconMuted: {
+    backgroundColor: semantic.surfaceAlt,
+  },
+  factText: {
+    flex: 1,
+    minWidth: 0,
   },
   dot: {
     width: 6,

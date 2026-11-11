@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CalendarClock, Pause, Pencil, Plus, Send, Store, X } from 'lucide-react-native';
 
@@ -12,10 +12,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { confirm, toast } from '@/components/ui/Feedback';
 import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
-import { fmtFcfa, radii } from '@/constants/theme';
+import { fmtFcfa } from '@/constants/theme';
 import { ListingSheet } from './ListingSheet';
 import { dayLabel, listingTitle, unitName } from './rules';
-import { DateField, HIDDEN_REASON, invalidateFarmMarket, Labeled, listingPhoto, marketError, Notice } from './shared';
+import { DateField, HIDDEN_REASON, invalidateFarmMarket, Labeled, ListingThumb, marketError, Notice } from './shared';
 
 const STATUS: Record<FarmMarketListing['status'], { label: string; tone: ChipTone }> = {
   DRAFT: { label: 'Brouillon', tone: 'neutral' },
@@ -87,13 +87,12 @@ export function FarmListingsPanel({ farmId, readOnly = false }: { farmId: string
       {listings.map((l) => {
         const status = STATUS[l.status];
         const open = l.status !== 'CLOSED';
-        const photo = listingPhoto(l);
         // A published listing that buyers can't see: the farm must know why.
         const hidden = l.status === 'PUBLISHED' && l.hiddenReason ? HIDDEN_REASON[l.hiddenReason] : null;
         return (
           <Card key={l.id} style={{ gap: 10 }}>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              {photo ? <Image source={photo} resizeMode="contain" style={{ width: 52, height: 52, borderRadius: radii.md }} /> : null}
+              <ListingThumb listing={l} size={56} />
               <View style={{ flex: 1, gap: 4 }}>
                 <AppText size="bodyM" weight="semibold">{listingTitle(l)}</AppText>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
