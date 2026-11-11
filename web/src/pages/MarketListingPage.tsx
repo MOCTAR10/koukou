@@ -320,7 +320,7 @@ export function MarketListingPage() {
             <FactTile icon={Boxes} label="Commande minimum" value={`${listing.minOrderQty} ${unit(listing.minOrderQty)}`} />
             <FactTile icon={Wallet} label="Acompte" value={listing.depositPct ? `${listing.depositPct} %` : 'Aucun'} />
             <FactTile icon={Home} label="Retrait" value={listing.pickupAvailable ? 'À la ferme' : 'Non proposé'} muted={!listing.pickupAvailable} />
-            <Fact
+            <FactTile
               icon={Truck}
               label="Livraison"
               value={listing.deliveryAvailable ? (listing.deliveryFeeFcfa ? fcfa(listing.deliveryFeeFcfa) : 'Proposée') : 'Non proposée'}
