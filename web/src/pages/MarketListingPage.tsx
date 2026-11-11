@@ -16,7 +16,6 @@ import {
   Store,
   Truck,
   Wallet,
-  type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -26,10 +25,10 @@ import { useAuth } from '../auth/AuthContext';
 import { canUseBuyerArea } from '../app/roles';
 import { Button, ErrorNote, Field, inputCls, todayIso, DateInput } from '../components/form';
 import { depositFor, orderTotal, unitName } from '../components/market/rules';
-import { AvailabilityBadge, FarmAvatar, invalidateBuyerQueries, ListingStage, listingTitle, PRODUCT_NAME } from '../components/market/shared';
+import { AvailabilityBadge, FactTile, FarmAvatar, invalidateBuyerQueries, ListingStage, listingTitle, MARKET_PANEL, PRODUCT_NAME } from '../components/market/shared';
 import { Segmented } from '../components/orders/shared';
 import { EmptyState, Skeleton } from '../components/ui';
-import { classNames, dateFr, fcfa } from '../lib/format';
+import { dateFr, fcfa } from '../lib/format';
 import { safeHref } from '../lib/safeUrl';
 import { useIdempotencyKey } from '../lib/idempotency';
 import { isGabonPhoneValid, normalizeGabonPhone } from '../lib/phone';
@@ -190,22 +189,6 @@ function OrderForm({ listing }: { listing: MarketListing }) {
   );
 }
 
-function Fact({ icon: Icon, label, value, muted = false }: { icon: LucideIcon; label: string; value: string; muted?: boolean }) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-card">
-      <span className={classNames('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', muted ? 'bg-slate-100 text-slate-400' : 'bg-brand-50 text-brand-600')}>
-        <Icon className="h-5 w-5" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-xs text-slate-500">{label}</span>
-        <span className={classNames('block truncate text-sm font-semibold tabular-nums', muted ? 'text-slate-500' : 'text-slate-900')}>{value}</span>
-      </span>
-    </div>
-  );
-}
-
-const PANEL = 'rounded-3xl border border-slate-200 bg-white shadow-card';
-
 function ListingSkeleton() {
   return (
     <div role="status" className="grid gap-6 lg:grid-cols-12">
@@ -333,18 +316,18 @@ export function MarketListingPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
-            <Fact icon={Package} label="Disponible" value={`${listing.availableQuantity.toLocaleString('fr-FR')} ${unit(listing.availableQuantity)}`} />
-            <Fact icon={Boxes} label="Commande minimum" value={`${listing.minOrderQty} ${unit(listing.minOrderQty)}`} />
-            <Fact icon={Wallet} label="Acompte" value={listing.depositPct ? `${listing.depositPct} %` : 'Aucun'} />
-            <Fact icon={Home} label="Retrait" value={listing.pickupAvailable ? 'À la ferme' : 'Non proposé'} muted={!listing.pickupAvailable} />
+            <FactTile icon={Package} label="Disponible" value={`${listing.availableQuantity.toLocaleString('fr-FR')} ${unit(listing.availableQuantity)}`} />
+            <FactTile icon={Boxes} label="Commande minimum" value={`${listing.minOrderQty} ${unit(listing.minOrderQty)}`} />
+            <FactTile icon={Wallet} label="Acompte" value={listing.depositPct ? `${listing.depositPct} %` : 'Aucun'} />
+            <FactTile icon={Home} label="Retrait" value={listing.pickupAvailable ? 'À la ferme' : 'Non proposé'} muted={!listing.pickupAvailable} />
             <Fact
               icon={Truck}
               label="Livraison"
               value={listing.deliveryAvailable ? (listing.deliveryFeeFcfa ? fcfa(listing.deliveryFeeFcfa) : 'Proposée') : 'Non proposée'}
               muted={!listing.deliveryAvailable}
             />
-            {listing.kind === 'PRE' && listing.readyDate ? <Fact icon={CalendarClock} label="Prêts le" value={dateFr(listing.readyDate)} /> : null}
-            {listing.product === 'CARCASS' && listing.slaughteredAt ? <Fact icon={CalendarCheck} label="Abattus le" value={dateFr(listing.slaughteredAt)} /> : null}
+            {listing.kind === 'PRE' && listing.readyDate ? <FactTile icon={CalendarClock} label="Prêts le" value={dateFr(listing.readyDate)} /> : null}
+            {listing.product === 'CARCASS' && listing.slaughteredAt ? <FactTile icon={CalendarCheck} label="Abattus le" value={dateFr(listing.slaughteredAt)} /> : null}
           </div>
 
           {listing.kind === 'PRE' && listing.readyDate && listing.previousReadyDate ? (
@@ -358,14 +341,14 @@ export function MarketListingPage() {
           ) : null}
 
           {listing.description ? (
-            <section className={`${PANEL} p-5`}>
+            <section className={`${MARKET_PANEL} p-5`}>
               <h2 className="text-sm font-semibold text-slate-900">Le mot de la ferme</h2>
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-700">{listing.description}</p>
             </section>
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <section className={`${PANEL} flex items-center gap-3 p-4`}>
+            <section className={`${MARKET_PANEL} flex items-center gap-3 p-4`}>
               <FarmAvatar farm={listing.farm} className="h-12 w-12 text-lg" />
               <div className="min-w-0">
                 <p className="truncate font-semibold text-slate-900">{listing.farm.name}</p>
@@ -385,7 +368,7 @@ export function MarketListingPage() {
                 href={tracePath ?? undefined}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`${PANEL} group flex items-center gap-3 p-4 transition hover:border-brand-200 hover:shadow-raised`}
+                className={`${MARKET_PANEL} group flex items-center gap-3 p-4 transition hover:border-brand-200 hover:shadow-raised`}
               >
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-950 text-emerald-300">
                   <QrCode className="h-6 w-6" />
@@ -401,7 +384,7 @@ export function MarketListingPage() {
         </div>
 
         <div ref={panelRef} id="commander" className="scroll-mt-24 lg:sticky lg:top-24 lg:col-span-5">
-          <section className={`${PANEL} overflow-hidden shadow-raised`}>
+          <section className={`${MARKET_PANEL} overflow-hidden shadow-raised`}>
             <header className="border-b border-slate-100 bg-slate-50 px-5 py-4 sm:px-6">
               <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{orderLabel}</h2>
               <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums text-slate-900">{price}</p>

@@ -9,10 +9,10 @@ import { useFarmProfile } from '../app/useFarmProfile';
 import { Button, ErrorNote, Field, inputCls, Modal, todayIso, DateInput } from '../components/form';
 import { ListingFormModal } from '../components/market/ListingFormModal';
 import { timeLeft, unitName } from '../components/market/rules';
-import { buyerTypeLabel, HIDDEN_REASON, listingPhoto, listingTitle, MarketStatusBadge, useNow } from '../components/market/shared';
+import { buyerTypeLabel, HIDDEN_REASON, ListingStage, listingTitle, MarketStatusBadge, useNow } from '../components/market/shared';
 import { addDaysIso, invalidateOrderQueries } from '../components/orders/helpers';
 import { ConfirmDialog, Pill, Segmented } from '../components/orders/shared';
-import { Card, DataTable, EmptyState, IconButton, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
+import { Card, DataTable, EmptyState, IconButton, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr, dateTimeFr, fcfa } from '../lib/format';
 import { ReadOnlyNotice } from '../components/access/ReadOnlyNotice';
 
@@ -123,7 +123,7 @@ function ListingsPanel({ farmId, readOnly = false }: { farmId: string; readOnly?
                   <tr key={l.id} className="border-t border-slate-100">
                     <Td className="min-w-36 2xl:min-w-56">
                       <div className="flex items-center gap-3">
-                        <PhotoThumb src={listingPhoto(l)} size="md" />
+                        <ListingStage listing={l} className="h-14 w-14 shrink-0 rounded-xl ring-1 ring-slate-200" />
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-900">{listingTitle(l)}</p>
                           {l.batchName ? <p className="text-xs text-slate-500">{l.batchName}</p> : null}
