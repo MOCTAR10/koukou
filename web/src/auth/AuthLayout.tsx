@@ -1,48 +1,13 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, LifeBuoy, ArrowLeft, Building2, Calculator, Check, Map, QrCode, ScrollText, Stethoscope, Store } from 'lucide-react';
+import { Activity, LifeBuoy, ArrowLeft, Building2, Calculator, CalendarClock, Egg, HandCoins, Map, QrCode, ScrollText, Stethoscope, Store, Truck } from 'lucide-react';
 import { ConnectionPulse } from '../components/ConnectionPulse';
 import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
 
-const AUDIENCES = {
-  programme: {
-    headline: 'Programme POUFA, console de pilotage.',
-    intro: 'Le suivi des fermes avicoles du programme, du registre national aux indicateurs de production.',
-    points: [
-      'Registre national des fermes et de leurs exploitants',
-      'Pilotage de l’objectif national de 100 000 tonnes',
-      'Surveillance sanitaire et alertes du programme',
-      'Journal d’audit et droits d’accès par institution',
-    ],
-    insight: null,
-  },
-  farm: {
-    headline: 'Toute votre ferme, au même endroit.',
-    intro: 'Suivez vos bandes, vos stocks et vos ventes, depuis le bureau comme sur le terrain.',
-    points: [
-      'Lots, saisies du jour et alertes sanitaires',
-      'Stock, ventes, caisse et comptabilité',
-      'Le travail continue, même sans réseau',
-    ],
-    insight: {
-      title: 'Vendez aussi sur le Marché Fermia',
-      text: 'Publiez vos stocks et vos précommandes : hôtels, restaurants et particuliers commandent directement à votre ferme.',
-    },
-  },
-  buyer: {
-    headline: 'Achetez directement aux fermes.',
-    intro: 'Hôtels, restaurants et particuliers : commandez auprès de fermes vérifiées.',
-    points: [
-      'Volaille, œufs et carcasses',
-      'Précommandez les lots bientôt prêts',
-      'Retrait à la ferme ou livraison par la ferme',
-      'Vous payez directement la ferme',
-    ],
-    insight: null,
-  },
-} as const;
+/** Who the page speaks to: the programme sign-in, or the Market customer. */
+type Audience = 'programme' | 'buyer';
 
 /** Sign-in and sign-up frame: a brand panel beside the form on a computer, the form alone under a compact band on a phone. */
 export function AuthLayout({
@@ -56,7 +21,7 @@ export function AuthLayout({
   footer,
   children,
 }: {
-  audience?: keyof typeof AUDIENCES;
+  audience?: Audience;
   eyebrow?: string;
   title: string;
   subtitle?: string;
@@ -68,11 +33,10 @@ export function AuthLayout({
   children: ReactNode;
 }) {
   const reduced = useReducedMotion();
-  const copy = AUDIENCES[audience];
   const programme = audience === 'programme';
   return (
     <div className={'min-h-screen bg-white lg:grid lg:h-screen lg:overflow-hidden ' + (programme ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-2 xl:grid-cols-[minmax(0,7fr)_minmax(0,6fr)]')}>
-      {programme ? <ProgrammeAside /> : <MarketAside copy={copy} />}
+      {programme ? <ProgrammeAside /> : <MarketAside />}
 
       <div className={'relative flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:min-h-0 ' + (programme ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px]" />
@@ -166,32 +130,59 @@ function MarketBrand() {
 }
 
 /** Market sign-in and sign-up: the programme's field photo, the Market promise over it. */
-function MarketAside({ copy }: { copy: (typeof AUDIENCES)[keyof typeof AUDIENCES] }) {
+const MARKET_POINTS = [
+  { icon: Egg, title: 'Volaille, œufs, carcasses', text: 'En stock ou en précommande' },
+  { icon: CalendarClock, title: 'Précommande', text: 'Réservez les lots bientôt prêts' },
+  { icon: Truck, title: 'Retrait ou livraison', text: 'Assurés par la ferme elle-même' },
+  { icon: HandCoins, title: 'Paiement direct', text: 'Vous payez la ferme, sans intermédiaire' },
+] as const;
+
+/** Market sign-in and sign-up: the programme's field photo, the Market promise centred over it. */
+function MarketAside() {
   return (
     <aside className="relative hidden h-screen overflow-hidden bg-brand-950 text-white lg:block">
       <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_30%]" />
-      <div aria-hidden className="absolute inset-0 bg-brand-950/30" />
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-brand-950/95 via-brand-950/50 via-45% to-transparent" />
-      <div aria-hidden className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-black/50 to-transparent" />
-      <div className="relative flex h-full flex-col p-10 xl:p-12 [@media(max-height:780px)]:p-7">
+      {/* Darker on the left, where the text sits; the photo stays readable on the right. */}
+      <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-brand-950/95 via-brand-950/75 to-brand-950/25" />
+      <div aria-hidden className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-brand-950/90 to-transparent" />
+      <div className="relative flex h-full flex-col p-10 xl:p-14 [@media(max-height:780px)]:p-7">
         <MarketBrand />
-        <div className="mt-auto max-w-xl">
-          <h2 className="text-balance text-[clamp(1.75rem,2.6vw,2.75rem)] font-bold leading-[1.1] tracking-tight drop-shadow-[0_2px_10px_rgb(0_0_0/0.5)]">
-            {copy.headline}
-          </h2>
-          <p className="mt-3 text-base text-brand-50/90 drop-shadow xl:text-lg [@media(max-height:780px)]:text-sm">{copy.intro}</p>
-          <ul className="mt-6 grid grid-cols-2 gap-x-5 gap-y-2.5 [@media(max-height:780px)]:mt-4">
-            {copy.points.map((point) => (
-              <li key={point} className="flex items-center gap-2.5 text-[13px] font-semibold leading-snug drop-shadow-[0_1px_3px_rgb(0_0_0/0.7)]">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400/20 ring-1 ring-emerald-300/40">
-                  <Check className="h-3.5 w-3.5 text-emerald-200" aria-hidden />
+
+        <div className="flex flex-1 flex-col items-center justify-center py-8 text-center [@media(max-height:780px)]:py-5">
+          <div className="max-w-xl">
+            <p className="flex items-center justify-center gap-3 text-xs font-bold uppercase tracking-[0.25em] text-emerald-300">
+              <span className="h-px w-8 bg-emerald-300" />
+              Marché Fermia
+              <span className="h-px w-8 bg-emerald-300" />
+            </p>
+            <h2 className="mt-4 text-balance text-[clamp(2rem,3.2vw,3.25rem)] font-bold leading-[1.05] tracking-tight [@media(max-height:780px)]:mt-3">
+              Achetez en direct
+              <span className="block bg-gradient-to-r from-amber-200 to-emerald-200 bg-clip-text text-transparent">aux fermes du Gabon.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-brand-50/85 xl:text-lg [@media(max-height:780px)]:mt-3 [@media(max-height:780px)]:text-sm">
+              Hôtels, restaurants et particuliers commandent auprès de fermes vérifiées du programme POUFA.
+            </p>
+          </div>
+
+          <ul className="mt-8 grid w-full max-w-xl grid-cols-2 gap-3 text-left [@media(max-height:780px)]:mt-5 [@media(max-height:780px)]:gap-2">
+            {MARKET_POINTS.map(({ icon: Icon, title, text }) => (
+              <li
+                key={title}
+                className="flex items-start gap-3 rounded-2xl bg-white/[0.07] p-4 ring-1 ring-inset ring-white/12 backdrop-blur-sm [@media(max-height:780px)]:p-3"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15 ring-1 ring-emerald-300/30">
+                  <Icon className="h-[18px] w-[18px] text-emerald-200" aria-hidden />
                 </span>
-                {point}
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold leading-snug">{title}</span>
+                  <span className="mt-0.5 block text-[13px] leading-snug text-brand-100/80">{text}</span>
+                </span>
               </li>
             ))}
           </ul>
         </div>
-        <p className="mt-8 flex items-center gap-3 border-t border-white/15 pt-5 text-sm font-medium text-white/85 [@media(max-height:780px)]:mt-5 [@media(max-height:780px)]:pt-4">
+
+        <p className="flex items-center justify-center gap-3 border-t border-white/15 pt-5 text-sm font-medium text-white/80 [@media(max-height:780px)]:pt-4">
           Plateforme propulsée par
           <span className="rounded-lg bg-[#f6f3ee] px-3 py-1.5 shadow-lg shadow-black/30">
             <img src="/okoume-labs.webp" alt="Okoumé Labs" className="h-5 w-auto" />
