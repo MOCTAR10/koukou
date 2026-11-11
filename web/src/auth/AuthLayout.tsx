@@ -249,8 +249,11 @@ function ProgrammeAside() {
         </div>
 
         <p className="mt-5 flex items-center gap-3 text-sm font-medium text-white/85 drop-shadow [@media(max-height:780px)]:mt-3">
-          <img src="/logo.png" alt="" className="h-8 w-auto" />
-          Plateforme propulsée par Fermia
+          Plateforme propulsée par
+          {/* The wordmark is dark green on cream: it keeps its own light plate over the photo. */}
+          <span className="rounded-lg bg-[#f6f3ee] px-3 py-1.5 shadow-lg shadow-black/30">
+            <img src="/okoume-labs.webp" alt="Okoumé Labs" className="h-6 w-auto" />
+          </span>
         </p>
       </div>
     </aside>
