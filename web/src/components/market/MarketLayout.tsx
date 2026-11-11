@@ -21,7 +21,7 @@ export function MarketLayout() {
     <FarmProvider>
       {/* overflow-x-clip: the catalogue hero is full-bleed (w-screen), scrollbar width included. */}
       <div className="flex min-h-screen flex-col overflow-x-clip bg-slate-50">
-        <header className="sticky top-0 z-20 border-b border-white/10 bg-brand-950/95 backdrop-blur">
+        <header className="z-20 border-b border-white/10 bg-brand-950/95 backdrop-blur md:sticky md:top-0">
           <div className="mx-auto flex min-h-16 max-w-page flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 xl:px-8">
             <Link to="/marche" className="flex items-center gap-2.5 text-white">
               <FermiaLeaf className="h-7 w-7" />

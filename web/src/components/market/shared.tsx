@@ -135,7 +135,7 @@ export function FactTile({ icon: Icon, label, value, muted = false }: { icon: Lu
       </span>
       <span className="min-w-0">
         <span className="block text-xs text-slate-500">{label}</span>
-        <span className={classNames('block truncate text-sm font-semibold tabular-nums', muted ? 'text-slate-500' : 'text-slate-900')}>{value}</span>
+        <span className={classNames('line-clamp-2 text-sm font-semibold leading-snug tabular-nums', muted ? 'text-slate-500' : 'text-slate-900')}>{value}</span>
       </span>
     </div>
   );

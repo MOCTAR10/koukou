@@ -46,13 +46,14 @@ function OrderRow({ order, now }: { order: BuyerMarketOrder; now: number }) {
       <ListingStage listing={order} className="h-20 w-20 shrink-0 rounded-2xl sm:h-24 sm:w-24" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h2 className="truncate font-semibold text-slate-900">{listingTitle(order)}</h2>
+          <h2 className="font-semibold text-slate-900 sm:truncate">{listingTitle(order)}</h2>
           <MarketStatusBadge status={order.status} />
         </div>
         <p className="mt-1 truncate text-sm text-slate-500">
           {order.farm.name}
           {order.farm.city ? ` · ${order.farm.city}` : ''}
         </p>
+        <p className="mt-1 text-base font-bold tracking-tight tabular-nums text-brand-800 sm:hidden">{fcfa(order.totalFcfa)}</p>
         <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
           <span>
             {order.quantity.toLocaleString('fr-FR')} {unitName(order.product, order.quantity)}
@@ -69,8 +70,8 @@ function OrderRow({ order, now }: { order: BuyerMarketOrder; now: number }) {
           ) : null}
         </p>
       </div>
-      <div className="shrink-0 text-right">
-        <p className="text-base font-bold tracking-tight tabular-nums text-slate-900 sm:text-lg">{fcfa(order.totalFcfa)}</p>
+      <div className="hidden shrink-0 text-right sm:block">
+        <p className="text-lg font-bold tracking-tight tabular-nums text-slate-900">{fcfa(order.totalFcfa)}</p>
         <p className="hidden text-xs text-slate-500 sm:block">Demande du {dateFr(order.createdAt)}</p>
       </div>
       <ChevronRight className="hidden h-5 w-5 shrink-0 text-slate-300 transition-colors group-hover:text-brand-600 sm:block" />
