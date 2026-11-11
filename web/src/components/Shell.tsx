@@ -363,8 +363,11 @@ export function Shell() {
         <div className="border-t border-white/10 px-3 py-3">
           {consoleMode ? (
             <p className={classNames('mb-2 flex items-center gap-1.5 whitespace-nowrap px-1 text-[11px] text-brand-300', RAIL_BLOCK)}>
-              <Logo className="h-3.5 w-auto opacity-80" />
-              propulsé par Fermia
+              propulsé par
+              {/* Dark green wordmark on cream: it keeps its own light plate on the navy rail. */}
+              <span className="rounded bg-[#f6f3ee] px-1.5 py-0.5">
+                <img src="/okoume-labs.webp" alt="Okoumé Labs" className="h-3.5 w-auto" />
+              </span>
             </p>
           ) : null}
           <div className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-2 md:max-xl:flex-col md:max-xl:px-0 md:max-xl:group-hover/side:flex-row md:max-xl:group-hover/side:px-2.5 md:max-xl:group-has-[:focus-visible]/side:flex-row md:max-xl:group-has-[:focus-visible]/side:px-2.5">
