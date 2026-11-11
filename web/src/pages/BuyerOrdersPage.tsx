@@ -49,7 +49,7 @@ function OrderRow({ order, now }: { order: BuyerMarketOrder; now: number }) {
           <h2 className="font-semibold text-slate-900 sm:truncate">{listingTitle(order)}</h2>
           <MarketStatusBadge status={order.status} />
         </div>
-        <p className="mt-1 truncate text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-500 sm:truncate">
           {order.farm.name}
           {order.farm.city ? ` · ${order.farm.city}` : ''}
         </p>
@@ -222,7 +222,7 @@ export function BuyerOrderPage() {
               <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{listingTitle(order)}</h1>
               <p className="mt-1.5 flex items-center gap-2 text-sm text-slate-500">
                 <FarmAvatar farm={order.farm} />
-                <span className="truncate">
+                <span className="min-w-0 sm:truncate">
                   <span className="font-medium text-slate-700">{order.farm.name}</span>
                   {order.farm.city ? ` · ${order.farm.city}` : ''}
                 </span>

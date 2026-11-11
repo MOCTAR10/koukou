@@ -129,8 +129,8 @@ export const MARKET_PANEL = 'rounded-3xl border border-slate-200 bg-white shadow
 /** One fact of a listing or an order: icon, small label, value. */
 export function FactTile({ icon: Icon, label, value, muted = false }: { icon: LucideIcon; label: string; value: ReactNode; muted?: boolean }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-card">
-      <span className={classNames('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', muted ? 'bg-slate-100 text-slate-400' : 'bg-brand-50 text-brand-600')}>
+    <div className="flex items-center gap-2.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-card sm:gap-3 sm:p-3.5">
+      <span className={classNames('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10', muted ? 'bg-slate-100 text-slate-400' : 'bg-brand-50 text-brand-600')}>
         <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0">

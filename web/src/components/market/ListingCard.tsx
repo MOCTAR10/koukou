@@ -29,7 +29,7 @@ export function ListingCard({ listing }: { listing: MarketListing }) {
           <h2 className="line-clamp-2 text-[15px] font-semibold leading-snug text-slate-900">{listingTitle(listing)}</h2>
           <p className="mt-2 flex items-center gap-2 text-xs text-slate-500">
             <FarmAvatar farm={listing.farm} />
-            <span className="truncate">
+            <span className="min-w-0 sm:truncate">
               <span className="font-medium text-slate-700">{listing.farm.name}</span>
               {listing.farm.city ? ` · ${listing.farm.city}` : ''}
             </span>
@@ -52,7 +52,7 @@ export function ListingCard({ listing }: { listing: MarketListing }) {
             <p className="text-lg font-bold leading-tight tracking-tight tabular-nums text-brand-800">
               {fcfa(listing.unitPriceFcfa)} <span className="text-xs font-medium tracking-normal text-slate-500">/ {unitName(listing.product)}</span>
             </p>
-            <p className="mt-0.5 truncate text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-slate-500 sm:truncate">
               {listing.kind === 'PRE' && listing.readyDate ? `${stock} · prêts le ${dateFr(listing.readyDate)}` : `${stock} disponibles`}
             </p>
           </div>

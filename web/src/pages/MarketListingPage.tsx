@@ -351,7 +351,7 @@ export function MarketListingPage() {
             <section className={`${MARKET_PANEL} flex items-center gap-3 p-4`}>
               <FarmAvatar farm={listing.farm} className="h-12 w-12 text-lg" />
               <div className="min-w-0">
-                <p className="truncate font-semibold text-slate-900">{listing.farm.name}</p>
+                <p className="font-semibold text-slate-900 sm:truncate">{listing.farm.name}</p>
                 {listing.farm.city ? (
                   <p className="flex items-center gap-1 text-sm text-slate-500">
                     <MapPin className="h-3.5 w-3.5 shrink-0" /> {listing.farm.city}
@@ -374,7 +374,7 @@ export function MarketListingPage() {
                   <QrCode className="h-6 w-6" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold text-slate-900">Lot tracé {listing.traceLot.code}</span>
+                  <span className="block break-words font-semibold text-slate-900 sm:truncate">Lot tracé {listing.traceLot.code}</span>
                   <span className="block text-sm text-slate-500">Voir la fiche de traçabilité</span>
                 </span>
                 <ArrowUpRight className="h-5 w-5 shrink-0 text-slate-400 transition-colors group-hover:text-brand-600" />
@@ -422,7 +422,7 @@ export function MarketListingPage() {
       {panelSeen ? null : (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_-12px_rgb(12_35_49/0.25)] backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-4">
-            <p className="min-w-0 truncate text-lg font-bold tracking-tight tabular-nums text-slate-900">{price}</p>
+            <p className="min-w-0 text-base font-bold leading-tight tracking-tight tabular-nums text-slate-900 sm:text-lg">{price}</p>
             <button
               type="button"
               onClick={() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}

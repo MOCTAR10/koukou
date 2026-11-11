@@ -59,7 +59,7 @@ export function BuyerAccountPage() {
               {name.charAt(0) || 'A'}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-lg font-bold tracking-tight text-slate-900">{name || 'Mon profil'}</p>
+              <p className="text-lg font-bold leading-snug tracking-tight text-slate-900 sm:truncate">{name || 'Mon profil'}</p>
               <p className="text-sm text-slate-500">{buyerTypeLabel(query.data?.type)}</p>
             </div>
           </header>

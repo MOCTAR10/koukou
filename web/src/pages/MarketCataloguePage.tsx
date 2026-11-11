@@ -81,20 +81,20 @@ export function MarketCataloguePage() {
                 aria-pressed={on}
                 onClick={() => setProduct(key)}
                 className={classNames(
-                  'flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors duration-200',
+                  'flex items-center gap-2.5 rounded-2xl border p-2.5 text-left transition-colors duration-200 sm:gap-3 sm:p-3',
                   on ? 'border-brand-950 bg-brand-950 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-800 hover:border-brand-200 hover:bg-brand-50',
                 )}
               >
                 <span
                   className={classNames(
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10',
                     on ? 'bg-white/10 text-emerald-300' : 'bg-brand-50 text-brand-600',
                   )}
                 >
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{label}</span>
+                  <span className="block text-[13px] font-semibold leading-tight sm:truncate sm:text-sm sm:leading-normal">{label}</span>
                   <span className={classNames('hidden truncate text-xs sm:block', on ? 'text-brand-200' : 'text-slate-500')}>{hint}</span>
                 </span>
               </button>
