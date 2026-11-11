@@ -16,7 +16,6 @@ import {
   Store,
   Truck,
   Wallet,
-  type LucideIcon,
 } from 'lucide-react-native';
 
 import { ApiError } from '@/api/client';
@@ -24,7 +23,7 @@ import { fetchMarketListing, type MarketListing } from '@/api/market';
 import { useAuth } from '@/auth/AuthContext';
 import { OrderSheet } from '@/components/market/OrderSheet';
 import { dayLabel, listingTitle, PRODUCT_NAME, unitName } from '@/components/market/rules';
-import { AvailabilityPill, ListingPhoto, marketError, Notice, TracePill } from '@/components/market/shared';
+import { AvailabilityPill, FactGrid, FactTile, ListingPhoto, marketError, Notice, TracePill } from '@/components/market/shared';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -34,41 +33,23 @@ import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { color, fmt, fmtFcfa, radii, semantic, shadow, spacing } from '@/constants/theme';
 
-function Fact({ icon: Icon, label, value, muted = false }: { icon: LucideIcon; label: string; value: string; muted?: boolean }) {
-  return (
-    <View style={styles.fact}>
-      <View style={[styles.factIcon, muted && styles.factIconMuted]}>
-        <Icon size={18} color={muted ? color.ink[400] : color.brand[600]} />
-      </View>
-      <View style={styles.shrink}>
-        <AppText size="label" color="muted" numberOfLines={1}>
-          {label}
-        </AppText>
-        <AppText size="small" weight="semibold" color={muted ? 'muted' : 'text'} numberOfLines={1}>
-          {value}
-        </AppText>
-      </View>
-    </View>
-  );
-}
-
 function Facts({ listing }: { listing: MarketListing }) {
   const unit = (n: number) => unitName(listing.product, n);
   return (
-    <View style={styles.facts}>
-      <Fact icon={Package} label="Disponible" value={`${fmt(listing.availableQuantity)} ${unit(listing.availableQuantity)}`} />
-      <Fact icon={Boxes} label="Commande minimum" value={`${fmt(listing.minOrderQty)} ${unit(listing.minOrderQty)}`} />
-      <Fact icon={Wallet} label="Acompte" value={listing.depositPct ? `${listing.depositPct} %` : 'Aucun'} />
-      <Fact icon={House} label="Retrait" value={listing.pickupAvailable ? 'À la ferme' : 'Non proposé'} muted={!listing.pickupAvailable} />
-      <Fact
+    <FactGrid>
+      <FactTile icon={Package} label="Disponible" value={`${fmt(listing.availableQuantity)} ${unit(listing.availableQuantity)}`} />
+      <FactTile icon={Boxes} label="Commande minimum" value={`${fmt(listing.minOrderQty)} ${unit(listing.minOrderQty)}`} />
+      <FactTile icon={Wallet} label="Acompte" value={listing.depositPct ? `${listing.depositPct} %` : 'Aucun'} />
+      <FactTile icon={House} label="Retrait" value={listing.pickupAvailable ? 'À la ferme' : 'Non proposé'} muted={!listing.pickupAvailable} />
+      <FactTile
         icon={Truck}
         label="Livraison"
         value={listing.deliveryAvailable ? (listing.deliveryFeeFcfa ? fmtFcfa(listing.deliveryFeeFcfa) : 'Proposée') : 'Non proposée'}
         muted={!listing.deliveryAvailable}
       />
-      {listing.kind === 'PRE' && listing.readyDate ? <Fact icon={CalendarClock} label="Prêts le" value={dayLabel(listing.readyDate)} /> : null}
-      {listing.product === 'CARCASS' && listing.slaughteredAt ? <Fact icon={CalendarCheck} label="Abattus le" value={dayLabel(listing.slaughteredAt)} /> : null}
-    </View>
+      {listing.kind === 'PRE' && listing.readyDate ? <FactTile icon={CalendarClock} label="Prêts le" value={dayLabel(listing.readyDate)} /> : null}
+      {listing.product === 'CARCASS' && listing.slaughteredAt ? <FactTile icon={CalendarCheck} label="Abattus le" value={dayLabel(listing.slaughteredAt)} /> : null}
+    </FactGrid>
   );
 }
 
@@ -255,33 +236,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
-  fact: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: semantic.border,
-    backgroundColor: semantic.surface,
-  },
   factSkeleton: {
     flexGrow: 1,
     flexBasis: '45%',
     width: undefined,
-  },
-  factIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: semantic.primarySoft,
-  },
-  factIconMuted: {
-    backgroundColor: semantic.surfaceAlt,
   },
   cardGap: {
     gap: spacing.xs,

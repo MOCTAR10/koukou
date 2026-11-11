@@ -1,30 +1,23 @@
 import React from 'react';
-import { Image, Linking, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import { telUrl } from '@/utils/safeUrl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { AlertTriangle, CalendarClock, ClipboardList, Phone } from 'lucide-react-native';
+import { AlertTriangle, Banknote, CalendarClock, CalendarDays, ClipboardList, House, MapPin, Package, Phone, Truck, Wallet } from 'lucide-react-native';
 
 import { cancelBuyerOrder, fetchBuyerOrder, withdrawBuyerOrder, type BuyerMarketOrder } from '@/api/market';
 import { dateTimeLabel, dayLabel, listingTitle, timeLeft, unitName } from '@/components/market/rules';
-import { invalidateBuyerQueries, listingPhoto, marketError, MarketStatusChip, Notice, TIMELINE_LABEL, useNow } from '@/components/market/shared';
+import { FactGrid, FactTile, invalidateBuyerQueries, ListingThumb, marketError, MarketStatusChip, Notice, TIMELINE_LABEL, useNow } from '@/components/market/shared';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { confirm, toast } from '@/components/ui/Feedback';
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
-import { Spinner } from '@/components/ui/Spinner';
-import { fmtFcfa, radii } from '@/constants/theme';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { color, fmt, fmtFcfa, radii, semantic, spacing } from '@/constants/theme';
 
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-      <AppText size="small" color="muted">{label}</AppText>
-      <AppText size="small" weight="semibold" align="right" style={{ flex: 1 }}>{value}</AppText>
-    </View>
-  );
-}
+const THUMB = 88;
 
 function DepositNotice({ order }: { order: BuyerMarketOrder }) {
   const now = useNow();
@@ -39,6 +32,31 @@ function DepositNotice({ order }: { order: BuyerMarketOrder }) {
         : ''}
       Sans acompte enregistré par la ferme à temps, la commande est annulée et les oiseaux sont remis en vente.
     </Notice>
+  );
+}
+
+/** The order's history as a vertical track; the latest step stands out. */
+function Timeline({ events }: { events: BuyerMarketOrder['timeline'] }) {
+  const last = events.length - 1;
+  return (
+    <View>
+      {events.map((e, i) => (
+        <View key={`${e.type}-${e.at}`} style={styles.step}>
+          <View style={styles.rail}>
+            <View style={[styles.dot, i === last && styles.dotOn]} />
+            {i < last ? <View style={styles.line} /> : null}
+          </View>
+          <View style={[styles.stepText, i < last && styles.stepGap]}>
+            <AppText size="small" weight={i === last ? 'semibold' : 'regular'}>
+              {TIMELINE_LABEL[e.type] ?? e.type}
+            </AppText>
+            <AppText size="caption" color="faint">
+              {dateTimeLabel(e.at)}
+            </AppText>
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -73,47 +91,79 @@ export default function BuyerOrderScreen() {
   };
 
   const canCancel = order?.status === 'AWAITING_DEPOSIT' || order?.status === 'CONFIRMED';
-  const photo = order ? listingPhoto(order) : null;
 
   return (
     <Screen
       refreshing={query.isRefetching}
       onRefresh={() => void query.refetch()}
-      header={<ScreenHeader title="Ma commande" back />}>
-      {query.isLoading ? <Spinner label="Chargement…" /> : null}
+      header={<ScreenHeader title="Ma commande" subtitle={order?.orderReference ?? undefined} back />}>
+      {query.isLoading ? (
+        <View style={styles.page} accessibilityLabel="Chargement de la commande">
+          <Card style={styles.head}>
+            <Skeleton width={THUMB} height={THUMB} radius={radii.lg} />
+            <View style={styles.headText}>
+              <Skeleton width="75%" height={18} />
+              <Skeleton width="50%" height={12} />
+              <Skeleton width="40%" height={22} />
+            </View>
+          </Card>
+          <Skeleton height={62} radius={radii.lg} />
+          <Skeleton height={62} radius={radii.lg} />
+        </View>
+      ) : null}
       {!order && query.error ? <EmptyState icon={ClipboardList} title="Chargement impossible" description={marketError(query.error)} /> : null}
       {order ? (
-        <View style={{ gap: 12 }}>
-          <Card style={{ gap: 10 }}>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              {photo ? <Image source={photo} resizeMode="contain" style={{ width: 56, height: 56, borderRadius: radii.md }} /> : null}
-              <View style={{ flex: 1, gap: 4, alignItems: 'flex-start' }}>
-                <AppText size="bodyM" weight="bold">{listingTitle(order)}</AppText>
-                <AppText size="caption" color="muted">
-                  {order.farm.name}
-                  {order.farm.city ? ` · ${order.farm.city}` : ''}
-                </AppText>
+        <View style={styles.page}>
+          <Card style={styles.head}>
+            <ListingThumb listing={order} size={THUMB} />
+            <View style={styles.headText}>
+              <View style={styles.start}>
                 <MarketStatusChip status={order.status} />
               </View>
+              <AppText size="h3" weight="bold" numberOfLines={2}>
+                {listingTitle(order)}
+              </AppText>
+              <AppText size="caption" color="muted" numberOfLines={1}>
+                {order.farm.name}
+                {order.farm.city ? ` · ${order.farm.city}` : ''}
+              </AppText>
+              <AppText size="h2" weight="bold" color={color.brand[800]}>
+                {fmtFcfa(order.totalFcfa)}
+              </AppText>
             </View>
-            <Info label="Quantité" value={`${order.quantity} ${unitName(order.product, order.quantity)}`} />
-            <Info label="Total" value={fmtFcfa(order.totalFcfa)} />
-            {order.depositRequiredFcfa > 0 ? (
-              <Info label="Acompte reçu par la ferme" value={`${fmtFcfa(order.depositPaidFcfa)} sur ${fmtFcfa(order.depositRequiredFcfa)}`} />
-            ) : null}
-            <Info label="Remise" value={order.fulfilment === 'DELIVERY' ? `Livraison : ${order.address ?? ''}` : 'Retrait à la ferme'} />
-            {order.readyDate ? <Info label="Prêts le" value={dayLabel(order.readyDate)} /> : null}
-            {order.desiredDate ? <Info label="Date souhaitée" value={dayLabel(order.desiredDate)} /> : null}
-            {order.farm.phone ? (
-              <Button
-                label={`Appeler la ferme : ${order.farm.phone}`}
-                icon={Phone}
-                tone="ghost"
-                size="md"
-                onPress={() => { const url = telUrl(order.farm.phone); if (url) void Linking.openURL(url); }}
-              />
-            ) : null}
           </Card>
+
+          <FactGrid>
+            <FactTile icon={Package} label="Quantité" value={`${fmt(order.quantity)} ${unitName(order.product, order.quantity)}`} />
+            <FactTile icon={Banknote} label="Prix unitaire" value={fmtFcfa(order.unitPriceFcfa)} />
+            {order.depositRequiredFcfa > 0 ? (
+              <FactTile icon={Wallet} label="Acompte reçu par la ferme" value={`${fmtFcfa(order.depositPaidFcfa)} sur ${fmtFcfa(order.depositRequiredFcfa)}`} />
+            ) : null}
+            <FactTile icon={order.fulfilment === 'DELIVERY' ? Truck : House} label="Remise" value={order.fulfilment === 'DELIVERY' ? 'Livraison' : 'Retrait à la ferme'} />
+            {order.readyDate ? <FactTile icon={CalendarClock} label="Prêts le" value={dayLabel(order.readyDate)} /> : null}
+            {order.desiredDate ? <FactTile icon={CalendarDays} label="Date souhaitée" value={dayLabel(order.desiredDate)} /> : null}
+          </FactGrid>
+          {order.fulfilment === 'DELIVERY' && order.address ? (
+            <View style={styles.address}>
+              <MapPin size={15} color={color.ink[400]} style={styles.addressIcon} />
+              <AppText size="small" color="muted" style={styles.flex}>
+                Adresse de livraison : {order.address}
+              </AppText>
+            </View>
+          ) : null}
+
+          {order.farm.phone ? (
+            <Button
+              label={`Appeler la ferme : ${order.farm.phone}`}
+              icon={Phone}
+              tone="ghost"
+              size="lg"
+              onPress={() => {
+                const url = telUrl(order.farm.phone);
+                if (url) void Linking.openURL(url);
+              }}
+            />
+          ) : null}
 
           {order.status === 'AWAITING_DEPOSIT' ? <DepositNotice order={order} /> : null}
           {order.status === 'PENDING' && order.requestExpiresAt ? (
@@ -130,14 +180,11 @@ export default function BuyerOrderScreen() {
             </Notice>
           ) : null}
 
-          <Card style={{ gap: 8 }}>
-            <AppText size="body" weight="semibold">Historique</AppText>
-            {order.timeline.map((e) => (
-              <View key={`${e.type}-${e.at}`} style={{ gap: 1 }}>
-                <AppText size="small">{TIMELINE_LABEL[e.type] ?? e.type}</AppText>
-                <AppText size="caption" color="faint">{dateTimeLabel(e.at)}</AppText>
-              </View>
-            ))}
+          <Card style={styles.history}>
+            <AppText size="label" weight="semibold" color="muted" style={styles.eyebrow}>
+              HISTORIQUE
+            </AppText>
+            <Timeline events={order.timeline} />
           </Card>
 
           {pending || canCancel ? (
@@ -148,8 +195,76 @@ export default function BuyerOrderScreen() {
               onPress={() => void askConfirmation()}
             />
           ) : null}
+          <AppText size="caption" color="muted" align="center">
+            Vous payez directement la ferme : Fermia n’encaisse rien.
+          </AppText>
         </View>
       ) : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  page: {
+    gap: spacing.md,
+  },
+  head: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  headText: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing.xs,
+  },
+  start: {
+    alignItems: 'flex-start',
+  },
+  address: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  addressIcon: {
+    marginTop: 2,
+  },
+  flex: {
+    flex: 1,
+  },
+  history: {
+    gap: spacing.md,
+  },
+  eyebrow: {
+    letterSpacing: 1.2,
+  },
+  step: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  rail: {
+    width: 12,
+    alignItems: 'center',
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 4,
+    backgroundColor: color.ink[200],
+  },
+  dotOn: {
+    backgroundColor: semantic.primary,
+  },
+  line: {
+    flex: 1,
+    width: StyleSheet.hairlineWidth * 2,
+    marginTop: 2,
+    backgroundColor: semantic.borderStrong,
+  },
+  stepText: {
+    flex: 1,
+  },
+  stepGap: {
+    paddingBottom: spacing.md,
+  },
+});
