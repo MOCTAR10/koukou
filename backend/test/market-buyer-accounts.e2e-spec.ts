@@ -93,6 +93,11 @@ describe('Comptes acheteurs du Market (e2e)', () => {
     const owner = await createProgrammeFarm(server, adminToken);
     await registerBuyer({ phone: owner.ownerPhone }).expect(409);
 
+    // The same number spelled the way the buyer sign-up sends it.
+    const international = uniquePhone('+2417');
+    await registerBuyer({ phone: international }).expect(201);
+    await registerBuyer({ phone: `0${international.slice(4)}` }).expect(409);
+
     const racing = phone();
     const answers = await Promise.all([
       registerBuyer({ phone: racing }),

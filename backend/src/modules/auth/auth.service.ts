@@ -52,7 +52,11 @@ export class AuthService {
 
   /** A buyer has an account and a profile, but no farm. */
   async registerBuyer(dto: RegisterBuyerDto) {
-    const taken = await this.usersRepo.exists({ where: { phone: dto.phone } });
+    // Every spelling of the number: a buyer signs up as "0XXXXXXXX" while the
+    // programme accounts are "+241XXXXXXXX", and both sign in with either.
+    const taken = await this.usersRepo.exists({
+      where: phoneLoginCandidates(dto.phone).map((phone) => ({ phone })),
+    });
     if (taken) throw new ConflictException(REGISTER_REFUSED);
     const passwordHash = await bcrypt.hash(dto.code, 10);
     try {

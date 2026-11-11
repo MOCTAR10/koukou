@@ -6,7 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In } from 'typeorm';
+import { DataSource, EntityManager, In, Not } from 'typeorm';
+import { phoneLoginCandidates } from '../../common/utils/phone.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -430,8 +431,14 @@ export class AccessAdminService {
       patch.fullName = dto.fullName;
     }
     if (dto.phone !== undefined && dto.phone !== user.phone) {
-      const holder = await users.findOne({ where: { phone: dto.phone } });
-      if (holder && holder.id !== user.id) {
+      // Every spelling the sign-in accepts, the account itself left out.
+      const holder = await users.findOne({
+        where: phoneLoginCandidates(dto.phone).map((phone) => ({
+          phone,
+          id: Not(user.id),
+        })),
+      });
+      if (holder) {
         if (holder.role === UserRole.ACHETEUR) {
           throw new ConflictException({
             statusCode: 409,

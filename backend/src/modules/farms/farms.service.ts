@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, In, Repository } from 'typeorm';
+import { phoneLoginCandidates } from '../../common/utils/phone.js';
 import * as bcrypt from 'bcrypt';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -183,7 +184,9 @@ export class FarmsService {
     email?: string | null,
     em?: EntityManager,
   ): Promise<User | null> {
-    const where: Array<Partial<{ phone: string; email: string }>> = [{ phone }];
+    // Every spelling the sign-in accepts ("0XXXXXXXX" and "+241XXXXXXXX").
+    const where: Array<Partial<{ phone: string; email: string }>> =
+      phoneLoginCandidates(phone).map((p) => ({ phone: p }));
     if (email) where.push({ email });
     return (em ? em.getRepository(User) : this.userRepo).findOne({ where });
   }
