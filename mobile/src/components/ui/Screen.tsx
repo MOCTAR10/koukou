@@ -15,9 +15,11 @@ interface ScreenProps {
   header?: React.ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
+  /** Bar pinned under the content (a main action that must stay in reach), above the system inset. */
+  footer?: React.ReactNode;
 }
 
-export function Screen({ children, bottomPad = 96, scroll = true, style, header, refreshing, onRefresh }: ScreenProps) {
+export function Screen({ children, bottomPad = 96, scroll = true, style, header, refreshing, onRefresh, footer }: ScreenProps) {
   const insets = useSafeAreaInsets();
   // Edge-to-edge (SDK 54) : le contenu défile derrière la barre système Android
   // (3 boutons). Pour une mise en page FIXE (scroll=false), le padding `bottomPad`
@@ -42,6 +44,11 @@ export function Screen({ children, bottomPad = 96, scroll = true, style, header,
       ) : (
         content
       )}
+      {footer ? (
+        <View style={[styles.footerWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={[styles.content, styles.footerBox]}>{footer}</View>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -110,6 +117,16 @@ const styles = StyleSheet.create({
   },
   headerBox: {
     paddingBottom: 8,
+  },
+  footerWrap: {
+    width: '100%',
+    alignItems: 'center',
+    backgroundColor: semantic.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.border,
+  },
+  footerBox: {
+    paddingTop: 12,
   },
   content: {
     width: '100%',

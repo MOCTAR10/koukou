@@ -1,23 +1,75 @@
 import React, { useState } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { safeExternalUrl } from '@/utils/safeUrl';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { CalendarClock, MapPin, QrCode, Store } from 'lucide-react-native';
+import {
+  ArrowUpRight,
+  Boxes,
+  CalendarCheck,
+  CalendarClock,
+  House,
+  MapPin,
+  Package,
+  QrCode,
+  ShieldCheck,
+  Store,
+  Truck,
+  Wallet,
+} from 'lucide-react-native';
 
 import { ApiError } from '@/api/client';
-import { fetchMarketListing } from '@/api/market';
+import { fetchMarketListing, type MarketListing } from '@/api/market';
 import { useAuth } from '@/auth/AuthContext';
 import { OrderSheet } from '@/components/market/OrderSheet';
-import { dayLabel, listingTitle, unitName } from '@/components/market/rules';
-import { ListingPhoto, marketError } from '@/components/market/shared';
+import { dayLabel, listingTitle, PRODUCT_NAME, unitName } from '@/components/market/rules';
+import { AvailabilityPill, FactGrid, FactTile, ListingPhoto, marketError, Notice, TracePill } from '@/components/market/shared';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FarmLogo } from '@/components/ui/FarmLogo';
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
-import { Spinner } from '@/components/ui/Spinner';
-import { color, fmtFcfa } from '@/constants/theme';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { color, fmt, fmtFcfa, radii, semantic, shadow, spacing } from '@/constants/theme';
+
+function Facts({ listing }: { listing: MarketListing }) {
+  const unit = (n: number) => unitName(listing.product, n);
+  return (
+    <FactGrid>
+      <FactTile icon={Package} label="Disponible" value={`${fmt(listing.availableQuantity)} ${unit(listing.availableQuantity)}`} />
+      <FactTile icon={Boxes} label="Commande minimum" value={`${fmt(listing.minOrderQty)} ${unit(listing.minOrderQty)}`} />
+      <FactTile icon={Wallet} label="Acompte" value={listing.depositPct ? `${listing.depositPct} %` : 'Aucun'} />
+      <FactTile icon={House} label="Retrait" value={listing.pickupAvailable ? 'À la ferme' : 'Non proposé'} muted={!listing.pickupAvailable} />
+      <FactTile
+        icon={Truck}
+        label="Livraison"
+        value={listing.deliveryAvailable ? (listing.deliveryFeeFcfa ? fmtFcfa(listing.deliveryFeeFcfa) : 'Proposée') : 'Non proposée'}
+        muted={!listing.deliveryAvailable}
+      />
+      {listing.kind === 'PRE' && listing.readyDate ? <FactTile icon={CalendarClock} label="Prêts le" value={dayLabel(listing.readyDate)} /> : null}
+      {listing.product === 'CARCASS' && listing.slaughteredAt ? <FactTile icon={CalendarCheck} label="Abattus le" value={dayLabel(listing.slaughteredAt)} /> : null}
+    </FactGrid>
+  );
+}
+
+function ListingSkeleton() {
+  return (
+    <View style={styles.page} accessibilityLabel="Chargement de l’annonce">
+      <View style={[styles.stage, { aspectRatio: 16 / 10 }]}>
+        <Skeleton height="100%" radius={0} />
+      </View>
+      <Skeleton width="70%" height={24} />
+      <Skeleton width="45%" height={14} />
+      <Skeleton width="50%" height={28} />
+      <View style={styles.facts}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} height={62} radius={radii.lg} style={styles.factSkeleton} />
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function ListingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,9 +81,29 @@ export default function ListingScreen() {
   const from = encodeURIComponent(`/annonces/${id}`);
   const gone = query.error instanceof ApiError && query.error.status === 404;
 
+  // The main action stays in reach under the page: order when signed in, otherwise open an account.
+  const footer = !listing ? undefined : signedIn ? (
+    <View style={styles.bar}>
+      <View style={styles.shrink}>
+        <AppText size="h3" weight="bold" numberOfLines={1} adjustsFontSizeToFit>
+          {fmtFcfa(listing.unitPriceFcfa)}
+        </AppText>
+        <AppText size="caption" color="muted" numberOfLines={1}>
+          par {unitName(listing.product)}
+        </AppText>
+      </View>
+      <Button label={listing.kind === 'PRE' ? 'Précommander' : 'Commander'} tone="accent" size="lg" block={false} onPress={() => setOrdering(true)} />
+    </View>
+  ) : (
+    <View style={styles.barButtons}>
+      <Button label="Me connecter" tone="ghost" size="lg" style={styles.barButton} onPress={() => router.push(`/login?from=${from}` as Href)} />
+      <Button label="Créer un compte" tone="accent" size="lg" style={styles.barButton} onPress={() => router.push(`/inscription-acheteur?from=${from}` as Href)} />
+    </View>
+  );
+
   return (
-    <Screen header={<ScreenHeader title="Annonce" back />}>
-      {query.isLoading ? <Spinner label="Chargement…" /> : null}
+    <Screen header={<ScreenHeader title="Annonce" back />} bottomPad={spacing.xxl} footer={footer}>
+      {query.isLoading ? <ListingSkeleton /> : null}
       {!listing && query.error ? (
         <EmptyState
           icon={Store}
@@ -40,78 +112,101 @@ export default function ListingScreen() {
         />
       ) : null}
       {listing ? (
-        <View style={{ gap: 12 }}>
-          <Card style={{ gap: 10 }}>
-            <ListingPhoto listing={listing} height={200} />
-            <AppText size="h2" weight="bold">
+        <View style={styles.page}>
+          <ListingPhoto listing={listing} ratio={16 / 10} style={styles.stage}>
+            <AvailabilityPill kind={listing.kind} />
+            {listing.traceLot ? <TracePill /> : null}
+          </ListingPhoto>
+
+          <View style={styles.titleBlock}>
+            <AppText size="label" weight="semibold" color="muted" style={styles.eyebrow}>
+              {PRODUCT_NAME[listing.product].toUpperCase()}
+            </AppText>
+            <AppText size="h1" weight="bold" accessibilityRole="header">
               {listingTitle(listing)}
             </AppText>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <MapPin size={14} color={color.ink[400]} />
-              <AppText size="small" color="muted" style={{ flex: 1 }}>
-                {listing.farm.name}
-                {listing.farm.city ? ` · ${listing.farm.city}` : ''}
+            <AppText size="h1" weight="bold" color={color.brand[800]}>
+              {fmtFcfa(listing.unitPriceFcfa)}
+              <AppText size="bodyM" color="muted">
+                {' '}
+                / {unitName(listing.product)}
               </AppText>
-            </View>
-            <AppText size="h2" weight="bold" color="brand">
-              {fmtFcfa(listing.unitPriceFcfa)} / {unitName(listing.product)}
             </AppText>
-            <AppText size="small" color="muted">
-              {listing.availableQuantity} {unitName(listing.product, listing.availableQuantity)} · minimum {listing.minOrderQty}
-            </AppText>
-            {listing.description ? <AppText size="body">{listing.description}</AppText> : null}
-            {listing.traceLot ? (
-              // POUFA lot A indic: the band's public traceability page.
-              <Button
-                label={`Lot tracé ${listing.traceLot.code}`}
-                tone="ghost"
-                size="sm"
-                block={false}
-                icon={QrCode}
-                onPress={() => {
-                  const url = safeExternalUrl(listing.traceLot!.url);
-                  if (url) void Linking.openURL(url);
-                }}
-              />
-            ) : null}
-          </Card>
+          </View>
 
-          {listing.kind === 'PRE' && listing.readyDate ? (
-            <Card style={{ gap: 4 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <CalendarClock size={16} color={color.brand[600]} />
-                <AppText size="body" weight="semibold">
-                  Prêts le {dayLabel(listing.readyDate)}
-                </AppText>
-              </View>
-              {listing.previousReadyDate ? (
-                <AppText size="small" color="muted">
-                  Date modifiée par la ferme (auparavant le {dayLabel(listing.previousReadyDate)}).
-                </AppText>
-              ) : null}
-            </Card>
+          <Facts listing={listing} />
+
+          {listing.kind === 'PRE' && listing.readyDate && listing.previousReadyDate ? (
+            <Notice tone="info" icon={CalendarClock}>
+              Date modifiée par la ferme (auparavant le {dayLabel(listing.previousReadyDate)}).
+            </Notice>
           ) : null}
           {listing.product === 'CARCASS' && listing.slaughteredAt ? (
-            <Card style={{ gap: 4 }}>
-              <AppText size="body" weight="semibold">
-                Abattus le {dayLabel(listing.slaughteredAt)}
+            <Notice tone="info">Demandez à la ferme comment les carcasses sont conservées.</Notice>
+          ) : null}
+
+          {listing.description ? (
+            <Card style={styles.cardGap}>
+              <AppText size="small" weight="semibold">
+                Le mot de la ferme
               </AppText>
-              <AppText size="small" color="muted">
-                Demandez à la ferme comment les carcasses sont conservées.
+              <AppText size="bodyM" color="muted">
+                {listing.description}
               </AppText>
             </Card>
           ) : null}
 
-          {signedIn ? (
-            <Button label={listing.kind === 'PRE' ? 'Précommander' : 'Commander'} onPress={() => setOrdering(true)} />
-          ) : (
-            <Card style={{ gap: 10 }}>
-              <AppText size="small" color="muted">
-                Créez un compte gratuit ou connectez-vous pour envoyer votre demande à la ferme.
+          <Card style={styles.row}>
+            <FarmLogo farm={listing.farm} size={48} />
+            <View style={styles.shrink}>
+              <AppText size="body" weight="semibold" numberOfLines={1}>
+                {listing.farm.name}
               </AppText>
-              <Button label="Créer un compte" onPress={() => router.push(`/inscription-acheteur?from=${from}` as Href)} />
-              <Button label="Me connecter" tone="ghost" onPress={() => router.push(`/login?from=${from}` as Href)} />
+              {listing.farm.city ? (
+                <View style={styles.inline}>
+                  <MapPin size={13} color={color.ink[400]} />
+                  <AppText size="small" color="muted" numberOfLines={1} style={styles.shrink}>
+                    {listing.farm.city}
+                  </AppText>
+                </View>
+              ) : null}
+              <View style={styles.inline}>
+                <ShieldCheck size={13} color={semantic.successText} />
+                <AppText size="caption" weight="semibold" color={semantic.successText}>
+                  Ferme vérifiée
+                </AppText>
+              </View>
+            </View>
+          </Card>
+
+          {listing.traceLot ? (
+            // POUFA lot A indic: the band's public traceability page.
+            <Card
+              style={styles.row}
+              accessibilityLabel={`Lot tracé ${listing.traceLot.code}, voir la fiche de traçabilité`}
+              onPress={() => {
+                const url = safeExternalUrl(listing.traceLot!.url);
+                if (url) void Linking.openURL(url);
+              }}>
+              <View style={styles.traceIcon}>
+                <QrCode size={24} color={color.green[300]} />
+              </View>
+              <View style={styles.shrink}>
+                <AppText size="body" weight="semibold" numberOfLines={1}>
+                  Lot tracé {listing.traceLot.code}
+                </AppText>
+                <AppText size="small" color="muted">
+                  Voir la fiche de traçabilité
+                </AppText>
+              </View>
+              <ArrowUpRight size={20} color={color.ink[400]} />
             </Card>
+          ) : null}
+
+          {signedIn ? null : (
+            <AppText size="small" color="muted" align="center">
+              Créez un compte gratuit ou connectez-vous pour envoyer votre demande à la ferme. Vous la payez directement : Fermia n’encaisse rien.
+            </AppText>
           )}
           {signedIn ? <OrderSheet listing={listing} visible={ordering} onClose={() => setOrdering(false)} /> : null}
         </View>
@@ -119,3 +214,69 @@ export default function ListingScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  page: {
+    gap: spacing.lg,
+  },
+  stage: {
+    borderRadius: radii.xxl,
+    borderWidth: 1,
+    borderColor: semantic.border,
+    ...shadow.card,
+  },
+  titleBlock: {
+    gap: spacing.xs,
+  },
+  eyebrow: {
+    letterSpacing: 1.2,
+  },
+  facts: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  factSkeleton: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    width: undefined,
+  },
+  cardGap: {
+    gap: spacing.xs,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  inline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
+  },
+  traceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: semantic.heroBg,
+  },
+  shrink: {
+    flex: 1,
+    minWidth: 0,
+  },
+  bar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  barButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  barButton: {
+    flex: 1,
+  },
+});
