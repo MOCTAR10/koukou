@@ -20,11 +20,11 @@ const FIELD = `${inputCls} !h-12 !rounded-xl !py-3 text-[15px] [@media(max-heigh
 export function PhoneField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <span className="relative block">
-      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center gap-2 border-r border-slate-200 pl-3.5 pr-3 text-[15px] font-medium text-slate-700">
+      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center gap-1.5 border-r border-slate-200 pl-3 pr-2.5 text-[15px] font-medium text-slate-700">
         <GabonFlag /> +241
       </span>
       <input
-        className={`${FIELD} !pl-[6.5rem]`}
+        className={`${FIELD} !pl-[5.75rem]`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="74 12 34 56"

@@ -62,12 +62,6 @@ export function BuyerRegisterPage() {
       backTo="/marche"
       backLabel="Retour au marché"
       wide
-      footer={
-        <p>
-          Vous exploitez une ferme du programme ? Ce compte sert seulement à acheter : votre accès à la ferme vous est remis
-          à l’activation de votre compte exploitant.
-        </p>
-      }
     >
       <BuyerAuthSwitch active="register" from={from} />
       <form onSubmit={onSubmit} className="space-y-4">
@@ -91,7 +85,7 @@ export function BuyerRegisterPage() {
             <input className={inputTallCls} maxLength={80} value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-[1.3fr_1fr]">
           <Field label="Téléphone" hint="Il vous servira d’identifiant.">
             <PhoneField value={phone} onChange={setPhone} />
           </Field>
