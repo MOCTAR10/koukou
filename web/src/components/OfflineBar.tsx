@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
 import { AlertTriangle, CloudOff, RefreshCw, Trash2 } from 'lucide-react';
-import { registerSW } from 'virtual:pwa-register';
 import { useFarm } from '../app/FarmContext';
 import { useMenuAccess } from '../app/useMenuAccess';
 import { dismissRejected, flushQueue, heldCashSummary, useOfflineQueue, useOnline } from '../offline';
@@ -12,12 +10,11 @@ import { oldestShownDate, resetShownDate, subscribeShownDate } from '../offline/
 import { isSyncing, onSyncCentreRequest, setSyncing, subscribeSyncing } from '../offline/pulse';
 import { warmOfflineCache } from '../offline/warmup';
 import { dateTimeFr, fcfa } from '../lib/format';
-import { shouldApplyUpdate } from '../lib/updatePolicy';
-import { Button, hasOpenDialog, Modal } from './form';
+import { applyUpdateNow, isUpdateReady, subscribeUpdateReady } from '../lib/appUpdate';
+import { Button, Modal } from './form';
 
 const RETRY_INTERVAL_MS = 30_000;
 const NOTICE_MS = 6_000;
-const UPDATE_CHECK_MS = 10 * 60_000;
 
 /** Above the modals (z-50): the form that queued the write may still be closing. */
 function QueuedNotice() {
@@ -105,8 +102,8 @@ export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partir
   const savedAt = useSyncExternalStore(subscribeShownDate, oldestShownDate, oldestShownDate);
   const syncing = useSyncExternalStore(subscribeSyncing, isSyncing, isSyncing);
   const [open, setOpen] = useState(false);
-  const [updateReady, setUpdateReady] = useState(false);
-  const applyUpdate = useRef<(() => void) | null>(null);
+  // Applied by AppUpdater on its own; the banner is the manual way while a form holds it back.
+  const updateReady = useSyncExternalStore(subscribeUpdateReady, isUpdateReady, isUpdateReady);
   const count = pending.length;
 
   const sync = useRef(async () => undefined as void);
@@ -123,72 +120,6 @@ export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partir
   };
 
   useEffect(() => onSyncCentreRequest(() => setOpen(true)), []);
-
-  useEffect(() => {
-    const update = registerSW({
-      onNeedRefresh: () => setUpdateReady(true),
-      // Look for a new version now and then, not only at page load.
-      onRegisteredSW: (_url, registration) => {
-        if (registration) setInterval(() => void registration.update().catch(() => undefined), UPDATE_CHECK_MS);
-      },
-    });
-    applyUpdate.current = () => void update(true);
-    // The new service worker takes over at once (skipWaiting): the page still runs the old code.
-    const sw = 'serviceWorker' in navigator ? navigator.serviceWorker : null;
-    const hadController = !!sw?.controller;
-    const onController = () => {
-      if (hadController) setUpdateReady(true);
-    };
-    sw?.addEventListener('controllerchange', onController);
-    return () => sw?.removeEventListener('controllerchange', onController);
-  }, []);
-
-  // A new version applies by itself at the next page change, when the tab comes back, or when idle,
-  // never over an open form or a field being typed in.
-  const { pathname } = useLocation();
-  const activity = useRef({ lastInputAt: 0, lastActivityAt: Date.now() });
-  const applyIfSafe = useRef((_when: { navigating?: boolean; returning?: boolean }) => {});
-  applyIfSafe.current = (when) => {
-    const reload = shouldApplyUpdate({
-      updateReady,
-      dialogOpen: hasOpenDialog(),
-      lastInputAt: activity.current.lastInputAt,
-      lastActivityAt: activity.current.lastActivityAt,
-      now: Date.now(),
-      ...when,
-    });
-    if (reload) window.location.reload();
-  };
-  useEffect(() => {
-    const seen = () => {
-      activity.current.lastActivityAt = Date.now();
-    };
-    const typed = () => {
-      activity.current.lastInputAt = Date.now();
-      seen();
-    };
-    const visible = () => {
-      if (document.visibilityState === 'visible') applyIfSafe.current({ returning: true });
-    };
-    document.addEventListener('input', typed, true);
-    document.addEventListener('pointerdown', seen, true);
-    document.addEventListener('keydown', seen, true);
-    document.addEventListener('visibilitychange', visible);
-    const timer = setInterval(() => applyIfSafe.current({}), 15_000);
-    return () => {
-      document.removeEventListener('input', typed, true);
-      document.removeEventListener('pointerdown', seen, true);
-      document.removeEventListener('keydown', seen, true);
-      document.removeEventListener('visibilitychange', visible);
-      clearInterval(timer);
-    };
-  }, []);
-  const firstPath = useRef(pathname);
-  useEffect(() => {
-    if (firstPath.current === pathname) return;
-    firstPath.current = pathname;
-    applyIfSafe.current({ navigating: true });
-  }, [pathname]);
 
   // Back online: send what waits, then replace the saved data on screen.
   useEffect(
@@ -256,7 +187,7 @@ export function OfflineBar({ note = 'Vos saisies, ventes et encaissements partir
       {updateReady ? (
         <div className="flex items-center gap-3 bg-brand-900 px-4 py-2 text-sm text-white">
           Une nouvelle version de Fermia est disponible.
-          <button onClick={() => applyUpdate.current?.()} className="ml-auto rounded bg-white/15 px-2 py-1 text-xs font-semibold hover:bg-white/25">
+          <button onClick={applyUpdateNow} className="ml-auto rounded bg-white/15 px-2 py-1 text-xs font-semibold hover:bg-white/25">
             Mettre à jour
           </button>
         </div>
