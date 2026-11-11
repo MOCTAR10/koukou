@@ -111,7 +111,7 @@ export function BuyerRegisterPage() {
           </Field>
         </div>
         <ErrorNote error={error} />
-        <Button type="submit" className="w-full !py-2.5" busy={submitting}>
+        <Button type="submit" tone="accent" className="w-full !py-2.5" busy={submitting}>
           Créer mon compte
         </Button>
       </form>

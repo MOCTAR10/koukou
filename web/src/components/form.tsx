@@ -38,6 +38,8 @@ const TONES = {
   primary: 'bg-brand-600 text-white hover:bg-brand-700',
   secondary: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
   danger: 'bg-red-600 text-white hover:bg-red-700',
+  /** The one main action of a screen (ordering on the Market). Dark ink on orange: white fails contrast. */
+  accent: 'bg-accent-500 text-slate-950 shadow-sm hover:bg-accent-400',
 } as const;
 
 export function Button({
