@@ -8,6 +8,7 @@ import { safeReturnPath } from '@/api/roles';
 import type { CustomerType } from '@/api/types';
 import { useAuth } from '@/auth/AuthContext';
 import { AuthHero } from '@/components/auth/AuthHero';
+import { BuyerAuthSwitch } from '@/components/auth/BuyerAuthSwitch';
 import { BUYER_TYPES, Labeled, PillRow } from '@/components/market/shared';
 import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
@@ -31,11 +32,8 @@ export default function BuyerRegisterScreen() {
   const [city, setCity] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [confirmation, setConfirmation] = useState('');
-  const [phase, setPhase] = useState<'code' | 'confirm'>('code');
 
-  const mismatch = phase === 'confirm' && confirmation.length >= code.length && confirmation !== code;
-  const canSubmit = isGabonPhoneValid(phone) && code.length >= 6 && code === confirmation && !busy;
+  const canSubmit = isGabonPhoneValid(phone) && code.length >= 6 && !busy;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -54,16 +52,6 @@ export default function BuyerRegisterScreen() {
     else router.replace('/accueil' as Href);
   };
 
-  const onPadSubmit = () => {
-    if (phase === 'code') {
-      if (code.length < 6) return;
-      setConfirmation('');
-      setPhase('confirm');
-      return;
-    }
-    void submit();
-  };
-
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -75,6 +63,7 @@ export default function BuyerRegisterScreen() {
         showsVerticalScrollIndicator={false}>
         <AuthHero compact subtitle="Commandez directement auprès des fermes." />
         <View style={styles.sheet}>
+          <BuyerAuthSwitch active="register" from={from} />
           <AppText size="label" color="brand">ÉTAPE {step} SUR 2</AppText>
           {step === 1 ? (
             <>
@@ -110,19 +99,20 @@ export default function BuyerRegisterScreen() {
                 <ArrowLeft size={15} color={palette.ink[400]} />
                 <AppText size="small" color="muted">Revenir au nom</AppText>
               </Pressable>
-              <PhoneInput compact value={phone} onChangeText={setPhone} />
-              <AppText size="small" weight="semibold" color="brand">
-                {phase === 'code' ? 'Choisissez un code secret (6 chiffres ou plus)' : 'Confirmez le code secret'}
-              </AppText>
+              <PhoneInput value={phone} onChangeText={setPhone} />
               <SecretCodePad
-                value={phase === 'code' ? code : confirmation}
-                onChange={phase === 'code' ? setCode : setConfirmation}
-                onSubmit={onPadSubmit}
-                submitEnabled={phase === 'code' ? code.length >= 6 : canSubmit}
+                value={code}
+                onChange={setCode}
+                onSubmit={() => void submit()}
+                submitEnabled={canSubmit}
                 disabled={busy}
+                label="Choisissez un code secret"
+                caption="6 chiffres minimum. Touchez « Afficher » pour le relire."
+                size="sm"
+                revealable
               />
-              {mismatch ? <AppText size="small" color="danger">Les deux codes ne correspondent pas.</AppText> : null}
               {error ? <AppText size="small" color="danger">{error}</AppText> : null}
+              <Button label="Créer mon compte" tone="accent" size="lg" icon={ArrowRight} loading={busy} disabled={!canSubmit} onPress={() => void submit()} />
             </>
           )}
           <Pressable onPress={() => router.back()} style={styles.link} accessibilityRole="link">

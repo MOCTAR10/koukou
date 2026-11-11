@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Lock, MessageSquareText, Store } from 'lucide-react';
+import { MessageSquareText, Store } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import { ApiError, getStoredUser } from '../api/client';
 import { clearSessionExpired, sessionExpired, SESSION_EXPIRED_MESSAGE } from '../api/session-expiry';
 import { landingAfterLogin } from '../app/roles';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
 import { AuthLayout, authLinkCls } from './AuthLayout';
+import { BuyerAuthSwitch, PhoneField, SecretField } from './fields';
 import { otpCodeError, type OtpChallenge } from './login';
 
 /** Number typed after the fixed +241 prefix → full international number (a typed +… or 00… is kept). */
@@ -14,17 +15,6 @@ function fullPhone(raw: string): string {
   const v = raw.trim();
   if (v.startsWith('+') || v.startsWith('00')) return v;
   return `+241${v.replace(/^0/, '')}`;
-}
-
-/** Gabon flag (emoji flags do not render on Windows). */
-function GabonFlag() {
-  return (
-    <svg viewBox="0 0 4 3" className="h-3.5 w-5 overflow-hidden rounded-[3px] ring-1 ring-slate-200" aria-hidden>
-      <rect width="4" height="1" fill="#009E60" />
-      <rect y="1" width="4" height="1" fill="#FCD116" />
-      <rect y="2" width="4" height="1" fill="#3A75C4" />
-    </svg>
-  );
 }
 
 function messageOf(err: unknown): string {
@@ -169,14 +159,7 @@ export function LoginPage() {
       title={buying ? 'Connexion' : 'Bienvenue'}
       subtitle={buying ? 'Connectez-vous avec votre téléphone et votre code secret.' : undefined}
       footer={
-        buying ? (
-          <p>
-            Pas encore de compte client ?{' '}
-            <Link to="/marche/inscription" state={{ from }} className={authLinkCls}>
-              Créer un compte client du Marché
-            </Link>
-          </p>
-        ) : (
+        buying ? undefined : (
           <>
             <Link
               to="/marche"
@@ -199,6 +182,7 @@ export function LoginPage() {
         )
       }
     >
+      {buying ? <BuyerAuthSwitch active="login" from={from} /> : null}
       <form onSubmit={onSubmit} className="space-y-4 [@media(max-height:760px)]:space-y-3">
         {expired && !error ? (
           <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
@@ -207,34 +191,10 @@ export function LoginPage() {
         ) : null}
         <ErrorNote error={error} />
         <Field label="Téléphone">
-          <span className="relative block">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center gap-2 border-r border-slate-200 pl-3.5 pr-3 text-[15px] font-medium text-slate-700">
-              <GabonFlag /> +241
-            </span>
-            <input
-              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-[6.5rem] text-[15px] [@media(max-height:760px)]:!h-10`}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="74 12 34 56"
-              autoComplete="username"
-              inputMode="tel"
-              required
-            />
-          </span>
+          <PhoneField value={phone} onChange={setPhone} />
         </Field>
         <Field label="Code secret">
-          <span className="relative block">
-            <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="password"
-              className={`${inputCls} !h-12 !rounded-xl !py-3 !pl-11 text-[15px] [@media(max-height:760px)]:!h-10`}
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="••••••"
-              autoComplete="current-password"
-              required
-            />
-          </span>
+          <SecretField value={code} onChange={setCode} autoComplete="current-password" />
         </Field>
         <Button
           type="submit"
