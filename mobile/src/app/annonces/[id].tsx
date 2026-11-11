@@ -41,7 +41,7 @@ function Facts({ listing }: { listing: MarketListing }) {
       <FactTile icon={Boxes} label="Commande minimum" value={`${fmt(listing.minOrderQty)} ${unit(listing.minOrderQty)}`} />
       <FactTile icon={Wallet} label="Acompte" value={listing.depositPct ? `${listing.depositPct} %` : 'Aucun'} />
       <FactTile icon={House} label="Retrait" value={listing.pickupAvailable ? 'À la ferme' : 'Non proposé'} muted={!listing.pickupAvailable} />
-      <Fact
+      <FactTile
         icon={Truck}
         label="Livraison"
         value={listing.deliveryAvailable ? (listing.deliveryFeeFcfa ? fmtFcfa(listing.deliveryFeeFcfa) : 'Proposée') : 'Non proposée'}
