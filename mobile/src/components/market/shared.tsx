@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, View, type ImageSourcePropType } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import type { QueryClient } from '@tanstack/react-query';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { CalendarDays, Store, type LucideIcon } from 'lucide-react-native';
+import { CalendarClock, CalendarDays, QrCode, Store, type LucideIcon } from 'lucide-react-native';
 
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { localYmd } from '@/api/mutations';
-import type { MarketBuyerStatus, MarketHiddenReason, MarketProduct } from '@/api/market';
+import type { MarketBuyerStatus, MarketHiddenReason, MarketKind, MarketProduct } from '@/api/market';
 import type { CustomerType, Species } from '@/api/types';
 import { AppText } from '@/components/ui/AppText';
 import { Chip, type ChipTone } from '@/components/ui/Chip';
@@ -14,7 +15,7 @@ import { errorMessage } from '@/components/ui/Feedback';
 import { TextField } from '@/components/ui/TextField';
 import { breedImageForLot } from '@/constants/breedImages';
 import { CUSTOMER_TYPES } from '@/constants/customers';
-import { color, radii, semantic } from '@/constants/theme';
+import { color, radii, semantic, shadow, spacing } from '@/constants/theme';
 import { dayLabel } from './rules';
 
 /** Who can buy: the customer types, without those that only make sense for a farm's own records. */
@@ -27,18 +28,60 @@ export function listingPhoto(l: { product: MarketProduct; species: string | null
   return breedImageForLot(l.breedName, l.species as Species | null);
 }
 
-/** Whole photo, never cropped. Decorative: the name sits next to it. */
-export function ListingPhoto({ listing, height }: { listing: Parameters<typeof listingPhoto>[0]; height: number }) {
+/**
+ * The stage a listing photo sits on. The photos are wide studio shots with the
+ * animal in the middle: filling a 4:3 stage only trims empty backdrop on the sides.
+ * Decorative: the name sits next to it.
+ */
+export function ListingPhoto({
+  listing,
+  ratio = 4 / 3,
+  style,
+  children,
+}: {
+  listing: Parameters<typeof listingPhoto>[0];
+  /** Width over height of the stage. */
+  ratio?: number;
+  style?: StyleProp<ViewStyle>;
+  /** Badges laid over the photo. */
+  children?: React.ReactNode;
+}) {
   const photo = listingPhoto(listing);
   return (
-    <View style={[styles.photo, { height }]}>
+    <View style={[styles.photo, { aspectRatio: ratio }, style]}>
       {photo ? (
-        <Image source={photo} resizeMode="contain" style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors />
+        <Image source={photo} contentFit="cover" transition={200} style={StyleSheet.absoluteFill} accessibilityIgnoresInvertColors />
       ) : (
         <Store size={36} color={color.ink[300]} />
       )}
+      {children ? <View style={styles.photoBadges}>{children}</View> : null}
     </View>
   );
+}
+
+/** White pill laid over a photo. */
+function OverlayPill({ icon, label, tint }: { icon: React.ReactNode; label: string; tint: string }) {
+  return (
+    <View style={styles.overlayPill}>
+      {icon}
+      <AppText size="label" weight="semibold" style={{ color: tint }} numberOfLines={1}>
+        {label}
+      </AppText>
+    </View>
+  );
+}
+
+/** Available now (green dot) or pre-order. */
+export function AvailabilityPill({ kind }: { kind: MarketKind }) {
+  return kind === 'PRE' ? (
+    <OverlayPill icon={<CalendarClock size={12} color={color.brand[700]} />} label="Précommande" tint={color.brand[700]} />
+  ) : (
+    <OverlayPill icon={<View style={styles.dot} />} label="Disponible" tint={semantic.successText} />
+  );
+}
+
+export function TracePill() {
+  return <OverlayPill icon={<QrCode size={12} color={color.brand[600]} />} label="Lot tracé" tint={color.ink[700]} />;
 }
 
 const STATUS: Record<MarketBuyerStatus, { label: string; tone: ChipTone }> = {
@@ -221,11 +264,37 @@ export function DateField({
 
 const styles = StyleSheet.create({
   photo: {
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: semantic.surface,
-    borderRadius: radii.md,
+    backgroundColor: semantic.surfaceAlt,
     overflow: 'hidden',
+  },
+  photoBadges: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    right: spacing.sm,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  overlayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    ...shadow.card,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: semantic.successDecor,
   },
   notice: {
     flexDirection: 'row',

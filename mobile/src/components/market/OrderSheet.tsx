@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, type Href } from 'expo-router';
-import { AlertTriangle } from 'lucide-react-native';
+import { AlertTriangle, Minus, Plus, type LucideIcon } from 'lucide-react-native';
 
 import { createMarketOrder, type MarketFulfilment, type MarketListing } from '@/api/market';
 import { AppText } from '@/components/ui/AppText';
@@ -13,12 +13,26 @@ import { Segmented } from '@/components/ui/Segmented';
 import { Sheet } from '@/components/ui/Sheet';
 import { TextField } from '@/components/ui/TextField';
 import { isGabonPhoneValid } from '@/constants/phone';
-import { fmtFcfa, semantic } from '@/constants/theme';
+import { color, fmt, fmtFcfa, radii, semantic, spacing } from '@/constants/theme';
 import { depositFor, orderTotal, unitName, wholeNumber } from './rules';
 import { DateField, invalidateBuyerQueries, Labeled, marketError, Notice } from './shared';
 
 function newKey(): string {
   return `mobile-market-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function StepButton({ icon: Icon, label, disabled, onPress }: { icon: LucideIcon; label: string; disabled: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [styles.stepButton, pressed && styles.stepPressed, disabled && styles.stepDisabled]}>
+      <Icon size={20} color={color.brand[700]} />
+    </Pressable>
+  );
 }
 
 export function OrderSheet({ listing, visible, onClose }: { listing: MarketListing; visible: boolean; onClose: () => void }) {
@@ -37,6 +51,7 @@ export function OrderSheet({ listing, visible, onClose }: { listing: MarketListi
   const qty = wholeNumber(quantity);
   const unit = (n: number) => unitName(listing.product, n);
   const deposit = depositFor(qty, listing.unitPriceFcfa, listing.depositPct);
+  const step = (delta: number) => setQuantity(String(Math.min(listing.availableQuantity, Math.max(listing.minOrderQty, qty + delta))));
 
   const submit = useMutation({
     mutationFn: () => {
@@ -76,10 +91,14 @@ export function OrderSheet({ listing, visible, onClose }: { listing: MarketListi
       title={listing.kind === 'PRE' ? 'Précommander' : 'Commander'}
       subtitle={`${fmtFcfa(listing.unitPriceFcfa)} / ${unit(1)}`}
       onClose={onClose}
-      footer={<Button label="Envoyer ma demande" loading={submit.isPending} onPress={send} />}>
+      footer={<Button label="Envoyer ma demande" tone="accent" size="lg" loading={submit.isPending} onPress={send} />}>
       <View style={{ gap: 14 }}>
         <Labeled label={`Quantité (${unit(2)})`} hint={`Minimum ${listing.minOrderQty}, ${listing.availableQuantity} disponibles.`}>
-          <NumberInput value={quantity} onChangeText={setQuantity} />
+          <View style={styles.stepper}>
+            <StepButton icon={Minus} label="Diminuer la quantité" disabled={qty <= listing.minOrderQty} onPress={() => step(-1)} />
+            <NumberInput value={quantity} onChangeText={setQuantity} style={styles.stepperInput} />
+            <StepButton icon={Plus} label="Augmenter la quantité" disabled={qty >= listing.availableQuantity} onPress={() => step(1)} />
+          </View>
         </Labeled>
         {listing.pickupAvailable && listing.deliveryAvailable ? (
           <Labeled label="Mode de remise" hint={listing.deliveryFeeFcfa ? `Frais de livraison : ${fmtFcfa(listing.deliveryFeeFcfa)}` : undefined}>
@@ -114,15 +133,27 @@ export function OrderSheet({ listing, visible, onClose }: { listing: MarketListi
           <TextField value={note} onChangeText={setNote} multiline maxLength={500} accessibilityLabel="Message à la ferme" />
         </Labeled>
 
-        <View style={{ gap: 4, padding: 12, borderRadius: 12, backgroundColor: semantic.surfaceAlt }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <AppText size="small" color="muted">Total</AppText>
-            <AppText size="body" weight="bold">{fmtFcfa(orderTotal(qty, listing.unitPriceFcfa, fulfilment, listing.deliveryFeeFcfa))}</AppText>
+        <View style={styles.summary}>
+          <View style={styles.summaryRow}>
+            <AppText size="small" color="muted" style={styles.shrink}>
+              {fmt(qty)} {unit(qty)} × {fmtFcfa(listing.unitPriceFcfa)}
+            </AppText>
+            <AppText size="small">{fmtFcfa(qty * listing.unitPriceFcfa)}</AppText>
+          </View>
+          {fulfilment === 'DELIVERY' && listing.deliveryFeeFcfa ? (
+            <View style={styles.summaryRow}>
+              <AppText size="small" color="muted">Livraison</AppText>
+              <AppText size="small">{fmtFcfa(listing.deliveryFeeFcfa)}</AppText>
+            </View>
+          ) : null}
+          <View style={[styles.summaryRow, styles.summaryTotal]}>
+            <AppText size="body" weight="semibold">Total</AppText>
+            <AppText size="h3" weight="bold">{fmtFcfa(orderTotal(qty, listing.unitPriceFcfa, fulfilment, listing.deliveryFeeFcfa))}</AppText>
           </View>
           {deposit > 0 ? (
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <AppText size="small" color="muted">Acompte ({listing.depositPct} %)</AppText>
-              <AppText size="body" weight="semibold">{fmtFcfa(deposit)}</AppText>
+            <View style={styles.summaryRow}>
+              <AppText size="small" color="muted">dont acompte ({listing.depositPct} %)</AppText>
+              <AppText size="small" weight="semibold">{fmtFcfa(deposit)}</AppText>
             </View>
           ) : null}
         </View>
@@ -141,3 +172,50 @@ export function OrderSheet({ listing, visible, onClose }: { listing: MarketListi
     </Sheet>
   );
 }
+
+const styles = StyleSheet.create({
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: spacing.sm,
+  },
+  stepperInput: {
+    flex: 1,
+  },
+  stepButton: {
+    width: 52,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: semantic.border,
+    backgroundColor: semantic.surface,
+  },
+  stepPressed: {
+    backgroundColor: semantic.surfaceAlt,
+  },
+  stepDisabled: {
+    opacity: 0.4,
+  },
+  summary: {
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderRadius: radii.lg,
+    backgroundColor: semantic.surfaceAlt,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  summaryTotal: {
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: semantic.borderStrong,
+  },
+  shrink: {
+    flexShrink: 1,
+  },
+});
