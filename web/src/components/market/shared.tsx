@@ -1,7 +1,10 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { CalendarClock, QrCode, Store } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { MarketBuyerStatus, MarketHiddenReason, MarketListing, MarketProduct } from '../../api/types-market';
+import type { MarketBuyerStatus, MarketFarm, MarketHiddenReason, MarketListing, MarketProduct } from '../../api/types-market';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
+import { classNames } from '../../lib/format';
+import { farmLogoSrc } from '../org/shared';
 import { Pill } from '../orders/shared';
 
 export const SPECIES_LABEL: Record<string, string> = {
@@ -53,6 +56,71 @@ export function listingTitle(l: Named): string {
 export function listingPhoto(l: Named): string | null {
   if (l.product === 'EGGS') return EGG_IMAGES.alveole;
   return lotImage(l.breedName, l.species);
+}
+
+/**
+ * The frame every listing photo sits in. The photos are studio shots on a plain
+ * background (white or grey), shown whole: a blurred copy fills the rest of the
+ * stage, so the photo has no visible edge whatever its background.
+ * Inside a `group`, the photo grows a little on hover.
+ */
+export function ListingStage({ listing, className, eager = false }: { listing: Named; className?: string; eager?: boolean }) {
+  const photo = listingPhoto(listing);
+  return (
+    <div className={classNames('relative flex items-center justify-center overflow-hidden bg-slate-100', className)}>
+      {photo ? (
+        <>
+          <img src={photo} alt="" aria-hidden loading={eager ? 'eager' : 'lazy'} className="absolute inset-0 h-full w-full scale-125 object-cover blur-2xl" />
+          <img
+            src={photo}
+            alt=""
+            loading={eager ? 'eager' : 'lazy'}
+            className="relative h-full w-full object-contain transition-transform duration-500 ease-out motion-safe:group-hover:scale-105"
+          />
+          {/* A faint floor shade gives the stage some depth. */}
+          <span aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-brand-950/[0.07]" />
+        </>
+      ) : (
+        <Store className="h-10 w-10 text-slate-300" />
+      )}
+    </div>
+  );
+}
+
+const OVERLAY_BADGE =
+  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/95 px-2.5 py-1 text-xs font-semibold shadow-sm ring-1 ring-slate-900/5 backdrop-blur';
+
+/** Available now (green dot) or pre-order: sits on the photo stage. */
+export function AvailabilityBadge({ kind }: { kind: MarketListing['kind'] }) {
+  return kind === 'PRE' ? (
+    <span className={classNames(OVERLAY_BADGE, 'text-brand-700')}>
+      <CalendarClock className="h-3.5 w-3.5" /> Précommande
+    </span>
+  ) : (
+    <span className={classNames(OVERLAY_BADGE, 'text-emerald-700')}>
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Disponible
+    </span>
+  );
+}
+
+export function TraceBadge() {
+  return (
+    <span className={classNames(OVERLAY_BADGE, 'text-slate-700')}>
+      <QrCode className="h-3.5 w-3.5 text-brand-600" /> Lot tracé
+    </span>
+  );
+}
+
+/** The farm's logo, or its initial on a brand tint. */
+export function FarmAvatar({ farm, className = 'h-6 w-6 text-[11px]' }: { farm: MarketFarm; className?: string }) {
+  const logo = farmLogoSrc(farm);
+  return logo ? (
+    <img src={logo} alt="" loading="lazy" className={classNames('shrink-0 rounded-full bg-white object-cover ring-1 ring-slate-200', className)} />
+  ) : (
+    <span aria-hidden className={classNames('flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold uppercase text-brand-700', className)}>
+      {farm.name.trim().charAt(0) || 'F'}
+    </span>
+  );
 }
 
 const STATUS: Record<MarketBuyerStatus, { label: string; tone: string }> = {
