@@ -7,6 +7,7 @@ import { AuthProvider } from './auth/AuthContext';
 import { startConnectivityWatch } from './offline/connectivity';
 import { pruneReadCache } from './offline/readCache';
 import { App } from './App';
+import { AppUpdater } from './components/AppUpdater';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <AppUpdater />
         <AuthProvider>
           <App />
         </AuthProvider>

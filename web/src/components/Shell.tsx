@@ -362,11 +362,14 @@ export function Shell() {
 
         <div className="border-t border-white/10 px-3 py-3">
           {consoleMode ? (
-            <p className={classNames('mb-2 flex items-center gap-1.5 whitespace-nowrap px-1 text-[11px] text-brand-300', RAIL_BLOCK)}>
-              propulsé par
-              {/* Dark green wordmark on cream: it keeps its own light plate on the navy rail. */}
-              <span className="rounded bg-[#f6f3ee] px-1.5 py-0.5">
-                <img src="/okoume-labs.webp" alt="Okoumé Labs" className="h-3.5 w-auto" />
+            <p className={classNames('mb-2 whitespace-nowrap px-1 text-[11px] text-brand-300', RAIL_BLOCK)}>
+              {/* Own flex row: RAIL_BLOCK switches the paragraph to `block` when the rail opens. */}
+              <span className="flex items-center gap-1.5">
+                propulsé par
+                {/* Dark green wordmark on cream: it keeps its own light plate on the navy rail. */}
+                <span className="shrink-0 rounded bg-[#f6f3ee] px-1.5 py-0.5">
+                  <img src="/okoume-labs.webp" alt="Okoumé Labs" className="h-3.5 w-auto max-w-none" />
+                </span>
               </span>
             </p>
           ) : null}

@@ -20,4 +20,9 @@ describe('shouldApplyUpdate', () => {
     expect(shouldApplyUpdate({ ...base, lastInputAt: base.now - 30_000, navigating: true })).toBe(false);
     expect(shouldApplyUpdate({ ...base, lastInputAt: base.now - 130_000, navigating: true })).toBe(true);
   });
+  it('applies as soon as the version arrives when nothing was typed on the page', () => {
+    expect(shouldApplyUpdate({ ...base, arriving: true })).toBe(true);
+    expect(shouldApplyUpdate({ ...base, arriving: true, dialogOpen: true })).toBe(false);
+    expect(shouldApplyUpdate({ ...base, arriving: true, lastInputAt: base.now - 130_000 })).toBe(false);
+  });
 });
