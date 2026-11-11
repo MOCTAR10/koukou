@@ -1,16 +1,82 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, CalendarClock, ChevronRight, ClipboardList, Phone, Store } from 'lucide-react';
+import {
+  AlertTriangle,
+  Banknote,
+  CalendarClock,
+  CalendarDays,
+  ChevronRight,
+  Clock,
+  Home,
+  Package,
+  Phone,
+  Store,
+  Truck,
+  Wallet,
+} from 'lucide-react';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { BuyerMarketOrder } from '../api/types-market';
 import { Button, ErrorNote } from '../components/form';
 import { timeLeft, unitName } from '../components/market/rules';
-import { invalidateBuyerQueries, listingPhoto, listingTitle, MarketStatusBadge, TIMELINE_LABEL, useNow } from '../components/market/shared';
+import {
+  FactTile,
+  FarmAvatar,
+  invalidateBuyerQueries,
+  ListingStage,
+  listingTitle,
+  MARKET_PANEL,
+  MarketStatusBadge,
+  MarketTitle,
+  TIMELINE_LABEL,
+  useNow,
+} from '../components/market/shared';
 import { ConfirmDialog } from '../components/orders/shared';
-import { Card, DataTable, EmptyState, Loading, PageHeader, PhotoThumb, Td, Th } from '../components/ui';
-import { dateFr, dateTimeFr, fcfa } from '../lib/format';
+import { Skeleton } from '../components/ui';
+import { classNames, dateFr, dateTimeFr, fcfa } from '../lib/format';
 import { telHref } from '../lib/safeUrl';
+
+function OrderRow({ order, now }: { order: BuyerMarketOrder; now: number }) {
+  const left = order.status === 'AWAITING_DEPOSIT' && order.depositDueAt ? timeLeft(order.depositDueAt, now) : null;
+  return (
+    <Link
+      to={`/marche/commandes/${order.id}`}
+      className={`group ${MARKET_PANEL} flex items-center gap-4 p-3 transition duration-300 hover:border-brand-200 hover:shadow-raised sm:p-4`}
+    >
+      <ListingStage listing={order} className="h-20 w-20 shrink-0 rounded-2xl sm:h-24 sm:w-24" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h2 className="truncate font-semibold text-slate-900">{listingTitle(order)}</h2>
+          <MarketStatusBadge status={order.status} />
+        </div>
+        <p className="mt-1 truncate text-sm text-slate-500">
+          {order.farm.name}
+          {order.farm.city ? ` · ${order.farm.city}` : ''}
+        </p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
+          <span>
+            {order.quantity.toLocaleString('fr-FR')} {unitName(order.product, order.quantity)}
+          </span>
+          {order.readyDate ? (
+            <span className="inline-flex items-center gap-1">
+              <CalendarClock className="h-3.5 w-3.5" /> Prêts le {dateFr(order.readyDate)}
+            </span>
+          ) : null}
+          {left ? (
+            <span className="inline-flex items-center gap-1 font-semibold text-orange-700">
+              <Clock className="h-3.5 w-3.5" /> Reste {left} pour l’acompte
+            </span>
+          ) : null}
+        </p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-base font-bold tracking-tight tabular-nums text-slate-900 sm:text-lg">{fcfa(order.totalFcfa)}</p>
+        <p className="hidden text-xs text-slate-500 sm:block">Demande du {dateFr(order.createdAt)}</p>
+      </div>
+      <ChevronRight className="hidden h-5 w-5 shrink-0 text-slate-300 transition-colors group-hover:text-brand-600 sm:block" />
+    </Link>
+  );
+}
 
 export function BuyerOrdersPage() {
   const query = useQuery({
@@ -18,66 +84,45 @@ export function BuyerOrdersPage() {
     queryFn: () => api.get<BuyerMarketOrder[]>('/market/orders'),
   });
   const now = useNow();
-  const navigate = useNavigate();
   const orders = query.data ?? [];
 
   return (
-    <div>
-      <PageHeader title="Mes commandes" subtitle="Vos demandes et précommandes auprès des fermes." icon={<ClipboardList className="h-5 w-5" />} />
-      {query.isLoading ? <Loading /> : null}
-      {query.error ? <ErrorNote error={query.error} /> : null}
+    <div className="mx-auto max-w-4xl">
+      <MarketTitle eyebrow="Marché Fermia" title="Mes commandes" subtitle="Vos demandes et précommandes auprès des fermes." />
+      {query.isLoading ? (
+        <div role="status" className="space-y-3">
+          <span className="sr-only">Chargement de vos commandes…</span>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={`${MARKET_PANEL} flex items-center gap-4 p-4`}>
+              <Skeleton className="h-24 w-24 rounded-2xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-3 w-1/3" />
+                <Skeleton className="h-3 w-1/4" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {query.error ? <ErrorNote error={query.error} onRetry={() => void query.refetch()} /> : null}
       {!query.isLoading && !query.error && orders.length === 0 ? (
-        <div className="space-y-3 text-center">
-          <EmptyState message="Vous n’avez encore rien commandé." icon={<Store className="h-5 w-5" />} />
-          <Link to="/marche" className="inline-block text-sm font-semibold text-brand-700 hover:text-brand-800">
+        <div className="flex flex-col items-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+            <Store className="h-7 w-7" />
+          </span>
+          <h2 className="mt-4 text-lg font-semibold text-slate-900">Aucune commande pour le moment</h2>
+          <p className="mt-1 max-w-md text-sm text-slate-500">Parcourez les annonces des fermes : vos demandes apparaîtront ici.</p>
+          <Link to="/marche" className="mt-5 rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-sm transition-colors hover:bg-accent-400">
             Voir les annonces
           </Link>
         </div>
       ) : null}
       {orders.length > 0 ? (
-        <Card className="overflow-hidden">
-          <DataTable>
-            <thead className="bg-slate-50">
-              <tr>
-                <Th>Annonce</Th>
-                <Th>Ferme</Th>
-                <Th>Quantité</Th>
-                <Th className="text-right">Total</Th>
-                <Th>Prêts le</Th>
-                <Th>Statut</Th>
-                <Th />
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((o) => {
-                const left = o.status === 'AWAITING_DEPOSIT' && o.depositDueAt ? timeLeft(o.depositDueAt, now) : null;
-                return (
-                  <tr key={o.id} onClick={() => navigate(`/marche/commandes/${o.id}`)} className="cursor-pointer border-t border-slate-100">
-                    <Td className="font-medium">
-                      <span className="flex items-center gap-2.5">
-                        <PhotoThumb src={listingPhoto(o)} size="sm" />
-                        <Link to={`/marche/commandes/${o.id}`} onClick={(e) => e.stopPropagation()} className="text-slate-900 hover:underline">
-                          {listingTitle(o)}
-                        </Link>
-                      </span>
-                    </Td>
-                    <Td label="Ferme">{o.farm.name}</Td>
-                    <Td label="Quantité" className="whitespace-nowrap">{o.quantity} {unitName(o.product, o.quantity)}</Td>
-                    <Td label="Total" className="whitespace-nowrap text-right font-medium tabular-nums">{fcfa(o.totalFcfa)}</Td>
-                    <Td label="Prêts le" className="whitespace-nowrap">{o.readyDate ? dateFr(o.readyDate) : '—'}</Td>
-                    <Td label="Statut">
-                      <MarketStatusBadge status={o.status} />
-                      {left ? <span className="mt-1 block text-xs font-semibold text-orange-700">Reste {left} pour l’acompte</span> : null}
-                    </Td>
-                    <Td className="row-chevron w-8">
-                      <ChevronRight className="h-4 w-4 text-slate-300" />
-                    </Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </DataTable>
-        </Card>
+        <div className="space-y-3">
+          {orders.map((o) => (
+            <OrderRow key={o.id} order={o} now={now} />
+          ))}
+        </div>
       ) : null}
     </div>
   );
@@ -87,7 +132,7 @@ function DepositBox({ order }: { order: BuyerMarketOrder }) {
   const now = useNow();
   const left = order.depositDueAt ? timeLeft(order.depositDueAt, now) : null;
   return (
-    <div className="rounded-xl bg-orange-50 p-4 text-sm text-orange-900 ring-1 ring-orange-200">
+    <div className="rounded-2xl bg-orange-50 p-4 text-sm text-orange-900 ring-1 ring-orange-200">
       <p className="flex items-center gap-2 font-semibold">
         <AlertTriangle className="h-4 w-4 shrink-0" /> Acompte à remettre : {fcfa(order.depositRequiredFcfa)}
       </p>
@@ -107,6 +152,8 @@ function DepositBox({ order }: { order: BuyerMarketOrder }) {
   );
 }
 
+const NOTE = 'rounded-2xl p-4 text-sm ring-1';
+
 export function BuyerOrderPage() {
   const { id = '' } = useParams();
   const client = useQueryClient();
@@ -125,131 +172,152 @@ export function BuyerOrderPage() {
     },
   });
 
-  const back = (
-    <Link to="/marche/commandes" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:text-brand-800">
-      <ArrowLeft className="h-4 w-4" /> Mes commandes
-    </Link>
+  const crumbs = (
+    <nav aria-label="Fil d’Ariane" className="mb-5 flex flex-wrap items-center gap-1 text-sm text-slate-500">
+      <Link to="/marche/commandes" className="font-medium text-brand-700 hover:text-brand-800 hover:underline">
+        Mes commandes
+      </Link>
+      {order ? (
+        <>
+          <ChevronRight className="h-4 w-4 text-slate-300" />
+          <span className="truncate font-medium text-slate-700">{order.orderReference ?? listingTitle(order)}</span>
+        </>
+      ) : null}
+    </nav>
   );
-  if (query.isLoading) return <Loading />;
+  if (query.isLoading) {
+    return (
+      <div role="status">
+        {crumbs}
+        <span className="sr-only">Chargement de la commande…</span>
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <Skeleton className="h-72 rounded-3xl" />
+          <Skeleton className="h-56 rounded-3xl" />
+        </div>
+      </div>
+    );
+  }
   if (!order) {
     return (
       <div>
-        {back}
-        <ErrorNote error={query.error} />
+        {crumbs}
+        <ErrorNote error={query.error} onRetry={() => void query.refetch()} />
       </div>
     );
   }
 
   const canCancel = order.status === 'AWAITING_DEPOSIT' || order.status === 'CONFIRMED';
   const unit = unitName(order.product, order.quantity);
+  const lastEvent = order.timeline.length - 1;
   return (
     <div>
-      {back}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="min-w-0 space-y-4">
-        <Card className="p-5">
-          <div className="flex items-start gap-3">
-            <PhotoThumb src={listingPhoto(order)} size="lg" />
+      {crumbs}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-5">
+          <section className={`${MARKET_PANEL} flex flex-wrap items-center gap-5 p-4 sm:p-5`}>
+            <ListingStage listing={order} eager className="h-28 w-28 shrink-0 rounded-2xl sm:h-36 sm:w-36" />
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-slate-900">{listingTitle(order)}</h1>
-              <p className="text-sm text-slate-500">
-                {order.farm.name}
-                {order.farm.city ? ` · ${order.farm.city}` : ''}
+              <MarketStatusBadge status={order.status} />
+              <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{listingTitle(order)}</h1>
+              <p className="mt-1.5 flex items-center gap-2 text-sm text-slate-500">
+                <FarmAvatar farm={order.farm} />
+                <span className="truncate">
+                  <span className="font-medium text-slate-700">{order.farm.name}</span>
+                  {order.farm.city ? ` · ${order.farm.city}` : ''}
+                </span>
               </p>
-              <div className="mt-2">
-                <MarketStatusBadge status={order.status} />
-              </div>
+              <p className="mt-3 text-2xl font-bold tracking-tight tabular-nums text-brand-800">{fcfa(order.totalFcfa)}</p>
             </div>
-          </div>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm xl:grid-cols-3">
-            <div>
-              <dt className="text-xs text-slate-500">Quantité</dt>
-              <dd className="font-medium text-slate-900">{order.quantity} {unit}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-500">Total</dt>
-              <dd className="font-bold tabular-nums text-slate-900">{fcfa(order.totalFcfa)}</dd>
-            </div>
+            {order.farm.phone ? (
+              <a
+                href={telHref(order.farm.phone) ?? undefined}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 sm:w-auto"
+              >
+                <Phone className="h-4 w-4 text-brand-600" /> Appeler la ferme : {order.farm.phone}
+              </a>
+            ) : null}
+          </section>
+
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+            <FactTile icon={Package} label="Quantité" value={`${order.quantity.toLocaleString('fr-FR')} ${unit}`} />
+            <FactTile icon={Banknote} label="Prix unitaire" value={fcfa(order.unitPriceFcfa)} />
             {order.depositRequiredFcfa > 0 ? (
-              <div>
-                <dt className="text-xs text-slate-500">Acompte reçu par la ferme</dt>
-                <dd className="font-medium tabular-nums text-slate-900">
-                  {fcfa(order.depositPaidFcfa)} sur {fcfa(order.depositRequiredFcfa)}
-                </dd>
-              </div>
+              <FactTile icon={Wallet} label="Acompte reçu par la ferme" value={`${fcfa(order.depositPaidFcfa)} sur ${fcfa(order.depositRequiredFcfa)}`} />
             ) : null}
-            <div>
-              <dt className="text-xs text-slate-500">Remise</dt>
-              <dd className="font-medium text-slate-900">
-                {order.fulfilment === 'DELIVERY' ? `Livraison : ${order.address ?? ''}` : 'Retrait à la ferme'}
-              </dd>
-            </div>
-            {order.readyDate ? (
-              <div>
-                <dt className="text-xs text-slate-500">Prêts le</dt>
-                <dd className="font-medium text-slate-900">{dateFr(order.readyDate)}</dd>
-              </div>
-            ) : null}
-            {order.desiredDate ? (
-              <div>
-                <dt className="text-xs text-slate-500">Date souhaitée</dt>
-                <dd className="font-medium text-slate-900">{dateFr(order.desiredDate)}</dd>
-              </div>
-            ) : null}
-          </dl>
-          {order.farm.phone ? (
-            <a href={telHref(order.farm.phone) ?? undefined} className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand-700 hover:text-brand-800">
-              <Phone className="h-4 w-4" /> Appeler la ferme : {order.farm.phone}
-            </a>
+            <FactTile
+              icon={order.fulfilment === 'DELIVERY' ? Truck : Home}
+              label="Remise"
+              value={order.fulfilment === 'DELIVERY' ? 'Livraison' : 'Retrait à la ferme'}
+            />
+            {order.readyDate ? <FactTile icon={CalendarClock} label="Prêts le" value={dateFr(order.readyDate)} /> : null}
+            {order.desiredDate ? <FactTile icon={CalendarDays} label="Date souhaitée" value={dateFr(order.desiredDate)} /> : null}
+          </div>
+          {order.fulfilment === 'DELIVERY' && order.address ? (
+            <p className="flex items-start gap-2 text-sm text-slate-600">
+              <Truck className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              <span>
+                <span className="font-medium text-slate-900">Adresse de livraison :</span> {order.address}
+              </span>
+            </p>
           ) : null}
-        </Card>
 
-        {order.status === 'AWAITING_DEPOSIT' ? <DepositBox order={order} /> : null}
-        {order.status === 'PENDING' && order.requestExpiresAt ? (
-          <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200">
-            La ferme a jusqu’au {dateTimeFr(order.requestExpiresAt)} pour répondre. Rien n’est réservé tant qu’elle n’a pas accepté.
-          </p>
-        ) : null}
-        {order.status === 'CANCEL_REQUESTED' ? (
-          <p className="rounded-xl bg-orange-50 p-4 text-sm text-orange-900 ring-1 ring-orange-200">
-            Vous avez demandé l’annulation. Un acompte a été versé : le remboursement est à convenir avec la ferme, qui finalisera l’annulation.
-          </p>
-        ) : null}
-        {order.status === 'REJECTED' && order.rejectReason ? (
-          <p className="rounded-xl bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-200">Motif de la ferme : {order.rejectReason}</p>
-        ) : null}
-        {order.previousReadyDate && canCancel ? (
-          <p className="flex items-start gap-2 rounded-xl bg-sky-50 p-4 text-sm text-sky-900 ring-1 ring-sky-200">
-            <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              La ferme a déplacé la date du {dateFr(order.previousReadyDate)} au {dateFr(order.readyDate)}. Sans réponse de votre part, la commande
-              est maintenue. Vous pouvez aussi l’annuler.
-            </span>
-          </p>
-        ) : null}
-      </div>
+          {order.status === 'AWAITING_DEPOSIT' ? <DepositBox order={order} /> : null}
+          {order.status === 'PENDING' && order.requestExpiresAt ? (
+            <p className={`${NOTE} bg-amber-50 text-amber-900 ring-amber-200`}>
+              La ferme a jusqu’au {dateTimeFr(order.requestExpiresAt)} pour répondre. Rien n’est réservé tant qu’elle n’a pas accepté.
+            </p>
+          ) : null}
+          {order.status === 'CANCEL_REQUESTED' ? (
+            <p className={`${NOTE} bg-orange-50 text-orange-900 ring-orange-200`}>
+              Vous avez demandé l’annulation. Un acompte a été versé : le remboursement est à convenir avec la ferme, qui finalisera l’annulation.
+            </p>
+          ) : null}
+          {order.status === 'REJECTED' && order.rejectReason ? (
+            <p className={`${NOTE} bg-red-50 text-red-800 ring-red-200`}>Motif de la ferme : {order.rejectReason}</p>
+          ) : null}
+          {order.previousReadyDate && canCancel ? (
+            <p className={`${NOTE} flex items-start gap-2 bg-sky-50 text-sky-900 ring-sky-200`}>
+              <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                La ferme a déplacé la date du {dateFr(order.previousReadyDate)} au {dateFr(order.readyDate)}. Sans réponse de votre part, la commande
+                est maintenue. Vous pouvez aussi l’annuler.
+              </span>
+            </p>
+          ) : null}
+        </div>
 
-      <div className="space-y-4 lg:sticky lg:top-20">
-        <Card className="p-5">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Historique</h2>
-          <ol className="space-y-2">
-            {order.timeline.map((e) => (
-              <li key={`${e.type}-${e.at}`} className="flex items-baseline justify-between gap-3 text-sm">
-                <span className="text-slate-700">{TIMELINE_LABEL[e.type] ?? e.type}</span>
-                <span className="shrink-0 text-xs text-slate-500">{dateTimeFr(e.at)}</span>
-              </li>
-            ))}
-          </ol>
-        </Card>
+        <div className="space-y-4 lg:sticky lg:top-24">
+          <section className={`${MARKET_PANEL} p-5`}>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Historique</h2>
+            <ol className="mt-4">
+              {order.timeline.map((e, i) => (
+                <li key={`${e.type}-${e.at}`} className="relative flex gap-3 pb-5 last:pb-0">
+                  {i < lastEvent ? <span aria-hidden className="absolute bottom-0 left-[5px] top-4 w-px bg-slate-200" /> : null}
+                  <span
+                    aria-hidden
+                    className={classNames(
+                      'relative mt-1 h-[11px] w-[11px] shrink-0 rounded-full ring-4',
+                      i === lastEvent ? 'bg-brand-600 ring-brand-100' : 'bg-slate-300 ring-white',
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span className={classNames('block text-sm', i === lastEvent ? 'font-semibold text-slate-900' : 'text-slate-700')}>
+                      {TIMELINE_LABEL[e.type] ?? e.type}
+                    </span>
+                    <span className="block text-xs text-slate-500">{dateTimeFr(e.at)}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </section>
 
-        {pending || canCancel ? (
-          <div className="flex justify-end lg:block">
-            <Button tone="secondary" className="lg:w-full" onClick={() => setConfirming(true)}>
+          {pending || canCancel ? (
+            <Button tone="secondary" className="w-full rounded-xl py-2.5" onClick={() => setConfirming(true)}>
               {pending ? 'Retirer ma demande' : order.depositPaidFcfa > 0 ? 'Demander l’annulation' : 'Annuler la commande'}
             </Button>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+          <p className="text-center text-xs text-slate-500">Vous payez directement la ferme : Fermia n’encaisse rien.</p>
+        </div>
       </div>
 
       {action.error && !confirming ? <ErrorNote error={action.error} /> : null}

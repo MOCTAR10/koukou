@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { CalendarClock, QrCode, Store } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CalendarClock, QrCode, Store, type LucideIcon } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { MarketBuyerStatus, MarketFarm, MarketHiddenReason, MarketListing, MarketProduct } from '../../api/types-market';
 import { EGG_IMAGES, lotImage } from '../../lib/animalImages';
 import { classNames } from '../../lib/format';
@@ -120,6 +120,35 @@ export function FarmAvatar({ farm, className = 'h-6 w-6 text-[11px]' }: { farm: 
     <span aria-hidden className={classNames('flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold uppercase text-brand-700', className)}>
       {farm.name.trim().charAt(0) || 'F'}
     </span>
+  );
+}
+
+/** The white panel of the Market pages. */
+export const MARKET_PANEL = 'rounded-3xl border border-slate-200 bg-white shadow-card';
+
+/** One fact of a listing or an order: icon, small label, value. */
+export function FactTile({ icon: Icon, label, value, muted = false }: { icon: LucideIcon; label: string; value: ReactNode; muted?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-card">
+      <span className={classNames('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', muted ? 'bg-slate-100 text-slate-400' : 'bg-brand-50 text-brand-600')}>
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs text-slate-500">{label}</span>
+        <span className={classNames('block truncate text-sm font-semibold tabular-nums', muted ? 'text-slate-500' : 'text-slate-900')}>{value}</span>
+      </span>
+    </div>
+  );
+}
+
+/** Title block of a buyer page, in the Market's own type scale. */
+export function MarketTitle({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: ReactNode }) {
+  return (
+    <header className="mb-6">
+      {eyebrow ? <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p> : null}
+      <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{title}</h1>
+      {subtitle ? <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p> : null}
+    </header>
   );
 }
 
