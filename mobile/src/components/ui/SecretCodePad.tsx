@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedStyle,
@@ -8,7 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Check, Delete } from 'lucide-react-native';
+import { Check, Delete, Eye, EyeOff } from 'lucide-react-native';
 
 import { AppText } from './AppText';
 import { TapScale } from './motion/TapScale';
@@ -44,6 +44,8 @@ interface SecretCodePadProps {
   caption?: string;
   /** `md` (66px) par défaut ; `sm` (50px) pour les écrans restreints sans défilement. */
   size?: SecretCodePadSize;
+  /** Adds a show/hide switch: the digits can be read back, so no second entry is needed. */
+  revealable?: boolean;
 }
 
 /** Point « suivant » : respire doucement pour montrer où la saisie arrive. */
@@ -115,8 +117,11 @@ export function SecretCodePad({
   label = 'Code secret',
   caption,
   size = 'md',
+  revealable = false,
 }: SecretCodePadProps) {
   const s = SIZE[size];
+  const [shown, setShown] = useState(false);
+  const reveal = revealable && shown;
   const slots = Math.max(minLength, value.length);
   const canSubmit = submitEnabled && !disabled && value.length >= minLength;
   const canDelete = !disabled && value.length > 0;
@@ -156,10 +161,30 @@ export function SecretCodePad({
             {caption}
           </AppText>
         ) : null}
+        {revealable ? (
+          <Pressable
+            onPress={() => setShown((v) => !v)}
+            hitSlop={10}
+            style={styles.reveal}
+            accessibilityRole="button"
+            accessibilityLabel={shown ? 'Masquer le code' : 'Afficher le code'}>
+            {shown ? <EyeOff size={16} color={color.brand[600]} /> : <Eye size={16} color={color.brand[600]} />}
+            <AppText size="caption" weight="semibold" color="brand">
+              {shown ? 'Masquer' : 'Afficher'}
+            </AppText>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.dots} accessibilityLabel={`${value.length} chiffre${value.length > 1 ? 's' : ''} saisi${value.length > 1 ? 's' : ''}`}>
         {Array.from({ length: slots }).map((_, i) => {
+          if (i < value.length && reveal) {
+            return (
+              <AppText key={i} size="body" weight="bold" color="text" style={styles.digit}>
+                {value[i]}
+              </AppText>
+            );
+          }
           if (i < value.length) {
             return <Animated.View key={i} entering={enter.zoom()} style={[styles.dot, styles.dotFilled]} />;
           }
@@ -244,6 +269,17 @@ const styles = StyleSheet.create({
     minHeight: 18,
     alignItems: 'center',
     paddingVertical: 2,
+  },
+  reveal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  digit: {
+    minWidth: 16,
+    textAlign: 'center',
   },
   dot: {
     width: 16,

@@ -8,6 +8,7 @@ import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { AuthHero } from '@/components/auth/AuthHero';
+import { BuyerAuthSwitch } from '@/components/auth/BuyerAuthSwitch';
 import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
 import { homeRouteFor, roleLabel, safeReturnPath } from '@/api/roles';
@@ -24,6 +25,8 @@ export default function LoginScreen() {
   const { from } = useLocalSearchParams<{ from?: string }>();
   const keyboardInset = useKeyboardInset();
 
+  // Sent here by a Market screen: the visitor is buying, sign-up is one tap away.
+  const buying = Boolean(safeReturnPath(from));
   const canSubmit = phone.trim().length > 0 && code.length >= 6 && !busy;
   const canVerify = smsCode.length === OTP_LENGTH && !busy;
 
@@ -70,6 +73,11 @@ export default function LoginScreen() {
           <AuthHero subtitle="Vos bandes de volailles, pilotées au quotidien." />
 
           <View style={styles.sheet}>
+          {buying && !signedIn && !otpChallenge ? (
+            <View style={styles.switch}>
+              <BuyerAuthSwitch active="login" from={from} />
+            </View>
+          ) : null}
           <AppText size="h2" weight="bold" color="text">
             {signedIn ? 'Bon retour' : otpChallenge ? 'Code de vérification' : 'Connexion'}
           </AppText>
@@ -191,14 +199,16 @@ export default function LoginScreen() {
               <AppText size="small" align="center" color="faint">
                 Exploitant du programme : votre code de connexion vous est remis par le programme.
               </AppText>
-              <Pressable onPress={() => router.push('/inscription-acheteur' as Href)} style={styles.registerLink} accessibilityRole="link">
-                <AppText size="bodyM" align="center" color="muted">
-                  Vous achetez ?{' '}
-                  <AppText size="bodyM" weight="semibold" color="brand">
-                    Créer un compte client du Marché →
+              {buying ? null : (
+                <Pressable onPress={() => router.push('/inscription-acheteur' as Href)} style={styles.registerLink} accessibilityRole="link">
+                  <AppText size="bodyM" align="center" color="muted">
+                    Vous achetez ?{' '}
+                    <AppText size="bodyM" weight="semibold" color="brand">
+                      Créer un compte client du Marché →
+                    </AppText>
                   </AppText>
-                </AppText>
-              </Pressable>
+                </Pressable>
+              )}
               <Pressable onPress={() => router.push('/annonces' as Href)} style={styles.registerLink} accessibilityRole="link">
                 <AppText size="bodyM" align="center" color="muted">
                   Vous voulez acheter ?{' '}
@@ -234,6 +244,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: semantic.border,
     ...shadow.raised,
+  },
+  switch: {
+    marginBottom: 12,
   },
   sheetSub: {
     marginBottom: 14,

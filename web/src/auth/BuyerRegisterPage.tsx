@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { Button, ErrorNote, Field, inputCls } from '../components/form';
 import { BUYER_TYPES } from '../components/market/shared';
 import { isGabonPhoneValid, normalizeGabonPhone } from '../lib/phone';
 import { useAuth } from './AuthContext';
-import { AuthLayout, authLinkCls } from './AuthLayout';
+import { AuthLayout } from './AuthLayout';
+import { BuyerAuthSwitch, PhoneField, SecretField } from './fields';
 
-const inputTallCls = `${inputCls} !py-2.5`;
+const inputTallCls = `${inputCls} !h-12 !rounded-xl text-[15px] [@media(max-height:760px)]:!h-10`;
 
 /**
  * Market customer account, the only self sign-up of the instance: farm
@@ -22,7 +23,6 @@ export function BuyerRegisterPage() {
   const [city, setCity] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,9 +31,8 @@ export function BuyerRegisterPage() {
     if (submitting) return;
     if (fullName.trim().length < 3) return setError('Le nom doit comporter au moins 3 lettres.');
     const number = normalizeGabonPhone(phone);
-    if (!isGabonPhoneValid(number)) return setError('Numéro invalide : 9 chiffres commençant par 0, par exemple 074 12 34 56.');
+    if (!isGabonPhoneValid(number)) return setError('Numéro invalide : 8 chiffres après +241, par exemple 74 12 34 56.');
     if (code.length < 6) return setError('Le code secret doit contenir au moins 6 caractères.');
-    if (code !== confirm) return setError('Les deux codes ne correspondent pas.');
     setSubmitting(true);
     setError(null);
     try {
@@ -64,20 +63,13 @@ export function BuyerRegisterPage() {
       backLabel="Retour au marché"
       wide
       footer={
-        <>
-          <p>
-            Déjà un compte ?{' '}
-            <Link to="/login" state={{ from: from ?? '/marche' }} className={authLinkCls}>
-              Me connecter
-            </Link>
-          </p>
-          <p>
-            Vous exploitez une ferme du programme ? Ce compte sert seulement à acheter : votre accès à la ferme vous est remis
-            à l’activation de votre compte exploitant.
-          </p>
-        </>
+        <p>
+          Vous exploitez une ferme du programme ? Ce compte sert seulement à acheter : votre accès à la ferme vous est remis
+          à l’activation de votre compte exploitant.
+        </p>
       }
     >
+      <BuyerAuthSwitch active="register" from={from} />
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nom complet">
@@ -99,15 +91,12 @@ export function BuyerRegisterPage() {
             <input className={inputTallCls} maxLength={80} value={city} onChange={(e) => setCity(e.target.value)} />
           </Field>
         </div>
-        <Field label="Téléphone" hint="Il vous servira d’identifiant.">
-          <input className={inputTallCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="074 12 34 56" inputMode="tel" autoComplete="username" required />
-        </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Code secret" hint="Au moins 6 caractères.">
-            <input type="password" className={inputTallCls} value={code} onChange={(e) => setCode(e.target.value)} autoComplete="new-password" required />
+          <Field label="Téléphone" hint="Il vous servira d’identifiant.">
+            <PhoneField value={phone} onChange={setPhone} />
           </Field>
-          <Field label="Confirmer le code secret">
-            <input type="password" className={inputTallCls} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required />
+          <Field label="Code secret" hint="Au moins 6 caractères. L’œil permet de le relire.">
+            <SecretField value={code} onChange={setCode} autoComplete="new-password" />
           </Field>
         </div>
         <ErrorNote error={error} />
