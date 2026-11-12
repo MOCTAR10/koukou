@@ -127,8 +127,8 @@ const NAV: Array<{
 ];
 
 /** Hidden in the collapsed rail, back when it opens on hover or keyboard focus. */
-const RAIL_TEXT = 'md:max-xl:hidden md:max-xl:group-hover/side:inline md:max-xl:group-has-[:focus-visible]/side:inline';
-const RAIL_BLOCK = 'md:max-xl:hidden md:max-xl:group-hover/side:block md:max-xl:group-has-[:focus-visible]/side:block';
+const RAIL_TEXT = 'md:hidden md:group-hover/side:inline md:group-has-[:focus-visible]/side:inline';
+const RAIL_BLOCK = 'md:hidden md:group-hover/side:block md:group-has-[:focus-visible]/side:block';
 
 /** Programme console order for the platform admin and institutions (items absent from the list keep their place after). */
 const PROGRAMME_ORDER = [
@@ -154,7 +154,7 @@ function programmeRank(to: string): number {
 
 function navLinkCls({ isActive }: { isActive: boolean }) {
   return classNames(
-    'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm md:max-xl:justify-center md:max-xl:group-hover/side:justify-start md:max-xl:group-has-[:focus-visible]/side:justify-start',
+    'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm md:justify-center md:group-hover/side:justify-start md:group-has-[:focus-visible]/side:justify-start',
     isActive
       ? 'bg-white/12 font-semibold text-white shadow-[inset_3px_0_0_var(--color-emerald-400)]'
       : 'text-brand-100 hover:bg-white/5 hover:text-white',
@@ -271,7 +271,7 @@ export function Shell() {
     <div className="min-h-screen bg-slate-50">
       <aside
         className={classNames(
-          'group/side fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 transition-[transform,width] duration-200 motion-reduce:transition-none md:translate-x-0 md:max-xl:w-[76px] md:max-xl:hover:w-64 md:max-xl:hover:shadow-2xl md:max-xl:has-[:focus-visible]:w-64',
+          'group/side fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-gradient-to-b from-brand-900 to-brand-950 text-brand-100 transition-[transform,width] duration-200 motion-reduce:transition-none md:translate-x-0 md:w-[76px] md:hover:w-64 md:hover:shadow-2xl md:has-[:focus-visible]:w-64',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -301,7 +301,7 @@ export function Shell() {
         </div>
 
         {!onProgramme && farms.length > 0 ? (
-          <div className="px-3 md:max-xl:hidden">
+          <div className="px-3 md:hidden">
             <p className="mb-1 block px-2 text-[11px] uppercase tracking-wide text-brand-300">{pickerLabel}</p>
             <FarmPicker
               tone="dark"
@@ -332,7 +332,7 @@ export function Shell() {
                 onClick={() => setFarmModulesOpen((o) => !o)}
                 aria-expanded={farmModulesOpen}
                 className={classNames(
-                  'flex w-full items-center justify-between whitespace-nowrap px-2 py-1 text-left text-[11px] font-medium uppercase tracking-wider text-brand-300 hover:text-white md:max-xl:justify-center',
+                  'flex w-full items-center justify-between whitespace-nowrap px-2 py-1 text-left text-[11px] font-medium uppercase tracking-wider text-brand-300 hover:text-white md:justify-center',
                 )}
                 title="Modules de gestion des fermes"
               >
@@ -373,7 +373,7 @@ export function Shell() {
               </span>
             </p>
           ) : null}
-          <div className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-2 md:max-xl:flex-col md:max-xl:px-0 md:max-xl:group-hover/side:flex-row md:max-xl:group-hover/side:px-2.5 md:max-xl:group-has-[:focus-visible]/side:flex-row md:max-xl:group-has-[:focus-visible]/side:px-2.5">
+          <div className="flex items-center gap-2.5 rounded-lg bg-white/5 px-2.5 py-2 md:flex-col md:px-0 md:group-hover/side:flex-row md:group-hover/side:px-2.5 md:group-has-[:focus-visible]/side:flex-row md:group-has-[:focus-visible]/side:px-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-700 text-xs font-semibold text-white">
               {user ? initials(user.fullName) : '?'}
             </div>
@@ -404,7 +404,7 @@ export function Shell() {
         />
       ) : null}
 
-      <div className="md:pl-[76px] xl:pl-64">
+      <div className="md:pl-[76px]">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/90 px-4 backdrop-blur sm:px-6 xl:h-16 xl:px-8">
           <button
             className="rounded p-1 text-slate-500 hover:bg-slate-100 md:hidden"
@@ -419,18 +419,18 @@ export function Shell() {
                 {/* The rail has no room for the farm picker: it moves up here. */}
                 <FarmPicker
                   tone="light"
-                  className="hidden w-64 md:max-xl:block"
+                  className="hidden w-64 md:block"
                   farms={farms}
                   farmId={farmId}
                   onPick={setFarm}
                   label={pickerLabel}
                 />
-                <span className="line-clamp-2 min-w-0 break-words leading-tight sm:truncate md:max-xl:hidden">
+                <span className="line-clamp-2 min-w-0 break-words leading-tight sm:truncate md:hidden">
                   {isAdmin ? <span className="hidden text-slate-400 sm:inline">Ferme : </span> : null}
                   {farm.name}
                 </span>
                 {farm.code ? (
-                  <span className="ml-2 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600 md:max-xl:hidden">
+                  <span className="ml-2 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-600 md:hidden">
                     {farm.code}
                   </span>
                 ) : null}
