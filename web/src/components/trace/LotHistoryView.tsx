@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { safeHref } from '../../lib/safeUrl';
 import {
   Activity,
@@ -49,6 +50,35 @@ const REARING_KIND_ICON: Record<RearingKind, LucideIcon> = {
   ALIMENT: Wheat,
   VISITE: ClipboardCheck,
 };
+
+/** QR of the lot shown on screen (fetched with the token, never in a URL); hidden if it cannot load. */
+function LotQrImage({ farmId, lotId, code }: { farmId: string; lotId: string; code: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let url: string | null = null;
+    let cancelled = false;
+    setSrc(null);
+    api
+      .blob(`/farms/${farmId}/trace/lots/${lotId}/qr`)
+      .then((blob) => {
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setSrc(url);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [farmId, lotId]);
+  if (!src) return null;
+  return (
+    <figure className="flex w-44 flex-col items-center gap-1 text-center">
+      <img src={src} alt={`QR code du lot ${code}`} width={176} height={176} className="h-44 w-44 rounded-lg border border-slate-200 bg-white p-1" />
+      <figcaption className="text-xs text-slate-500">Scannez pour ouvrir la page publique du lot</figcaption>
+    </figure>
+  );
+}
 
 export function LotStatusPill({ lot }: { lot: Pick<LotView, 'status'> }) {
   return <Pill tone={lotStatusTone(lot.status)}>{LOT_STATUS_LABEL[lot.status] ?? lot.status}</Pill>;
@@ -149,7 +179,8 @@ export function LotHistoryView({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <LotQrImage farmId={farm.id} lotId={lot.id} code={lot.code} />
         <Button
           tone="secondary"
           busy={pdf.busy === 'label'}

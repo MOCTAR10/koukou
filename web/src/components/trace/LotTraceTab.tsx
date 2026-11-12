@@ -39,6 +39,7 @@ export function FarmLotsTable({ batchId }: { batchId?: string }) {
               <Th>Quantité</Th>
               <Th>Destinataire</Th>
               <Th>Statut</Th>
+              <Th>QR</Th>
             </tr>
           </thead>
           <tbody>
@@ -73,6 +74,18 @@ function LotRow({ lot, depth, showBand, onOpen }: { lot: LotView; depth: 0 | 1; 
       </Td>
       <Td label="Statut">
         <LotStatusPill lot={lot} />
+      </Td>
+      <Td label="QR code">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:underline"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+        >
+          <QrCode className="h-3.5 w-3.5" /> QR code
+        </button>
       </Td>
     </tr>
   );

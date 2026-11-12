@@ -307,6 +307,13 @@ describe('Programme POUFA — traçabilité des lots (L7, e2e)', () => {
       ).expect(200);
       expect(res.headers['content-type']).toContain('application/pdf');
     });
+
+    it("affiche le QR du lot à l'écran (SVG) et le refuse à une autre ferme", async () => {
+      const res = await get(`/farms/${farmId}/trace/lots/${subLot.id}/qr`).expect(200);
+      expect(res.headers['content-type']).toContain('image/svg+xml');
+      expect(Buffer.from(res.body).toString('utf8')).toContain('<svg');
+      await get(`/farms/${farmId}/trace/lots/${subLot.id}/qr`, other.ownerToken).expect(403);
+    });
   });
 
   describe('page publique', () => {

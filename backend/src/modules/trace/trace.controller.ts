@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+import QRCode from 'qrcode';
 import { PdfService } from '../../common/services/pdf.service.js';
 import { AuditExport } from '../../common/decorators/audit.decorator.js';
 import {
@@ -98,6 +99,28 @@ export class FarmTraceController {
       'Content-Disposition': `inline; filename="lot-${lot.lot.code}.pdf"`,
     });
     return new StreamableFile(pdf);
+  }
+
+  @Get(':lotId/qr')
+  @AuditExport('QR code d’un lot (image SVG)')
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @ApiOperation({
+    summary: 'QR code du lot (image SVG de son adresse publique), à afficher à l’écran',
+  })
+  async qr(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('lotId') lotId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const lot = await this.history.history(user, farmId, lotId);
+    const svg = await QRCode.toString(lot.lot.qrUrl, {
+      type: 'svg',
+      errorCorrectionLevel: 'M',
+      margin: 2,
+    });
+    res.set({ 'Content-Type': 'image/svg+xml; charset=utf-8' });
+    return new StreamableFile(Buffer.from(svg, 'utf8'));
   }
 }
 
