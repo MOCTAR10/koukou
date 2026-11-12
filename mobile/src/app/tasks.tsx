@@ -23,6 +23,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
+import { toast } from '@/components/ui/Feedback';
 
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -494,8 +496,9 @@ export default function TasksScreen() {
     try {
       await updateTask(farmId, task.id, { status: next });
       invalidateFarmQueries(queryClient, { farmId });
-    } catch {
-      // Le serveur renvoie un message 403 explicite pour l'éleveur ; on ignore silencieusement.
+    } catch (e) {
+      // The server sends an explicit message (e.g. 403 for a breeder): surface it.
+      toast.error('Impossible de modifier la tâche', errorText(e, 'Vérifiez la connexion puis réessayez.'));
     }
   };
 
@@ -503,8 +506,8 @@ export default function TasksScreen() {
     try {
       await deleteTask(farmId, task.id);
       invalidateFarmQueries(queryClient, { farmId });
-    } catch {
-      // 403 éleveur / introuvable : la liste se rafraîchit à l'invalidation.
+    } catch (e) {
+      toast.error('Impossible de supprimer la tâche', errorText(e, 'Vérifiez la connexion puis réessayez.'));
     }
   };
 
@@ -516,11 +519,7 @@ export default function TasksScreen() {
       header={
         <ScreenHeader
           title="Tâches"
-          subtitle={
-            canManage
-              ? `${counts.open} à traiter · ${counts.done} terminée(s)`
-              : 'Vos tâches assignées'
-          }
+          subtitle={canManage ? 'Planning de l’équipe' : 'Vos tâches assignées'}
           back
           right={
             canManage ? (
@@ -533,8 +532,16 @@ export default function TasksScreen() {
       }>
       {tasksQuery.isLoading ? (
         <Spinner label="Chargement des tâches…" />
+      ) : tasksQuery.isError && !tasksQuery.data ? (
+        <Card tone="default" style={{ gap: 10 }}>
+          <AppText size="body" color="danger">
+            Impossible de charger les tâches. Vérifiez la connexion puis réessayez.
+          </AppText>
+          <Button label="Réessayer" tone="ghost" onPress={() => void tasksQuery.refetch()} loading={tasksQuery.isFetching} />
+        </Card>
       ) : (
         <View style={{ gap: spacing.lg }}>
+          <StaleNotice show={tasksQuery.isError && Boolean(tasksQuery.data)} updatedAt={tasksQuery.dataUpdatedAt} />
           <View style={styles.rowWrap}>
             {FILTERS.map((f) => (
               <Pressable key={f.key} onPress={() => setFilter(f.key)} accessibilityRole="button">

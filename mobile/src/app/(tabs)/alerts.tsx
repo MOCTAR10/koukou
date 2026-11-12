@@ -1,12 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CircleCheck, SearchX } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { Chip } from '@/components/ui/Chip';
+import { Segmented, type SegmentedOption } from '@/components/ui/Segmented';
+import { InboxList } from '@/components/notifications/InboxList';
+import { INBOX_KEY, UNREAD_KEY, useUnreadCount } from '@/components/notifications/useInbox';
+import { hasInbox } from '@/poufa/access';
 import { Spinner } from '@/components/ui/Spinner';
 import { StaleNotice } from '@/components/ui/StaleNotice';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -22,14 +26,22 @@ import {
   filterAlerts,
   kindsWithCounts,
   countLevel,
-  LEVEL_LABEL,
   STATUS_LABEL,
   type LevelFilter,
   type StatusFilter,
 } from '@/api/alerts.filters';
 import type { Alert } from '@/api/types';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
-import { color, gradeColor, palette, radii, fontFamily, semantic } from '@/constants/theme';
+import { gradeColor, palette, radii, semantic } from '@/constants/theme';
+
+type NotifTab = 'ATRAITER' | 'HISTORIQUE';
+
+/** Summary counters that double as the level filter. */
+const LEVEL_CHIPS: { level: 'ROUGE' | 'JAUNE' | 'VERT'; label: string; tone: 'red' | 'amber' | 'green' }[] = [
+  { level: 'ROUGE', label: 'Rouges', tone: 'red' },
+  { level: 'JAUNE', label: 'Jaunes', tone: 'amber' },
+  { level: 'VERT', label: 'Infos', tone: 'green' },
+];
 
 /** The care behind a SOIN action (the server sends `care`; the fallback keeps the id). */
 function careOfAlert(alert: Alert): CompletableCare {
@@ -51,8 +63,23 @@ function careOfAlert(alert: Alert): CompletableCare {
 export default function AlertsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { farmId } = useAuth();
+  const { farmId, user } = useAuth();
   const { openDaily, openSale, openFeed } = useQuickCapture();
+
+  // Single notification screen: « À traiter » (advice) + « Historique » (inbox, accounts that have one).
+  const inboxAllowed = hasInbox(user.role);
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<NotifTab>(tabParam === 'historique' && inboxAllowed ? 'HISTORIQUE' : 'ATRAITER');
+  useEffect(() => {
+    if (tabParam === 'historique' && inboxAllowed) setTab('HISTORIQUE');
+  }, [tabParam, inboxAllowed]);
+  const unreadCount = useUnreadCount().data?.count ?? 0;
+  const inboxFetching = useIsFetching({ queryKey: INBOX_KEY }) > 0;
+  const showHistory = inboxAllowed && tab === 'HISTORIQUE';
+  const tabOptions: SegmentedOption<NotifTab>[] = [
+    { key: 'ATRAITER', label: 'À traiter' },
+    { key: 'HISTORIQUE', label: unreadCount > 0 ? `Historique · ${unreadCount}` : 'Historique' },
+  ];
 
   const [level, setLevel] = useState<LevelFilter>('TOUTES');
   const [status, setStatus] = useState<StatusFilter>('TOUTES');
@@ -105,8 +132,15 @@ export default function AlertsScreen() {
     setOverrides((o) => ({ ...o, [alert.id]: 'ACQUITTEE' }));
     acknowledgeAlert(farmId, alert.alertId)
       .then(() => {
-        void advisory.refetch();
         invalidateFarmQueries(queryClient, { farmId });
+        // Drop the optimistic status once the server data is back.
+        void advisory.refetch().finally(() => {
+          setOverrides((o) => {
+            const next = { ...o };
+            delete next[alert.id];
+            return next;
+          });
+        });
       })
       .catch(() => {
         setOverrides((o) => {
@@ -151,10 +185,31 @@ export default function AlertsScreen() {
   return (
     <Screen
       bottomPad={120}
-      refreshing={refreshing}
-      onRefresh={refresh}
-      header={<ScreenHeader title="Conseils d’élevage" subtitle="Ce que Fermia a repéré sur vos lots, trié par impact" />}>
+      refreshing={showHistory ? inboxFetching : refreshing}
+      onRefresh={
+        showHistory
+          ? () => {
+              void queryClient.invalidateQueries({ queryKey: INBOX_KEY });
+              void queryClient.invalidateQueries({ queryKey: UNREAD_KEY });
+            }
+          : refresh
+      }
+      header={
+        <ScreenHeader
+          title="Notifications"
+          subtitle={showHistory ? 'Ce qui s’est passé sur votre compte' : 'Ce que Fermia a repéré sur vos lots, trié par impact'}
+        />
+      }>
+      {inboxAllowed ? (
+        <View style={styles.tabs}>
+          <Segmented options={tabOptions} value={tab} onChange={setTab} haptic />
+        </View>
+      ) : null}
 
+      {showHistory ? (
+        <InboxList />
+      ) : (
+      <>
       <View style={styles.summary}>
         {status !== 'RESOLUE' && advisory.data ? (
           <View style={styles.score}>
@@ -175,25 +230,15 @@ export default function AlertsScreen() {
             </AppText>
           </View>
         ) : null}
+        {/* The level counters double as the level filter (tap again to clear). */}
         <View style={styles.summaryChips}>
-          <Chip label={`Rouges · ${countLevel(base, 'ROUGE')}`} tone="red" />
-          <Chip label={`Jaunes · ${countLevel(base, 'JAUNE')}`} tone="amber" />
-          <Chip label={`Infos · ${countLevel(base, 'VERT')}`} tone="green" />
-        </View>
-      </View>
-
-      <View style={styles.group}>
-        <AppText size="label" color="muted">
-          Niveau
-        </AppText>
-        <View style={styles.chipsRow}>
-          {(Object.keys(LEVEL_LABEL) as LevelFilter[]).map((f) => (
-            <Pressable key={f} onPress={() => setLevel(f)} accessibilityRole="button">
-              <Chip
-                label={LEVEL_LABEL[f]}
-                tone={f === 'ROUGE' ? 'red' : f === 'JAUNE' ? 'amber' : f === 'VERT' ? 'green' : 'brand'}
-                selected={level === f}
-              />
+          {LEVEL_CHIPS.map((c) => (
+            <Pressable
+              key={c.level}
+              onPress={() => setLevel((cur) => (cur === c.level ? 'TOUTES' : c.level))}
+              accessibilityRole="button"
+              accessibilityState={{ selected: level === c.level }}>
+              <Chip label={`${c.label} · ${countLevel(base, c.level)}`} tone={c.tone} selected={level === c.level} />
             </Pressable>
           ))}
         </View>
@@ -293,6 +338,8 @@ export default function AlertsScreen() {
           )}
         </View>
       )}
+      </>
+      )}
 
       {careTarget?.batchId ? (
         <CompleteCareSheet
@@ -356,38 +403,7 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 4,
   },
-  form: {
-    gap: 8,
-  },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: color.border,
-    borderRadius: radii.md,
-    backgroundColor: semantic.surface,
-    paddingHorizontal: 12,
-    marginBottom: 4,
-  },
-  input: {
-    fontFamily: fontFamily.regular,
-    flex: 1,
-    fontSize: 16,
-    color: color.ink[900],
-    paddingVertical: 10,
-  },
-  notes: {
-    fontFamily: fontFamily.regular,
-    minHeight: 84,
-    borderWidth: 1.5,
-    borderColor: color.border,
-    borderRadius: radii.md,
-    backgroundColor: semantic.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: color.ink[900],
-    marginBottom: 4,
+  tabs: {
+    marginBottom: 12,
   },
 });

@@ -8,7 +8,6 @@ import { useLocalSearchParams } from 'expo-router';
 import {
   Activity,
   AlertTriangle,
-  Check,
   Clock,
   DollarSign,
   Droplets,
@@ -150,6 +149,7 @@ function defaultProtocolFor(
   return (
     protocols?.find((p) => p.species === species && p.type === type && p.isDefault) ??
     protocols?.find((p) => p.species === species && p.type === type) ??
+    protocols?.find((p) => p.type === type && p.isDefault) ??
     protocols?.find((p) => p.type === type)
   );
 }
@@ -436,7 +436,7 @@ export default function LotDetailScreen() {
   const weightPoints = useMemo(() => filteredWeekly.filter((w) => w.avgWeightKg != null).map((w) => ({ x: labelDay(w.weekStart), y: w.avgWeightKg! })), [filteredWeekly]);
   const fcrPoints = useMemo(() => filteredWeekly.filter((w) => w.fcrCumulative != null).map((w) => ({ x: labelDay(w.weekStart), y: w.fcrCumulative! })), [filteredWeekly]);
   const waterPoints = useMemo(() => filteredWeekly.filter((w) => w.waterL > 0).map((w) => ({ x: labelDay(w.weekStart), y: w.waterL })), [filteredWeekly]);
-  const mortalityPoints = useMemo(() => filteredWeekly.filter((w) => w.deaths >= 0).map((w) => ({ x: labelDay(w.weekStart), y: w.deaths })), [filteredWeekly]);
+  const mortalityPoints = useMemo(() => filteredWeekly.map((w) => ({ x: labelDay(w.weekStart), y: w.deaths })), [filteredWeekly]);
   const eggsPoints = useMemo(() => {
     if (!isLayer) return [];
     const weekly = pondageQ.data?.weekly ?? [];
@@ -665,7 +665,7 @@ export default function LotDetailScreen() {
             title={b.batchName ?? 'Lot'}
             subtitle={b.code ? `Bande ${b.code}` : undefined}
             back
-            right={<Chip label={b.status === 'EN_VENTE' ? 'En vente' : 'Actif'} tone={b.status === 'EN_VENTE' ? 'green' : 'brand'} />}
+            right={<Chip label={b.status === 'EN_VENTE' ? 'En vente' : b.status === 'CLOTURE' ? 'Clôturé' : 'Actif'} tone={b.status === 'EN_VENTE' ? 'green' : b.status === 'CLOTURE' ? 'neutral' : 'brand'} />}
           />
           <PeriodBar defaultSpan="all" onChange={setPeriod} style={{ marginTop: 2 }} />
         </>
@@ -678,9 +678,6 @@ export default function LotDetailScreen() {
           {breedImageForLot(b.breedName, b.species) ? (
             <View style={styles.heroImageWrap}>
               <Image source={breedImageForLot(b.breedName, b.species)!} style={styles.heroImage} resizeMode="cover" />
-              <View style={styles.heroAgeBadge}>
-                <AppText size="small" weight="bold" color="#FFFFFF">J{m?.ageDays ?? 0}</AppText>
-              </View>
             </View>
           ) : null}
           <View style={styles.heroStats}>
@@ -715,31 +712,7 @@ export default function LotDetailScreen() {
         </View>
           <View style={styles.heroMainRow}>
             <HeroStat value={fmt(m?.liveCount ?? 0)} label="vivants" small />
-            <View style={styles.heroStatSep} />
-            <HeroStat
-              value={hasOfficial ? officialText(official('taux_mortalite')) : `${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
-              label={hasOfficial ? 'mortalité' : 'mortalité Fermia'}
-              tone={normalizeMortalityStatus(m?.mortalityStatus, official('taux_mortalite')?.value ?? m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
-              small
-            />
-            <View style={styles.heroStatSep} />
-            <HeroStat
-              value={hasOfficial ? officialText(official('ic')) : (m?.fcr ?? 0).toLocaleString('fr-FR')}
-              label={hasOfficial ? 'IC (bilan)' : 'IC technique'}
-              small
-            />
-            <View style={styles.heroStatSep} />
-            {isLayer ? (
-              <HeroStat value={m?.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : '—'} label="Taux de ponte" tone={m?.layRatePercent != null && m.layRatePercent >= 100 ? 'danger' : 'text'} small />
-            ) : (
-              <HeroStat value={m?.ipe != null ? m.ipe.toLocaleString('fr-FR') : '—'} label="IPE" small />
-            )}
           </View>
-        {hasOfficial ? (
-          <AppText size="small" color="muted" align="center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            Indicateurs officiels du programme
-          </AppText>
-        ) : null}
         <View style={styles.healthStrip}>
           {healthQ.data && (
             <View style={styles.healthScorePill}>
@@ -757,7 +730,7 @@ export default function LotDetailScreen() {
           </View>
         </View>
         <AppText size="caption" color="muted">
-          Ouverture : {b.integrationDate}
+          Ouverture : {new Date(`${b.integrationDate.slice(0, 10)}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
           {b.initialAgeDays ? ` à J${b.initialAgeDays}` : ''} · {fmt(b.quantityAtStart)} sujets
         </AppText>
         <View style={styles.heroPassportRow}>
@@ -818,6 +791,11 @@ export default function LotDetailScreen() {
             <MetricTile label="Aliment/bird" value={healthQ.data?.feedPerBirdGrams != null && healthQ.data.feedPerBirdGrams > 0 ? `${Math.round(healthQ.data.feedPerBirdGrams)} g/j` : '—'} icon={Wheat} tone="default" threeCol labelLines={2} />
             <MetricTile label="Densité" value={m?.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : '—'} icon={Layers} tone="default" threeCol />
           </View>
+          {asOf && hasOfficial ? (
+            <AppText size="caption" color="faint">
+              Valeurs officielles (GMQ, viabilité) : à ce jour, hors période choisie.
+            </AppText>
+          ) : null}
           {m?.lastWeighingDate ? (
             <AppText size="caption" color="faint">
               GMQ, IC et IPE calculés à la dernière pesée ({m.lastWeighingDate.split('-').reverse().join('/')}, J{m.lastWeighingAgeDays}).
@@ -891,14 +869,6 @@ export default function LotDetailScreen() {
                       <AppText size="small" weight="bold" color="text">{r.count.toLocaleString('fr-FR')}</AppText>
                       <AppText size="caption" color="muted" style={styles.eggRowPct}>{eggPct(r.count)}%</AppText>
                     </View>
-                    <View style={styles.eggMiniBar}>
-                      <View
-                        style={[
-                          styles.eggMiniFill,
-                          { backgroundColor: r.color, width: `${r.count > 0 ? Math.max(1, (r.count / eggTotal) * 100) : 0}%` },
-                        ]}
-                      />
-                    </View>
                   </View>
                 ))}
               </View>
@@ -918,9 +888,6 @@ export default function LotDetailScreen() {
               <View style={styles.healthHeader}>
                 {isLayer ? <Egg size={16} color={palette.accent[500]} /> : <Weight size={16} color={semantic.primary} />}
                 <AppText size="body" weight="bold" color="brand">{isLayer ? 'Ponte par semaine' : 'Poids moyen par semaine'}</AppText>
-                {!isLayer && avgWeightKg != null && (
-                  <AppText size="small" weight="bold" color="brand" style={{ marginLeft: 'auto' }}>{avgWeightKg.toFixed(1)} kg</AppText>
-                )}
               </View>
               <LineChart points={isLayer ? layRatePoints : weightPoints} height={110} stroke={isLayer ? palette.accent[500] : semantic.primary} unit={isLayer ? 'taux de ponte %' : 'poids (kg)'} format={(v) => (isLayer ? `${v.toFixed(0)}%` : v.toFixed(1))} />
             </Card>
@@ -949,22 +916,6 @@ export default function LotDetailScreen() {
                   </AppText>
                 </View>
               </View>
-            </Card>
-          )}
-
-          {/* Health tips */}
-          {healthQ.data && (
-            <Card style={{ gap: 6 }}>
-              <View style={styles.healthHeader}>
-                <HeartPulse size={16} color={semantic.primary} />
-                <AppText size="body" weight="bold" color="brand">Conseils & alertes</AppText>
-              </View>
-              {healthQ.data.tips.slice(0, 3).map((tip, i) => (
-                <View key={i} style={styles.slimTipRow}>
-                  {tip.level === 'ROUGE' ? <AlertTriangle size={13} color={palette.red[500]} /> : tip.level === 'JAUNE' ? <Info size={13} color={palette.amber[500]} /> : <Check size={13} color={palette.green[500]} />}
-                  <AppText size="small" color="muted" style={{ flex: 1, lineHeight: 16 }}>{tip.text}</AppText>
-                </View>
-              ))}
             </Card>
           )}
 
@@ -1099,7 +1050,7 @@ export default function LotDetailScreen() {
               value={curveTab}
               onChange={setCurveTab}
             />
-            {curveTab === 'weight' && <LineChart points={weightPoints} stroke={color.brand[600]} unit="kg" format={(v) => (v * 1000).toFixed(0)} />}
+            {curveTab === 'weight' && <LineChart points={weightPoints} stroke={color.brand[600]} unit="kg" format={(v) => v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />}
             {curveTab === 'fcr' && <LineChart points={fcrPoints} stroke={color.accent[600]} unit="kg aliment / kg poids" format={(v) => v.toLocaleString('fr-FR')} />}
             {curveTab === 'water' && <LineChart points={waterPoints} stroke={color.brand[500]} unit="L / semaine" format={(v) => v.toLocaleString('fr-FR')} />}
             {curveTab === 'mortality' && <LineChart points={mortalityPoints} stroke={palette.red[500]} unit="morts / semaine" format={(v) => v.toLocaleString('fr-FR')} />}
@@ -1110,11 +1061,6 @@ export default function LotDetailScreen() {
           <SectionHeader title="Métriques" subtitle="Touchez ℹ pour comprendre" />
           <Card padding={false} style={styles.legend}>
             {LEGEND.filter((l) => !(!isLayer && l.key === 'ponte')).map((l, i, arr) => {
-              const value = l.key === 'ic' ? (m?.fcr ?? 0).toLocaleString('fr-FR')
-                : l.key === 'gmq' ? (m?.gmqGramsPerDay ? `${m.gmqGramsPerDay.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g/j` : '—')
-                : l.key === 'ipe' ? (m?.ipe ?? 0).toLocaleString('fr-FR')
-                : l.key === 'viab' ? `${(m?.viabilityPercent ?? 100).toLocaleString('fr-FR')} %`
-                : m?.layRatePercent != null ? `${m.layRatePercent} %` : '—';
               const open = expanded === l.key;
               return (
                 <View key={l.key} style={[styles.legendRow, i < arr.length - 1 && styles.legendBorder]}>
@@ -1123,7 +1069,6 @@ export default function LotDetailScreen() {
                       <AppText size="body" weight="medium" color="text">{l.label}</AppText>
                       {open && <AppText size="small" color="muted" style={{ marginTop: 4 }}>{l.explain}</AppText>}
                     </View>
-                    <AppText size="body" weight="bold" color={l.key === 'ponte' && m?.layRatePercent != null && m.layRatePercent >= 100 ? 'danger' : 'brand'}>{value}</AppText>
                     <Info size={16} color={color.ink[400]} />
                   </Pressable>
                 </View>
@@ -1187,13 +1132,10 @@ export default function LotDetailScreen() {
                 <Stethoscope size={14} color={careAlerts.some((c) => c.level === 'ROUGE') ? palette.red[500] : palette.amber[500]} />
                 <AppText size="body" weight="semibold" color="text" style={{ flex: 1 }}>Alerte sanitaire</AppText>
                 <Chip
-                  label={careAlerts.some((c) => c.level === 'ROUGE') ? 'Soin à réaliser' : 'Soin à prévoir'}
+                  label={`${plural(careAlerts.length, 'soin')} ${careAlerts.some((c) => c.level === 'ROUGE') ? 'à réaliser' : 'à prévoir'}`}
                   tone={careAlerts.some((c) => c.level === 'ROUGE') ? 'red' : 'amber'}
                 />
               </View>
-              {careAlerts.slice(0, 3).map((c, i) => (
-                <AppText key={i} size="bodyM" color="ink" style={{ flex: 1 }}>{c.message}</AppText>
-              ))}
             </Card>
           )}
 
@@ -1330,7 +1272,6 @@ const styles = StyleSheet.create({
   heroSplit: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   heroImageWrap: { width: 76, height: 76, borderRadius: radii.lg, overflow: 'hidden' },
   heroImage: { width: 76, height: 76, borderRadius: radii.lg },
-  heroAgeBadge: { position: 'absolute', left: 5, bottom: 5, backgroundColor: 'rgba(12,35,49,0.72)', borderRadius: radii.pill, paddingHorizontal: 7, paddingVertical: 2 },
   heroStats: { flex: 1, gap: 8, justifyContent: 'center', minWidth: 0 },
   heroBadgesRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   heroSpeciesTag: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, rowGap: 2, minWidth: 0 },
@@ -1341,7 +1282,6 @@ const styles = StyleSheet.create({
   heroBuildingText: { maxWidth: 150, flexShrink: 1 },
   heroTitleSep: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(12,35,49,0.18)' },
   heroMainRow: { flexDirection: 'row', alignItems: 'stretch' },
-  heroStatSep: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: 'rgba(12,35,49,0.12)', marginVertical: 2 },
   heroStat: { flex: 1, minWidth: 0, gap: 1, alignItems: 'center' },
   heroValue: { fontSize: 20, lineHeight: 24 },
   heroValueSmall: { fontSize: 16, lineHeight: 20 },
@@ -1404,12 +1344,9 @@ const styles = StyleSheet.create({
   eggRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   eggRowDot: { width: 10, height: 10, borderRadius: 5 },
   eggRowPct: { width: 40, textAlign: 'right' },
-  eggMiniBar: { height: 4, borderRadius: 999, overflow: 'hidden', backgroundColor: semantic.border },
-  eggMiniFill: { height: 4, borderRadius: 999 },
 
   // Tips
   tipRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  slimTipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7 },
 
   // Events
   eventHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -4,7 +4,6 @@ import { useRouter, type Href } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import {
   Activity,
-  Bell,
   Bird,
   BookOpen,
   Briefcase,
@@ -32,6 +31,7 @@ import {
 import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { SectionHeader } from '@/components/ui/SectionHeader';
+import { ConnectionPill } from '@/components/ui/ConnectionStrip';
 import { color, layout, palette, radii, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -43,13 +43,13 @@ import { farmRoleLabel } from '@/api/roles';
 import type { PermissionCode } from '@/api/types';
 // ── POUFA field work (M2) ──
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
-import { hasInbox, readsProgrammeDomain } from '@/poufa/access';
+import { readsProgrammeDomain } from '@/poufa/access';
 import { readsVisits } from '@/poufa/visits';
 // POUFA lot A droits: Fermia tiles follow the matrix grants; the DGE synthesis tile.
 import { menuItemVisible, readsEconomieSynthesis, type FermiaArea, type ProgrammeBonusArea } from '@/poufa/fermia-access';
 
 /** Deliveries tile: farm accounts, or an institution whose matrix reads INTRANTS. */
-function usePoufaMenuItems(): { deliveries: MenuItem[]; visits: MenuItem[]; inbox: MenuItem[]; synthesis: MenuItem[] } {
+function usePoufaMenuItems(): { deliveries: MenuItem[]; visits: MenuItem[]; synthesis: MenuItem[] } {
   const { user } = useAuth();
   const access = useProgrammeAccess();
   const deliveries: MenuItem[] = readsProgrammeDomain(user.role, access.matrix, 'INTRANTS')
@@ -59,13 +59,10 @@ function usePoufaMenuItems(): { deliveries: MenuItem[]; visits: MenuItem[]; inbo
   const visits: MenuItem[] = readsVisits(user.role, access.matrix)
     ? [{ key: 'visites', label: 'Visites techniques', icon: ClipboardCheck, href: '/visites' as Href }]
     : [];
-  const inbox: MenuItem[] = hasInbox(user.role)
-    ? [{ key: 'notifications', label: 'Notifications', icon: Bell, href: '/notifications' as Href }]
-    : [];
   const synthesis: MenuItem[] = readsEconomieSynthesis(user.role, access.matrix)
     ? [{ key: 'synthese', label: 'Synthèse du programme', icon: Landmark, href: '/synthese' as Href }]
     : [];
-  return { deliveries, visits, inbox, synthesis };
+  return { deliveries, visits, synthesis };
 }
 // ── end POUFA ──
 
@@ -132,11 +129,10 @@ function GroundHome() {
 
   const poufa = usePoufaMenuItems();
   const links: MenuItem[] = [
-    { key: 'profil', label: 'Mon profil', icon: User, href: '/reglages' },
+    { key: 'profil', label: 'Profil & réglages', icon: User, href: '/reglages' },
     { key: 'lots', label: 'Mes lots', icon: Bird, href: '/lots' },
     ...poufa.deliveries,
     ...poufa.visits,
-    ...poufa.inbox,
   ];
 
   return (
@@ -245,8 +241,7 @@ export default function MenuScreen() {
       items: [
         { key: 'equipe', label: 'Équipe', icon: Users, href: '/equipe', perms: ['equipe:gerer'], fermiaArea: 'EQUIPE' },
         { key: 'rh', label: 'Dossiers RH', icon: Briefcase, href: '/rh', perms: ['rh:lire', 'equipe:gerer'], fermiaArea: 'EQUIPE' },
-        { key: 'profil', label: 'Profil', icon: User, href: '/reglages' },
-        ...poufa.inbox,
+        { key: 'profil', label: 'Profil & réglages', icon: User, href: '/reglages' },
       ],
     },
   ];
@@ -286,9 +281,12 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
       <AppText size="label" color="brand">
         {eyebrow}
       </AppText>
-      <AppText size="h2" weight="bold" color="text" style={styles.headerTitle}>
-        {title}
-      </AppText>
+      <View style={styles.titleRow}>
+        <AppText size="h2" weight="bold" color="text" style={styles.headerTitle} numberOfLines={1}>
+          {title}
+        </AppText>
+        <ConnectionPill />
+      </View>
       <AppText size="caption" color="muted">
         {subtitle}
       </AppText>
@@ -314,7 +312,7 @@ function MenuHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: stri
             accessibilityLabel={`${pending} opérations en attente, synchroniser maintenant`}
             style={[styles.metaChip, styles.syncChip]}>
             <AppText size="small" weight="semibold" color="warn">
-              {offline.syncing ? 'Synchronisation…' : `${pending} en attente · Synchroniser`}
+              {offline.syncing ? 'Synchronisation' : `Synchroniser · ${pending}`}
             </AppText>
           </Pressable>
         ) : null}
@@ -494,8 +492,15 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     marginBottom: 6,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   headerTitle: {
     marginTop: 2,
+    flexShrink: 1,
   },
   metaRow: {
     flexDirection: 'row',

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 
 import { AppText } from './AppText';
+import { ConnectionPill } from './ConnectionStrip';
 import { color, layout, semantic } from '@/constants/theme';
 import { CONTENT_MAX_WIDTH } from '@/theme/responsive';
 import { useScreen } from '@/theme/useScreen';
@@ -90,6 +91,8 @@ export function ScreenHeader({
             </AppText>
           ) : null}
         </View>
+        {/* Connection state lives in the header row: no strip of its own above the screen. */}
+        <ConnectionPill />
         {right}
       </View>
     </View>
@@ -144,7 +147,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   backBtn: {
     width: 44,

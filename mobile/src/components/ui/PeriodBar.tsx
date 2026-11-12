@@ -115,7 +115,13 @@ export function PeriodBar({ defaultSpan = 30, onChange, onApplied, onPickerClose
   const [liveNow, setLiveNow] = useState(new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setLiveNow(new Date()), 1000);
+    // The bar shows HH:mm: tick on the minute, not every second.
+    const id = setInterval(() => {
+      setLiveNow((prev) => {
+        const next = new Date();
+        return Math.floor(next.getTime() / 60_000) === Math.floor(prev.getTime() / 60_000) ? prev : next;
+      });
+    }, 5_000);
     return () => clearInterval(id);
   }, []);
 

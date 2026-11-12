@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
-import { Bell, Wheat, Banknote, BarChart3, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, ChevronRight, Building, Stethoscope, Users } from 'lucide-react-native';
-import { InboxButton } from '@/components/notifications/InboxButton';
+import { Bell, Wheat, Banknote, BarChart3, Activity, TrendingUp, TrendingDown, Scale, Medal, Store, ChevronDown, Building, Users } from 'lucide-react-native';
+import { useUnreadCount } from '@/components/notifications/useInbox';
+import { ConnectionPill } from '@/components/ui/ConnectionStrip';
 import * as Haptics from 'expo-haptics';
 
 import { Screen } from '@/components/ui/Screen';
@@ -23,6 +24,7 @@ import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { givenName, speciesLabel } from '@/api/format';
 import { color, fmt, fmtFcfa, layout, palette, radii, semantic } from '@/constants/theme';
 import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
+import { fetchBandHistory } from '@/api/poufa';
 import { fetchAdvisory, fetchDashboard, fetchBatches, fetchDailyEntries, fetchSlaughterOrders, fetchCustomersSummary, fetchRentabiliteOverview } from '@/api';
 import { normalizeMortalityStatus } from '@/constants/health';
 import { BrandLoader } from '@/components/ui/BrandLoader';
@@ -38,9 +40,9 @@ import { CurrentBandCard } from '@/components/band/CurrentBandCard';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
 import { GlossaryLink } from '@/components/GlossaryLink';
-import { fcrQualification } from '@/poufa/official-headline';
+import { currentBand, fcrQualification, findIndicator, officialText } from '@/poufa/official-headline';
 import { breedTone, fcrTileTone, thresholdsOf, waterDropLevel } from '@/utils/thresholds';
-import { readCached } from '@/offline/ref-cache';
+import { cachedRead, readCached } from '@/offline/ref-cache';
 import { librevilleDay, librevilleDaysBack, librevilleTime } from '@/utils/libreville';
 
 function weatherHint(w: FarmWeather): string {
@@ -174,6 +176,21 @@ export default function AccueilScreen() {
   const programmeAccess = useProgrammeAccess();
   const showCurrentBand = readsProgrammeDomain(user.role, programmeAccess.matrix, 'TECHNIQUE');
   const canCaisse = hasPermission('caisse:lire');
+  // One figure per indicator: the official value of the current band heads the
+  // IC / GMQ tiles when it exists, Fermia's farm average becomes the second line.
+  const bandHistory = useQuery({
+    queryKey: ['band-history', farmId, 'EN_COURS'],
+    queryFn: () => cachedRead(`band-history.${farmId}.EN_COURS`, () => fetchBandHistory(farmId, 'EN_COURS')),
+    enabled: showCurrentBand,
+    retry: false,
+  });
+  const bandIndicators = (showCurrentBand ? currentBand(bandHistory.data)?.summary?.indicators : null) ?? [];
+  const officialIc = findIndicator(bandIndicators, 'ic');
+  const officialGmq = findIndicator(bandIndicators, 'gmq_g_j');
+  const hasOfficialIc = officialIc?.value != null && Number.isFinite(officialIc.value);
+  const hasOfficialGmq = officialGmq?.value != null && Number.isFinite(officialGmq.value);
+  // One bell: farm alerts + unread programme messages.
+  const unread = useUnreadCount();
 
 
   // The advisory is not shown on this screen: its failure never blocks it.
@@ -187,6 +204,7 @@ export default function AccueilScreen() {
     return dashboard.isError ? dashboard.dataUpdatedAt : null;
   }, [dashboard.data, dashboard.dataUpdatedAt, dashboard.isError, farmId]);
   const alertCount = (d?.alerts.rouge ?? 0) + (d?.alerts.jaune ?? 0);
+  const bellCount = alertCount + (unread.data?.count ?? 0);
   const mortalityStatus = d ? normalizeMortalityStatus(d.mortalityStatus, d.mortalityPercent) : 'normal';
 
   // --- Compute weighted averages from active batches ---
@@ -290,7 +308,6 @@ export default function AccueilScreen() {
       refreshing={!!d && (dashboard.isFetching || advisory.isFetching || batchesQuery.isFetching)}
       onRefresh={refresh}
       header={
-        <View>
         <View style={styles.topRow}>
           <Image
             source={require('@/assets/images/logo-nav.png')}
@@ -298,33 +315,25 @@ export default function AccueilScreen() {
             contentFit='contain'
             accessibilityLabel='Logo'
           />
-          <View style={styles.greetCol}>
-            <AppText size='small' color='muted' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.dateLine}>
-              {liveNow.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </AppText>
-          </View>
-          {/* ── POUFA notification inbox (M2) ── */}
-          <InboxButton />
-          {/* ── end POUFA ── */}
+          {/* One row: logo, greeting, connection state, bell. The date is in the period bar below. */}
+          <AppText size='h3' weight='bold' color='text' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.greeting}>
+            Bonjour, {givenName(user.fullName)}
+          </AppText>
+          <ConnectionPill />
           <Pressable
             onPress={() => router.push('/alerts')}
             accessibilityRole='button'
-            accessibilityLabel={alertCount > 0 ? `${alertCount} alertes actives` : 'Alertes'}
-            style={({ pressed }) => [styles.alertBtn, alertCount > 0 && styles.alertBtnActive, pressed && styles.headerTilePressed]}>
-            <Bell size={19} color={alertCount > 0 ? palette.amber[700] : palette.ink[600]} strokeWidth={2} />
-            {alertCount > 0 ? (
+            accessibilityLabel={bellCount > 0 ? `${bellCount} notifications à voir` : 'Notifications'}
+            style={({ pressed }) => [styles.alertBtn, bellCount > 0 && styles.alertBtnActive, pressed && styles.headerTilePressed]}>
+            <Bell size={19} color={bellCount > 0 ? palette.amber[700] : palette.ink[600]} strokeWidth={2} />
+            {bellCount > 0 ? (
               <View style={styles.alertBadge}>
                 <AppText size='label' weight='bold' color='surface'>
-                  {alertCount}
+                  {bellCount > 99 ? '99+' : bellCount}
                 </AppText>
               </View>
             ) : null}
           </Pressable>
-        </View>
-        {/* Salutation seule sur sa ligne : toute la largeur pour un nom long, une seule ligne, jamais coupée. */}
-        <AppText size='h3' weight='bold' color='text' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.greeting}>
-          Bonjour, {givenName(user.fullName)}
-        </AppText>
         </View>
       }
     >
@@ -332,9 +341,9 @@ export default function AccueilScreen() {
       {d && staleSince != null ? (
         <View
           accessibilityRole='alert'
-          style={{ marginTop: 12, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radii.md, backgroundColor: palette.amber[50] }}>
+          style={{ marginTop: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: radii.md, backgroundColor: palette.amber[50] }}>
           <AppText size='small' weight='semibold' style={{ color: palette.amber[700] }}>
-            {`Hors ligne · données du ${new Date(staleSince).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${new Date(staleSince).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
+            {`Données du ${new Date(staleSince).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${new Date(staleSince).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
           </AppText>
         </View>
       ) : null}
@@ -372,9 +381,6 @@ export default function AccueilScreen() {
           ) : null}
           {!simple || showMore ? (
         <>
-          {showCurrentBand ? (
-            <CurrentBandCard farmId={farmId} feedAutonomyDays={d.feedAutonomyDays ?? null} onOpen={(id) => router.push(`/lot/${id}`)} />
-          ) : null}
           <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
           {/* ── Hero : l'essentiel du jour ── */}
           <HomeHero
@@ -402,57 +408,19 @@ export default function AccueilScreen() {
                 suffix: GRADE_LABEL[d.health.grade],
                 onPress: () => router.push('/sanitary'),
               },
-              {
-                label: 'Mortalité Fermia',
+              // The simple home already gives the mortality of the band.
+              ...(simple ? [] : [{
+                label: 'Mortalité',
                 value: d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—',
                 tint: MORTALITY_ON_DARK[mortalityStatus],
-              },
+              }]),
             ]}
             weather={d.weather}
             hint={d.weather ? weatherHint(d.weather) : undefined}
           />
-          {/* ── Santé : alertes + mortalité ── */}
-          <Card style={styles.healthCard}>
-            <View style={styles.healthTitleRow}>
-              <AppText size='bodyM' weight='semibold' color='text'>Santé du cheptel</AppText>
-              <View style={{ flex: 1 }} />
-              <Pressable
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); router.push('/sanitary'); }}
-                accessibilityRole='button'
-                hitSlop={8}
-                style={({ pressed }) => [styles.linkBtn, pressed && { opacity: 0.6 }]}>
-                <Stethoscope size={14} color={semantic.primary} strokeWidth={2.2} />
-                <AppText size='small' weight='semibold' color='brand'>Centre sanitaire</AppText>
-                <ChevronRight size={14} color={semantic.primary} />
-              </Pressable>
-            </View>
-            <View style={styles.healthAlertRow}>
-              <View style={[styles.healthAlertBadge, { backgroundColor: semantic.dangerSoft, borderColor: palette.red[100] }]}>
-                <View style={[styles.healthAlertDot, { backgroundColor: palette.red[500] }]} />
-                <AppText size='bodyM' weight='semibold' color='danger'>{d.health.breakdown.rouge}</AppText>
-                <AppText size='small' color='muted'>Rouges</AppText>
-              </View>
-              <View style={[styles.healthAlertBadge, { backgroundColor: semantic.warnSoft, borderColor: palette.amber[100] }]}>
-                <View style={[styles.healthAlertDot, { backgroundColor: palette.amber[500] }]} />
-                <AppText size='bodyM' weight='semibold' color='warn'>{d.health.breakdown.jaune}</AppText>
-                <AppText size='small' color='muted'>Jaunes</AppText>
-              </View>
-            </View>
-            <View style={styles.healthMortalityBar}>
-              <View style={styles.healthMortalityHead}>
-                <AppText size='small' color='muted'>Mortalité cumulée (Fermia)</AppText>
-                <AppText size='small' weight='semibold' color={mortalityStatus === 'normal' ? 'success' : mortalityStatus === 'elevated' ? 'warn' : 'danger'}>
-                  {d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—'}
-                </AppText>
-              </View>
-              <View style={styles.healthMortalityTrack}>
-                <View style={[styles.healthMortalityFill, {
-                  width: `${Math.min(100, (d.mortalityPercent ?? 0) / 10 * 100)}%`,
-                  backgroundColor: mortalityStatus === 'normal' ? palette.green[500] : mortalityStatus === 'elevated' ? palette.amber[500] : palette.red[500],
-                }]} />
-              </View>
-            </View>
-          </Card>
+          {showCurrentBand && !simple ? (
+            <CurrentBandCard farmId={farmId} feedAutonomyDays={d.feedAutonomyDays ?? null} onOpen={(id) => router.push(`/lot/${id}`)} />
+          ) : null}
           <SectionHeader
             title='Statistiques'
             right={
@@ -467,20 +435,21 @@ export default function AccueilScreen() {
 
           <GlossaryLink keys={['ic_officiel', 'ic_technique', 'gmq', 'ipe', 'mortalite', 'viabilite', 'taux_ponte', 'autonomie_provende', 'rendement_carcasse', 'vide_sanitaire', 'classe_biosecurite']} />
           {/* ── Performance row: IC, GMQ, IPE — always one row ── */}
+          {simple ? null : (
           <View style={styles.metricGridNoWrap}>
             <MetricTile
-              label='IC technique'
-              value={avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
-              sub={fcrQualification(avgFcr, avgFcrDeviation, thr)}
+              label={hasOfficialIc ? 'IC officiel' : 'IC technique'}
+              value={hasOfficialIc ? officialText(officialIc) : avgFcr != null && avgFcr > 0 ? avgFcr.toFixed(2) : '—'}
+              sub={hasOfficialIc && avgFcr != null && avgFcr > 0 ? `Fermia ${avgFcr.toFixed(2)}` : fcrQualification(avgFcr, avgFcrDeviation, thr)}
               tone={fcrTileTone(avgFcr, avgFcrDeviation, thr)}
               icon={Activity}
               onPress={() => setMetricInfo('IC')}
               threeCol
             />
             <MetricTile
-              label='GMQ Fermia (g/j)'
-              value={avgGmq != null ? `${avgGmq.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}` : '—'}
-              sub={avgGmq != null && avgGmq > 55 ? 'Croissance rapide' : avgGmq != null && avgGmq < 0 ? 'Perte de poids' : avgGmq != null ? 'Croissance normale' : undefined}
+              label={hasOfficialGmq ? 'GMQ officiel' : 'GMQ Fermia (g/j)'}
+              value={hasOfficialGmq ? officialText(officialGmq) : avgGmq != null ? `${avgGmq.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}` : '—'}
+              sub={hasOfficialGmq && avgGmq != null ? `Fermia ${avgGmq.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} g/j` : avgGmq != null && avgGmq > 55 ? 'Croissance rapide' : avgGmq != null && avgGmq < 0 ? 'Perte de poids' : avgGmq != null ? 'Croissance normale' : undefined}
               tone={avgGmq != null && avgGmq > 55 ? 'green' : avgGmq != null && avgGmq < 0 ? 'amber' : 'default'}
               icon={TrendingUp}
               onPress={() => setMetricInfo('GMQ')}
@@ -496,6 +465,7 @@ export default function AccueilScreen() {
               threeCol
             />
           </View>
+          )}
           {/* ── Expanded: Grouped farm details ── */}
           {statsExpanded && (
             <Card tone='default' style={styles.statsExpandedCard}>
@@ -814,28 +784,19 @@ export default function AccueilScreen() {
 }
 
 const styles = StyleSheet.create({
-  gradeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  gradeDot: { width: 8, height: 8, borderRadius: 4 },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   greeting: {
-    marginTop: 8,
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
   },
   avatarLogo: {
     width: 36,
     height: 36,
-  },
-  dateLine: {
-    textTransform: 'capitalize',
-  },
-  greetCol: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    paddingLeft: 4,
   },
   alertBtn: {
     width: 42,
@@ -880,60 +841,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 2,
   },
-  actionTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  healthCard: {
-    marginTop: 12,
-    gap: 12,
-  },
-  linkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  healthMortalityHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  healthTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  healthAlertRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  healthAlertBadge: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: radii.md,
-    borderWidth: 1,
-  },
-  healthAlertDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  healthMortalityBar: {
-    gap: 6,
-  },
-  healthMortalityTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: palette.ink[100],
-    overflow: 'hidden',
-  },
-  healthMortalityFill: {
-    height: 6,
-    borderRadius: 3,
-  },
 
   expandBtn: {
     flexDirection: 'row',
@@ -949,11 +856,6 @@ const styles = StyleSheet.create({
   expandBtnActive: {
     backgroundColor: semantic.primary,
     borderColor: semantic.primary,
-  },
-  recoBox: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: radii.md,
-    padding: 10,
   },
   statsExpandedCard: {
     marginTop: 8,

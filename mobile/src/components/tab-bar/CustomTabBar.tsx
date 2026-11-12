@@ -111,7 +111,9 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
     .map((name) => state.routes.find((r) => r.name === name))
     .filter((r): r is TabRoute => Boolean(r));
 
-  const focusedName = state.routes[state.index]?.name;
+  // Hidden routes fall back to the Menu tab, except the notifications screen (opened from the home bell): Home.
+  const routeName = state.routes[state.index]?.name;
+  const focusedName = routeName === 'alerts' ? 'index' : routeName;
   const focusedLocal = visibleRoutes.findIndex((r) => r.name === focusedName);
   const activeSlot = focusedLocal >= 0 ? (SLOT_MAP[focusedLocal] ?? 4) : 4;
 

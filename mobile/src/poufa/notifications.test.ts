@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { InboxItem } from '@/api/poufa';
-import { badgeLabel, markReadLocally, mobileRouteOf, relativeTime, unreadOf } from './notifications';
+import { badgeLabel, markReadLocally, mobileRouteOf, relativeTime, unreadOf, withoutAlertEvents } from './notifications';
 
 const F = '11111111-1111-4111-8111-111111111111';
 const B = '22222222-2222-4222-8222-222222222222';
@@ -42,6 +42,13 @@ describe('mobileRouteOf', () => {
     expect(mobileRouteOf('https://exemple.org')).toBe('/notifications');
     expect(mobileRouteOf('//exemple.org')).toBe('/notifications');
     expect(mobileRouteOf('/admin/users')).toBe('/notifications');
+  });
+});
+
+describe('withoutAlertEvents', () => {
+  it('masque les événements qui ouvrent seulement les alertes', () => {
+    const rows = [{ route: '/alerts' }, { route: '/tasks' }, { route: '/(tabs)/alerts' }, { route: '' }];
+    expect(withoutAlertEvents(rows)).toEqual([{ route: '/tasks' }, { route: '' }]);
   });
 });
 

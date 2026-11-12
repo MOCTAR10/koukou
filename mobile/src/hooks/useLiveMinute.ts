@@ -5,7 +5,14 @@ export function useLiveMinute(onTick: () => void) {
   const [liveNow, setLiveNow] = useState(new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setLiveNow(new Date()), 1000);
+    // Minute resolution: the state only changes with the minute, so the host
+    // screen does not re-render every second.
+    const id = setInterval(() => {
+      setLiveNow((prev) => {
+        const next = new Date();
+        return Math.floor(next.getTime() / 60_000) === Math.floor(prev.getTime() / 60_000) ? prev : next;
+      });
+    }, 5_000);
     return () => clearInterval(id);
   }, []);
 
