@@ -70,9 +70,9 @@ pipeline {
             ln -sfn "$OUT" "$OUT_DIR/fermia.apk"
             ls -1t "$OUT_DIR"/fermia-*.apk | tail -n +4 | xargs -r rm -f
             RV=$(node -p "require('./app.json').expo.runtimeVersion")
-            node scripts/ota.mjs version-json --apk "$OUT" --code "$BUILD_NUMBER" --version "$VERSION" --runtime "$RV" \n              --base-url https://fermia.greenleaves.ga/apk --out "$OUT_DIR/version.json.tmp"
+            node scripts/ota.mjs version-json --apk "$OUT" --code "$BUILD_NUMBER" --version "$VERSION" --runtime "$RV" --base-url https://fermia.greenleaves.ga/apk --out "$OUT_DIR/version.json.tmp"
             mv "$OUT_DIR/version.json.tmp" "$OUT_DIR/version.json"
-            node scripts/ota.mjs publish --dist dist-ota --out "$OTA_DIR" --base-url https://fermia.greenleaves.ga/ota \n              --runtime "$RV" --key "$SECRETS/ota/private-key.pem" --build "$BUILD_NUMBER" --created-at "$OTA_CREATED_AT"
+            node scripts/ota.mjs publish --dist dist-ota --out "$OTA_DIR" --base-url https://fermia.greenleaves.ga/ota --runtime "$RV" --key "$SECRETS/ota/private-key.pem" --build "$BUILD_NUMBER" --created-at "$OTA_CREATED_AT"
             echo "Publié : https://fermia.greenleaves.ga/apk/fermia.apk ($OUT), runtime $RV"
           '''
           archiveArtifacts artifacts: 'fermia-*.apk', fingerprint: true
