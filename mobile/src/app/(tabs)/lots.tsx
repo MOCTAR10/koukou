@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { plural } from '@/utils/plural';
-import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -78,7 +78,6 @@ import { fetchBandHistory, type BandSummaryIndicator } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { librevilleDay } from '@/utils/libreville';
 import { fermiaFcrText, fermiaGmqText, fermiaMortalityText, lotHeadlines, officialByBand, overviewCell } from '@/poufa/lot-headline';
-import { MAX_FONT_SCALE } from '@/constants/textScale';
 
 // ── Filters ──
 type FilterType = 'all' | 'active' | 'selling' | 'chair' | 'layer';
@@ -111,7 +110,7 @@ const LAYER_PONTE_DAYS = 134; // ~19 weeks
 const LAYER_REFORME_DAYS = 420; // ~60 weeks
 
 type StageTone = 'brand' | 'accent' | 'green' | 'amber';
-function batchStage(b: { type: BatchType; status: BatchStatus; metrics: { ageDays: number } }): { label: string; tone: StageTone } {
+function batchStage(b: { type: BatchType; status: BatchStatus; metrics: { ageDays: number; readyForSale?: boolean; readyReason?: ReadyReason | null } }): { label: string; tone: StageTone } {
   if (b.status === 'EN_VENTE') return { label: 'Prêt à la vente', tone: 'green' };
   const age = b.metrics.ageDays;
   if (b.type === 'PONDEUSE') {
@@ -122,7 +121,8 @@ function batchStage(b: { type: BatchType; status: BatchStatus; metrics: { ageDay
   }
   if (age < 14) return { label: 'Démarrage', tone: 'brand' };
   if (age < 28) return { label: 'Croissance', tone: 'brand' };
-  if (age < CHAIR_READY_DAYS) return { label: 'Finition', tone: 'accent' };
+  // Only « ready » when the sale pill says so (sale may be suspended by sanitary/FCR rules).
+  if (age < CHAIR_READY_DAYS || !(b.metrics.readyForSale && b.metrics.readyReason === 'READY')) return { label: 'Finition', tone: 'accent' };
   return { label: 'Prêt à la vente', tone: 'green' };
 }
 
@@ -180,23 +180,6 @@ function compactFcfa(n: number): string {
   return n.toLocaleString('fr-FR');
 }
 
-function StarLabel({ label }: { label: string }) {
-  const parts = label.split('★');
-  if (parts.length === 1) {
-    return <AppText size="caption" color="faint" numberOfLines={1}>{label}</AppText>;
-  }
-  return (
-    <AppText size="caption" color="faint" numberOfLines={1}>
-      {parts.map((p, i) => (
-        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} key={i}>
-          {p}
-          {i < parts.length - 1 ? <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: palette.amber[500] }}>★</Text> : null}
-        </Text>
-      ))}
-    </AppText>
-  );
-}
-
 function recentSales(s?: SaleSummary[]): SaleSummary[] {
   return (s ?? [])
     .filter((sale) => sale.status !== 'CANCELLED')
@@ -245,14 +228,6 @@ const CANAL_LABELS: Record<OrderCanal, string> = {
   FERME: 'Ferme',
   LIVRAISON: 'Livraison',
   PRECOMMANDE: 'Précommande',
-};
-
-const READY_REASON_LABELS: Record<ReadyReason, string> = {
-  READY: 'Prêt à la vente',
-  TOO_YOUNG: 'Trop jeune (âge minimum 35 jours)',
-  FCR: 'Indice de consommation au-dessus du seuil de vente',
-  SANITARY: 'Contre-indication sanitaire',
-  N_A: 'Non applicable (pondeuses en ponte normale)',
 };
 
 // ── Soins à afficher en mode compact (vaccin / médicament / retard) ──
@@ -677,16 +652,24 @@ export default function LotsScreen() {
       const mA = a.metrics;
       const mB = b.metrics;
       let cmp = 0;
+      if (sortKey === 'fcr') {
+        // Same value as the card (official when it exists); lots without IC always last.
+        const fA = lotHeadlines(officialMap.get(a.id), mA, true).fcr.numeric;
+        const fB = lotHeadlines(officialMap.get(b.id), mB, true).fcr.numeric;
+        if (fA == null && fB == null) return 0;
+        if (fA == null) return 1;
+        if (fB == null) return -1;
+        return sortDir === 'desc' ? fB - fA : fA - fB;
+      }
       if (sortKey === 'name') cmp = (a.batchName ?? '').localeCompare(b.batchName ?? '');
       else if (sortKey === 'age') cmp = mA.ageDays - mB.ageDays;
       else if (sortKey === 'mortality') cmp = mA.mortalityPercent - mB.mortalityPercent;
-      else if (sortKey === 'fcr') cmp = (mA.fcr ?? 0) - (mB.fcr ?? 0);
       else if (sortKey === 'liveCount') cmp = mA.liveCount - mB.liveCount;
       else if (sortKey === 'health') cmp = (mA.status === 'VERT' ? 3 : mA.status === 'JAUNE' ? 2 : 1) - (mB.status === 'VERT' ? 3 : mB.status === 'JAUNE' ? 2 : 1);
       return sortDir === 'desc' ? -cmp : cmp;
     });
     return list;
-  }, [filteredList, sortKey, sortDir, search]);
+  }, [filteredList, sortKey, sortDir, search, officialMap]);
 
   // ── Slim summary totals (Vue d'ensemble, sur le filtre — pas la recherche) ──
   // Server farm indicators apply only when the list is the whole farm (no filter) and live.
@@ -745,7 +728,7 @@ export default function LotsScreen() {
           {/* ── HEADER (fixe, comme Accueil) ── */}
           <ScreenHeader
             title="Lots"
-            subtitle={`${plural(batches.data?.length ?? 0, 'lot')} · suivi zootechnique`}
+            subtitle="Suivi zootechnique"
             left={<Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} accessibilityLabel="Logo Fermia" />}
             right={
               <Pressable onPress={openCreate} style={styles.createBtn} accessibilityRole='button'>
@@ -861,17 +844,12 @@ export default function LotsScreen() {
       <>
       {/* ── FINANCE (en direct : 4 KPI · la feuille de détails s'ouvre en bas) ── */}
       <View style={styles.financeWrap}>
-        <Pressable
-          onPress={openFinanceSheet}
-          style={({ pressed }) => [styles.financeHead, pressed && styles.financeHeadPressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Finances — voir le détail en feuille">
+        <View style={styles.financeHead}>
           <View style={styles.financeHeadIcon}>
             <Wallet size={15} color={semantic.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <AppText size="small" weight="bold" color="brand">Finance</AppText>
-            <StarLabel label={finLabel} />
           </View>
           <Pressable
             onPress={() => {
@@ -884,18 +862,14 @@ export default function LotsScreen() {
             style={({ pressed }) => [styles.financeHelpBtn, pressed && styles.financeHelpBtnPressed]}>
             <Info size={14} color={semantic.primary} />
           </Pressable>
-          <View style={styles.financeToggleBtn}>
-            <AppText size="caption" weight="bold" color="brand">Détails</AppText>
-            <ChevronRight size={13} color={semantic.primary} />
-          </View>
-        </Pressable>
+        </View>
       </View>
 
       <Card padding={false} style={styles.financeCard} onPress={openFinanceSheet}>
         <View style={styles.financeStrip}>
           <FinanceCell label="Recettes" value={compactFcfa(pnl.data?.sales.totalFcfa ?? 0)} sub={`${pnl.data?.sales.count ?? 0} vente(s)`} fg={semantic.primary} icon={Wallet} />
           <View style={styles.financeDivider} />
-          <FinanceCell label="Encaissé" value={compactFcfa(pnl.data?.collectedFcfa ?? 0)} sub="encaissé" fg={palette.green[600]} icon={Coins} />
+          <FinanceCell label="Encaissé" value={compactFcfa(pnl.data?.collectedFcfa ?? 0)} fg={palette.green[600]} icon={Coins} />
           <View style={styles.financeDivider} />
           <FinanceCell
             label="Créances"
@@ -979,26 +953,36 @@ export default function LotsScreen() {
       />
 
       {/* ── FILTERS + SORT ── */}
-      <View style={styles.searchWrap}>
-        <Search size={16} color={color.ink[400]} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Rechercher une bande…"
-          placeholderTextColor={color.ink[300]}
-          style={styles.searchInput}
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {search.length > 0 && (
-          <Pressable accessibilityLabel="Effacer la recherche" onPress={() => setSearch('')} hitSlop={10}>
-            <X size={16} color={color.ink[400]} />
-          </Pressable>
-        )}
-      </View>
-      {/* ── FILTRES + TRI · barre compacte ── */}
       <View style={styles.controlRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScrollView} contentContainerStyle={styles.filterScroll}>
+        <View style={[styles.searchWrap, { flex: 1, marginTop: 0, marginBottom: 0 }]}>
+          <Search size={16} color={color.ink[400]} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Rechercher une bande…"
+            placeholderTextColor={color.ink[300]}
+            style={styles.searchInput}
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+          {search.length > 0 && (
+            <Pressable accessibilityLabel="Effacer la recherche" onPress={() => setSearch('')} hitSlop={10}>
+              <X size={16} color={color.ink[400]} />
+            </Pressable>
+          )}
+        </View>
+        <Pressable
+          onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowFilterSheet(true); }}
+          accessibilityRole="button"
+          accessibilityLabel="Plus de filtres et tri"
+          style={[styles.sortToggle, hasAdvancedFilters && styles.sortToggleActive]}>
+          {hasAdvancedFilters ? <View style={styles.advancedDot} /> : null}
+          <SlidersHorizontal size={16} color={hasAdvancedFilters ? semantic.primary : color.ink[500]} />
+        </Pressable>
+      </View>
+      {/* ── FILTRES · pastilles ── */}
+      <View style={styles.pillsRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {FILTERS.map((f) => (
             <FilterPill
               key={f.key}
@@ -1010,14 +994,6 @@ export default function LotsScreen() {
             />
           ))}
         </ScrollView>
-        <Pressable
-          onPress={() => { Haptics.selectionAsync().catch(() => {}); setShowFilterSheet(true); }}
-          accessibilityRole="button"
-          accessibilityLabel="Plus de filtres et tri"
-          style={[styles.sortToggle, hasAdvancedFilters && styles.sortToggleActive]}>
-          {hasAdvancedFilters ? <View style={styles.advancedDot} /> : null}
-          <SlidersHorizontal size={16} color={hasAdvancedFilters ? semantic.primary : color.ink[500]} />
-        </Pressable>
       </View>
 
       {/* ── LOT LIST ── */}
@@ -1246,9 +1222,6 @@ function LotCard({ batch, official, buildingName, health, prophylaxis, treatment
     return merged.filter((c) => (seen.has(c.label) ? false : (seen.add(c.label), true)));
   }, [prophylaxis, program, m.ageDays, treatments]);
 
-  // Compte strict des soins EN_RETARD (statut serveur) → badge rouge distinct.
-  const lateCount = (prophylaxis ?? []).filter((p) => p.status === 'EN_RETARD').length;
-
   // Conseil « prochain vaccin » : affiché quand aucune alerte soin n'occupe la carte.
   const nextVaccine = useMemo(
     () => nextCareInsight(batch, prophylaxis, treatments, program),
@@ -1276,7 +1249,7 @@ function LotCard({ batch, official, buildingName, health, prophylaxis, treatment
         </View>
 
         <View style={styles.lotHeaderMid}>
-          <AppText size="body" weight="bold" color="text">
+          <AppText size="body" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
             {batch.batchName ?? 'Lot'}
           </AppText>
           {batch.code ? (
@@ -1290,15 +1263,8 @@ function LotCard({ batch, official, buildingName, health, prophylaxis, treatment
         </View>
 
         <View style={styles.lotHeaderRight}>
-          <BadgeChip icon={CalendarDays} value={`J${m.ageDays}`} color={semantic.primary} />
           {healthScore != null && (
             <BadgeChip icon={HeartPulse} value={healthScore} color={healthColor} />
-          )}
-          {lateCount > 0 && (
-            <BadgeChip icon={AlertTriangle} value={lateCount} color={palette.red[500]} />
-          )}
-          {m.alerts > 0 && (
-            <BadgeChip icon={AlertTriangle} value={m.alerts} color={palette.amber[600]} />
           )}
         </View>
       </View>
@@ -1313,11 +1279,13 @@ function LotCard({ batch, official, buildingName, health, prophylaxis, treatment
             </AppText>
           </View>
         )}
-        <View style={[styles.stageChip, { backgroundColor: STAGE_CHIP_TONES[stage.tone].bg, borderColor: STAGE_CHIP_TONES[stage.tone].border }]}>
-          <AppText size="small" weight="bold" color={STAGE_CHIP_TONES[stage.tone].fg}>
-            {stage.label}
-          </AppText>
-        </View>
+        {stage.label !== 'Prêt à la vente' && (
+          <View style={[styles.stageChip, { backgroundColor: STAGE_CHIP_TONES[stage.tone].bg, borderColor: STAGE_CHIP_TONES[stage.tone].border }]}>
+            <AppText size="small" weight="bold" color={STAGE_CHIP_TONES[stage.tone].fg}>
+              {stage.label}
+            </AppText>
+          </View>
+        )}
         {buildingName && (
           <View style={[styles.buildingChip, { backgroundColor: semantic.primarySoft, borderColor: palette.brand[200] }]}>
             <Building2 size={12} color={palette.brand[700]} />
@@ -1605,9 +1573,6 @@ function StatsPanel({ summary, hasAnyBatch, filterLabel, onOpen }: { summary: Ov
           <AppText size="small" weight="bold" color="brand">Vue d’ensemble</AppText>
         </View>
         <View style={{ flex: 1 }} />
-        <View style={[styles.summaryPill, styles.summaryPillActive]}>
-          <AppText size="caption" weight="bold" color="surface">{plural(summary.count, 'lot')} · {plural(summary.activeCount, 'actif')}</AppText>
-        </View>
         <View style={[styles.panelChevron, styles.panelChevronActive]}>
           <ChevronUp size={14} color={semantic.primarySoft} />
         </View>
@@ -2461,17 +2426,6 @@ function DetailSectionTitle({ label, color, icon: Icon }: { label: string; color
   );
 }
 
-function HeroMetric({ label, value, sub, tone, icon: Icon }: { label: string; value: string; sub?: string; tone: string; icon: typeof Clock }) {
-  return (
-    <View style={styles.heroMetric}>
-      <Icon size={13} color={tone} />
-      <AppText size="bodyM" weight="bold" color={tone} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</AppText>
-      <AppText size="caption" color="muted" numberOfLines={1}>{label}</AppText>
-      {sub ? <AppText size="label" color="faint" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{sub}</AppText> : null}
-    </View>
-  );
-}
-
 function PlanCareButton({ onPress }: { onPress: () => void }) {
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -2611,69 +2565,17 @@ function LotExpandedDetail({ batch, official, health, pnl, prophylaxis, treatmen
   const eggTotal = eb.collected;
   const eggCracked = eb.cracked;
   const eggCasse = eggTotal > 0 ? Math.round((eggCracked / eggTotal) * 100) : 0;
-  const pill = batchStatusPill(batch);
-
-  const pillFg = pill ? STATUS_PILL_TONES[pill.tone].fg : color.ink[500];
-  const pillBg = pill ? STATUS_PILL_TONES[pill.tone].bg : semantic.surfaceAlt;
-  const pillBorder = pill ? STATUS_PILL_TONES[pill.tone].border : semantic.border;
-  const PillIcon = pill ? pill.icon : Activity;
-  const pillLabel = pill ? pill.label : 'En élevage';
-
+  // One number on screen: the card already shows the status pill, headline figures, IC/GMQ,
+  // feed and density, so this sheet keeps only what is unique to it.
   const head = lotHeadlines(official, m);
-  const mortStatus = normalizeMortalityStatus(m.mortalityStatus, head.mortality.numeric ?? m.mortalityPercent);
-  const mortTone = mortStatus === 'normal' ? palette.green[600] : mortStatus === 'elevated' ? palette.amber[500] : palette.red[500];
-  const layTone = m.layRatePercent != null ? palette.accent[600] : color.ink[400];
-
-  const readyTone = m.readyReason === 'READY' ? palette.green[600] : m.readyReason === 'SANITARY' ? palette.red[500] : m.readyReason === 'FCR' ? palette.amber[500] : color.ink[500];
-  const readyBg = m.readyReason === 'READY' ? semantic.successSoft : m.readyReason === 'SANITARY' ? semantic.dangerSoft : m.readyReason === 'FCR' ? semantic.warnSoft : semantic.surfaceAlt;
-  const readyBorder = m.readyReason === 'READY' ? palette.green[200] : m.readyReason === 'SANITARY' ? palette.red[200] : m.readyReason === 'FCR' ? palette.amber[200] : semantic.border;
-  const readyIconBg = m.readyReason === 'READY' ? palette.green[100] : m.readyReason === 'SANITARY' ? palette.red[100] : m.readyReason === 'FCR' ? palette.amber[100] : palette.ink[100];
-  const readyIcon = m.readyForSale && m.readyReason === 'READY'
-    ? <PackageCheck size={16} color={palette.green[600]} />
-    : m.readyReason === 'SANITARY'
-      ? <AlertTriangle size={16} color={palette.red[500]} />
-      : m.readyReason === 'FCR'
-        ? <Info size={16} color={palette.amber[500]} />
-        : <Clock size={16} color={color.ink[400]} />;
-  const readyLabel = READY_REASON_LABELS[m.readyReason];
 
   return (
     <View style={styles.expandedSection}>
-      {/* ── HERO ── */}
-      <View style={styles.detailHero}>
-        <View style={styles.heroTopRow}>
-          <View style={[styles.heroStatus, { backgroundColor: pillBg, borderColor: pillBorder }]}>
-            <PillIcon size={13} color={pillFg} />
-            <AppText size="small" weight="bold" color={pillFg} numberOfLines={1} style={{ flexShrink: 1 }}>{pillLabel}</AppText>
-          </View>
-          <BadgeChip icon={CalendarDays} value={`J${m.ageDays}`} color={semantic.primary} />
-        </View>
-        <View style={styles.heroMetrics}>
-          <HeroMetric label="Vivants" value={fmt(m.liveCount)} icon={Bird} tone={semantic.primary} />
-          <View style={styles.heroDivider} />
-          <HeroMetric label="Mortalité" value={head.mortality.value} sub={head.mortality.official ? `Fermia ${fermiaMortalityText(m.mortalityPercent)} · conduite` : 'Fermia · conduite'} icon={HeartPulse} tone={mortTone} />
-          <View style={styles.heroDivider} />
-          <HeroMetric
-            label={isLayer ? 'Taux de ponte' : 'Œufs'}
-            value={m.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : eggTotal > 0 ? fmt(eggTotal) : '—'}
-            icon={Egg}
-            tone={isLayer ? layTone : eggTotal > 0 ? palette.accent[600] : color.ink[400]}
-          />
-        </View>
-      </View>
-
-      <View style={styles.divider} />
-
-      {/* ── INDICATEURS ── */}
+      {/* ── INDICATEURS (uniques à la feuille) ── */}
       <DetailSectionTitle label="Indicateurs" icon={Gauge} color={semantic.primary} />
       <View style={styles.secondaryGrid}>
         <SecondaryMetric label="IPE" value={m.ipe != null ? m.ipe.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : '—'} icon={Activity} />
-        <SecondaryMetric label="Viabilité" value={head.viability.value} sub={head.viability.sub} icon={HeartPulse} />
-        <SecondaryMetric label="IC" value={head.fcr.value} sub={head.fcr.sub} icon={Scale} />
-        <SecondaryMetric label="GMQ" value={head.gmq.value} sub={head.gmq.sub} icon={TrendingUp} />
-        <SecondaryMetric label="Aliment" value={m.totalFeedKg > 0 ? `${m.totalFeedKg.toLocaleString('fr-FR')} kg` : '—'} icon={Wheat} />
-        <SecondaryMetric label="Alim/oiseau" value={health && health.feedPerBirdGrams > 0 ? `${Math.round(health.feedPerBirdGrams)} g/j` : '—'} icon={Droplets} />
-        <SecondaryMetric label="Densité" value={m.densityPerM2 ? `${m.densityPerM2.toFixed(1)}/m²` : '—'} icon={Layers} />
+        <SecondaryMetric label="Viabilité" value={head.viability.value} sub={head.viability.official ? undefined : head.viability.sub} icon={HeartPulse} />
       </View>
 
       {/* ── ŒUFS ── */}
@@ -2705,8 +2607,7 @@ function LotExpandedDetail({ batch, official, health, pnl, prophylaxis, treatmen
           <DetailSectionTitle label="Santé" icon={Stethoscope} color={palette.green[600]} />
           <View style={styles.secondaryGrid}>
             {health.waterLPerBird ? <SecondaryMetric label="Eau/oiseau" value={`${health.waterLPerBird} L/j`} icon={Droplets} /> : null}
-            <SecondaryMetric label="Morts sem." value={`${m.totalDeaths}`} icon={HeartPulse} />
-            {health.healthScore != null && <SecondaryMetric label="Score santé" value={`${health.healthScore}/100`} icon={Stethoscope} />}
+            <SecondaryMetric label="Morts (cumul)" value={`${m.totalDeaths}`} icon={HeartPulse} />
           </View>
           {!hasCareCalendar && onPlanCare ? (
             <PlanCareButton onPress={onPlanCare} />
@@ -2744,22 +2645,6 @@ function LotExpandedDetail({ batch, official, health, pnl, prophylaxis, treatmen
           )}
         </>
       )}
-
-      {/* ── COMMERCIALISATION ── */}
-      <View style={styles.divider} />
-      <DetailSectionTitle label="Commercialisation" icon={PackageCheck} color={readyTone} />
-      <View style={[styles.readyBanner, { backgroundColor: readyBg, borderColor: readyBorder }]}>
-        <View style={[styles.readyBannerIcon, { backgroundColor: readyIconBg }]}>
-          {readyIcon}
-        </View>
-        <View style={{ flex: 1 }}>
-          <AppText size="small" weight="bold" color={readyTone}>{readyLabel}</AppText>
-          {m.readyForSale && batch.readyForSaleAt ? (
-            <AppText size="caption" color="muted">Disponible depuis le {dateFr(batch.readyForSaleAt)}</AppText>
-          ) : null}
-        </View>
-        <ChevronRight size={18} color={color.ink[300]} />
-      </View>
 
       {/* ── RÉSULTAT DU LOT ── */}
       {pnl && (
@@ -2872,7 +2757,6 @@ const styles = StyleSheet.create({
   panelHeaderIcon: { width: 24, height: 24, borderRadius: 8, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
   ovHeaderLogo: { width: 14, height: 14, tintColor: '#FFFFFF' },
   ovSheetLogo: { width: 22, height: 22, tintColor: '#FFFFFF' },
-  summaryPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt },
   panelCellGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   panelCell: { flexBasis: '46%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0, padding: 10, borderRadius: radii.lg },
   panelCellIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -2880,7 +2764,6 @@ const styles = StyleSheet.create({
   panelHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   panelHeaderRowActive: { backgroundColor: semantic.primarySoft, borderRadius: radii.lg, paddingHorizontal: 8, paddingVertical: 6 },
   panelHeaderIconActive: { backgroundColor: semantic.primary },
-  summaryPillActive: { backgroundColor: semantic.primary },
   panelChevron: { width: 24, height: 24, borderRadius: 8, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
   panelChevronActive: { backgroundColor: semantic.primary },
   alertStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -2933,8 +2816,8 @@ const styles = StyleSheet.create({
   // Controls
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 10, paddingHorizontal: 12, paddingVertical: 9, borderRadius: radii.lg, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
   searchInput: { flex: 1, fontSize: 14, fontFamily: fontFamily.regular, color: color.ink[700], padding: 0 },
-  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  filterScrollView: { flex: 1 },
+  controlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 10 },
+  pillsRow: { marginBottom: 8 },
   filterScroll: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   filterChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radii.pill, backgroundColor: semantic.surfaceAlt, borderWidth: 1, borderColor: semantic.border },
   filterChipCompact: { paddingHorizontal: 10, paddingVertical: 5 },
@@ -3079,12 +2962,6 @@ const styles = StyleSheet.create({
   detailSectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   detailSectionTitleDot: { width: 4, height: 14, borderRadius: 2 },
   detailSectionTitleText: { letterSpacing: 0.5, textTransform: 'uppercase' },
-  detailHero: { backgroundColor: semantic.bg, borderWidth: 1, borderColor: semantic.border, borderRadius: radii.lg, padding: 12, gap: 10 },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  heroStatus: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.pill, borderWidth: 1, maxWidth: '72%' },
-  heroMetrics: { flexDirection: 'row', alignItems: 'stretch' },
-  heroMetric: { flex: 1, alignItems: 'center', gap: 1, minWidth: 0 },
-  heroDivider: { width: 1, backgroundColor: semantic.border, marginVertical: 2 },
   secondaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   secondaryMetric: { flexDirection: 'row', alignItems: 'center', gap: 6, flexBasis: '46%', flexGrow: 1, minWidth: 0, backgroundColor: semantic.surfaceAlt, borderRadius: radii.lg, paddingVertical: 8, paddingHorizontal: 10 },
   secondaryMetricText: { flex: 1, minWidth: 0 },
@@ -3100,7 +2977,6 @@ const styles = StyleSheet.create({
   // Finance section (KPI strip + détail)
   financeWrap: { gap: 2 },
   financeHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2 },
-  financeHeadPressed: { opacity: 0.85 },
   financeHeadIcon: { width: 26, height: 26, borderRadius: 8, backgroundColor: semantic.primarySoft, alignItems: 'center', justifyContent: 'center' },
   financeHelpBtn: {
     width: 26, height: 26, borderRadius: 13,
@@ -3109,13 +2985,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   financeHelpBtnPressed: { opacity: 0.7 },
-  financeToggleBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderRadius: radii.pill,
-    backgroundColor: semantic.primarySoft,
-    borderWidth: 1, borderColor: palette.brand[200],
-  },
   financeCard: { paddingVertical: 10, paddingHorizontal: 4, marginTop: 2 },
   financeStrip: { flexDirection: 'row', alignItems: 'stretch' },
   financeDivider: { width: 1, alignSelf: 'stretch', backgroundColor: semantic.border, marginVertical: 2 },
@@ -3156,10 +3025,6 @@ const styles = StyleSheet.create({
   financeCountBadge: { minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: semantic.surfaceAlt, alignItems: 'center', justifyContent: 'center' },
   financeItemRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 3 },
   financeItemRowDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: semantic.border, paddingBottom: 7, marginBottom: 4 },
-
-  // Readiness
-  readyLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  pnlHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 
   // Bottom
   lotBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: semantic.border, paddingTop: 6 },

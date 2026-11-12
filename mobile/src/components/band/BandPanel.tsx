@@ -74,6 +74,7 @@ export function BandPanel({ farmId, batch, canExit, has }: Props) {
   const indicators = useQuery({
     queryKey: ['band-indicators', farmId, batchId],
     queryFn: () => cachedRead(`band-indicators.${farmId}.${batchId}`, () => fetchBandIndicators(farmId, batchId)),
+    retry: false,
   });
   const comparison = useQuery({
     queryKey: ['band-comparison', farmId, batchId],

@@ -7,16 +7,15 @@ import {
   ArrowDown,
   ArrowUp,
   ClipboardCheck,
-  Droplets,
   NotebookPen,
-  Sun,
-  Thermometer,
   Wallet,
 } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { Chip } from '@/components/ui/Chip';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Segmented, type SegmentedOption } from '@/components/ui/Segmented';
@@ -43,11 +42,6 @@ const PANEL_OPTIONS: SegmentedOption<PanelKey>[] = [
   { key: 'CAISSE', label: 'Caisse' },
   { key: 'RAPPORTS', label: 'Bilan hebdo' },
 ];
-
-function capitalize(value: string | null | undefined): string {
-  const text = (value ?? '').trim();
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : 'Météo de la ferme';
-}
 
 export default function ActivitesScreen() {
   const router = useRouter();
@@ -97,16 +91,13 @@ export default function ActivitesScreen() {
     [d?.healthOverview, tasks.data, advisory.data?.alerts, span],
   );
 
-  const weather = d?.weather;
-
-  const taskCounts = useMemo(() => {
-    const list = tasks.data ?? [];
-    return {
-      aFaire: list.filter((t) => t.status === 'A_FAIRE').length,
-      enCours: list.filter((t) => t.status === 'EN_COURS').length,
-      faites: list.filter((t) => t.status === 'FAIT').length,
-    };
-  }, [tasks.data]);
+  // Never claim « tout est à jour » without data: the queue needs both sources.
+  const queueLoading = (tasks.isLoading && !tasks.data) || (advisory.isLoading && !advisory.data);
+  const queueFailed = !queueLoading && ((tasks.isError && !tasks.data) || (advisory.isError && !advisory.data));
+  const retryQueue = () => {
+    if (tasks.isError) void tasks.refetch();
+    if (advisory.isError) void advisory.refetch();
+  };
 
   if (dashboard.isLoading) {
     return (
@@ -125,10 +116,11 @@ export default function ActivitesScreen() {
           void dashboard.refetch();
         }}
         header={<ScreenHeader title="Activités" subtitle="Journal & opérations" />}>
-        <Card tone="default" style={{ padding: 14 }}>
+        <Card tone="default" style={{ padding: 14, gap: 10 }}>
           <AppText size="body" color="muted">
             Impossible de charger l’activité de la ferme.
           </AppText>
+          <Button label="Réessayer" tone="ghost" onPress={() => void dashboard.refetch()} loading={dashboard.isFetching} />
         </Card>
       </Screen>
     );
@@ -151,38 +143,51 @@ export default function ActivitesScreen() {
         {/* ── Panneaux : un seul écran visible à la fois ───────────────────── */}
         <Segmented options={panelOptions} value={panel} onChange={setPanel} haptic />
 
+        <StaleNotice show={dashboard.isError && Boolean(dashboard.data)} updatedAt={dashboard.dataUpdatedAt} />
+
         <ActivityHero d={d} dateLabel={dateLabel} />
 
       {/* ── Panneau « Tâches » ────────────────────────────────────────────── */}
       {panel === 'TACHES' ? (
         <Animated.View key="panneau-taches" entering={enter.fade()} style={styles.panel}>
-          <View style={styles.countsRow}>
-            <CountTile label="À faire" value={taskCounts.aFaire} />
-            <CountTile label="En cours" value={taskCounts.enCours} />
-            <CountTile label="Terminées" value={taskCounts.faites} />
-          </View>
-
           <SectionHeader
             title="À traiter"
             subtitle={
-              queue.total > 0
-                ? `${queue.total} action${queue.total > 1 ? 's' : ''} en attente`
-                : 'Aucune action requise'
+              queueLoading || queueFailed
+                ? undefined
+                : queue.total > 0
+                  ? `${queue.total} action${queue.total > 1 ? 's' : ''} en attente`
+                  : 'Aucune action requise'
             }
             icon={NotebookPen}
           />
-          <ActionQueue queue={queue} />
+          {queueLoading ? (
+            <Spinner label="Chargement…" />
+          ) : queueFailed ? (
+            <Card tone="default" style={{ padding: 14, gap: 10 }}>
+              <AppText size="body" color="muted">
+                Impossible de charger les actions à traiter.
+              </AppText>
+              <Button label="Réessayer" tone="ghost" onPress={retryQueue} />
+            </Card>
+          ) : (
+            <ActionQueue queue={queue} />
+          )}
 
-          <SectionHeader title="Activité récente" icon={ClipboardCheck} />
-          <SpanFilter value={span} onChange={setSpan} />
-          <JournalTimeline groups={journal.groups} />
-          {journal.truncatedGroups > 0 ? (
-            <AppText size="small" color="faint" align="center">
-              {journal.truncatedGroups} jour{journal.truncatedGroups > 1 ? 's' : ''} plus ancien
-              {journal.truncatedGroups > 1 ? 's' : ''} non affiché{journal.truncatedGroups > 1 ? 's' : ''} — élargissez
-              la période.
-            </AppText>
-          ) : null}
+          {queueLoading || queueFailed ? null : (
+            <>
+              <SectionHeader title="Activité récente" icon={ClipboardCheck} />
+              <SpanFilter value={span} onChange={setSpan} />
+              <JournalTimeline groups={journal.groups} />
+              {journal.truncatedGroups > 0 ? (
+                <AppText size="small" color="faint" align="center">
+                  {journal.truncatedGroups} jour{journal.truncatedGroups > 1 ? 's' : ''} plus ancien
+                  {journal.truncatedGroups > 1 ? 's' : ''} non affiché{journal.truncatedGroups > 1 ? 's' : ''} — élargissez
+                  la période.
+                </AppText>
+              ) : null}
+            </>
+          )}
 
           <Pressable
             onPress={() => router.push('/tasks')}
@@ -199,7 +204,6 @@ export default function ActivitesScreen() {
       {panel === 'LOTS' ? (
         <Animated.View key="panneau-lots" entering={enter.fade()} style={styles.panel}>
           <View style={styles.countsRow}>
-            <CountTile label="Stock vivant" value={fmt(d.liveStock)} />
             <CountTile label="Lots actifs" value={d.batches.actif} />
             <CountTile label="En vente" value={d.batches.enVente} />
           </View>
@@ -339,48 +343,10 @@ export default function ActivitesScreen() {
           <SectionHeader title="Performance des lots" icon={ClipboardCheck} />
           <PerformanceList rows={d.leaderboard} />
 
-          {weather ? (
-            <Card tone="default" style={styles.weatherCard}>
-              <View style={styles.weatherRow}>
-                <Sun size={18} color={color.accent[500]} />
-                <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
-                  <AppText size="bodyM" weight="bold" color="text" numberOfLines={1}>
-                    {capitalize(weather.condition)}
-                  </AppText>
-                  <AppText size="small" color="muted" numberOfLines={2}>
-                    {weather.location}
-                  </AppText>
-                </View>
-                <View style={styles.weatherTemps}>
-                  <View style={styles.tempItem}>
-                    <Thermometer size={12} color={color.red[500]} />
-                    <AppText size="bodyM" weight="bold" color="text">
-                      {Math.round(weather.temperatureC)}°
-                    </AppText>
-                  </View>
-                  <View style={styles.tempItem}>
-                    <Droplets size={12} color={color.brand[500]} />
-                    <AppText size="bodyM" weight="bold" color="muted">
-                      {Math.round(weather.humidityPct)} %
-                    </AppText>
-                  </View>
-                </View>
-              </View>
-              {weather.rainfallMm > 0 ? (
-                <View style={styles.rainNote}>
-                  <AppText size="small" color="muted">
-                    Pluie prévue : {weather.rainfallMm.toFixed(1)} mm — surveiller la litière et le
-                    ventilation.
-                  </AppText>
-                </View>
-              ) : null}
-            </Card>
-          ) : null}
-
           <View style={styles.countsRow}>
             <CountTile label="Bâtiments" value={fmt(d.buildingsCount)} />
             <CountTile label="Équipe" value={d.teamCount} />
-            <CountTile label="Alertes" value={d.alerts.total} />
+            <CountTile label="Alertes" value={d.alerts.total} onPress={() => router.push('/alerts')} />
           </View>
 
           <Pressable
@@ -388,7 +354,7 @@ export default function ActivitesScreen() {
             style={({ pressed }) => [styles.openAll, pressed && { opacity: 0.7 }]}
             accessibilityRole="button">
             <AppText size="small" weight="semibold" color="brand">
-              Ouvrir les rapports détaillés →
+              Ouvrir la rentabilité →
             </AppText>
           </Pressable>
         </Animated.View>
@@ -398,16 +364,26 @@ export default function ActivitesScreen() {
   );
 }
 
-function CountTile({ label, value }: { label: string; value: number | string }) {
-  return (
-    <View style={styles.countTile}>
+function CountTile({ label, value, onPress }: { label: string; value: number | string; onPress?: () => void }) {
+  const body = (
+    <>
       <AppText size="bodyM" weight="bold" color="text" numberOfLines={1}>
         {value}
       </AppText>
-      <AppText size="small" color="muted" numberOfLines={2}>
+      <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
         {label}
       </AppText>
-    </View>
+    </>
+  );
+  if (!onPress) return <View style={styles.countTile}>{body}</View>;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.countTile, pressed && { opacity: 0.7 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} : ${value}`}>
+      {body}
+    </Pressable>
   );
 }
 
@@ -485,29 +461,5 @@ const styles = StyleSheet.create({
   caisseStatLast: {
     borderRightWidth: 0,
     paddingRight: 0,
-  },
-  weatherCard: {
-    padding: 14,
-  },
-  weatherRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  weatherTemps: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  tempItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  rainNote: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: color.border,
   },
 });

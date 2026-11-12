@@ -37,6 +37,14 @@ export function mobileRouteOf(serverRoute: string | null | undefined): string {
   return '/notifications';
 }
 
+/**
+ * History list: drops the items that only open the alerts screen (those
+ * alerts already live in its « À traiter » tab). Order is preserved.
+ */
+export function withoutAlertEvents<T extends { route: string | null | undefined }>(items: readonly T[]): T[] {
+  return items.filter((i) => mobileRouteOf(i.route) !== '/alerts');
+}
+
 /** Inbox after one item was read here (the server reads the whole occurrence). */
 export function markReadLocally(items: readonly InboxItem[], id: string, at: string): InboxItem[] {
   return items.map((i) => (i.id === id && !i.readAt ? { ...i, readAt: at } : i));

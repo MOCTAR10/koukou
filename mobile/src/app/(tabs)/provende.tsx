@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -56,7 +56,8 @@ import type {
   FeedTypeStock,
 } from '@/api/types';
 import { color, palette, radii, spacing, fontFamily, semantic } from '@/constants/theme';
-import { FEED_STOCK_WARN_DAYS } from '@/constants/stock';
+import { FEED_STOCK_CRITICAL_DAYS, FEED_STOCK_WARN_DAYS } from '@/constants/stock';
+import { ConnectionPill } from '@/components/ui/ConnectionStrip';
 import { errorText } from '@/api/errorText';
 import { parseDecimalFr } from '@/utils/number';
 
@@ -122,10 +123,10 @@ function TypeCard({ t, pricePerKg }: { t: FeedTypeStock; pricePerKg: number | nu
             {t.feedPhase ? FEED_PHASE_LABELS[t.feedPhase] : 'Aliment'}
           </AppText>
           <AppText size="caption" color="muted">
-            Reçu {t.receivedKg} kg · consommé {t.usedKg} kg
+            Reçu {Math.round(t.receivedKg).toLocaleString('fr-FR')} kg · consommé {Math.round(t.usedKg).toLocaleString('fr-FR')} kg
           </AppText>
         </View>
-        <Chip label={t.status} tone={levelTone(t.status)} />
+        <Chip label={t.status === 'ROUGE' ? 'Critique' : t.status === 'JAUNE' ? 'Bas' : 'OK'} tone={levelTone(t.status)} />
       </View>
 
       <View style={styles.summaryStrip}>
@@ -162,9 +163,9 @@ function TypeCard({ t, pricePerKg }: { t: FeedTypeStock; pricePerKg: number | nu
 }
 
 /** Insight consommation provende : rythme / jour, tendance, couverture et ordre suggéré. */
-function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]; mvts: FeedMovement[]; refDate?: string }) {
-  // Business day in Gabon time (not the phone's zone); `refDate` pins it for a past view.
-  const noon = new Date(`${refDate ?? librevilleDay()}T12:00:00Z`);
+function ConsumptionInsight({ byType, mvts, sacKg }: { byType: FeedTypeStock[]; mvts: FeedMovement[]; sacKg: number }) {
+  // Business day in Gabon time (not the phone's zone).
+  const noon = new Date(`${librevilleDay()}T12:00:00Z`);
   const d7 = librevilleDaysBack(7, noon);
   const d14 = librevilleDaysBack(14, noon);
 
@@ -225,7 +226,7 @@ function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]
         </View>
         <View style={{ flex: 1, gap: 1 }}>
           <AppText size="body" weight="bold" color="text">Consommation & couverture</AppText>
-          <AppText size="caption" color="muted">Rythme des {Math.max(days7, 1)} derniers jours de relevés</AppText>
+          <AppText size="caption" color="muted">Rythme sur {Math.max(days7, 1)} jour{days7 > 1 ? 's' : ''} de saisie</AppText>
         </View>
         {trendPct != null ? (
           <Chip
@@ -265,13 +266,13 @@ function ConsumptionInsight({ byType, mvts, refDate }: { byType: FeedTypeStock[]
         <View style={[styles.insightTip, { backgroundColor: color.amber[50], borderColor: palette.amber[200] }]}>
           <AlertTriangle size={14} color={palette.amber[700]} />
           <AppText size="small" style={{ color: palette.amber[700], flex: 1, lineHeight: 17 }}>
-            <AppText size="small" weight="bold">{FEED_PHASE_LABELS[critical.feedPhase]} : {Math.round(critDays)} j restants.</AppText>
-            {' '}Prévoyez ≈ {need7Kg.toLocaleString('fr-FR')} kg (soit ~{Math.ceil(need7Kg / 50)} sacs de 50 kg) pour couvrir 7 jours.
+            <AppText size="small" weight="bold">{critical.feedPhase ? FEED_PHASE_LABELS[critical.feedPhase] : 'Aliment'} : {Math.round(critDays)} j restants.</AppText>
+            {' '}Prévoyez ≈ {need7Kg.toLocaleString('fr-FR')} kg (soit ~{Math.ceil(need7Kg / sacKg)} sacs de {sacKg} kg) pour couvrir 7 jours.
           </AppText>
         </View>
       ) : critical ? (
         <AppText size="small" style={{ color: critDays != null && critDays < 8 ? palette.amber[700] : palette.green[700], lineHeight: 17 }}>
-          {critDays != null && critDays < 8 ? 'Stock suffisant mais à surveiller —' : 'Stock suffisant —'} minimum {Math.round(critDays ?? 0)} j d’autonomie ({critical.feedPhase ? FEED_PHASE_LABELS[critical.feedPhase] : 'aliment'}).
+          {critDays != null && critDays < 8 ? 'Stock suffisant mais à surveiller.' : 'Stock suffisant.'}
         </AppText>
       ) : (
         <AppText size="small" color="muted" style={{ lineHeight: 17 }}>
@@ -294,16 +295,7 @@ export default function ProvendeScreen() {
 
   const [view, setView] = useState<'stock' | 'mouvements'>('stock');
   const [subView, setSubView] = useState<'lots' | 'journal'>('lots');
-  const [window, setWindow] = useState<PeriodWindow>(() => periodWindow('all'));
-  const firstWindowRef = useRef(true);
-
-  const handlePeriodChange = (w: PeriodWindow) => {
-    setWindow(w);
-    if (firstWindowRef.current) {
-      firstWindowRef.current = false;
-      return;
-    }
-  };
+  const [period, setPeriod] = useState<PeriodWindow>(() => periodWindow('all'));
 
   const stock = useQuery({
     queryKey: ['feed-stock', farmId],
@@ -317,7 +309,7 @@ export default function ProvendeScreen() {
   });
 
   useLiveMinute(() => {
-    if (window.isFiltered || !readsStock) return;
+    if (period.isFiltered || !readsStock) return;
     void stock.refetch();
     void movements.refetch();
   });
@@ -416,14 +408,14 @@ export default function ProvendeScreen() {
 
   // ── Filtre par fenêtre (barre de date en haut) ──
   const inPeriod = (d?: string | null): boolean => {
-    if (!d) return window.span === 'all' && !window.isFiltered;
+    if (!d) return period.span === 'all' && !period.isFiltered;
     const day = d.slice(0, 10);
-    if (window.span === 'all') return !window.isFiltered || day === window.to;
-    if (!window.from) return true;
-    return day >= window.from && day <= (window.to ?? '');
+    if (period.span === 'all') return !period.isFiltered || day === period.to;
+    if (!period.from) return true;
+    return day >= period.from && day <= (period.to ?? '');
   };
   const visibleMvts = mvts.filter((m) => inPeriod(m.date));
-  const mvtsFiltered = window.span !== 'all' || window.isFiltered;
+  const mvtsFiltered = period.span !== 'all' || period.isFiltered;
 
   return (
     <Screen
@@ -440,11 +432,12 @@ export default function ProvendeScreen() {
                 Provende
               </AppText>
               <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
-                Stock & inventaire · pertes & mouvements
+                Stock & mouvements
               </AppText>
             </View>
+            <ConnectionPill />
           </View>
-          <PeriodBar defaultSpan="all" onChange={handlePeriodChange} />
+          {readsStock && view === 'mouvements' ? <PeriodBar defaultSpan="all" onChange={setPeriod} /> : null}
         </>
       }
     >
@@ -524,7 +517,7 @@ export default function ProvendeScreen() {
                 </AppText>
                 <AppText size="small" color="muted" numberOfLines={2}>
                   {summary.low > 0
-                    ? `${summary.low} phase${summary.low > 1 ? 's' : ''} sous 5 j d’autonomie. Sacs gâtés à sortir de l’inventaire.`
+                    ? `${summary.low} phase${summary.low > 1 ? 's' : ''} sous ${FEED_STOCK_WARN_DAYS} j d’autonomie. Sacs gâtés à sortir de l’inventaire.`
                     : 'Sacs gâtés (humidité, rongeurs…) à sortir de l’inventaire — traçabilité conservée.'}
                 </AppText>
               </View>
@@ -534,13 +527,6 @@ export default function ProvendeScreen() {
 
           <View style={styles.metricGrid}>
             <MetricTile
-              label="Stock total"
-              value={`${summary.totalKg} kg`}
-              sub={`${summary.active} type${summary.active > 1 ? 's' : ''}`}
-              tone="brand"
-              icon={Wheat}
-            />
-            <MetricTile
               label="Autonomie"
               value={(() => {
                 const min = byType.filter((t) => t.autonomyDays != null).reduce((m, t) => Math.min(m, t.autonomyDays!), Infinity);
@@ -549,18 +535,18 @@ export default function ProvendeScreen() {
               sub={(() => {
                 const min = byType.filter((t) => t.autonomyDays != null).reduce((m, t) => Math.min(m, t.autonomyDays!), Infinity);
                 if (min === Infinity) return 'Suffisant';
-                return min < 3 ? 'Critique' : min < 5 ? 'Stock bas' : 'Suffisant';
+                return min < FEED_STOCK_CRITICAL_DAYS ? 'Critique' : min < FEED_STOCK_WARN_DAYS ? 'Stock bas' : 'Suffisant';
               })()}
               tone={(() => {
                 const min = byType.filter((t) => t.autonomyDays != null).reduce((m, t) => Math.min(m, t.autonomyDays!), Infinity);
                 if (min === Infinity) return 'green';
-                return min < 3 ? 'red' : min < 5 ? 'amber' : 'green';
+                return min < FEED_STOCK_CRITICAL_DAYS ? 'red' : min < FEED_STOCK_WARN_DAYS ? 'amber' : 'green';
               })()}
               icon={Package}
             />
           </View>
 
-          {byType.length > 0 ? <ConsumptionInsight byType={byType} mvts={visibleMvts} refDate={window.isFiltered ? window.to : undefined} /> : null}
+          {byType.length > 0 ? <ConsumptionInsight byType={byType} mvts={mvts} sacKg={sacKg} /> : null}
 
           <SectionHeader title="Inventaire par type" subtitle="Autonomie en jours · valeur estimée au prix moyen" />
           <View style={{ gap: 10 }}>
@@ -592,7 +578,6 @@ export default function ProvendeScreen() {
 
           {subView === 'lots' ? (
             <>
-              <SectionHeader title="Lots de provende" subtitle="Traçabilité HACCP : fournisseur, n° lot, péremption" />
               <View style={{ gap: 10 }}>
                 {lots.length === 0 ? (
                   <View style={styles.emptyWrap}>
@@ -632,7 +617,6 @@ export default function ProvendeScreen() {
             </>
           ) : (
             <>
-              <SectionHeader title="Journal des mouvements" subtitle="Consommations liées, pertes et ventes (valeur tracée)" />
               <View style={{ gap: 10 }}>
                 {visibleMvts.length === 0 ? (
                   <View style={styles.emptyWrap}>

@@ -3,14 +3,12 @@ import { View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { ClipboardList, Store, UserRound } from 'lucide-react-native';
 
-import { ConnectionStrip } from '@/components/ui/ConnectionStrip';
 import { color, fontFamily, semantic } from '@/constants/theme';
 
 /** A buyer's whole app: no farm, so none of the farm tabs. */
 export default function BuyerTabsLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: semantic.bg }}>
-    <ConnectionStrip />
     <Tabs
       initialRouteName="accueil"
       screenOptions={{

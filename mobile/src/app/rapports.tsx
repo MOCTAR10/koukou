@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { toast } from '@/components/ui/Feedback';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { Download, FileBarChart2, PieChart, Receipt, Store, TrendingUp, Wallet, TrendingDown } from 'lucide-react-native';
+import { Download, FileBarChart2, PieChart, Store, TrendingUp, Wallet, TrendingDown } from 'lucide-react-native';
 
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { MetricTile } from '@/components/ui/MetricTile';
 import { PeriodBar, periodWindow, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
@@ -26,7 +25,6 @@ import { BreakdownBars, CollectionBar } from '@/components/finance/BreakdownBars
 import { PnlHero } from '@/components/finance/PnlHero';
 import {
   collectionRate,
-  compactFcfa,
   deltaPct,
   marginPct,
   periodLabel,
@@ -100,8 +98,6 @@ export default function RapportsScreen() {
   const net = ov?.netFcfa ?? 0;
   const margin = marginPct(net, revenue);
   const netDelta = deltaPct(ov?.netFcfa, prevQuery.data?.netFcfa);
-  const revenueDelta = deltaPct(ov?.sales?.totalFcfa, prevQuery.data?.sales?.totalFcfa);
-  const expenseDelta = deltaPct(ov?.expenses?.totalFcfa, prevQuery.data?.expenses?.totalFcfa);
   const rate = collectionRate(ov?.collectedFcfa ?? 0, revenue);
   const label = periodLabel(window.from, window.to, window.span);
 
@@ -184,36 +180,6 @@ export default function RapportsScreen() {
               expensesFcfa={expenses}
             />
 
-            <View style={styles.tileRow}>
-              <MetricTile
-                label="Chiffre d’affaires"
-                value={compactFcfa(revenue)}
-                sub={revenueDelta == null ? `${ov.sales?.count ?? 0} vente(s)` : `${(ov.sales?.count ?? 0)} vente(s) · ${deltaText(revenueDelta)}`}
-                tone="brand"
-                icon={TrendingUp}
-                compact
-                threeCol
-              />
-              <MetricTile
-                label="Dépenses"
-                value={compactFcfa(expenses)}
-                sub={expenseDelta == null ? `${ov.expenses?.count ?? 0} dépense(s)` : `${(ov.expenses?.count ?? 0)} dépense(s) · ${deltaText(expenseDelta)}`}
-                tone="amber"
-                icon={Receipt}
-                compact
-                threeCol
-              />
-              <MetricTile
-                label="Marge nette"
-                value={plainPct(margin) ?? '—'}
-                sub="Coût de revient suivi"
-                tone={margin != null && margin < 0 ? 'red' : 'green'}
-                icon={PieChart}
-                compact
-                threeCol
-              />
-            </View>
-
             <Card tone="default" style={styles.card}>
               <CollectionBar ratePct={rate} outstandingFcfa={ov.outstandingFcfa ?? 0} />
             </Card>
@@ -228,7 +194,6 @@ export default function RapportsScreen() {
 
             <SectionHeader
               title="D’où viennent les revenus"
-              subtitle={productRows.length > 0 ? `Répartition sur ${fmtFcfa(sumFcfa(ov.breakdown?.byProduct))}` : undefined}
               icon={TrendingUp}
               iconColor={palette.green[600]}
               iconBg={semantic.successSoft}
@@ -245,7 +210,6 @@ export default function RapportsScreen() {
 
             <SectionHeader
               title="Où part l’argent"
-              subtitle={expenseRows.length > 0 ? `Postes de dépense sur ${fmtFcfa(expenses)}` : undefined}
               icon={Wallet}
               iconColor={palette.amber[600]}
               iconBg={semantic.warnSoft}
@@ -339,12 +303,6 @@ export default function RapportsScreen() {
       </View>
     </Screen>
   );
-}
-
-function deltaText(pct: number): string {
-  const rounded = Math.round(pct * 10) / 10;
-  const sign = rounded > 0 ? '+' : '';
-  return `${sign}${rounded.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %`;
 }
 
 /** P&L d'un lot : marge, coût de revient et intrants déduits. */
@@ -460,10 +418,6 @@ const styles = StyleSheet.create({
   },
   periodBar: {
     marginTop: 0,
-  },
-  tileRow: {
-    flexDirection: 'row',
-    gap: 8,
   },
   card: {
     gap: 10,

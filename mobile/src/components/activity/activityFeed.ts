@@ -186,7 +186,7 @@ export function buildActionQueue(input: ActionQueueOptions): ActionQueue {
       kind: 'alerte',
       title: alert.batchName ? `${alert.kind} — ${alert.batchName}` : alert.kind,
       detail: alert.message,
-      href: alert.batchId ? `/lot/${alert.batchId}` : '/',
+      href: alert.batchId ? `/lot/${alert.batchId}` : '/alerts',
     });
   }
 
