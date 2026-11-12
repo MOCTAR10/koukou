@@ -43,7 +43,7 @@ export function buildMultipart(manifestJson, signatureHeader) {
 
 /** RSA-SHA256 over the manifest bytes, as the SFV dictionary expo-updates expects. */
 export function signManifest(manifestJson, privateKeyPem, keyId = 'main') {
-  const sig = createSign('RSA-SHA256').update(Buffer.from(manifestJson, 'utf8')).sign(privateKeyPem, 'base64');
+  const sig = createSign('RSA-SHA256').update(manifestJson, 'utf8').sign(privateKeyPem, 'base64');
   return `sig="${sig}", keyid="${keyId}", alg="rsa-v1_5-sha256"`;
 }
 
