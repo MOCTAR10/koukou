@@ -34,8 +34,6 @@ import { AppText } from '@/components/ui/AppText';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { color, layout, palette, radii, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
-import { gridColumns } from '@/theme/responsive';
-import { useScreen } from '@/theme/useScreen';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { confirmRejectedGps, dismissRejected, GPS_OUTSIDE_PROVINCE, useOfflineQueue, type RejectedOp } from '@/offline';
@@ -103,7 +101,6 @@ const ICON = 24;
 
 function GroundHome() {
   const router = useRouter();
-  const tileWidth = useTileWidth();
   const { openDaily, openSale } = useQuickCapture();
 
   const primary = [
@@ -153,7 +150,7 @@ function GroundHome() {
           <Pressable
             key={a.key}
             onPress={a.onPress}
-            style={({ pressed }) => [styles.tile, { width: tileWidth }, pressed && styles.tilePressed]}
+            style={({ pressed }) => [styles.tile, styles.primaryTile, pressed && styles.tilePressed]}
             accessibilityRole="button"
             accessibilityLabel={a.label}>
             <View style={[styles.tileIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
@@ -171,9 +168,9 @@ function GroundHome() {
       </View>
 
       <SectionHeader title="Comptes & suivi" subtitle="Profil et bandes en cours" icon={Settings} />
-      <View style={styles.grid}>
-        {links.map((item) => (
-          <MenuTile key={item.key} item={item} tint={semantic.primary} soft={semantic.primarySoft} onPress={() => router.push(item.href)} />
+      <View style={styles.group}>
+        {links.map((item, i) => (
+          <MenuTile key={item.key} item={item} first={i === 0} tint={semantic.primary} soft={semantic.primarySoft} onPress={() => router.push(item.href)} />
         ))}
       </View>
     </Screen>
@@ -460,33 +457,22 @@ function MenuSection({ group, onPick }: { group: MenuGroup; onPick: (href: Href)
   return (
     <View style={styles.section}>
       <SectionHeader title={group.title} subtitle={group.subtitle} icon={group.icon} iconColor={group.iconColor} iconBg={group.iconBg} />
-      <View style={styles.grid}>
-        {group.items.map((item) => (
-          <MenuTile key={item.key} item={item} tint={group.iconColor} soft={group.iconBg} onPress={() => onPick(item.href)} />
+      <View style={styles.group}>
+        {group.items.map((item, i) => (
+          <MenuTile key={item.key} item={item} first={i === 0} tint={group.iconColor} soft={group.iconBg} onPress={() => onPick(item.href)} />
         ))}
       </View>
     </View>
   );
 }
 
-/**
- * Largeur d'une tuile : une colonne sur téléphone (libellé sur une ligne), deux
- * sur tablette / paysage (≥ 600 dp), le contenu restant borné et centré.
- */
-function useTileWidth(): number | `${number}%` {
-  const { contentWidth, gutter, isTablet } = useScreen();
-  if (!isTablet) return '100%';
-  return gridColumns(contentWidth - gutter * 2, 300, 8, 2).tileWidth;
-}
-
 /** Tuile « tuile colorée + libellé » : grille de navigation des écrans pro. */
-function MenuTile({ item, tint, soft, onPress }: { item: MenuItem; tint: string; soft: string; onPress: () => void }) {
+function MenuTile({ item, tint, soft, onPress, first = false }: { item: MenuItem; tint: string; soft: string; onPress: () => void; first?: boolean }) {
   const Icon = item.icon;
-  const tileWidth = useTileWidth();
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.tile, { width: tileWidth }, pressed && styles.tilePressed]}
+      style={({ pressed }) => [styles.tile, !first && styles.tileSep, pressed && styles.tilePressed]}
       accessibilityRole="menuitem"
       accessibilityLabel={item.label}>
       <View style={[styles.tileIcon, { backgroundColor: soft }]}>
@@ -560,22 +546,36 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
+  // Chaque section est une carte groupée : lignes séparées par un filet,
+  // icône dans une pastille de la couleur du domaine, libellé sur UNE ligne.
+  group: {
+    marginTop: 6,
+    backgroundColor: semantic.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: semantic.border,
+    overflow: 'hidden',
+  },
   tile: {
-    // Une tuile par ligne : icône, libellé sur UNE ligne (jamais d'ellipse,
-    // « Comptabilité SYSCOHADA » tient dans ~220 dp), chevron. Hauteur et
-    // marges identiques pour toutes, zone tactile de 60 dp.
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    minHeight: 58,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  tileSep: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: semantic.border,
+  },
+  // Actions principales du terrain : cartes autonomes avec sous-titre.
+  primaryTile: {
     width: '100%',
-    minHeight: 60,
+    minHeight: 64,
     backgroundColor: semantic.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: semantic.border,
-    paddingVertical: 8,
-    paddingLeft: 12,
-    paddingRight: 12,
   },
   tilePressed: {
     backgroundColor: semantic.surfaceAlt,
@@ -586,8 +586,8 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   tileIcon: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',

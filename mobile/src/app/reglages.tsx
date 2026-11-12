@@ -165,7 +165,7 @@ export default function ReglagesScreen() {
             <FarmLogo farm={farm} size={60} />
           </View>
           <View style={styles.heroIdentity}>
-            <AppText size="h2" weight="bold" style={{ color: semantic.surface }} numberOfLines={2}>
+            <AppText size="h2" weight="bold" style={{ color: semantic.surface }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {user.fullName || 'Compte Fermia'}
             </AppText>
             <AppText size="caption" style={{ color: palette.brand[200] }} numberOfLines={1}>

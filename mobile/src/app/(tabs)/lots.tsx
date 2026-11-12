@@ -771,7 +771,7 @@ export default function LotsScreen() {
               <AppText style={styles.slimTileTitle} color={semantic.successText}>Volaille</AppText>
             </View>
             <View style={[styles.slimTileCount, { borderColor: palette.green[600] + '45', backgroundColor: palette.green[600] + '12' }]}>
-              <AppText style={styles.slimTileCountText} color={semantic.successText}>{plural(farmStats.activeCount + farmStats.sellingCount, 'lot')}</AppText>
+              <AppText numberOfLines={1} style={styles.slimTileCountText} color={semantic.successText}>{plural(farmStats.activeCount + farmStats.sellingCount, 'lot')}</AppText>
             </View>
           </View>
           <AppText style={styles.slimTileValue} color={semantic.successText}>{fmt(farmStats.totalBirds)}</AppText>
@@ -822,7 +822,7 @@ export default function LotsScreen() {
               <AppText style={styles.slimTileTitle} color={semantic.accentText}>Œufs</AppText>
             </View>
             <View style={[styles.slimTileCount, { borderColor: palette.accent[500] + '45', backgroundColor: palette.accent[500] + '12' }]}>
-              <AppText style={styles.slimTileCountText} color={semantic.accentText}>
+              <AppText numberOfLines={1} style={styles.slimTileCountText} color={semantic.accentText}>
                 {farmStats.totalEggs >= 30
                   ? `${fmt(farmStats.totalAlveoles)} alvéole${farmStats.totalAlveoles !== 1 ? 's' : ''}`
                   : farmStats.totalEggs > 0
@@ -900,7 +900,7 @@ export default function LotsScreen() {
           <FinanceCell
             label="Créances"
             value={compactFcfa(pnl.data?.outstandingFcfa ?? 0)}
-            sub={(pnl.data?.outstandingFcfa ?? 0) > 0 ? 'reste à encaisser' : 'tout payé'}
+            sub={(pnl.data?.outstandingFcfa ?? 0) > 0 ? 'à encaisser' : 'tout payé'}
             fg={(pnl.data?.outstandingFcfa ?? 0) > 0 ? palette.amber[500] : palette.green[600]}
             icon={TrendingDown}
           />
@@ -2149,10 +2149,10 @@ function FinanceCell({ label, value, sub, fg, icon: Icon }: { label: string; val
     <View style={styles.financeCell}>
       <View style={styles.financeCellHead}>
         <Icon size={11} color={fg} />
-        <AppText size="caption" weight="semibold" color="faint" numberOfLines={1} style={styles.financeCellLabel}>{label}</AppText>
+        <AppText size="caption" weight="semibold" color="faint" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.financeCellLabel}>{label}</AppText>
       </View>
       <AppText size="body" weight="bold" color={fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={styles.financeCellValue}>{value}</AppText>
-      {sub ? <AppText size="caption" color="faint" numberOfLines={1} style={styles.financeCellSub}>{sub}</AppText> : null}
+      {sub ? <AppText size="caption" color="faint" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.financeCellSub}>{sub}</AppText> : null}
     </View>
   );
 }
@@ -2850,13 +2850,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   slimTileHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 4 },
-  slimTileTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  slimTileTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   slimTileIcon: { width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  slimTileTitle: { fontSize: 9.5, lineHeight: 12, fontFamily: fontFamily.bold, letterSpacing: 0.8, textTransform: 'uppercase' },
-  slimTileCount: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, paddingVertical: 1, borderRadius: radii.pill, borderWidth: 1 },
-  slimTileCountText: { fontSize: 9, lineHeight: 11, fontFamily: fontFamily.bold },
+  slimTileTitle: { fontSize: 11, lineHeight: 14, fontFamily: fontFamily.bold, letterSpacing: 0.8, textTransform: 'uppercase' },
+  slimTileCount: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, paddingHorizontal: 7, paddingVertical: 2, borderRadius: radii.pill, borderWidth: 1 },
+  slimTileCountText: { fontSize: 10.5, lineHeight: 13, fontFamily: fontFamily.bold },
   slimTileValue: { fontSize: 26, lineHeight: 30, fontFamily: fontFamily.bold },
-  slimTileCaption: { fontSize: 10, lineHeight: 13 },
+  slimTileCaption: { fontSize: 12, lineHeight: 15 },
   slimTileDivider: { height: 1, backgroundColor: semantic.border, marginVertical: 8, alignSelf: 'stretch' },
   slimTileBar: { flexDirection: 'row', height: 6, borderRadius: radii.pill, overflow: 'hidden', backgroundColor: semantic.border, marginBottom: 6 },
   slimTileBarSeg: { height: '100%' },
@@ -3121,9 +3121,9 @@ const styles = StyleSheet.create({
   financeDivider: { width: 1, alignSelf: 'stretch', backgroundColor: semantic.border, marginVertical: 2 },
   financeCell: { flex: 1, minWidth: 0, gap: 1, paddingHorizontal: 8, paddingVertical: 2 },
   financeCellHead: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  financeCellLabel: { fontSize: 9, lineHeight: 12, textTransform: 'uppercase', letterSpacing: 0.3, flexShrink: 1 },
-  financeCellValue: { fontSize: 13, lineHeight: 16 },
-  financeCellSub: { fontSize: 9.5, lineHeight: 12 },
+  financeCellLabel: { fontSize: 11, lineHeight: 14, flexShrink: 1 },
+  financeCellValue: { fontSize: 15, lineHeight: 18 },
+  financeCellSub: { fontSize: 11, lineHeight: 14 },
   financeCardFooter: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 8, paddingTop: 8, paddingHorizontal: 4, borderTopWidth: 1, borderTopColor: semantic.border },
   compareChip: {
     flexDirection: 'row', alignItems: 'center', gap: 3,

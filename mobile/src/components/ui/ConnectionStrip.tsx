@@ -30,7 +30,7 @@ export function ConnectionStrip() {
     <View style={[styles.wrap, { paddingTop: insets.top + 2 }]} accessibilityRole="text" accessibilityLiveRegion="polite">
       <View style={[styles.pill, { backgroundColor: t.bg }]}>
         <View style={[styles.dot, { backgroundColor: t.dot }]} />
-        <AppText size="caption" weight="semibold" numberOfLines={1} style={{ color: t.text }}>
+        <AppText size="small" weight="semibold" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.label, { color: t.text }]}>
           {label}
         </AppText>
       </View>
@@ -51,8 +51,9 @@ const styles = StyleSheet.create({
     gap: 6,
     borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     maxWidth: '100%',
   },
   dot: { width: 8, height: 8, borderRadius: 4 },
+  label: { flexShrink: 1 },
 });

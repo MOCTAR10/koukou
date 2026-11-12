@@ -104,7 +104,7 @@ export function MetricTile({ label, value, sub, tone = 'default', icon: Icon, ic
         </View>
       ) : (
         <View style={[styles.inner, compact && styles.innerCompact, threeCol && styles.innerThreeCol]}>
-          <View style={styles.head}>
+          <View style={[styles.head, threeCol && styles.headStacked]}>
             {Icon ? (
               <View style={[styles.iconWrap, { backgroundColor: TONE_BG[tone] }]}>
                 <Icon size={threeCol ? 11 : compact ? 13 : 15} color={fg} />
@@ -181,6 +181,12 @@ const styles = StyleSheet.create({
     gap: 7,
     minHeight: 20,
   },
+  // 3 colonnes (~100 dp) : icône au-dessus, libellé sur toute la largeur de la carte.
+  headStacked: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
   iconWrap: {
     width: 22,
     height: 22,
@@ -190,6 +196,8 @@ const styles = StyleSheet.create({
   },
   label: {
     flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
   },
   value: {
     fontSize: 22,

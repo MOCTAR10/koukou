@@ -491,7 +491,7 @@ export default function ProvendeScreen() {
             <Card tone="brand" style={styles.hero}>
               <Metric label="Disponible" value={Math.round(summary.totalKg).toLocaleString('fr-FR')} unit="kg" tint={color.brand[600]} />
               <View style={styles.summaryDivider} />
-              <Metric label="Valeur estimée" value={summary.totalFcfa > 0 ? `${Math.round(summary.totalFcfa).toLocaleString('fr-FR')}` : '—'} unit={summary.totalFcfa > 0 ? 'FCFA' : undefined} tint={color.brand[600]} />
+              <Metric grow={1.7} label="Valeur estimée" value={summary.totalFcfa > 0 ? `${Math.round(summary.totalFcfa).toLocaleString('fr-FR')}` : '—'} unit={summary.totalFcfa > 0 ? 'FCFA' : undefined} tint={color.brand[600]} />
               <View style={styles.summaryDivider} />
               <Metric label="Phases" value={String(summary.active)} unit="actives" tint={color.brand[600]} />
             </Card>
@@ -793,14 +793,14 @@ export default function ProvendeScreen() {
   );
 }
 
-function Metric({ label, value, unit, tint }: { label: string; value: string; unit?: string; tint: string }) {
+function Metric({ label, value, unit, tint, grow = 1 }: { label: string; value: string; unit?: string; tint: string; grow?: number }) {
   return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <AppText size="caption" color="muted">
+    <View style={{ flex: grow, minWidth: 0, gap: 2 }}>
+      <AppText size="caption" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
         {label}
       </AppText>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-        <AppText size="h3" weight="bold" color="text">
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 3 }}>
+        <AppText size="h3" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {value}
         </AppText>
         {unit ? (

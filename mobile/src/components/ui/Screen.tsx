@@ -85,7 +85,7 @@ export function ScreenHeader({
             {title}
           </AppText>
           {subtitle ? (
-            <AppText size="caption" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+            <AppText size="caption" color="muted" numberOfLines={2}>
               {subtitle}
             </AppText>
           ) : null}
