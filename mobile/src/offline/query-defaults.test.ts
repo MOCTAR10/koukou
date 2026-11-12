@@ -42,7 +42,7 @@ describe('options par défaut du QueryClient', () => {
     const client = new QueryClient({ defaultOptions: QUERY_DEFAULT_OPTIONS });
     const fn = vi.fn().mockRejectedValue(new TypeError('Network request failed'));
     const observer = new MutationObserver(client, { mutationFn: fn });
-    await expect(observer.mutate()).rejects.toThrow('Network request failed');
+    await expect(observer.mutate(undefined)).rejects.toThrow('Network request failed');
     expect(fn).toHaveBeenCalledTimes(1);
     expect(observer.getCurrentResult().status).toBe('error');
     onlineManager.setOnline(true);
@@ -54,7 +54,7 @@ describe('options par défaut du QueryClient', () => {
     const client = new QueryClient();
     const fn = vi.fn().mockResolvedValue('ok');
     const observer = new MutationObserver(client, { mutationFn: fn });
-    void observer.mutate().catch(() => undefined);
+    void observer.mutate(undefined).catch(() => undefined);
     await Promise.resolve();
     expect(fn).not.toHaveBeenCalled();
     expect(observer.getCurrentResult().isPaused).toBe(true);
