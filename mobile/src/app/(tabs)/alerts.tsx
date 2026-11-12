@@ -8,6 +8,7 @@ import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { Chip } from '@/components/ui/Chip';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { AlertCard } from '@/components/AlertCard';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
@@ -241,13 +242,17 @@ export default function AlertsScreen() {
         </View>
       ) : null}
 
+      <StaleNotice
+        show={status === 'RESOLUE' ? history.isError && Boolean(history.data) : advisory.isError && Boolean(advisory.data)}
+        updatedAt={status === 'RESOLUE' ? history.dataUpdatedAt : advisory.dataUpdatedAt}
+      />
       {loading ? (
         <Spinner label="Analyse en cours…" />
-      ) : status === 'RESOLUE' && history.isError ? (
+      ) : status === 'RESOLUE' && history.isError && !history.data ? (
         <AppText size="small" color="danger">
           Historique indisponible pour le moment. Vérifiez la connexion au serveur.
         </AppText>
-      ) : advisory.isError ? (
+      ) : advisory.isError && !advisory.data ? (
         <AppText size="small" color="danger">
           Analyse indisponible pour le moment. Vérifiez la connexion au serveur.
         </AppText>

@@ -3,7 +3,7 @@ import { plural } from '@/utils/plural';
 import { toast } from '@/components/ui/Feedback';
 import { careHistoryDetail, treatmentHistoryDetail } from '@/poufa/sanitary-records';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import {
   Activity,
@@ -77,6 +77,7 @@ import type {
   BatchPnl,
   BatchType,
   BreedStandard,
+  BatchWithMetrics,
   BreedStatus,
   FeedLotStock,
   PondageSummary,
@@ -283,7 +284,14 @@ export default function LotDetailScreen() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
 
-  const b = batchQ.data;
+  // Offline and never opened: the band's row of the saved lots list stands in
+  // (same metrics), so the band sheet and « Saisir » still open.
+  const queryClient = useQueryClient();
+  const listedBatch =
+    batchQ.isError && !batchQ.data && !asOf
+      ? queryClient.getQueryData<BatchWithMetrics[]>(['batches', farmId])?.find((x) => x.id === batchId)
+      : undefined;
+  const b = batchQ.data ?? listedBatch;
   // Official cost per kg produced: computed by the server (live, or frozen at closure).
   const costProduced = costPerKgProducedView(b?.coutProductionKg, b?.coutProductionReason);
   const m = b?.metrics;

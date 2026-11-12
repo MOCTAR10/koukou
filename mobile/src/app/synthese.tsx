@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { Segmented } from '@/components/ui/Segmented';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { color, fmt, fmtFcfa, radii, semantic } from '@/constants/theme';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import {
@@ -101,9 +102,10 @@ export default function SyntheseScreen() {
           </View>
           <Segmented<SynthesisSpan> options={SYNTHESIS_SPANS.map((o) => ({ key: o.key, label: o.label }))} value={span} onChange={setSpan} />
 
+          <StaleNotice show={query.isError && Boolean(query.data)} updatedAt={query.dataUpdatedAt} />
           {query.isLoading ? (
             <Spinner label="Calcul de la synthèse…" />
-          ) : query.isError ? (
+          ) : query.isError && !query.data ? (
             <EmptyState icon={Landmark} title="Synthèse indisponible" description={errorMessage(query.error)} />
           ) : s ? (
             <>

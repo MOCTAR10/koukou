@@ -12,6 +12,7 @@ import { errorMessage, toast } from '@/components/ui/Feedback';
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { useAuth } from '@/auth/AuthContext';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
@@ -68,9 +69,10 @@ export default function DeclarationsScreen() {
               </Pressable>
             ))}
           </View>
+          <StaleNotice show={list.isError && Boolean(list.data)} updatedAt={list.dataUpdatedAt} />
           {list.isLoading ? (
             <Spinner label="Lecture des déclarations…" />
-          ) : list.isError ? (
+          ) : list.isError && !list.data ? (
             <AppText size="small" color="danger">
               {errorMessage(list.error)}
             </AppText>

@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+import { reportApiFailure, reportApiReachable } from '@/offline/connectivity';
+
 import { loadSession } from './token';
 
 // URL de l'API NestJS. Auto-détectée depuis `hostUri` d'Expo (démo sur
@@ -81,6 +83,8 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
       signal: controller.signal,
     });
   } catch (e: unknown) {
+    // Network-level failure: the connection probe confirms or clears it.
+    reportApiFailure();
     if (controller.signal.aborted) {
       throw new NetworkTimeoutError('Le serveur ne répond pas. Vérifiez votre connexion et réessayez.');
     }
@@ -88,6 +92,7 @@ export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> 
   } finally {
     clearTimeout(timer);
   }
+  reportApiReachable();
 
   const contentType = res.headers.get('content-type') ?? '';
   let body: unknown = null;
