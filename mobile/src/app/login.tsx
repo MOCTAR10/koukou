@@ -232,12 +232,16 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
+    // Petit écran ou clavier ouvert : le formulaire défile, rien n'est coupé.
   },
   // Form card overlaps the hero: one raised surface, the brand behind it.
   sheet: {
     marginTop: -40,
-    marginHorizontal: 16,
+    // 92 % de la largeur, borné et centré : tablette et paysage restent propres.
     padding: 20,
+    width: '92%',
+    maxWidth: 480,
+    alignSelf: 'center',
     gap: 4,
     backgroundColor: semantic.surface,
     borderRadius: radii.xxl,

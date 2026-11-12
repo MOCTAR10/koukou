@@ -1,11 +1,12 @@
 import React from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { AppText } from '@/components/ui/AppText';
 import { palette, semantic } from '@/constants/theme';
+import { useScreen } from '@/theme/useScreen';
 
 // Light lockup (wordmark + "GÉREZ VOTRE FERME"), same file as the splash.
 const LOCKUP = require('@/assets/images/splash-icon.png');
@@ -18,11 +19,11 @@ const LOCKUP_RATIO = 1117 / 458;
  */
 export function AuthHero({ subtitle, compact = false }: { subtitle?: string; compact?: boolean }) {
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width, isShort } = useScreen();
   // Petit écran (hauteur utile < 700 dp) ou grand texte système : bandeau plus
   // bas pour que le formulaire reste visible sans défiler. Le logo suit la
   // largeur de l'écran (jamais plus de 62 %) : il ne peut pas être rogné.
-  const tight = compact || height < 700;
+  const tight = compact || isShort;
   const lockupW = Math.round(Math.min(tight ? 170 : 230, width * 0.62));
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + (tight ? 20 : 44), paddingBottom: tight ? 56 : 76 }]}>

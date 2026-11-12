@@ -34,6 +34,8 @@ import { AppText } from '@/components/ui/AppText';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { color, layout, palette, radii, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
+import { gridColumns } from '@/theme/responsive';
+import { useScreen } from '@/theme/useScreen';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { confirmRejectedGps, dismissRejected, GPS_OUTSIDE_PROVINCE, useOfflineQueue, type RejectedOp } from '@/offline';
@@ -101,6 +103,7 @@ const ICON = 24;
 
 function GroundHome() {
   const router = useRouter();
+  const tileWidth = useTileWidth();
   const { openDaily, openSale } = useQuickCapture();
 
   const primary = [
@@ -150,7 +153,7 @@ function GroundHome() {
           <Pressable
             key={a.key}
             onPress={a.onPress}
-            style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+            style={({ pressed }) => [styles.tile, { width: tileWidth }, pressed && styles.tilePressed]}
             accessibilityRole="button"
             accessibilityLabel={a.label}>
             <View style={[styles.tileIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
@@ -466,13 +469,24 @@ function MenuSection({ group, onPick }: { group: MenuGroup; onPick: (href: Href)
   );
 }
 
+/**
+ * Largeur d'une tuile : une colonne sur téléphone (libellé sur une ligne), deux
+ * sur tablette / paysage (≥ 600 dp), le contenu restant borné et centré.
+ */
+function useTileWidth(): number | `${number}%` {
+  const { contentWidth, gutter, isTablet } = useScreen();
+  if (!isTablet) return '100%';
+  return gridColumns(contentWidth - gutter * 2, 300, 8, 2).tileWidth;
+}
+
 /** Tuile « tuile colorée + libellé » : grille de navigation des écrans pro. */
 function MenuTile({ item, tint, soft, onPress }: { item: MenuItem; tint: string; soft: string; onPress: () => void }) {
   const Icon = item.icon;
+  const tileWidth = useTileWidth();
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+      style={({ pressed }) => [styles.tile, { width: tileWidth }, pressed && styles.tilePressed]}
       accessibilityRole="menuitem"
       accessibilityLabel={item.label}>
       <View style={[styles.tileIcon, { backgroundColor: soft }]}>
