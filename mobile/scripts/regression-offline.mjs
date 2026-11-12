@@ -13,6 +13,7 @@
 // offline (session + saved reads), entry saved offline (queue = 1), back online,
 // sign out (saved copy removed). Screenshots go to OUT_DIR. Exit code 1 when a check fails.
 import { createRequire } from 'node:module';
+import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
