@@ -134,7 +134,7 @@ function BandPicker({
     <Sheet visible={visible} title="Rattacher une bande" subtitle="Bandes en cours de la ferme" onClose={onClose}>
       {batches.isLoading ? (
         <Spinner label="Lecture des bandes…" />
-      ) : batches.isError ? (
+      ) : batches.isError && !batches.data ? (
         <AppText size="body" color="danger">
           {errorMessage(batches.error)}
         </AppText>

@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { DeclarativeStockCard } from '@/components/deliveries/DeclarativeStockCard';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -120,7 +121,7 @@ export default function DeliveriesScreen() {
         </Card>
       ) : list.isLoading ? (
         <Spinner label="Lecture des livraisons…" />
-      ) : list.isError ? (
+      ) : list.isError && !list.data ? (
         <Card style={styles.card}>
           <AppText size="body" color="danger">
             {errorText(list.error, 'Livraisons indisponibles.')}
@@ -128,6 +129,7 @@ export default function DeliveriesScreen() {
         </Card>
       ) : (
         <>
+          <StaleNotice show={list.isError} updatedAt={list.dataUpdatedAt} />
           <SectionHeader
             title="Livraisons à confirmer"
             subtitle={canConfirm ? 'Comptez ce que vous avez reçu, puis confirmez' : 'Confirmées par l’éleveur de la ferme'}

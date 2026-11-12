@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { fetchDeclarativeStock } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { fmtQty, sortStockRows } from '@/poufa/deliveries';
@@ -35,10 +36,11 @@ export function DeclarativeStockCard({ farmId }: { farmId: string }) {
         iconColor={color.brand[700]}
         iconBg={semantic.primarySoft}
       />
+      <StaleNotice show={stock.isError && Boolean(stock.data)} updatedAt={stock.dataUpdatedAt} />
       <Card style={{ gap: 0, paddingVertical: 4 }}>
         {stock.isLoading ? (
           <Spinner label="Lecture du stock…" />
-        ) : stock.isError ? (
+        ) : stock.isError && !stock.data ? (
           <AppText size="caption" color="danger" style={styles.pad}>
             {errorText(stock.error, 'Stock indisponible.')}
           </AppText>

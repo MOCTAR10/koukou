@@ -31,6 +31,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Segmented } from '@/components/ui/Segmented';
 import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { useAuth } from '@/auth/AuthContext';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
@@ -459,7 +460,8 @@ export default function ProvendeScreen() {
       </View>
 
       <ReadOnlyNotice what="Stock FEFO" />
-{!readsStock ? (
+<StaleNotice show={stock.isError && Boolean(stock.data)} updatedAt={stock.dataUpdatedAt} />
+      {!readsStock ? (
         programme.isLoading ? (
           <Spinner label="Chargement de vos droits…" />
         ) : (
@@ -469,7 +471,7 @@ export default function ProvendeScreen() {
         )
       ) : stock.isLoading ? (
         <Spinner label="Chargement du stock…" />
-      ) : stock.isError ? (
+      ) : stock.isError && !stock.data ? (
         <AppText size="small" color="danger">
           Lecture de l’inventaire impossible. Vérifiez la connexion au serveur.
         </AppText>
