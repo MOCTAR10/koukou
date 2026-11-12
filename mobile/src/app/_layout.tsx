@@ -1,7 +1,7 @@
 import '@/diagnostics/install-crash-log';
 import React, { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -34,9 +34,15 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // when its screen opens. `offlineFirst`: the first attempt always goes out
 // (React Native has no online detection, and on web a paused query would
 // stay « loading »); a failed refresh keeps the data already in the cache.
+// One retry, but not while the connection signal says the server is out of reach
+// (the failure shows at once, with the saved data still on screen).
+function retryOnce(failureCount: number): boolean {
+  return failureCount < 1 && onlineManager.isOnline();
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 30_000, retry: 1, gcTime: QUERY_CACHE_MAX_AGE_MS, networkMode: 'offlineFirst' },
+    queries: { staleTime: 30_000, retry: retryOnce, gcTime: QUERY_CACHE_MAX_AGE_MS, networkMode: 'offlineFirst' },
   },
 });
 

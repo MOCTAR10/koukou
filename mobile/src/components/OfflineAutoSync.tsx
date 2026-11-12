@@ -4,6 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/auth/AuthContext';
 import { toast } from '@/components/ui/Feedback';
 import { consumeQueueRecovery, subscribeFlush, useOfflineQueue } from '@/offline';
+import { API_BASE_URL } from '@/api/client';
+import { connectivity, startConnectivity } from '@/offline/connectivity';
+import { markAllSent, setSyncing } from '@/offline/pulse';
 
 /** Retry cadence while ops are pending (the queue mutex prevents overlaps). */
 const RETRY_INTERVAL_MS = 30_000;
@@ -27,6 +30,21 @@ export function OfflineAutoSync() {
   const prevPending = useRef(0);
   const flushRef = useRef(sync.flush);
   flushRef.current = sync.flush;
+  // Same flush, announced to the connection indicator (« Synchronisation… »).
+  const sendNow = useRef(async () => {
+    setSyncing(true);
+    try {
+      await flushRef.current();
+    } finally {
+      setSyncing(false);
+    }
+  });
+
+  // One connection signal for the whole app (indicator, TanStack Query, sync).
+  useEffect(() => {
+    startConnectivity(API_BASE_URL);
+    return connectivity.onReconnect(() => void sendNow.current());
+  }, []);
 
   // A queue file that could not be read: told once, the raw copy is kept.
   useEffect(() => {
@@ -45,7 +63,7 @@ export function OfflineAutoSync() {
 
     const newlyPending = wasEmpty && pending > 0;
     if (newlyPending) {
-      void sync.flush();
+      void sendNow.current();
     }
   }, [pending, sync]);
 
@@ -53,6 +71,7 @@ export function OfflineAutoSync() {
   useEffect(
     () =>
       subscribeFlush((summary) => {
+        if (summary.synced > 0 && summary.remaining === 0) markAllSent();
         if (summary.unauthorized) {
           // The periodic retry would repeat it every 30 s: once per 5 minutes.
           const now = Date.now();
@@ -89,9 +108,9 @@ export function OfflineAutoSync() {
   const hasPending = pending > 0;
   useEffect(() => {
     if (!hasPending) return;
-    const timer = setInterval(() => void flushRef.current(), RETRY_INTERVAL_MS);
+    const timer = setInterval(() => void sendNow.current(), RETRY_INTERVAL_MS);
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void flushRef.current();
+      if (state === 'active') void sendNow.current();
     });
     return () => {
       clearInterval(timer);
