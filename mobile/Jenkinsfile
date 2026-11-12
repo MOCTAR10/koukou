@@ -1,7 +1,9 @@
 // Android release APK of Fermia: expo prebuild + Gradle, signed with the Fermia key,
-// published at https://fermia.greenleaves.ga/apk/fermia.apk. Manual trigger only.
+// published at https://fermia.greenleaves.ga/apk/fermia.apk (+ version.json), and the matching
+// over-the-air JS bundle under /ota/. Manual trigger only. JS-only fixes: Jenkinsfile.ota (fast path).
 // Runs on the shared Jenkins of the greenleaves server (low CPU priority).
-// Secrets: /var/jenkins_home/fermia-secrets/{release.keystore,keystore.pass} (not in git).
+// Secrets: /var/jenkins_home/fermia-secrets/{release.keystore,keystore.pass,ota/} (not in git).
+// ota/ holds the update signing key, created on the first run: back it up (see docs/mises-a-jour-mobile.md).
 pipeline {
   agent any
   options {
@@ -17,6 +19,7 @@ pipeline {
     EXPO_PUBLIC_API_KEY = ''
     SECRETS = '/var/jenkins_home/fermia-secrets'
     OUT_DIR = '/var/www/trees-apk/fermia'
+    OTA_DIR = '/var/www/trees-apk/fermia/ota'
     NODE_OPTIONS = '--max-old-space-size=2048'
     GRADLE_OPTS = '-Dorg.gradle.jvmargs=-Xmx2560m -Dorg.gradle.workers.max=2 -Dorg.gradle.daemon=false'
     ORG_GRADLE_PROJECT_reactNativeArchitectures = 'arm64-v8a'
@@ -24,7 +27,20 @@ pipeline {
   }
   stages {
     stage('Dépendances') {
-      steps { dir('mobile') { sh 'npm ci --no-audit --no-fund' ; sh 'npx tsc --noEmit' } }
+      steps {
+        // Taken before the build: the embedded bundle of the APK is newer, so a fresh install
+        // never re-downloads the same bundle over the air.
+        script { env.OTA_CREATED_AT = sh(script: 'date -u +%Y-%m-%dT%H:%M:%S.000Z', returnStdout: true).trim() }
+        dir('mobile') { sh 'npm ci --no-audit --no-fund' ; sh 'npx tsc --noEmit' }
+      }
+    }
+    stage('Runtime et bundle OTA') {
+      steps {
+        dir('mobile') {
+          sh 'sh scripts/ota-prepare.sh'
+          sh 'npx expo export --platform android --output-dir dist-ota'
+        }
+      }
     }
     stage('Projet Android') {
       steps {
@@ -53,7 +69,11 @@ pipeline {
             cp "$OUT" "$OUT_DIR/"
             ln -sfn "$OUT" "$OUT_DIR/fermia.apk"
             ls -1t "$OUT_DIR"/fermia-*.apk | tail -n +4 | xargs -r rm -f
-            echo "Publié : https://fermia.greenleaves.ga/apk/fermia.apk ($OUT)"
+            RV=$(node -p "require('./app.json').expo.runtimeVersion")
+            node scripts/ota.mjs version-json --apk "$OUT" --code "$BUILD_NUMBER" --version "$VERSION" --runtime "$RV" \n              --base-url https://fermia.greenleaves.ga/apk --out "$OUT_DIR/version.json.tmp"
+            mv "$OUT_DIR/version.json.tmp" "$OUT_DIR/version.json"
+            node scripts/ota.mjs publish --dist dist-ota --out "$OTA_DIR" --base-url https://fermia.greenleaves.ga/ota \n              --runtime "$RV" --key "$SECRETS/ota/private-key.pem" --build "$BUILD_NUMBER" --created-at "$OTA_CREATED_AT"
+            echo "Publié : https://fermia.greenleaves.ga/apk/fermia.apk ($OUT), runtime $RV"
           '''
           archiveArtifacts artifacts: 'fermia-*.apk', fingerprint: true
         }

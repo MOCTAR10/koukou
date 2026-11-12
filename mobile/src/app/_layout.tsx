@@ -18,6 +18,7 @@ import { CreateCenterProvider } from '@/components/create/CreateCenter';
 import { LocalReminders } from '@/components/LocalReminders';
 import { PushRegistration } from '@/components/PushRegistration';
 import { OfflineAutoSync } from '@/components/OfflineAutoSync';
+import { AppUpdateBanner } from '@/components/AppUpdateBanner';
 import { FeedbackHost } from '@/components/ui/Feedback';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { semantic } from '@/constants/theme';
@@ -162,6 +163,7 @@ function AppRoot() {
               <PushRegistration />
               <StatusBar style="dark" />
               <RootNavigator />
+              <AppUpdateBanner />
               <FeedbackHost />
             </CreateCenterProvider>
           </QuickCaptureProvider>
