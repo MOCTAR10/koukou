@@ -1,11 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/auth/AuthContext';
 import { toast } from '@/components/ui/Feedback';
 import { consumeQueueRecovery, subscribeFlush, useOfflineQueue } from '@/offline';
 
 /** Retry cadence while ops are pending (the queue mutex prevents overlaps). */
 const RETRY_INTERVAL_MS = 30_000;
+
+/** Retry cadence of failed reads that still show a saved answer. */
+const READ_RETRY_INTERVAL_MS = 20_000;
 
 let lastAuthToastAt = 0;
 
@@ -17,6 +21,7 @@ let lastAuthToastAt = 0;
  */
 export function OfflineAutoSync() {
   const { farmId } = useAuth();
+  const queryClient = useQueryClient();
   const sync = useOfflineQueue(farmId);
   const pending = sync.pending.length;
   const prevPending = useRef(0);
@@ -68,6 +73,18 @@ export function OfflineAutoSync() {
       }),
     [],
   );
+
+  // Reads that failed while a saved answer is on screen: try again every 20 s
+  // so the screen catches up as soon as the network is back.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void queryClient.refetchQueries({
+        type: 'active',
+        predicate: (q) => q.state.status === 'error' && q.state.fetchStatus === 'idle' && q.state.data !== undefined,
+      });
+    }, READ_RETRY_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [queryClient]);
 
   const hasPending = pending > 0;
   useEffect(() => {

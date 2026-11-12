@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/api/client';
 import { clearSession, loadSession, saveSession, type StoredSession } from '@/api/token';
 import { clearUserQueue, clearUserRejected, countUserOps, subscribeFlush } from '@/offline';
+import { clearQueryCache, restoreQueryCache } from '@/offline/query-persist';
 import { clearUserCache } from '@/offline/ref-cache';
 import { confirm } from '@/components/ui/Feedback';
 import { unregisterForPush } from '@/notifications/push';
@@ -102,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Drop the previous account's cache (salaries, cash…): invalidating
       // would keep showing it until each query refetches.
       queryClient.clear();
+      // Same account back after an expired session: its saved reads come back.
+      restoreQueryCache(queryClient, user.id);
       setSession(full);
     },
     [queryClient],
@@ -207,6 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearSession();
     clearUserQueue(userId);
     clearUserCache(userId);
+    clearQueryCache(userId);
     clearUserRejected(userId);
     setSession(null);
     setOtpChallenge(null);

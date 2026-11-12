@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { errorMessage, toast } from '@/components/ui/Feedback';
 import { PillRow } from '@/components/market/shared';
 import { INBOX_KEY, UNREAD_KEY, useMarkRead, useOpenNotification } from '@/components/notifications/useInbox';
@@ -129,9 +130,10 @@ export default function NotificationsScreen() {
             </View>
             <Button label="Tout marquer lu" icon={CheckCheck} size="sm" tone="ghost" block={false} onPress={() => void readAll()} loading={busy} disabled={unread === 0} />
           </View>
+          <StaleNotice show={inbox.isError && Boolean(inbox.data)} updatedAt={inbox.dataUpdatedAt} />
           {inbox.isLoading ? (
             <Spinner label="Lecture des notifications…" />
-          ) : inbox.isError ? (
+          ) : inbox.isError && !inbox.data ? (
             <Card>
               <AppText size="body" color="danger">
                 {errorMessage(inbox.error)}

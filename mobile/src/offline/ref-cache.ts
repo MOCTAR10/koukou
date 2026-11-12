@@ -1,6 +1,6 @@
 // Last good answer of a few reads the field screens need offline (programme
-// lists, the band picker, the account's access matrix). There is no persisted
-// query cache in the app: these are kept in the durable store, per account.
+// lists, the band picker, the account's access matrix), per account. The rest
+// of the reads come back through the persisted query cache (`query-persist.ts`).
 import { ApiError } from '@/api/client';
 import { loadSession } from '@/api/token';
 

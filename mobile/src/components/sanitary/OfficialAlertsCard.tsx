@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip, levelTone } from '@/components/ui/Chip';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { fetchFarmSanitaryAlerts, fetchProgramList } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { officialAlertRows } from '@/poufa/official-alerts';
@@ -47,10 +48,11 @@ export function OfficialAlertsCard({ farmId }: { farmId: string }) {
         Distinctes des alertes de conseil de l’onglet « Alertes » : elles naissent d’une suspicion déclarée ou d’une
         mortalité au-dessus du seuil fixé par les vétérinaires.
       </AppText>
+      <StaleNotice show={alerts.isError && Boolean(alerts.data)} updatedAt={alerts.dataUpdatedAt} />
       <Card style={{ gap: 0, paddingVertical: 4 }}>
         {alerts.isLoading ? (
           <Spinner label="Lecture des alertes officielles…" />
-        ) : alerts.isError ? (
+        ) : alerts.isError && !alerts.data ? (
           <AppText size="caption" color="danger" style={styles.pad}>
             {errorText(alerts.error, 'Alertes officielles indisponibles.')}
           </AppText>

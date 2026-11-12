@@ -14,6 +14,7 @@ import { MetricTile } from '@/components/ui/MetricTile';
 import { PeriodBar, periodWindow, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
 import { fetchBatches, fetchPointsOfSale, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales } from '@/api';
@@ -163,9 +164,10 @@ export default function RapportsScreen() {
         <ReadOnlyNotice what="Rentabilité" />
         <PeriodBar defaultSpan={DEFAULT_SPAN} onChange={handlePeriodChange} style={styles.periodBar} />
 
+        <StaleNotice show={overviewQuery.isError && Boolean(overviewQuery.data)} updatedAt={overviewQuery.dataUpdatedAt} />
         {overviewQuery.isLoading ? (
           <Spinner label="Calcul du P&L…" />
-        ) : overviewQuery.isError ? (
+        ) : overviewQuery.isError && !overviewQuery.data ? (
           <EmptyState
             icon={TrendingDown}
             title="P&L indisponible"
