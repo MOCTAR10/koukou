@@ -37,7 +37,7 @@ export function AppUpdateBanner() {
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { top: insets.top + STRIP_HEIGHT }]}>
       <View style={styles.card} accessibilityRole="alert">
-        <AppText size="small" weight="semibold" color={semantic.heroText} style={styles.title} numberOfLines={1}>
+        <AppText size="small" weight="semibold" color={semantic.heroText} style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
           {title}
         </AppText>
         <Button label={label} onPress={onPress} size="xs" tone="accent" block={false} disabled={busy} loading={busy} />
@@ -66,6 +66,6 @@ const styles = StyleSheet.create({
     backgroundColor: semantic.heroBg,
     ...shadow.card,
   },
-  title: { flex: 1 },
+  title: { flex: 1, minWidth: 0 },
   close: { padding: 4 },
 });
