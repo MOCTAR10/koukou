@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, FARM_KEY } from '../api/client';
 import type { Farm } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { defaultFarmId } from './default-farm';
 import { scopeReachesFarms } from './menu-access';
 import { useInstitutionAccess } from './useInstitutionAccess';
 
@@ -52,7 +53,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (farms.length > 0 && (!farmId || !farms.some((f) => f.id === farmId))) {
-      const next = farms[0]?.id ?? null;
+      const next = defaultFarmId(farms);
       setFarmId(next);
       localStorage.setItem(STORAGE_KEY, next ?? '');
     }
