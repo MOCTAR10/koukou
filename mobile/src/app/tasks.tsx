@@ -351,7 +351,7 @@ function TaskCard({
             style={dimmed ? styles.dimmed : undefined}>
             {task.title}
           </AppText>
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {generated ? `${SOURCE_LABELS[task.source as Exclude<TaskSource, 'MANUELLE'>]}` : assigneeName ? assigneeName : 'Tâche libre'}
             {batchName ? ` · ${batchName}` : ''}
           </AppText>

@@ -99,7 +99,7 @@ function TypeStatCard({ entryType, kg, count }: { entryType: FeedEntryType; kg: 
       <View style={styles.typeStatIcon}>
         <Icon size={18} color={hasData ? palette.accent[500] : color.ink[400]} strokeWidth={2.2} />
       </View>
-      <AppText size="small" weight={hasData ? 'semibold' : 'medium'} color={hasData ? 'brand' : 'muted'} align="center" numberOfLines={1}>
+      <AppText size="small" weight={hasData ? 'semibold' : 'medium'} color={hasData ? 'brand' : 'muted'} align="center" numberOfLines={2}>
         {meta.label}
       </AppText>
       <AppText size="bodyM" weight="bold" color={hasData ? 'text' : 'faint'} align="center" numberOfLines={1}>
@@ -434,10 +434,10 @@ export default function ProvendeScreen() {
           <View style={styles.customHeader}>
             <Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} />
             <View style={{ flex: 1 }}>
-              <AppText size="h2" weight="bold" color="text" numberOfLines={1}>
+              <AppText size="h2" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 Provende
               </AppText>
-              <AppText size="small" color="muted" numberOfLines={1}>
+              <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
                 Stock & inventaire · pertes & mouvements
               </AppText>
             </View>
@@ -505,7 +505,7 @@ export default function ProvendeScreen() {
               <Plus size={18} color={semantic.surface} />
             </View>
             <View style={{ flex: 1 }}>
-              <AppText size="body" weight="semibold" color="text" numberOfLines={1}>
+              <AppText size="body" weight="semibold" color="text" numberOfLines={2}>
                 Nouvelle entrée de provende
               </AppText>
             </View>
@@ -606,7 +606,7 @@ export default function ProvendeScreen() {
                           <AppText size="body" weight="bold" color="text" numberOfLines={1}>
                             {l.productName ?? (l.feedPhase ? FEED_PHASE_LABELS[l.feedPhase as FeedPhase] : 'Provende')}
                           </AppText>
-                          <AppText size="caption" color="muted" numberOfLines={1}>
+                          <AppText size="caption" color="muted" numberOfLines={2}>
                             {l.supplier ?? 'Fournisseur inconnu'} · n° {l.supplierLotNumber ?? '—'}
                             {l.batchId ? ' · lot ferme lié' : ''}
                           </AppText>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
@@ -18,9 +18,14 @@ const LOCKUP_RATIO = 1117 / 458;
  */
 export function AuthHero({ subtitle, compact = false }: { subtitle?: string; compact?: boolean }) {
   const insets = useSafeAreaInsets();
-  const lockupW = compact ? 150 : 210;
+  const { width, height } = useWindowDimensions();
+  // Petit écran (hauteur utile < 700 dp) ou grand texte système : bandeau plus
+  // bas pour que le formulaire reste visible sans défiler. Le logo suit la
+  // largeur de l'écran (jamais plus de 62 %) : il ne peut pas être rogné.
+  const tight = compact || height < 700;
+  const lockupW = Math.round(Math.min(tight ? 170 : 230, width * 0.62));
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + (compact ? 20 : 44), paddingBottom: compact ? 52 : 72 }]}>
+    <View style={[styles.wrap, { paddingTop: insets.top + (tight ? 20 : 44), paddingBottom: tight ? 56 : 76 }]}>
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
         <Defs>
           <LinearGradient id="authBg" x1="0" y1="0" x2="1" y2="1">
@@ -35,12 +40,15 @@ export function AuthHero({ subtitle, compact = false }: { subtitle?: string; com
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#authBg)" />
         <Circle cx="50%" cy="38%" r="170" fill="url(#authGlow)" />
       </Svg>
-      <Image
-        source={LOCKUP}
-        style={{ width: lockupW, height: lockupW / LOCKUP_RATIO }}
-        contentFit="contain"
-        accessibilityLabel="Fermia, gérez votre ferme"
-      />
+      {/* Le fichier du logo n'a aucune marge (la feuille touche le bord haut, le F le bord gauche) : on lui en donne une. */}
+      <View style={styles.lockupBox}>
+        <Image
+          source={LOCKUP}
+          style={{ width: lockupW, height: lockupW / LOCKUP_RATIO }}
+          contentFit="contain"
+          accessibilityLabel="Fermia, gérez votre ferme"
+        />
+      </View>
       {subtitle ? (
         <AppText size="bodyM" align="center" color={palette.brand[200]} style={styles.subtitle}>
           {subtitle}
@@ -59,8 +67,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: semantic.heroBg,
   },
+  lockupBox: {
+    padding: 6,
+  },
   subtitle: {
-    marginTop: 14,
-    maxWidth: 300,
+    marginTop: 12,
+    maxWidth: 320,
   },
 });

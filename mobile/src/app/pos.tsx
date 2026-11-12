@@ -553,7 +553,7 @@ export default function PosScreen() {
         {caisseCurrent ? (
           <Pressable onPress={() => setActiveTab('CAISSE')} style={styles.caisseLine} accessibilityRole="button">
             <Coins size={14} color={caisseSessionOpen ? color.green[600] : color.ink[400]} />
-            <AppText size="small" weight="semibold" color={caisseSessionOpen ? 'success' : 'muted'} numberOfLines={1}>
+            <AppText size="small" weight="semibold" color={caisseSessionOpen ? 'success' : 'muted'} numberOfLines={2}>
               Caisse {caisseSessionOpen ? `ouverte · ${fmtFcfa(caisseCurrent.expectedBalanceFcfa)} FCFA` : 'fermée'}
             </AppText>
           </Pressable>
@@ -580,7 +580,7 @@ export default function PosScreen() {
             {!profile.hasPermission('pdv:gerer') ? null : !isBoutique ? (
               <Pressable onPress={() => setTransferOpen(true)} style={styles.transferBtn} accessibilityRole="button">
                 <ArrowRightLeft size={14} color={color.accent[600]} />
-                <AppText size="small" weight="semibold" color="accent" numberOfLines={1}>
+                <AppText size="small" weight="semibold" color="accent" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                   Envoyer du Stock à une boutique
                 </AppText>
                 <ChevronRight size={14} color={color.accent[400]} />
@@ -588,7 +588,7 @@ export default function PosScreen() {
             ) : (
               <Pressable onPress={() => setTransferOpen(true)} style={styles.transferBtn} accessibilityRole="button">
                 <ArrowRightLeft size={14} color={color.accent[600]} />
-                <AppText size="small" weight="semibold" color="accent" numberOfLines={1}>
+                <AppText size="small" weight="semibold" color="accent" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                   Réapprovisionner cette boutique
                 </AppText>
                 <ChevronRight size={14} color={color.accent[400]} />

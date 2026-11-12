@@ -39,7 +39,7 @@ function DossierRow({ member }: { member: FarmMember }) {
             </AppText>
             <Chip label={contractTypeLabel(member.contractType)} tone={member.contractType ? 'brand' : 'outline'} />
           </View>
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {role}
             {member.department ? ` · ${member.department}` : ''}
             {member.active ? '' : ' · inactif'}
@@ -53,13 +53,13 @@ function DossierRow({ member }: { member: FarmMember }) {
       <View style={styles.metaRow}>
         <View style={styles.metaItem}>
           <CalendarDays size={14} color={color.ink[400]} />
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {dates || 'Dates non renseignées'}
           </AppText>
         </View>
         <View style={styles.metaItem}>
           <Briefcase size={14} color={color.ink[400]} />
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {member.salaryFcfa != null ? `${fmtFcfa(member.salaryFcfa)} / mois` : 'Salaire non renseigné'}
           </AppText>
         </View>

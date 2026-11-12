@@ -70,7 +70,7 @@ function Trend({
     return (
       <View style={styles.trend}>
         <Icon size={12} color={color.ink[300]} />
-        <AppText size="small" color="muted" numberOfLines={1}>
+        <AppText size="small" color="muted" numberOfLines={2}>
           {label} stable
         </AppText>
       </View>
@@ -86,7 +86,7 @@ function Trend({
         {Math.round(delta * 10) / 10}
         {suffix}
       </AppText>
-      <AppText size="small" color="muted" numberOfLines={1}>
+      <AppText size="small" color="muted" numberOfLines={2}>
         {label}
       </AppText>
     </View>
@@ -120,7 +120,7 @@ export function PerformanceList({ rows }: { rows: LeaderboardRow[] }) {
             <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
               {row.batchName ?? 'Lot'}
             </AppText>
-            <AppText size="small" color="muted" numberOfLines={1}>
+            <AppText size="small" color="muted" numberOfLines={2}>
               {row.gmqGramsPerDay != null ? `GMQ ${Math.round(row.gmqGramsPerDay)} g/j` : `${row.ageDays} j`}
               {row.fcr != null ? ` · IC ${row.fcr.toFixed(2)}` : ''}
               {row.layRatePercent != null ? ` · ponte ${Math.round(row.layRatePercent)}%` : ''}

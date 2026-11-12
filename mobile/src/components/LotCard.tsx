@@ -34,23 +34,24 @@ export function LotCard({ row, onPress }: { row: HealthOverviewRow; onPress?: ()
     <Card onPress={onPress} padding={false} style={styles.card}>
       <View style={styles.row}>
         <View style={styles.head}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <AppText size="body" weight="bold" color="text" numberOfLines={1}>
+          <View style={styles.headText}>
+            <AppText size="body" weight="bold" color="text" numberOfLines={2}>
               {row.batchName ?? 'Lot'}
             </AppText>
             {bs ? (
-              <AppText size="small" color="muted" numberOfLines={1}>
+              <AppText size="small" color="muted" numberOfLines={2}>
                 {bs.breedName} · Semaine {bs.week}
               </AppText>
             ) : null}
           </View>
-          <View style={styles.chips}>
-            <Chip label={typeLabel(row.type)} tone="brand" />
-            {row.species && row.species !== 'POULET' && (
-              <Chip label={`${SPECIES_ICONS[row.species] ?? ''} ${row.species === 'AUTRE' && row.customSpecies ? row.customSpecies : speciesLabel(row.species)}`} tone="neutral" />
-            )}
-            <Chip label={statusLabel(row.status)} tone={statusTone(row.status)} />
-          </View>
+          <ChevronRight size={18} color={color.ink[300]} />
+        </View>
+        <View style={styles.chips}>
+          <Chip label={typeLabel(row.type)} tone="brand" />
+          {row.species && row.species !== 'POULET' && (
+            <Chip label={`${SPECIES_ICONS[row.species] ?? ''} ${row.species === 'AUTRE' && row.customSpecies ? row.customSpecies : speciesLabel(row.species)}`} tone="neutral" />
+          )}
+          <Chip label={statusLabel(row.status)} tone={statusTone(row.status)} />
         </View>
 
         <View style={styles.stats}>
@@ -114,7 +115,6 @@ export function LotCard({ row, onPress }: { row: HealthOverviewRow; onPress?: ()
           </View>
         ) : null}
 
-        <ChevronRight size={18} color={color.ink[300]} style={styles.chevron} />
       </View>
     </Card>
   );
@@ -129,11 +129,17 @@ const styles = StyleSheet.create({
   },
   head: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+  },
+  headText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   chips: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
   },
   stats: {
@@ -143,6 +149,7 @@ const styles = StyleSheet.create({
   },
   stat: {
     flex: 1,
+    minWidth: 0,
     gap: 1,
   },
   divider: {
@@ -173,11 +180,6 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: palette.green[600],
-  },
-  chevron: {
-    position: 'absolute',
-    right: 0,
-    top: 2,
   },
   breedRow: {
     flexDirection: 'row',

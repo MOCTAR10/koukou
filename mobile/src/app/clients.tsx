@@ -391,7 +391,7 @@ function CollectSheet({
               <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
                 {customer.fullName}
               </AppText>
-              <AppText size="caption" color="muted" numberOfLines={1}>
+              <AppText size="caption" color="muted" numberOfLines={2}>
                 {[customer.code, customerTypeLabel(customer.type), customer.phone].filter(Boolean).join(' · ') || 'Aucun contact'}
               </AppText>
             </View>
@@ -730,7 +730,7 @@ export default function ClientsScreen() {
                             <SegmentChip s={c.segment} />
                           </View>
                           <View style={styles.rowBetween}>
-                            <AppText size="caption" color="muted" numberOfLines={1} style={{ flex: 1 }}>
+                            <AppText size="caption" color="muted" numberOfLines={2} style={{ flex: 1 }}>
                               {[c.phone, c.city].filter(Boolean).join(' · ') || 'Aucun contact'}
                             </AppText>
                             <TypePill t={c.type} />

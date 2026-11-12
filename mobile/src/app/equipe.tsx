@@ -83,10 +83,10 @@ function ProfileGrid({
               style={[styles.profileChip, on && styles.profileChipOn]}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}>
-              <AppText size="small" weight={on ? 'bold' : 'medium'} color={on ? 'surface' : 'text'} numberOfLines={1}>
+              <AppText size="small" weight={on ? 'bold' : 'medium'} color={on ? 'surface' : 'text'} numberOfLines={2}>
                 {p.label}
               </AppText>
-              <AppText size="caption" color={on ? 'surface' : 'muted'} numberOfLines={1}>
+              <AppText size="caption" color={on ? 'surface' : 'muted'} numberOfLines={2}>
                 {sub}
               </AppText>
             </Pressable>
@@ -252,7 +252,7 @@ function MemberRow({ member, farmName, onPress }: { member: FarmMember; farmName
             </AppText>
             <Chip label={isAdmin ? 'ADMIN' : 'ÉLEVEUR'} tone={isAdmin ? 'accent' : 'brand'} />
           </View>
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {label}
             {member.active ? '' : ' · inactif'}
           </AppText>
@@ -559,7 +559,7 @@ export default function EquipeScreen() {
           <AppText size="body" weight="semibold" color="text">
             Tâches de l’équipe
           </AppText>
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             Planifier, assigner et suivre le travail quotidien
           </AppText>
         </View>
@@ -580,7 +580,7 @@ export default function EquipeScreen() {
             <AppText size="body" weight="semibold" color="text">
               Dossiers RH
             </AppText>
-            <AppText size="caption" color="muted" numberOfLines={1}>
+            <AppText size="caption" color="muted" numberOfLines={2}>
               Contrats, postes, rémunération et ancienneté
             </AppText>
           </View>

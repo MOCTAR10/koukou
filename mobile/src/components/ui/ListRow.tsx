@@ -24,13 +24,13 @@ export function ListRow({ icon, title, subtitle, badge, right, onPress, danger }
       <View style={[styles.icon, danger && styles.iconDanger]}>{icon}</View>
       <View style={styles.main}>
         <View style={styles.titleRow}>
-          <AppText size="body" weight="semibold" color={danger ? 'danger' : 'text'} numberOfLines={1}>
+          <AppText size="body" weight="semibold" color={danger ? 'danger' : 'text'} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={styles.title}>
             {title}
           </AppText>
           {badge}
         </View>
         {subtitle ? (
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {subtitle}
           </AppText>
         ) : null}
@@ -50,7 +50,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 13,
+    minHeight: 56,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     backgroundColor: semantic.surface,
     borderRadius: radii.lg,
@@ -79,5 +80,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  title: {
+    flexShrink: 1,
   },
 });

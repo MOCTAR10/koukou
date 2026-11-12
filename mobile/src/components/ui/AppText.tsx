@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, StyleSheet, type StyleProp, type TextProps, type TextStyle } from 'react-native';
 
+import { MAX_FONT_SCALE } from '@/constants/textScale';
 import { fontFor, typography, tone, type ColorToken, type TextSize, type TextWeight } from '@/constants/theme';
 
 interface AppTextProps extends TextProps {
@@ -31,6 +32,7 @@ export function AppText({
   const resolved = tint.startsWith('#') || tint.startsWith('rgb') ? tint : tone(tint as ColorToken);
   return (
     <Text
+      maxFontSizeMultiplier={MAX_FONT_SCALE}
       {...rest}
       style={[
         baseStyle(size, weight),

@@ -77,11 +77,11 @@ export function ScreenHeader({
         )}
         {left}
         <View style={styles.headerText}>
-          <AppText size="h2" weight="bold" color="text" numberOfLines={1}>
+          <AppText size="h2" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
             {title}
           </AppText>
           {subtitle ? (
-            <AppText size="caption" color="muted" numberOfLines={1}>
+            <AppText size="caption" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
               {subtitle}
             </AppText>
           ) : null}
@@ -143,15 +143,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: color.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerText: {
     flex: 1,
+    minWidth: 0,
     gap: 0,
   },
 });

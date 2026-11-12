@@ -72,7 +72,7 @@ export function Button({
             />
           ) : null}
           {Icon ? <Icon size={size === 'lg' ? 20 : size === 'md' ? 17 : size === 'sm' ? 14 : 12} color={t.fg} strokeWidth={2.4} /> : null}
-          <AppText size={labelSize} weight="semibold" color={t.fg}>
+          <AppText size={labelSize} weight="semibold" color={t.fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.label}>
             {label}
           </AppText>
         </View>
@@ -124,6 +124,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  label: {
+    flexShrink: 1,
   },
   smInner: {
     gap: 6,

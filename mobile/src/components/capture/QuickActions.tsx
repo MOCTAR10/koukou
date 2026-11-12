@@ -33,10 +33,10 @@ export function QuickActions({ onPick }: QuickActionsProps) {
             <View style={[styles.iconWrap, { backgroundColor: a.bg }]}>
               <Icon size={20} color={a.fg} />
             </View>
-            <AppText size="body" weight="semibold" color="text" numberOfLines={1}>
+            <AppText size="body" weight="semibold" color="text" numberOfLines={2}>
               {a.label}
             </AppText>
-            <AppText size="small" color="muted" numberOfLines={1}>
+            <AppText size="small" color="muted" numberOfLines={2}>
               {a.sub}
             </AppText>
           </Pressable>

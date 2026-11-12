@@ -369,7 +369,7 @@ function PdvForm({
           <AppText size="caption" color="muted">
             Lieu
           </AppText>
-          <AppText size="caption" weight="semibold" color="text" numberOfLines={1} style={{ flexShrink: 1 }}>
+          <AppText size="caption" weight="semibold" color="text" numberOfLines={2} style={{ flexShrink: 1 }}>
             {province || '—'} · {address.trim() || 'sans adresse'}
           </AppText>
         </View>
@@ -548,7 +548,7 @@ export default function PointsVenteScreen() {
               </AppText>
               {p.isDefault ? <Star size={14} color={color.amber[500]} fill={color.amber[400]} /> : null}
             </View>
-            <AppText size="caption" color="muted" numberOfLines={1}>
+            <AppText size="caption" color="muted" numberOfLines={2}>
               {[p.province, p.address].filter(Boolean).join(' · ') || '—'}
             </AppText>
           </View>
@@ -597,7 +597,7 @@ export default function PointsVenteScreen() {
 {isBoutique ? (
             <View style={styles.contextRow}>
               <ArrowRightLeft size={13} color={accent} />
-              <AppText size="caption" color={accent} numberOfLines={1} style={{ flexShrink: 1 }}>
+              <AppText size="caption" color={accent} numberOfLines={2} style={{ flexShrink: 1 }}>
                 {stock
                   ? `${fmt(stock.remaining)} unité(s) de stock · ${fmt(stock.carried)} transfert(s)`
                   : 'Aucun transfert — transférez du stock depuis la ferme'}
@@ -605,7 +605,7 @@ export default function PointsVenteScreen() {
             </View>
           ) : (
           <View style={styles.contextRow}>
-            <AppText size="caption" color="brand" numberOfLines={1} style={{ flexShrink: 1 }}>
+            <AppText size="caption" color="brand" numberOfLines={2} style={{ flexShrink: 1 }}>
               Mère — vivant, abattu, œufs & provende
             </AppText>
           </View>

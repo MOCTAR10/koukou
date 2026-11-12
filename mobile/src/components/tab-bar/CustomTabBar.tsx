@@ -256,7 +256,7 @@ function NavTab({
         ) : null}
       </View>
       <Animated.View style={labelStyle}>
-        <AppText size="small" weight={focused ? 'semibold' : 'medium'} color={focused ? 'brand' : 'faint'}>
+        <AppText size="small" weight={focused ? 'semibold' : 'medium'} color={focused ? 'brand' : 'faint'} numberOfLines={1}>
           {meta.label}
         </AppText>
       </Animated.View>

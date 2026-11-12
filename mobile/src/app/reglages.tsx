@@ -265,7 +265,7 @@ export default function ReglagesScreen() {
                       {group.granted.map((item) => (
                         <View key={item.code} style={styles.grantChip}>
                           <Check size={12} color={palette.green[600]} strokeWidth={3} />
-                          <AppText size="small" color="text" weight="medium" numberOfLines={1}>
+                          <AppText size="small" color="text" weight="medium" numberOfLines={2}>
                             {permissionLabel(item.code)}
                           </AppText>
                         </View>

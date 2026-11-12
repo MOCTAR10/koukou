@@ -1100,10 +1100,10 @@ export default function SanitaryScreen() {
             </Pressable>
             <Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} />
             <View style={{ flex: 1 }}>
-              <AppText size="h2" weight="bold" color="text" numberOfLines={1}>
+              <AppText size="h2" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 Sanitaire
               </AppText>
-              <AppText size="small" color="muted" numberOfLines={1}>
+              <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
                 Prophylaxie, maladies & traitements
               </AppText>
             </View>

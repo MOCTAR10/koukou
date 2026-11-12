@@ -461,7 +461,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
                 <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
                   {client.fullName}
                 </AppText>
-                <AppText size="caption" color="muted" numberOfLines={1}>
+                <AppText size="caption" color="muted" numberOfLines={2}>
                   {[client.code, customerTypeLabel(client.type), client.phone].filter(Boolean).join(' · ') || 'Aucun contact'}
                 </AppText>
               </View>

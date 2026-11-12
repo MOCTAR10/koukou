@@ -44,7 +44,7 @@ export function Chip({ label, tone = 'neutral', dot = false, selected, style }: 
         style,
       ]}>
       {dot && <View style={[styles.dot, { backgroundColor: c.fg }]} />}
-      <AppText size="small" weight={tone === 'neutral' ? 'medium' : tone === 'solid' ? 'bold' : 'semibold'} color={c.fg}>
+      <AppText size="small" weight={tone === 'neutral' ? 'medium' : tone === 'solid' ? 'bold' : 'semibold'} color={c.fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
         {label}
       </AppText>
     </View>

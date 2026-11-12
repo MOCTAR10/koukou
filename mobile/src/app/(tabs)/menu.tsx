@@ -8,9 +8,9 @@ import {
   Bird,
   BookOpen,
   Briefcase,
+  ChevronRight,
   ClipboardCheck,
   ClipboardList,
-  ChevronRight,
   Coins,
   FileBarChart2,
   HandCoins,
@@ -155,13 +155,14 @@ function GroundHome() {
             accessibilityLabel={a.label}>
             <View style={[styles.tileIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
             <View style={styles.tileCol}>
-              <AppText size="bodyM" weight="semibold" color="text" numberOfLines={2}>
+              <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 {a.label}
               </AppText>
-              <AppText size="small" color="muted" numberOfLines={2}>
+              <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 {a.sub}
               </AppText>
             </View>
+            <ChevronRight size={18} color={palette.ink[300]} />
           </Pressable>
         ))}
       </View>
@@ -478,11 +479,11 @@ function MenuTile({ item, tint, soft, onPress }: { item: MenuItem; tint: string;
         <Icon size={ICON - 2} color={tint} strokeWidth={2} />
       </View>
       <View style={styles.tileCol}>
-        <AppText size="bodyM" weight="semibold" color="text" numberOfLines={2}>
+        <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
           {item.label}
         </AppText>
       </View>
-      <ChevronRight size={16} color={palette.ink[300]} />
+      <ChevronRight size={18} color={palette.ink[300]} />
     </Pressable>
   );
 }
@@ -546,30 +547,33 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tile: {
-    // Icone + libellé sur la même ligne : la carte tombe à ~60px au lieu de
-    // ~95px empilées, et le label gagne toute la largeur restante.
+    // Une tuile par ligne : icône, libellé sur UNE ligne (jamais d'ellipse,
+    // « Comptabilité SYSCOHADA » tient dans ~220 dp), chevron. Hauteur et
+    // marges identiques pour toutes, zone tactile de 60 dp.
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    width: '48%',
+    gap: 12,
+    width: '100%',
+    minHeight: 60,
     backgroundColor: semantic.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: semantic.border,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingLeft: 12,
-    paddingRight: 8,
+    paddingRight: 12,
   },
   tilePressed: {
     backgroundColor: semantic.surfaceAlt,
   },
   tileCol: {
     flex: 1,
+    minWidth: 0,
     gap: 1,
   },
   tileIcon: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',

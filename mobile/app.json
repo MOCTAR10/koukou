@@ -30,7 +30,12 @@
         {
           "backgroundColor": "#0C2331",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200
+          "imageWidth": 200,
+          "android": {
+            "image": "./assets/images/android-icon-foreground.png",
+            "imageWidth": 288,
+            "backgroundColor": "#0C2331"
+          }
         }
       ],
       "@react-native-community/datetimepicker",

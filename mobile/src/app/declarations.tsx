@@ -80,7 +80,7 @@ export default function DeclarationsScreen() {
               <Pressable key={d.id} onPress={() => setOpen(d)} accessibilityRole="button" accessibilityLabel={d.title}>
                 <Card style={styles.card}>
                   <View style={styles.head}>
-                    <AppText size="body" weight="bold" color="text" style={{ flex: 1 }} numberOfLines={1}>
+                    <AppText size="body" weight="bold" color="text" style={{ flex: 1 }} numberOfLines={2}>
                       {d.title}
                     </AppText>
                     <Chip label={REVIEW_STATE_LABELS[d.reviewState]} tone={stateTone(d.reviewState)} dot />
