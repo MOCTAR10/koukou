@@ -51,6 +51,10 @@ export function isSyncing(): boolean {
 export function isJustSynced(): boolean {
   return justSynced;
 }
+/** The two flags as one number (1 = syncing, 2 = just sent): stable between changes, so a hook can subscribe to it. */
+export function pulseFlags(): number {
+  return (syncing ? 1 : 0) | (justSynced ? 2 : 0);
+}
 export function pulseVersion(): number {
   return version;
 }
