@@ -1,0 +1,69 @@
+// Fast path: publishes only the JavaScript bundle (over the air), without rebuilding the APK.
+// Phones running a compatible APK get it as « Nouvelle mise à jour · Installer ». Takes ~3 minutes.
+// Manual trigger only. Native changes (new library, permission, app.json native keys) change the
+// runtime version: this job then stops and asks for a full build (job fermia-android).
+// Rollback: run it with MODE = retour arriere and ROLLBACK_TO = a release id (see « Lister »).
+pipeline {
+  agent any
+  parameters {
+    choice(name: 'MODE', choices: ['publier', 'retour arriere', 'lister'], description: 'publier = bundle de ce commit ; retour arriere = republier une ancienne version ; lister = afficher les versions gardées')
+    string(name: 'ROLLBACK_TO', defaultValue: '', description: 'Identifiant de version (ex. 20261112T101500Z-b12), pour « retour arriere »')
+    string(name: 'RUNTIME_VERSION', defaultValue: '', description: 'Optionnel, retour arriere / lister : runtime visé (par défaut le plus récent)')
+  }
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+    timeout(time: 30, unit: 'MINUTES')
+  }
+  environment {
+    CI = 'true'
+    EXPO_PUBLIC_API_URL = 'https://fermia.greenleaves.ga/api'
+    EXPO_PUBLIC_API_KEY = ''
+    SECRETS = '/var/jenkins_home/fermia-secrets'
+    OUT_DIR = '/var/www/trees-apk/fermia'
+    OTA_DIR = '/var/www/trees-apk/fermia/ota'
+    NODE_OPTIONS = '--max-old-space-size=2048'
+  }
+  stages {
+    stage('Publier le bundle') {
+      when { expression { params.MODE == 'publier' } }
+      steps {
+        dir('mobile') {
+          sh 'npm ci --no-audit --no-fund && npx tsc --noEmit'
+          sh 'sh scripts/ota-prepare.sh --no-generate'
+          sh '''
+            set -e
+            RV=$(node -p "require('./app.json').expo.runtimeVersion")
+            APK_RV=$(node -p "try{require('$OUT_DIR/version.json').runtimeVersion}catch(e){''}")
+            if [ "$RV" != "$APK_RV" ]; then
+              echo "Le code natif a changé (runtime $RV, dernier APK $APK_RV) : lancez le job fermia-android." >&2
+              exit 1
+            fi
+            npx expo export --platform android --output-dir dist-ota
+            node scripts/ota.mjs publish --dist dist-ota --out "$OTA_DIR" --base-url https://fermia.greenleaves.ga/ota \
+              --runtime "$RV" --key "$SECRETS/ota/private-key.pem" --build "$BUILD_NUMBER"
+          '''
+        }
+      }
+    }
+    stage('Retour arrière') {
+      when { expression { params.MODE == 'retour arriere' } }
+      steps {
+        dir('mobile') {
+          sh '''
+            set -e
+            [ -n "$ROLLBACK_TO" ] || { echo "Renseignez ROLLBACK_TO (voir le mode lister)." >&2; exit 1; }
+            node scripts/ota.mjs rollback --out "$OTA_DIR" --to "$ROLLBACK_TO" --runtime "$RUNTIME_VERSION" \
+              --key "$SECRETS/ota/private-key.pem"
+          '''
+        }
+      }
+    }
+    stage('Lister') {
+      when { expression { params.MODE == 'lister' } }
+      steps { dir('mobile') { sh 'node scripts/ota.mjs list --out "$OTA_DIR" --runtime "$RUNTIME_VERSION"' } }
+    }
+  }
+  post { always { cleanWs(deleteDirs: true, notFailBuild: true) } }
+}

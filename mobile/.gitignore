@@ -44,3 +44,7 @@ example
 
 # local tooling config
 .claude/
+
+# OTA: certificate copied here by the Jenkins pipeline from its secrets (never committed)
+code-signing/
+dist-ota/
