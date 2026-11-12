@@ -8,6 +8,9 @@ import { Button } from './ui/Button';
 import { radii, semantic, shadow } from '@/constants/theme';
 import { useAppUpdate } from '@/updates/useAppUpdate';
 
+// Room for the ConnectionStrip (status-bar inset + one thin line) the tab layouts draw at the top.
+const STRIP_HEIGHT = 36;
+
 /**
  * Discreet banner at the top: « Nouvelle mise à jour · Installer » (bundle
  * already downloaded) or « Nouvelle version disponible · Mettre à jour » (new
@@ -32,7 +35,7 @@ export function AppUpdateBanner() {
   };
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { top: insets.top + 8 }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { top: insets.top + STRIP_HEIGHT }]}>
       <View style={styles.card} accessibilityRole="alert">
         <AppText size="small" weight="semibold" color={semantic.heroText} style={styles.title} numberOfLines={1}>
           {title}

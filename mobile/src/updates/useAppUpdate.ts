@@ -7,6 +7,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 
 import { API_BASE_URL } from '@/api/client';
 import { flushQueue } from '@/offline';
+import { connectivity } from '@/offline/connectivity';
 import { toast } from '@/components/ui/Feedback';
 import { isCheckDue, parseApkInfo, shouldOfferApk, type ApkInfo } from './logic';
 
@@ -83,14 +84,18 @@ export function useAppUpdate() {
   useEffect(() => {
     if (!ENABLED) return;
     const run = () => {
+      if (!connectivity.isOnline()) return;
       void checkOta().then(checkApk);
     };
     const first = setTimeout(run, FIRST_CHECK_DELAY_MS);
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') run();
     });
+    // Back online: look again (the throttle still applies).
+    const unsubscribe = connectivity.subscribe(run);
     return () => {
       clearTimeout(first);
+      unsubscribe();
       sub.remove();
     };
   }, [checkOta, checkApk]);
