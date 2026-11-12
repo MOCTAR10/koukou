@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Image, Keyboard, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Image, Keyboard, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building2, Briefcase, ChevronDown, ChevronUp, KeyRound, ListTodo, Phone, ShieldCheck, UserCog, UserPlus, Users } from 'lucide-react-native';

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { toast, confirm } from '@/components/ui/Feedback';
-import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {

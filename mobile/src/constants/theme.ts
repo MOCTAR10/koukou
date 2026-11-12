@@ -1,5 +1,4 @@
 import '@/global.css';
-import '@/constants/textScale';
 
 import { Platform } from 'react-native';
 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { Check, Package, Scale, Send, Truck } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';

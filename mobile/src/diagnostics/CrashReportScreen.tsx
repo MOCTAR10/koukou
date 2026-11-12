@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { clearLastCrash, formatCrash, shareCrash, type CrashRecord } from './crash-log';
+import { MAX_FONT_SCALE } from '@/constants/textScale';
 
 /**
  * Shown instead of the app when the previous session ended on a fatal
@@ -18,13 +19,13 @@ export function CrashReportScreen({ crash, onContinue }: { crash: CrashRecord; o
 
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>L’application s’est fermée la dernière fois</Text>
-      <Text style={styles.lead}>Partagez ce rapport avec l’équipe Fermia (WhatsApp, e-mail…), puis continuez.</Text>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={styles.title}>L’application s’est fermée la dernière fois</Text>
+      <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={styles.lead}>Partagez ce rapport avec l’équipe Fermia (WhatsApp, e-mail…), puis continuez.</Text>
       <ScrollView style={styles.box}>
-        <Text selectable style={styles.mono}>{formatCrash(crash)}</Text>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} selectable style={styles.mono}>{formatCrash(crash)}</Text>
       </ScrollView>
       <Pressable style={[styles.btn, styles.primary]} onPress={() => shareCrash(crash)}>
-        <Text style={styles.primaryText}>Partager le rapport</Text>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={styles.primaryText}>Partager le rapport</Text>
       </Pressable>
       <Pressable
         style={styles.btn}
@@ -32,7 +33,7 @@ export function CrashReportScreen({ crash, onContinue }: { crash: CrashRecord; o
           clearLastCrash();
           onContinue();
         }}>
-        <Text style={styles.btnText}>Continuer vers l’application</Text>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={styles.btnText}>Continuer vers l’application</Text>
       </Pressable>
     </View>
   );

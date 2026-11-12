@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { AppText } from '@/components/ui/AppText';

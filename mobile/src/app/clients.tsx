@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { telUrl } from '@/utils/safeUrl';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownWideNarrow, Banknote, Check, ChevronDown, ChevronRight, Pencil, Phone, Plus, Search, UserPlus, UserRound } from 'lucide-react-native';

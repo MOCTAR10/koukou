@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Platform, Text, type StyleProp, type TextProps, type TextStyle } from 'react-native';
 import Animated, { ReduceMotion, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
+import { MAX_FONT_SCALE } from '@/constants/textScale';
 
 export function frGroup(n: number): string {
   'worklet';
@@ -28,8 +29,8 @@ export function AnimatedNumber({ value, duration = 480, format = frGroup, style 
   const animatedProps = useAnimatedProps<TextProps & { text: string }>(() => ({ text: format(display.value) }));
 
   if (Platform.OS === 'web') {
-    return <Text style={style}>{format(value)}</Text>;
+    return <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={style}>{format(value)}</Text>;
   }
 
-  return <Animated.Text animatedProps={animatedProps} style={style} />;
+  return <Animated.Text maxFontSizeMultiplier={MAX_FONT_SCALE} animatedProps={animatedProps} style={style} />;
 }

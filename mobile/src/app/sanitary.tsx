@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { plural } from '@/utils/plural';
 import { toast, confirm } from '@/components/ui/Feedback';
-import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';

@@ -5,11 +5,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
+  
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';

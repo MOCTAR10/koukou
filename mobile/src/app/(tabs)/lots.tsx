@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { plural } from '@/utils/plural';
-import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueries, keepPreviousData } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -77,6 +78,7 @@ import { fetchBandHistory, type BandSummaryIndicator } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { librevilleDay } from '@/utils/libreville';
 import { fermiaFcrText, fermiaGmqText, fermiaMortalityText, lotHeadlines, officialByBand, overviewCell } from '@/poufa/lot-headline';
+import { MAX_FONT_SCALE } from '@/constants/textScale';
 
 // ── Filters ──
 type FilterType = 'all' | 'active' | 'selling' | 'chair' | 'layer';
@@ -186,9 +188,9 @@ function StarLabel({ label }: { label: string }) {
   return (
     <AppText size="caption" color="faint" numberOfLines={1}>
       {parts.map((p, i) => (
-        <Text key={i}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} key={i}>
           {p}
-          {i < parts.length - 1 ? <Text style={{ color: palette.amber[500] }}>★</Text> : null}
+          {i < parts.length - 1 ? <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ color: palette.amber[500] }}>★</Text> : null}
         </Text>
       ))}
     </AppText>

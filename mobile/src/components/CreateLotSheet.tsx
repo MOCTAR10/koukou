@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, Platform, Pressable, StyleSheet, ScrollView, TextInput as RNTextInput, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Modal, Platform, Pressable, StyleSheet, ScrollView, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { TextInput as RNTextInput } from '@/components/ui/AppTextInput';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowRight, Calendar, Check, ChevronDown, Clock, Eye, Wheat, Zap, ShieldCheck, Syringe, TrendingUp, Warehouse, Lightbulb } from 'lucide-react-native';

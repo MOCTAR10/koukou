@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { toast } from '@/components/ui/Feedback';
-import { Image, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type TextInputProps } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRightLeft, Check, ChevronDown, Map as MapIcon, MapPin, Plus, Star, Store, Trash2, TrendingUp, X, House } from 'lucide-react-native';
 
@@ -26,6 +27,7 @@ import { color, palette, radii, spacing, fmt, fmtFcfa, fontFamily, semantic } fr
 import { GABON_PROVINCES } from '@/constants/gabon';
 import { geocodeGabonAddress, type GeoSuggest } from '@/utils/geocode';
 import { errorText } from '@/api/errorText';
+import { MAX_FONT_SCALE } from '@/constants/textScale';
 
 function addDaysIso(iso: string, days: number): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -574,7 +576,7 @@ export default function PointsVenteScreen() {
         <View style={styles.cardDivider} />
 
         <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
-          <Text style={{ fontFamily: fontFamily.bold, color: accent, fontSize: 16 }}>{fmt(range.revenue)} FCFA</Text>
+          <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={{ fontFamily: fontFamily.bold, color: accent, fontSize: 16 }}>{fmt(range.revenue)} FCFA</Text>
           {'  '}
           {fmt(range.count)} ticket(s) · {PERIOD_LABEL[period]}
         </AppText>
