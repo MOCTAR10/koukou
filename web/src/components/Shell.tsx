@@ -213,7 +213,8 @@ export function Shell() {
   const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
     useMenuAccess();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
-  const economie = economieRights(user?.role, useInstitutionAccess().access?.profile); // POUFA lot A droits
+  const institutionProfile = useInstitutionAccess().access?.profile;
+  const economie = economieRights(user?.role, institutionProfile); // POUFA lot A droits
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
   const farmProvince = farm?.provinceName ?? undefined;
   // Programme-wide entries: the registry, the platform console, the institutional access administration, an institution's own access.
@@ -228,7 +229,11 @@ export function Shell() {
     // --- Programme administration, by domain: PARAMETRES (or ADMINISTRATION for the lists), AUDIT, REGISTRE (national) ---
     ...(admin.parameters.view || admin.lists.view ? [{ to: '/app/parametres', label: 'Paramètres', icon: SlidersHorizontal }] : []),
     ...(admin.audit.view ? [{ to: '/app/audit', label: 'Journal d’audit', icon: FileSearch }] : []),
-    ...(admin.recovery.view ? [{ to: '/app/reprise', label: 'Reprise des données', icon: DatabaseBackup }] : []),
+    // The menu entry goes to the profiles that act on the recovery (deposit, correct, validate); a profile that
+    // only reads the registry (veterinary services…) still opens the page by its address, the server decides.
+    ...(admin.recovery.view && (admin.recovery.deposit || admin.recovery.edit || admin.recovery.validate)
+      ? [{ to: '/app/reprise', label: 'Reprise des données', icon: DatabaseBackup }]
+      : []),
     // --- end programme administration ---
     // POUFA W6: programme inputs and traceability.
     ...programmeEntries(user?.role, (to) => showEntry(to)).map((e) => ({ to: e.to, label: e.label, icon: e.kind === 'intrants' ? Truck : QrCode })),
@@ -237,8 +242,17 @@ export function Shell() {
     ...(surveillance.view ? [{ to: '/app/surveillance', label: 'Surveillance sanitaire', icon: ShieldAlert }] : []),
     ...(notificationRights.readRules ? [{ to: '/app/notifications/regles', label: 'Règles de notification', icon: BellRing }] : []),
   ];
-  // Platform admin and institutions work from the programme console: programme sections first, farm modules folded below.
-  const consoleMode = isAdmin || user?.role === 'INSTITUTION';
+  // Field profiles (veterinary services, technical agents…): an institution account that works in the farm
+  // modules and does not steer the programme (no PILOTAGE:CONSULTER in its matrix). It gets the farm menu
+  // first, open, like a farmer, then its programme-wide pages under its own profile name. Decided from the
+  // matrix the administrator manages, never from a profile code.
+  const worksInFarmModules = NAV.some((group) =>
+    group.items.some((item) => item.to !== HELP_PATH && (space === 'ready' || worksWithoutFarm(item.to)) && showEntry(item.to, item.perms)),
+  );
+  const fieldProfile = user?.role === 'INSTITUTION' && !accessLoading && !pilotage.view && worksInFarmModules;
+  // Platform admin and programme institutions work from the programme console: programme sections first, farm modules folded below.
+  const consoleMode = isAdmin || (user?.role === 'INSTITUTION' && !fieldProfile);
+  const programmeTitle = fieldProfile ? institutionProfile?.label ?? 'Programme' : 'Programme';
   // The help is not a farm module: in the console it closes the programme list, so an account with no
   // farm module (MAEDR, ANINF, BCEG…) gets no « Modules de gestion des fermes » section at all.
   const programmeItems = consoleMode
@@ -353,7 +367,7 @@ export function Shell() {
           {!consoleMode && adminItems.length > 0 ? (
             <div>
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
-                Programme
+                {programmeTitle}
               </p>
               <NavItems items={adminItems} onNavigate={() => setMobileOpen(false)} />
             </div>
