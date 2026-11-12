@@ -1,7 +1,7 @@
 import '@/diagnostics/install-crash-log';
 import React, { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppState, Platform } from 'react-native';
+import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -23,6 +23,7 @@ import { FeedbackHost } from '@/components/ui/Feedback';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { semantic } from '@/constants/theme';
 import { accountArea } from '@/api/roles';
+import { QUERY_CACHE_MAX_AGE_MS, startQueryPersist } from '@/offline/query-persist';
 import { previousCrash } from '@/diagnostics/crash-log';
 import { CrashReportScreen } from '@/diagnostics/CrashReportScreen';
 
@@ -30,9 +31,30 @@ import { CrashReportScreen } from '@/diagnostics/CrashReportScreen';
 // frame never flashes in the system font.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// gcTime >= the saved copy's max age: a restored answer must still be there
+// when its screen opens. `offlineFirst`: the first attempt always goes out
+// (React Native has no online detection, and on web a paused query would
+// stay « loading »); a failed refresh keeps the data already in the cache.
+// One retry, but not while the connection signal says the server is out of reach
+// (the failure shows at once, with the saved data still on screen).
+function retryOnce(failureCount: number): boolean {
+  return failureCount < 1 && onlineManager.isOnline();
+}
+
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  defaultOptions: {
+    queries: { staleTime: 30_000, retry: retryOnce, gcTime: QUERY_CACHE_MAX_AGE_MS, networkMode: 'offlineFirst' },
+  },
 });
+
+// Reads survive a cold start offline: the signed-in account's saved answers
+// are loaded now, and kept saved while the app runs.
+startQueryPersist(queryClient);
+
+// Back in the foreground = refetch the stale queries (no window focus on native).
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (state) => focusManager.setFocused(state === 'active'));
+}
 
 function RootNavigator() {
   const { signedIn, user, farms } = useAuth();

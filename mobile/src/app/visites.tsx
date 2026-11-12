@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/Card';
 import { Chip } from '@/components/ui/Chip';
 import { Sheet } from '@/components/ui/Sheet';
 import { Spinner } from '@/components/ui/Spinner';
+import { StaleNotice } from '@/components/ui/StaleNotice';
 import { VisitSheet } from '@/components/visits/VisitSheet';
 import { useAuth } from '@/auth/AuthContext';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
@@ -155,7 +156,8 @@ export default function VisitsScreen() {
             </Card>
           ) : null}
           {list.isLoading ? <Spinner label="Chargement des visites…" /> : null}
-          {list.isError ? (
+          <StaleNotice show={list.isError && Boolean(list.data)} updatedAt={list.dataUpdatedAt} />
+          {list.isError && !list.data ? (
             <AppText size="small" color="danger">
               Visites indisponibles pour le moment.
             </AppText>
