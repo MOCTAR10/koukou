@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput as RNTextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { TextInput as RNTextInput } from '@/components/ui/AppTextInput';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 

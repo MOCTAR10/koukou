@@ -1,9 +1,11 @@
 import React, { forwardRef, useState, useEffect } from 'react';
-import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { StyleSheet, Text, TextInputProps, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { CheckCircle2 } from 'lucide-react-native';
 
 import { color, palette, fontFamily, semantic } from '@/constants/theme';
 import { GABON_FLAG, GABON_PREFIX, isGabonPhoneValid, normalizeGabonPhone } from '@/constants/phone';
+import { MAX_FONT_SCALE } from '@/constants/textScale';
 
 export interface PhoneInputProps extends Omit<TextInputProps, 'value' | 'onChangeText' | 'keyboardType' | 'maxLength' | 'textContentType'> {
   value: string;
@@ -30,7 +32,7 @@ export const PhoneInput = forwardRef<TextInput, PhoneInputProps>(
 
     return (
       <View style={[styles.field, compact ? styles.fieldCompact : null]}>
-        <Text style={[styles.prefix, compact ? styles.prefixCompact : null]}>
+        <Text maxFontSizeMultiplier={MAX_FONT_SCALE} style={[styles.prefix, compact ? styles.prefixCompact : null]}>
           {GABON_FLAG} {GABON_PREFIX}
         </Text>
         <TextInput

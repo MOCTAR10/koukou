@@ -100,7 +100,7 @@ export function FarmIdentityCard({ farm, canEdit }: FarmIdentityCardProps) {
           <AppText size="body" weight="bold" color="text" numberOfLines={2}>
             {farm.name}
           </AppText>
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {[province, farm.administrativeCity || 'Commune non renseignée'].filter(Boolean).join(' · ')}
           </AppText>
         </View>

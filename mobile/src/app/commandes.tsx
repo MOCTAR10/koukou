@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Check, ChevronDown, ChevronRight, ClipboardList, Contact, Map as MapIcon, MapPin, Pencil, Plus, Search, Trash2, UserPlus } from 'lucide-react-native';
@@ -461,7 +462,7 @@ const kg = weightKg > 0 ? weightKg : Math.round(qty * DEFAULT_AVG_WEIGHT_KG * 10
                 <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
                   {client.fullName}
                 </AppText>
-                <AppText size="caption" color="muted" numberOfLines={1}>
+                <AppText size="caption" color="muted" numberOfLines={2}>
                   {[client.code, customerTypeLabel(client.type), client.phone].filter(Boolean).join(' · ') || 'Aucun contact'}
                 </AppText>
               </View>

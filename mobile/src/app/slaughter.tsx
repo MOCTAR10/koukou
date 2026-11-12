@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigation } from 'expo-router';
 import { toast, confirm } from '@/components/ui/Feedback';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building, Check, FileText, Printer, Scale, Truck } from 'lucide-react-native';
 

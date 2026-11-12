@@ -290,6 +290,7 @@ export default function AccueilScreen() {
       refreshing={!!d && (dashboard.isFetching || advisory.isFetching || batchesQuery.isFetching)}
       onRefresh={refresh}
       header={
+        <View>
         <View style={styles.topRow}>
           <Image
             source={require('@/assets/images/logo-nav.png')}
@@ -298,10 +299,7 @@ export default function AccueilScreen() {
             accessibilityLabel='Logo'
           />
           <View style={styles.greetCol}>
-            <AppText size='h3' weight='bold' color='text' numberOfLines={1}>
-              Bonjour, {givenName(user.fullName)}
-            </AppText>
-            <AppText size='small' color='muted' numberOfLines={1} style={styles.dateLine}>
+            <AppText size='small' color='muted' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.dateLine}>
               {liveNow.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </AppText>
           </View>
@@ -322,6 +320,11 @@ export default function AccueilScreen() {
               </View>
             ) : null}
           </Pressable>
+        </View>
+        {/* Salutation seule sur sa ligne : toute la largeur pour un nom long, une seule ligne, jamais coupée. */}
+        <AppText size='h3' weight='bold' color='text' numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.greeting}>
+          Bonjour, {givenName(user.fullName)}
+        </AppText>
         </View>
       }
     >
@@ -816,7 +819,10 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+  },
+  greeting: {
+    marginTop: 8,
   },
   avatarLogo: {
     width: 36,
@@ -828,6 +834,8 @@ const styles = StyleSheet.create({
   greetCol: {
     flex: 1,
     flexShrink: 1,
+    minWidth: 0,
+    paddingLeft: 4,
   },
   alertBtn: {
     width: 42,

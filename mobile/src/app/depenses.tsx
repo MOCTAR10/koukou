@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { plural } from '@/utils/plural';
 import { toast, confirm } from '@/components/ui/Feedback';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Info, Pencil, Plus, ReceiptText, Trash2 } from 'lucide-react-native';
 

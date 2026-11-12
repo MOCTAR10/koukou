@@ -109,7 +109,7 @@ export function Segmented<T extends string>({ options, value, onChange, haptic =
                 weight={active ? 'bold' : 'semibold'}
                 numberOfLines={1}
                 adjustsFontSizeToFit
-                minimumFontScale={0.7}
+                minimumFontScale={0.75}
                 style={styles.optionLabel}
                 color={active ? tint : color.ink[400]}>
                 {o.label}
@@ -144,13 +144,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    height: 32,
+    minHeight: 40,
+    paddingVertical: 4,
     borderRadius: radii.sm,
     paddingHorizontal: 2,
   },
   optionLabel: {
-    fontSize: 11.5,
+    fontSize: 12,
     lineHeight: 15,
     flexShrink: 1,
+    textAlign: 'center',
   },
 });

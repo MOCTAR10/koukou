@@ -711,30 +711,35 @@ export default function LotDetailScreen() {
                 <AppText size="label" weight="medium" color="muted" style={{ flexShrink: 1, minWidth: 0 }}>{b.breedName}</AppText>
               ) : null}
             </View>
-            <View style={styles.heroMainRow}>
-              <HeroStat value={fmt(m?.liveCount ?? 0)} label="vivants" small />
-              <View style={styles.heroStatSep} />
-              <HeroStat
-                value={hasOfficial ? officialText(official('taux_mortalite')) : `${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
-                label={hasOfficial ? 'mortalité officielle' : 'mortalité Fermia'}
-                tone={normalizeMortalityStatus(m?.mortalityStatus, official('taux_mortalite')?.value ?? m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
-                small
-              />
-              <View style={styles.heroStatSep} />
-              <HeroStat
-                value={hasOfficial ? officialText(official('ic')) : (m?.fcr ?? 0).toLocaleString('fr-FR')}
-                label={hasOfficial ? 'IC officiel (bilan)' : 'IC technique'}
-                small
-              />
-              <View style={styles.heroStatSep} />
-              {isLayer ? (
-                <HeroStat value={m?.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : '—'} label="Taux de ponte" tone={m?.layRatePercent != null && m.layRatePercent >= 100 ? 'danger' : 'text'} small />
-              ) : (
-                <HeroStat value={m?.ipe != null ? m.ipe.toLocaleString('fr-FR') : '—'} label="IPE" small />
-              )}
-            </View>
           </View>
         </View>
+          <View style={styles.heroMainRow}>
+            <HeroStat value={fmt(m?.liveCount ?? 0)} label="vivants" small />
+            <View style={styles.heroStatSep} />
+            <HeroStat
+              value={hasOfficial ? officialText(official('taux_mortalite')) : `${(m?.mortalityPercent ?? 0).toLocaleString('fr-FR')} %`}
+              label={hasOfficial ? 'mortalité' : 'mortalité Fermia'}
+              tone={normalizeMortalityStatus(m?.mortalityStatus, official('taux_mortalite')?.value ?? m?.mortalityPercent) === 'normal' ? 'text' : 'danger'}
+              small
+            />
+            <View style={styles.heroStatSep} />
+            <HeroStat
+              value={hasOfficial ? officialText(official('ic')) : (m?.fcr ?? 0).toLocaleString('fr-FR')}
+              label={hasOfficial ? 'IC (bilan)' : 'IC technique'}
+              small
+            />
+            <View style={styles.heroStatSep} />
+            {isLayer ? (
+              <HeroStat value={m?.layRatePercent != null ? `${m.layRatePercent.toLocaleString('fr-FR')} %` : '—'} label="Taux de ponte" tone={m?.layRatePercent != null && m.layRatePercent >= 100 ? 'danger' : 'text'} small />
+            ) : (
+              <HeroStat value={m?.ipe != null ? m.ipe.toLocaleString('fr-FR') : '—'} label="IPE" small />
+            )}
+          </View>
+        {hasOfficial ? (
+          <AppText size="small" color="muted" align="center" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            Indicateurs officiels du programme
+          </AppText>
+        ) : null}
         <View style={styles.healthStrip}>
           {healthQ.data && (
             <View style={styles.healthScorePill}>
@@ -779,7 +784,7 @@ export default function LotDetailScreen() {
           return (
             <Pressable key={t.key} onPress={() => setMainTab(t.key)} style={[styles.tabBtn, active && styles.tabBtnActive]} accessibilityRole="tab">
               <Icon size={16} color={active ? semantic.primary : color.ink[400]} />
-              <AppText size="small" weight={active ? 'bold' : 'medium'} color={active ? 'brand' : 'muted'}>{t.label}</AppText>
+              <AppText size="small" weight={active ? 'bold' : 'medium'} color={active ? 'brand' : 'muted'} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t.label}</AppText>
             </Pressable>
           );
         })}
@@ -1309,8 +1314,8 @@ export default function LotDetailScreen() {
 function HeroStat({ value, label, tone = 'text', small = false }: { value: string; label: string; tone?: string; small?: boolean }) {
   return (
     <View style={styles.heroStat}>
-      <AppText size="h2" weight="bold" color={tone} style={small ? styles.heroValueSmall : styles.heroValue}>{value}</AppText>
-      <AppText size="small" color="muted">{label}</AppText>
+      <AppText size="h2" weight="bold" color={tone} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={small ? styles.heroValueSmall : styles.heroValue}>{value}</AppText>
+      <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{label}</AppText>
     </View>
   );
 }
@@ -1337,7 +1342,7 @@ const styles = StyleSheet.create({
   heroTitleSep: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(12,35,49,0.18)' },
   heroMainRow: { flexDirection: 'row', alignItems: 'stretch' },
   heroStatSep: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: 'rgba(12,35,49,0.12)', marginVertical: 2 },
-  heroStat: { flex: 1, gap: 1, alignItems: 'center' },
+  heroStat: { flex: 1, minWidth: 0, gap: 1, alignItems: 'center' },
   heroValue: { fontSize: 20, lineHeight: 24 },
   heroValueSmall: { fontSize: 16, lineHeight: 20 },
   healthStrip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(12,35,49,0.08)' },
@@ -1365,7 +1370,7 @@ const styles = StyleSheet.create({
 
   // Main tabs
   tabRow: { flexDirection: 'row', gap: 4, marginTop: 12, marginBottom: 8 },
-  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 10, borderRadius: radii.md, backgroundColor: semantic.surfaceAlt },
+  tabBtn: { flex: 1, minWidth: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 8, paddingHorizontal: 2, borderRadius: radii.md, backgroundColor: semantic.surfaceAlt },
   tabBtnActive: { backgroundColor: semantic.primarySoft, borderWidth: 1, borderColor: palette.brand[200] },
 
   // Metrics grid

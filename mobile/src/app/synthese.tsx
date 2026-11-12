@@ -48,7 +48,7 @@ function Figures({ row, columns, group }: { row: SynthesisRow; columns: Synthesi
     <View style={styles.figures}>
       {visibleFigures(row, columns, group).map((f) => (
         <View key={f.key} style={styles.figure}>
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {f.label}
           </AppText>
           <AppText size="body" weight="semibold" color={NEGATIVE_BAD.has(f.key) && (f.value ?? 0) < 0 ? 'danger' : 'text'} numberOfLines={1}>
@@ -150,7 +150,7 @@ export default function SyntheseScreen() {
                     {expanded
                       ? farmsOfProvince(s.farms, p.provinceCode).map((f) => (
                           <View key={f.farmId} style={styles.farm}>
-                            <AppText size="small" weight="semibold" numberOfLines={1}>
+                            <AppText size="small" weight="semibold" numberOfLines={2}>
                               {f.code ? `${f.code} · ` : ''}
                               {f.name}
                             </AppText>

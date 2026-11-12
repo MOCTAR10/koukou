@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { plural } from '@/utils/plural';
 import { toast, confirm } from '@/components/ui/Feedback';
-import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -1100,10 +1101,10 @@ export default function SanitaryScreen() {
             </Pressable>
             <Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} />
             <View style={{ flex: 1 }}>
-              <AppText size="h2" weight="bold" color="text" numberOfLines={1}>
+              <AppText size="h2" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 Sanitaire
               </AppText>
-              <AppText size="small" color="muted" numberOfLines={1}>
+              <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
                 Prophylaxie, maladies & traitements
               </AppText>
             </View>

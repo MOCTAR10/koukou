@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 
 import { fontFamily, palette, radii, semantic } from '@/constants/theme';
 

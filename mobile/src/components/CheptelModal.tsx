@@ -117,7 +117,7 @@ export function CheptelModal({ visible, batches, onClose }: CheptelModalProps) {
                       <AppText size="body" weight="bold" color="text" numberOfLines={1} style={styles.rowLabel}>{g.label}</AppText>
                       <AppText size="small">{SPECIES_ICONS[g.species]}</AppText>
                     </View>
-                    <AppText size="caption" color="faint" numberOfLines={1}>{g.speciesCaption}{g.code ? ` · ${g.code}` : ''}</AppText>
+                    <AppText size="caption" color="faint" numberOfLines={2}>{g.speciesCaption}{g.code ? ` · ${g.code}` : ''}</AppText>
                     <View style={styles.statsRow}>
                       <View style={styles.stat}>
                         <AppText size="body" weight="bold" color="success">{fmtNumber(g.alive)}</AppText>

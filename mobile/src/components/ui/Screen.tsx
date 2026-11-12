@@ -6,6 +6,8 @@ import { ChevronLeft } from 'lucide-react-native';
 
 import { AppText } from './AppText';
 import { color, layout, semantic } from '@/constants/theme';
+import { CONTENT_MAX_WIDTH } from '@/theme/responsive';
+import { useScreen } from '@/theme/useScreen';
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -21,16 +23,18 @@ interface ScreenProps {
 
 export function Screen({ children, bottomPad = 96, scroll = true, style, header, refreshing, onRefresh, footer }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const { gutter } = useScreen();
+  const padX = { paddingHorizontal: gutter };
   // Edge-to-edge (SDK 54) : le contenu défile derrière la barre système Android
   // (3 boutons). Pour une mise en page FIXE (scroll=false), le padding `bottomPad`
   // doit englober l'insert système, sinon le contenu passe sous la barre.
   const contentPad = scroll ? bottomPad : bottomPad + insets.bottom;
-  const content = <View style={[styles.content, { paddingBottom: contentPad }, style]}>{children}</View>;
+  const content = <View style={[styles.content, padX, { paddingBottom: contentPad }, style]}>{children}</View>;
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       {header ? (
         <View style={styles.headerWrap}>
-          <View style={[styles.content, styles.headerBox]}>{header}</View>
+          <View style={[styles.content, padX, styles.headerBox]}>{header}</View>
         </View>
       ) : null}
       {scroll ? (
@@ -46,7 +50,7 @@ export function Screen({ children, bottomPad = 96, scroll = true, style, header,
       )}
       {footer ? (
         <View style={[styles.footerWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <View style={[styles.content, styles.footerBox]}>{footer}</View>
+          <View style={[styles.content, padX, styles.footerBox]}>{footer}</View>
         </View>
       ) : null}
     </SafeAreaView>
@@ -77,11 +81,11 @@ export function ScreenHeader({
         )}
         {left}
         <View style={styles.headerText}>
-          <AppText size="h2" weight="bold" color="text" numberOfLines={1}>
+          <AppText size="h2" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
             {title}
           </AppText>
           {subtitle ? (
-            <AppText size="caption" color="muted" numberOfLines={1}>
+            <AppText size="caption" color="muted" numberOfLines={2}>
               {subtitle}
             </AppText>
           ) : null}
@@ -130,7 +134,7 @@ const styles = StyleSheet.create({
   },
   content: {
     width: '100%',
-    maxWidth: layout.maxW,
+    maxWidth: Math.min(layout.maxW, CONTENT_MAX_WIDTH),
     paddingHorizontal: layout.contentPadding,
     paddingTop: 6,
   },
@@ -143,15 +147,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     backgroundColor: color.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerText: {
     flex: 1,
+    minWidth: 0,
     gap: 0,
   },
 });

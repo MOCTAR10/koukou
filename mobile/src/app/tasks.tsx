@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CalendarDays,
@@ -351,7 +352,7 @@ function TaskCard({
             style={dimmed ? styles.dimmed : undefined}>
             {task.title}
           </AppText>
-          <AppText size="caption" color="muted" numberOfLines={1}>
+          <AppText size="caption" color="muted" numberOfLines={2}>
             {generated ? `${SOURCE_LABELS[task.source as Exclude<TaskSource, 'MANUELLE'>]}` : assigneeName ? assigneeName : 'Tâche libre'}
             {batchName ? ` · ${batchName}` : ''}
           </AppText>

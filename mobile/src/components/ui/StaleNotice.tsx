@@ -21,8 +21,8 @@ export function StaleNotice({ show, updatedAt }: { show: boolean; updatedAt: num
   return (
     <View
       accessibilityRole="alert"
-      style={{ marginVertical: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radii.md, backgroundColor: palette.amber[50] }}>
-      <AppText size="small" weight="semibold" style={{ color: palette.amber[700] }}>
+      style={{ marginVertical: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radii.md, backgroundColor: palette.amber[50], borderWidth: 1, borderColor: palette.amber[100] }}>
+      <AppText size="small" weight="semibold" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: palette.amber[700] }}>
         {staleLabel(updatedAt)}
       </AppText>
     </View>

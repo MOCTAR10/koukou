@@ -19,7 +19,7 @@ function HeroStat({ label, value, tone }: { label: string; value: string; tone?:
       <AppText size="small" weight="bold" style={{ color: tone ?? 'rgba(255,255,255,0.92)' }} numberOfLines={1}>
         {value}
       </AppText>
-      <AppText size="small" style={{ color: 'rgba(255,255,255,0.55)' }} numberOfLines={1}>
+      <AppText size="small" style={{ color: 'rgba(255,255,255,0.55)' }} numberOfLines={2}>
         {label}
       </AppText>
     </View>

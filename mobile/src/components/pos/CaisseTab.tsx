@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { toast, confirm } from '@/components/ui/Feedback';
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowUpFromLine, Coins, FolderClosed, FolderOpen, Pencil, Trash2 } from 'lucide-react-native';
 

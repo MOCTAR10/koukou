@@ -8,9 +8,9 @@ import {
   Bird,
   BookOpen,
   Briefcase,
+  ChevronRight,
   ClipboardCheck,
   ClipboardList,
-  ChevronRight,
   Coins,
   FileBarChart2,
   HandCoins,
@@ -150,26 +150,27 @@ function GroundHome() {
           <Pressable
             key={a.key}
             onPress={a.onPress}
-            style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+            style={({ pressed }) => [styles.tile, styles.primaryTile, pressed && styles.tilePressed]}
             accessibilityRole="button"
             accessibilityLabel={a.label}>
             <View style={[styles.tileIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
             <View style={styles.tileCol}>
-              <AppText size="bodyM" weight="semibold" color="text" numberOfLines={2}>
+              <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 {a.label}
               </AppText>
-              <AppText size="small" color="muted" numberOfLines={2}>
+              <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 {a.sub}
               </AppText>
             </View>
+            <ChevronRight size={18} color={palette.ink[300]} />
           </Pressable>
         ))}
       </View>
 
       <SectionHeader title="Comptes & suivi" subtitle="Profil et bandes en cours" icon={Settings} />
-      <View style={styles.grid}>
-        {links.map((item) => (
-          <MenuTile key={item.key} item={item} tint={semantic.primary} soft={semantic.primarySoft} onPress={() => router.push(item.href)} />
+      <View style={styles.group}>
+        {links.map((item, i) => (
+          <MenuTile key={item.key} item={item} first={i === 0} tint={semantic.primary} soft={semantic.primarySoft} onPress={() => router.push(item.href)} />
         ))}
       </View>
     </Screen>
@@ -456,9 +457,9 @@ function MenuSection({ group, onPick }: { group: MenuGroup; onPick: (href: Href)
   return (
     <View style={styles.section}>
       <SectionHeader title={group.title} subtitle={group.subtitle} icon={group.icon} iconColor={group.iconColor} iconBg={group.iconBg} />
-      <View style={styles.grid}>
-        {group.items.map((item) => (
-          <MenuTile key={item.key} item={item} tint={group.iconColor} soft={group.iconBg} onPress={() => onPick(item.href)} />
+      <View style={styles.group}>
+        {group.items.map((item, i) => (
+          <MenuTile key={item.key} item={item} first={i === 0} tint={group.iconColor} soft={group.iconBg} onPress={() => onPick(item.href)} />
         ))}
       </View>
     </View>
@@ -466,23 +467,23 @@ function MenuSection({ group, onPick }: { group: MenuGroup; onPick: (href: Href)
 }
 
 /** Tuile « tuile colorée + libellé » : grille de navigation des écrans pro. */
-function MenuTile({ item, tint, soft, onPress }: { item: MenuItem; tint: string; soft: string; onPress: () => void }) {
+function MenuTile({ item, tint, soft, onPress, first = false }: { item: MenuItem; tint: string; soft: string; onPress: () => void; first?: boolean }) {
   const Icon = item.icon;
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+      style={({ pressed }) => [styles.tile, !first && styles.tileSep, pressed && styles.tilePressed]}
       accessibilityRole="menuitem"
       accessibilityLabel={item.label}>
       <View style={[styles.tileIcon, { backgroundColor: soft }]}>
         <Icon size={ICON - 2} color={tint} strokeWidth={2} />
       </View>
       <View style={styles.tileCol}>
-        <AppText size="bodyM" weight="semibold" color="text" numberOfLines={2}>
+        <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
           {item.label}
         </AppText>
       </View>
-      <ChevronRight size={16} color={palette.ink[300]} />
+      <ChevronRight size={18} color={palette.ink[300]} />
     </Pressable>
   );
 }
@@ -545,26 +546,43 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
+  // Chaque section est une carte groupée : lignes séparées par un filet,
+  // icône dans une pastille de la couleur du domaine, libellé sur UNE ligne.
+  group: {
+    marginTop: 6,
+    backgroundColor: semantic.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: semantic.border,
+    overflow: 'hidden',
+  },
   tile: {
-    // Icone + libellé sur la même ligne : la carte tombe à ~60px au lieu de
-    // ~95px empilées, et le label gagne toute la largeur restante.
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    width: '48%',
+    gap: 12,
+    minHeight: 58,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  tileSep: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: semantic.border,
+  },
+  // Actions principales du terrain : cartes autonomes avec sous-titre.
+  primaryTile: {
+    width: '100%',
+    minHeight: 64,
     backgroundColor: semantic.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: semantic.border,
-    paddingVertical: 12,
-    paddingLeft: 12,
-    paddingRight: 8,
   },
   tilePressed: {
     backgroundColor: semantic.surfaceAlt,
   },
   tileCol: {
     flex: 1,
+    minWidth: 0,
     gap: 1,
   },
   tileIcon: {

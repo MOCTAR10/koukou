@@ -25,7 +25,7 @@ interface MetricTileProps {
   subHighlight?: boolean;
   /** Extra style overrides (e.g. flexBasis for 4-column rows). */
   style?: StyleProp<ViewStyle>;
-  /** Max label lines (default 1). Use 2 for narrow 4-column tiles so full labels stay visible. */
+  /** Max label lines (default 1): the label shrinks slightly to fit instead of being cut. */
   labelLines?: number;
   /** Stack the layout vertically (icon on top, label full-width) for very narrow tiles. */
   labelBelow?: boolean;
@@ -61,10 +61,10 @@ export function MetricTile({ label, value, sub, tone = 'default', icon: Icon, ic
             <Image source={iconImage} style={[styles.splitImage, narrowStats && styles.splitImageWide]} resizeMode='contain' />
           </View>
           <View style={[styles.splitStats, narrowStats && styles.splitStatsNarrow]}>
-            <AppText size='small' weight='semibold' color='muted' numberOfLines={labelLines || 1} style={{ lineHeight: 14 }}>{label}</AppText>
-            <AppText size='h2' weight='bold' color={fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55} style={{ lineHeight: 24 }}>{value}</AppText>
+            <AppText size='small' weight='semibold' color='muted' numberOfLines={labelLines || 1} adjustsFontSizeToFit minimumFontScale={0.75}>{label}</AppText>
+            <AppText size='h2' weight='bold' color={fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</AppText>
             {sub ? (
-              <AppText size='small' color='faint' numberOfLines={1} style={{ lineHeight: 13 }}>{sub}</AppText>
+              <AppText size='small' color='faint' numberOfLines={2}>{sub}</AppText>
             ) : null}
           </View>
         </View>
@@ -83,7 +83,7 @@ export function MetricTile({ label, value, sub, tone = 'default', icon: Icon, ic
               <Icon size={threeCol ? 12 : 15} color={fg} />
             </View>
           ) : null}
-          <AppText size="small" weight="semibold" color="muted" numberOfLines={labelLines} align="center" style={styles.labelFull}>
+          <AppText size="small" weight="semibold" color="muted" numberOfLines={labelLines} adjustsFontSizeToFit minimumFontScale={0.75} align="center" style={styles.labelFull}>
             {label}
           </AppText>
           <AppText
@@ -104,13 +104,13 @@ export function MetricTile({ label, value, sub, tone = 'default', icon: Icon, ic
         </View>
       ) : (
         <View style={[styles.inner, compact && styles.innerCompact, threeCol && styles.innerThreeCol]}>
-          <View style={styles.head}>
+          <View style={[styles.head, threeCol && styles.headStacked]}>
             {Icon ? (
               <View style={[styles.iconWrap, { backgroundColor: TONE_BG[tone] }]}>
                 <Icon size={threeCol ? 11 : compact ? 13 : 15} color={fg} />
               </View>
             ) : null}
-            <AppText size="small" weight="semibold" color="muted" numberOfLines={labelLines} style={styles.label}>
+            <AppText size="small" weight="semibold" color="muted" numberOfLines={labelLines} adjustsFontSizeToFit minimumFontScale={0.75} style={styles.label}>
               {label}
             </AppText>
           </View>
@@ -181,6 +181,12 @@ const styles = StyleSheet.create({
     gap: 7,
     minHeight: 20,
   },
+  // 3 colonnes (~100 dp) : icône au-dessus, libellé sur toute la largeur de la carte.
+  headStacked: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 4,
+  },
   iconWrap: {
     width: 22,
     height: 22,
@@ -190,6 +196,8 @@ const styles = StyleSheet.create({
   },
   label: {
     flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
   },
   value: {
     fontSize: 22,
@@ -213,7 +221,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
     borderRadius: radii.lg,
-    height: 78,
+    minHeight: 78,
   },
   splitImageWrap: {
     width: '50%',

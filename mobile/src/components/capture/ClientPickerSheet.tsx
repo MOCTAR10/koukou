@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery } from '@tanstack/react-query';
 import { UserRound, Users } from 'lucide-react-native';
 
@@ -104,7 +105,7 @@ export function ClientPickerSheet({
                     <AppText size="body" weight="semibold" color="text" numberOfLines={1}>
                       {c.fullName}
                     </AppText>
-                    <AppText size="caption" color="muted" numberOfLines={1}>
+                    <AppText size="caption" color="muted" numberOfLines={2}>
                       {[c.code, customerTypeLabel(c.type), c.phone].filter(Boolean).join(' · ') || 'Aucun contact'}
                     </AppText>
                   </View>

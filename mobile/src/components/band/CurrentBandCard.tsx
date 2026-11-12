@@ -61,7 +61,7 @@ export function CurrentBandCard({ farmId, feedAutonomyDays, onOpen }: Props) {
     <Card onPress={() => onOpen(band.id)} style={styles.card} accessibilityLabel="Ma bande en cours, ouvrir la bande">
       <View style={styles.head}>
         <Target size={16} color={semantic.primary} />
-        <AppText size="bodyM" weight="semibold" color="text" style={{ flex: 1 }} numberOfLines={1}>
+        <AppText size="bodyM" weight="semibold" color="text" style={{ flex: 1 }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
           Ma bande en cours · {band.code ?? band.batchName ?? 'Bande'}
         </AppText>
         <ChevronRight size={16} color={semantic.primary} />

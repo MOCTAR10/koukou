@@ -1,7 +1,8 @@
 // POUFA lot A sante: the treatment register entry (CDC n° 23) and the care
 // completion (CDC n° 22) on the phone, both through the offline queue.
 import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, Check, ChevronDown, Syringe } from 'lucide-react-native';

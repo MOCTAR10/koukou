@@ -168,7 +168,7 @@ export function HomeHero({ farmName, verified, onFarmPress, headline, stats, wea
                   style={({ pressed }) => [styles.stat, i === 0 && stats.length > 2 && styles.statWide, pressed && styles.pressed]}
                   accessibilityRole={s.onPress ? 'button' : 'text'}
                   accessibilityLabel={s.accessibilityLabel ?? `${s.label} : ${s.value}${s.suffix ? `, ${s.suffix}` : ''}`}>
-                  <AppText size="small" color={HERO_LABEL} numberOfLines={1}>
+                  <AppText size="small" color={HERO_LABEL} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                     {s.label}
                   </AppText>
                   <View style={styles.inline}>
@@ -183,12 +183,12 @@ export function HomeHero({ farmName, verified, onFarmPress, headline, stats, wea
                       style={styles.shrink}>
                       {s.value}
                     </AppText>
-                    {s.suffix ? (
-                      <AppText size="small" color={s.dot ?? HERO_LABEL} numberOfLines={1}>
-                        {s.suffix}
-                      </AppText>
-                    ) : null}
                   </View>
+                  {s.suffix ? (
+                    <AppText size="small" color={s.dot ?? HERO_LABEL} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.suffix}>
+                      {s.suffix}
+                    </AppText>
+                  ) : null}
                 </Pressable>
               </React.Fragment>
             ))}
@@ -267,16 +267,20 @@ const styles = StyleSheet.create({
   },
   stat: {
     flex: 1,
+    minWidth: 0,
     gap: 3,
-    paddingRight: 8,
+    paddingRight: 6,
   },
   statWide: {
-    flex: 1.3,
+    flex: 1.5,
+  },
+  suffix: {
+    flexShrink: 3,
   },
   statDivider: {
     width: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255,255,255,0.16)',
-    marginRight: 12,
+    marginRight: 8,
   },
   dot: {
     width: 7,

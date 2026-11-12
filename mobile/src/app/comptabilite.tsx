@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { toast, confirm } from '@/components/ui/Feedback';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Download, Scale, CircleCheck, CircleAlert, Lock, Boxes } from 'lucide-react-native';
 

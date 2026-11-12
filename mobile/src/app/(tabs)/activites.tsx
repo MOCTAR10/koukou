@@ -347,7 +347,7 @@ export default function ActivitesScreen() {
                   <AppText size="bodyM" weight="bold" color="text" numberOfLines={1}>
                     {capitalize(weather.condition)}
                   </AppText>
-                  <AppText size="small" color="muted" numberOfLines={1}>
+                  <AppText size="small" color="muted" numberOfLines={2}>
                     {weather.location}
                   </AppText>
                 </View>
@@ -404,7 +404,7 @@ function CountTile({ label, value }: { label: string; value: number | string }) 
       <AppText size="bodyM" weight="bold" color="text" numberOfLines={1}>
         {value}
       </AppText>
-      <AppText size="small" color="muted" numberOfLines={1}>
+      <AppText size="small" color="muted" numberOfLines={2}>
         {label}
       </AppText>
     </View>

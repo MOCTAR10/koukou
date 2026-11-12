@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import * as Haptics from 'expo-haptics';
 import { Banknote, Check, ReceiptText, UserRound, Wallet, X } from 'lucide-react-native';
 

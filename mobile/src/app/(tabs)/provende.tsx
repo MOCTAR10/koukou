@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { TextInput } from '@/components/ui/AppTextInput';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { toast } from '@/components/ui/Feedback';
@@ -100,7 +101,7 @@ function TypeStatCard({ entryType, kg, count }: { entryType: FeedEntryType; kg: 
       <View style={styles.typeStatIcon}>
         <Icon size={18} color={hasData ? palette.accent[500] : color.ink[400]} strokeWidth={2.2} />
       </View>
-      <AppText size="small" weight={hasData ? 'semibold' : 'medium'} color={hasData ? 'brand' : 'muted'} align="center" numberOfLines={1}>
+      <AppText size="small" weight={hasData ? 'semibold' : 'medium'} color={hasData ? 'brand' : 'muted'} align="center" numberOfLines={2}>
         {meta.label}
       </AppText>
       <AppText size="bodyM" weight="bold" color={hasData ? 'text' : 'faint'} align="center" numberOfLines={1}>
@@ -435,10 +436,10 @@ export default function ProvendeScreen() {
           <View style={styles.customHeader}>
             <Image source={require('@/assets/images/logo-nav.png')} style={styles.headerLogo} />
             <View style={{ flex: 1 }}>
-              <AppText size="h2" weight="bold" color="text" numberOfLines={1}>
+              <AppText size="h2" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                 Provende
               </AppText>
-              <AppText size="small" color="muted" numberOfLines={1}>
+              <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
                 Stock & inventaire · pertes & mouvements
               </AppText>
             </View>
@@ -490,7 +491,7 @@ export default function ProvendeScreen() {
             <Card tone="brand" style={styles.hero}>
               <Metric label="Disponible" value={Math.round(summary.totalKg).toLocaleString('fr-FR')} unit="kg" tint={color.brand[600]} />
               <View style={styles.summaryDivider} />
-              <Metric label="Valeur estimée" value={summary.totalFcfa > 0 ? `${Math.round(summary.totalFcfa).toLocaleString('fr-FR')}` : '—'} unit={summary.totalFcfa > 0 ? 'FCFA' : undefined} tint={color.brand[600]} />
+              <Metric grow={1.7} label="Valeur estimée" value={summary.totalFcfa > 0 ? `${Math.round(summary.totalFcfa).toLocaleString('fr-FR')}` : '—'} unit={summary.totalFcfa > 0 ? 'FCFA' : undefined} tint={color.brand[600]} />
               <View style={styles.summaryDivider} />
               <Metric label="Phases" value={String(summary.active)} unit="actives" tint={color.brand[600]} />
             </Card>
@@ -507,7 +508,7 @@ export default function ProvendeScreen() {
               <Plus size={18} color={semantic.surface} />
             </View>
             <View style={{ flex: 1 }}>
-              <AppText size="body" weight="semibold" color="text" numberOfLines={1}>
+              <AppText size="body" weight="semibold" color="text" numberOfLines={2}>
                 Nouvelle entrée de provende
               </AppText>
             </View>
@@ -608,7 +609,7 @@ export default function ProvendeScreen() {
                           <AppText size="body" weight="bold" color="text" numberOfLines={1}>
                             {l.productName ?? (l.feedPhase ? FEED_PHASE_LABELS[l.feedPhase as FeedPhase] : 'Provende')}
                           </AppText>
-                          <AppText size="caption" color="muted" numberOfLines={1}>
+                          <AppText size="caption" color="muted" numberOfLines={2}>
                             {l.supplier ?? 'Fournisseur inconnu'} · n° {l.supplierLotNumber ?? '—'}
                             {l.batchId ? ' · lot ferme lié' : ''}
                           </AppText>
@@ -792,14 +793,14 @@ export default function ProvendeScreen() {
   );
 }
 
-function Metric({ label, value, unit, tint }: { label: string; value: string; unit?: string; tint: string }) {
+function Metric({ label, value, unit, tint, grow = 1 }: { label: string; value: string; unit?: string; tint: string; grow?: number }) {
   return (
-    <View style={{ flex: 1, gap: 2 }}>
-      <AppText size="caption" color="muted">
+    <View style={{ flex: grow, minWidth: 0, gap: 2 }}>
+      <AppText size="caption" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
         {label}
       </AppText>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-        <AppText size="h3" weight="bold" color="text">
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 3 }}>
+        <AppText size="h3" weight="bold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {value}
         </AppText>
         {unit ? (

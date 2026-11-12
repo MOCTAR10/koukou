@@ -123,7 +123,7 @@ export default function BuyerOrderScreen() {
               <AppText size="h3" weight="bold" numberOfLines={2}>
                 {listingTitle(order)}
               </AppText>
-              <AppText size="caption" color="muted" numberOfLines={1}>
+              <AppText size="caption" color="muted" numberOfLines={2}>
                 {order.farm.name}
                 {order.farm.city ? ` · ${order.farm.city}` : ''}
               </AppText>

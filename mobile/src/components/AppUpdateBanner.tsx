@@ -8,8 +8,9 @@ import { Button } from './ui/Button';
 import { radii, semantic, shadow } from '@/constants/theme';
 import { useAppUpdate } from '@/updates/useAppUpdate';
 
-// Room for the ConnectionStrip (status-bar inset + one thin line) the tab layouts draw at the top.
-const STRIP_HEIGHT = 36;
+// Pastille posée en bas, au-dessus de la barre d'onglets et de son bouton « + » : en haut elle
+// masquait l'en-tête de l'écran (titre, actions) et le bandeau de connexion.
+const ABOVE_TAB_BAR = 112;
 
 /**
  * Discreet banner at the top: « Nouvelle mise à jour · Installer » (bundle
@@ -35,9 +36,9 @@ export function AppUpdateBanner() {
   };
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { top: insets.top + STRIP_HEIGHT }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom: insets.bottom + ABOVE_TAB_BAR }]}>
       <View style={styles.card} accessibilityRole="alert">
-        <AppText size="small" weight="semibold" color={semantic.heroText} style={styles.title} numberOfLines={1}>
+        <AppText size="small" weight="semibold" color={semantic.heroText} style={styles.title} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
           {title}
         </AppText>
         <Button label={label} onPress={onPress} size="xs" tone="accent" block={false} disabled={busy} loading={busy} />
@@ -66,6 +67,6 @@ const styles = StyleSheet.create({
     backgroundColor: semantic.heroBg,
     ...shadow.card,
   },
-  title: { flex: 1 },
+  title: { flex: 1, minWidth: 0 },
   close: { padding: 4 },
 });

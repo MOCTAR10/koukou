@@ -46,7 +46,7 @@ function DayGroup({ group, perDay }: { group: JournalGroup; perDay: number }) {
               <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1}>
                 {entry.title}
               </AppText>
-              <AppText size="small" color="muted" numberOfLines={1}>
+              <AppText size="small" color="muted" numberOfLines={2}>
                 {entry.detail}
               </AppText>
             </View>

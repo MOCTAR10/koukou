@@ -39,7 +39,7 @@ export function PnlHero({
       <View style={styles.glowBottom} />
 
       <View style={styles.head}>
-        <AppText size="label" weight="bold" color={palette.brand[200]} numberOfLines={1} style={{ flex: 1 }}>
+        <AppText size="label" weight="bold" color={palette.brand[200]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={{ flex: 1 }}>
           RÉSULTAT NET · {periodLabel.toUpperCase()}
         </AppText>
         <View style={[styles.badge, { backgroundColor: positive ? 'rgba(108,170,88,0.20)' : 'rgba(213,67,43,0.20)' }]}>
