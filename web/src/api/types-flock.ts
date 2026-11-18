@@ -291,6 +291,7 @@ export interface HealthEvent {
   vetReviewComment?: string | null;
   vetReviewedAt?: string | null;
   photos?: import('./types-surveillance').HealthEventPhoto[];
+  audio?: import('./types-surveillance').HealthEventAudio[];
 }
 
 export interface BatchHealth {

@@ -47,6 +47,7 @@ import { NOTIFIABLE_DISEASE_FAMILY } from '../programme/ref-list-families.js';
 import { RefListsService } from '../programme/ref-lists.service.js';
 import { SanitaryAlertsService } from '../surveillance/sanitary-alerts.service.js';
 import { HealthEventPhoto } from './entities/health-event-photo.entity.js';
+import { HealthEventAudio } from './entities/health-event-audio.entity.js';
 import { isAfterTomorrowUtc, todayLocal } from '../../common/utils/date.utils.js';
 
 const EGGS_PER_TRAY = 30;
@@ -74,8 +75,49 @@ export interface HealthEventPhotoView {
   createdAt: Date;
 }
 
+/** Voice notes of a declaration (farmers who cannot read or write). */
+export const DECLARATION_AUDIO_MAX_BYTES = 3 * 1024 * 1024;
+export const DECLARATION_AUDIO_MAX = 2;
+export const DECLARATION_AUDIO_MAX_DURATION_MS = 180_000;
+
+/** A voice note as the declaration list serves it (no path). */
+export interface HealthEventAudioView {
+  id: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationMs: number | null;
+  createdAt: Date;
+}
+
+/**
+ * Container of a voice note read from its own bytes (never the client's MIME):
+ * MPEG-4 audio (`ftyp` box at offset 4: m4a/mp4/3gp, what Android records),
+ * WebM/Matroska or Ogg.
+ */
+export function detectAudioFormat(
+  buf: Buffer,
+): { extension: string; mimeType: string } | null {
+  if (buf.length >= 12 && buf.subarray(4, 8).toString('latin1') === 'ftyp') {
+    return { extension: 'm4a', mimeType: 'audio/mp4' };
+  }
+  if (
+    buf.length >= 4 &&
+    buf[0] === 0x1a &&
+    buf[1] === 0x45 &&
+    buf[2] === 0xdf &&
+    buf[3] === 0xa3
+  ) {
+    return { extension: 'webm', mimeType: 'audio/webm' };
+  }
+  if (buf.length >= 4 && buf.subarray(0, 4).toString('latin1') === 'OggS') {
+    return { extension: 'ogg', mimeType: 'audio/ogg' };
+  }
+  return null;
+}
+
 export type HealthEventWithPhotos = HealthEvent & {
   photos: HealthEventPhotoView[];
+  audio: HealthEventAudioView[];
 };
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -120,6 +162,8 @@ export class HealthService {
     private readonly bandeStats: BandeStatsService,
     @InjectRepository(HealthEventPhoto)
     private readonly photoRepo: Repository<HealthEventPhoto>,
+    @InjectRepository(HealthEventAudio)
+    private readonly audioRepo: Repository<HealthEventAudio>,
     private readonly lists: RefListsService,
     private readonly sanitaryAlerts: SanitaryAlertsService,
   ) {}
@@ -231,7 +275,23 @@ export class HealthService {
       list.push(this.photoView(p));
       byEvent.set(p.healthEventId, list);
     }
-    return events.map((e) => ({ ...e, photos: byEvent.get(e.id) ?? [] }));
+    const notes = ids.length
+      ? await this.audioRepo.find({
+          where: { healthEventId: In(ids) },
+          order: { createdAt: 'ASC' },
+        })
+      : [];
+    const audioByEvent = new Map<string, HealthEventAudioView[]>();
+    for (const a of notes) {
+      const list = audioByEvent.get(a.healthEventId) ?? [];
+      list.push(this.audioView(a));
+      audioByEvent.set(a.healthEventId, list);
+    }
+    return events.map((e) => ({
+      ...e,
+      photos: byEvent.get(e.id) ?? [],
+      audio: audioByEvent.get(e.id) ?? [],
+    }));
   }
 
   async createEvent(
@@ -444,9 +504,13 @@ export class HealthService {
     const photos = await this.photoRepo.find({
       where: { healthEventId: event.id },
     });
-    // Photo rows go with the event (ON DELETE CASCADE); their files after.
+    const notes = await this.audioRepo.find({
+      where: { healthEventId: event.id },
+    });
+    // Photo and voice note rows go with the event (ON DELETE CASCADE); their
+    // files after.
     await this.eventRepo.remove(event);
-    for (const p of photos) {
+    for (const p of [...photos, ...notes]) {
       await unlink(join(declarationPhotosDir(farmId), p.fileName)).catch(
         () => undefined,
       );
@@ -613,6 +677,128 @@ export class HealthService {
       () => undefined,
     );
     return { deleted: true };
+  }
+
+  // ---------- Voice notes of a declaration ----------
+
+  /**
+   * Adds a voice note to a declaration (multipart, after its text). The
+   * container is checked on the file's own bytes; the same file sent again
+   * (offline retry) returns the note already stored.
+   */
+  async addAudio(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    eventId: string,
+    file: UploadedImageFile | undefined,
+    durationRaw?: string,
+  ): Promise<HealthEventAudioView> {
+    const event = await this.assertEvent(user, farmId, batchId, eventId);
+    if (!file) {
+      throw new BadRequestException('Aucun fichier reçu (champ « file »).');
+    }
+    if (file.size === 0 || file.buffer.length === 0) {
+      throw new BadRequestException('La note vocale est vide.');
+    }
+    if (file.size > DECLARATION_AUDIO_MAX_BYTES) {
+      throw new BadRequestException('Une note vocale ne doit pas dépasser 3 Mo.');
+    }
+    let durationMs: number | null = null;
+    if (durationRaw !== undefined && durationRaw !== null && durationRaw !== '') {
+      const n = Number(durationRaw);
+      if (
+        !Number.isInteger(n) ||
+        n < 1 ||
+        n > DECLARATION_AUDIO_MAX_DURATION_MS
+      ) {
+        throw new BadRequestException(
+          'La durée de la note vocale doit être comprise entre 1 ms et 3 minutes.',
+        );
+      }
+      durationMs = n;
+    }
+    // The declared type comes from the client: check the bytes.
+    const format = detectAudioFormat(file.buffer);
+    if (!format) {
+      throw new BadRequestException(
+        'Le fichier n’est pas une note vocale valide (formats acceptés : M4A/MP4, WebM, Ogg).',
+      );
+    }
+    const sha256 = createHash('sha256').update(file.buffer).digest('hex');
+    const same = await this.audioRepo.findOne({
+      where: { healthEventId: event.id, sha256 },
+    });
+    if (same) return this.audioView(same);
+    const count = await this.audioRepo.count({
+      where: { healthEventId: event.id },
+    });
+    if (count >= DECLARATION_AUDIO_MAX) {
+      throw new BadRequestException(
+        `${DECLARATION_AUDIO_MAX} notes vocales au plus par déclaration.`,
+      );
+    }
+    const id = randomUUID();
+    const fileName = `${id}.${format.extension}`;
+    const dir = declarationPhotosDir(farmId);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, fileName), file.buffer);
+    try {
+      const note = await this.audioRepo.save(
+        this.audioRepo.create({
+          id,
+          healthEventId: event.id,
+          farmId,
+          fileName,
+          mimeType: format.mimeType,
+          sizeBytes: file.buffer.length,
+          durationMs,
+          sha256,
+          createdById: user.id,
+        }),
+      );
+      return this.audioView(note);
+    } catch (err) {
+      await unlink(join(dir, fileName)).catch(() => undefined);
+      // Two uploads of the same file at once: the first one wins.
+      const winner = await this.audioRepo.findOne({
+        where: { healthEventId: event.id, sha256 },
+      });
+      if (winner) return this.audioView(winner);
+      throw err;
+    }
+  }
+
+  /** The voice note's bytes, for the farm and the veterinary services only. */
+  async audioFile(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    eventId: string,
+    audioId: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
+    await this.assertEvent(user, farmId, batchId, eventId, true);
+    const note = await this.audioRepo.findOne({
+      where: { id: audioId, healthEventId: eventId, farmId },
+    });
+    if (!note) throw new NotFoundException('Note vocale introuvable.');
+    const buffer = await readFile(
+      join(declarationPhotosDir(farmId), note.fileName),
+    ).catch(() => null);
+    if (!buffer) {
+      throw new NotFoundException('Fichier de la note vocale introuvable.');
+    }
+    return { buffer, mimeType: note.mimeType, fileName: note.fileName };
+  }
+
+  private audioView(a: HealthEventAudio): HealthEventAudioView {
+    return {
+      id: a.id,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      durationMs: a.durationMs,
+      createdAt: a.createdAt,
+    };
   }
 
   /** Declaration rule, farm access and the event in that band. */

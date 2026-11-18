@@ -89,6 +89,15 @@ export interface HealthEventPhoto {
   createdAt: string;
 }
 
+/** `HealthEventAudioView`: a voice note of the farmer (read through the audio route). */
+export interface HealthEventAudio {
+  id: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationMs: number | null;
+  createdAt: string;
+}
+
 /** `GET /farms/:farmId/sanitary/lots` row (SANITAIRE: what a vet can read). */
 export interface SanitaryLotView {
   id: string;
@@ -279,6 +288,7 @@ export interface SanitaryDeclaration {
   suspicion: boolean;
   createdByName: string | null;
   photos: HealthEventPhoto[];
+  audio: HealthEventAudio[];
   alertId: string | null;
   alertCode: string | null;
   alertStatusCode: string | null;

@@ -106,6 +106,9 @@ import { fetchSanitaryLots, type DeclarationPhoto } from '@/api/poufa';
 import { createDeclarationQueued } from '@/offline';
 import { cachedRead } from '@/offline/ref-cache';
 import { persistPhoto } from '@/offline/photo-files';
+import { persistAudio } from '@/offline/audio-files';
+import type { VoiceNoteDraft } from '@/poufa/voice-note';
+import { StoredVoiceNote } from '@/components/voice/VoiceNotePlayer';
 import { knownSigns, withDeclarationFields } from '@/poufa/declaration';
 import { openSanitaryLots } from '@/poufa/sanitary-lots';
 import { matrixGrants } from '@/poufa/access';
@@ -627,6 +630,7 @@ function HealthEventRow({
   onResolve: () => void;
   onDelete: () => void;
 }) {
+  const { farmId } = useAuth();
   const resolved = e.status === 'RESOLU';
   return (
     <Card tone={resolved ? 'plain' : 'alert'} style={styles.card}>
@@ -663,6 +667,9 @@ function HealthEventRow({
           ) : null}
           <Chip label={resolved ? 'Résolu' : 'En cours'} tone={levelTone(resolved ? 'VERT' : 'ROUGE')} dot />
           <VetReviewBadge e={e} />
+          {(e.audio ?? []).map((a, i) => (
+            <StoredVoiceNote key={a.id} farmId={farmId} batchId={e.batchId} eventId={e.id} audio={a} index={i} />
+          ))}
         </View>
       </View>
       <View style={styles.actions}>
@@ -812,6 +819,7 @@ export default function SanitaryScreen() {
   const [clinicalSigns, setClinicalSigns] = useState<string[]>([]);
   const [suspicion, setSuspicion] = useState(false);
   const [photos, setPhotos] = useState<DeclarationPhoto[]>([]);
+  const [voiceNotes, setVoiceNotes] = useState<VoiceNoteDraft[]>([]);
   const signList = useClinicalSigns();
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -1006,18 +1014,32 @@ export default function SanitaryScreen() {
         { clinicalSigns: signList.data ? knownSigns(clinicalSigns, signList.data) : clinicalSigns, suspicion },
       );
       // Offline the declaration and its photos wait in the queue (same key on replay).
-      const sent = await createDeclarationQueued(farmId, lotNow.id, declaration, photos.map(persistPhoto));
+      const sent = await createDeclarationQueued(
+        farmId,
+        lotNow.id,
+        declaration,
+        photos.map(persistPhoto),
+        voiceNotes.map(persistAudio),
+      );
       if (sent.status === 'queued') {
+        const withFiles = [
+          photos.length > 0 ? `${photos.length} photo(s)` : '',
+          voiceNotes.length > 0 ? `${voiceNotes.length} note(s) vocale(s)` : '',
+        ].filter(Boolean);
         toast.info(
           'Déclaration gardée sur le téléphone',
-          `Pas de connexion : elle partira automatiquement${photos.length > 0 ? ` avec ${photos.length} photo(s)` : ''} dès le retour du réseau.`,
+          `Pas de connexion : elle partira automatiquement${withFiles.length > 0 ? ` avec ${withFiles.join(' et ')}` : ''} dès le retour du réseau.`,
         );
-      } else if (sent.data.photosRefused.length > 0) {
-        toast.error('Déclaration enregistrée, photo(s) refusée(s)', sent.data.photosRefused.join('\n'));
+      } else if (sent.data.photosRefused.length > 0 || sent.data.audioRefused.length > 0) {
+        toast.error(
+          'Déclaration enregistrée, pièce(s) refusée(s)',
+          [...sent.data.photosRefused, ...sent.data.audioRefused].join('\n'),
+        );
       }
       setClinicalSigns([]);
       setSuspicion(false);
       setPhotos([]);
+      setVoiceNotes([]);
       setFormOpen(false);
       setOccurredAt('');
       setQuantity('');
@@ -1286,6 +1308,8 @@ export default function SanitaryScreen() {
                   onSuspicion={setSuspicion}
                   photos={photos}
                   onPhotos={setPhotos}
+                  voiceNotes={voiceNotes}
+                  onVoiceNotes={setVoiceNotes}
                   disabled={busy !== null}
                 />
               }

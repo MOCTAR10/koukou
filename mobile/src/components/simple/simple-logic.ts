@@ -254,8 +254,8 @@ export function validateSimple(input: SimpleEntryInput, check: EntryCheck): stri
 export const PROBLEM_TITLE = 'Problème signalé par l’éleveur';
 
 /** Simple-French refusal of a report with nothing in it, or null. */
-export function problemRefusal(signs: readonly string[], count: number, photos: number): string | null {
-  return signs.length === 0 && !(count > 0) && photos === 0 ? 'Touchez ce que vous voyez, ou dites combien de poules.' : null;
+export function problemRefusal(signs: readonly string[], count: number, photos: number, voiceNotes = 0): string | null {
+  return signs.length === 0 && !(count > 0) && photos === 0 && voiceNotes === 0 ?'Touchez ce que vous voyez, ou dites combien de poules.' : null;
 }
 
 /**
@@ -312,6 +312,7 @@ export const SENTENCES = {
   vaccinCount: 'Combien de poules avez-vous soignées ?',
   probleme: 'Qu’est-ce qui ne va pas ? Touchez ce que vous voyez.',
   problemeCount: 'Combien de poules sont mortes ou malades ?',
+  problemeVoix: 'Appuyez sur le micro et dites ce que vous voyez.',
   problemePhotos: 'Prenez une photo si vous pouvez.',
   saved: 'C’est enregistré.',
   savedOffline: 'C’est enregistré sur le téléphone. Il sera envoyé avec le réseau.',

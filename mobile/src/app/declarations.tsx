@@ -16,6 +16,7 @@ import { StaleNotice } from '@/components/ui/StaleNotice';
 import { useAuth } from '@/auth/AuthContext';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
+import { StoredVoiceNote } from '@/components/voice/VoiceNotePlayer';
 import { fetchDeclarations, reviewDeclaration, type SanitaryDeclaration } from '@/api/poufa';
 import {
   REVIEW_DECISION_LABELS,
@@ -128,6 +129,16 @@ function ReviewSheet({ declaration, onClose }: { declaration: SanitaryDeclaratio
         {d.symptoms ? <AppText size="small" color="text">{d.symptoms}</AppText> : null}
         {d.description ? <AppText size="small" color="text">{d.description}</AppText> : null}
         {d.clinicalSigns.length > 0 ? <AppText size="small" color="muted">Signes : {d.clinicalSigns.join(', ')}</AppText> : null}
+        {(d.audio ?? []).length > 0 ? (
+          <View style={{ gap: 8, marginVertical: 4 }}>
+            <AppText size="small" weight="semibold" color="text">
+              Message vocal de l’éleveur
+            </AppText>
+            {(d.audio ?? []).map((a, i) => (
+              <StoredVoiceNote key={a.id} farmId={d.farmId} batchId={d.batchId} eventId={d.id} audio={a} index={i} />
+            ))}
+          </View>
+        ) : null}
         <Chip label={REVIEW_STATE_LABELS[d.reviewState]} tone={stateTone(d.reviewState)} dot />
         {d.reviewStatus ? (
           <AppText size="small" color="muted">

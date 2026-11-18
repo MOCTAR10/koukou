@@ -39,6 +39,7 @@ import type {
   TreatmentRecord,
 } from '../api/types-flock';
 import type { SanitaryLotView } from '../api/types-surveillance';
+import { DeclarationAudio } from '../components/surveillance/DeclarationAudio';
 import { DeclarationPhotos } from '../components/surveillance/DeclarationPhotos';
 import { FarmOfficialAlerts } from '../components/surveillance/FarmOfficialAlerts';
 import { isDeclarationRefusal, signLabels } from '../components/surveillance/declaration';
@@ -483,6 +484,14 @@ function EventsPanel({ lot, period, onAdd }: { lot: SanitaryLotRef; period: Peri
             canAdd={hasPermission('sanitaire:gerer', 'sanitaire:signaler')}
             canDelete={canManage}
           />
+          <div className="mt-3">
+            <DeclarationAudio
+              farmId={farmId}
+              batchId={lot.id}
+              eventId={photosOf.id}
+              audio={(events.data ?? []).find((x) => x.id === photosOf.id)?.audio ?? photosOf.audio ?? []}
+            />
+          </div>
         </Modal>
       ) : null}
       {toDelete ? (

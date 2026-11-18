@@ -61,6 +61,14 @@ export interface SanitaryDeclarationView {
   createdAt: Date;
   createdByName: string | null;
   photos: { id: string; mimeType: string; sizeBytes: number; createdAt: Date }[];
+  /** Voice notes of the farmer (heard through the declaration's own route). */
+  audio: {
+    id: string;
+    mimeType: string;
+    sizeBytes: number;
+    durationMs: number | null;
+    createdAt: Date;
+  }[];
   /** The alert it opened (suspicion) or was converted into. */
   alertId: string | null;
   alertCode: string | null;
@@ -273,6 +281,8 @@ const DECLARATION_COLUMNS = [
   'c."fullName" AS "createdByName"',
   `COALESCE((SELECT json_agg(json_build_object('id', ph.id, 'mimeType', ph.mime_type, 'sizeBytes', ph.size_bytes, 'createdAt', ph.created_at) ORDER BY ph.created_at)
      FROM health_event_photos ph WHERE ph.health_event_id = h.id), '[]'::json) AS "photos"`,
+  `COALESCE((SELECT json_agg(json_build_object('id', au.id, 'mimeType', au.mime_type, 'sizeBytes', au.size_bytes, 'durationMs', au.duration_ms, 'createdAt', au.created_at) ORDER BY au.created_at)
+     FROM health_event_audio au WHERE au.health_event_id = h.id), '[]'::json) AS "audio"`,
   'a.id AS "alertId"',
   'a.code AS "alertCode"',
   'a.status_code AS "alertStatusCode"',

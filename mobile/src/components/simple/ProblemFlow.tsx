@@ -1,10 +1,10 @@
 // « Problème » of the SIMPLE experience: tick what you see (cards of the
-// programme's clinical-sign list), say how many birds are dead or sick, add
-// photos, send. It goes through the existing sanitary declaration queue.
+// programme's clinical-sign list), say how many birds are dead or sick, leave a
+// voice note (optional), add photos, send. It goes through the existing sanitary declaration queue.
 import React, { useCallback, useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
-import { Camera, Check, ImagePlus, X } from 'lucide-react-native';
+import { Camera, Check, ImagePlus, Mic, X } from 'lucide-react-native';
 
 import { AppText } from '@/components/ui/AppText';
 import { useAuth } from '@/auth/AuthContext';
@@ -14,7 +14,10 @@ import type { DeclarationPhoto } from '@/api/poufa';
 import type { BatchWithMetrics } from '@/api/types';
 import { palette, radii, semantic } from '@/constants/theme';
 import { createDeclarationQueued } from '@/offline';
+import { persistAudio } from '@/offline/audio-files';
 import { persistPhoto } from '@/offline/photo-files';
+import type { VoiceNoteDraft } from '@/poufa/voice-note';
+import { VoiceNoteRecorder } from '@/components/voice/VoiceNoteRecorder';
 import { clinicalSignOptions, knownSigns, photoSlotsLeft, toggleSign } from '@/poufa/declaration';
 import { pickDeclarationPhotos, useClinicalSigns } from '@/components/sanitary/DeclarationExtras';
 import { speak } from '@/voice/speak';
@@ -22,7 +25,7 @@ import { SickBirdPicto, WarningPicto } from './pictos/Pictos';
 import { BigKeypad, ResultScreen, StepScreen, ValidateButton } from './SimpleParts';
 import { buildProblemDeclaration, problemRefusal, SENTENCES } from './simple-logic';
 
-type Step = 'signs' | 'count' | 'photos';
+type Step = 'signs' | 'count' | 'voice' | 'photos';
 type Phase = { name: 'ask' } | { name: 'saved'; queued: boolean } | { name: 'refused'; message: string };
 
 export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose: () => void }) {
@@ -34,6 +37,7 @@ export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose
   const [signs, setSigns] = useState<string[]>([]);
   const [count, setCount] = useState(0);
   const [photos, setPhotos] = useState<DeclarationPhoto[]>([]);
+  const [voiceNotes, setVoiceNotes] = useState<VoiceNoteDraft[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>({ name: 'ask' });
   const [saving, setSaving] = useState(false);
@@ -47,7 +51,7 @@ export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose
   };
 
   const send = async () => {
-    const refusal = problemRefusal(signs, count, photos.length);
+    const refusal = problemRefusal(signs, count, photos.length, voiceNotes.length);
     if (refusal) {
       setPhase({ name: 'refused', message: refusal });
       return;
@@ -57,7 +61,13 @@ export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose
       // A sign deactivated since the list was cached would be a 400.
       const known = list.data ? knownSigns(signs, list.data) : signs;
       const declaration = buildProblemDeclaration({ signs: known, count, today: todayStr() });
-      const sent = await createDeclarationQueued(farmId, band.id, declaration, photos.map(persistPhoto));
+      const sent = await createDeclarationQueued(
+        farmId,
+        band.id,
+        declaration,
+        photos.map(persistPhoto),
+        voiceNotes.map(persistAudio),
+      );
       if (sent.status === 'sent') invalidateFarmQueries(queryClient, { farmId, batchId: band.id });
       setPhase({ name: 'saved', queued: sent.status === 'queued' });
     } catch {
@@ -131,19 +141,29 @@ export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose
         picto={<SickBirdPicto size={96} />}
         sentence={SENTENCES.problemeCount}
         onBack={() => setStep('signs')}
-        footer={<ValidateButton onPress={() => setStep('photos')} label="Suivant" />}>
+        footer={<ValidateButton onPress={() => setStep('voice')} label="Suivant" />}>
         <BigKeypad value={count} onChange={setCount} unit="poules" />
       </StepScreen>
     );
   }
 
-  // EXTENSION POINT (next slice): the voice-note recorder joins this last step,
-  // next to the photos, and its audio file travels with the same declaration.
+  if (step === 'voice') {
+    return (
+      <StepScreen
+        picto={<Mic size={72} color={palette.brand[600]} strokeWidth={2.2} />}
+        sentence={SENTENCES.problemeVoix}
+        onBack={() => setStep('count')}
+        footer={<ValidateButton onPress={() => setStep('photos')} label={voiceNotes.length > 0 ? 'Suivant' : 'Passer'} />}>
+        <VoiceNoteRecorder notes={voiceNotes} onChange={setVoiceNotes} max={1} variant="large" />
+      </StepScreen>
+    );
+  }
+
   return (
     <StepScreen
       picto={<Camera size={72} color={palette.brand[600]} strokeWidth={2.2} />}
       sentence={SENTENCES.problemePhotos}
-      onBack={() => setStep('count')}
+      onBack={() => setStep('voice')}
       footer={<ValidateButton onPress={() => void send()} disabled={saving} label="Envoyer" />}>
       <View style={styles.photoButtons}>
         <Pressable

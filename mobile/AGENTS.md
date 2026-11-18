@@ -13,4 +13,12 @@ This app targets **Expo SDK 54** (Expo Go in stores was stuck on a newer SDK unt
 - Voice goes through `src/voice/speak.ts` only (`speak` always, `announce` honours the device setting `koukou.simple.voice`); it never throws. `expo-speech` is a native module (new APK needed, no `app.json` plugin).
 - Rules: pictograms from `simple/pictos/Pictos.tsx`, touch targets ≥ 64 dp, one question per screen, every spoken sentence in `SENTENCES`.
 - `pickDeclarationPhotos` (`DeclarationExtras.tsx`) is the shared photo picker; `capture/feed-phase.ts` holds the feed-phase rules shared by the daily sheet and the simple flows.
-- Open: « Appeler » button (no phone data in the app), voice notes in `ProblemFlow`, cares needing treatment details fall back to `CompleteCareSheet`, « Vendre » opens the full `/pos`.
+- Open: « Appeler » button (no phone data in the app), cares needing treatment details fall back to `CompleteCareSheet`, « Vendre » opens the full `/pos`.
+
+## Voice notes (jury lot 4)
+
+- `components/voice/VoiceNoteRecorder` records mono 16 kHz AAC 32 kbit/s `.m4a` (about 4 KB/s, hard stop at 120 s; 3 MiB and 2 notes max, rules in `poufa/voice-note.ts`). It calls `stopSpeaking()` first and stops on background or unmount.
+- `expo-audio` is a native module with an `app.json` plugin (`microphonePermission`): a new APK is needed, not an OTA.
+- The queue's `HealthEventOpPayload.audio` is optional (old ops replay). Notes are copied by `offline/audio-files(.native)` into `koukou-audio` and uploaded after the photos, with the same failure semantics as photos.
+- Listening goes through `StoredVoiceNote` (`components/voice/VoiceNotePlayer`): the note is downloaded with the Authorization header into the cache (`voice/audio-cache.native.ts`) and played from the local file.
+- The simple « Problème » flow has an optional `voice` step between the count and the photos (`SENTENCES.problemeVoix`).

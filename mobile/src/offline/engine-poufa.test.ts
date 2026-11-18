@@ -54,7 +54,7 @@ describe('déclaration sanitaire (health-event)', () => {
       String(url).endsWith('/photos') ? jsonResponse(201, { id: 'ph-1' }) : jsonResponse(201, { id: 'ev-1' }),
     );
     const res = await createDeclarationQueued('f-1', 'b-1', declaration, [{ uri: 'file:///a.jpg', name: 'a.jpg', mimeType: 'image/jpeg' }]);
-    expect(res).toEqual({ status: 'sent', data: { eventId: 'ev-1', photosSent: 1, photosRefused: [] } });
+    expect(res).toEqual({ status: 'sent', data: { eventId: 'ev-1', photosSent: 1, photosRefused: [], audioSent: 0, audioRefused: [] } });
     expect(readCall(fetch).url).toContain('/farms/f-1/batches/b-1/health-events');
     const sent = body(fetch);
     expect(sent.clinicalSigns).toEqual(['TOUX']);
@@ -90,7 +90,77 @@ describe('déclaration sanitaire (health-event)', () => {
         : jsonResponse(201, { id: 'ev-1' }),
     );
     const res = await createDeclarationQueued('f-1', 'b-1', declaration, [{ uri: 'file:///a.jpg', name: 'a.jpg', mimeType: 'image/jpeg' }]);
-    expect(res).toEqual({ status: 'sent', data: { eventId: 'ev-1', photosSent: 0, photosRefused: ['Photo trop lourde (5 Mo au plus).'] } });
+    expect(res).toEqual({
+      status: 'sent',
+      data: { eventId: 'ev-1', photosSent: 0, photosRefused: ['Photo trop lourde (5 Mo au plus).'], audioSent: 0, audioRefused: [] },
+    });
+  });
+
+  const note = { uri: 'file:///n.m4a', durationMs: 12_000, sizeBytes: 50_000 };
+  const photo = { uri: 'file:///a.jpg', name: 'a.jpg', mimeType: 'image/jpeg' };
+
+  it('note vocale : envoyée après les photos', async () => {
+    const fetch = stubFetch(async (url) => {
+      const u = String(url);
+      if (u.endsWith('/photos')) return jsonResponse(201, { id: 'ph-1' });
+      if (u.endsWith('/audio')) return jsonResponse(201, { id: 'au-1' });
+      return jsonResponse(201, { id: 'ev-1' });
+    });
+    const res = await createDeclarationQueued('f-1', 'b-1', declaration, [photo], [note]);
+    expect(res).toEqual({
+      status: 'sent',
+      data: { eventId: 'ev-1', photosSent: 1, photosRefused: [], audioSent: 1, audioRefused: [] },
+    });
+    expect(readCall(fetch, 1).url).toContain('/health-events/ev-1/photos');
+    expect(readCall(fetch, 2).url).toContain('/farms/f-1/batches/b-1/health-events/ev-1/audio');
+    expect(loadOps()).toEqual([]);
+  });
+
+  it('note vocale hors ligne : gardée dans la file, envoyée au rejeu', async () => {
+    stubFetch(networkError);
+    expect(await createDeclarationQueued('f-1', 'b-1', declaration, [], [note])).toEqual({ status: 'queued' });
+    const [op] = loadOps();
+    expect((op.payload as { audio: unknown[] }).audio).toEqual([note]);
+    const replay = stubFetch(async (url) =>
+      String(url).endsWith('/audio') ? jsonResponse(201, { id: 'au-1' }) : jsonResponse(201, { id: 'ev-1' }),
+    );
+    const summary = await flushQueue();
+    expect(summary.synced).toBe(1);
+    expect(readCall(replay, 1).url).toContain('/health-events/ev-1/audio');
+  });
+
+  it('note vocale : coupure réseau pendant l’envoi, toute l’opération est rejouée', async () => {
+    stubFetch(async (url) => (String(url).endsWith('/audio') ? networkError() : jsonResponse(201, { id: 'ev-1' })));
+    expect(await createDeclarationQueued('f-1', 'b-1', declaration, [], [note])).toEqual({ status: 'queued' });
+    expect(loadOps()).toHaveLength(1);
+  });
+
+  it('note vocale refusée (4xx) : la déclaration reste enregistrée, motif rapporté', async () => {
+    stubFetch(async (url) =>
+      String(url).endsWith('/audio')
+        ? jsonResponse(400, { message: 'Note vocale trop lourde (3 Mo au plus).' })
+        : jsonResponse(201, { id: 'ev-1' }),
+    );
+    const res = await createDeclarationQueued('f-1', 'b-1', declaration, [], [note]);
+    expect(res).toEqual({
+      status: 'sent',
+      data: { eventId: 'ev-1', photosSent: 0, photosRefused: [], audioSent: 0, audioRefused: ['Note vocale trop lourde (3 Mo au plus).'] },
+    });
+  });
+
+  it('ancienne opération en file sans « audio » : rejouée comme sans note', async () => {
+    enqueueOp({
+      id: 'off-health-event-old',
+      kind: 'health-event',
+      farmId: 'f-1',
+      batchId: 'b-1',
+      createdAt: '2026-11-01T08:00:00.000Z',
+      payload: { batchId: 'b-1', payload: { ...declaration, idempotencyKey: 'off-health-event-old' }, photos: [] },
+    });
+    const replay = stubFetch(async () => jsonResponse(201, { id: 'ev-1' }));
+    const summary = await flushQueue();
+    expect(summary.synced).toBe(1);
+    expect(replay).toHaveBeenCalledTimes(1);
   });
 
   it('refus du serveur au rejeu : rangée dans les rejets avec le message', async () => {

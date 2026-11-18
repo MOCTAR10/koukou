@@ -237,6 +237,7 @@ describe('problem report', () => {
     expect(problemRefusal([], 0, 1)).toBeNull();
     expect(problemRefusal(['TOUX'], 0, 0)).toBeNull();
     expect(problemRefusal([], 3, 0)).toBeNull();
+    expect(problemRefusal([], 0, 0, 1)).toBeNull();
   });
 });
 
