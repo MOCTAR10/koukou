@@ -49,6 +49,7 @@ const KNOWN_TABLES = [
   'sanitary_alerts',
   'sanitary_alert_transitions',
   'health_event_photos',
+  'health_event_audio',
   'notification_rules',
   'notifications',
   'sanitary_protocols',

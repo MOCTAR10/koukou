@@ -7,6 +7,7 @@ import { dateFr, dateTimeFr } from '../../lib/format';
 import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../form';
 import { LEVEL_LABEL, Note, Pill, levelTone } from '../flock/shared';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
+import { DeclarationAudio } from './DeclarationAudio';
 import { DeclarationPhotos } from './DeclarationPhotos';
 import { REVIEW_STATE_LABELS, REVIEW_STATE_TONES, declarationQuery, reviewFormProblem, type DeclarationFilters } from './declarationReview';
 import { invalidateAlerts } from './queries';
@@ -174,6 +175,7 @@ function DeclarationPanel({ declaration, canReview, onClose }: { declaration: Sa
           <dt className="text-slate-500">Déclarée par</dt>
           <dd>{d.createdByName ?? '—'}</dd>
         </dl>
+        <DeclarationAudio farmId={d.farmId} batchId={d.batchId} eventId={d.id} audio={d.audio ?? []} />
         {d.photos.length > 0 ? <DeclarationPhotos farmId={d.farmId} batchId={d.batchId} eventId={d.id} photos={d.photos} canAdd={false} canDelete={false} /> : null}
         <div className="flex flex-wrap items-center gap-2">
           <Pill tone={REVIEW_STATE_TONES[d.reviewState]}>{REVIEW_STATE_LABELS[d.reviewState]}</Pill>

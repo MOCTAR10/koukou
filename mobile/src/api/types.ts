@@ -971,6 +971,14 @@ export interface HealthEvent {
   vetReviewStatus?: 'VALIDEE' | 'INFIRMEE' | 'ALERTE' | null;
   vetReviewComment?: string | null;
   vetReviewedAt?: string | null;
+  /** Voice notes of the declaration (absent on an older server: none). */
+  audio?: {
+    id: string;
+    mimeType: string;
+    sizeBytes: number;
+    durationMs: number | null;
+    createdAt: string;
+  }[];
   resolvedAt: string | null;
   createdById: string | null;
   createdAt: string;

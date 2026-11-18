@@ -10,6 +10,8 @@ import { fetchProgramList, type DeclarationPhoto } from '@/api/poufa';
 import { cachedRead } from '@/offline/ref-cache';
 import { PHOTOS_SURVIVE_OFFLINE } from '@/offline/photo-files';
 import { clinicalSignOptions, photoMimeType, photoRefusal, photoSlotsLeft, toggleSign } from '@/poufa/declaration';
+import { MAX_VOICE_NOTES, type VoiceNoteDraft } from '@/poufa/voice-note';
+import { VoiceNoteRecorder } from '@/components/voice/VoiceNoteRecorder';
 import { color, palette, radii, semantic } from '@/constants/theme';
 import { errorText } from '@/api/errorText';
 
@@ -70,6 +72,8 @@ interface Props {
   onSuspicion: (v: boolean) => void;
   photos: DeclarationPhoto[];
   onPhotos: (photos: DeclarationPhoto[]) => void;
+  voiceNotes: VoiceNoteDraft[];
+  onVoiceNotes: (notes: VoiceNoteDraft[]) => void;
   disabled?: boolean;
 }
 
@@ -85,7 +89,7 @@ function Label({ text }: { text: string }) {
  * Declaration fields of the POUFA programme (CDC 21) inside the health-event
  * form: clinical signs of the official list, suspicion, photos.
  */
-export function DeclarationExtras({ signs, onSigns, suspicion, onSuspicion, photos, onPhotos, disabled }: Props) {
+export function DeclarationExtras({ signs, onSigns, suspicion, onSuspicion, photos, onPhotos, voiceNotes, onVoiceNotes, disabled }: Props) {
   const list = useClinicalSigns();
   const options = clinicalSignOptions(list.data ?? []);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -200,6 +204,9 @@ export function DeclarationExtras({ signs, onSigns, suspicion, onSuspicion, phot
           {photoError}
         </AppText>
       ) : null}
+
+      <Label text={`NOTE VOCALE (${voiceNotes.length}/${MAX_VOICE_NOTES}, OPTIONNEL)`} />
+      <VoiceNoteRecorder notes={voiceNotes} onChange={onVoiceNotes} max={MAX_VOICE_NOTES} variant="compact" disabled={disabled} />
     </View>
   );
 }

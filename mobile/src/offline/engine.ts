@@ -40,6 +40,8 @@ import {
   uploadVisitPhoto,
   setFarmGps,
   uploadDeclarationPhoto,
+  uploadDeclarationAudio,
+  type DeclarationAudio,
   type ConfirmDeliveryPayload,
   type ConfirmResult,
   type DeclarationPayload,
@@ -55,6 +57,7 @@ import {
 import { withCapture, withSendTime } from '@/poufa/entry-sync';
 
 import { deviceId } from './device-id';
+import { audioExists, discardAudio } from './audio-files';
 import { discardPhoto, photoExists } from './photo-files';
 import { librevilleIso } from '@/utils/libreville';
 
@@ -613,6 +616,8 @@ export interface HealthEventOpPayload {
   payload: DeclarationPayload;
   /** Local files, sent after the event exists (same bytes = same photo on the server). */
   photos: DeclarationPhoto[];
+  /** Voice notes, sent after the photos. Absent on ops queued by an older build: treated as none. */
+  audio?: DeclarationAudio[];
 }
 
 export interface DeclarationSent {
@@ -620,6 +625,9 @@ export interface DeclarationSent {
   photosSent: number;
   /** French reasons of the photos the server refused (the declaration itself is saved). */
   photosRefused: string[];
+  audioSent: number;
+  /** French reasons of the voice notes the server refused (the declaration itself is saved). */
+  audioRefused: string[];
 }
 
 /**
@@ -656,10 +664,51 @@ async function sendDeclarationPhotos(
   return { sent, refused };
 }
 
+/**
+ * Same semantics as the photos, for the voice notes: a refused note (4xx:
+ * size, format, 2 per event) is skipped with its reason; a network failure
+ * throws and the whole op is replayed (the server recognises a note by its
+ * SHA-256). Files are discarded only at the end.
+ */
+async function sendDeclarationAudio(
+  farmId: string,
+  batchId: string,
+  eventId: string,
+  notes: readonly DeclarationAudio[],
+): Promise<{ sent: number; refused: string[] }> {
+  let sent = 0;
+  const refused: string[] = [];
+  for (const note of notes) {
+    if (!audioExists(note)) {
+      refused.push('Note vocale introuvable sur le téléphone.');
+      continue;
+    }
+    try {
+      await uploadDeclarationAudio(farmId, batchId, eventId, note);
+      sent += 1;
+    } catch (e) {
+      if (shouldDrop(e)) {
+        refused.push((e as ApiError).message);
+        continue;
+      }
+      throw e;
+    }
+  }
+  notes.forEach(discardAudio);
+  return { sent, refused };
+}
+
 async function sendDeclaration(farmId: string, p: HealthEventOpPayload): Promise<DeclarationSent> {
   const event = await createDeclaration(farmId, p.batchId, p.payload);
   const photos = await sendDeclarationPhotos(farmId, p.batchId, event.id, p.photos ?? []);
-  return { eventId: event.id, photosSent: photos.sent, photosRefused: photos.refused };
+  const audio = await sendDeclarationAudio(farmId, p.batchId, event.id, p.audio ?? []);
+  return {
+    eventId: event.id,
+    photosSent: photos.sent,
+    photosRefused: photos.refused,
+    audioSent: audio.sent,
+    audioRefused: audio.refused,
+  };
 }
 
 /** Sanitary declaration (CDC 21), queued offline with its photos. */
@@ -668,12 +717,14 @@ export function createDeclarationQueued(
   batchId: string,
   declaration: DeclarationPayload,
   photos: DeclarationPhoto[] = [],
+  audio: DeclarationAudio[] = [],
 ): Promise<SendResultOf<DeclarationSent>> {
   const opId = nextId('health-event');
   const payload: HealthEventOpPayload = {
     batchId,
     payload: { ...declaration, idempotencyKey: declaration.idempotencyKey ?? opId },
     photos,
+    audio,
   };
   return sendOrQueueWith({ id: opId, kind: 'health-event', farmId, batchId, payload }, () => sendDeclaration(farmId, payload));
 }
@@ -971,7 +1022,10 @@ async function processOne(op: OfflineOp): Promise<ProcessResult> {
     if (e instanceof CashBlockedError) return 'skip';
     if (shouldDrop(e)) {
       // A refused declaration is re-entered by hand: its kept photo copies go.
-      if (op.kind === 'health-event') ((op.payload as HealthEventOpPayload).photos ?? []).forEach(discardPhoto);
+      if (op.kind === 'health-event') {
+        ((op.payload as HealthEventOpPayload).photos ?? []).forEach(discardPhoto);
+        ((op.payload as HealthEventOpPayload).audio ?? []).forEach(discardAudio);
+      }
       if (op.kind === 'farm-visit') ((op.payload as VisitOpPayload).photos ?? []).forEach(discardPhoto);
       if (isCashOp(op) || isCreation(op)) {
         rejectOp(op, rejectionReason(op, (e as ApiError).message), (e as ApiError).code);

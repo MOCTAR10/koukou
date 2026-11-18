@@ -5,6 +5,7 @@
 // notify,trace,programme,access}).
 import { API_BASE_URL, apiFetch, apiUpload } from './client';
 import { loadSession } from './token';
+import { VOICE_NOTE_MIME, durationField } from '@/poufa/voice-note';
 import type { AlertLevel, DiseaseSeverity, HealthEventKind } from './types';
 
 // ── Programme lists (REFERENCE domain) ─────────────────────────────────
@@ -136,6 +137,50 @@ export function uploadDeclarationPhoto(
   const form = new FormData();
   form.append('file', { uri: photo.uri, name: photo.name, type: photo.mimeType } as unknown as Blob);
   return apiUpload<{ id: string }>(`/farms/${farmId}/batches/${batchId}/health-events/${eventId}/photos`, form);
+}
+
+/** A voice note to attach to a declaration (local `.m4a` file on the phone). */
+export interface DeclarationAudio {
+  uri: string;
+  durationMs: number;
+  sizeBytes?: number;
+}
+
+/** Voice note of a health event as the server lists it (bytes through the authenticated stream). */
+export interface HealthAudioView {
+  id: string;
+  mimeType: string;
+  sizeBytes: number;
+  durationMs: number | null;
+  createdAt: string;
+}
+
+/** POST …/health-events/:eventId/audio (multipart « file » + `durationMs`; same bytes = same note). */
+export function uploadDeclarationAudio(
+  farmId: string,
+  batchId: string,
+  eventId: string,
+  audio: DeclarationAudio,
+): Promise<HealthAudioView> {
+  const form = new FormData();
+  form.append('file', { uri: audio.uri, name: 'note-vocale.m4a', type: VOICE_NOTE_MIME } as unknown as Blob);
+  const duration = durationField(audio.durationMs);
+  if (duration) form.append('durationMs', duration);
+  return apiUpload<HealthAudioView>(`/farms/${farmId}/batches/${batchId}/health-events/${eventId}/audio`, form);
+}
+
+/** Authenticated URL + headers of a stored voice note (the route is never public). */
+export function healthAudioSource(
+  farmId: string,
+  batchId: string,
+  eventId: string,
+  audioId: string,
+): { uri: string; headers: Record<string, string> } {
+  const session = loadSession();
+  return {
+    uri: `${API_BASE_URL}/farms/${farmId}/batches/${batchId}/health-events/${eventId}/audio/${audioId}`,
+    headers: session ? { Authorization: `Bearer ${session.token}` } : {},
+  };
 }
 
 export type SanitaryAlertOrigin = 'MORTALITE' | 'DECLARATION';
@@ -615,6 +660,8 @@ export interface SanitaryDeclaration {
   reviewedByName: string | null;
   reviewedAt: string | null;
   reviewState: 'A_EXAMINER' | 'VALIDEE' | 'INFIRMEE' | 'ALERTE';
+  /** Voice notes of the farmer (absent on an older server: none). */
+  audio?: HealthAudioView[];
 }
 
 /** `GET /surveillance/declarations`: the register, veterinary authority only. */

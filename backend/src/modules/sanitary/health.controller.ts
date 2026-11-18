@@ -23,7 +23,10 @@ import {
 import type { Response } from 'express';
 import { AuditExport, AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import type { UploadedImageFile } from '../farms/farms.service.js';
-import { DECLARATION_PHOTO_MAX_BYTES } from './health.service.js';
+import {
+  DECLARATION_AUDIO_MAX_BYTES,
+  DECLARATION_PHOTO_MAX_BYTES,
+} from './health.service.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -165,6 +168,85 @@ export class HealthController {
     );
     res.set({
       'Content-Type': file.mimeType,
+      'Content-Disposition': `inline; filename="${file.fileName}"`,
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(file.buffer);
+  }
+
+  @Post('health-events/:eventId/audio')
+  @Permissions('sanitaire:gerer', 'sanitaire:signaler')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: DECLARATION_AUDIO_MAX_BYTES, files: 1 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        durationMs: { type: 'integer', minimum: 1, maximum: 180000 },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiOperation({
+    summary:
+      'Ajouter une note vocale à une déclaration sanitaire (M4A/MP4, WebM ou Ogg vérifiés sur les octets, 3 Mo, 2 par déclaration). Multipart « file » + « durationMs » facultatif.',
+  })
+  @ApiParam({ name: 'farmId' })
+  @ApiParam({ name: 'batchId' })
+  @ApiParam({ name: 'eventId' })
+  addAudio(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('batchId') batchId: string,
+    @Param('eventId') eventId: string,
+    @UploadedFile() file: UploadedImageFile | undefined,
+    @Body('durationMs') durationMs?: string,
+  ) {
+    return this.healthService.addAudio(
+      user,
+      farmId,
+      batchId,
+      eventId,
+      file,
+      durationMs,
+    );
+  }
+
+  @Get('health-events/:eventId/audio/:audioId')
+  @AlsoGrantedBy(['DECLARATIONS', 'CONSULTER'])
+  @AuditThirdPartyRead('Note vocale d’une déclaration sanitaire')
+  @AuditExport('Note vocale de déclaration sanitaire')
+  @ApiOperation({
+    summary:
+      'Écouter une note vocale de déclaration (la ferme et les services vétérinaires seulement)',
+  })
+  @ApiParam({ name: 'farmId' })
+  @ApiParam({ name: 'batchId' })
+  @ApiParam({ name: 'eventId' })
+  @ApiParam({ name: 'audioId' })
+  async audio(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('batchId') batchId: string,
+    @Param('eventId') eventId: string,
+    @Param('audioId', ParseUUIDPipe) audioId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.healthService.audioFile(
+      user,
+      farmId,
+      batchId,
+      eventId,
+      audioId,
+    );
+    res.set({
+      'Content-Type': file.mimeType,
+      'Content-Length': String(file.buffer.length),
       'Content-Disposition': `inline; filename="${file.fileName}"`,
       'Cache-Control': 'private, no-store',
     });

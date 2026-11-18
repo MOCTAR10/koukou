@@ -19,6 +19,7 @@ import { ProphylaxisEvent } from './entities/prophylaxis-event.entity.js';
 import { TreatmentRecord } from './entities/treatment-record.entity.js';
 import { HealthEvent } from './entities/health-event.entity.js';
 import { HealthEventPhoto } from './entities/health-event-photo.entity.js';
+import { HealthEventAudio } from './entities/health-event-audio.entity.js';
 import { TasksModule } from '../tasks/tasks.module.js';
 import { ProgrammeModule } from '../programme/programme.module.js';
 import { SurveillanceModule } from '../surveillance/surveillance.module.js';
@@ -36,6 +37,7 @@ import { SanitaryLotsService } from './sanitary-lots.service.js';
       TreatmentRecord,
       HealthEvent,
       HealthEventPhoto,
+      HealthEventAudio,
       ProductionBatch,
       InputLot,
       DailyEntry,

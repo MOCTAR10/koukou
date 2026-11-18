@@ -58,6 +58,12 @@
       ],
       "expo-secure-store",
       [
+        "expo-audio",
+        {
+          "microphonePermission": "Fermia utilise le micro pour enregistrer une note vocale quand vous signalez un problème de santé."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Fermia utilise votre position pour relever le point GPS de la ferme, sur place, quand vous le demandez."
