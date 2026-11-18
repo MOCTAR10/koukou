@@ -14,6 +14,7 @@ export const LOCKUP_MIN = 24;
 export const BUTTON_HEIGHT = 48;
 export const BAND_HEIGHT = 36; // ministry logos
 export const SWITCH_HEIGHT = 46; // buyer sign-in / sign-up switch
+export const CREDIT_HEIGHT = 22; // « Plateforme propulsée par » under the card
 
 export interface LoginLayoutInput {
   /** Usable height in dp: window height minus top and bottom insets. */
@@ -51,7 +52,8 @@ function fixedHeight({ textScale: t, phoneField, buying, hasError }: LoginLayout
   const button = 8 + BUTTON_HEIGHT;
   const links = 6 + Math.ceil(18 * t) + 12;
   const error = hasError ? 6 + Math.ceil(2 * 16 * t) : 0;
-  return outer + band + card + phone + switchRow + padHeader + dots + padFrame + button + links + error;
+  const credit = 8 + Math.max(CREDIT_HEIGHT, Math.ceil(16 * t));
+  return outer + band + card + phone + switchRow + padHeader + dots + padFrame + button + links + error + credit;
 }
 
 export function loginLayout(input: LoginLayoutInput): LoginLayout {

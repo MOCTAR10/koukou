@@ -10,7 +10,7 @@ import { AppText } from '@/components/ui/AppText';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { BuyerAuthSwitch } from '@/components/auth/BuyerAuthSwitch';
-import { LoginBackdrop, ProgrammeBand } from '@/components/auth/LoginChrome';
+import { LoginBackdrop, PoweredBy, ProgrammeBand } from '@/components/auth/LoginChrome';
 import { BUTTON_HEIGHT, LOCKUP_MAX, loginLayout } from '@/components/auth/loginLayout';
 import { SecretCodePad } from '@/components/ui/SecretCodePad';
 import { useAuth } from '@/auth/AuthContext';
@@ -255,6 +255,7 @@ export default function LoginScreen() {
               </View>
             )}
           </View>
+          <PoweredBy />
         </View>
       </ScrollView>
     </View>

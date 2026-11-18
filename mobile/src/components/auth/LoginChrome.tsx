@@ -5,12 +5,14 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { AppText } from '@/components/ui/AppText';
 import { palette } from '@/constants/theme';
-import { BAND_HEIGHT } from './loginLayout';
+import { BAND_HEIGHT, CREDIT_HEIGHT } from './loginLayout';
 
 // Same field photo and ministry logos as the web sign-in (web/public).
 const PHOTO = require('@/assets/images/login-poufa.webp');
 const LOGO_MAEDR = require('@/assets/images/maedr-logo-full.webp');
 const LOGO_MEN = require('@/assets/images/men-logo.webp');
+const LOGO_OKOUME = require('@/assets/images/okoume-labs.webp');
+const OKOUME_RATIO = 869 / 160;
 
 /** Full-screen field photo under a dark top-to-bottom gradient (legibility of the band, calm behind the card). */
 export function LoginBackdrop() {
@@ -49,7 +51,38 @@ export function ProgrammeBand() {
   );
 }
 
+/** « Plateforme propulsée par Okoumé Labs », under the card (same credit as the web sign-in). */
+export function PoweredBy() {
+  const logoH = 13;
+  return (
+    <View style={styles.credit} accessible accessibilityLabel="Plateforme propulsée par Okoumé Labs">
+      <AppText size="caption" weight="medium" color="rgba(255,255,255,0.9)" numberOfLines={1}>
+        Plateforme propulsée par
+      </AppText>
+      {/* The wordmark is dark green on cream: it keeps its own light plate over the photo. */}
+      <View style={styles.creditPlate}>
+        <Image source={LOGO_OKOUME} style={{ height: logoH, width: logoH * OKOUME_RATIO }} contentFit="contain" accessibilityLabel="" />
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  credit: {
+    marginTop: 8,
+    minHeight: CREDIT_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  creditPlate: {
+    height: CREDIT_HEIGHT,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    justifyContent: 'center',
+    backgroundColor: '#F6F3EE',
+  },
   band: {
     height: BAND_HEIGHT,
     flexDirection: 'row',
