@@ -37,6 +37,7 @@ import {
 } from './permission-domains.js';
 import {
   isVeterinaryAuthority,
+  mayCreateSanitaryDeclarations,
   mayHandleSanitaryDeclarations,
   mayReadSanitaryDeclarations,
 } from './sanitary-declaration.policy.js';
@@ -359,10 +360,15 @@ describe('permission codes of an institutional profile', () => {
       'registre:gps',
       'rh:lire',
     ]);
+    // Jury lot 5: the agent technique also enters the day's data and reports a
+    // health problem on behalf of a farmer (matrix cells TECHNIQUE:CREER and
+    // SANITAIRE:CREER, removable by the admin).
     expect([...institutionPermissions(access('AGENT_TECHNIQUE').matrix)].sort()).toEqual([
       'intrants:lire',
       'registre:gps',
+      'saisie:creer',
       'sanitaire:lecture',
+      'sanitaire:signaler',
     ]);
     expect(
       [...institutionPermissions(access('VETERINAIRE').matrix)].sort(),
@@ -541,6 +547,23 @@ describe('sanitary declarations', () => {
         { ...agentAccess, matrix: { ...agentAccess.matrix, DECLARATIONS: [] } },
       ),
     ).toBe(false);
+    // Jury lot 5: SANITAIRE:CREER lets an institution CREATE a declaration on
+    // behalf of a farm (the agent technique by default), never handle one.
+    expect(
+      mayCreateSanitaryDeclarations({ role: UserRole.INSTITUTION }, agentAccess),
+    ).toBe(true);
+    expect(
+      mayCreateSanitaryDeclarations({ role: UserRole.INSTITUTION }, access('DGE')),
+    ).toBe(false);
+    expect(
+      mayCreateSanitaryDeclarations(
+        { role: UserRole.INSTITUTION },
+        { ...agentAccess, matrix: { ...agentAccess.matrix, SANITAIRE: ['CONSULTER'] } },
+      ),
+    ).toBe(false);
+    expect(
+      mayCreateSanitaryDeclarations({ role: UserRole.ELEVEUR }, null),
+    ).toBe(true);
     // Read-only domain: no write action can be granted on it.
     expect(
       validateMatrix({ DECLARATIONS: ['CONSULTER', 'VALIDER'] }, AccessScopeKind.FARMS)

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { Bird, BookOpen, Building2, HandCoins, PackageOpen, Syringe } from 'lucide-react-native';
 
 import { CreateLotSheet } from '../CreateLotSheet';
@@ -57,7 +57,7 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
   const router = useRouter();
   const { farms, farmId } = useAuth();
   const { openDaily, openSale, openFeed } = useQuickCapture();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, isInstitution } = useFarmProfile();
   const [mode, setMode] = useState<CreateMode>('none');
 
   const close = () => setMode('none');
@@ -86,7 +86,9 @@ export function CreateCenterProvider({ children }: { children: React.ReactNode }
         return;
       case 'daily':
         close();
-        openDaily();
+        // An agent enters through the delegated screen (his banner, his scope); the farm's sheet is not his.
+        if (isInstitution) router.push('/saisie-deleguee' as Href);
+        else openDaily();
         return;
       case 'sale':
         close();

@@ -16,6 +16,24 @@ export interface FarmAccess {
   farmRole: FarmMemberProfile['role'] | null;
 }
 
+/**
+ * State of the `/me` query as `resolveFarmAccess` wants it. A failed REFRESH
+ * with the server out of reach keeps the last good profile (the persisted
+ * cache): without it an institution's delegated-entry codes would vanish
+ * offline, right when the agent needs them. A refusal (4xx) never keeps it.
+ */
+export function profileFetchState(q: {
+  isSuccess: boolean;
+  isError: boolean;
+  data: FarmMemberProfile | null | undefined;
+  networkFailure: boolean;
+}): ProfileFetchState {
+  if (q.isSuccess) return { status: 'success', profile: q.data ?? null };
+  if (q.isError && q.networkFailure && q.data !== undefined) return { status: 'success', profile: q.data };
+  if (q.isError) return { status: 'error', network: q.networkFailure };
+  return { status: 'pending' };
+}
+
 const NOTHING: FarmAccess = { permissions: [], isOwner: false, farmRole: null };
 
 /** Accounts that can never act on a farm, whatever the server answers. */

@@ -121,7 +121,7 @@ describe('Droit « Déclarations sanitaires (lecture) » (e2e)', () => {
       const { DECLARATIONS: _removed, ...without } = before;
       await setMatrix(id, without).expect(200);
       // SANITAIRE:CONSULTER is still held: the route opens, the declarations do not.
-      expect(without.SANITAIRE).toEqual(['CONSULTER']);
+      expect(without.SANITAIRE).toContain('CONSULTER');
       await get(events(), agent).expect(403);
     } finally {
       await setMatrix(id, before).expect(200);

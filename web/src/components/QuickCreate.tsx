@@ -48,7 +48,7 @@ function FeedEntryFromHub({ onClose }: { onClose: () => void }) {
 /** The header's "+": the same six shortcuts as mobile's create wheel. */
 export function QuickCreate() {
   const navigate = useNavigate();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, canManageCare } = useFarmProfile();
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<ModalKey | null>(null);
   const root = useRef<HTMLDivElement>(null);
@@ -69,7 +69,8 @@ export function QuickCreate() {
     };
   }, [open]);
 
-  const entries = ENTRIES.filter((e) => hasPermission(...e.perms));
+  // « Soin »: an agent technique only declares (jury lot 5), it records no care.
+  const entries = ENTRIES.filter((e) => (e.key === 'care' ? canManageCare() : hasPermission(...e.perms)));
   if (entries.length === 0) return null;
 
   const pick = (key: Entry['key']) => {

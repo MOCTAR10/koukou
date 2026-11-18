@@ -33,7 +33,8 @@ export function useDayEntry(band: BatchWithMetrics | null) {
   });
   const today = todayStr();
   const entry = useMemo<DailyEntryRecord | null>(() => (query.data ?? []).find((e) => e.entryDate === today) ?? null, [query.data, today]);
-  return { entry, today, isFetching: query.isFetching, isFetched: query.isFetched };
+  // `known`: the day's entries are on this phone (live or cached), as opposed to « none yet ».
+  return { entry, today, known: query.data !== undefined, isFetching: query.isFetching, isFetched: query.isFetched };
 }
 
 /** Feed stock suggestions (FEFO lot per phase), for the automatic feed choice. */

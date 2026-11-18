@@ -80,7 +80,7 @@ export class FarmVisitsController {
 
   @Post()
   // TECHNIQUE:VALIDER, not CREER: CREER maps to the farm code `saisie:creer`
-  // (daily entries) and an agent must never hold it.
+  // (daily entries on behalf of a farm, jury lot 5), not the visit record.
   @Action('VALIDER')
   @Roles(UserRole.PLATFORM_ADMIN)
   @ApiOperation({

@@ -16,7 +16,7 @@ import { SanitaryService } from './sanitary.service.js';
 import { GenerateProgramDto } from './dto/generate-program.dto.js';
 import { CreateManualScheduleDto } from './dto/create-manual-schedule.dto.js';
 import { UpdateScheduleDto } from './dto/update-schedule.dto.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Sanitaire & Prophylaxie')
 @Domain('SANITAIRE')
@@ -41,6 +41,8 @@ export class VaccineSchedulesController {
   }
 
   @Post('vaccine-schedules/manual')
+  // MODIFIER for an institution: SANITAIRE:CREER (agent technique) only declares.
+  @Action('MODIFIER')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   // Field staff may schedule a single vaccination; programs/edit/delete stay 'gerer'.
   @Permissions('sanitaire:gerer', 'sanitaire:signaler')

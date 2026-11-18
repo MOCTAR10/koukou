@@ -33,7 +33,7 @@ import {
  */
 export function SortiesTab({ lot }: { lot: Lot }) {
   const { farmId } = useFarm();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, isInstitution } = useFarmProfile();
   const [adding, setAdding] = useState(false);
   const sorties = useQuery({
     queryKey: ['sorties', farmId, lot.id],
@@ -53,7 +53,8 @@ export function SortiesTab({ lot }: { lot: Lot }) {
       icon={<LogOut />}
       flush
       actions={
-        isActive && hasPermission('saisie:creer') ? (
+        // A sortie books a sale or a slaughter order: never for an institution, even with TECHNIQUE:CREER.
+        isActive && !isInstitution && hasPermission('saisie:creer') ? (
           <Button onClick={() => setAdding(true)}>
             <Plus className="h-4 w-4" /> Nouvelle sortie
           </Button>

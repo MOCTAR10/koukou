@@ -6,9 +6,10 @@ const engine = vi.hoisted(() => ({
 }));
 vi.mock('expo-speech', () => engine);
 
-import { announce, isVoiceEnabled, setVoiceEnabled, speak } from './speak';
+import { announce, cue, isVoiceEnabled, setAnnounceSilenced, setVoiceEnabled, speak } from './speak';
 
 beforeEach(() => {
+  setAnnounceSilenced(false);
   setVoiceEnabled(true);
   engine.speak.mockReset();
   engine.stop.mockReset();
@@ -60,5 +61,21 @@ describe('announce', () => {
     expect(isVoiceEnabled()).toBe(false);
     announce('Bonjour');
     expect(engine.speak).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays silent while silenced (delegated entry) but the speaker button still speaks', () => {
+    setAnnounceSilenced(true);
+    announce('Bonjour');
+    expect(engine.speak).not.toHaveBeenCalled();
+    expect(isVoiceEnabled()).toBe(true);
+    cue('Bonjour');
+    expect(engine.speak).not.toHaveBeenCalled();
+    speak('Bonjour');
+    expect(engine.speak).toHaveBeenCalledTimes(1);
+    setAnnounceSilenced(false);
+    cue('Bonjour');
+    expect(engine.speak).toHaveBeenCalledTimes(2);
+    announce('Bonjour');
+    expect(engine.speak).toHaveBeenCalledTimes(3);
   });
 });

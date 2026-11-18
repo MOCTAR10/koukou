@@ -8,6 +8,7 @@ import {
   caresToDo,
   joinEggs,
   PROBLEM_TITLE,
+  PROBLEM_TITLE_DELEGATED,
   pressKey,
   problemRefusal,
   resolveFeedChoice,
@@ -229,6 +230,12 @@ describe('problem report', () => {
     expect(d).toMatchObject({ kind: 'SYMPTOME', severity: 'JAUNE', occurredAt: '2026-11-18', quantity: 4, clinicalSigns: ['TOUX', 'DIARRHEE'] });
     expect(d.title).toBe(PROBLEM_TITLE);
     expect(d.suspicion).toBeUndefined();
+  });
+
+  it('an agent’s report keeps the same payload with its own title', () => {
+    const d = buildProblemDeclaration({ signs: ['TOUX'], count: 2, today: '2026-11-18', title: PROBLEM_TITLE_DELEGATED });
+    expect(d.title).toBe(PROBLEM_TITLE_DELEGATED);
+    expect(d).toMatchObject({ kind: 'SYMPTOME', severity: 'JAUNE', quantity: 2, clinicalSigns: ['TOUX'] });
   });
 
   it('omits an empty count and refuses an empty report', () => {

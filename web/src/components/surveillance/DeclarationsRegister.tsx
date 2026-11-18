@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import type { DeclarationReviewDecision, SanitaryDeclaration, SanitaryDeclarationPage } from '../../api/types-surveillance';
 import { dateFr, dateTimeFr } from '../../lib/format';
 import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../form';
+import { DelegatedBadge } from '../flock/DelegatedEntry';
 import { LEVEL_LABEL, Note, Pill, levelTone } from '../flock/shared';
 import { Card, DataTable, EmptyState, Loading, Td, Th } from '../ui';
 import { DeclarationAudio } from './DeclarationAudio';
@@ -82,6 +83,7 @@ export function DeclarationsRegister({ canReview }: { canReview: boolean }) {
                   <Td>
                     <span className="font-semibold">{d.title}</span>
                     <span className="block text-xs text-slate-500">{dateFr(d.occurredAt)}</span>
+                    {d.enteredOnBehalf ? <DelegatedBadge row={d} className="mt-1" /> : null}
                   </Td>
                   <Td label="Ferme">
                     {d.farmCode ? <span className="font-mono text-xs">{d.farmCode}</span> : null}
@@ -173,7 +175,10 @@ function DeclarationPanel({ declaration, canReview, onClose }: { declaration: Sa
             </>
           ) : null}
           <dt className="text-slate-500">Déclarée par</dt>
-          <dd>{d.createdByName ?? '—'}</dd>
+          <dd>
+            {d.createdByName ?? '—'}
+            {d.enteredOnBehalf ? <DelegatedBadge row={d} className="ml-2" /> : null}
+          </dd>
         </dl>
         <DeclarationAudio farmId={d.farmId} batchId={d.batchId} eventId={d.id} audio={d.audio ?? []} />
         {d.photos.length > 0 ? <DeclarationPhotos farmId={d.farmId} batchId={d.batchId} eventId={d.id} photos={d.photos} canAdd={false} canDelete={false} /> : null}

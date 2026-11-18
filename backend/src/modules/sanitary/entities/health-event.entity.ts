@@ -145,6 +145,10 @@ export class HealthEvent {
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;
 
+  /** Declared by an institutional account (agent technique) for the farm; set by the server. */
+  @Column({ name: 'entered_on_behalf', type: 'boolean', default: false })
+  enteredOnBehalf: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 

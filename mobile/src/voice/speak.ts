@@ -55,7 +55,25 @@ export function speak(text: string): void {
   }
 }
 
+/**
+ * Delegated entry (a technical agent who can read): automatic reading is off
+ * while his screen is open, whatever the device setting. The speaker button
+ * (`speak`) still works. Not persisted: it never changes the farmer's setting.
+ */
+let announceSilenced = false;
+
+export function setAnnounceSilenced(silenced: boolean): void {
+  announceSilenced = silenced;
+  if (silenced) stopSpeaking();
+}
+
+/** Reading of a tap (a card, a band name): always for the farmer, silent while a delegated screen silences it. */
+export function cue(text: string): void {
+  if (!announceSilenced) speak(text);
+}
+
 /** Automatic reading of a screen's instruction: honours the device setting. */
 export function announce(text: string): void {
+  if (announceSilenced) return;
   if (isVoiceEnabled()) speak(text);
 }

@@ -38,8 +38,21 @@ export function useFarmProfile() {
     return hasAll || codes.some((code) => profile.permissions.includes(code));
   }
 
+  /** An institutional account (agent technique, vet…) on a farm of its scope. */
+  const isInstitution = profile?.role === 'INSTITUTION';
+
+  /**
+   * Care, treatment and planning writes. An institution holding only `sanitaire:signaler` (the agent technique:
+   * declares for the farm, jury lot 5) does not get them: they need `sanitaire:gerer` (SANITAIRE:MODIFIER).
+   */
+  function canManageCare(): boolean {
+    return isInstitution ? hasPermission('sanitaire:gerer') : hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  }
+
   return {
     profile,
+    isInstitution,
+    canManageCare,
     isLoading: pending,
     // Same as hasPermission and mobile: an unreadable profile doesn't take rights away.
     isOwner: profile?.role === 'PROPRIETAIRE' || (!profile && !pending),

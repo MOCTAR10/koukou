@@ -36,7 +36,11 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { BreedsService } from './breeds.service.js';
-import { Action, Domain } from '../../common/decorators/domain.decorator.js';
+import {
+  Action,
+  Domain,
+  InstitutionReadOnly,
+} from '../../common/decorators/domain.decorator.js';
 import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 
@@ -218,6 +222,8 @@ export class BreedsController {
   @Post()
   @ApiOperation({ summary: 'Ajouter une souche personnalisée à la ferme' })
   @Roles(UserRole.PROPRIETAIRE)
+  // TECHNIQUE:CREER (daily entries on behalf of the farm) must not open this write.
+  @InstitutionReadOnly('Souches de la ferme')
   async create(@CurrentUser() user: AuthUser, @Body() dto: CreateBreedDto) {
     const scope = await this.farmsService.resourceScope(
       user,

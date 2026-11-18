@@ -10,7 +10,11 @@ import {
 import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuditThirdPartyRead } from '../../common/decorators/audit.decorator.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
-import { Action, Domain } from '../../common/decorators/domain.decorator.js';
+import {
+  Action,
+  Domain,
+  InstitutionReadOnly,
+} from '../../common/decorators/domain.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { Permissions } from '../../common/decorators/permissions.decorator.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -182,6 +186,9 @@ export class BandesController {
   @Post(':batchId/sorties')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('saisie:creer')
+  // An agent holding TECHNIQUE:CREER (daily entries on behalf of the farm)
+  // never records a sortie (it books a sale / a slaughter order).
+  @InstitutionReadOnly('Sorties')
   @ApiOperation({
     summary:
       'Enregistrer une sortie (vente → vente, abattoir → ordre d’abattage, autre → retrait)',

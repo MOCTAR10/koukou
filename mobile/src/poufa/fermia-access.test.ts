@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  delegatedEntry,
   FERMIA_READ_CODE,
   fermiaReadOnly,
   fermiaWrites,
@@ -52,6 +53,33 @@ describe('read-only', () => {
     expect(fermiaReadOnly('PROPRIETAIRE')).toBe(false);
     expect(fermiaWrites('PROPRIETAIRE', true)).toBe(true);
     expect(fermiaWrites('ELEVEUR', false)).toBe(false);
+  });
+});
+
+describe('delegatedEntry (jury lot 5)', () => {
+  const off = { daily: false, declaration: false };
+
+  it('farm accounts and other roles never use the delegated path', () => {
+    const all = () => true;
+    for (const role of ['PROPRIETAIRE', 'ELEVEUR', 'PLATFORM_ADMIN', 'ACHETEUR', 'OPERATEUR', undefined] as const) {
+      expect(delegatedEntry(role, all)).toEqual(off);
+    }
+  });
+
+  it('an institution without the codes stays read-only', () => {
+    expect(delegatedEntry('INSTITUTION', none)).toEqual(off);
+    expect(delegatedEntry('INSTITUTION', codes('intrants:lire', 'sanitaire:lecture', 'vente:creer'))).toEqual(off);
+  });
+
+  it('each code opens its own right only', () => {
+    expect(delegatedEntry('INSTITUTION', codes('saisie:creer'))).toEqual({ daily: true, declaration: false });
+    expect(delegatedEntry('INSTITUTION', codes('sanitaire:signaler'))).toEqual({ daily: false, declaration: true });
+    expect(delegatedEntry('INSTITUTION', codes('saisie:creer', 'sanitaire:signaler'))).toEqual({ daily: true, declaration: true });
+  });
+
+  it('does not lift the read-only rule of the other Fermia writes', () => {
+    expect(fermiaReadOnly('INSTITUTION')).toBe(true);
+    expect(fermiaWrites('INSTITUTION', true)).toBe(false);
   });
 });
 

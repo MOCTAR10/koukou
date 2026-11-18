@@ -78,6 +78,7 @@ import { GlossaryButton } from '../help/GlossaryButton';
 import { COST_PER_KG_SOLD_LABEL, CONDUITE_LABEL, FERMIA_FORMULAS, findIndicator, marginLabel } from '../bandes/headline';
 import type { BandeIndicators } from '../../api/types-pilotage';
 import { DailyEntryModal } from './DailyEntryModal';
+import { DelegatedBadge } from './DelegatedEntry';
 // POUFA lot A2 sante: « Fait » through the completion form and the offline queue (CDC n° 22).
 import { CompleteCareModal } from './CompleteCareModal';
 import { refFromLot } from '../surveillance/sanitaryLot';
@@ -120,7 +121,7 @@ type TabKey = 'vue' | 'courbes' | 'saisies' | 'historique' | 'sanitaire' | 'bila
 
 export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
   const { farmId } = useFarm();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, canManageCare } = useFarmProfile();
   const invalidate = useInvalidateFarm();
   const [tab, setTab] = useState<TabKey>('vue');
   const [entry, setEntry] = useState<{ date?: string } | null>(null);
@@ -227,7 +228,7 @@ export function LotDetail({ lot, onBack }: { lot: Lot; onBack: () => void }) {
             >
               <FileText className="h-4 w-4" /> Passeport PDF
             </Button>
-            {isActive && hasPermission('sanitaire:lecture') && hasPermission('sanitaire:gerer', 'sanitaire:signaler') ? (
+            {isActive && hasPermission('sanitaire:lecture') && canManageCare() ? (
               <Link
                 to={`/app/sanitary?lot=${lot.id}&plan=1`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -1025,7 +1026,10 @@ function EntriesTab({ lot, onEdit }: { lot: Lot; onEdit: (date: string) => void 
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-slate-100">
-                  <Td>{dateFr(r.entryDate)}</Td>
+                  <Td>
+                    {dateFr(r.entryDate)}
+                    {r.enteredOnBehalf ? <DelegatedBadge row={r} className="mt-1 flex w-fit" /> : null}
+                  </Td>
                   <Td label="Morts">{num(r.deaths, 0)}</Td>
                   <Td label="Aliment">
                     {r.feedQuantity > 0 ? `${num(r.feedQuantity)} kg` : '—'}
@@ -1216,8 +1220,8 @@ function careAlerts(lot: Lot, steps: ProtocolStep[], events: ProphylaxisEvent[],
 
 function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
   const { farmId } = useFarm();
-  const { hasPermission } = useFarmProfile();
-  const canComplete = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  const { hasPermission, canManageCare } = useFarmProfile();
+  const canComplete = canManageCare();
   const [completing, setCompleting] = useState<ProphylaxisEvent | null>(null);
   const health = useHealth(lot.id);
   const { treatments, events: healthEvents } = useLotCare(lot.id);
@@ -1375,6 +1379,7 @@ function HealthTab({ lot, events }: { lot: Lot; events: ProphylaxisEvent[] }) {
                       {dateFr(e.occurredAt)}
                       {e.quantity > 0 ? ` · ${num(e.quantity, 0)} oiseaux` : ''}
                     </p>
+                    {e.enteredOnBehalf ? <DelegatedBadge row={e} className="mt-1" /> : null}
                   </div>
                   <Pill tone={e.status === 'RESOLU' ? 'emerald' : levelTone(e.severity)}>
                     {e.status === 'RESOLU' ? 'Résolu' : LEVEL_LABEL[e.severity]}

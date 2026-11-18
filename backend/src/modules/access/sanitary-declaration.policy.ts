@@ -80,6 +80,27 @@ export function mayReadSanitaryDeclarations(
 }
 
 /**
+ * Jury lot 5: CREATING a declaration (and attaching its photos / voice notes)
+ * on behalf of a farm of one's perimeter. Beyond the veterinary authority, a
+ * profile granted SANITAIRE:CREER (farm code `sanitaire:signaler`, default of
+ * AGENT_TECHNIQUE, removable in the matrix) may report a problem during a
+ * visit to a farmer who cannot use the app. Reading, resolving, validating and
+ * deleting stay with {@link mayHandleSanitaryDeclarations} (the farm and the
+ * vets); the entry is marked `enteredOnBehalf` by the server.
+ */
+export function mayCreateSanitaryDeclarations(
+  user: Pick<AuthUser, 'role'>,
+  access: Pick<InstitutionAccess, 'matrix'> | null,
+): boolean {
+  if (mayHandleSanitaryDeclarations(user, access)) return true;
+  return (
+    user.role === UserRole.INSTITUTION &&
+    !!access?.matrix &&
+    grants(access.matrix, 'SANITAIRE', 'CREER')
+  );
+}
+
+/**
  * Service-side enforcement of the sanitary declaration rule. Today's
  * declarations are the `HealthEvent`s (sanitary module); the official
  * surveillance module (L5) must call it too.
@@ -95,6 +116,17 @@ export class SanitaryDeclarationPolicy {
         ? await this.scope.accessOf(user.id)
         : null;
     if (!mayHandleSanitaryDeclarations(user, access)) {
+      throw new ForbiddenException(SANITARY_DECLARATION_MESSAGE);
+    }
+  }
+
+  /** Creation variant ({@link mayCreateSanitaryDeclarations}). @throws ForbiddenException */
+  async assertCreate(user: AuthUser): Promise<void> {
+    const access =
+      user.role === UserRole.INSTITUTION
+        ? await this.scope.accessOf(user.id)
+        : null;
+    if (!mayCreateSanitaryDeclarations(user, access)) {
       throw new ForbiddenException(SANITARY_DECLARATION_MESSAGE);
     }
   }

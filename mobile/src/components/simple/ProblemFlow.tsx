@@ -20,16 +20,17 @@ import type { VoiceNoteDraft } from '@/poufa/voice-note';
 import { VoiceNoteRecorder } from '@/components/voice/VoiceNoteRecorder';
 import { clinicalSignOptions, knownSigns, photoSlotsLeft, toggleSign } from '@/poufa/declaration';
 import { pickDeclarationPhotos, useClinicalSigns } from '@/components/sanitary/DeclarationExtras';
-import { speak } from '@/voice/speak';
+import { cue } from '@/voice/speak';
 import { SickBirdPicto, WarningPicto } from './pictos/Pictos';
-import { BigKeypad, ResultScreen, StepScreen, ValidateButton } from './SimpleParts';
-import { buildProblemDeclaration, problemRefusal, SENTENCES } from './simple-logic';
+import { BigKeypad, ResultScreen, StepScreen, useDelegation, ValidateButton } from './SimpleParts';
+import { buildProblemDeclaration, PROBLEM_TITLE_DELEGATED, problemRefusal, SENTENCES } from './simple-logic';
 
 type Step = 'signs' | 'count' | 'voice' | 'photos';
 type Phase = { name: 'ask' } | { name: 'saved'; queued: boolean } | { name: 'refused'; message: string };
 
 export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose: () => void }) {
   const { farmId } = useAuth();
+  const delegation = useDelegation();
   const queryClient = useQueryClient();
   const list = useClinicalSigns();
   const options = clinicalSignOptions(list.data ?? []);
@@ -60,7 +61,12 @@ export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose
     try {
       // A sign deactivated since the list was cached would be a 400.
       const known = list.data ? knownSigns(signs, list.data) : signs;
-      const declaration = buildProblemDeclaration({ signs: known, count, today: todayStr() });
+      const declaration = buildProblemDeclaration({
+        signs: known,
+        count,
+        today: todayStr(),
+        ...(delegation ? { title: PROBLEM_TITLE_DELEGATED } : {}),
+      });
       const sent = await createDeclarationQueued(
         farmId,
         band.id,
@@ -111,7 +117,7 @@ export function ProblemFlow({ band, onClose }: { band: BatchWithMetrics; onClose
                   key={o.code}
                   onPress={() => {
                     setSigns(toggleSign(signs, o.code));
-                    speak(o.label);
+                    cue(o.label);
                   }}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: on }}

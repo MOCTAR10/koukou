@@ -14,6 +14,11 @@ import {
   BatchType,
 } from '../../common/enums/batch-type.enum.js';
 import { SanitaryDeclarationPolicy } from '../access/sanitary-declaration.policy.js';
+import {
+  withDelegatedAuthor,
+  type DelegatedAuthorFields,
+} from '../access/delegated-author.js';
+import { UserRole } from '../../common/enums/role.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { BatchesService } from '../batches/batches.service.js';
@@ -115,7 +120,7 @@ export function detectAudioFormat(
   return null;
 }
 
-export type HealthEventWithPhotos = HealthEvent & {
+export type HealthEventWithPhotos = HealthEvent & DelegatedAuthorFields & {
   photos: HealthEventPhotoView[];
   audio: HealthEventAudioView[];
 };
@@ -287,7 +292,8 @@ export class HealthService {
       list.push(this.audioView(a));
       audioByEvent.set(a.healthEventId, list);
     }
-    return events.map((e) => ({
+    const authored = await withDelegatedAuthor(this.dataSource, events);
+    return authored.map((e) => ({
       ...e,
       photos: byEvent.get(e.id) ?? [],
       audio: audioByEvent.get(e.id) ?? [],
@@ -300,8 +306,20 @@ export class HealthService {
     batchId: string,
     dto: CreateHealthEventDto,
   ): Promise<HealthEvent> {
-    // Legal rule: declarations stay between the farm and the vets.
-    await this.declarations.assert(user);
+    const saved = await this.createEventRow(user, farmId, batchId, dto);
+    const [shown] = await withDelegatedAuthor(this.dataSource, [saved]);
+    return shown;
+  }
+
+  private async createEventRow(
+    user: AuthUser,
+    farmId: string,
+    batchId: string,
+    dto: CreateHealthEventDto,
+  ): Promise<HealthEvent> {
+    // Legal rule: declarations stay between the farm and the vets; an agent
+    // technique (SANITAIRE:CREER) may also declare on behalf of the farm.
+    await this.declarations.assertCreate(user);
     const farm = await this.farmsService.assertAccessible(user, farmId);
     const batch = await this.assertBatchInFarm(farmId, batchId);
     const quantity = dto.quantity ?? 0;
@@ -374,6 +392,8 @@ export class HealthService {
       notes: dto.notes ?? null,
       resolvedAt: resolved ? todayIso() : null,
       createdById: user.id,
+      // Set by the server, never by the client (jury lot 5).
+      enteredOnBehalf: user.role === UserRole.INSTITUTION,
       clinicalSigns,
       // Loi n° 2/65 art. 2: a disease « réputée contagieuse » is declared at
       // once, so naming one always opens the official alert.
@@ -573,7 +593,7 @@ export class HealthService {
     eventId: string,
     file: UploadedImageFile | undefined,
   ): Promise<HealthEventPhotoView> {
-    const event = await this.assertEvent(user, farmId, batchId, eventId);
+    const event = await this.assertEvent(user, farmId, batchId, eventId, 'create');
     if (!file) {
       throw new BadRequestException('Aucun fichier reçu (champ « file »).');
     }
@@ -646,7 +666,7 @@ export class HealthService {
     eventId: string,
     photoId: string,
   ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
-    await this.assertEvent(user, farmId, batchId, eventId, true);
+    await this.assertEvent(user, farmId, batchId, eventId, 'read');
     const photo = await this.photoRepo.findOne({
       where: { id: photoId, healthEventId: eventId, farmId },
     });
@@ -694,7 +714,7 @@ export class HealthService {
     file: UploadedImageFile | undefined,
     durationRaw?: string,
   ): Promise<HealthEventAudioView> {
-    const event = await this.assertEvent(user, farmId, batchId, eventId);
+    const event = await this.assertEvent(user, farmId, batchId, eventId, 'create');
     if (!file) {
       throw new BadRequestException('Aucun fichier reçu (champ « file »).');
     }
@@ -777,7 +797,7 @@ export class HealthService {
     eventId: string,
     audioId: string,
   ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
-    await this.assertEvent(user, farmId, batchId, eventId, true);
+    await this.assertEvent(user, farmId, batchId, eventId, 'read');
     const note = await this.audioRepo.findOne({
       where: { id: audioId, healthEventId: eventId, farmId },
     });
@@ -807,13 +827,16 @@ export class HealthService {
     farmId: string,
     batchId: string,
     eventId: string,
-    readOnly = false,
+    mode: 'read' | 'create' | 'write' = 'write',
   ): Promise<HealthEvent> {
     // Legal rule: declarations stay between the farm and the vets (reads:
-    // also a profile granted the DECLARATIONS:CONSULTER right, e.g. the agent technique).
-    await (readOnly
+    // also a profile granted the DECLARATIONS:CONSULTER right; attaching a
+    // photo or a voice note: also SANITAIRE:CREER, the agent technique).
+    await (mode === 'read'
       ? this.declarations.assertRead(user)
-      : this.declarations.assert(user));
+      : mode === 'create'
+        ? this.declarations.assertCreate(user)
+        : this.declarations.assert(user));
     await this.farmsService.assertAccessible(user, farmId);
     await this.assertBatchInFarm(farmId, batchId);
     const event = await this.eventRepo.findOne({
