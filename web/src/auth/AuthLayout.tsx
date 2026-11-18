@@ -2,14 +2,17 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, LifeBuoy, ArrowLeft, Building2, Calculator, CalendarClock, Egg, HandCoins, Map, QrCode, ScrollText, Stethoscope, Store, Truck } from 'lucide-react';
 import { ConnectionPulse } from '../components/ConnectionPulse';
-import { ProgrammeLockup } from '../components/Logo';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE, durations } from '../lib/motion';
 
 /** Who the page speaks to: the programme sign-in, or the Market customer. */
 type Audience = 'programme' | 'buyer';
 
-/** Sign-in and sign-up frame: a brand panel beside the form on a computer, the form alone under a compact band on a phone. */
+/**
+ * Sign-in and sign-up frame: a brand panel beside the form on a computer. On a
+ * phone the programme sign-in sits on the same field photo and is sized to fit
+ * the screen without scrolling; the Market pages keep a compact band.
+ */
 export function AuthLayout({
   audience = 'programme',
   eyebrow,
@@ -35,11 +38,24 @@ export function AuthLayout({
   const reduced = useReducedMotion();
   const programme = audience === 'programme';
   return (
-    <div className={'min-h-screen bg-white lg:grid lg:h-screen lg:overflow-hidden ' + (programme ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-2 xl:grid-cols-[minmax(0,7fr)_minmax(0,6fr)]')}>
+    <div className={'min-h-dvh bg-white lg:grid lg:h-screen lg:overflow-hidden ' + (programme ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : 'lg:grid-cols-2 xl:grid-cols-[minmax(0,7fr)_minmax(0,6fr)]')}>
       {programme ? <ProgrammeAside /> : <MarketAside />}
 
-      <div className={'relative flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:min-h-0 ' + (programme ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px]" />
+      <div className={'relative flex min-h-dvh flex-col bg-slate-50 lg:h-screen lg:min-h-0 ' + (programme ? 'max-lg:bg-brand-950 lg:overflow-hidden' : 'lg:overflow-y-auto')}>
+        {programme ? (
+          <>
+            {/* Phone: the computer panel's field photo, behind the form. */}
+            <img src="/login-poufa.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover object-[30%_30%] lg:hidden" />
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-brand-950/75 via-brand-950/15 to-brand-950/80 lg:hidden" />
+          </>
+        ) : null}
+        <div
+          aria-hidden
+          className={
+            'pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(15_23_42/0.07)_1px,transparent_0)] [background-size:22px_22px] ' +
+            (programme ? 'max-lg:hidden' : '')
+          }
+        />
         <div
           aria-hidden
           className={'pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ' + (programme ? 'from-emerald-600 via-amber-400 to-sky-600' : 'from-emerald-500 via-brand-500 to-accent-500')}
@@ -47,13 +63,35 @@ export function AuthLayout({
         <div className="absolute right-3 top-3 z-10 lg:right-5 lg:top-4">
           <ConnectionPulse />
         </div>
-        <div className="relative bg-gradient-to-br from-brand-800 to-brand-950 px-5 py-4 lg:hidden">
-          {programme ? (
-            <ProgrammeLockup />
-          ) : (
+        {programme ? (
+          <div className="relative flex items-center gap-2.5 px-4 pb-1 pt-4 lg:hidden">
+            <img
+              src="/maedr-logo-full.webp"
+              alt="Ministère de l’Agriculture, de l’Élevage et du Développement rural"
+              className="h-14 w-14 shrink-0 rounded-lg bg-white object-contain p-0.5 shadow-lg shadow-black/40"
+            />
+            <img
+              src="/men-logo.webp"
+              alt="Ministère de l’Économie numérique, de la Digitalisation et de l’Innovation"
+              className="h-14 w-14 shrink-0 rounded-lg bg-white object-contain p-0.5 shadow-lg shadow-black/40"
+            />
+            <div className="border-l border-white/30 pl-3 text-white drop-shadow">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200">Programme</p>
+              <p className="text-xl font-bold leading-tight tracking-[0.18em]">POUFA</p>
+            </div>
+          </div>
+        ) : (
+          <div className="relative bg-gradient-to-br from-brand-800 to-brand-950 px-5 py-4 lg:hidden">
             <MarketBrand />
-          )}
-        </div>
+          </div>
+        )}
+        {programme ? (
+          // Tall phones only: the programme's official title, as on the computer panel.
+          <p className="relative hidden px-4 pt-3 text-[15px] font-bold leading-snug text-white drop-shadow-[0_2px_8px_rgb(0_0_0/0.7)] max-lg:[@media(min-height:720px)]:block">
+            Système d’information de suivi technico-économique et de traçabilité{' '}
+            <span className="bg-gradient-to-r from-amber-200 to-emerald-200 bg-clip-text text-transparent">de la filière avicole</span>
+          </p>
+        ) : null}
         {backTo ? (
           <div className="relative px-5 pt-5 sm:px-10 [@media(max-height:760px)]:lg:pt-3">
             <Link to={backTo} className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
@@ -61,7 +99,12 @@ export function AuthLayout({
             </Link>
           </div>
         ) : null}
-        <div className="relative flex flex-1 items-start justify-center px-4 py-6 sm:px-10 sm:py-8 lg:items-center lg:py-8 [@media(max-height:760px)]:lg:py-3">
+        <div
+          className={
+            'relative flex flex-1 justify-center px-4 sm:px-10 lg:items-center lg:py-8 [@media(max-height:760px)]:lg:py-3 ' +
+            (programme ? 'items-center py-2 sm:py-6' : 'items-start py-6 sm:py-8')
+          }
+        >
           <motion.div
             className={wide ? 'w-full max-w-xl' : 'w-full max-w-md'}
             initial={reduced ? false : { opacity: 0, y: 12 }}
@@ -71,14 +114,14 @@ export function AuthLayout({
             <div
               className={
                 'rounded-3xl bg-white shadow-[0_24px_60px_-20px_rgb(15_23_42/0.25)] ring-1 ring-slate-200/80 ' +
-                (programme ? 'p-7 sm:p-9 [@media(max-height:760px)]:p-6' : 'p-5 sm:p-8 [@media(max-height:820px)]:lg:p-6')
+                (programme ? 'p-5 sm:p-9 [@media(max-height:760px)]:lg:p-6' : 'p-5 sm:p-8 [@media(max-height:820px)]:lg:p-6')
               }
             >
               {programme ? (
                 <div className="flex items-center gap-2.5">
-                  <img src="/logo.png" alt="" className="h-11 w-auto [@media(max-height:760px)]:h-9" />
+                  <img src="/logo.png" alt="" className="h-9 w-auto lg:h-11 [@media(max-height:760px)]:lg:h-9" />
                   <span className="leading-none">
-                    <span className="block text-2xl font-bold tracking-tight text-brand-900 [@media(max-height:760px)]:text-xl">Fermia</span>
+                    <span className="block text-xl font-bold tracking-tight text-brand-900 lg:text-2xl [@media(max-height:760px)]:lg:text-xl">Fermia</span>
                     <span className="mt-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Gérez votre ferme</span>
                   </span>
                 </div>
@@ -86,28 +129,27 @@ export function AuthLayout({
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{eyebrow}</p>
               ) : null}
               <h1
-                className={`${programme ? 'mt-4 lg:text-[2.25rem] [@media(max-height:760px)]:mt-2 [@media(max-height:760px)]:lg:text-[1.75rem]' : 'mt-1 lg:text-[1.75rem]'} text-2xl font-bold tracking-tight text-slate-900 lg:leading-tight`}
+                className={`${programme ? 'mt-2 text-xl lg:mt-4 lg:text-[2.25rem] [@media(max-height:760px)]:lg:mt-2 [@media(max-height:760px)]:lg:text-[1.75rem]' : 'mt-1 text-2xl lg:text-[1.75rem]'} font-bold tracking-tight text-slate-900 lg:leading-tight`}
               >
                 {title}
               </h1>
               {subtitle ? <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p> : null}
-              <div className={programme ? 'mt-6 lg:mt-8 [@media(max-height:760px)]:lg:mt-4' : 'mt-5 [@media(max-height:820px)]:lg:mt-4'}>{children}</div>
+              <div className={programme ? 'mt-3 lg:mt-8 [@media(max-height:760px)]:lg:mt-4' : 'mt-5 [@media(max-height:820px)]:lg:mt-4'}>{children}</div>
               {footer ? (
                 <div
-                  className={`space-y-2 text-center text-slate-500 ${programme ? 'mt-6 border-t border-slate-100 pt-5 text-sm [@media(max-height:760px)]:mt-4 [@media(max-height:760px)]:pt-4' : 'mt-4 text-xs leading-relaxed'}`}
+                  className={`space-y-2 text-center text-slate-500 ${programme ? 'mt-3 border-t border-slate-100 pt-3 text-sm lg:mt-6 lg:pt-5 [@media(max-height:760px)]:lg:mt-4 [@media(max-height:760px)]:lg:pt-4' : 'mt-4 text-xs leading-relaxed'}`}
                 >
                   {footer}
                 </div>
               ) : null}
             </div>
             {programme ? (
-              <p className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500 [@media(max-height:760px)]:mt-3">
-                <LifeBuoy className="h-3.5 w-3.5" /> Code oublié ou compte bloqué : contactez l’administrateur du programme
+              <p className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-500 max-lg:text-white/90 max-lg:drop-shadow lg:mt-6 [@media(max-height:760px)]:lg:mt-3 max-lg:[@media(max-height:600px)]:hidden">
+                <LifeBuoy className="h-3.5 w-3.5 shrink-0" /> Code oublié ou compte bloqué : contactez l’administrateur du programme
               </p>
             ) : null}
             {programme ? (
-              <p className="mt-2 text-center text-[11px] text-slate-500">Version {__APP_VERSION__}
-              </p>
+              <p className="mt-2 text-center text-[11px] text-slate-500 max-lg:mt-1 max-lg:text-white/70 max-lg:[@media(max-height:600px)]:hidden">Version {__APP_VERSION__}</p>
             ) : null}
           </motion.div>
         </div>

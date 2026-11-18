@@ -169,23 +169,26 @@ export function LoginPage() {
             >
               <Store className="h-4 w-4" /> Acheter sur le Marché Fermia
             </Link>
-            <Link to="/guide" className={authLinkCls + ' mt-3 block text-xs'}>
-              Guide de la plateforme
-            </Link>
-            {/* Static guide (outside the SPA): plain link, slide « livrables ». */}
-            <a href="/guide-jury/#livrables" className={authLinkCls + ' mt-1.5 block text-xs'}>
-              Documents du programme
-            </a>
-            {/* Static training page (outside the SPA). */}
-            <a href="/formation/" className={authLinkCls + ' mt-1.5 block text-xs'}>
-              Formation en vidéo
-            </a>
+            {/* One line, so the page fits a phone screen without scrolling. */}
+            <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
+              <Link to="/guide" className={authLinkCls}>
+                Guide
+              </Link>
+              {/* Static guide (outside the SPA): plain link, slide « livrables ». */}
+              <a href="/guide-jury/#livrables" className={authLinkCls}>
+                Documents
+              </a>
+              {/* Static training page (outside the SPA). */}
+              <a href="/formation/" className={authLinkCls}>
+                Formation vidéo
+              </a>
+            </p>
           </>
         )
       }
     >
       {buying ? <BuyerAuthSwitch active="login" from={from} /> : null}
-      <form onSubmit={onSubmit} className="space-y-4 [@media(max-height:760px)]:space-y-3">
+      <form onSubmit={onSubmit} className={(buying ? 'space-y-4' : 'space-y-3 lg:space-y-4') + ' [@media(max-height:760px)]:space-y-3'}>
         {expired && !error ? (
           <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-amber-200">
             {SESSION_EXPIRED_MESSAGE}
@@ -201,7 +204,10 @@ export function LoginPage() {
         <Button
           type="submit"
           busy={submitting}
-          className="!mt-6 w-full !h-12 [@media(max-height:760px)]:!mt-4 [@media(max-height:760px)]:!h-11 !rounded-xl bg-gradient-to-r from-brand-700 to-brand-900 text-[15px] shadow-lg shadow-brand-900/25 transition hover:shadow-xl"
+          className={
+            (buying ? '!mt-6' : '!mt-4 lg:!mt-6') +
+            ' w-full !h-12 [@media(max-height:760px)]:!mt-4 [@media(max-height:760px)]:!h-11 !rounded-xl bg-gradient-to-r from-brand-700 to-brand-900 text-[15px] shadow-lg shadow-brand-900/25 transition hover:shadow-xl'
+          }
         >
           {submitting ? 'Connexion…' : 'Se connecter'}
         </Button>
