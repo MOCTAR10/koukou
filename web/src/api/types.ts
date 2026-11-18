@@ -1,5 +1,8 @@
 import type { Role } from './client';
 
+/** Display mode of an account: SIMPLE = pictograms and data entry only, COMPLET = the whole app. */
+export type UiMode = 'SIMPLE' | 'COMPLET';
+
 export interface PublicUser {
   id: string;
   phone: string;

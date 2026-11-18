@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Post, Put, Req } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Put, Req } from '@nestjs/common';
+import { SetUiModeDto } from '../users/dto/ui-mode.dto.js';
 import type { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -44,6 +45,16 @@ export class AuthController {
     @Body() dto: BuyerProfileDto,
   ) {
     return this.authService.saveBuyerProfile(user, dto);
+  }
+
+  @Patch('me/ui-mode')
+  @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR, UserRole.PLATFORM_ADMIN)
+  @ApiOperation({
+    summary:
+      'Changer mon mode d’affichage (SIMPLE | COMPLET) : exploitant et administrateur plateforme ; le personnel est réglé par le responsable de la ferme',
+  })
+  setOwnUiMode(@CurrentUser() user: AuthUser, @Body() dto: SetUiModeDto) {
+    return this.authService.setOwnUiMode(user, dto.uiMode);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })

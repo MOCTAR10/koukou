@@ -137,6 +137,7 @@ describe('registryRights', () => {
       verify: true,
       team: true,
       suspendTeam: true,
+      uiMode: true,
     });
     expect(registryRights('PROPRIETAIRE').view).toBe(false);
     expect(registryRights('INSTITUTION').view).toBe(false); // access not loaded
@@ -155,6 +156,7 @@ describe('registryRights', () => {
       verify: false,
       team: false,
       suspendTeam: true,
+      uiMode: true,
     });
     const national: Profile = { scopeKind: 'ALL', matrix: { REGISTRE: ['CONSULTER', 'CREER'] } };
     expect(registryRights('INSTITUTION', national)).toMatchObject({ create: true, import: true, edit: false, activateOwner: false, regenerateCode: false });

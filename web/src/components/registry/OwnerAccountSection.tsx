@@ -5,6 +5,7 @@ import { api } from '../../api/client';
 import type { ActivateOwnerResult, OwnerLoginCodeResult, RegistrySheet } from '../../api/types-programme';
 import { Button, ErrorNote } from '../form';
 import { ONE_TIME_CODE_MUTATION, OneTimeCodeModal, useOneTimeCode } from '../login-code/OneTimeCodeModal';
+import { UiModeField } from './UiModeField';
 import { activationBlocker, classifyActivationError, isNoOwnerAccount } from './ownerActivation';
 import { invalidateRegistry } from './queries';
 import type { RegistryRights } from './registryAccess';
@@ -53,6 +54,12 @@ export function OwnerAccountSection({ sheet, rights, onEditSheet }: { sheet: Reg
 
   return (
     <div className="space-y-3">
+      {sheet.hasOwnerAccount && sheet.owner?.uiMode ? (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-slate-600">Mode d’affichage de l’exploitant</p>
+          <UiModeField farmId={sheet.id} userId={sheet.owner.id} value={sheet.owner.uiMode} canEdit={rights.uiMode} />
+        </div>
+      ) : null}
       {linkedTo ? (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800 ring-1 ring-emerald-200">
           Ferme rattachée au compte existant de <b>{linkedTo}</b> : il la retrouve avec son code habituel.

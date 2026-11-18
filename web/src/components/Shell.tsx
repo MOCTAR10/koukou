@@ -43,6 +43,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { useFarm } from '../app/FarmContext';
 import { farmSpaceState, worksWithoutFarm } from '../app/roles';
+import { useFarmProfile } from '../app/useFarmProfile';
 import { useMenuAccess } from '../app/useMenuAccess';
 import { Logo } from './Logo';
 import { PageNotOpen } from './access/PageNotOpen';
@@ -210,8 +211,9 @@ export function Shell() {
   const onProgrammeWide = isProgrammeWidePath(pathname); // POUFA W6
   const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null || onProgrammeWide;
   const reduced = useReducedMotion();
-  const { showEntry, canOpen, isLoading: accessLoading, isGroundEleveur, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
+  const { showEntry, canOpen, isLoading: accessLoading, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
     useMenuAccess();
+  const { isSimpleMode, hasGroundHome } = useFarmProfile();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const institutionProfile = useInstitutionAccess().access?.profile;
   const economie = economieRights(user?.role, institutionProfile); // POUFA lot A droits
@@ -261,10 +263,10 @@ export function Shell() {
         ...(showEntry(HELP_PATH) ? [{ to: HELP_PATH, label: 'Aide', icon: LifeBuoy }] : []),
       ]
     : adminItems;
-  const nav = NAV.map((group) => ({
+  const fullNav = NAV.map((group) => ({
     ...group,
     items: [
-      ...(group.title === 'Pilotage' && isGroundEleveur
+      ...(group.title === 'Pilotage' && hasGroundHome
         ? [{ to: '/app/home', label: 'Mon terrain', icon: Tractor }]
         : []),
       // Without a farm, only the pages that work without one.
@@ -276,6 +278,12 @@ export function Shell() {
       ),
     ],
   })).filter((group) => group.items.length > 0);
+  // Simple mode (pictograms, data entry): the menu is « Mon terrain » and the help, nothing else.
+  const nav = isSimpleMode
+    ? fullNav
+        .map((group) => ({ ...group, items: group.items.filter((item) => item.to === '/app/home' || item.to === HELP_PATH) }))
+        .filter((group) => group.items.length > 0)
+    : fullNav;
   const onFarmModule = nav.some((g) => g.items.some((i) => pathname === i.to || pathname.startsWith(`${i.to}/`)));
   useEffect(() => {
     if (onFarmModule) setFarmModulesOpen(true);

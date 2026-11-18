@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Building,
   Crosshair,
   Hash,
   Crown,
   Info,
+  LayoutGrid,
   LogOut,
   MapPin,
   Phone,
@@ -16,7 +17,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import type { UiMode } from '../api/types';
 import { exploitantPhoneOf } from '../api/types';
 import type { FarmMemberProfile, FarmWithLogo } from '../api/types-org';
 import { useFarm } from '../app/FarmContext';
@@ -29,6 +32,7 @@ import { FarmIdentityCard } from '../components/org/FarmIdentityCard';
 import { FarmLogo } from '../components/org/FarmLogo';
 import { ReferenceConstants } from '../components/org/ReferenceConstants';
 import { STAFF_ROLE_LABEL } from '../components/org/shared';
+import { UiModePicker } from '../components/org/UiModePicker';
 import { Card, IconTile, Loading, PageHeader } from '../components/ui';
 import { statusLabel } from '../lib/format';
 
@@ -67,6 +71,16 @@ export function SettingsPage() {
   });
 
   const me = profile.data;
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  // Own display mode (owner and platform admin only; staff are set by the owner or the technical agent).
+  const setUiMode = useMutation({
+    mutationFn: (uiMode: UiMode) => api.patch<{ uiMode: UiMode }>('/auth/me/ui-mode', { uiMode }),
+    onSuccess: async (res) => {
+      await queryClient.invalidateQueries({ queryKey: ['farm-profile'] });
+      if (res.uiMode === 'SIMPLE') navigate('/app/home');
+    },
+  });
   const roleLabel = !me
     ? statusLabel(user?.role)
     : me.role === 'PROPRIETAIRE'
@@ -126,6 +140,15 @@ export function SettingsPage() {
           </Section>
         ) : null}
       </div>
+
+      {me?.canChangeOwnUiMode && me.uiMode && user?.role !== 'PLATFORM_ADMIN' ? (
+        <Section title="Mode d’affichage" subtitle="Simple : grandes icônes, saisie seulement ; Complet : toute l’application" icon={<LayoutGrid className="h-4 w-4" />}>
+          <Card className="space-y-2 p-4">
+            <ErrorNote error={setUiMode.error} />
+            <UiModePicker value={me.uiMode} onChange={(mode) => setUiMode.mutate(mode)} disabled={setUiMode.isPending} />
+          </Card>
+        </Section>
+      ) : null}
 
       <Section title="Ma ferme" subtitle={hasPermission('reglages:ferme') ? 'Logo modifiable ; nom et code tenus par le registre' : 'Informations de la ferme'} icon={<Crosshair className="h-4 w-4" />}>
         {farm ? <FarmIdentityCard key={farm.id} farm={farm} /> : <Loading />}

@@ -28,10 +28,12 @@ export interface RegistryRights {
   team: boolean;
   /** F13: suspend or restore a team member's farm access (`PUT …/team/:id/active`, ADMINISTRATION:ADMINISTRER). */
   suspendTeam: boolean;
+  /** Jury lot 3: the display mode of the owner and the team (`PATCH /farms/:farmId/members/:userId/ui-mode`, ADMINISTRATION:ADMINISTRER or TECHNIQUE:VALIDER). */
+  uiMode: boolean;
 }
 
-const NONE: RegistryRights = { view: false, create: false, edit: false, activateOwner: false, import: false, regenerateCode: false, gps: false, verify: false, team: false, suspendTeam: false };
-const ALL: RegistryRights = { view: true, create: true, edit: true, activateOwner: true, import: true, regenerateCode: true, gps: true, verify: true, team: true, suspendTeam: true };
+const NONE: RegistryRights = { view: false, create: false, edit: false, activateOwner: false, import: false, regenerateCode: false, gps: false, verify: false, team: false, suspendTeam: false, uiMode: false };
+const ALL: RegistryRights = { view: true, create: true, edit: true, activateOwner: true, import: true, regenerateCode: true, gps: true, verify: true, team: true, suspendTeam: true, uiMode: true };
 
 /**
  * Registry rights per account, mirroring the server (`ProgramAccessGuard`,
@@ -64,5 +66,6 @@ export function registryRights(
     verify: grantsAccess(access, 'REGISTRE', 'VALIDER'),
     team: grantsAccess(access, 'ADMINISTRATION', 'CONSULTER'),
     suspendTeam: administer,
+    uiMode: administer || grantsAccess(access, 'TECHNIQUE', 'VALIDER'),
   };
 }

@@ -52,6 +52,7 @@ import { DiseaseCatalogue1794600000000 } from './1794600000000-DiseaseCatalogue.
 import { VaccineCatalogue1794610000000 } from './1794610000000-VaccineCatalogue.js';
 import { TechnicalItinerary1794620000000 } from './1794620000000-TechnicalItinerary.js';
 import { FeedIntakeAlerts1794700000000 } from './1794700000000-FeedIntakeAlerts.js';
+import { UserUiMode1794800000000 } from './1794800000000-UserUiMode.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -119,4 +120,6 @@ export const MIGRATIONS = [
   TechnicalItinerary1794620000000,
   // Jury lot 2: feed intake alerts (CONSOMMATION_ALIMENT)
   FeedIntakeAlerts1794700000000,
+  // Jury lot 3: display mode (SIMPLE | COMPLET) per account
+  UserUiMode1794800000000,
 ];

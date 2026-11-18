@@ -34,8 +34,9 @@ import { CheptelModal } from '@/components/CheptelModal';
 import { PeriodBar, periodWindow, type PeriodWindow } from '@/components/ui/PeriodBar';
 import type { BatchWithMetrics, DashboardData, FarmWeather } from '@/api/types';
 import { ipeStatus } from '@/constants/flock';
+import { SimpleHome } from '@/components/simple/SimpleHome';
+import { useUiMode } from '@/hooks/useUiMode';
 // POUFA lot A indic: « Ma bande en cours » (official indicators) heads the home screen.
-import { EleveurSimpleHome } from '@/components/home/EleveurSimpleHome';
 import { CurrentBandCard } from '@/components/band/CurrentBandCard';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { readsProgrammeDomain } from '@/poufa/access';
@@ -65,14 +66,17 @@ function lastSevenDays(): string[] {
 }
 
 
+/** SIMPLE accounts get the pictogram home (data entry only); everyone else the full dashboard. */
 export default function AccueilScreen() {
+  const { simple } = useUiMode();
+  return simple ? <SimpleHome /> : <CompletHome />;
+}
+
+function CompletHome() {
   const router = useRouter();
 
   const { user, farms, farmId, setActiveFarmId } = useAuth();
-  const { hasPermission, isGroundEleveur } = useFarmProfile();
-  // Éleveur: simple sheet first, everything else behind « Plus d’indicateurs ».
-  const simple = isGroundEleveur || user.role === 'ELEVEUR';
-  const [showMore, setShowMore] = useState(false);
+  const { hasPermission } = useFarmProfile();
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [cheptelOpen, setCheptelOpen] = useState(false);
   const [farmSelectOpen, setFarmSelectOpen] = useState(false);
@@ -358,29 +362,6 @@ export default function AccueilScreen() {
         <BrandLoader />
       ) : (
         <>
-          {simple ? (
-            <>
-              <EleveurSimpleHome
-                farmId={farmId}
-                liveStock={d.liveStock}
-                redAlerts={d.alerts.rouge}
-                feedAutonomyDays={d.feedAutonomyDays ?? null}
-                onOpenAlerts={() => router.push('/alerts')}
-              />
-              <Pressable
-                onPress={() => setShowMore((v) => !v)}
-                accessibilityRole='button'
-                accessibilityState={{ expanded: showMore }}
-                style={[styles.expandBtn, showMore && styles.expandBtnActive, { alignSelf: 'flex-start', marginTop: 12 }]}>
-                <AppText size='small' weight='semibold' color={showMore ? 'surface' : 'brand'}>
-                  {showMore ? 'Masquer les indicateurs' : 'Plus d’indicateurs'}
-                </AppText>
-                <ChevronDown size={14} color={showMore ? semantic.primarySoft : semantic.primary} style={{ transform: [{ rotate: showMore ? '180deg' : '0deg' }] }} />
-              </Pressable>
-            </>
-          ) : null}
-          {!simple || showMore ? (
-        <>
           <PeriodBar defaultSpan={30} onChange={handlePeriodChange} />
           {/* ── Hero : l'essentiel du jour ── */}
           <HomeHero
@@ -408,17 +389,16 @@ export default function AccueilScreen() {
                 suffix: GRADE_LABEL[d.health.grade],
                 onPress: () => router.push('/sanitary'),
               },
-              // The simple home already gives the mortality of the band.
-              ...(simple ? [] : [{
+              {
                 label: 'Mortalité',
                 value: d.mortalityPercent != null ? `${d.mortalityPercent.toFixed(1)}%` : '—',
                 tint: MORTALITY_ON_DARK[mortalityStatus],
-              }]),
+              },
             ]}
             weather={d.weather}
             hint={d.weather ? weatherHint(d.weather) : undefined}
           />
-          {showCurrentBand && !simple ? (
+          {showCurrentBand ? (
             <CurrentBandCard farmId={farmId} feedAutonomyDays={d.feedAutonomyDays ?? null} onOpen={(id) => router.push(`/lot/${id}`)} />
           ) : null}
           <SectionHeader
@@ -435,7 +415,6 @@ export default function AccueilScreen() {
 
           <GlossaryLink keys={['ic_officiel', 'ic_technique', 'gmq', 'ipe', 'mortalite', 'viabilite', 'taux_ponte', 'autonomie_provende', 'rendement_carcasse', 'vide_sanitaire', 'classe_biosecurite']} />
           {/* ── Performance row: IC, GMQ, IPE — always one row ── */}
-          {simple ? null : (
           <View style={styles.metricGridNoWrap}>
             <MetricTile
               label={hasOfficialIc ? 'IC officiel' : 'IC technique'}
@@ -465,7 +444,6 @@ export default function AccueilScreen() {
               threeCol
             />
           </View>
-          )}
           {/* ── Expanded: Grouped farm details ── */}
           {statsExpanded && (
             <Card tone='default' style={styles.statsExpandedCard}>
@@ -767,8 +745,6 @@ export default function AccueilScreen() {
               />
             )}
           </View>
-        </>
-          ) : null}
         </>
       )}
       <MetricInfoSheet metric={metricInfo} onClose={() => setMetricInfo(null)} />

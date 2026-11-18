@@ -1392,6 +1392,7 @@ export class ProgrammeFarmsService {
             id: farm.owner.id,
             fullName: farm.owner.fullName,
             phone: farm.owner.phone,
+            uiMode: farm.owner.uiMode,
           }
         : null,
       hasOwnerAccount: farm.ownerId !== null,
@@ -1520,7 +1521,7 @@ export class ProgrammeFarmsService {
     await this.programmeFarm(program.id, farmId);
     const rows: Record<string, unknown>[] = await this.dataSource.query(
       `SELECT e.id AS "employmentId", u.id AS "userId", u."fullName" AS "fullName",
-              u.phone, e.role, e.permissions, e.active AS "linkActive",
+              u.phone, u.ui_mode AS "uiMode", e.role, e.permissions, e.active AS "linkActive",
               u.active AS "accountActive", e."createdAt" AS "createdAt"
          FROM farm_employees e JOIN users u ON u.id = e.user_id
         WHERE e.farm_id = $1

@@ -20,6 +20,7 @@ import type {
   SlaughterType,
   Species,
   StockTransferProductType,
+  UiMode,
 } from './types';
 
 /**
@@ -1216,4 +1217,8 @@ export function deleteCashMovement(farmId: string, movementId: string): Promise<
   return apiFetch<{ id: string }>(`/farms/${farmId}/caisse/movements/${movementId}`, {
     method: 'DELETE',
   });
+}
+/** PATCH /auth/me/ui-mode: the farm owner switches its own experience (staff get 403). */
+export function updateOwnUiMode(uiMode: UiMode): Promise<{ uiMode: UiMode }> {
+  return apiFetch<{ uiMode: UiMode }>('/auth/me/ui-mode', { method: 'PATCH', body: { uiMode } });
 }

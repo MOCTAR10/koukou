@@ -46,8 +46,6 @@ export function useFarmProfile() {
     hasAll: access.permissions === '*',
     active: profile?.active !== false,
     hasPermission,
-    /** Compte de terrain dédié : Éleveur Fermia actif sur la ferme. */
-    isGroundEleveur: profile?.role === 'ELEVEUR' && profile.active !== false,
     /** Institutional account (programme): its rights come from its access profile. */
     isInstitution: user.role === 'INSTITUTION',
     /** May load a Fermia area (caisse/ventes, Market, accounting, team, economics): farm accounts, or an institution granted it. */

@@ -202,7 +202,14 @@ export interface FarmMemberProfile {
   buildingAssignment: string | null;
   active: boolean;
   permissions: string[];
+  /** Experience the app shows this account (absent on an older server: see `resolveUiMode`). */
+  uiMode?: UiMode;
+  /** The account may switch its own experience (farm owner; staff get 403). */
+  canChangeOwnUiMode?: boolean;
 }
+
+/** SIMPLE = pictograms and data entry only; COMPLET = the full app. */
+export type UiMode = 'SIMPLE' | 'COMPLET';
 
 export interface ReferenceConstant {
   key: string;
