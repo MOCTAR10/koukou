@@ -7,20 +7,37 @@ import type { CalendarStep, CalendarStepBody, CareTypeCode } from '../../api/typ
  * (`ref-item.dto.ts`, `sanitary-lists.service.ts`, `vaccination-calendars.service.ts`).
  */
 
-export const SANITARY_LISTS = ['SIGNE_CLINIQUE', 'PRODUIT_TRAITEMENT', 'STATUT_ALERTE'] as const;
+export const SANITARY_LISTS = ['SIGNE_CLINIQUE', 'MALADIE', 'PRODUIT_TRAITEMENT', 'STATUT_ALERTE', 'TEXTE_REFERENCE'] as const;
 export type SanitaryList = (typeof SANITARY_LISTS)[number];
 
 export const SANITARY_LIST_LABELS: Readonly<Record<SanitaryList, string>> = {
   SIGNE_CLINIQUE: 'Signes cliniques',
   PRODUIT_TRAITEMENT: 'Produits de traitement',
   STATUT_ALERTE: 'Statuts des alertes',
+  MALADIE: 'Maladies',
+  TEXTE_REFERENCE: 'Textes de référence',
 };
 
 /** Families of STATUT_ALERTE (`ref-list-families.ts`); the other two lists take none. */
 export const STATUT_ALERTE_FAMILIES = ['NOUVELLE', 'EN_ANALYSE', 'CONFIRMEE', 'INFIRMEE', 'CLOSE'] as const;
 
+/** Families of MALADIE: DECLARATION_OBLIGATOIRE = « réputée contagieuse » (loi n° 2/65), opens an official alert. */
+export const MALADIE_FAMILIES = ['DECLARATION_OBLIGATOIRE', 'AUTRE'] as const;
+export const NOTIFIABLE_DISEASE_FAMILY = 'DECLARATION_OBLIGATOIRE';
+
+export const MALADIE_FAMILY_LABELS: Readonly<Record<string, string>> = {
+  DECLARATION_OBLIGATOIRE: 'Déclaration obligatoire',
+  AUTRE: 'Autre maladie',
+};
+
+export function familiesFor(list: SanitaryList): readonly string[] {
+  if (list === 'STATUT_ALERTE') return STATUT_ALERTE_FAMILIES;
+  if (list === 'MALADIE') return MALADIE_FAMILIES;
+  return [];
+}
+
 export function needsFamily(list: SanitaryList): boolean {
-  return list === 'STATUT_ALERTE';
+  return familiesFor(list).length > 0;
 }
 
 /** A stable code from a label: « Diarrhée verte » → DIARRHEE_VERTE (≤ 40 chars). */
@@ -46,7 +63,7 @@ export function newItemProblem(list: SanitaryList, form: NewItemForm, existing: 
   if (form.label.trim().length > 200) return 'Le libellé ne doit pas dépasser 200 caractères.';
   if (!/^[A-Z0-9_]{1,40}$/.test(form.code)) return 'Le code doit contenir de 1 à 40 caractères : majuscules, chiffres ou _.';
   if (existing.some((i) => i.code === form.code)) return `Le code « ${form.code} » existe déjà dans cette liste.`;
-  if (needsFamily(list) && !form.family) return 'Choisissez la famille du statut (elle ne changera plus).';
+  if (needsFamily(list) && !form.family) return 'Choisissez la famille (elle ne changera plus).';
   return null;
 }
 

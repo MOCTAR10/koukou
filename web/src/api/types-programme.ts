@@ -11,6 +11,8 @@ export interface RefItem {
   parentId: string | null;
   sort: number;
   active: boolean;
+  /** Free data of the item (MALADIE: legalRef, conduct; TEXTE_REFERENCE: date, articles, summary, url). */
+  meta?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------

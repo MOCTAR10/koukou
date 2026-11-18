@@ -23,6 +23,34 @@ function bio(
   return { code, label, meta: { weight, category } };
 }
 
+/** Conduct the law imposes for a disease « réputée contagieuse » (loi n° 2/65, art. 2). */
+const NOTIFIABLE_CONDUCT =
+  'Déclarer sans délai aux services vétérinaires et à la préfecture ou sous-préfecture, isoler les animaux malades ou morts, ne déplacer ni vendre aucun animal du troupeau.';
+
+function notifiable(code: string, label: string, legalName: string): SeedRefItem {
+  return {
+    code,
+    label,
+    family: 'DECLARATION_OBLIGATOIRE',
+    meta: { legalRef: 'LOI_2_65', legalName, conduct: NOTIFIABLE_CONDUCT },
+  };
+}
+
+function disease(code: string, label: string): SeedRefItem {
+  return { code, label, family: 'AUTRE' };
+}
+
+function legalText(
+  code: string,
+  label: string,
+  date: string,
+  articles: string,
+  summary: string,
+  url?: string,
+): SeedRefItem {
+  return { code, label, meta: { date, articles, summary, ...(url ? { url } : {}) } };
+}
+
 export const DEFAULT_REF_LISTS: Readonly<
   Record<ProgramListType, readonly SeedRefItem[]>
 > = {
@@ -149,5 +177,63 @@ export const DEFAULT_REF_LISTS: Readonly<
     bio('GESTION_CADAVRES', 'Cadavres retirés chaque jour, fosse ou incinérateur', 'Déchets', 3),
     bio('GESTION_FUMIER', 'Fumier et déchets évacués loin des bâtiments', 'Déchets', 1),
     bio('SEPARATION_BANDES', 'Une seule bande par bâtiment (tout plein, tout vide)', 'Conduite', 3),
+  ],
+  [ProgramListType.MALADIE]: [
+    // Poultry diseases « réputées contagieuses » by loi n° 2/65 art. 1er
+    // (`legalName` = the wording of the law). Fermia proposal for the
+    // veterinary services to validate and complete.
+    notifiable('INFLUENZA_AVIAIRE', 'Influenza aviaire (grippe aviaire)', 'peste chez les animaux de basse-cour'),
+    notifiable('NEWCASTLE', 'Maladie de Newcastle', 'pseudo-peste chez les animaux de basse-cour'),
+    notifiable('TYPHOSE', 'Typhose aviaire', 'typhose chez les animaux de basse-cour'),
+    notifiable('PULLOROSE', 'Pullorose', 'pullorose chez les animaux de basse-cour'),
+    notifiable('VARIOLE_AVIAIRE', 'Variole aviaire', 'variole chez les animaux de basse-cour'),
+    notifiable('TUBERCULOSE_AVIAIRE', 'Tuberculose aviaire', 'tuberculose aviaire'),
+    notifiable('PSITTACOSE', 'Psittacose (ornithose)', "psittacose chez toutes les espèces d'oiseaux"),
+    disease('GUMBORO', 'Maladie de Gumboro (bursite infectieuse)'),
+    disease('BRONCHITE_INFECTIEUSE', 'Bronchite infectieuse'),
+    disease('MAREK', 'Maladie de Marek'),
+    disease('COCCIDIOSE', 'Coccidiose'),
+    disease('CORYZA', 'Coryza infectieux'),
+    disease('COLIBACILLOSE', 'Colibacillose'),
+    disease('MYCOPLASMOSE', 'Mycoplasmose (maladie respiratoire chronique)'),
+  ],
+  [ProgramListType.TEXTE_REFERENCE]: [
+    legalText(
+      'LOI_2_65',
+      'Loi n° 2/65 du 5 juin 1965 organisant la police sanitaire en matière de maladies contagieuses du bétail',
+      '1965-06-05',
+      'Art. 1er à 4',
+      'Liste des maladies réputées contagieuses. Déclaration immédiate à la préfecture ou sous-préfecture, isolement des animaux atteints, suspects ou morts ; périmètre infecté et vaccination obligatoire par arrêté ; sanctions en cas de non-déclaration.',
+      'https://faolex.fao.org/docs/pdf/gab88398.pdf',
+    ),
+    legalText(
+      'DECRET_0190_2022',
+      "Décret n° 0190/PR/MAA du 5 août 2022 fixant les conditions d'implantation, de production, de contrôle sanitaire des élevages avicoles et de commercialisation de leurs produits",
+      '2022-08-05',
+      'Art. 4, 8, 17, 19, 20, 22, 25',
+      "Agrément technique au-delà de 500 volailles par bande ; plan de prophylaxie sanitaire et médicale et registres obligatoires ; vétérinaire désigné par ferme ; aliments, additifs et médicaments autorisés seulement, délais d'attente ; document d'origine des volailles ; élimination des cadavres ; lutte contre les rongeurs.",
+      'https://faolex.fao.org/docs/pdf/gab233301.pdf',
+    ),
+    legalText(
+      'DECRET_0578_2015',
+      "Décret n° 0578/PR/MAEAMOPG du 26 novembre 2015 fixant les conditions sanitaires et d'hygiène applicables aux établissements du secteur alimentaire et du secteur de l'alimentation animale",
+      '2015-11-26',
+      '',
+      "Conditions sanitaires et d'hygiène des établissements d'alimentation animale (fabricants et distributeurs d'aliments).",
+    ),
+    legalText(
+      'LOI_001_2021',
+      'Loi n° 001/2021 du 8 septembre 2021 relative aux médicaments et produits vétérinaires en République Gabonaise',
+      '2021-09-08',
+      '',
+      'Encadre la fabrication, la mise sur le marché, la distribution et l’usage des médicaments et produits vétérinaires, dont les vaccins.',
+    ),
+    legalText(
+      'LOI_010_2021',
+      "Loi n° 010/2021 fixant le cadre d'exercice de la profession de vétérinaire en République Gabonaise",
+      '2021',
+      '',
+      'Conditions d’exercice de la médecine et de la pharmacie vétérinaires.',
+    ),
   ],
 };

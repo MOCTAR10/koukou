@@ -94,6 +94,14 @@ export class CreateHealthEventDto extends IdempotentDto {
   })
   disease?: string;
 
+  /** Code of the MALADIE programme list (active item); gives the disease name. */
+  @IsOptional()
+  @IsString({ message: 'Le code de la maladie doit être un code de la liste.' })
+  @MaxLength(40, {
+    message: 'Le code de la maladie ne dépasse pas 40 caractères.',
+  })
+  diseaseCode?: string;
+
   @IsOptional()
   @IsString({
     message: 'Le traitement administré doit être une chaîne de caractères.',

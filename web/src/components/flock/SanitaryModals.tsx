@@ -51,6 +51,11 @@ const KIND_ICON = { MALADIE: <Stethoscope />, MORTALITE: <HeartPulse />, REFORME
 /** « Inconnue / à déterminer »: no disease sent, the vets qualify. */
 const UNKNOWN_DISEASE = '';
 
+/** Select value of a disease picked in the vets' MALADIE list. */
+const CATALOGUE_PREFIX = 'code:';
+const NOTIFIABLE_FAMILY = 'DECLARATION_OBLIGATOIRE';
+
+/** Fallback while the vets' MALADIE list is not readable (offline, first visit). */
 const DISEASES: Array<{ value: string; label: string }> = [
   { value: 'Newcastle disease', label: 'Maladie de Newcastle' },
   { value: "Marek's disease", label: 'Maladie de Marek' },
@@ -115,6 +120,9 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
   // POUFA L5 declaration: clinical signs of the vets' list, suspicion, replay-safe key.
   const signList = useSanitaryList('SIGNE_CLINIQUE');
   const signItems = signList.data ?? [];
+  // Jury lot 1: the disease comes from the vets' catalogue (MALADIE list).
+  const diseaseList = useSanitaryList('MALADIE');
+  const catalogue = diseaseList.data ?? [];
   const [signs, setSigns] = useState<string[]>([]);
   const [suspicion, setSuspicion] = useState(false);
   const idempotency = useIdempotencyKey('health');
@@ -137,6 +145,11 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
 
   const qty = parseInt(quantity, 10) || 0;
   const diseaseName = disease === '__custom' ? customDisease.trim() : disease;
+  const picked = disease.startsWith(CATALOGUE_PREFIX)
+    ? catalogue.find((i) => i.code === disease.slice(CATALOGUE_PREFIX.length))
+    : undefined;
+  // Loi n° 2/65 art. 2: a disease « réputée contagieuse » is declared at once.
+  const notifiable = kind === 'MALADIE' && picked?.family === NOTIFIABLE_FAMILY;
   const needsQty = kind !== 'MALADIE';
   // DateInput keeps the last valid value while a typed date is unfinished: refuse an empty or future day.
   const dateOk = occurredAt !== '' && occurredAt <= localYmd();
@@ -154,10 +167,13 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
       };
       if (kind === 'MALADIE') {
         const level = SEVERITIES.find((s) => s.key === severity)?.level ?? 'JAUNE';
-        body.title = diseaseName
-          ? (DISEASES.find((d) => d.value === diseaseName)?.label ?? diseaseName)
-          : 'Maladie à déterminer (signes observés)';
-        if (diseaseName) body.disease = diseaseName;
+        body.title = picked
+          ? picked.label
+          : diseaseName
+            ? (DISEASES.find((d) => d.value === diseaseName)?.label ?? diseaseName)
+            : 'Maladie à déterminer (signes observés)';
+        if (picked) body.diseaseCode = picked.code;
+        else if (diseaseName) body.disease = diseaseName;
         body.diseaseSeverity = severity;
         body.severity = level;
         if (symptoms.length) body.symptoms = symptoms.join(', ');
@@ -175,7 +191,7 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
       }
       const content = withDeclaration(body, {
         clinicalSigns: signs,
-        suspicion,
+        suspicion: suspicion || notifiable,
         idempotencyKey: '',
         activeCodes: signItems.map((s) => s.code),
       });
@@ -276,14 +292,27 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
               <Field label="Maladie suspectée (facultatif)">
                 <select className={inputCls} value={disease} onChange={(e) => setDisease(e.target.value)}>
                   <option value={UNKNOWN_DISEASE}>Inconnue / à déterminer</option>
-                  {DISEASES.map((d) => (
-                    <option key={d.value} value={d.value}>
-                      {d.label}
-                    </option>
-                  ))}
+                  {catalogue.length > 0
+                    ? catalogue.map((d) => (
+                        <option key={d.code} value={`${CATALOGUE_PREFIX}${d.code}`}>
+                          {d.label}
+                          {d.family === NOTIFIABLE_FAMILY ? ' (déclaration obligatoire)' : ''}
+                        </option>
+                      ))
+                    : DISEASES.map((d) => (
+                        <option key={d.value} value={d.value}>
+                          {d.label}
+                        </option>
+                      ))}
                   <option value="__custom">Autre maladie…</option>
                 </select>
               </Field>
+              {notifiable ? (
+                <Note tone="red">
+                  Maladie à déclaration obligatoire (loi n° 2/65 du 5 juin 1965, art. 2) : une alerte sanitaire officielle sera ouverte. Isolez
+                  les animaux malades ou morts et ne déplacez ni ne vendez aucun animal du troupeau.
+                </Note>
+              ) : null}
               {disease === '__custom' ? (
                 <Field label="Nom de la maladie *">
                   <input className={inputCls} value={customDisease} onChange={(e) => setCustomDisease(e.target.value)} required />

@@ -12,7 +12,8 @@ import { invalidateList } from './queries';
 import {
   SANITARY_LISTS,
   SANITARY_LIST_LABELS,
-  STATUT_ALERTE_FAMILIES,
+  MALADIE_FAMILY_LABELS,
+  familiesFor,
   codeFromLabel,
   lastActiveWarning,
   needsFamily,
@@ -25,6 +26,9 @@ import {
 const LIST_HINTS: Record<SanitaryList, string> = {
   SIGNE_CLINIQUE: 'Proposés dans le formulaire de déclaration sanitaire (web et mobile).',
   PRODUIT_TRAITEMENT: 'Proposés à la saisie d’un traitement.',
+  MALADIE:
+    'Proposées dans la déclaration sanitaire. Une maladie à déclaration obligatoire (loi n° 2/65) ouvre d’office une alerte sanitaire officielle.',
+  TEXTE_REFERENCE: 'Lois et décrets gabonais cités par les référentiels (maladies, prophylaxie, aliments).',
   STATUT_ALERTE: 'Statuts du circuit des alertes. La famille fixe le comportement : Nouvelle → En analyse → Confirmée ou Infirmée → Close.',
 };
 
@@ -43,6 +47,44 @@ export function SanitaryListsAdmin({ canEdit }: { canEdit: boolean }) {
       <ListEditor key={list} list={list} canEdit={canEdit} />
     </div>
   );
+}
+
+function familyText(list: SanitaryList, family: string): string {
+  return list === 'MALADIE' ? (MALADIE_FAMILY_LABELS[family] ?? family) : familyLabel(family);
+}
+
+const metaText = (item: RefItem, key: string): string => {
+  const value = item.meta?.[key];
+  return typeof value === 'string' ? value : '';
+};
+
+/** Second line of a row: the legal basis of a disease, or the summary of a text. */
+function ItemDetail({ list, item }: { list: SanitaryList; item: RefItem }) {
+  if (list === 'MALADIE' && metaText(item, 'legalRef')) {
+    return (
+      <span className="block text-xs text-slate-500">
+        {metaText(item, 'legalRef') === 'LOI_2_65' ? 'Loi n° 2/65, art. 1er' : metaText(item, 'legalRef')}
+        {metaText(item, 'legalName') ? ` : « ${metaText(item, 'legalName')} »` : ''}
+      </span>
+    );
+  }
+  if (list === 'TEXTE_REFERENCE') {
+    const url = metaText(item, 'url');
+    return (
+      <span className="block text-xs text-slate-500">
+        {[metaText(item, 'articles'), metaText(item, 'summary')].filter(Boolean).join(' — ')}
+        {url.startsWith('https://') ? (
+          <>
+            {' '}
+            <a className="underline" href={url} target="_blank" rel="noreferrer">
+              Lire le texte
+            </a>
+          </>
+        ) : null}
+      </span>
+    );
+  }
+  return null;
 }
 
 function ListEditor({ list, canEdit }: { list: SanitaryList; canEdit: boolean }) {
@@ -125,11 +167,12 @@ function ListEditor({ list, canEdit }: { list: SanitaryList; canEdit: boolean })
                     ) : (
                       <span className={item.active ? 'font-medium' : 'text-slate-400 line-through'}>{item.label}</span>
                     )}
+                    <ItemDetail list={list} item={item} />
                   </Td>
                   <Td label="Code">
                     <span className="font-mono text-xs">{item.code}</span>
                   </Td>
-                  {needsFamily(list) ? <Td label="Famille">{item.family ? familyLabel(item.family) : '—'}</Td> : null}
+                  {needsFamily(list) ? <Td label="Famille">{item.family ? familyText(list, item.family) : '—'}</Td> : null}
                   <Td label="État">{item.active ? <Pill tone="emerald">Actif</Pill> : <Pill>Désactivé</Pill>}</Td>
                   <Td className="whitespace-nowrap text-right">
                     {canEdit ? (
@@ -220,9 +263,9 @@ function ListEditor({ list, canEdit }: { list: SanitaryList; canEdit: boolean })
               <Field label="Famille *" hint="Ne changera plus.">
                 <select className={inputCls} value={form.family} onChange={(e) => setForm((f) => ({ ...f, family: e.target.value }))}>
                   <option value="">Choisir…</option>
-                  {STATUT_ALERTE_FAMILIES.map((f) => (
+                  {familiesFor(list).map((f) => (
                     <option key={f} value={f}>
-                      {familyLabel(f)}
+                      {familyText(list, f)}
                     </option>
                   ))}
                 </select>

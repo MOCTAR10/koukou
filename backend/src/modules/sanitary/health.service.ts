@@ -43,6 +43,7 @@ import {
   uploadsRoot,
   type UploadedImageFile,
 } from '../farms/farms.service.js';
+import { NOTIFIABLE_DISEASE_FAMILY } from '../programme/ref-list-families.js';
 import { RefListsService } from '../programme/ref-lists.service.js';
 import { SanitaryAlertsService } from '../surveillance/sanitary-alerts.service.js';
 import { HealthEventPhoto } from './entities/health-event-photo.entity.js';
@@ -252,6 +253,7 @@ export class HealthService {
       if (replay) return replay;
     }
     const clinicalSigns = await this.checkClinicalSigns(dto.clinicalSigns);
+    const catalogued = await this.resolveDisease(dto.diseaseCode);
 
     if (!dto.severity && !dto.diseaseSeverity) {
       throw new BadRequestException('La gravité (ou la sévérité de la maladie) est requise.');
@@ -303,7 +305,8 @@ export class HealthService {
       title: dto.title,
       description: dto.description ?? null,
       symptoms: dto.symptoms ?? null,
-      disease: dto.disease ?? null,
+      disease: catalogued?.label.slice(0, 120) ?? dto.disease ?? null,
+      diseaseCode: catalogued?.code ?? null,
       diseaseSeverity: dto.diseaseSeverity ?? null,
       treatmentGiven: dto.treatmentGiven ?? null,
       vetConsulted: dto.vetConsulted ?? false,
@@ -312,7 +315,11 @@ export class HealthService {
       resolvedAt: resolved ? todayIso() : null,
       createdById: user.id,
       clinicalSigns,
-      suspicion: dto.suspicion === true,
+      // Loi n° 2/65 art. 2: a disease « réputée contagieuse » is declared at
+      // once, so naming one always opens the official alert.
+      suspicion:
+        dto.suspicion === true ||
+        catalogued?.family === NOTIFIABLE_DISEASE_FAMILY,
       idempotencyKey: dto.idempotencyKey ?? null,
     });
     let created = false;
@@ -449,6 +456,23 @@ export class HealthService {
       await this.batchesService.runAdvisoryForBatch(batchId);
     }
     return { deleted: true };
+  }
+
+  /** The active MALADIE item named by the declaration, or null without a code. */
+  private async resolveDisease(
+    code: string | undefined,
+  ): Promise<{ code: string; label: string; family: string | null } | null> {
+    const wanted = code?.trim();
+    if (!wanted) return null;
+    const item = (await this.lists.list(ProgramListType.MALADIE)).find(
+      (i) => i.code === wanted,
+    );
+    if (!item) {
+      throw new BadRequestException(
+        `Maladie inconnue ou désactivée : ${wanted}.`,
+      );
+    }
+    return { code: item.code, label: item.label, family: item.family };
   }
 
   /** Active SIGNE_CLINIQUE codes only (the list of the veterinary services). */
