@@ -49,9 +49,20 @@ const GROUPS: Array<{ label: string; units: Record<string, string> }> = [
     units: {
       default_sac_kg: 'kg',
       feed_drop_warn_pct: '%',
+      feed_drop_critical_pct: '%',
+      feed_standard_deviation_warn_pct: '%',
       feed_stock_warn_days: 'jours',
       feed_stock_critical_days: 'jours',
       feed_order_target_days: 'jours',
+    },
+  },
+  {
+    label: 'Stress thermique (THI)',
+    units: {
+      thi_prudence: 'THI',
+      thi_modere: 'THI',
+      thi_severe: 'THI',
+      thi_danger: 'THI',
     },
   },
   {

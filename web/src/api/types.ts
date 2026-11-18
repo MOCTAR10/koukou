@@ -141,6 +141,9 @@ export interface IndicatorThresholds {
   mortalityCriticalPct: number;
   waterDropWarnPct: number;
   waterDropCriticalPct: number;
+  /** Expected water/feed ratio band on a daily entry (L per kg of feed). */
+  waterFeedRatioMin: number;
+  waterFeedRatioMax: number;
 }
 
 export interface BatchMetrics {

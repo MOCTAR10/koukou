@@ -225,6 +225,7 @@ export const NON_CONDUCT_ALERT_KINDS: readonly string[] = [
 export const DEFAULT_CONDUCT_ALERT_KINDS: readonly string[] = [
   'EAU',
   'ALIMENT',
+  'CONSOMMATION_ALIMENT',
   'SURDENSITE',
   'DENSITE',
   'DENSITE_BATIMENT',

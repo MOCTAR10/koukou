@@ -27,6 +27,8 @@ function build() {
     alerts as never,
     constants as never,
     {} as never,
+    {} as never,
+    {} as never,
   );
   return { engine, alerts };
 }
@@ -51,6 +53,36 @@ describe('isWaterNormApplicable', () => {
         { ageDays: 30 },
       ),
     ).toBe(false);
+  });
+});
+
+describe('AdvisoryEngine rule registry', () => {
+  it('switches a kind off only when every registry row of it is inactive', async () => {
+    const { engine } = build();
+    (engine as any).ruleRepo = {
+      find: vi.fn(async () => [
+        { kind: AlertKind.EAU, isActive: false },
+        { kind: AlertKind.GMQ, isActive: false },
+        { kind: AlertKind.GMQ, isActive: true },
+      ]),
+    };
+    const off = await (engine as any).inactiveKinds();
+    expect([...off]).toEqual([AlertKind.EAU]);
+  });
+
+  it('does not evaluate an inactive rule and clears its alert', async () => {
+    const { engine, alerts } = build();
+    const run = vi.fn();
+    await (engine as any).whenRuleActive(
+      AlertKind.EAU,
+      new Set([AlertKind.EAU]),
+      'f',
+      'b',
+      undefined,
+      run,
+    );
+    expect(run).not.toHaveBeenCalled();
+    expect(alerts.clearKind).toHaveBeenCalledWith('f', 'b', AlertKind.EAU, undefined);
   });
 });
 

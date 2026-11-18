@@ -51,6 +51,7 @@ import { StoredFcfaFormat1794570000000 } from './1794570000000-StoredFcfaFormat.
 import { DiseaseCatalogue1794600000000 } from './1794600000000-DiseaseCatalogue.js';
 import { VaccineCatalogue1794610000000 } from './1794610000000-VaccineCatalogue.js';
 import { TechnicalItinerary1794620000000 } from './1794620000000-TechnicalItinerary.js';
+import { FeedIntakeAlerts1794700000000 } from './1794700000000-FeedIntakeAlerts.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -116,4 +117,6 @@ export const MIGRATIONS = [
   VaccineCatalogue1794610000000,
   // Jury lot 1: technical itinerary, daily feed standard, feed product data
   TechnicalItinerary1794620000000,
+  // Jury lot 2: feed intake alerts (CONSOMMATION_ALIMENT)
+  FeedIntakeAlerts1794700000000,
 ];

@@ -5,6 +5,8 @@ import { AlertsService } from '../alerts/alerts.service.js';
 import { coarseCoordinate } from './coarse-coordinate.js';
 import { AlertKind, AlertLevel } from '../../common/enums/alert-level.enum.js';
 import { Farm } from '../farms/entities/farm.entity.js';
+import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
+import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import {
   WEATHER_ZONES,
   WeatherObservation,
@@ -16,13 +18,24 @@ const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FETCH_TIMEOUT_MS = 4500;
 
-const THI_ZONES: Array<{ max: number; zone: WeatherZone }> = [
-  { max: 75, zone: WEATHER_ZONES.CONFORT },
-  { max: 79, zone: WEATHER_ZONES.PRUDENCE },
-  { max: 84, zone: WEATHER_ZONES.MODERE },
-  { max: 88, zone: WEATHER_ZONES.SEVERE },
-  { max: Infinity, zone: WEATHER_ZONES.DANGER },
-];
+/**
+ * Lower bounds of the THI zones (prudence / modéré / sévère / danger): the
+ * defaults of the reference constants THI_PRUDENCE … THI_DANGER (« Proposé »,
+ * à valider DGE).
+ */
+export interface ThiBounds {
+  prudence: number;
+  modere: number;
+  severe: number;
+  danger: number;
+}
+
+export const DEFAULT_THI_BOUNDS: ThiBounds = {
+  prudence: 75,
+  modere: 79,
+  severe: 84,
+  danger: 88,
+};
 
 const ZONE_LABELS_FR: Record<WeatherZone, string> = {
   CONFORT: 'confort thermique',
@@ -60,10 +73,21 @@ export function computeThi(tempC: number, humidityPct: number): number {
   return f - (0.55 - 0.55 * rh) * (f - 58);
 }
 
-export function thiZone(thi: number): WeatherZone {
-  for (const t of THI_ZONES) {
-    if (thi < t.max) return t.zone;
-  }
+export function thiZone(
+  thi: number,
+  bounds: ThiBounds = DEFAULT_THI_BOUNDS,
+): WeatherZone {
+  // Sorted so that a misordered pair of constants cannot invert the zones.
+  const [prudence, modere, severe, danger] = [
+    bounds.prudence,
+    bounds.modere,
+    bounds.severe,
+    bounds.danger,
+  ].sort((a, b) => a - b) as [number, number, number, number];
+  if (thi < prudence) return WEATHER_ZONES.CONFORT;
+  if (thi < modere) return WEATHER_ZONES.PRUDENCE;
+  if (thi < severe) return WEATHER_ZONES.MODERE;
+  if (thi < danger) return WEATHER_ZONES.SEVERE;
   return WEATHER_ZONES.DANGER;
 }
 
@@ -106,7 +130,24 @@ export class WeatherService {
     @InjectRepository(Farm)
     private readonly farmRepo: Repository<Farm>,
     private readonly alertsService: AlertsService,
+    private readonly constants: ReferenceConstantsService,
   ) {}
+
+  /** THI zone bounds in force (reference constants, defaults 75/79/84/88). */
+  private async thiBounds(): Promise<ThiBounds> {
+    const c = await this.constants.getMany([
+      ReferenceKey.THI_PRUDENCE,
+      ReferenceKey.THI_MODERE,
+      ReferenceKey.THI_SEVERE,
+      ReferenceKey.THI_DANGER,
+    ]);
+    return {
+      prudence: c[ReferenceKey.THI_PRUDENCE] ?? DEFAULT_THI_BOUNDS.prudence,
+      modere: c[ReferenceKey.THI_MODERE] ?? DEFAULT_THI_BOUNDS.modere,
+      severe: c[ReferenceKey.THI_SEVERE] ?? DEFAULT_THI_BOUNDS.severe,
+      danger: c[ReferenceKey.THI_DANGER] ?? DEFAULT_THI_BOUNDS.danger,
+    };
+  }
 
   /**
    * Météo (THI) d'une ferme : cache quotidien via Open-Meteo (gratuit, sans
@@ -197,11 +238,12 @@ export class WeatherService {
     const hums = daily.relative_humidity_2m_max ?? [];
     if (dates.length === 0) throw new Error('Réponse Open-Meteo vide.');
 
+    const bounds = await this.thiBounds();
     const rows = dates.map((date, i) => {
       const tempC = temps[i] ?? 0;
       const humidityPct = hums[i] ?? 0;
       const thi = computeThi(tempC, humidityPct);
-      const zone = thiZone(thi);
+      const zone = thiZone(thi, bounds);
       return {
         farmId,
         forecastDate: date,

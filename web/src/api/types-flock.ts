@@ -89,6 +89,31 @@ export interface LotCurve {
   liveCount: number;
   startWeightKg: number;
   weekly: LotCurveWeek[];
+  /** Days with a feed entry (computed by the server); absent on older backends. */
+  dailyFeed?: LotDailyFeed[];
+  feedTotals?: LotFeedTotals;
+  /** The breed has a daily-feed standard (false: custom breed). */
+  hasFeedStandard?: boolean;
+}
+
+export interface LotDailyFeed {
+  date: string;
+  feedKg: number;
+  birds: number;
+  /** g per bird that day. */
+  feedPerBirdG: number;
+  /** Breed standard of that day's week (g/bird/day), null without one. */
+  targetDailyFeedG: number | null;
+  /** L of water per kg of feed, null when either is missing. */
+  waterFeedRatio: number | null;
+}
+
+export interface LotFeedTotals {
+  totalFeedKg: number;
+  countedDays: number;
+  feedPerBirdToDateG: number;
+  /** Standard cumulated over the same days; null when missing on one of them. */
+  standardToDateG: number | null;
 }
 
 export interface DailyEntryRecord {

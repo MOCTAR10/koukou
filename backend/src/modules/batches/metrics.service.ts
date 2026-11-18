@@ -180,6 +180,8 @@ const METRIC_CONSTANT_KEYS = [
   ReferenceKey.VENTE_AGE_MIN_DAYS,
   ReferenceKey.VENTE_FCR_DEV_MAX_PCT,
   ReferenceKey.REFORME_LAY_RATE_FALL_PCT,
+  ReferenceKey.MORTALITY_WARN_PCT,
+  ReferenceKey.MORTALITY_CRITICAL_PCT,
 ];
 
 @Injectable()
@@ -392,6 +394,9 @@ export class MetricsService {
     const fcrDeviationMaxPct = constantsByKey[ReferenceKey.VENTE_FCR_DEV_MAX_PCT] ?? 10;
     const reformeLayRateFallPct =
       constantsByKey[ReferenceKey.REFORME_LAY_RATE_FALL_PCT] ?? 15;
+    const mortalityWarn = constantsByKey[ReferenceKey.MORTALITY_WARN_PCT] ?? 1;
+    const mortalityCritical =
+      constantsByKey[ReferenceKey.MORTALITY_CRITICAL_PCT] ?? 5;
 
     const entries = historical
       ? entriesRaw.filter((e) => e.entryDate <= asOf)
@@ -577,6 +582,8 @@ export class MetricsService {
       densityPerM2,
       densityWarn,
       densityCritical,
+      mortalityWarn,
+      mortalityCritical,
     });
 
     const readiness = evaluateReadiness({
@@ -810,6 +817,8 @@ export class MetricsService {
     densityPerM2: number | null;
     densityWarn: number;
     densityCritical: number;
+    mortalityWarn: number;
+    mortalityCritical: number;
   }): AlertLevel {
     if (
       input.densityPerM2 != null &&
@@ -820,10 +829,10 @@ export class MetricsService {
     if (input.densityPerM2 != null && input.densityPerM2 > input.densityWarn) {
       return AlertLevel.JAUNE;
     }
-    if (input.mortalityPercent > 5) {
+    if (input.mortalityPercent > input.mortalityCritical) {
       return AlertLevel.ROUGE;
     }
-    if (input.mortalityPercent > 1) {
+    if (input.mortalityPercent > input.mortalityWarn) {
       return AlertLevel.JAUNE;
     }
     return AlertLevel.VERT;

@@ -89,7 +89,20 @@ const DEFAULT_CONSTANTS: SeedConstant[] = [
   {
     key: ReferenceKey.FEED_DROP_WARN_PCT,
     value: 10,
-    description: 'Baisse d’aliment d’alerte (%)',
+    description:
+      'Baisse d’aliment par oiseau d’alerte (%) vs moyenne des 3 jours précédents — Proposé, à valider DGE / services vétérinaires',
+  },
+  {
+    key: ReferenceKey.FEED_DROP_CRITICAL_PCT,
+    value: 25,
+    description:
+      'Baisse d’aliment par oiseau critique (%) — Proposé, à valider DGE / services vétérinaires',
+  },
+  {
+    key: ReferenceKey.FEED_STANDARD_DEVIATION_WARN_PCT,
+    value: 15,
+    description:
+      'Écart d’alerte (%) de l’aliment par oiseau sous le standard indicatif de la souche (moyenne 3 jours) — Proposé, à valider DGE',
   },
   {
     key: ReferenceKey.IPE_DEVIATION_WARN_PCT,
@@ -233,6 +246,42 @@ const DEFAULT_CONSTANTS: SeedConstant[] = [
     value: 10,
     description:
       'Affichage : écart de ponte (%) sous la courbe de la souche au-delà duquel l’indicateur passe à l’orange',
+  },
+  {
+    key: ReferenceKey.WATER_FEED_RATIO_MIN,
+    value: 1.8,
+    description:
+      'Saisie : ratio eau/aliment minimal (L par kg) de la plage attendue',
+  },
+  {
+    key: ReferenceKey.WATER_FEED_RATIO_MAX,
+    value: 2.6,
+    description:
+      'Saisie : ratio eau/aliment maximal (L par kg) de la plage attendue',
+  },
+  {
+    key: ReferenceKey.THI_PRUDENCE,
+    value: 75,
+    description:
+      'Stress thermique : THI à partir duquel la zone « prudence » commence — Proposé, à valider DGE',
+  },
+  {
+    key: ReferenceKey.THI_MODERE,
+    value: 79,
+    description:
+      'Stress thermique : THI à partir duquel la zone « stress modéré » (alerte JAUNE) commence — Proposé, à valider DGE',
+  },
+  {
+    key: ReferenceKey.THI_SEVERE,
+    value: 84,
+    description:
+      'Stress thermique : THI à partir duquel la zone « stress sévère » (alerte ROUGE) commence — Proposé, à valider DGE',
+  },
+  {
+    key: ReferenceKey.THI_DANGER,
+    value: 88,
+    description:
+      'Stress thermique : THI à partir duquel la zone « danger » (alerte ROUGE) commence — Proposé, à valider DGE',
   },
 ];
 
@@ -2676,6 +2725,14 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
         shortLabel: 'Stock provende',
         description:
           'Alerte si le stock de provende passe sous le seuil d’autonomie (JAUNE < 5 j, ROUGE < 3 j de consommation théorique).',
+      },
+      {
+        code: 'feed-intake-1',
+        kind: AlertKind.CONSOMMATION_ALIMENT,
+        category: 'ELEVAGE',
+        shortLabel: 'Consommation d’aliment',
+        description:
+          'Alerte si l’aliment par oiseau chute vs la moyenne des 3 jours précédents (JAUNE > 10 %, ROUGE > 25 %) ou s’écarte sous le standard indicatif de la souche (JAUNE > 15 %, poulet de chair). Seuils proposés, à valider DGE / services vétérinaires.',
       },
       {
         code: 'rentabilite-1',

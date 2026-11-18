@@ -11,6 +11,8 @@ export enum ReferenceKey {
   WATER_PER_BIRD_L_DAY = 'water_per_bird_l_day',
   WATER_NORM_DEVIATION_WARN_PCT = 'water_norm_deviation_warn_pct',
   FEED_DROP_WARN_PCT = 'feed_drop_warn_pct',
+  FEED_DROP_CRITICAL_PCT = 'feed_drop_critical_pct',
+  FEED_STANDARD_DEVIATION_WARN_PCT = 'feed_standard_deviation_warn_pct',
   IPE_DEVIATION_WARN_PCT = 'ipe_deviation_warn_pct',
   GMQ_DEVIATION_WARN_PCT = 'gmq_deviation_warn_pct',
   VIDE_SANITAIRE_MIN_DAYS = 'vide_sanitaire_min_days',
@@ -36,4 +38,11 @@ export enum ReferenceKey {
   FCR_DEVIATION_WARN_PCT = 'fcr_deviation_warn_pct',
   FCR_DEVIATION_GOOD_PCT = 'fcr_deviation_good_pct',
   LAY_RATE_DEVIATION_WARN_PCT = 'lay_rate_deviation_warn_pct',
+  /** Heat index (THI) lower bounds of the zones prudence / modéré / sévère / danger. */
+  THI_PRUDENCE = 'thi_prudence',
+  THI_MODERE = 'thi_modere',
+  THI_SEVERE = 'thi_severe',
+  THI_DANGER = 'thi_danger',
+  WATER_FEED_RATIO_MIN = 'water_feed_ratio_min',
+  WATER_FEED_RATIO_MAX = 'water_feed_ratio_max',
 }
