@@ -63,6 +63,14 @@ export class HealthEvent {
   @Column({ name: 'disease', type: 'varchar', length: 120, nullable: true })
   disease: string | null;
 
+  /**
+   * Code of the MALADIE programme list (disease catalogue of the veterinary
+   * services). Null for a free-text disease. A disease of family
+   * DECLARATION_OBLIGATOIRE makes the declaration a suspicion.
+   */
+  @Column({ name: 'disease_code', type: 'varchar', length: 40, nullable: true })
+  diseaseCode: string | null;
+
   @Column({
     name: 'disease_severity',
     type: 'enum',

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -10,6 +11,7 @@ import { Species } from '../../common/enums/species.enum.js';
 import { sharedOrFarm } from '../../common/utils/farm-scope.js';
 import { Breed } from './entities/breed.entity.js';
 import { BreedStandard } from './entities/breed-standard.entity.js';
+import { deriveDailyFeedG } from './derive-daily-feed.js';
 
 @Injectable()
 export class BreedsService {
@@ -54,6 +56,55 @@ export class BreedsService {
       type: breed.type,
       standards,
     };
+  }
+
+  /**
+   * Replace the weekly standards of one shared breed (jury lot 1). A row
+   * without `targetDailyFeedG` gets the value derived from its weight and
+   * FCR targets. One transaction: either every row is replaced or none.
+   */
+  async replaceStandards(
+    breedId: string,
+    rows: Array<{
+      week: number;
+      targetAvgWeightKg?: number | null;
+      targetFcr?: number | null;
+      targetLayRatePercent?: number | null;
+      targetDailyFeedG?: number | null;
+    }>,
+  ) {
+    const breed = await this.repo.findOne({ where: { id: breedId } });
+    if (!breed || breed.farmId) {
+      throw new NotFoundException('Race du référentiel commun introuvable.');
+    }
+    const weeks = new Set<number>();
+    for (const r of rows) {
+      if (weeks.has(r.week)) {
+        throw new BadRequestException(
+          `La semaine ${r.week} apparaît plusieurs fois : une seule ligne par semaine.`,
+        );
+      }
+      weeks.add(r.week);
+    }
+    const normalized = rows.map((r) => ({
+      week: r.week,
+      targetAvgWeightKg: r.targetAvgWeightKg ?? null,
+      targetFcr: r.targetFcr ?? null,
+      targetLayRatePercent: r.targetLayRatePercent ?? null,
+      targetDailyFeedG: r.targetDailyFeedG ?? null,
+    }));
+    const derived = deriveDailyFeedG(normalized);
+    normalized.forEach((r, i) => {
+      if (rows[i].targetDailyFeedG == null) r.targetDailyFeedG = derived[i];
+    });
+    await this.standardRepo.manager.transaction(async (em) => {
+      await em.delete(BreedStandard, { breedId });
+      await em.save(
+        BreedStandard,
+        normalized.map((r) => em.create(BreedStandard, { ...r, breedId })),
+      );
+    });
+    return this.getStandards(breedId, null);
   }
 
   async createCustom(

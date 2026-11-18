@@ -61,6 +61,25 @@ export class FeedProduct {
   @Column({ type: 'text', nullable: true })
   supplier: string | null;
 
+  /** Manufacturer of the product (free text). */
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  manufacturer: string | null;
+
+  /** Label crude protein, % of the feed. */
+  @Column({ name: 'protein_pct', type: 'float', nullable: true })
+  proteinPct: number | null;
+
+  /** Label metabolisable energy, kcal per kg. */
+  @Column({ name: 'energy_kcal_kg', type: 'float', nullable: true })
+  energyKcalKg: number | null;
+
+  /**
+   * Authorisation or approval reference of the manufacturer (free text);
+   * feed and additives must be authorised (décret n° 0190/PR/MAA, art. 19).
+   */
+  @Column({ name: 'authorized_ref', type: 'varchar', length: 80, nullable: true })
+  authorizedRef: string | null;
+
   @Column({ default: true })
   active: boolean;
 

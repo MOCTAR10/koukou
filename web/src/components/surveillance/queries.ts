@@ -8,7 +8,7 @@ import type { RefItem } from '../../api/types-programme';
  * never a farmId.
  */
 
-export type SurveillanceListType = 'SIGNE_CLINIQUE' | 'PRODUIT_TRAITEMENT' | 'STATUT_ALERTE';
+export type SurveillanceListType = 'SIGNE_CLINIQUE' | 'PRODUIT_TRAITEMENT' | 'STATUT_ALERTE' | 'MALADIE' | 'TEXTE_REFERENCE' | 'VACCIN';
 
 /** Active items of a sanitary list (`GET /programme/lists/:listType`, REFERENCE). */
 export function useSanitaryList(listType: SurveillanceListType, enabled = true) {

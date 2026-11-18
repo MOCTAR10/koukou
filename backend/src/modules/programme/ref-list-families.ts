@@ -36,7 +36,11 @@ export const PROGRAM_LIST_FAMILIES: Readonly<
     'INFIRMEE',
     'CLOSE',
   ],
+  [ProgramListType.MALADIE]: ['DECLARATION_OBLIGATOIRE', 'AUTRE'],
 };
+
+/** Family of a MALADIE item the law requires to declare at once. */
+export const NOTIFIABLE_DISEASE_FAMILY = 'DECLARATION_OBLIGATOIRE';
 
 export function familiesOf(
   listType: ProgramListType,

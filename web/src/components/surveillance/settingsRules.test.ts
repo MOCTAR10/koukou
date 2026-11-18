@@ -11,6 +11,7 @@ import {
   sharedCalendars,
   sortedSteps,
   stepBody,
+  stepFormOf,
   stepProblem,
 } from './settingsRules';
 
@@ -53,6 +54,15 @@ describe('calendar steps', () => {
     const ok = { ...form, dayTo: '16', route: 'Eau de boisson' };
     expect(stepProblem(ok)).toBeNull();
     expect(stepBody(ok)).toEqual({ stepOrder: 1, dayFrom: 14, dayTo: 16, careType: 'VACCIN', name: 'Gumboro', route: 'Eau de boisson', withdrawalDays: 0 });
+  });
+
+  it('carries the catalogue vaccine of a vaccine step only; an edit clears it with null', () => {
+    const form = { ...emptyStepForm(1), name: 'Gumboro', dayFrom: '7', dayTo: '9' };
+    expect(stepBody({ ...form, vaccineCode: 'GUMBORO' })).toMatchObject({ vaccineCode: 'GUMBORO' });
+    expect(stepBody(form)).not.toHaveProperty('vaccineCode');
+    expect(stepBody(form, true)).toMatchObject({ vaccineCode: null });
+    expect(stepBody({ ...form, careType: 'VITAMINE', vaccineCode: 'GUMBORO' }, true)).toMatchObject({ vaccineCode: null });
+    expect(stepFormOf({ id: 's', stepOrder: 1, dayFrom: 7, dayTo: 9, careType: 'VACCIN', name: 'Gumboro', dosage: null, route: null, vaccineCode: 'GUMBORO', withdrawalDays: 0, active: true }).vaccineCode).toBe('GUMBORO');
   });
 
   it('sorts steps by age and keeps shared calendars only', () => {

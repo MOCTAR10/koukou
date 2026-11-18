@@ -127,21 +127,34 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     );
   });
 
-  it('générer un programme sur un lot au jour J → tout est planifié, non bloquant', async () => {
+  it('lot au jour J : le programme Gabon, calendrier de référence, est planifié à l’ouverture', async () => {
     const program = await findProgram('CHAIR', 'vacc-poulet-chair-gabon');
+    const cares = (
+      await request(server)
+        .get(`/farms/${farmId}/batches/${batchFreshId}/prophylaxis`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+    ).body as Array<{
+      source: string;
+      status: string;
+      isReference: boolean;
+      protocolStepId: string | null;
+    }>;
+    const planned = cares.filter((c) => c.source === 'PROGRAM');
+    expect(planned).toHaveLength(6);
+    expect(planned.every((c) => c.status === 'PLANIFIE' && c.isReference)).toBe(
+      true,
+    );
+    expect(planned.every((c) => Boolean(c.protocolStepId))).toBe(true);
+    // Generating it again adds nothing: non-blocking, everything is already there.
     const res = await request(server)
       .post(`/farms/${farmId}/vaccine-schedules/programs/generate`)
       .set('Authorization', `Bearer ${token}`)
       .send({ protocolId: program.id, lotIds: [batchFreshId] })
       .expect(201);
-    expect(res.body.planned).toBe(6);
-    expect(res.body.skipped).toBe(0);
+    expect(res.body.planned).toBe(0);
+    expect(res.body.skipped).toBe(6);
     expect(res.body.perLot).toHaveLength(1);
-    expect(res.body.perLot[0].planned).toBe(6);
-    expect(res.body.events).toHaveLength(6);
-    expect(res.body.events[0].source).toBe('PROGRAM');
-    expect(res.body.events[0].status).toBe('PLANIFIE');
-    expect(res.body.events[0].protocolStepId).toBeTruthy();
   });
 
   it('re-générer le même programme → déjà planifié, aucune étape bloquante', async () => {
@@ -175,14 +188,21 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
     expect(reasons.some((r: string) => r.includes('passée'))).toBe(true);
   });
 
-  it('programme pondeuse (Gabon) → 11 étapes planifiées', async () => {
+  it('programme pondeuse (Gabon) → 11 étapes, déjà planifiées à l’ouverture (référence)', async () => {
     const program = await findProgram('PONDEUSE', 'vacc-poule-pondeuse-gabon');
     const res = await request(server)
       .post(`/farms/${farmId}/vaccine-schedules/programs/generate`)
       .set('Authorization', `Bearer ${token}`)
       .send({ protocolId: program.id, lotIds: [batchLayerId] })
       .expect(201);
-    expect(res.body.planned).toBe(11);
+    expect(res.body.planned + res.body.skipped).toBe(11);
+    const cares = (
+      await request(server)
+        .get(`/farms/${farmId}/batches/${batchLayerId}/prophylaxis`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+    ).body as Array<{ source: string }>;
+    expect(cares.filter((c) => c.source === 'PROGRAM')).toHaveLength(11);
   });
 
   it('programme POULET sur un lot PINTADE → 400 (espèce liée au programme)', async () => {
@@ -226,7 +246,8 @@ describe('Sanitaire — Programmes de vaccination & échéances (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ protocolId: program.id, lotIds: [batchPintadeId] })
       .expect(201);
-    expect(res.body.planned).toBeGreaterThan(0);
+    // Each species/type has its own reference: already planned at opening.
+    expect(res.body.planned + res.body.skipped).toBeGreaterThan(0);
     expect(
       res.body.events.every(
         (e: { batchId: string }) => e.batchId === batchPintadeId,

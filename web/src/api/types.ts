@@ -422,6 +422,10 @@ export interface FeedProduct {
   defaultCostPerMtFcfa: number | null;
   defaultCostPerBagFcfa: number | null;
   supplier: string | null;
+  manufacturer?: string | null;
+  proteinPct?: number | null;
+  energyKcalKg?: number | null;
+  authorizedRef?: string | null;
   active: boolean;
 }
 

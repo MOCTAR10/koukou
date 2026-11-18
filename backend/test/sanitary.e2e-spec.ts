@@ -77,11 +77,17 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
       .get(`/sanitary/protocols?species=POULET&type=CHAIR`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
+    // The Gabon programme is the reference calendar (one per species/type);
+    // the older standard one is kept but no longer default.
     const defaultChair = chair.body.find(
-      (p: any) => p.code === 'proto-poulet-chair-standard',
+      (p: any) => p.code === 'vacc-poulet-chair-gabon',
     );
     expect(defaultChair).toBeTruthy();
     expect(defaultChair.isDefault).toBe(true);
+    const standard = chair.body.find(
+      (p: any) => p.code === 'proto-poulet-chair-standard',
+    );
+    expect(standard?.isDefault).toBe(false);
 
     const detail = await request(server)
       .get(`/sanitary/protocols/${defaultChair.id}`)
@@ -106,7 +112,8 @@ describe('Module 2 — Sanitaire & Prophylaxie (e2e)', () => {
       (e: any) => e.careType === 'VACCIN' && e.name.includes('Marek'),
     );
     expect(marek).toBeTruthy();
-    expect(marek.scheduledDate).toBe(today);
+    // Marek at J1 of the Gabon reference calendar (J0 = arrival day).
+    expect(marek.scheduledDate).toBe(daysAgo(-1));
     expect(marek.status).toBe('PLANIFIE');
   });
 

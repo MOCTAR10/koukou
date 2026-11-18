@@ -7,6 +7,8 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { FoodType } from '../../../common/enums/food-type.enum.js';
@@ -76,6 +78,31 @@ export class CreateFeedProductDto {
   @IsOptional()
   @IsString()
   supplier?: string;
+
+  @ApiPropertyOptional({ description: 'Fabricant', example: 'CEAG' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120, { message: 'Le fabricant est limité à 120 caractères.' })
+  manufacturer?: string;
+
+  @ApiPropertyOptional({ description: 'Protéine brute annoncée (% de l’aliment)', example: 18 })
+  @IsOptional()
+  @IsNumber({}, { message: 'Le taux de protéine doit être un nombre.' })
+  @Min(0, { message: 'Le taux de protéine ne peut pas être négatif.' })
+  @Max(100, { message: 'Le taux de protéine ne peut pas dépasser 100 %.' })
+  proteinPct?: number;
+
+  @ApiPropertyOptional({ description: 'Énergie métabolisable annoncée (kcal/kg)' })
+  @IsOptional()
+  @IsNumber({}, { message: 'L’énergie doit être un nombre.' })
+  @Min(0, { message: 'L’énergie ne peut pas être négative.' })
+  energyKcalKg?: number;
+
+  @ApiPropertyOptional({ description: 'Référence d’autorisation ou d’agrément du fabricant (texte libre)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80, { message: 'La référence d’autorisation est limitée à 80 caractères.' })
+  authorizedRef?: string;
 
   @ApiPropertyOptional({ description: 'Produit actif dans le catalogue', default: true })
   @IsOptional()

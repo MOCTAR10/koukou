@@ -20,6 +20,11 @@ export const SANITARY_LIST_TYPES: readonly ProgramListType[] = [
   ProgramListType.STATUT_ALERTE,
   // Biosecurity grid (CDC n° 27): the veterinary services own the criteria.
   ProgramListType.CRITERE_BIOSECURITE,
+  // Disease catalogue and the legal texts it cites.
+  ProgramListType.MALADIE,
+  ProgramListType.TEXTE_REFERENCE,
+  // Vaccine catalogue the reference calendars point at.
+  ProgramListType.VACCIN,
 ];
 
 @Injectable()

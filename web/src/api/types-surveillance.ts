@@ -121,6 +121,8 @@ export interface CalendarStep {
   name: string;
   dosage: string | null;
   route: string | null;
+  /** Code of the VACCIN list item the step gives (catalogue of the vets), or null. */
+  vaccineCode?: string | null;
   withdrawalDays: number;
   active: boolean;
 }
@@ -146,6 +148,8 @@ export interface CalendarStepBody {
   name: string;
   dosage?: string;
   route?: string;
+  /** A VACCIN list code; `null` removes the vaccine (step edit). */
+  vaccineCode?: string | null;
   withdrawalDays?: number;
 }
 

@@ -11,6 +11,7 @@ import { ReferenceKey } from '../common/enums/reference-key.enum.js';
 import { UserRole } from '../common/enums/role.enum.js';
 import { Breed } from '../modules/breeds/entities/breed.entity.js';
 import { BreedStandard } from '../modules/breeds/entities/breed-standard.entity.js';
+import { deriveDailyFeedG } from '../modules/breeds/derive-daily-feed.js';
 import { ReferenceConstant } from '../modules/reference-constants/entities/reference-constant.entity.js';
 import { AlertKind } from '../common/enums/alert-level.enum.js';
 import { RuleRegistry } from '../modules/alerts/entities/rule-registry.entity.js';
@@ -1381,6 +1382,35 @@ const DEFAULT_PROTOCOLS: DefaultProtocol[] = [
 ];
 
 /**
+ * Vaccine of the VACCIN list (catalogue of the veterinary services) given by
+ * each catalogue step of the Gabon poultry programmes, by protocol code then
+ * step order. Steps without an entry (EDS combination, typhose, coryza…) stay
+ * free text. Mirrored by migration `VaccineCatalogue1794610000000`.
+ */
+const GABON_VACCINE_CODES: Readonly<
+  Record<string, Readonly<Record<number, string>>>
+> = {
+  'vacc-poulet-chair-gabon': {
+    1: 'MAREK',
+    2: 'NEWCASTLE_BRONCHITE',
+    3: 'GUMBORO',
+    4: 'GUMBORO',
+    5: 'NEWCASTLE_BRONCHITE',
+    6: 'NEWCASTLE_VIVANT',
+  },
+  'vacc-poule-pondeuse-gabon': {
+    1: 'MAREK',
+    2: 'NEWCASTLE_BRONCHITE',
+    3: 'GUMBORO',
+    4: 'NEWCASTLE_BRONCHITE',
+    5: 'GUMBORO',
+    6: 'VARIOLE_AVIAIRE',
+    7: 'NEWCASTLE_BRONCHITE',
+    11: 'NEWCASTLE_VIVANT',
+  },
+};
+
+/**
  * Programmes de vaccination pré-chargés (recommandation pays — Gabon).
  * Référentiel : calendrier vaccinal national avicole (poussins de chair et
  * poules pondeuses). Non bloquants : au chargement, les étapes dont la date
@@ -2492,9 +2522,15 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
         where: { breedId: breed.id },
       });
       if (alreadySeeded > 0) continue;
+      // Daily feed (g/bird/day) derived from weight x cumulative FCR.
+      const dailyFeed = deriveDailyFeedG(standards);
       await this.standardRepo.save(
-        standards.map((s) =>
-          this.standardRepo.create({ ...s, breedId: breed.id }),
+        standards.map((s, i) =>
+          this.standardRepo.create({
+            ...s,
+            targetDailyFeedG: dailyFeed[i],
+            breedId: breed.id,
+          }),
         ),
       );
     }
@@ -2722,7 +2758,11 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
             name: protocol.name,
             species: protocol.species,
             type: protocol.type,
-            isDefault: true,
+            // The Gabon programme of the same species and type is the
+            // reference; a standard one only stays default without it.
+            isDefault: !GABON_VACC_PROTOCOLS.some(
+              (g) => g.species === protocol.species && g.type === protocol.type,
+            ),
             isEditable: true,
           }),
         );
@@ -2747,9 +2787,10 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
   }
 
   /**
-   * Programme de vaccination pré-chargé (Gabon) : référentiel protégé
-   * (isEditable = false, isDefault = false) — proposé dans l'onglet
-   * Traitements, sans jamais écraser le protocole par défaut de l'espèce.
+   * Programme de vaccination pré-chargé (Gabon) : calendrier de référence de
+   * son espèce et de son type (isDefault, appliqué à l'ouverture des bandes),
+   * modifiable par les services vétérinaires (isEditable). Un seul par espèce
+   * et type : les protocoles « standard » ne sont plus par défaut.
    */
   private async seedGabonPrograms() {
     for (const program of GABON_VACC_PROTOCOLS) {
@@ -2760,14 +2801,25 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
       // Protocol and its steps together: a crash in between left a
       // protocol with missing steps that the next boot skipped.
       await this.protocolRepo.manager.transaction(async (em) => {
+        // One reference per species and type: never next to one the vets
+        // already designated.
+        const referenceTaken =
+          (await em.getRepository(SanitaryProtocol).count({
+            where: {
+              farmId: IsNull(),
+              species: program.species,
+              type: program.type,
+              isDefault: true,
+            },
+          })) > 0;
         const saved = await em.getRepository(SanitaryProtocol).save(
           em.getRepository(SanitaryProtocol).create({
             code: program.code,
             name: program.name,
             species: program.species,
             type: program.type,
-            isDefault: false,
-            isEditable: false,
+            isDefault: !referenceTaken,
+            isEditable: true,
           }),
         );
         for (const s of program.steps) {
@@ -2781,6 +2833,8 @@ export class DatabaseSeedService implements OnApplicationBootstrap {
               name: s.name,
               dosage: s.dosage,
               route: s.route,
+              vaccineCode:
+                GABON_VACCINE_CODES[program.code]?.[s.stepOrder] ?? null,
               withdrawalDays: s.withdrawalDays,
               active: true,
             }),

@@ -48,6 +48,9 @@ import { HotPathIndexes1794540000000 } from './1794540000000-HotPathIndexes.js';
 import { CustomerCredit1794550000000 } from './1794550000000-CustomerCredit.js';
 import { GeneratedTasks1794560000000 } from './1794560000000-GeneratedTasks.js';
 import { StoredFcfaFormat1794570000000 } from './1794570000000-StoredFcfaFormat.js';
+import { DiseaseCatalogue1794600000000 } from './1794600000000-DiseaseCatalogue.js';
+import { VaccineCatalogue1794610000000 } from './1794610000000-VaccineCatalogue.js';
+import { TechnicalItinerary1794620000000 } from './1794620000000-TechnicalItinerary.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -107,4 +110,10 @@ export const MIGRATIONS = [
   CustomerCredit1794550000000,
   GeneratedTasks1794560000000,
   StoredFcfaFormat1794570000000,
+  // Jury lot 1: disease catalogue and legal texts
+  DiseaseCatalogue1794600000000,
+  // Jury lot 1: vaccine catalogue, Gabon calendars as the reference
+  VaccineCatalogue1794610000000,
+  // Jury lot 1: technical itinerary, daily feed standard, feed product data
+  TechnicalItinerary1794620000000,
 ];

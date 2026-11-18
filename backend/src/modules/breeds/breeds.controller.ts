@@ -4,18 +4,29 @@ import {
   ForbiddenException,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEnum,
+  IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUUID,
+  Min,
+  ValidateNested,
 } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -70,6 +81,43 @@ class UpdateReferenceBreedDto {
   @IsOptional()
   @IsBoolean({ message: 'active doit être un booléen.' })
   active?: boolean;
+}
+
+/** One weekly row of a breed's zootechnical standard. */
+class BreedStandardRowDto {
+  @IsInt({ message: 'La semaine doit être un entier.' })
+  @Min(1, { message: 'La semaine doit être supérieure ou égale à 1.' })
+  week: number;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'Le poids cible doit être un nombre.' })
+  @IsPositive({ message: 'Le poids cible doit être positif.' })
+  targetAvgWeightKg?: number | null;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'L’indice de consommation cible doit être un nombre.' })
+  @IsPositive({ message: 'L’indice de consommation cible doit être positif.' })
+  targetFcr?: number | null;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'Le taux de ponte cible doit être un nombre.' })
+  @IsPositive({ message: 'Le taux de ponte cible doit être positif.' })
+  targetLayRatePercent?: number | null;
+
+  /** Omitted: derived from the weight and FCR targets (grams per bird per day). */
+  @IsOptional()
+  @IsNumber({}, { message: 'L’aliment journalier cible doit être un nombre.' })
+  @IsPositive({ message: 'L’aliment journalier cible doit être positif.' })
+  targetDailyFeedG?: number | null;
+}
+
+class ReplaceBreedStandardsDto {
+  @IsArray({ message: 'La liste des semaines est obligatoire.' })
+  @ArrayMinSize(1, { message: 'Au moins une semaine est requise.' })
+  @ArrayMaxSize(200, { message: 'Trop de semaines (200 au plus).' })
+  @ValidateNested({ each: true })
+  @Type(() => BreedStandardRowDto)
+  standards: BreedStandardRowDto[];
 }
 
 @ApiTags('Souches (Breed)')
@@ -147,6 +195,24 @@ export class BreedsController {
   ) {
     const scope = await this.farmsService.resourceScope(user, farmId, 'read');
     return this.breedsService.getStandards(id, scope);
+  }
+
+  // Same guard as the breed reference write (PARAMETRES:CREER, national scope).
+  @Put(':id/standards')
+  @Domain('PARAMETRES')
+  @Action('CREER')
+  @Roles(UserRole.INSTITUTION)
+  @ApiOperation({
+    summary:
+      'Remplacer le référentiel zootechnique hebdomadaire d’une race du référentiel commun (profil habilité)',
+  })
+  async replaceStandards(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: ReplaceBreedStandardsDto,
+  ) {
+    await this.assertReferenceManager(user);
+    return this.breedsService.replaceStandards(id, dto.standards);
   }
 
   @Post()

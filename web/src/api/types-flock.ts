@@ -252,6 +252,8 @@ export interface HealthEvent {
   symptoms: string | null;
   notes: string | null;
   disease?: string | null;
+  /** Code of the vets' MALADIE list; null for a free-text disease. */
+  diseaseCode?: string | null;
   diseaseSeverity?: DiseaseSeverity | null;
   treatmentGiven?: string | null;
   vetConsulted?: boolean;

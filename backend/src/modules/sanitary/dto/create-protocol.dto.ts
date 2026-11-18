@@ -8,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -56,6 +57,18 @@ export class ProtocolStepInput {
   @IsOptional()
   @IsString()
   route?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Code du vaccin de la liste VACCIN (catalogue des services vétérinaires) ; null pour le retirer',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString({ message: 'Le code du vaccin doit être un texte.' })
+  @MaxLength(40, {
+    message: 'Le code du vaccin ne doit pas dépasser 40 caractères.',
+  })
+  vaccineCode?: string | null;
 
   @ApiPropertyOptional({
     description: "Délai d'attente (jours) — surtout pour les médicaments",
