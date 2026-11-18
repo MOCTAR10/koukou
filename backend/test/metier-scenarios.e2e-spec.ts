@@ -1057,9 +1057,17 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
           token,
         ).expect(201);
       }
+      // The late-care alert (ROUGE) is lifted; a JAUNE reminder may remain when
+      // the reference calendar has another care due within the lead days.
       const after = (await get(`/farms/${farmId}/alerts`, token).expect(200)).body;
       expect(
-        after.some((a: any) => a.kind === 'PROPHYLAXIE' && a.batchId === id && a.status === 'ACTIVE'),
+        after.some(
+          (a: any) =>
+            a.kind === 'PROPHYLAXIE' &&
+            a.batchId === id &&
+            a.status === 'ACTIVE' &&
+            a.level === 'ROUGE',
+        ),
       ).toBe(false);
       expect((await metrics(id)).readyReason).not.toBe('SANITARY');
       // Completion cannot exceed the headcount (300 birds).
