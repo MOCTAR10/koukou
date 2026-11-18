@@ -37,7 +37,7 @@ import { NumberInput } from '../ui/NumberInput';
 import { Segmented } from '../ui/Segmented';
 import { StepProgress, type StepDef } from '../ui/StepProgress';
 import { useAuth } from '@/auth/AuthContext';
-import { fetchBatches, fetchBreedStandards, fetchDailyEntries, fetchFeedStock } from '@/api';
+import { fetchBatches, fetchBreedStandards, fetchDailyEntries, fetchDashboard, fetchFeedStock } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
 import { FEED_PHASE_LABELS } from '@/api/format';
 import { buildDailyEntryPayload, todayStr, type DailyEntryValues } from '@/api/mutations';
@@ -293,15 +293,27 @@ const WATER_MAX = 2.7;
 
 const fmtRatio = (n: number) => n.toFixed(1).replace('.', ',');
 
-/** Insight eau/aliment : norme 1,8–2,6 L pour 1 kg d'aliment, valeur + marqueur + lecture simple. */
+/** Water/feed band from the server's thresholds (dashboard, cached); 1.8–2.6 offline. */
+function useWaterBand(): { lo: number; hi: number } {
+  const { farmId } = useAuth();
+  const q = useQuery({ queryKey: ['dashboard', farmId], queryFn: () => fetchDashboard(farmId), staleTime: 60_000 });
+  return {
+    lo: q.data?.thresholds?.waterFeedRatioMin ?? WATER_LO,
+    hi: q.data?.thresholds?.waterFeedRatioMax ?? WATER_HI,
+  };
+}
+
+/** Insight eau/aliment : norme (1,8–2,6 par défaut) L pour 1 kg d'aliment, valeur + marqueur + lecture simple. */
 function RatioBar({ ratio }: { ratio: number }) {
-  const toPct = (x: number) => Math.max(0, Math.min(1, (x - WATER_MIN) / (WATER_MAX - WATER_MIN)));
+  const { lo, hi } = useWaterBand();
+  const barMax = Math.max(WATER_MAX, hi + 0.1);
+  const toPct = (x: number) => Math.max(0, Math.min(1, (x - WATER_MIN) / (barMax - WATER_MIN)));
   const pct = toPct(ratio);
-  const loPct = toPct(WATER_LO);
-  const hiPct = toPct(WATER_HI);
+  const loPct = toPct(lo);
+  const hiPct = toPct(hi);
   const zone =
-    ratio < WATER_LO ? (ratio < 1.2 ? 'lowCritical' : 'low')
-    : ratio > WATER_HI ? (ratio > 3.5 ? 'highCritical' : 'high')
+    ratio < lo ? (ratio < 1.2 ? 'lowCritical' : 'low')
+    : ratio > hi ? (ratio > 3.5 ? 'highCritical' : 'high')
     : 'ok';
   const zColor = zone === 'ok' ? palette.green[600] : zone === 'low' || zone === 'high' ? palette.amber[600] : palette.red[600];
   const badge =
@@ -386,6 +398,7 @@ function FeedAdviceCard({
   weightDevPct?: number | null;
 }) {
   const { perBirdG, totalKgPerDay, week, kind } = rec;
+  const waterBand = useWaterBand();
 
   const weightShown = extended && weightG != null && weightG > 0 && targetWeightKg != null && weightDevPct != null;
   const wColor = weightShown
@@ -484,11 +497,11 @@ function FeedAdviceCard({
               <View style={styles.feedAdviceCompare}>
                 <Droplets size={13} color="#2196D9" />
                 <AppText size="body" color="muted">
-                  Eau conseillée : ≈ {fmtAdviceKg(Math.ceil(totalKgPerDay * WATER_LO))}–
-                  {fmtAdviceKg(Math.floor(totalKgPerDay * WATER_HI))} L / jour
+                  Eau conseillée : ≈ {fmtAdviceKg(Math.ceil(totalKgPerDay * waterBand.lo))}–
+                  {fmtAdviceKg(Math.floor(totalKgPerDay * waterBand.hi))} L / jour
                 </AppText>
                 <View style={[styles.ratioBadge, { backgroundColor: `${semantic.primary}1A` }]}>
-                  <AppText size="caption" weight="bold" color="brand">norme 1,8–2,6 L / kg</AppText>
+                  <AppText size="caption" weight="bold" color="brand">norme {fmtRatio(waterBand.lo)}–{fmtRatio(waterBand.hi)} L / kg</AppText>
                 </View>
               </View>
             </>
@@ -517,6 +530,7 @@ function FeedAdviceCard({
 export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFooterChange, onDirtyChange }: DailyEntrySheetProps) {
   const { farmId } = useAuth();
   const queryClient = useQueryClient();
+  const waterBand = useWaterBand();
 
   const batchesQuery = useQuery({ queryKey: ['batches', farmId], queryFn: () => fetchBatches(farmId) });
   const batches = (batchesQuery.data ?? []).filter((b) => b.status !== 'CLOTURE');
@@ -1438,7 +1452,7 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
           {/* Corrélation eau/aliment en direct */}
           {(feedKgEquivalent > 0 || values.waterL > 0) && ctx ? (
             <Card
-              tone={waterRatio == null ? 'default' : waterRatio >= WATER_LO && waterRatio <= WATER_HI ? 'green' : waterRatio < 1.2 || waterRatio > 3.5 ? 'alert' : 'warn'}
+              tone={waterRatio == null ? 'default' : waterRatio >= waterBand.lo && waterRatio <= waterBand.hi ? 'green' : waterRatio < 1.2 || waterRatio > 3.5 ? 'alert' : 'warn'}
               style={styles.corrCard}>
               {waterRatio != null ? (
                 <RatioBar ratio={waterRatio} />

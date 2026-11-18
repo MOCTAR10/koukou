@@ -23,6 +23,7 @@ export const STATUS_LABEL: Record<StatusFilter, string> = {
 const KIND_LABEL: Record<string, string> = {
   EAU: 'Eau',
   ALIMENT: 'Alimentation',
+  CONSOMMATION_ALIMENT: "Consommation d'aliment",
   MORTALITE: 'Mortalité',
   SURDENSITE: 'Surdensité',
   DENSITE: 'Densité',

@@ -16,6 +16,8 @@ export const DEFAULT_THRESHOLDS: IndicatorThresholds = {
   mortalityCriticalPct: 5,
   waterDropWarnPct: 10,
   waterDropCriticalPct: 25,
+  waterFeedRatioMin: 1.8,
+  waterFeedRatioMax: 2.6,
 };
 
 export function thresholdsOf(t: IndicatorThresholds | null | undefined): IndicatorThresholds {

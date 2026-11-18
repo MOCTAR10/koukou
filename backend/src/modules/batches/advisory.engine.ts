@@ -8,6 +8,8 @@ import { BatchStatus, BatchType } from '../../common/enums/batch-type.enum.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { Building } from '../buildings/entities/building.entity.js';
 import { AlertsService } from '../alerts/alerts.service.js';
+import { RuleRegistry } from '../alerts/entities/rule-registry.entity.js';
+import { BreedStandard } from '../breeds/entities/breed-standard.entity.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { ReferenceConstantsService } from '../reference-constants/reference-constants.service.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
@@ -20,6 +22,13 @@ import {
   waterPerBirdOn,
 } from './flock-performance.js';
 import { ageOn } from './poufa/bande-rules.js';
+import {
+  computeFeedDeviation,
+  computeFeedDrop,
+  feedPerBirdDays,
+  feedVerdict,
+  standardForAge,
+} from './feed-intake.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
 import { BatchMetrics } from './models/batch-metrics.model.js';
 import { dateFr, todayLocal } from '../../common/utils/date.utils.js';
@@ -81,19 +90,59 @@ export class AdvisoryEngine {
     private readonly alertsService: AlertsService,
     private readonly constants: ReferenceConstantsService,
     private readonly flockReconciliation: FlockReconciliationService,
+    @InjectRepository(BreedStandard)
+    private readonly standardRepo: Repository<BreedStandard>,
+    @InjectRepository(RuleRegistry)
+    private readonly ruleRepo: Repository<RuleRegistry>,
   ) {}
+
+  /**
+   * Alert kinds the admin switched off in the rule registry: a kind is off
+   * when it has registry rows and none of them is active (no row = on).
+   */
+  private async inactiveKinds(): Promise<Set<AlertKind>> {
+    const rows = await this.ruleRepo.find();
+    const active = new Set<AlertKind>();
+    const known = new Set<AlertKind>();
+    for (const r of rows) {
+      known.add(r.kind);
+      if (r.isActive) active.add(r.kind);
+    }
+    return new Set([...known].filter((k) => !active.has(k)));
+  }
+
+  /** Runs an evaluation unless its rule is off, in which case its alert is cleared. */
+  private async whenRuleActive(
+    kind: AlertKind,
+    inactive: ReadonlySet<AlertKind>,
+    farmId: string,
+    batchId: string | null,
+    buildingId: string | undefined,
+    run: () => Promise<unknown>,
+  ): Promise<void> {
+    if (inactive.has(kind)) {
+      await this.alertsService.clearKind(farmId, batchId, kind, buildingId);
+      return;
+    }
+    await run();
+  }
 
   async runForBatch(batch: ProductionBatch, metrics: BatchMetrics) {
     const farmId = batch.farmId;
     const batchId = batch.id;
+    const inactive = await this.inactiveKinds();
+    const gate = (kind: AlertKind, run: () => Promise<unknown>) =>
+      this.whenRuleActive(kind, inactive, farmId, batchId, undefined, run);
 
     if (batch.status === BatchStatus.CLOTURE) {
       // No live risk on a finished lot: only its record (traceability) and
       // the building it frees are still evaluated.
       await this.alertsService.resolveClosedBatch(farmId, batchId);
       await Promise.all([
-        this.evaluateSaleReadiness(batch, metrics, farmId, batchId),
-        this.evaluateBuildingContext(batch),
+        gate(AlertKind.TRACABILITE, () =>
+          this.evaluateSaleReadiness(batch, metrics, farmId, batchId),
+        ),
+        this.evaluateBuildingContext(batch, inactive),
       ]);
       return;
     }
@@ -105,16 +154,37 @@ export class AdvisoryEngine {
     );
     const drop = await this.computeWaterDrop(batch, waterWindowDays);
 
+    // The rule registry maps one-to-one to alert kinds: a rule switched off
+    // is not evaluated and its active alert is cleared.
     await Promise.all([
-      this.evaluateMortality(batch, metrics, farmId, batchId),
-      this.evaluateDensity(batch, metrics, farmId, batchId),
-      this.evaluateWater(batch, metrics, farmId, batchId, drop),
-      this.evaluateWaterHealth(batch, metrics, farmId, batchId, drop),
-      this.evaluateIpeGmq(batch, metrics, farmId, batchId),
-      this.evaluateGmq(batch, metrics, farmId, batchId),
-      this.evaluateExpiration(batch, farmId, batchId),
-      this.evaluateSaleReadiness(batch, metrics, farmId, batchId),
-      this.evaluateBuildingContext(batch),
+      gate(AlertKind.MORTALITE, () =>
+        this.evaluateMortality(batch, metrics, farmId, batchId),
+      ),
+      gate(AlertKind.SURDENSITE, () =>
+        this.evaluateDensity(batch, metrics, farmId, batchId),
+      ),
+      gate(AlertKind.EAU, () =>
+        this.evaluateWater(batch, metrics, farmId, batchId, drop),
+      ),
+      gate(AlertKind.MALADIE, () =>
+        this.evaluateWaterHealth(batch, metrics, farmId, batchId, drop),
+      ),
+      gate(AlertKind.CONSOMMATION_ALIMENT, () =>
+        this.evaluateFeedIntake(batch, farmId, batchId),
+      ),
+      gate(AlertKind.IPE, () =>
+        this.evaluateIpeGmq(batch, metrics, farmId, batchId),
+      ),
+      gate(AlertKind.GMQ, () =>
+        this.evaluateGmq(batch, metrics, farmId, batchId),
+      ),
+      gate(AlertKind.PEREMPTION, () =>
+        this.evaluateExpiration(batch, farmId, batchId),
+      ),
+      gate(AlertKind.TRACABILITE, () =>
+        this.evaluateSaleReadiness(batch, metrics, farmId, batchId),
+      ),
+      this.evaluateBuildingContext(batch, inactive),
     ]);
   }
 
@@ -147,7 +217,10 @@ export class AdvisoryEngine {
   }
 
   /** Évaluations au niveau BÂTIMENT (densité cumulée, cohabitation d'âges, vide sanitaire). */
-  private async evaluateBuildingContext(batch: ProductionBatch) {
+  private async evaluateBuildingContext(
+    batch: ProductionBatch,
+    inactive: ReadonlySet<AlertKind> = new Set(),
+  ) {
     if (!batch.buildingId) return;
     const buildingId = batch.buildingId;
     const farmId = batch.farmId;
@@ -161,10 +234,18 @@ export class AdvisoryEngine {
     if (!building) return;
     const activeLots = lots.filter((l) => l.status !== BatchStatus.CLOTURE);
 
+    const gate = (kind: AlertKind, run: () => Promise<unknown>) =>
+      this.whenRuleActive(kind, inactive, farmId, null, buildingId, run);
     await Promise.all([
-      this.evaluateBuildingDensity(building, activeLots, farmId),
-      this.evaluateCohabitation(activeLots, farmId, buildingId),
-      this.evaluateVideSanitaire(lots, farmId, buildingId),
+      gate(AlertKind.DENSITE_BATIMENT, () =>
+        this.evaluateBuildingDensity(building, activeLots, farmId),
+      ),
+      gate(AlertKind.COHABITATION, () =>
+        this.evaluateCohabitation(activeLots, farmId, buildingId),
+      ),
+      gate(AlertKind.VIDE_SANITAIRE, () =>
+        this.evaluateVideSanitaire(lots, farmId, buildingId),
+      ),
     ]);
   }
 
@@ -482,8 +563,34 @@ export class AdvisoryEngine {
       order: { entryDate: 'DESC' },
     });
     if (entries.length === 0) return null;
-    // Same timeline inputs as MetricsService.compute (death events included),
-    // so the alert and the lot indicator give the same figure.
+    const timeline = await this.buildTimeline(batch, entries);
+    const todayPerBird = lastDayWaterPerBird(timeline)?.perBird ?? null;
+    if (todayPerBird == null) return null;
+
+    const baselineDays = Math.max(1, Math.round(baselineWindowDays));
+    let baseSum = 0;
+    let baseCount = 0;
+    for (let i = 1; i < entries.length && baseCount < baselineDays; i++) {
+      const v = waterPerBirdOn(timeline, entries[i]);
+      if (v == null) continue;
+      baseSum += v;
+      baseCount += 1;
+    }
+    if (baseCount === 0) return null;
+    const baselinePerBird = baseSum / baseCount;
+    if (baselinePerBird <= 0) return null;
+    const dropPct = ((baselinePerBird - todayPerBird) / baselinePerBird) * 100;
+    return { todayPerBird, baselinePerBird, dropPct, baselineDays: baseCount };
+  }
+
+  /**
+   * Same timeline inputs as MetricsService.compute (death events included),
+   * so the alerts and the lot indicators give the same figures.
+   */
+  private async buildTimeline(
+    batch: ProductionBatch,
+    entries: DailyEntry[],
+  ): Promise<FlockTimeline> {
     const [removalsByDate, deathRows] = await Promise.all([
       this.flockReconciliation.removalsByDate(batch.id),
       this.flockReconciliation.deathEvents([batch.id]),
@@ -503,23 +610,115 @@ export class AdvisoryEngine {
       removalsByDate,
       deathEventsByDate,
     };
-    const todayPerBird = lastDayWaterPerBird(timeline)?.perBird ?? null;
-    if (todayPerBird == null) return null;
+    return timeline;
+  }
 
-    const baselineDays = Math.max(1, Math.round(baselineWindowDays));
-    let baseSum = 0;
-    let baseCount = 0;
-    for (let i = 1; i < entries.length && baseCount < baselineDays; i++) {
-      const v = waterPerBirdOn(timeline, entries[i]);
-      if (v == null) continue;
-      baseSum += v;
-      baseCount += 1;
+  /**
+   * Feed per live bird: a drop of the last entered day versus the previous 3
+   * days with feed (FEED_DROP_*), or a 3-day mean under the breed standard
+   * (FEED_STANDARD_DEVIATION_WARN_PCT; meat lots only, the standards being
+   * the weight x FCR curves of meat breeds). Same kind CONSOMMATION_ALIMENT
+   * for both causes; ALIMENT stays the feed-stock autonomy alert.
+   */
+  private async evaluateFeedIntake(
+    batch: ProductionBatch,
+    farmId: string,
+    batchId: string,
+  ) {
+    const entries = await this.entriesRepo.find({
+      where: { batchId },
+      order: { entryDate: 'DESC' },
+    });
+    if (entries.length === 0) return;
+    const latest = entries[0]!.entryDate;
+    const days = feedPerBirdDays(await this.buildTimeline(batch, entries));
+    // Last entry without feed: no reading, an existing alert is left alone
+    // (only a measurement resolves it), like the water alert.
+    if (days[0]?.date !== latest) return;
+
+    let standardG: number | null = null;
+    let standardWeek: number | null = null;
+    if (batch.type === BatchType.CHAIR && batch.breedId) {
+      const rows = await this.standardRepo.find({
+        where: { breedId: batch.breedId },
+        order: { week: 'ASC' },
+      });
+      const row = standardForAge(
+        rows,
+        ageOn(batch.integrationDate, batch.initialAgeDays, latest),
+      );
+      standardG = row?.targetDailyFeedG ?? null;
+      standardWeek = row?.week ?? null;
     }
-    if (baseCount === 0) return null;
-    const baselinePerBird = baseSum / baseCount;
-    if (baselinePerBird <= 0) return null;
-    const dropPct = ((baselinePerBird - todayPerBird) / baselinePerBird) * 100;
-    return { todayPerBird, baselinePerBird, dropPct, baselineDays: baseCount };
+
+    const th = {
+      dropWarnPct: await this.constants.get(ReferenceKey.FEED_DROP_WARN_PCT, 10),
+      dropCriticalPct: await this.constants.get(
+        ReferenceKey.FEED_DROP_CRITICAL_PCT,
+        25,
+      ),
+      standardWarnPct: await this.constants.get(
+        ReferenceKey.FEED_STANDARD_DEVIATION_WARN_PCT,
+        15,
+      ),
+    };
+    const verdict = feedVerdict(
+      computeFeedDrop(days, latest),
+      computeFeedDeviation(days, standardG),
+      th,
+    );
+    if (!verdict) {
+      await this.alertsService.clearKind(
+        farmId,
+        batchId,
+        AlertKind.CONSOMMATION_ALIMENT,
+      );
+      return;
+    }
+
+    if (verdict.cause === 'DROP') {
+      const { drop } = verdict;
+      const critical = verdict.level === AlertLevel.ROUGE;
+      await this.alertsService.raise(
+        {
+          kind: AlertKind.CONSOMMATION_ALIMENT,
+          level: verdict.level,
+          message: critical
+            ? `Chute brutale de consommation d’aliment : ${drop.todayG.toFixed(0)} g/oiseau/jour (−${drop.dropPct.toFixed(0)}% vs moyenne ${drop.baselineDays} j : ${drop.baselineG.toFixed(0)} g). Une baisse d’appétit est un signe précoce de maladie ou de problème d’alimentation ou d’abreuvement.`
+            : `Baisse de consommation d’aliment de ${drop.dropPct.toFixed(0)}% : ${drop.todayG.toFixed(0)} g/oiseau/jour vs ${drop.baselineG.toFixed(0)} g en moyenne sur ${drop.baselineDays} j. Signe précoce à surveiller.`,
+          recommendation: critical
+            ? 'Vérifier immédiatement les mangeoires, les abreuvoirs, la qualité de l’aliment et le comportement des volailles ; appeler le technicien ou le vétérinaire si la baisse persiste.'
+            : 'Contrôler les mangeoires et les abreuvoirs, la qualité de l’aliment (humidité, moisissures) et observer le comportement des volailles ; appeler le technicien si la baisse persiste.',
+          context: {
+            cause: 'DROP',
+            feedDropPercent: Number(drop.dropPct.toFixed(1)),
+            feedGPerBirdToday: Number(drop.todayG.toFixed(1)),
+            baselineDays: drop.baselineDays,
+          },
+        },
+        { farmId, batchId },
+      );
+      return;
+    }
+
+    const { deviation } = verdict;
+    await this.alertsService.raise(
+      {
+        kind: AlertKind.CONSOMMATION_ALIMENT,
+        level: verdict.level,
+        message: `Aliment sous le standard : ${deviation.meanG.toFixed(0)} g/oiseau/jour en moyenne sur ${deviation.days} jours, contre ${deviation.standardG.toFixed(0)} g/oiseau/jour de standard${standardWeek != null ? ` (semaine ${standardWeek})` : ''}, soit ${deviation.belowPct.toFixed(0)}% de moins. Le standard de la souche est indicatif.`,
+        recommendation:
+          'Vérifier que les volailles disposent d’assez d’aliment et d’eau (mangeoires, abreuvoirs), la qualité de l’aliment et la saisie des quantités ; appeler le technicien si l’écart persiste.',
+        context: {
+          cause: 'STANDARD',
+          feedGPerBirdMean: Number(deviation.meanG.toFixed(1)),
+          standardGPerBird: Number(deviation.standardG.toFixed(1)),
+          belowStandardPercent: Number(deviation.belowPct.toFixed(1)),
+          standardWeek,
+        },
+      },
+      { farmId, batchId },
+    );
   }
 
   private async evaluateWater(

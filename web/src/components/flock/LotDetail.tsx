@@ -51,6 +51,8 @@ import type {
   HealthEvent,
   Lot,
   LotCurve,
+  LotDailyFeed,
+  LotFeedTotals,
   PondageSummary,
   ProphylaxisEvent,
   ProtocolStep,
@@ -828,6 +830,12 @@ function CurvesTab({ lot }: { lot: Lot }) {
     enabled: !!farmId && isLayer,
   });
 
+  const dashboard = useQuery({
+    queryKey: ['dashboard', farmId],
+    queryFn: () => api.get<FlockDashboard>(`/farms/${farmId}/dashboard`),
+    enabled: !!farmId,
+  });
+
   if (curve.isLoading) return <Loading label="Chargement des courbes…" />;
   if (curve.error) return <ErrorNote error={curve.error} />;
   const weekly = curve.data?.weekly ?? [];
@@ -846,6 +854,16 @@ function CurvesTab({ lot }: { lot: Lot }) {
       <ChartCard title="Eau (L par oiseau)" icon={<Droplets />} hint="Une baisse brutale annonce souvent un problème de santé.">
         <Line data={weekly.map((w) => w.waterLPerBird)} labels={labels} fmt={(v) => `${num(v, 2)} L`} color="#0891b2" />
       </ChartCard>
+      <FeedCard
+        daily={curve.data?.dailyFeed ?? []}
+        totals={curve.data?.feedTotals}
+        hasStandard={curve.data?.hasFeedStandard ?? false}
+        band={
+          dashboard.data?.thresholds
+            ? { min: dashboard.data.thresholds.waterFeedRatioMin, max: dashboard.data.thresholds.waterFeedRatioMax }
+            : { min: 1.8, max: 2.6 }
+        }
+      />
       <ChartCard title="Morts par semaine" icon={<Skull />} iconTone="red" hint="Tout pic mérite une visite du bâtiment.">
         <BarChart data={weekly.map((w) => w.deaths)} labels={labels} color="#dc2626" />
       </ChartCard>
@@ -863,17 +881,86 @@ function CurvesTab({ lot }: { lot: Lot }) {
   );
 }
 
+/** Daily feed per bird against the breed standard, all figures computed by the server. */
+function FeedCard({
+  daily,
+  totals,
+  hasStandard,
+  band,
+}: {
+  daily: LotDailyFeed[];
+  totals: LotFeedTotals | undefined;
+  hasStandard: boolean;
+  band: { min: number; max: number };
+}) {
+  if (daily.length === 0) return null;
+  // Thin the day labels so a long batch stays readable.
+  const step = Math.max(1, Math.ceil(daily.length / 10));
+  const labels = daily.map((d, i) => (i % step === 0 || i === daily.length - 1 ? `${d.date.slice(8, 10)}/${d.date.slice(5, 7)}` : ''));
+  const last = daily[daily.length - 1];
+  const ratio = last.waterFeedRatio;
+  return (
+    <ChartCard
+      title="Alimentation (g par oiseau et par jour)"
+      icon={<Wheat />}
+      hint={hasStandard ? 'Standard indicatif de la souche en pointillés.' : 'Aliment consommé par oiseau présent.'}
+    >
+      <Line
+        data={daily.map((d) => d.feedPerBirdG)}
+        labels={labels}
+        fmt={(v) => `${num(v, 0)} g`}
+        color="#d97706"
+        reference={hasStandard ? daily.map((d) => d.targetDailyFeedG) : undefined}
+      />
+      {hasStandard ? (
+        <p className="mt-1 text-xs text-slate-500">
+          <span className="mr-1 inline-block w-5 border-t-2 border-dashed border-slate-500 align-middle" />
+          Standard indicatif de la souche
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-slate-500">Standard de consommation non renseigné pour cette souche</p>
+      )}
+      {totals ? (
+        <p className="mt-2 text-sm text-slate-700">
+          Cumul : <strong>{num(totals.feedPerBirdToDateG, 0)} g</strong> par oiseau
+          {totals.standardToDateG != null ? (
+            <>
+              {' '}
+              pour <strong>{num(totals.standardToDateG, 0)} g</strong> au standard
+            </>
+          ) : null}{' '}
+          sur {plural(totals.countedDays, 'jour')} saisi{totals.countedDays > 1 ? 's' : ''} (
+          {num(totals.totalFeedKg, 0)} kg au total).
+        </p>
+      ) : null}
+      <p className="mt-1 text-sm text-slate-700">
+        {ratio != null ? (
+          <>
+            Eau / aliment du {dateFr(last.date)} : <strong>{num(ratio, 2)} L par kg</strong> (plage {num(band.min)} à{' '}
+            {num(band.max)}
+            {ratio < band.min ? ', en dessous' : ratio > band.max ? ', au-dessus' : ', dans la plage'}).
+          </>
+        ) : (
+          <>Eau / aliment : pas de mesure pour la dernière saisie (plage {num(band.min)} à {num(band.max)} L par kg).</>
+        )}
+      </p>
+    </ChartCard>
+  );
+}
+
 /** A curve needs two points: one lone value is stated instead of drawn. */
 function Line({
   data,
   labels,
   fmt,
   color,
+  reference,
 }: {
   data: Array<number | null>;
   labels: string[];
   fmt: (v: number) => string;
   color: string;
+  reference?: Array<number | null>;
 }) {
   const points = data.flatMap((v, i) => (v != null ? [{ v, label: labels[i] }] : []));
   if (points.length === 0) return <p className="py-6 text-center text-sm text-slate-500">Pas encore de mesure.</p>;
@@ -884,7 +971,7 @@ function Line({
       </p>
     );
   }
-  return <LineChart data={data} labels={labels} valueFmt={fmt} color={color} />;
+  return <LineChart data={data} labels={labels} valueFmt={fmt} color={color} reference={reference} />;
 }
 
 function ChartCard({

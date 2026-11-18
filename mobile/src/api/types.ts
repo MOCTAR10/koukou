@@ -403,6 +403,9 @@ export interface IndicatorThresholds {
   mortalityCriticalPct: number;
   waterDropWarnPct: number;
   waterDropCriticalPct: number;
+  /** Expected water/feed ratio band on a daily entry (L per kg of feed). */
+  waterFeedRatioMin: number;
+  waterFeedRatioMax: number;
 }
 
 export interface DashboardHealth {
@@ -556,6 +559,31 @@ export interface BatchCurve {
   liveCount: number;
   startWeightKg: number;
   weekly: CurveWeek[];
+  /** Days with a feed entry (computed by the server); absent on older servers. */
+  dailyFeed?: DailyFeedPoint[];
+  feedTotals?: FeedTotals;
+  /** The breed has a daily-feed standard (false: custom breed). */
+  hasFeedStandard?: boolean;
+}
+
+export interface DailyFeedPoint {
+  date: string;
+  feedKg: number;
+  birds: number;
+  /** g per bird that day. */
+  feedPerBirdG: number;
+  /** Breed standard of that day's week (g/bird/day), null without one. */
+  targetDailyFeedG: number | null;
+  /** L of water per kg of feed, null when either is missing. */
+  waterFeedRatio: number | null;
+}
+
+export interface FeedTotals {
+  totalFeedKg: number;
+  countedDays: number;
+  feedPerBirdToDateG: number;
+  /** Standard cumulated over the same days; null when missing on one of them. */
+  standardToDateG: number | null;
 }
 
 export type AlertCategory = 'ALERTE' | 'SAISIE' | 'SOIN' | 'STOCK_PROVENDE' | 'VENTE';

@@ -25,6 +25,7 @@ export function LineChart({
   valueFmt = (v: number) => String(v),
   color = '#0284c7',
   unit,
+  reference,
 }: {
   data: Array<number | null>;
   labels: string[];
@@ -33,6 +34,8 @@ export function LineChart({
   color?: string;
   /** Unit title shown above the axis (e.g. « % », « t »). */
   unit?: string;
+  /** Second series drawn as a dashed grey line (a standard), same indexes as `data`. */
+  reference?: Array<number | null>;
 }) {
   const gid = useId();
   const W = 560;
@@ -48,8 +51,11 @@ export function LineChart({
       </div>
     );
   }
-  const min = Math.min(...values.map((p) => p.v), 0);
-  const max = Math.max(...values.map((p) => p.v), 1);
+  const refValues = (reference ?? [])
+    .map((v, i) => (v == null ? null : { i, v }))
+    .filter((x): x is { i: number; v: number } => x !== null && x.i < data.length);
+  const min = Math.min(...values.map((p) => p.v), ...refValues.map((p) => p.v), 0);
+  const max = Math.max(...values.map((p) => p.v), ...refValues.map((p) => p.v), 1);
   const span = max - min || 1;
   const innerW = W - PAD_X * 2;
   const innerH = H - PAD_TOP - PAD_BOTTOM;
@@ -60,6 +66,9 @@ export function LineChart({
     y: PAD_TOP + innerH - ((p.v - min) / span) * innerH,
   }));
   const path = smoothPath(points);
+  const refPath = smoothPath(
+    refValues.map((p) => ({ x: PAD_X + p.i * stepX, y: PAD_TOP + innerH - ((p.v - min) / span) * innerH })),
+  );
   const peak = points.reduce((a, b) => (b.v > a.v ? b : a), points[0]);
 
   const gridY = [0, 0.5, 1].map((f) => {
@@ -86,6 +95,9 @@ export function LineChart({
           </g>
         ))}
         <path d={`M ${PAD_X} ${PAD_TOP + innerH} L ${W - PAD_X} ${PAD_TOP + innerH} L ${points[points.length - 1].x} ${points[points.length - 1].y} L ${points[0].x} ${points[0].y} Z`} fill={`url(#${gid}-grad)`} />
+        {refValues.length > 1 ? (
+          <path d={refPath} fill="none" stroke="#64748b" strokeWidth="2" strokeDasharray="6 5" />
+        ) : null}
         <path d={path} fill="none" stroke={color} strokeWidth="2.5" />
         {unit ? (
           <text x={W - PAD_X} y={12} fontSize="14" fill="#475569" textAnchor="end" fontWeight="600">

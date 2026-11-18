@@ -278,7 +278,7 @@ export default function LotDetailScreen() {
   });
   const official = (key: string) => findIndicator(officialQ.data?.indicators, key);
   const hasOfficial = !!officialQ.data;
-  const [curveTab, setCurveTab] = useState<'weight' | 'fcr' | 'water' | 'mortality' | 'eggs'>('weight');
+  const [curveTab, setCurveTab] = useState<'weight' | 'fcr' | 'feed' | 'water' | 'mortality' | 'eggs'>('weight');
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const [healthFilter, setHealthFilter] = useState<'all' | 'event' | 'care'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -447,6 +447,30 @@ export default function LotDetailScreen() {
     });
     return scoped.filter((w) => w.collected > 0).map((w) => ({ x: labelDay(w.weekStart), y: w.collected }));
   }, [pondageQ.data, dateRange, isLayer]);
+
+  // ── Daily feed per bird vs the breed standard (all figures computed by the server) ──
+  const feedDaily = useMemo(() => {
+    const days = curveQ.data?.dailyFeed ?? [];
+    const { from, to } = dateRange;
+    if (!from && !to) return days;
+    return days.filter((d) => {
+      const dt = new Date(`${d.date}T12:00:00`);
+      return (!from || dt >= from) && (!to || dt <= to);
+    });
+  }, [curveQ.data, dateRange]);
+  const feedPoints = useMemo(() => {
+    // Thin the day labels so a long batch stays readable.
+    const step = Math.max(1, Math.ceil(feedDaily.length / 6));
+    return feedDaily.map((d, i) => ({
+      x: i % step === 0 || i === feedDaily.length - 1 ? `${d.date.slice(8, 10)}/${d.date.slice(5, 7)}` : '',
+      y: d.feedPerBirdG,
+    }));
+  }, [feedDaily]);
+  // The dashed standard only when every drawn day has one (the chart aligns both series by index).
+  const feedStandardPoints = useMemo(() => {
+    if (feedDaily.length === 0 || !feedDaily.every((d) => d.targetDailyFeedG != null)) return undefined;
+    return feedDaily.map((d, i) => ({ x: feedPoints[i].x, y: d.targetDailyFeedG as number }));
+  }, [feedDaily, feedPoints]);
 
   // ── Latest avg weight (kg), for the overview tile / mini-chart ──
   const avgWeightKg = useMemo(() => {
@@ -1043,6 +1067,7 @@ export default function LotDetailScreen() {
               options={[
                 { key: 'weight', label: 'Poids' },
                 { key: 'fcr', label: 'IC' },
+                { key: 'feed', label: 'Aliment' },
                 { key: 'water', label: 'Eau' },
                 { key: 'mortality', label: 'Mortalité' },
                 ...(isLayer ? [{ key: 'eggs' as const, label: 'Œufs' }] : []),
@@ -1052,6 +1077,35 @@ export default function LotDetailScreen() {
             />
             {curveTab === 'weight' && <LineChart points={weightPoints} stroke={color.brand[600]} unit="kg" format={(v) => v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />}
             {curveTab === 'fcr' && <LineChart points={fcrPoints} stroke={color.accent[600]} unit="kg aliment / kg poids" format={(v) => v.toLocaleString('fr-FR')} />}
+            {curveTab === 'feed' && (
+              <>
+                <LineChart points={feedPoints} referencePoints={feedStandardPoints} stroke={color.accent[600]} unit="g / oiseau / jour" format={(v) => v.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} />
+                <AppText size="small" color="muted">
+                  {curveQ.data?.hasFeedStandard ? 'Pointillés : standard indicatif de la souche.' : 'Standard de consommation non renseigné pour cette souche'}
+                </AppText>
+                {curveQ.data?.feedTotals && curveQ.data.feedTotals.countedDays > 0 ? (
+                  <AppText size="small" color="muted">
+                    Cumul : {curveQ.data.feedTotals.feedPerBirdToDateG.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} g par oiseau
+                    {curveQ.data.feedTotals.standardToDateG != null ? ` pour ${curveQ.data.feedTotals.standardToDateG.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} g au standard` : ''}
+                    {' '}sur {curveQ.data.feedTotals.countedDays} jour(s) saisi(s) ({curveQ.data.feedTotals.totalFeedKg.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} kg au total).
+                  </AppText>
+                ) : null}
+                {(() => {
+                  const last = curveQ.data?.dailyFeed?.[curveQ.data.dailyFeed.length - 1];
+                  const lo = dashboardQ.data?.thresholds?.waterFeedRatioMin ?? 1.8;
+                  const hi = dashboardQ.data?.thresholds?.waterFeedRatioMax ?? 2.6;
+                  if (!last) return null;
+                  const band = `${lo.toLocaleString('fr-FR')} à ${hi.toLocaleString('fr-FR')}`;
+                  return (
+                    <AppText size="small" color="muted">
+                      {last.waterFeedRatio != null
+                        ? `Eau / aliment du ${last.date.slice(8, 10)}/${last.date.slice(5, 7)} : ${last.waterFeedRatio.toLocaleString('fr-FR')} L par kg (plage ${band}).`
+                        : `Eau / aliment : pas de mesure pour la dernière saisie (plage ${band} L par kg).`}
+                    </AppText>
+                  );
+                })()}
+              </>
+            )}
             {curveTab === 'water' && <LineChart points={waterPoints} stroke={color.brand[500]} unit="L / semaine" format={(v) => v.toLocaleString('fr-FR')} />}
             {curveTab === 'mortality' && <LineChart points={mortalityPoints} stroke={palette.red[500]} unit="morts / semaine" format={(v) => v.toLocaleString('fr-FR')} />}
             {curveTab === 'eggs' && isLayer && <LineChart points={eggsPoints} stroke={color.accent[500]} unit="œufs" format={(v) => v.toLocaleString('fr-FR')} />}

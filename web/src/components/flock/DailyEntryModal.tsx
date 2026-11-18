@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client';
 import type { FeedStockSummary } from '../../api/types';
-import type { DailyEntryRecord, Lot } from '../../api/types-flock';
+import type { DailyEntryRecord, FlockDashboard, Lot } from '../../api/types-flock';
 import type { BandSheet } from '../../api/types-pilotage';
 import { useFarm } from '../../app/FarmContext';
 import { useCanRead } from '../../app/useMenuAccess';
@@ -283,8 +283,16 @@ function EntryForm({
     enabled: !!farmId && canReadStock,
   });
   const standards = useBreedStandards(lot.breedId);
+  // Water/feed band from the server's thresholds (same cache as the lot screen); 1.8-2.6 offline.
+  const dashboard = useQuery({
+    queryKey: ['dashboard', farmId],
+    queryFn: () => api.get<FlockDashboard>(`/farms/${farmId}/dashboard`),
+    enabled: !!farmId,
+  });
+  const waterLo = dashboard.data?.thresholds?.waterFeedRatioMin ?? WATER_LO;
+  const waterHi = dashboard.data?.thresholds?.waterFeedRatioMax ?? WATER_HI;
 
-  const n = (raw: string) => parseNum(raw) ?? 0;
+  const n =(raw: string) => parseNum(raw) ?? 0;
   const deathsN = n(deaths);
   const waterN = n(water);
   const weightGN = n(weightG);
@@ -569,11 +577,12 @@ function EntryForm({
           </Note>
         ) : null}
         <FeedAdvice recKg={rec.totalKgPerDay} perBirdG={rec.perBirdG} feedKg={feedKgEq} devPct={feedDevPct} isLayer={isLayer} />
-        {waterRatio != null ? <WaterRatio ratio={waterRatio} /> : null}
+        {waterRatio != null ? <WaterRatio ratio={waterRatio} lo={waterLo} hi={waterHi} /> : null}
         {rec.totalKgPerDay ? (
           <p className="text-xs text-slate-500">
-            Eau conseillée : environ {num(Math.ceil(rec.totalKgPerDay * WATER_LO), 0)} à{' '}
-            {num(Math.floor(rec.totalKgPerDay * WATER_HI), 0)} L par jour (norme 1,8 à 2,6 L par kg d'aliment).
+            Eau conseillée : environ {num(Math.ceil(rec.totalKgPerDay * waterLo), 0)} à{' '}
+            {num(Math.floor(rec.totalKgPerDay * waterHi), 0)} L par jour (norme {num(waterLo)} à {num(waterHi)} L par kg
+            d'aliment).
           </p>
         ) : null}
         {waterDrop != null && waterDrop <= -15 ? (
@@ -732,9 +741,9 @@ function FeedAdvice({
   );
 }
 
-function WaterRatio({ ratio }: { ratio: number }) {
+function WaterRatio({ ratio, lo, hi }: { ratio: number; lo: number; hi: number }) {
   const zone =
-    ratio < WATER_LO ? (ratio < 1.2 ? 'lowCritical' : 'low') : ratio > WATER_HI ? (ratio > 3.5 ? 'highCritical' : 'high') : 'ok';
+    ratio < lo ? (ratio < 1.2 ? 'lowCritical' : 'low') : ratio > hi ? (ratio > 3.5 ? 'highCritical' : 'high') : 'ok';
   const messages: Record<string, string> = {
     ok: "Consommation d'eau normale pour l'aliment distribué.",
     low: "Eau faible pour l'aliment donné : vérifiez les abreuvoirs et la santé du lot.",
@@ -744,7 +753,7 @@ function WaterRatio({ ratio }: { ratio: number }) {
   };
   return (
     <Note tone={zone === 'ok' ? 'emerald' : zone === 'low' || zone === 'high' ? 'amber' : 'red'} icon={<Droplets />}>
-      Eau bue / aliment donné : {num(ratio)} L par kg (norme 1,8 à 2,6). {messages[zone]}
+      Eau bue / aliment donné : {num(ratio)} L par kg (norme {num(lo)} à {num(hi)}). {messages[zone]}
     </Note>
   );
 }

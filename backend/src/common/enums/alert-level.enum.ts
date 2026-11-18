@@ -36,4 +36,6 @@ export enum AlertKind {
   STOCK_NEGATIF = 'STOCK_NEGATIF',
   /** Customer invoices unpaid beyond their payment term (one farm-level alert). */
   CREANCE_RETARD = 'CREANCE_RETARD',
+  /** Feed eaten per bird dropping, or far from the breed standard (daily entries). */
+  CONSOMMATION_ALIMENT = 'CONSOMMATION_ALIMENT',
 }

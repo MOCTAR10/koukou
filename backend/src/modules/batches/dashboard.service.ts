@@ -61,6 +61,12 @@ import {
   type IndicatorThresholds,
 } from './indicator-thresholds.js';
 import { FlockReconciliationService } from './flock-reconciliation.service.js';
+import {
+  dailyFeedSeries,
+  type DailyFeedPoint,
+  type FeedTotals,
+} from './daily-feed.js';
+import { BreedStandard } from '../breeds/entities/breed-standard.entity.js';
 import { day1WeightKg } from '../../common/utils/species-day1-weight.js';
 import { FarmWeather, WeatherService } from '../weather/weather.service.js';
 import { UserRole } from '../../common/enums/role.enum.js';
@@ -204,6 +210,11 @@ export interface BatchCurve {
   liveCount: number;
   startWeightKg: number;
   weekly: CurveWeek[];
+  /** Days with a feed entry: feed per bird vs the breed standard, water/feed. */
+  dailyFeed: DailyFeedPoint[];
+  feedTotals: FeedTotals;
+  /** The breed has at least one daily-feed standard (false: custom breed). */
+  hasFeedStandard: boolean;
 }
 
 const GRADE_TABLE: Array<{ min: number; grade: HealthGrade }> = [
@@ -253,6 +264,8 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
     private readonly constants: ReferenceConstantsService,
     private readonly weatherService: WeatherService,
     private readonly flockReconciliation: FlockReconciliationService,
+    @InjectRepository(BreedStandard)
+    private readonly standardRepo: Repository<BreedStandard>,
   ) {}
 
   onModuleInit() {
@@ -1000,12 +1013,23 @@ export class DashboardService implements OnModuleInit, OnModuleDestroy {
       };
     });
 
+    const standards = batch.breedId
+      ? await this.standardRepo.find({
+          where: { breedId: batch.breedId },
+          order: { week: 'ASC' },
+        })
+      : [];
+    const feed = dailyFeedSeries(timeline, standards);
+
     return {
       batchId,
       liveCount,
       // Weight the curve starts from: measured at a J+x opening, else day 1.
       startWeightKg: growthOrigin(timeline).kg,
       weekly,
+      dailyFeed: feed.daily,
+      feedTotals: feed.totals,
+      hasFeedStandard: standards.some((s) => s.targetDailyFeedG != null),
     };
   }
 }

@@ -38,6 +38,7 @@ import { AfterCommitSubscriber } from '../../common/utils/after-commit.js';
 import { Sortie } from '../bandes/entities/sortie.entity.js';
 import { ProgrammeModule } from '../programme/programme.module.js';
 import { BandeDailyStat } from './entities/bande-daily-stat.entity.js';
+import { RuleRegistry } from '../alerts/entities/rule-registry.entity.js';
 import { BandeOpeningService } from './poufa/bande-opening.service.js';
 import { BandeStatsService } from './poufa/bande-stats.service.js';
 import { TasksModule } from '../tasks/tasks.module.js';
@@ -64,6 +65,7 @@ import { TraceCoreModule } from '../trace/trace-core.module.js';
       StockTransfer,
       Sortie,
       BandeDailyStat,
+      RuleRegistry,
     ]),
     FarmsModule,
     BreedsModule,
