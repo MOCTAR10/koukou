@@ -28,6 +28,8 @@ export enum NotificationEvent {
   VISIT_REMINDER = 'VISIT_REMINDER',
   /** The planned next visit date passed and no newer visit was recorded. */
   VISIT_OVERDUE = 'VISIT_OVERDUE',
+  /** An institutional agent entered data or reported a health problem for the farm. */
+  DELEGATED_ENTRY = 'DELEGATED_ENTRY',
 }
 
 /** Delivery channel of one notification. */

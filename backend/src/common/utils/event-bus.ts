@@ -39,6 +39,21 @@ export interface SyncConflictEvent {
   conflictIds: string[];
 }
 
+/**
+ * Data was CREATED on behalf of a farm by an institutional account (jury lot
+ * 5): a daily entry (`subjectId` = entry id, `entryDate`) or a health
+ * declaration (`subjectId` = health event id). The farm owner hears it.
+ */
+export interface DelegatedEntryEvent {
+  what: 'DAILY_ENTRY' | 'DECLARATION';
+  farmId: string;
+  batchId: string;
+  subjectId: string;
+  authorId: string;
+  /** AAAA-MM-JJ, the day of a daily entry; null for a declaration. */
+  entryDate: string | null;
+}
+
 export interface DailyEntryCreatedEvent {
   farmId: string;
   batchId: string;
@@ -182,6 +197,7 @@ export const KOUKOU_EVENTS = {
   // POUFA lot A2 vet.
   DECLARATION_REVIEWED: 'sanitary.declaration.reviewed',
   VISIT_REMINDER: 'visit.reminder',
+  DELEGATED_ENTRY: 'delegated.entry',
 } as const;
 
 class FermiaBus extends EventEmitter {}

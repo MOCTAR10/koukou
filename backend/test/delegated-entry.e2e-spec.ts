@@ -18,6 +18,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
 import { AppModule } from './../src/app.module.js';
+import { NotifyService } from './../src/modules/notify/notify.service.js';
 import {
   auth,
   createPlatformAdmin,
@@ -41,6 +42,7 @@ describe('Saisie pour le compte de la ferme — jury lot 5 (e2e)', () => {
   let batchId: string;
   let otherBatchId: string;
   let agentToken: string;
+  let notify: NotifyService;
   const agentName = `Agent Délégué ${randomBytes(4).toString('hex')}`;
 
   const digits = String(Date.now()).slice(-7);
@@ -56,6 +58,21 @@ describe('Saisie pour le compte de la ferme — jury lot 5 (e2e)', () => {
     `/farms/${farm}/batches/${batch}/daily-entries`;
   const events = (farm = farmId, batch = batchId) =>
     `/farms/${farm}/batches/${batch}/health-events`;
+
+  /** The DELEGATED_ENTRY notifications of a user, after the pending ones landed. */
+  async function delegatedNotes(token: string) {
+    await notify.flush();
+    const box = (await get('/notifications?limit=200', token).expect(200)).body as {
+      items: Array<{
+        event: string;
+        subjectId: string | null;
+        title: string;
+        body: string;
+        route: string;
+      }>;
+    };
+    return box.items.filter((n) => n.event === 'DELEGATED_ENTRY');
+  }
 
   async function membership(
     profileCode: string,
@@ -94,6 +111,7 @@ describe('Saisie pour le compte de la ferme — jury lot 5 (e2e)', () => {
     await app.init();
     server = app.getHttpServer();
     ds = app.get(DataSource);
+    notify = app.get(NotifyService);
     adminToken = (await createPlatformAdmin(server, ds)).token;
 
     const farm = await createProgrammeFarm(server, adminToken, {
@@ -158,6 +176,32 @@ describe('Saisie pour le compte de la ferme — jury lot 5 (e2e)', () => {
     });
   });
 
+  it('the owner is told once of the agent’s entry; the agent is not; a replay adds nothing', async () => {
+    const entryId = (
+      (await get(entries(), ownerToken).expect(200)).body as Array<{
+        id: string;
+        entryDate: string;
+      }>
+    ).find((e) => e.entryDate === day(0))!.id;
+
+    const mine = await delegatedNotes(ownerToken);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({
+      subjectId: entryId,
+      title: 'Saisie pour votre compte',
+      route: `/batches/${batchId}`,
+    });
+    const [y, m, d] = day(0).split('-');
+    expect(mine[0].body).toBe(
+      `${agentName} (Agent technique) a saisi les données du ${d}/${m}/${y} pour la bande Bande Délégation ${digits}.`,
+    );
+    expect(await delegatedNotes(agentToken)).toHaveLength(0);
+
+    // The same day posted again (offline replay): the row exists, no new notification.
+    await post(entries(), { entryDate: day(0), deaths: 1, waterL: 40 }, agentToken).expect(201);
+    expect(await delegatedNotes(ownerToken)).toHaveLength(1);
+  });
+
   it('the owner’s own entry is not flagged; the agent completing it keeps the farm author', async () => {
     const own = await post(
       entries(),
@@ -182,6 +226,10 @@ describe('Saisie pour le compte de la ferme — jury lot 5 (e2e)', () => {
       enteredByName: null,
       createdById: ownerId,
     });
+    // Neither the owner's own entry nor the agent completing it notifies.
+    const subjects = (await delegatedNotes(ownerToken)).map((n) => n.subjectId);
+    expect(subjects).not.toContain(own.body.id);
+    expect(subjects).toHaveLength(1);
   });
 
   it('the client cannot set the flag, the server does', async () => {
@@ -265,6 +313,19 @@ describe('Saisie pour le compte de la ferme — jury lot 5 (e2e)', () => {
       photos: [expect.objectContaining({ mimeType: 'image/png' })],
     });
     expect(list.find((e) => e.id === own.body.id)).toMatchObject({ enteredOnBehalf: false });
+
+    // The owner is told once of the agent's declaration (not of his own);
+    // the agent hears nothing.
+    const notes = await delegatedNotes(ownerToken);
+    const declared = notes.filter((n) => n.subjectId === eventId);
+    expect(declared).toHaveLength(1);
+    expect(declared[0].body).toBe(
+      `${agentName} (Agent technique) a signalé un problème de santé sur la bande Bande Délégation ${digits}.`,
+    );
+    expect(declared[0].route).toBe(`/farms/${farmId}/batches/${batchId}/health-events`);
+    expect(notes.map((n) => n.subjectId)).not.toContain(own.body.id);
+    expect(notes).toHaveLength(2);
+    expect(await delegatedNotes(agentToken)).toHaveLength(0);
 
     // The agent keeps its review rights unchanged: it reads, never deletes or resolves.
     await get(events(), agentToken).expect(200);
