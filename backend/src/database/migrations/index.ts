@@ -55,6 +55,7 @@ import { FeedIntakeAlerts1794700000000 } from './1794700000000-FeedIntakeAlerts.
 import { UserUiMode1794800000000 } from './1794800000000-UserUiMode.js';
 import { HealthEventAudio1794900000000 } from './1794900000000-HealthEventAudio.js';
 import { DelegatedEntry1795000000000 } from './1795000000000-DelegatedEntry.js';
+import { DelegatedEntryNotify1795100000000 } from './1795100000000-DelegatedEntryNotify.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -128,4 +129,6 @@ export const MIGRATIONS = [
   HealthEventAudio1794900000000,
   // Jury lot 5: entries and declarations made on behalf of a farm (agent technique)
   DelegatedEntry1795000000000,
+  // Jury lot 5: the owner hears about a delegated entry (DELEGATED_ENTRY)
+  DelegatedEntryNotify1795100000000,
 ];

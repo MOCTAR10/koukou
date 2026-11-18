@@ -150,6 +150,14 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
     audience: NotificationAudience.FARM_MANAGERS,
     channels: [IN_APP, PUSH],
   },
+  // Jury lot 5: the farm hears about data entered on its behalf.
+  {
+    code: 'FERME_SAISIE_DELEGUEE',
+    label: 'Ferme : saisie faite pour son compte par un agent du programme',
+    event: NotificationEvent.DELEGATED_ENTRY,
+    audience: NotificationAudience.FARM_MANAGERS,
+    channels: [IN_APP, PUSH],
+  },
   // POUFA lot A pilot: reports are sent, not only stored (CDC §5.4, §7.7).
   {
     code: 'RAPPORT_DISPONIBLE',

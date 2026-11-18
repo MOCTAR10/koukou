@@ -189,6 +189,8 @@ export const NOTIFICATION_EVENTS = [
   // Next-visit reminders.
   'VISIT_REMINDER',
   'VISIT_OVERDUE',
+  // Jury lot 5: an agent entered data or reported a problem for the farm.
+  'DELEGATED_ENTRY',
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 

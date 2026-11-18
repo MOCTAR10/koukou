@@ -62,6 +62,7 @@ export const EVENT_SHORT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   DECLARATION_REVIEWED: 'Déclaration examinée',
   VISIT_REMINDER: 'Visite à venir',
   VISIT_OVERDUE: 'Visite en retard',
+  DELEGATED_ENTRY: 'Saisie pour votre compte',
 };
 
 export function severityTone(level: AlertLevel): 'red' | 'amber' | 'emerald' {

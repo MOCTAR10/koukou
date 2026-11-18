@@ -25,6 +25,7 @@ import {
   type AlertRaisedEvent,
   type DeclarationReceivedEvent,
   type DeclarationReviewedEvent,
+  type DelegatedEntryEvent,
   type ReportReadyEvent,
   type SanitaryAlertEvent,
   type SyncConflictEvent,
@@ -37,7 +38,11 @@ import {
   type InstitutionAccess,
 } from '../access/access-rules.js';
 import { ProgramMembership } from '../access/entities/program-membership.entity.js';
-import { mayHandleSanitaryDeclarations } from '../access/sanitary-declaration.policy.js';
+import { withDelegatedAuthor } from '../access/delegated-author.js';
+import {
+  isVeterinaryAuthority,
+  mayHandleSanitaryDeclarations,
+} from '../access/sanitary-declaration.policy.js';
 import { SMS_SENDER, type SmsSender } from '../auth/sms/sms-sender.js';
 import { FarmEmployee } from '../farms/entities/farm-employee.entity.js';
 import { Farm } from '../farms/entities/farm.entity.js';
@@ -195,6 +200,11 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
       KOUKOU_EVENTS.DECLARATION_REVIEWED,
       (e: DeclarationReviewedEvent) => this.track(this.onDeclarationReviewed(e)),
     ],
+    // Jury lot 5: data entered for the farm by a programme agent.
+    [
+      KOUKOU_EVENTS.DELEGATED_ENTRY,
+      (e: DelegatedEntryEvent) => this.track(this.onDelegatedEntry(e)),
+    ],
   ];
 
   constructor(
@@ -332,6 +342,52 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
         `${KIND_LABELS[e.kind] ?? e.kind}${e.suspicion ? ' (suspicion)' : ''}` +
         (band ? ` sur la bande ${band}.` : '.'),
       route: `/farms/${farm.id}/batches/${e.batchId}/health-events`,
+      smsCode: farm.code,
+    });
+  }
+
+  /**
+   * Jury lot 5: an institutional agent entered data (or reported a health
+   * problem) for the farm. Told to the farm's owner and Administrateurs by the
+   * DELEGATED_ENTRY rules (`FARM_MANAGERS`); one occurrence per row, so a
+   * replay never notifies twice. A veterinary authority's own declarations
+   * are its sanitary acts, not an entry for the farmer: no notification.
+   */
+  private async onDelegatedEntry(e: DelegatedEntryEvent): Promise<void> {
+    const farm = await this.farmOf(e.farmId);
+    if (!farm) return;
+    if (e.what === 'DECLARATION') {
+      const membership = await this.dataSource
+        .getRepository(ProgramMembership)
+        .findOne({ where: { userId: e.authorId }, relations: { profile: true } });
+      if (isVeterinaryAuthority(membership?.profile?.matrix)) return;
+    }
+    const [author] = await withDelegatedAuthor(this.dataSource, [
+      { enteredOnBehalf: true, createdById: e.authorId },
+    ]);
+    const who = `${author.enteredByName ?? 'Un agent du programme'}${
+      author.enteredByProfile ? ` (${author.enteredByProfile})` : ''
+    }`;
+    const bands: { name: string | null; code: string | null }[] =
+      await this.dataSource.query(
+        `SELECT batch_name AS name, code FROM production_batches WHERE id = $1`,
+        [e.batchId],
+      );
+    const band = bands[0]?.name ?? bands[0]?.code ?? 'sans nom';
+    const daily = e.what === 'DAILY_ENTRY';
+    await this.notify({
+      event: NotificationEvent.DELEGATED_ENTRY,
+      farmId: farm.id,
+      subjectId: e.subjectId,
+      dedupKey: `${NotificationEvent.DELEGATED_ENTRY}:${e.subjectId}`,
+      severity: AlertLevel.VERT,
+      title: 'Saisie pour votre compte',
+      body: daily
+        ? `${who} a saisi les données du ${frDate(e.entryDate ?? '')} pour la bande ${band}.`
+        : `${who} a signalé un problème de santé sur la bande ${band}.`,
+      route: daily
+        ? `/batches/${e.batchId}`
+        : `/farms/${farm.id}/batches/${e.batchId}/health-events`,
       smsCode: farm.code,
     });
   }

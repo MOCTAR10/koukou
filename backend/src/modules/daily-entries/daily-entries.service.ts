@@ -17,7 +17,11 @@ import type { Farm } from '../farms/entities/farm.entity.js';
 import { FlockReconciliationService } from '../batches/flock-reconciliation.service.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { InputLot } from '../inputs/entities/input-lot.entity.js';
-import { koukouBus, KOUKOU_EVENTS } from '../../common/utils/event-bus.js';
+import {
+  koukouBus,
+  KOUKOU_EVENTS,
+  type DelegatedEntryEvent,
+} from '../../common/utils/event-bus.js';
 import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
 import { DailyEntry } from './entities/daily-entry.entity.js';
 import { CreateDailyEntryDto } from './dto/create-daily-entry.dto.js';
@@ -113,6 +117,8 @@ export class DailyEntriesService {
 
     const transaction = <T>(fn: (em: EntityManager) => Promise<T>) =>
       within ? within.em.transaction(fn) : this.dataSource.transaction(fn);
+    // Set when this call CREATES a row entered on behalf of the farm.
+    let delegatedCreated = false;
     return transaction(async (em) => {
         // Lock order batch → feed lot, same as POS sales (which pre-lock
         // batches first): avoids a lock-order inversion with the feed lot
@@ -295,6 +301,7 @@ export class DailyEntriesService {
           ? entryRepo.merge(existing, data)
           : entryRepo.create(data);
         await entryRepo.save(entry);
+        delegatedCreated = !existing && entry.enteredOnBehalf === true;
         await this.flockReconciliation.recomputeLiveCount(em, batch.id);
         await this.bandeStats.refresh(em, batch.id);
         return entry;
@@ -308,6 +315,19 @@ export class DailyEntriesService {
           batchId,
           entryDate: dto.entryDate,
         });
+        // The owner hears about data entered for his farm (once per row: a
+        // replay or a completion finds the row and never reaches this).
+        if (delegatedCreated) {
+          const delegated: DelegatedEntryEvent = {
+            what: 'DAILY_ENTRY',
+            farmId,
+            batchId,
+            subjectId: entry.id,
+            authorId: user.id,
+            entryDate: dto.entryDate,
+          };
+          koukouBus.emit(KOUKOU_EVENTS.DELEGATED_ENTRY, delegated);
+        }
         return entry;
       });
   }

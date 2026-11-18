@@ -25,6 +25,7 @@ export const EVENT_LABELS: Readonly<Record<NotificationEvent, string>> = {
     'Déclaration sanitaire examinée par les services vétérinaires',
   [NotificationEvent.VISIT_REMINDER]: 'Rappel de la prochaine visite',
   [NotificationEvent.VISIT_OVERDUE]: 'Visite en retard',
+  [NotificationEvent.DELEGATED_ENTRY]: 'Saisie pour votre compte',
 };
 
 /**
@@ -166,6 +167,7 @@ export function smsText(
     [NotificationEvent.DECLARATION_REVIEWED]: `déclaration sanitaire examinée${ref}`,
     [NotificationEvent.VISIT_REMINDER]: `visite prévue${ref}`,
     [NotificationEvent.VISIT_OVERDUE]: `visite en retard${ref}`,
+    [NotificationEvent.DELEGATED_ENTRY]: `saisie faite pour votre compte${ref}`,
   };
   return `${programCode} : ${what[event]}. Ouvrez l'application.`;
 }

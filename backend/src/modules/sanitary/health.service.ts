@@ -41,6 +41,7 @@ import {
   KOUKOU_EVENTS,
   koukouBus,
   type DeclarationReceivedEvent,
+  type DelegatedEntryEvent,
 } from '../../common/utils/event-bus.js';
 import { createOnce } from '../../common/utils/idempotency.js';
 import {
@@ -457,6 +458,20 @@ export class HealthService {
           runAfterCommit(em, () =>
             koukouBus.emit(KOUKOU_EVENTS.DECLARATION_RECEIVED, received),
           );
+          // The owner hears about a problem reported for his farm (jury lot 5).
+          if (row.enteredOnBehalf && row.createdById) {
+            const delegated: DelegatedEntryEvent = {
+              what: 'DECLARATION',
+              farmId,
+              batchId,
+              subjectId: row.id,
+              authorId: row.createdById,
+              entryDate: null,
+            };
+            runAfterCommit(em, () =>
+              koukouBus.emit(KOUKOU_EVENTS.DELEGATED_ENTRY, delegated),
+            );
+          }
           created = true;
           return row;
         }),
