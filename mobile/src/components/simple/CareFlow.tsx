@@ -56,7 +56,12 @@ export function CareFlow({ band, onClose }: { band: BatchWithMetrics; onClose: (
       setPhase({ name: 'refused', event, message: 'Dites combien de poules vous avez soignées.' });
       return;
     }
-    const extra = careTreatmentBody(event, { productCode: '', endDate: '', reason: '' }, today, null);
+    const extra = careTreatmentBody(
+      { ...event, productCode: event.productCode ?? null },
+      { productCode: '', endDate: '', reason: '' },
+      today,
+      null,
+    );
     if (!extra.ok) {
       setDetailed(event);
       setPhase({ name: 'list' });
