@@ -10,7 +10,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Screen, ScreenHeader } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { BrandLoader } from '@/components/ui/BrandLoader';
-import { ConnectionPill } from '@/components/ui/ConnectionStrip';
 import { OnBehalfBadge } from '@/components/OnBehalfBadge';
 import { useClinicalSigns } from '@/components/sanitary/DeclarationExtras';
 import { BandChip, BandPicker, bandName } from '@/components/simple/BandPicker';
@@ -93,7 +92,7 @@ export default function DelegatedEntryScreen() {
   return (
     <Screen
       bottomPad={layout.bottomPad}
-      header={<ScreenHeader title="Saisie pour l’éleveur" subtitle={farmName} back right={<ConnectionPill />} />}>
+      header={<ScreenHeader title="Saisie pour l’éleveur" subtitle={farmName} back />}>
       {rightsLoading || bandsLoading ? (
         <BrandLoader />
       ) : !allowed ? (
