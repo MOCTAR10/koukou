@@ -287,6 +287,10 @@ export interface SanitaryDeclaration {
   clinicalSigns: string[];
   suspicion: boolean;
   createdByName: string | null;
+  /** Jury lot 5: declared by an agent technique for the farm. */
+  enteredOnBehalf?: boolean;
+  enteredByName?: string | null;
+  enteredByProfile?: string | null;
   photos: HealthEventPhoto[];
   audio: HealthEventAudio[];
   alertId: string | null;

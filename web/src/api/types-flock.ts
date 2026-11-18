@@ -140,6 +140,11 @@ export interface DailyEntryRecord {
   sampleSize?: number | null;
   /** Last write: sent back as `baseUpdatedAt` by an edit (offline conflict rule). */
   updatedAt?: string;
+  /** Jury lot 5: created by an agent technique for the farm (set by the server). Absent on an older server. */
+  enteredOnBehalf?: boolean;
+  /** Author and access profile (« Agent technique »), only when `enteredOnBehalf`. */
+  enteredByName?: string | null;
+  enteredByProfile?: string | null;
 }
 
 export interface PondageWeek {
@@ -292,6 +297,10 @@ export interface HealthEvent {
   vetReviewedAt?: string | null;
   photos?: import('./types-surveillance').HealthEventPhoto[];
   audio?: import('./types-surveillance').HealthEventAudio[];
+  /** Jury lot 5: declared by an agent technique for the farm (set by the server). */
+  enteredOnBehalf?: boolean;
+  enteredByName?: string | null;
+  enteredByProfile?: string | null;
 }
 
 export interface BatchHealth {

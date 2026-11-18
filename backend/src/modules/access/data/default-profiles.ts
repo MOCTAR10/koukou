@@ -37,13 +37,19 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
     scopeKind: AccessScopeKind.FARMS,
     matrix: {
       REGISTRE: ['CONSULTER'],
-      TECHNIQUE: ['CONSULTER', 'VALIDER'],
+      // Jury lot 5 (farmers' digital maturity): CREER = enters the day's data
+      // on behalf of a farmer during a visit (farm code `saisie:creer`), and
+      // SANITAIRE:CREER below = reports a health problem for him
+      // (`sanitaire:signaler`). Entries are marked « saisi par X (agent
+      // technique) pour le compte de la ferme » and journaled; the admin can
+      // remove both in the matrix; migration DelegatedEntry for existing data.
+      TECHNIQUE: ['CONSULTER', 'CREER', 'VALIDER'],
       // Recette ANINF A21: reads the declarations of its farms (CDC §3
       // « vérifie les déclarations ») through the dedicated read-only
       // DECLARATIONS right; no validation/publication (SANITAIRE:VALIDER,
       // vets). SANITAIRE:CONSULTER (care calendars) stays a separate right.
       // À arbitrer DGE; migration AgentReadsDeclarations for existing data.
-      SANITAIRE: ['CONSULTER'],
+      SANITAIRE: ['CONSULTER', 'CREER'],
       DECLARATIONS: ['CONSULTER'],
       INTRANTS: ['CONSULTER'],
       PARAMETRES: ['CONSULTER'],

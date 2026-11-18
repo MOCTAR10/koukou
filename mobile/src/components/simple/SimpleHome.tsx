@@ -9,6 +9,7 @@ import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { ConnectionPill } from '@/components/ui/ConnectionStrip';
 import { BrandLoader } from '@/components/ui/BrandLoader';
+import { OnBehalfBadge } from '@/components/OnBehalfBadge';
 import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
@@ -70,7 +71,7 @@ function Badge({ state }: { state: TileState }) {
   );
 }
 
-function Tile({ action, state, width, onPress }: { action: SimpleAction; state: TileState; width: number; onPress: () => void }) {
+export function Tile({ action, state, width, onPress }: { action: SimpleAction; state: TileState; width: number; onPress: () => void }) {
   const meta = TILES[action];
   return (
     <Pressable
@@ -166,6 +167,7 @@ export function SimpleHome() {
           ) : (
             <>
               {bands.length > 1 && band ? <BandChip band={band} onChange={() => selectBand(null)} /> : null}
+              <OnBehalfBadge record={entry} />
               <View style={styles.grid}>
                 {actions.map((action) => (
                   <Tile

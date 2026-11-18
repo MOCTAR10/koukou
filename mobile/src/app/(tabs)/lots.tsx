@@ -56,6 +56,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { PeriodBar, periodWindow, type PeriodBarHandle, type PeriodWindow } from '@/components/ui/PeriodBar';
 import { color, fmt, palette, radii, fontFamily, semantic } from '@/constants/theme';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
+import { DelegatedEntryButton } from '@/components/simple/DelegatedEntryButton';
 import { useAuth } from '@/auth/AuthContext';
 import { useLiveMinute } from '@/hooks/useLiveMinute';
 import { fetchBatches, fetchBatchHealth, fetchDashboard, fetchBuildings, fetchExpenses, fetchOrders, fetchProphylaxis, fetchProtocols, fetchRentabiliteBatch, fetchRentabiliteOverview, fetchSales, fetchSanitaryProgram, fetchSlaughterOrders, fetchTreatments } from '@/api';
@@ -743,6 +744,9 @@ export default function LotsScreen() {
         </>
       }
     >
+      {/* Jury lot 5: a technical agent enters for the farmer (nothing for any other account). */}
+      <DelegatedEntryButton />
+
       {/* ── STATS TILES (ferme) — au-dessus de la finance ── */}
       <View style={styles.slimTileRow}>
         <View style={styles.slimTile}>

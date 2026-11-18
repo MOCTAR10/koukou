@@ -11,7 +11,7 @@ import { CompleteProphylaxisDto } from './dto/complete-prophylaxis.dto.js';
 import { GenerateCalendarDto } from './dto/generate-calendar.dto.js';
 import { RescheduleProphylaxisDto } from './dto/reschedule-prophylaxis.dto.js';
 import { CreateTreatmentDto } from './dto/create-treatment.dto.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Action, Domain } from '../../common/decorators/domain.decorator.js';
 
 @ApiTags('Sanitaire & Prophylaxie')
 @Domain('SANITAIRE')
@@ -59,6 +59,9 @@ export class SanitaryController {
   }
 
   @Post('prophylaxis/:eventId/complete')
+  // MODIFIER for an institution: SANITAIRE:CREER (agent technique, declarations
+  // on behalf of a farm) does not record care.
+  @Action('MODIFIER')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('sanitaire:gerer', 'sanitaire:signaler')
   @ApiOperation({ summary: 'Marquer un soin comme réalisé (FAIT)' })
@@ -128,6 +131,8 @@ export class SanitaryController {
   }
 
   @Post('treatments')
+  // MODIFIER for an institution (see prophylaxis/:eventId/complete).
+  @Action('MODIFIER')
   @Roles(UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
   @Permissions('sanitaire:gerer', 'sanitaire:signaler')
   @ApiOperation({

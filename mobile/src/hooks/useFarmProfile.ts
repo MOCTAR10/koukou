@@ -4,9 +4,9 @@ import { useAuth } from '@/auth/AuthContext';
 import { ApiError } from '@/api/client';
 import { fetchFarmProfile } from '@/api';
 import type { PermissionCode } from '@/api/types';
-import { accessAllows, resolveFarmAccess, type ProfileFetchState } from './farm-access';
+import { accessAllows, profileFetchState, resolveFarmAccess } from './farm-access';
 // POUFA lot A droits: Fermia screens follow the matrix grants (read codes of /me), read-only for institutions.
-import { fermiaReadOnly, fermiaWrites, readsFermiaArea, type FermiaArea } from '@/poufa/fermia-access';
+import { delegatedEntry, fermiaReadOnly, fermiaWrites, readsFermiaArea, type FermiaArea } from '@/poufa/fermia-access';
 
 /** Server out of reach (offline start), as opposed to a refusal. */
 function isNetworkFailure(error: unknown): boolean {
@@ -27,11 +27,12 @@ export function useFarmProfile() {
     staleTime: 30_000,
   });
 
-  const fetchState: ProfileFetchState = query.isSuccess
-    ? { status: 'success', profile: query.data ?? null }
-    : query.isError
-      ? { status: 'error', network: isNetworkFailure(query.error) }
-      : { status: 'pending' };
+  const fetchState = profileFetchState({
+    isSuccess: query.isSuccess,
+    isError: query.isError,
+    data: query.data,
+    networkFailure: query.isError && isNetworkFailure(query.error),
+  });
   const access = resolveFarmAccess({ farmId, userRole: user.role, fetch: fetchState });
   const profile = query.data ?? undefined;
 
@@ -54,6 +55,8 @@ export function useFarmProfile() {
     fermiaReadOnly: fermiaReadOnly(user.role),
     /** A write on a Fermia screen: the permission, never for an institution. */
     fermiaWrites: (code: PermissionCode) => fermiaWrites(user.role, accessAllows(access, code)),
+    /** Jury lot 5: what a technical agent (institution) may enter on behalf of the farmer on this farm. */
+    delegated: delegatedEntry(user.role, (code) => accessAllows(access, code)),
     isLoading: query.isLoading,
     refetch: query.refetch,
   };

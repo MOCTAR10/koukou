@@ -15,6 +15,7 @@ import type {
 } from '../../api/types-flock';
 import { useFarm } from '../../app/FarmContext';
 import { useFarmProfile } from '../../app/useFarmProfile';
+import { DelegatedBanner } from './DelegatedEntry';
 import { useCanRead } from '../../app/useMenuAccess';
 import { lotImage } from '../../lib/animalImages';
 import { useIdempotencyKey } from '../../lib/idempotency';
@@ -254,6 +255,7 @@ export function HealthEventModal({ lot, onClose }: { lot: SanitaryLotRef; onClos
   return (
     <Modal title="Signaler un événement de santé" onClose={onClose} wide>
       <form onSubmit={submit} className="space-y-4">
+        <DelegatedBanner />
         <div className="flex items-center gap-2.5">
           <PhotoThumb src={lotImage(lot.breedName, lot.species)} />
           <p className="text-sm text-slate-500">

@@ -82,6 +82,8 @@ function RootNavigator() {
         <Stack.Screen name="livraisons/index" />
         <Stack.Screen name="livraisons/[id]" />
         <Stack.Screen name="visites" />
+        {/* Jury lot 5: delegated entry of a technical agent (institution). */}
+        <Stack.Screen name="saisie-deleguee" />
         {/* ── end POUFA ── */}
       </Stack.Protected>
       {/* ── POUFA notification inbox (M2) ── */}

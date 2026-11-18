@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { FarmMemberProfile } from '@/api/types';
-import { accessAllows, readsFermiaData, resolveFarmAccess } from './farm-access';
+import { accessAllows, profileFetchState, readsFermiaData, resolveFarmAccess } from './farm-access';
 
 function profile(over: Partial<FarmMemberProfile> = {}): FarmMemberProfile {
   return { farmId: 'f-1', role: 'ADMIN', jobTitle: null, buildingAssignment: null, active: true, permissions: [], ...over };
@@ -71,6 +71,29 @@ describe('resolveFarmAccess', () => {
     expect(accessAllows(staff, 'saisie:creer')).toBe(true);
     const institution = resolveFarmAccess({ farmId: 'f-1', userRole: 'INSTITUTION', fetch: { status: 'error', network: true } });
     expect(accessAllows(institution, 'saisie:creer')).toBe(false);
+  });
+});
+
+describe('profileFetchState', () => {
+  const cached = profile({ role: 'INSTITUTION', permissions: ['saisie:creer', 'sanitaire:signaler'] });
+
+  it('success, refusal and loading', () => {
+    expect(profileFetchState({ isSuccess: true, isError: false, data: cached, networkFailure: false })).toEqual({ status: 'success', profile: cached });
+    expect(profileFetchState({ isSuccess: true, isError: false, data: null, networkFailure: false })).toEqual({ status: 'success', profile: null });
+    expect(profileFetchState({ isSuccess: false, isError: true, data: undefined, networkFailure: false })).toEqual({ status: 'error', network: false });
+    expect(profileFetchState({ isSuccess: false, isError: false, data: undefined, networkFailure: false })).toEqual({ status: 'pending' });
+  });
+
+  it('a failed refresh offline keeps the last good profile (delegated codes survive offline)', () => {
+    const state = profileFetchState({ isSuccess: false, isError: true, data: cached, networkFailure: true });
+    expect(state).toEqual({ status: 'success', profile: cached });
+    const access = resolveFarmAccess({ farmId: 'f-1', userRole: 'INSTITUTION', fetch: state });
+    expect(accessAllows(access, 'saisie:creer')).toBe(true);
+  });
+
+  it('a refusal never keeps the cached profile, nor does an offline start without cache', () => {
+    expect(profileFetchState({ isSuccess: false, isError: true, data: cached, networkFailure: false })).toEqual({ status: 'error', network: false });
+    expect(profileFetchState({ isSuccess: false, isError: true, data: undefined, networkFailure: true })).toEqual({ status: 'error', network: true });
   });
 });
 

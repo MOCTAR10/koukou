@@ -6,7 +6,7 @@
 import { API_BASE_URL, apiFetch, apiUpload } from './client';
 import { loadSession } from './token';
 import { VOICE_NOTE_MIME, durationField } from '@/poufa/voice-note';
-import type { AlertLevel, DiseaseSeverity, HealthEventKind } from './types';
+import type { AlertLevel, DiseaseSeverity, HealthEventKind, OnBehalfMark } from './types';
 
 // ── Programme lists (REFERENCE domain) ─────────────────────────────────
 
@@ -636,7 +636,7 @@ export function setFarmGps(farmId: string, payload: FarmGpsPayload): Promise<Far
 
 // ── Veterinary review of the declarations (SANITAIRE:VALIDER, CDC n° 26) ──
 
-export interface SanitaryDeclaration {
+export interface SanitaryDeclaration extends OnBehalfMark {
   id: string;
   farmId: string;
   farmCode: string | null;

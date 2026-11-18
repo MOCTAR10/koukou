@@ -26,6 +26,7 @@ import type { DailyEntryRecord, FlockDashboard, Lot } from '../../api/types-floc
 import type { BandSheet } from '../../api/types-pilotage';
 import { useFarm } from '../../app/FarmContext';
 import { useCanRead } from '../../app/useMenuAccess';
+import { DelegatedBanner } from './DelegatedEntry';
 import { lotAgeOn } from './band';
 import { sendOrQueue, showQueuedNotice } from '../../offline';
 import { dailyEntryBase } from '../../offline/syncMeta';
@@ -136,6 +137,7 @@ export function DailyEntryModal({
         <EmptyState message="Aucun lot actif : créez d'abord un lot." icon={<Bird />} />
       ) : (
         <div className="space-y-4">
+          <DelegatedBanner />
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Lot">
               <div className="flex items-center gap-2">

@@ -89,7 +89,7 @@ function ActionRow({
   onAck: () => void;
   onCare: () => void;
 }) {
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, canManageCare } = useFarmProfile();
   const { canWrite } = useMenuAccess();
   const [open, setOpen] = useState(false);
   const isReady = action.id.startsWith('ready:');
@@ -112,7 +112,7 @@ function ActionRow({
           </Button>
         ) : null;
       case 'SOIN':
-        return hasPermission('sanitaire:gerer', 'sanitaire:signaler') ? (
+        return canManageCare() ? (
           <Button className="px-2.5 py-1 text-xs" onClick={onCare}>
             <Check className="h-3.5 w-3.5" /> Fait
           </Button>

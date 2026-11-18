@@ -16,6 +16,7 @@ import { StaleNotice } from '@/components/ui/StaleNotice';
 import { useAuth } from '@/auth/AuthContext';
 import { useProgrammeAccess } from '@/hooks/useProgrammeAccess';
 import { ReadOnlyNotice } from '@/components/ReadOnlyNotice';
+import { OnBehalfBadge } from '@/components/OnBehalfBadge';
 import { StoredVoiceNote } from '@/components/voice/VoiceNotePlayer';
 import { fetchDeclarations, reviewDeclaration, type SanitaryDeclaration } from '@/api/poufa';
 import {
@@ -93,6 +94,7 @@ export default function DeclarationsScreen() {
                     {[d.farmCode, d.farmName].filter(Boolean).join(' ')} · {d.batchCode ?? 'bande'} · {frDay(d.occurredAt)}
                     {d.quantity > 0 ? ` · ${d.quantity} sujets` : ''}
                   </AppText>
+                  <OnBehalfBadge record={d} />
                 </Card>
               </Pressable>
             ))
@@ -126,6 +128,7 @@ function ReviewSheet({ declaration, onClose }: { declaration: SanitaryDeclaratio
         <AppText size="small" color="muted">
           Bande {d.batchCode ?? '—'} · {d.quantity} sujets · déclarée par {d.createdByName ?? '—'}
         </AppText>
+        <OnBehalfBadge record={d} />
         {d.symptoms ? <AppText size="small" color="text">{d.symptoms}</AppText> : null}
         {d.description ? <AppText size="small" color="text">{d.description}</AppText> : null}
         {d.clinicalSigns.length > 0 ? <AppText size="small" color="muted">Signes : {d.clinicalSigns.join(', ')}</AppText> : null}

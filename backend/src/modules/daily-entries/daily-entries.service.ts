@@ -9,6 +9,8 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { FeedUnit } from '../../common/enums/food-type.enum.js';
 import { InputKind } from '../../common/enums/input-kind.enum.js';
+import { UserRole } from '../../common/enums/role.enum.js';
+import { withDelegatedAuthor } from '../access/delegated-author.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { FarmsService } from '../farms/farms.service.js';
 import type { Farm } from '../farms/entities/farm.entity.js';
@@ -276,6 +278,16 @@ export class DailyEntriesService {
           // Nothing sent is written: the row keeps its last writer.
           delete data.createdById;
         }
+        // Entered on behalf of the farm (jury lot 5). Rule: the flag and the
+        // author belong to the row's CREATOR and are set by the server only.
+        // An institution completing a farm's entry (same day) keeps the farm
+        // author and the flag false; the farm completing an entry an
+        // institution created keeps that author and the flag true.
+        if (!existing) {
+          data.enteredOnBehalf = user.role === UserRole.INSTITUTION;
+        } else if (existing.enteredOnBehalf || user.role === UserRole.INSTITUTION) {
+          delete data.createdById;
+        }
         if (!existing) data.catchUp = isCatchUp(dto.entryDate);
         if (dto.avgWeightKg === null) data.sampleSize = null;
 
@@ -420,11 +432,17 @@ export class DailyEntriesService {
       where: { id: batchId, farmId },
     });
     if (!batch) throw new NotFoundException('Lot introuvable dans cette ferme.');
-    return this.entryRepo.find({
+    const rows = await this.entryRepo.find({
       where: { batchId },
       order: { entryDate: 'ASC' },
       ...page,
     });
+    return this.withAuthor(rows);
+  }
+
+  /** Adds `enteredByName`/`enteredByProfile` to the rows entered on behalf of the farm (one query). */
+  withAuthor(rows: DailyEntry[]) {
+    return withDelegatedAuthor(this.dataSource, rows);
   }
 
   private toKg(

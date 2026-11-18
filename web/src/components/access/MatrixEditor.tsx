@@ -3,6 +3,12 @@ import { isFermiaGrantableDomain, type AccessCatalog, type ScopeKind } from '../
 import { classNames } from '../../lib/format';
 import { actionLockReason, cellKey, domainLockReason, setDomain, toggleCell, type MatrixCells } from './matrix';
 
+/** Help of the cells that carry a field right (jury lot 5: entries made on behalf of a farm). */
+const CELL_HINTS: Readonly<Record<string, string>> = {
+  'TECHNIQUE:CREER': 'Saisie pour le compte de l’éleveur : saisie journalière des fermes du périmètre, marquée « saisi par … pour le compte de la ferme » et journalisée.',
+  'SANITAIRE:CREER': 'Signalement pour le compte de l’éleveur : déclaration d’un problème de santé (photos et notes vocales) sur une ferme du périmètre, marquée et journalisée.',
+};
+
 /**
  * Domains × actions grid of an access profile (labels from the server's
  * catalogue). A computer gets a table; a phone, one block per domain with its
@@ -71,6 +77,11 @@ export function MatrixEditor({
                     <Lock className="h-3 w-3 shrink-0" /> {lock}
                   </span>
                 ) : null}
+                {!lock && (d.code === 'TECHNIQUE' || d.code === 'SANITAIRE') ? (
+                  <span className="mt-0.5 block text-xs font-normal text-slate-500">
+                    « Créer » = saisie pour le compte de l’éleveur (visite sur place)
+                  </span>
+                ) : null}
               </span>
               {!lock && !readOnly ? (
                 <button
@@ -101,7 +112,7 @@ export function MatrixEditor({
                       className="h-4 w-4 shrink-0 accent-brand-600"
                       checked={on}
                       disabled={!!locked || readOnly}
-                      title={locked ?? undefined}
+                      title={locked ?? CELL_HINTS[cellKey(d.code, a.code)]}
                       onChange={() => onChange(toggleCell(cells, d.code, a.code))}
                       aria-label={`${d.label} : ${a.label}`}
                     />

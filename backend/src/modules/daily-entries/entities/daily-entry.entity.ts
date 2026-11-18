@@ -130,6 +130,13 @@ export class DailyEntry {
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdById: string | null;
 
+  /**
+   * Created by an institutional account (agent technique) for the farm.
+   * Set by the server at creation only, never by the client.
+   */
+  @Column({ name: 'entered_on_behalf', type: 'boolean', default: false })
+  enteredOnBehalf: boolean;
+
   @Column({
     type: 'enum',
     enum: ConsumptionSource,

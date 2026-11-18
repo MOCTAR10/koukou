@@ -46,6 +46,29 @@ export function fermiaReadOnly(role: UserRole | undefined): boolean {
   return role === 'INSTITUTION';
 }
 
+/** What an institution may enter on behalf of a farmer during a visit. */
+export interface DelegatedEntry {
+  /** Create / complete the day's daily entry (`saisie:creer`). */
+  daily: boolean;
+  /** Create a health declaration (`sanitaire:signaler`). */
+  declaration: boolean;
+}
+
+/** Farm codes the server derives from the matrix for an in-scope farm (delegated entry). */
+export const DELEGATED_DAILY_CODE = 'saisie:creer';
+export const DELEGATED_DECLARATION_CODE = 'sanitaire:signaler';
+
+/**
+ * Delegated entry (jury lot 5): a technical agent (INSTITUTION) enters the day's
+ * data and reports a health problem on behalf of a farmer. True only for an
+ * institution whose matrix yields the code on the active farm; every other
+ * write stays blocked (`fermiaReadOnly`), the server stays the authority.
+ */
+export function delegatedEntry(role: UserRole | undefined, has: HasCode): DelegatedEntry {
+  if (role !== 'INSTITUTION') return { daily: false, declaration: false };
+  return { daily: has(DELEGATED_DAILY_CODE), declaration: has(DELEGATED_DECLARATION_CODE) };
+}
+
 /** A write on a Fermia screen: the permission, never for an institution. */
 export function fermiaWrites(role: UserRole | undefined, allowed: boolean): boolean {
   return allowed && !fermiaReadOnly(role);

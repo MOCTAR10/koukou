@@ -36,6 +36,7 @@ import { Chip } from '../ui/Chip';
 import { NumberInput } from '../ui/NumberInput';
 import { Segmented } from '../ui/Segmented';
 import { StepProgress, type StepDef } from '../ui/StepProgress';
+import { OnBehalfBadge } from '../OnBehalfBadge';
 import { useAuth } from '@/auth/AuthContext';
 import { fetchBatches, fetchBreedStandards, fetchDailyEntries, fetchDashboard, fetchFeedStock } from '@/api';
 import { invalidateFarmQueries } from '@/api/invalidate';
@@ -1154,6 +1155,8 @@ export function DailyEntrySheet({ initialBatchId, onClose, onStickyChange, onFoo
           </Hint>
         </View>
       ) : null}
+      {/* Jury lot 5: the day's entry was made by a technical agent on behalf of the farmer. */}
+      <OnBehalfBadge record={existingEntry} />
 
       {/* ── ÉTAPE 1 : MORTS ── */}
       {stepKey === 'morts' ? (

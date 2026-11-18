@@ -109,6 +109,7 @@ import { persistPhoto } from '@/offline/photo-files';
 import { persistAudio } from '@/offline/audio-files';
 import type { VoiceNoteDraft } from '@/poufa/voice-note';
 import { StoredVoiceNote } from '@/components/voice/VoiceNotePlayer';
+import { OnBehalfBadge } from '@/components/OnBehalfBadge';
 import { knownSigns, withDeclarationFields } from '@/poufa/declaration';
 import { openSanitaryLots } from '@/poufa/sanitary-lots';
 import { matrixGrants } from '@/poufa/access';
@@ -667,6 +668,7 @@ function HealthEventRow({
           ) : null}
           <Chip label={resolved ? 'Résolu' : 'En cours'} tone={levelTone(resolved ? 'VERT' : 'ROUGE')} dot />
           <VetReviewBadge e={e} />
+          <OnBehalfBadge record={e} />
           {(e.audio ?? []).map((a, i) => (
             <StoredVoiceNote key={a.id} farmId={farmId} batchId={e.batchId} eventId={e.id} audio={a} index={i} />
           ))}

@@ -483,6 +483,9 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         call: (f) => get(`/farms/${f}/batches`, ''),
       },
       {
+        // Jury lot 5: AGENT_TECHNIQUE holds TECHNIQUE:CREER (daily entries on
+        // behalf of a farm) but not MODIFIER, so opening a band stays refused
+        // (`production:gerer` = TECHNIQUE:MODIFIER): the probe needs both.
         name: 'TECHNIQUE créer',
         farm: true,
         needs: [
@@ -504,9 +507,12 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         call: (f) => get(`/farms/${f}/batches/${NO_BATCH}/prophylaxis`, ''),
       },
       {
-        name: 'SANITAIRE créer',
+        // Recording a treatment needs SANITAIRE:MODIFIER for an institution:
+        // SANITAIRE:CREER alone (AGENT_TECHNIQUE, declarations on behalf of a
+        // farm, jury lot 5) does not open it.
+        name: 'SANITAIRE créer (traitement)',
         farm: true,
-        needs: [['SANITAIRE', 'CREER']],
+        needs: [['SANITAIRE', 'MODIFIER']],
         call: (f) => post(`/farms/${f}/batches/${NO_BATCH}/treatments`, {}, ''),
       },
       {

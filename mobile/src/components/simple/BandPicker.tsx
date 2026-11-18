@@ -5,7 +5,7 @@ import { AppText } from '@/components/ui/AppText';
 import type { BatchWithMetrics } from '@/api/types';
 import { breedImageForLot } from '@/constants/breedImages';
 import { palette, radii, semantic } from '@/constants/theme';
-import { speak } from '@/voice/speak';
+import { cue } from '@/voice/speak';
 import { SENTENCES } from './simple-logic';
 
 export function bandName(b: BatchWithMetrics): string {
@@ -25,7 +25,7 @@ export function BandPicker({ bands, onPick }: { bands: BatchWithMetrics[]; onPic
           <Pressable
             key={b.id}
             onPress={() => {
-              speak(bandName(b));
+              cue(bandName(b));
               onPick(b.id);
             }}
             accessibilityRole="button"

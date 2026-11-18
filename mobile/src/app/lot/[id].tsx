@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { plural } from '@/utils/plural';
 import { toast } from '@/components/ui/Feedback';
 import { careHistoryDetail, treatmentHistoryDetail } from '@/poufa/sanitary-records';
+import { onBehalfLabel } from '@/poufa/delegated-entry';
+import { DelegatedEntryButton } from '@/components/simple/DelegatedEntryButton';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
@@ -537,7 +539,7 @@ export default function LotDetailScreen() {
         date: e.occurredAt?.slice(0, 10) ?? '',
         kind: 'health',
         label: e.title,
-        detail: `${HEALTH_KIND_LABEL[e.kind] ?? e.kind}${e.quantity ? ` · ${e.quantity} oiseaux` : ''}`,
+        detail: `${HEALTH_KIND_LABEL[e.kind] ?? e.kind}${e.quantity ? ` · ${e.quantity} oiseaux` : ''}${onBehalfLabel(e) ? ` · ${onBehalfLabel(e)}` : ''}`,
         icon: Stethoscope,
         tone: e.severity === 'ROUGE' ? 'red' : e.severity === 'JAUNE' ? 'amber' : 'green',
       });
@@ -604,7 +606,7 @@ export default function LotDetailScreen() {
         title: e.title,
         chipLabel: HEALTH_KIND_LABEL[e.kind] ?? e.kind,
         chipTone: e.severity === 'ROUGE' ? 'red' : e.severity === 'JAUNE' ? 'amber' : 'green',
-        detail: [e.quantity ? `${e.quantity} oiseaux` : '', e.status === 'RESOLU' ? 'Résolu' : '', e.treatmentGiven ? `Traitement : ${e.treatmentGiven}` : ''].filter(Boolean).join(' · '),
+        detail: [e.quantity ? `${e.quantity} oiseaux` : '', e.status === 'RESOLU' ? 'Résolu' : '', e.treatmentGiven ? `Traitement : ${e.treatmentGiven}` : '', onBehalfLabel(e) ?? ''].filter(Boolean).join(' · '),
       });
     }
     for (const p of prophylaxisQ.data ?? []) {
@@ -753,6 +755,9 @@ export default function LotDetailScreen() {
             ) : null}
           </View>
         </View>
+        {/* Jury lot 5: a technical agent enters for the farmer (nothing for any other account). */}
+        <DelegatedEntryButton size="sm" />
+
         <AppText size="caption" color="muted">
           Ouverture : {new Date(`${b.integrationDate.slice(0, 10)}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
           {b.initialAgeDays ? ` à J${b.initialAgeDays}` : ''} · {fmt(b.quantityAtStart)} sujets

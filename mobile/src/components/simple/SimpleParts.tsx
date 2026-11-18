@@ -1,7 +1,7 @@
 // Building blocks shared by the full-screen steps of the SIMPLE experience:
 // the screen frame (back, connection state, speaker), the big keypad, the
 // green validate button and the full-screen green / red result screens.
-import React, { useEffect } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Delete, Minus, Plus } from 'lucide-react-native';
@@ -10,6 +10,7 @@ import { AppText } from '@/components/ui/AppText';
 import { ConnectionPill } from '@/components/ui/ConnectionStrip';
 import { palette, radii, semantic } from '@/constants/theme';
 import { useScreen } from '@/theme/useScreen';
+import { onBehalfBanner } from '@/poufa/delegated-entry';
 import { useAnnounce } from '@/voice/useAnnounce';
 import { CheckPicto, WarningPicto } from './pictos/Pictos';
 import { SpeakButton } from './SpeakButton';
@@ -25,6 +26,28 @@ export function useSafeInsets() {
     top: Math.max(insets.top, initialWindowMetrics?.insets.top ?? 0),
     bottom: Math.max(insets.bottom, initialWindowMetrics?.insets.bottom ?? 0, 8),
   };
+}
+
+/**
+ * Delegated entry (jury lot 5): the farm a technical agent enters for. Set by
+ * `SimpleFlowModal`; every step and result screen then shows the permanent
+ * « Vous saisissez pour le compte de … » banner. null = the farmer's own flows.
+ */
+export const DelegationContext = createContext<{ farmName: string } | null>(null);
+
+export function useDelegation() {
+  return useContext(DelegationContext);
+}
+
+/** Permanent, unmissable banner of the delegated flows. */
+export function OnBehalfBanner({ farmName }: { farmName: string }) {
+  return (
+    <View style={styles.onBehalf} accessibilityRole="alert">
+      <AppText size="bodyM" weight="bold" align="center" color={palette.amber[900]}>
+        {onBehalfBanner(farmName)}
+      </AppText>
+    </View>
+  );
 }
 
 interface StepScreenProps {
@@ -44,9 +67,11 @@ interface StepScreenProps {
 export function StepScreen({ picto, sentence, onBack, children, footer, speakOnShow = true }: StepScreenProps) {
   const insets = useSafeInsets();
   const { isShort, gutter } = useScreen();
+  const delegation = useDelegation();
   useAnnounce(sentence, speakOnShow);
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+      {delegation ? <OnBehalfBanner farmName={delegation.farmName} /> : null}
       <View style={[styles.topRow, { paddingHorizontal: gutter }]}>
         <Pressable
           onPress={onBack}
@@ -200,6 +225,7 @@ const SUCCESS_MS = 2200;
 export function ResultScreen({ kind, message, detail, onContinue }: ResultProps) {
   const insets = useSafeInsets();
   const ok = kind === 'success';
+  const delegation = useDelegation();
   useAnnounce(detail ? `${message} ${detail}` : message);
   useEffect(() => {
     if (!ok) return;
@@ -212,6 +238,11 @@ export function ResultScreen({ kind, message, detail, onContinue }: ResultProps)
       accessibilityRole="button"
       accessibilityLabel={ok ? 'Terminé, revenir à l’accueil' : 'Corriger'}
       style={[styles.result, { backgroundColor: ok ? palette.green[600] : palette.red[600], paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+      {delegation ? (
+        <AppText size="bodyM" weight="bold" align="center" color={semantic.surface}>
+          {onBehalfBanner(delegation.farmName)}
+        </AppText>
+      ) : null}
       {ok ? <CheckPicto size={170} tone="white" /> : <WarningPicto size={150} />}
       <AppText size="display" weight="bold" align="center" color={semantic.surface} style={styles.resultTitle}>
         {message}
@@ -234,6 +265,16 @@ export function ResultScreen({ kind, message, detail, onContinue }: ResultProps)
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: semantic.bg },
+  onBehalf: {
+    marginHorizontal: 12,
+    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radii.lg,
+    backgroundColor: palette.amber[100],
+    borderWidth: 2,
+    borderColor: palette.amber[500],
+  },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingBottom: 8 },
   roundBtn: {
     width: TOUCH,

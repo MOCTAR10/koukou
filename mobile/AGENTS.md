@@ -22,3 +22,11 @@ This app targets **Expo SDK 54** (Expo Go in stores was stuck on a newer SDK unt
 - The queue's `HealthEventOpPayload.audio` is optional (old ops replay). Notes are copied by `offline/audio-files(.native)` into `koukou-audio` and uploaded after the photos, with the same failure semantics as photos.
 - Listening goes through `StoredVoiceNote` (`components/voice/VoiceNotePlayer`): the note is downloaded with the Authorization header into the cache (`voice/audio-cache.native.ts`) and played from the local file.
 - The simple « Problème » flow has an optional `voice` step between the count and the photos (`SENTENCES.problemeVoix`).
+
+## Delegated entry (jury lot 5)
+
+- A technical agent (INSTITUTION) enters for the farmer only through `poufa/fermia-access.ts#delegatedEntry` (codes `saisie:creer` / `sanitaire:signaler` of `/farms/:id/me`, exposed as `useFarmProfile().delegated`); every other Fermia write stays blocked by `fermiaReadOnly`.
+- Screen `app/saisie-deleguee.tsx` works on the active farm and reuses the simple flows via `SimpleFlowModal onBehalfOf`; `DelegationContext` (SimpleParts) shows the permanent « Vous saisissez pour le compte de … » banner. Tiles: `poufa/delegated-entry.ts#delegatedActions`; offline gating: `delegatedBlock`.
+- Automatic read-out is off there (`setAnnounceSilenced`); taps use `cue`, the speaker button still `speak`s.
+- Server marking (`enteredOnBehalf`, `enteredByName`, `enteredByProfile`, type `OnBehalfMark`) is shown by `components/OnBehalfBadge`.
+- `hooks/farm-access.ts#profileFetchState` keeps the cached `/me` after a network-failed refresh (never after a 4xx), so permission codes survive offline; the screen prefetches the day's entries of every open band online.

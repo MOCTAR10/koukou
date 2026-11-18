@@ -252,6 +252,8 @@ export function validateSimple(input: SimpleEntryInput, check: EntryCheck): stri
 // ── « Problème » (health report) ──────────────────────────────────────────
 
 export const PROBLEM_TITLE = 'Problème signalé par l’éleveur';
+/** Same report entered by a technical agent during a visit (jury lot 5). */
+export const PROBLEM_TITLE_DELEGATED = 'Problème signalé par un agent du programme';
 
 /** Simple-French refusal of a report with nothing in it, or null. */
 export function problemRefusal(signs: readonly string[], count: number, photos: number, voiceNotes = 0): string | null {
@@ -263,13 +265,13 @@ export function problemRefusal(signs: readonly string[], count: number, photos: 
  * the ticked clinical signs and the number of dead or sick birds. The vet
  * qualifies it later.
  */
-export function buildProblemDeclaration(input: { signs: readonly string[]; count: number; today: string }): DeclarationPayload {
+export function buildProblemDeclaration(input: { signs: readonly string[]; count: number; today: string; title?: string }): DeclarationPayload {
   return withDeclarationFields(
     {
       kind: 'SYMPTOME',
       occurredAt: input.today,
       severity: 'JAUNE',
-      title: PROBLEM_TITLE,
+      title: input.title ?? PROBLEM_TITLE,
       ...(input.count > 0 ? { quantity: Math.floor(input.count) } : {}),
     },
     { clinicalSigns: input.signs, suspicion: false },

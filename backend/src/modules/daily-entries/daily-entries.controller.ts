@@ -62,7 +62,8 @@ export class DailyEntriesController {
         `Saisie ${entry.id} enregistrée, conseils/alertes en échec : ${(err as Error).message}`,
       );
     }
-    return Object.assign(entry, { stockWarning });
+    const [shown] = await this.entriesService.withAuthor([entry]);
+    return Object.assign(shown, { stockWarning });
   }
 
   @Get()

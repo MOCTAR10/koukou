@@ -348,8 +348,19 @@ export interface ProductionBatch {
   closedAt?: string | null;
 }
 
+/**
+ * Marking of a record entered by a technical agent of the programme on behalf
+ * of the farmer (jury lot 5). All absent on an older server.
+ */
+export interface OnBehalfMark {
+  enteredOnBehalf?: boolean;
+  enteredByName?: string | null;
+  /** Profile of the agent (e.g. « Agent technique »). */
+  enteredByProfile?: string | null;
+}
+
 /** Saisie journalière existante (upsert par date côté serveur). */
-export interface DailyEntryRecord {
+export interface DailyEntryRecord extends OnBehalfMark {
   id: string;
   batchId: string;
   entryDate: string;
@@ -949,7 +960,7 @@ export type HealthEventStatus = 'OUVERT' | 'RESOLU';
 
 export type DiseaseSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
-export interface HealthEvent {
+export interface HealthEvent extends OnBehalfMark {
   id: string;
   farmId: string;
   batchId: string;

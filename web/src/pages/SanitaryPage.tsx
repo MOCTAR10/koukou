@@ -52,6 +52,7 @@ import { BarChart } from '../components/Charts';
 import { vetDecision } from '../components/flock/vetDecision';
 import { ConfirmModal, EditScheduleModal, HealthEventModal, PlanCareModal } from '../components/flock/SanitaryModals';
 import { CompleteCareModal } from '../components/flock/CompleteCareModal';
+import { DelegatedBadge } from '../components/flock/DelegatedEntry';
 import {
   EMPTY_PRODUCT_LIST_NOTE,
   REFERENCE_STEP_HINT,
@@ -106,8 +107,10 @@ const QUEUED_TREATMENT_MESSAGE = 'Traitement enregistré hors ligne : il sera en
 
 export function SanitaryPage() {
   const { farmId } = useFarm();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, canManageCare } = useFarmProfile();
   const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  // Planning a care: an agent technique only declares (jury lot 5), see `canManageCare`.
+  const canPlan = canManageCare();
   // The farm's lots are a TECHNIQUE route: a profile without it (the veterinary
   // services) picks its band from the SANITAIRE list instead.
   const canListLots = useCanRead()('TECHNIQUE');
@@ -191,9 +194,11 @@ export function SanitaryPage() {
               <Button tone="secondary" disabled={!lot} onClick={() => setReporting(true)}>
                 <Plus className="h-4 w-4" /> Signaler un événement
               </Button>
-              <Button disabled={active.length === 0} onClick={() => setPlanning(true)}>
-                <Syringe className="h-4 w-4" /> Planifier un soin
-              </Button>
+              {canPlan ? (
+                <Button disabled={active.length === 0} onClick={() => setPlanning(true)}>
+                  <Syringe className="h-4 w-4" /> Planifier un soin
+                </Button>
+              ) : null}
             </div>
           ) : undefined
         }
@@ -238,7 +243,7 @@ export function SanitaryPage() {
           {tab === 'traitements' ? <TreatmentsPanel lot={lot} period={period} /> : null}
         </>
       )}
-      {planning && canReport ? <PlanCareModal lots={active} initialLotId={lot?.id} onClose={() => setPlanning(false)} /> : null}
+      {planning && canPlan ? <PlanCareModal lots={active} initialLotId={lot?.id} onClose={() => setPlanning(false)} /> : null}
       {reporting && lot && canReport ? <HealthEventModal lot={lot} onClose={() => setReporting(false)} /> : null}
     </div>
   );
@@ -432,6 +437,7 @@ function EventsPanel({ lot, period, onAdd }: { lot: SanitaryLotRef; period: Peri
                       <span className="block text-xs text-slate-500">Vétérinaire consulté{e.vetName ? ` : ${e.vetName}` : ''}</span>
                     ) : null}
                     {e.notes ? <span className="block text-xs text-slate-500">{e.notes}</span> : null}
+                    {e.enteredOnBehalf ? <DelegatedBadge row={e} className="mt-1" /> : null}
                   </Td>
                   <Td label="Oiseaux">{e.quantity > 0 ? num(e.quantity, 0) : '—'}</Td>
                   <Td label="Gravité">
@@ -536,9 +542,10 @@ function CalendarPanel({
   onPlan: () => void;
 }) {
   const { farmId } = useFarm();
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, canManageCare } = useFarmProfile();
   const canManage = hasPermission('sanitaire:gerer');
-  const canReport = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  // Planning / completing a care (an agent technique only declares, jury lot 5).
+  const canReport = canManageCare();
   // POUFA lot A2 sante: a reference step is withdrawn by the vets (matrix), never by the farm.
   const isInstitution = useAuth().user?.role === 'INSTITUTION';
   const invalidate = useInvalidateFarm();
@@ -743,8 +750,8 @@ function CalendarPanel({
 
 function TreatmentsPanel({ lot, period }: { lot: SanitaryLotRef; period: Period }) {
   const { farmId } = useFarm();
-  const { hasPermission } = useFarmProfile();
-  const canRecord = hasPermission('sanitaire:gerer', 'sanitaire:signaler');
+  const { canManageCare } = useFarmProfile();
+  const canRecord = canManageCare();
   const invalidate = useInvalidateFarm();
   const idempotency = useIdempotencyKey('treatment');
   const [careFilter, setCareFilter] = useState<'all' | CareType>('all');

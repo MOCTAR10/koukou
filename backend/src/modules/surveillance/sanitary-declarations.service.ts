@@ -60,6 +60,10 @@ export interface SanitaryDeclarationView {
   status: string;
   createdAt: Date;
   createdByName: string | null;
+  /** Declared by an institutional account (agent technique) for the farm. */
+  enteredOnBehalf: boolean;
+  enteredByName: string | null;
+  enteredByProfile: string | null;
   photos: { id: string; mimeType: string; sizeBytes: number; createdAt: Date }[];
   /** Voice notes of the farmer (heard through the declaration's own route). */
   audio: {
@@ -279,6 +283,12 @@ const DECLARATION_COLUMNS = [
   'h.status AS "status"',
   'h."createdAt" AS "createdAt"',
   'c."fullName" AS "createdByName"',
+  // Jury lot 5: declared by an agent technique for the farm.
+  'h.entered_on_behalf AS "enteredOnBehalf"',
+  'CASE WHEN h.entered_on_behalf THEN c."fullName" END AS "enteredByName"',
+  `CASE WHEN h.entered_on_behalf THEN (SELECT ap.label FROM program_memberships pm
+     JOIN access_profiles ap ON ap.id = pm.profile_id
+     WHERE pm.user_id = h.created_by_id LIMIT 1) END AS "enteredByProfile"`,
   `COALESCE((SELECT json_agg(json_build_object('id', ph.id, 'mimeType', ph.mime_type, 'sizeBytes', ph.size_bytes, 'createdAt', ph.created_at) ORDER BY ph.created_at)
      FROM health_event_photos ph WHERE ph.health_event_id = h.id), '[]'::json) AS "photos"`,
   `COALESCE((SELECT json_agg(json_build_object('id', au.id, 'mimeType', au.mime_type, 'sizeBytes', au.size_bytes, 'durationMs', au.duration_ms, 'createdAt', au.created_at) ORDER BY au.created_at)
