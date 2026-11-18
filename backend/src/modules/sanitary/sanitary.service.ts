@@ -186,6 +186,9 @@ export class SanitaryService {
     });
     if (existing)
       throw new BadRequestException('Un protocole existe déjà avec ce code.');
+    for (const s of dto.steps) {
+      await this.checkVaccineCode(s.careType, s.vaccineCode);
+    }
     const protocol = await this.protocolRepo.save(
       this.protocolRepo.create({
         code,
@@ -1292,11 +1295,39 @@ export class SanitaryService {
           name: s.name,
           dosage: s.dosage ?? null,
           route: s.route ?? null,
+          vaccineCode: s.vaccineCode?.trim() || null,
           withdrawalDays: s.withdrawalDays ?? 0,
           active: true,
         }),
       );
     }
+  }
+
+  /**
+   * A step may name a vaccine of the active VACCIN list (catalogue of the
+   * veterinary services), and only when it is a vaccine step. Returns the
+   * trimmed code, or null when none is given.
+   */
+  async checkVaccineCode(
+    careType: CareType,
+    code: string | null | undefined,
+  ): Promise<string | null> {
+    const wanted = code?.trim();
+    if (!wanted) return null;
+    if (careType !== CareType.VACCIN) {
+      throw new BadRequestException(
+        'Un vaccin du catalogue ne s’associe qu’à un soin de type vaccin.',
+      );
+    }
+    const known = (await this.lists.list(ProgramListType.VACCIN)).some(
+      (i) => i.code === wanted,
+    );
+    if (!known) {
+      throw new BadRequestException(
+        `Vaccin inconnu ou désactivé : ${wanted}.`,
+      );
+    }
+    return wanted;
   }
 
   private slugify(name: string): string {

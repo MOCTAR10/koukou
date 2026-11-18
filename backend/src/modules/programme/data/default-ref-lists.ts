@@ -51,6 +51,18 @@ function legalText(
   return { code, label, meta: { date, articles, summary, ...(url ? { url } : {}) } };
 }
 
+/** A vaccine of the catalogue: `meta` read by the calendar step form. */
+function vaccine(
+  code: string,
+  label: string,
+  diseaseCodes: readonly string[],
+  kind: 'VIVANT' | 'INACTIVE',
+  route: string,
+  storage: string,
+): SeedRefItem {
+  return { code, label, meta: { diseaseCodes: [...diseaseCodes], kind, route, storage } };
+}
+
 export const DEFAULT_REF_LISTS: Readonly<
   Record<ProgramListType, readonly SeedRefItem[]>
 > = {
@@ -235,5 +247,20 @@ export const DEFAULT_REF_LISTS: Readonly<
       '',
       'Conditions d’exercice de la médecine et de la pharmacie vétérinaires.',
     ),
+  ],
+  [ProgramListType.VACCIN]: [
+    // Generic vaccine catalogue (disease targeted, type, route, storage): a
+    // Fermia proposal for the veterinary services to validate and complete,
+    // never a product list (no brand). Legal basis: décret n° 0190/PR/MAA du
+    // 5 août 2022 art. 8 (plan de prophylaxie sanitaire et médicale) and
+    // art. 17 (vétérinaire désigné); loi n° 001/2021 (médicaments vétérinaires,
+    // vaccins inclus). A calendar step points at an item by its code.
+    vaccine('MAREK', 'Vaccin contre la maladie de Marek', ['MAREK'], 'VIVANT', 'Injection sous-cutanée (couvoir)', 'Selon la notice du fabricant'),
+    vaccine('NEWCASTLE_VIVANT', 'Vaccin vivant contre la maladie de Newcastle', ['NEWCASTLE'], 'VIVANT', 'Eau de boisson, goutte oculaire ou nébulisation', 'Entre +2 °C et +8 °C'),
+    vaccine('NEWCASTLE_INACTIVE', 'Vaccin inactivé contre la maladie de Newcastle', ['NEWCASTLE'], 'INACTIVE', 'Injection sous-cutanée ou intramusculaire', 'Entre +2 °C et +8 °C'),
+    vaccine('BRONCHITE_INFECTIEUSE', 'Vaccin vivant contre la bronchite infectieuse', ['BRONCHITE_INFECTIEUSE'], 'VIVANT', 'Eau de boisson, goutte oculaire ou nébulisation', 'Entre +2 °C et +8 °C'),
+    vaccine('NEWCASTLE_BRONCHITE', 'Vaccin vivant combiné Newcastle + bronchite infectieuse', ['NEWCASTLE', 'BRONCHITE_INFECTIEUSE'], 'VIVANT', 'Goutte oculaire, nébulisation ou eau de boisson', 'Entre +2 °C et +8 °C'),
+    vaccine('GUMBORO', 'Vaccin vivant contre la maladie de Gumboro', ['GUMBORO'], 'VIVANT', 'Eau de boisson', 'Entre +2 °C et +8 °C'),
+    vaccine('VARIOLE_AVIAIRE', 'Vaccin vivant contre la variole aviaire', ['VARIOLE_AVIAIRE'], 'VIVANT', 'Transfixion alaire', 'Entre +2 °C et +8 °C'),
   ],
 };

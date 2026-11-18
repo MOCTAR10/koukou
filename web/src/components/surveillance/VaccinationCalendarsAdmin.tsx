@@ -6,7 +6,7 @@ import type { CalendarProtocol, CalendarStep, CareTypeCode, CreateCalendarBody }
 import { Button, ErrorNote, Field, FormColumns, Modal, inputCls } from '../form';
 import { CARE_TYPES, CARE_TYPE_LABEL, Note, Pill, SPECIES_LABEL, SectionCard, TYPE_LABEL } from '../flock/shared';
 import { DataTable, EmptyState, Loading, Td, Th } from '../ui';
-import { SURVEILLANCE_KEYS } from './queries';
+import { SURVEILLANCE_KEYS, useSanitaryList } from './queries';
 import { emptyStepForm, sharedCalendars, sortedSteps, stepBody, stepFormOf, stepProblem, type StepForm } from './settingsRules';
 
 const SPECIES = Object.keys(SPECIES_LABEL);
@@ -92,6 +92,10 @@ export function VaccinationCalendarsAdmin({ canCreate, canEdit }: { canCreate: b
 function StepFields({ form, onChange }: { form: StepForm; onChange: (f: StepForm) => void }) {
   const set = (patch: Partial<StepForm>) => onChange({ ...form, ...patch });
   const digits = (v: string) => v.replace(/\D/g, '');
+  const vaccines = useSanitaryList('VACCIN');
+  const items = vaccines.data ?? [];
+  // A vaccine deactivated since stays selectable on the step that already points at it.
+  const known = !form.vaccineCode || items.some((i) => i.code === form.vaccineCode);
   return (
     <div className="grid gap-3 sm:grid-cols-4">
       <Field label="Soin *" className="sm:col-span-2">
@@ -106,6 +110,27 @@ function StepFields({ form, onChange }: { form: StepForm; onChange: (f: StepForm
           ))}
         </select>
       </Field>
+      {form.careType === 'VACCIN' ? (
+        <Field label="Vaccin du catalogue" hint="Catalogue des vaccins des services vétérinaires (facultatif)." className="sm:col-span-2">
+          <select
+            className={inputCls}
+            value={form.vaccineCode}
+            onChange={(e) => {
+              const vaccineCode = e.target.value;
+              const label = items.find((i) => i.code === vaccineCode)?.label;
+              set({ vaccineCode, ...(label && !form.name.trim() ? { name: label } : {}) });
+            }}
+          >
+            <option value="">Aucun (texte libre)</option>
+            {!known ? <option value={form.vaccineCode}>{form.vaccineCode} (désactivé)</option> : null}
+            {items.map((i) => (
+              <option key={i.code} value={i.code}>
+                {i.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
       <Field label="Ordre *">
         <input className={inputCls} inputMode="numeric" value={form.stepOrder} onChange={(e) => set({ stepOrder: digits(e.target.value) })} />
       </Field>
@@ -240,6 +265,8 @@ function CalendarDetail({ id, canEdit, onClose }: { id: string; canEdit: boolean
       setEditingStep(null);
     },
   });
+  const vaccines = useSanitaryList('VACCIN');
+  const vaccineLabels = new Map((vaccines.data ?? []).map((i) => [i.code, i.label] as const));
   const p = detail.data;
   const steps = sortedSteps<CalendarStep>(p?.steps);
   const stepError = editingStep ? stepProblem(editingStep.form) : null;
@@ -306,7 +333,7 @@ function CalendarDetail({ id, canEdit, onClose }: { id: string; canEdit: boolean
                   <Button
                     busy={saveStep.isPending}
                     disabled={!!stepError}
-                    onClick={() => saveStep.mutate({ stepId: editingStep.id, body: stepBody(editingStep.form) })}
+                    onClick={() => saveStep.mutate({ stepId: editingStep.id, body: stepBody(editingStep.form, editingStep.id !== null) })}
                   >
                     <Check className="h-4 w-4" /> Enregistrer l’étape
                   </Button>
@@ -337,6 +364,7 @@ function CalendarDetail({ id, canEdit, onClose }: { id: string; canEdit: boolean
                         <span className={s.active ? 'font-medium' : 'text-slate-400 line-through'}>{s.name}</span>
                         <span className="block text-xs text-slate-500">
                           {CARE_TYPE_LABEL[s.careType] ?? s.careType}
+                          {s.vaccineCode ? ` · ${vaccineLabels.get(s.vaccineCode) ?? s.vaccineCode}` : ''}
                           {s.withdrawalDays > 0 ? ` · attente ${s.withdrawalDays} j` : ''}
                         </span>
                       </Td>

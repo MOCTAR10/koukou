@@ -449,6 +449,10 @@ function CatalogPanel({ readOnly = false }: { readOnly?: boolean }) {
   const [price, setPrice] = useState('');
   const [bagKg, setBagKg] = useState('');
   const [costMt, setCostMt] = useState('');
+  const [manufacturer, setManufacturer] = useState('');
+  const [protein, setProtein] = useState('');
+  const [energy, setEnergy] = useState('');
+  const [authorizedRef, setAuthorizedRef] = useState('');
 
   const add = useMutation({
     mutationFn: () =>
@@ -460,10 +464,18 @@ function CatalogPanel({ readOnly = false }: { readOnly?: boolean }) {
         defaultBagSizeKg: parseNum(bagKg),
         defaultUnitPriceFcfa: parseNum(price),
         defaultCostPerMtFcfa: parseNum(costMt),
+        manufacturer: manufacturer.trim() || undefined,
+        proteinPct: parseNum(protein),
+        energyKcalKg: parseNum(energy),
+        authorizedRef: authorizedRef.trim() || undefined,
       }),
     onSuccess: async () => {
       await invalidate();
       setName('');
+      setManufacturer('');
+      setProtein('');
+      setEnergy('');
+      setAuthorizedRef('');
       setSupplier('');
       setPrice('');
       setBagKg('');
@@ -495,6 +507,7 @@ function CatalogPanel({ readOnly = false }: { readOnly?: boolean }) {
                     <Th>Type</Th>
                     <Th>Phase</Th>
                     <Th>Fournisseur</Th>
+                    <Th>Fabricant</Th>
                     <Th>Prix</Th>
                     <Th>Sac</Th>
                     <Th>Statut</Th>
@@ -507,6 +520,7 @@ function CatalogPanel({ readOnly = false }: { readOnly?: boolean }) {
                       <Td label="Type">{entryLabel(p.entryType)}</Td>
                       <Td label="Phase">{phaseLabel(p.feedPhase)}</Td>
                       <Td label="Fournisseur">{p.supplier ?? '—'}</Td>
+                      <Td label="Fabricant">{p.manufacturer ?? '—'}</Td>
                       <Td label="Prix">
                         {p.entryType === 'BULKER'
                           ? p.defaultCostPerMtFcfa != null
@@ -565,7 +579,23 @@ function CatalogPanel({ readOnly = false }: { readOnly?: boolean }) {
             <Field label="Fournisseur">
               <input className={inputCls} value={supplier} onChange={(e) => setSupplier(e.target.value)} />
             </Field>
+            <Field label="Fabricant">
+              <input className={inputCls} value={manufacturer} onChange={(e) => setManufacturer(e.target.value)} maxLength={120} />
+            </Field>
+            <Field label="Protéine brute (%)">
+              <input className={inputCls} inputMode="decimal" value={protein} onChange={(e) => setProtein(e.target.value)} />
+            </Field>
+            <Field label="Énergie (kcal/kg)">
+              <input className={inputCls} inputMode="decimal" value={energy} onChange={(e) => setEnergy(e.target.value)} />
+            </Field>
+            <Field label="Agrément / autorisation du fabricant">
+              <input className={inputCls} value={authorizedRef} onChange={(e) => setAuthorizedRef(e.target.value)} maxLength={80} />
+            </Field>
           </div>
+          <p className="text-xs text-slate-500">
+            Facultatif. Les aliments et additifs doivent être autorisés et les délais d'attente respectés (décret n° 0190/PR/MAA du 5 août
+            2022, art. 19) : indiquez la référence d'autorisation du fabricant quand vous la connaissez.
+          </p>
           <ErrorNote error={add.error} />
           <Button type="submit" busy={add.isPending} disabled={!name.trim()}>
             <Plus className="h-4 w-4" /> Ajouter

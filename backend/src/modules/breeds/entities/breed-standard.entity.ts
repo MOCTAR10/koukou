@@ -36,6 +36,14 @@ export class BreedStandard {
   @Column({ name: 'target_lay_rate_percent', type: 'float', nullable: true })
   targetLayRatePercent: number | null;
 
+  /**
+   * Target feed per bird per day during the week, in grams. Derived from the
+   * weight and cumulative FCR targets (see `derive-daily-feed.ts`); editable
+   * through `PUT /breeds/:id/standards`. Indicative value, to be validated.
+   */
+  @Column({ name: 'target_daily_feed_g', type: 'float', nullable: true })
+  targetDailyFeedG: number | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

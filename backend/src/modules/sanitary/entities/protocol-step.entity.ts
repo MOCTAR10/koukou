@@ -38,6 +38,13 @@ export class ProtocolStep {
   @Column({ type: 'varchar', nullable: true })
   route: string | null;
 
+  /**
+   * Code of the VACCIN programme list (vaccine catalogue of the veterinary
+   * services) given by this step; null for free-text steps and non-vaccines.
+   */
+  @Column({ name: 'vaccine_code', type: 'varchar', length: 40, nullable: true })
+  vaccineCode: string | null;
+
   @Column({ name: 'withdrawal_days', type: 'int', default: 0 })
   withdrawalDays: number;
 

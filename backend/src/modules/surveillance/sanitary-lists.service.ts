@@ -23,6 +23,8 @@ export const SANITARY_LIST_TYPES: readonly ProgramListType[] = [
   // Disease catalogue and the legal texts it cites.
   ProgramListType.MALADIE,
   ProgramListType.TEXTE_REFERENCE,
+  // Vaccine catalogue the reference calendars point at.
+  ProgramListType.VACCIN,
 ];
 
 @Injectable()

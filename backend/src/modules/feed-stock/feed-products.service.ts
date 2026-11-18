@@ -57,6 +57,10 @@ export class FeedProductsService {
         defaultCostPerMtFcfa: dto.defaultCostPerMtFcfa ?? null,
         defaultCostPerBagFcfa: dto.defaultCostPerBagFcfa ?? null,
         supplier: dto.supplier ?? null,
+        manufacturer: dto.manufacturer?.trim() || null,
+        proteinPct: dto.proteinPct ?? null,
+        energyKcalKg: dto.energyKcalKg ?? null,
+        authorizedRef: dto.authorizedRef?.trim() || null,
         active: dto.active ?? true,
       }),
     );
@@ -111,6 +115,13 @@ export class FeedProductsService {
     if (dto.defaultCostPerBagFcfa !== undefined)
       patch.defaultCostPerBagFcfa = dto.defaultCostPerBagFcfa;
     if (dto.supplier !== undefined) patch.supplier = dto.supplier;
+    if (dto.manufacturer !== undefined)
+      patch.manufacturer = dto.manufacturer?.trim() || null;
+    if (dto.proteinPct !== undefined) patch.proteinPct = dto.proteinPct ?? null;
+    if (dto.energyKcalKg !== undefined)
+      patch.energyKcalKg = dto.energyKcalKg ?? null;
+    if (dto.authorizedRef !== undefined)
+      patch.authorizedRef = dto.authorizedRef?.trim() || null;
     if (dto.active !== undefined) patch.active = dto.active;
     return this.productRepo.save(this.productRepo.merge(product, patch));
   }

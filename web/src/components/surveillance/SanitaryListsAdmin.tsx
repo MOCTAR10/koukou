@@ -29,6 +29,8 @@ const LIST_HINTS: Record<SanitaryList, string> = {
   MALADIE:
     'Proposées dans la déclaration sanitaire. Une maladie à déclaration obligatoire (loi n° 2/65) ouvre d’office une alerte sanitaire officielle.',
   TEXTE_REFERENCE: 'Lois et décrets gabonais cités par les référentiels (maladies, prophylaxie, aliments).',
+  VACCIN:
+    'Catalogue générique des vaccins (maladie visée, type, voie, conservation), sans marque : proposition de Fermia à valider par les services vétérinaires. Les étapes des calendriers vaccinaux s’y rattachent.',
   STATUT_ALERTE: 'Statuts du circuit des alertes. La famille fixe le comportement : Nouvelle → En analyse → Confirmée ou Infirmée → Close.',
 };
 
@@ -58,13 +60,27 @@ const metaText = (item: RefItem, key: string): string => {
   return typeof value === 'string' ? value : '';
 };
 
-/** Second line of a row: the legal basis of a disease, or the summary of a text. */
+/** Second line of a row: the legal basis of a disease, the summary of a text, or what a vaccine is. */
 function ItemDetail({ list, item }: { list: SanitaryList; item: RefItem }) {
   if (list === 'MALADIE' && metaText(item, 'legalRef')) {
     return (
       <span className="block text-xs text-slate-500">
         {metaText(item, 'legalRef') === 'LOI_2_65' ? 'Loi n° 2/65, art. 1er' : metaText(item, 'legalRef')}
         {metaText(item, 'legalName') ? ` : « ${metaText(item, 'legalName')} »` : ''}
+      </span>
+    );
+  }
+  if (list === 'VACCIN') {
+    const kind = metaText(item, 'kind');
+    return (
+      <span className="block text-xs text-slate-500">
+        {[
+          kind === 'VIVANT' ? 'Vivant' : kind === 'INACTIVE' ? 'Inactivé' : '',
+          metaText(item, 'route'),
+          metaText(item, 'storage') ? `Conservation : ${metaText(item, 'storage')}` : '',
+        ]
+          .filter(Boolean)
+          .join(' — ')}
       </span>
     );
   }

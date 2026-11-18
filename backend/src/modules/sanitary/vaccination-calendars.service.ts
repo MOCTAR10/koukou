@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
+import { CareType } from '../../common/enums/care-type.enum.js';
 import { DataSource, IsNull, Not } from 'typeorm';
 import type { ProtocolStepInput } from './dto/create-protocol.dto.js';
 import type {
@@ -62,6 +63,10 @@ export class VaccinationCalendarsService {
   async addStep(id: string, step: ProtocolStepInput): Promise<CalendarView> {
     const protocol = await this.shared(id);
     this.checkWindow(step.dayFrom, step.dayTo);
+    const vaccineCode = await this.sanitary.checkVaccineCode(
+      step.careType,
+      step.vaccineCode,
+    );
     const repo = this.dataSource.getRepository(ProtocolStep);
     await repo.save(
       repo.create({
@@ -73,6 +78,7 @@ export class VaccinationCalendarsService {
         name: step.name,
         dosage: step.dosage ?? null,
         route: step.route ?? null,
+        vaccineCode,
         withdrawalDays: step.withdrawalDays ?? 0,
         active: true,
       }),
@@ -102,6 +108,18 @@ export class VaccinationCalendarsService {
       step.withdrawalDays = dto.withdrawalDays;
     }
     if (dto.active !== undefined) step.active = dto.active;
+    if (dto.vaccineCode !== undefined) {
+      // Checked against the active list only when it changes: a vaccine
+      // deactivated since stays on the steps already pointing at it.
+      step.vaccineCode = await this.sanitary.checkVaccineCode(
+        step.careType,
+        dto.vaccineCode,
+      );
+    } else if (step.vaccineCode && step.careType !== CareType.VACCIN) {
+      throw new BadRequestException(
+        'Un vaccin du catalogue ne s’associe qu’à un soin de type vaccin : retirez d’abord le vaccin de l’étape.',
+      );
+    }
     this.checkWindow(step.dayFrom, step.dayTo);
     await repo.save(step);
     return this.sanitary.findProtocol(protocol.id, null);

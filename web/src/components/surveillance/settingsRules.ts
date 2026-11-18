@@ -7,7 +7,7 @@ import type { CalendarStep, CalendarStepBody, CareTypeCode } from '../../api/typ
  * (`ref-item.dto.ts`, `sanitary-lists.service.ts`, `vaccination-calendars.service.ts`).
  */
 
-export const SANITARY_LISTS = ['SIGNE_CLINIQUE', 'MALADIE', 'PRODUIT_TRAITEMENT', 'STATUT_ALERTE', 'TEXTE_REFERENCE'] as const;
+export const SANITARY_LISTS = ['SIGNE_CLINIQUE', 'MALADIE', 'PRODUIT_TRAITEMENT', 'STATUT_ALERTE', 'VACCIN', 'TEXTE_REFERENCE'] as const;
 export type SanitaryList = (typeof SANITARY_LISTS)[number];
 
 export const SANITARY_LIST_LABELS: Readonly<Record<SanitaryList, string>> = {
@@ -16,6 +16,7 @@ export const SANITARY_LIST_LABELS: Readonly<Record<SanitaryList, string>> = {
   STATUT_ALERTE: 'Statuts des alertes',
   MALADIE: 'Maladies',
   TEXTE_REFERENCE: 'Textes de référence',
+  VACCIN: 'Vaccins',
 };
 
 /** Families of STATUT_ALERTE (`ref-list-families.ts`); the other two lists take none. */
@@ -103,11 +104,13 @@ export interface StepForm {
   name: string;
   dosage: string;
   route: string;
+  /** Code of the VACCIN list item; '' = free-text step. */
+  vaccineCode: string;
   withdrawalDays: string;
 }
 
 export function emptyStepForm(order: number): StepForm {
-  return { stepOrder: String(order), dayFrom: '', dayTo: '', careType: 'VACCIN', name: '', dosage: '', route: '', withdrawalDays: '0' };
+  return { stepOrder: String(order), dayFrom: '', dayTo: '', careType: 'VACCIN', name: '', dosage: '', route: '', vaccineCode: '', withdrawalDays: '0' };
 }
 
 export function stepFormOf(step: CalendarStep): StepForm {
@@ -119,6 +122,7 @@ export function stepFormOf(step: CalendarStep): StepForm {
     name: step.name,
     dosage: step.dosage ?? '',
     route: step.route ?? '',
+    vaccineCode: step.vaccineCode ?? '',
     withdrawalDays: String(step.withdrawalDays ?? 0),
   };
 }
@@ -136,7 +140,12 @@ export function stepProblem(form: StepForm): string | null {
   return null;
 }
 
-export function stepBody(form: StepForm): CalendarStepBody {
+/**
+ * Body of a step. The vaccine only goes with a vaccine step; `editing` sends
+ * `vaccineCode: null` when there is none, so a PATCH removes a previous one.
+ */
+export function stepBody(form: StepForm, editing = false): CalendarStepBody {
+  const vaccineCode = form.careType === 'VACCIN' ? form.vaccineCode.trim() : '';
   return {
     stepOrder: intOf(form.stepOrder) ?? 0,
     dayFrom: intOf(form.dayFrom) ?? 0,
@@ -145,6 +154,7 @@ export function stepBody(form: StepForm): CalendarStepBody {
     name: form.name.trim(),
     ...(form.dosage.trim() ? { dosage: form.dosage.trim() } : {}),
     ...(form.route.trim() ? { route: form.route.trim() } : {}),
+    ...(vaccineCode ? { vaccineCode } : editing ? { vaccineCode: null } : {}),
     withdrawalDays: intOf(form.withdrawalDays || '0') ?? 0,
   };
 }

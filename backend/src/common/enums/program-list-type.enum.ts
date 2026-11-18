@@ -29,4 +29,11 @@ export enum ProgramListType {
    * `meta.date`, `meta.articles`, `meta.summary`, `meta.url`.
    */
   TEXTE_REFERENCE = 'TEXTE_REFERENCE',
+  /**
+   * Vaccine catalogue of the veterinary services (generic products, no brand):
+   * `meta.diseaseCodes` (MALADIE codes), `meta.kind` (VIVANT | INACTIVE),
+   * `meta.route`, `meta.storage`. A calendar step points at an item through
+   * `protocol_steps.vaccine_code`.
+   */
+  VACCIN = 'VACCIN',
 }

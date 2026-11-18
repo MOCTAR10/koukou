@@ -35,6 +35,7 @@ import { classNames, dateFr, num } from '../../lib/format';
 import { Button, ErrorNote, Field, FormColumns, inputCls, Modal, DateInput } from '../form';
 import { EmptyState, Loading, PhotoThumb } from '../ui';
 import { ageWeek, estimateDailyFeed } from './feedRecommendation';
+import { feedPhaseAt, useItinerary, type ItineraryStep } from './itinerary';
 import {
   EGGS_PER_ALVEOL,
   FEED_PHASE_LABEL,
@@ -55,8 +56,14 @@ const BAG_SIZES = [10, 25, 40, 50];
 const WATER_LO = 1.8;
 const WATER_HI = 2.6;
 
-/** Feed phase advised at `age` (the birds' age on the entry's day). */
-function suggestedPhase(b: Lot, age: number): string {
+/**
+ * Feed phase advised at `age` (the birds' age on the entry's day): the
+ * server's technical itinerary when it was read, else the built-in mapping
+ * below (offline fallback).
+ */
+function suggestedPhase(b: Lot, age: number, steps?: readonly ItineraryStep[]): string {
+  const fromServer = steps && steps.length > 0 ? feedPhaseAt(steps, age) : null;
+  if (fromServer && phasesFor(b).includes(fromServer)) return fromServer;
   if (age <= 10) return 'POUSSIN';
   if (age <= 24) return 'DEMARRAGE';
   if (b.type === 'PONDEUSE') {
@@ -223,8 +230,11 @@ function EntryForm({
   const ageDays = lotAgeOn(lot, date, localYmd());
   const existing = entries.find((e) => e.entryDate.slice(0, 10) === date) ?? null;
   const allowedPhases = phasesFor(lot);
-  const defaultPhase =
-    existing?.feedPhase && allowedPhases.includes(existing.feedPhase) ? existing.feedPhase : suggestedPhase(lot, ageDays);
+  const itinerary = useItinerary(lot.species, lot.type);
+  const itinerarySteps = itinerary.data;
+  const keepsSavedPhase = !!existing?.feedPhase && allowedPhases.includes(existing.feedPhase);
+  const suggested = suggestedPhase(lot, ageDays, itinerarySteps);
+  const defaultPhase = keepsSavedPhase && existing?.feedPhase ? existing.feedPhase : suggested;
 
   const defaultBag = existing?.bagSizeKg ?? farm?.defaultSacKg ?? 50;
   const [deaths, setDeaths] = useState(str(existing?.deaths));
@@ -235,6 +245,14 @@ function EntryForm({
   );
   const [bagSize, setBagSize] = useState(String(defaultBag));
   const [phase, setPhase] = useState(defaultPhase);
+  // The itinerary may arrive after the form opened: follow the new suggestion
+  // unless the user (or a saved entry) already chose another phase.
+  const lastSuggested = useRef(suggested);
+  useEffect(() => {
+    if (suggested === lastSuggested.current) return;
+    if (!keepsSavedPhase && phase === lastSuggested.current) setPhase(suggested);
+    lastSuggested.current = suggested;
+  }, [suggested, keepsSavedPhase, phase]);
   const [customPhase, setCustomPhase] = useState(existing?.customFeedPhaseName ?? '');
   const [source, setSource] = useState(
     existing?.skipStockDeduction ? 'externe' : (existing?.inputLotId ?? 'auto'),
@@ -492,7 +510,7 @@ function EntryForm({
               </Field>
             </>
           )}
-          <Field label="Phase d'alimentation" hint={`Conseillée à J${ageDays} : ${FEED_PHASE_LABEL[suggestedPhase(lot, ageDays)]}`}>
+          <Field label="Phase d'alimentation" hint={`Conseillée à J${ageDays} : ${FEED_PHASE_LABEL[suggested]}`}>
             <select
               className={inputCls}
               value={phase}
