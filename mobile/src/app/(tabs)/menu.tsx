@@ -4,8 +4,6 @@ import { useRouter, type Href } from 'expo-router';
 import type { LucideIcon } from 'lucide-react-native';
 import {
   Activity,
-  Bird,
-  BookOpen,
   Briefcase,
   ChevronRight,
   ClipboardCheck,
@@ -15,7 +13,6 @@ import {
   HandCoins,
   Handshake,
   Landmark,
-  ListTodo,
   MapPin,
   ReceiptText,
   Settings,
@@ -32,10 +29,11 @@ import { Screen } from '@/components/ui/Screen';
 import { AppText } from '@/components/ui/AppText';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { ConnectionPill } from '@/components/ui/ConnectionStrip';
-import { color, layout, palette, radii, semantic } from '@/constants/theme';
+import { layout, palette, radii, semantic } from '@/constants/theme';
 import { useAuth } from '@/auth/AuthContext';
 import { useFarmProfile } from '@/hooks/useFarmProfile';
-import { useQuickCapture } from '@/components/capture/QuickCaptureProvider';
+import { useUiMode } from '@/hooks/useUiMode';
+import { SimpleMe } from '@/components/simple/SimpleMe';
 import { confirmRejectedGps, dismissRejected, GPS_OUTSIDE_PROVINCE, useOfflineQueue, type RejectedOp } from '@/offline';
 import { OutsideProvinceSheet } from '@/components/farm/OutsideProvinceSheet';
 import { HeldCashNotice } from '@/components/HeldCashNotice';
@@ -96,93 +94,18 @@ const ADMIN_TINT = { iconColor: palette.ink[600], iconBg: semantic.surfaceAlt };
 
 const ICON = 24;
 
-function GroundHome() {
-  const router = useRouter();
-  const { openDaily, openSale } = useQuickCapture();
-
-  const primary = [
-    {
-      key: 'daily',
-      label: 'Saisie du jour',
-      sub: 'Morts, aliments, eau, poids',
-      icon: <BookOpen size={26} color={color.green[600]} />,
-      bg: color.green[50],
-      onPress: () => openDaily(),
-    },
-    {
-      key: 'tasks',
-      label: 'Mes tâches',
-      sub: 'Travail assigné de l’équipe',
-      icon: <ListTodo size={26} color={color.amber[600]} />,
-      bg: color.amber[50],
-      onPress: () => router.push('/tasks'),
-    },
-    {
-      key: 'sell',
-      label: 'Vendre',
-      sub: 'POS espèces — encaisser',
-      icon: <HandCoins size={26} color={color.accent[600]} />,
-      bg: color.accent[50],
-      onPress: () => openSale(),
-    },
-  ];
-
-  const poufa = usePoufaMenuItems();
-  const links: MenuItem[] = [
-    { key: 'profil', label: 'Profil & réglages', icon: User, href: '/reglages' },
-    { key: 'lots', label: 'Mes lots', icon: Bird, href: '/lots' },
-    ...poufa.deliveries,
-    ...poufa.visits,
-  ];
-
-  return (
-    // Même bas d'écran qu'Accueil : `Screen` gère le défilement et réserve le
-    // padding sous la dernière ligne, donc rien ne passe derrière la barre.
-    <Screen bottomPad={layout.bottomPad}>
-      <MenuHeader eyebrow="TERRAIN" title="Mon terrain" subtitle="Saisie du jour, vos tâches et les ventes au comptoir." />
-
-      <View style={styles.grid}>
-        {primary.map((a) => (
-          <Pressable
-            key={a.key}
-            onPress={a.onPress}
-            style={({ pressed }) => [styles.tile, styles.primaryTile, pressed && styles.tilePressed]}
-            accessibilityRole="button"
-            accessibilityLabel={a.label}>
-            <View style={[styles.tileIcon, { backgroundColor: a.bg }]}>{a.icon}</View>
-            <View style={styles.tileCol}>
-              <AppText size="bodyM" weight="semibold" color="text" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-                {a.label}
-              </AppText>
-              <AppText size="small" color="muted" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-                {a.sub}
-              </AppText>
-            </View>
-            <ChevronRight size={18} color={palette.ink[300]} />
-          </Pressable>
-        ))}
-      </View>
-
-      <SectionHeader title="Comptes & suivi" subtitle="Profil et bandes en cours" icon={Settings} />
-      <View style={styles.group}>
-        {links.map((item, i) => (
-          <MenuTile key={item.key} item={item} first={i === 0} tint={semantic.primary} soft={semantic.primarySoft} onPress={() => router.push(item.href)} />
-        ))}
-      </View>
-    </Screen>
-  );
-}
-
 export default function MenuScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { isGroundEleveur, hasPermission } = useFarmProfile();
+  const { hasPermission } = useFarmProfile();
+  const { simple } = useUiMode();
   const poufa = usePoufaMenuItems();
   // POUFA lot A2 dge: the institution's matrix opens the stock, slaughter and sanitary tiles.
   const programmeMatrix = useProgrammeAccess().matrix;
 
-  if (isGroundEleveur) {
-    return <GroundHome />;
+  // SIMPLE accounts: only « Moi » (profile, connection, voice, logout); the full menu is not reachable.
+  if (simple) {
+    return <SimpleMe />;
   }
 
   const groups: MenuGroup[] = [
@@ -545,12 +468,6 @@ const styles = StyleSheet.create({
   section: {
     marginTop: 4,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
   // Chaque section est une carte groupée : lignes séparées par un filet,
   // icône dans une pastille de la couleur du domaine, libellé sur UNE ligne.
   group: {
@@ -572,15 +489,6 @@ const styles = StyleSheet.create({
   tileSep: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: semantic.border,
-  },
-  // Actions principales du terrain : cartes autonomes avec sous-titre.
-  primaryTile: {
-    width: '100%',
-    minHeight: 64,
-    backgroundColor: semantic.surface,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: semantic.border,
   },
   tilePressed: {
     backgroundColor: semantic.surfaceAlt,

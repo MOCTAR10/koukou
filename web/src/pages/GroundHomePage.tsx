@@ -1,8 +1,11 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { Bird, BookOpen, HandCoins, ListTodo, Tractor, User } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bird, BookOpen, HandCoins, LayoutGrid, ListTodo, Tractor, User } from 'lucide-react';
+import { api } from '../api/client';
 import { useFarmProfile } from '../app/useFarmProfile';
 import { DailyEntryModal } from '../components/flock/DailyEntryModal';
+import { Button, ErrorNote } from '../components/form';
 import { Card, IconTile, PageHeader, type IconTone } from '../components/ui';
 
 function Tile({ icon, tone, label, sub }: { icon: ReactNode; tone: IconTone; label: string; sub: string }) {
@@ -19,8 +22,18 @@ function Tile({ icon, tone, label, sub }: { icon: ReactNode; tone: IconTone; lab
 
 /** Landing page of a field account (mobile's GroundHome): the daily actions, nothing else. */
 export function GroundHomePage() {
-  const { hasPermission } = useFarmProfile();
+  const { hasPermission, isSimpleMode, canChangeOwnUiMode } = useFarmProfile();
   const [entering, setEntering] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  // The owner may leave the simple mode himself; staff are switched by the owner or the technical agent.
+  const goComplete = useMutation({
+    mutationFn: () => api.patch('/auth/me/ui-mode', { uiMode: 'COMPLET' }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['farm-profile'] });
+      navigate('/app/dashboard');
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -57,6 +70,15 @@ export function GroundHomePage() {
           </Link>
         </div>
       </div>
+
+      {isSimpleMode && canChangeOwnUiMode ? (
+        <div className="space-y-2">
+          <ErrorNote error={goComplete.error} />
+          <Button tone="secondary" busy={goComplete.isPending} onClick={() => goComplete.mutate()}>
+            <LayoutGrid className="h-4 w-4" /> Passer en mode complet
+          </Button>
+        </div>
+      ) : null}
 
       {entering ? <DailyEntryModal onClose={() => setEntering(false)} /> : null}
     </div>

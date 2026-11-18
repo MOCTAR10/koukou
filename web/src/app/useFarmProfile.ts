@@ -22,6 +22,13 @@ export function useFarmProfile() {
   // No farm at all once the list has answered is not "loading": it must not hang the UI.
   const pending = !profile && (query.isLoading || (!farmId && (farmsLoading || farms.length > 0)));
   const hasAll = profile?.permissions.includes('*') === true;
+  const accountActive = profile?.active !== false;
+  // Simple display mode (jury lot 3): pictograms and data entry only. Only the exploitant
+  // and the staff have one; the server answers COMPLET for institutions and the platform admin.
+  const isSimpleMode =
+    accountActive && (profile?.role === 'PROPRIETAIRE' || profile?.role === 'ELEVEUR') && profile.uiMode === 'SIMPLE';
+  // A server older than the display mode sends none: every Éleveur keeps the ground home.
+  const legacyGround = profile?.role === 'ELEVEUR' && accountActive && profile.uiMode === undefined;
 
   /** True when the account holds at least one of the codes. */
   function hasPermission(...codes: string[]): boolean {
@@ -36,8 +43,17 @@ export function useFarmProfile() {
     isLoading: pending,
     // Same as hasPermission and mobile: an unreadable profile doesn't take rights away.
     isOwner: profile?.role === 'PROPRIETAIRE' || (!profile && !pending),
-    /** Field account: replaces the owner's home with the daily actions, as on mobile. */
-    isGroundEleveur: profile?.role === 'ELEVEUR' && profile.active !== false,
+    /**
+     * Field account (« Mon terrain » as landing page): any account in Simple mode (owner or staff),
+     * and every Éleveur of a server without display mode.
+     */
+    isGroundEleveur: isSimpleMode || legacyGround,
+    /** Simple mode: the menu is reduced to « Mon terrain » (staff and owner alike). */
+    isSimpleMode,
+    /** « Mon terrain » stays in the menu of an Éleveur who moved to Complet. */
+    hasGroundHome: isSimpleMode || legacyGround || (profile?.role === 'ELEVEUR' && accountActive),
+    /** The owner (and the platform admin) change their own display mode; staff do not. */
+    canChangeOwnUiMode: profile?.canChangeOwnUiMode === true,
     hasPermission,
   };
 }

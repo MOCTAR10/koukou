@@ -1,4 +1,4 @@
-import type { Farm, PublicUser } from './types';
+import type { Farm, PublicUser, UiMode } from './types';
 
 export type TaskStatus = 'A_FAIRE' | 'EN_COURS' | 'FAIT' | 'ANNULEE';
 
@@ -66,7 +66,7 @@ export interface FarmMember {
   endDate: string | null;
   salaryFcfa: number | null;
   notes: string | null;
-  user: Omit<PublicUser, 'active'>;
+  user: Omit<PublicUser, 'active'> & { uiMode?: UiMode };
 }
 
 export interface PermissionGroup {
@@ -97,6 +97,10 @@ export interface FarmMemberProfile {
   buildingAssignment: string | null;
   active: boolean;
   permissions: string[];
+  /** Own display mode (optional: an older cached answer lacks it). INSTITUTION and platform admin: always COMPLET. */
+  uiMode?: UiMode;
+  /** True for the farm owner and the platform admin, false for staff. */
+  canChangeOwnUiMode?: boolean;
 }
 
 export interface BuildingOption {

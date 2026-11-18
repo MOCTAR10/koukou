@@ -54,6 +54,7 @@ import { cachedRead } from '@/offline/ref-cache';
 import { withEntryBase } from '@/poufa/entry-sync';
 import { defaultSampleSize, sampleSizeRefusal, sampleTip } from '@/poufa/weighing';
 import { hasUserInput, shouldApplyPrefill } from './prefill';
+import { normalizePhase, phasesForLot, suggestedPhaseFor } from './feed-phase';
 import { errorText } from '@/api/errorText';
 
 interface DailyEntrySheetProps {
@@ -105,31 +106,6 @@ const STEPS: StepDef[] = [
   { key: 'poids', label: 'Poids', icon: <Scale size={15} color={palette.green[600]} strokeWidth={2.3} /> },
 ];
 
-/** Phase conseillée selon l'âge du lot (même logique que la création de lot). */
-function suggestedPhaseFor(b: BatchWithMetrics | undefined): FeedPhase {
-  if (!b) return 'DEMARRAGE';
-  const age = b.metrics.ageDays;
-  if (b.type === 'PONDEUSE') {
-    if (age <= 10) return 'POUSSIN';
-    if (age <= 24) return 'DEMARRAGE';
-    if (age <= 112) return 'CROISSANCE';
-    if (age <= 126) return 'PRE_PONTE';
-    return 'PONTE_PHASE_1';
-  }
-  if (age <= 10) return 'POUSSIN';
-  if (age <= 24) return 'DEMARRAGE';
-  if (age <= 35) return 'CROISSANCE';
-  return 'FINITION';
-}
-
-/** Phases pertinentes pour le type de lot (au lieu des 9 d'office). */
-function phasesForLot(b: BatchWithMetrics | undefined): FeedPhase[] {
-  if (!b) return ['DEMARRAGE'];
-  return b.type === 'PONDEUSE'
-    ? ['POUSSIN', 'DEMARRAGE', 'CROISSANCE', 'PRE_PONTE', 'PONTE_PHASE_1', 'PONTE_PHASE_2', 'PONTE_PHASE_3', 'PERSONNALISE']
-    : ['POUSSIN', 'DEMARRAGE', 'CROISSANCE', 'FINITION', 'PERSONNALISE'];
-}
-
 /** Date locale YYYY-MM-DD (sans décalage UTC). */
 function fmtLocalDate(d: Date): string {
   const y = d.getFullYear();
@@ -157,11 +133,6 @@ function utcDaysBetween(fromDate: string, toDate: string): number {
   const [fy, fm, fd] = fromDate.split('-').map(Number);
   const [ty, tm, td] = toDate.split('-').map(Number);
   return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
-}
-
-/** Borne les phases à celle du lot quand la phase saisie n'existe plus. */
-function normalizePhase(phase: FeedPhase | null | undefined, allowed: FeedPhase[]): FeedPhase | null {
-  return phase && allowed.includes(phase) ? phase : null;
 }
 
 // ── Sous-composants ──────────────────────────────────────────────────────

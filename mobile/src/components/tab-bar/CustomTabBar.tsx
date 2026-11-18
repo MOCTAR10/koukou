@@ -16,6 +16,8 @@ import { AppText } from '../ui/AppText';
 import { useAuth } from '@/auth/AuthContext';
 import { useOfflineQueue } from '@/offline';
 import { useCreateCenter } from '../create/CreateCenter';
+import { SimpleTabBar } from '../simple/SimpleTabBar';
+import { useUiMode } from '@/hooks/useUiMode';
 import { color, palette, shadow, semantic } from '@/constants/theme';
 
 type TabRoute = { key: string; name: string };
@@ -88,7 +90,13 @@ function pillShapePath(W: number, R: number, H: number, cx: number, nr: number):
   ].join(' ');
 }
 
-export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
+/** SIMPLE accounts get two big tabs (Accueil, Moi); everyone else the full bar with the « + » menu. */
+export function CustomTabBar(props: CustomTabBarProps) {
+  const { simple } = useUiMode();
+  return simple ? <SimpleTabBar {...props} /> : <FullTabBar {...props} />;
+}
+
+function FullTabBar({ state, navigation }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { farmId } = useAuth();
   const { openCreateMenu } = useCreateCenter();

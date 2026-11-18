@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { CustomerType } from '../../common/enums/customer-type.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { UiMode } from '../../common/enums/ui-mode.enum.js';
 import { BuyerProfile } from '../users/entities/buyer-profile.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { LoginFailure } from './entities/login-failure.entity.js';
@@ -99,6 +101,21 @@ export class AuthService {
       ['userId'],
     );
     return this.getBuyerProfile(user);
+  }
+
+  /**
+   * The caller changes his own display mode. Only the exploitant and the
+   * platform admin may: the staff's mode is set by the farm's owner, an
+   * administrator of the team or the technical agent.
+   */
+  async setOwnUiMode(user: AuthUser, uiMode: UiMode): Promise<{ uiMode: UiMode }> {
+    if (user.role !== UserRole.PROPRIETAIRE && user.role !== UserRole.PLATFORM_ADMIN) {
+      throw new ForbiddenException(
+        'Ce réglage est fait par le responsable de la ferme ou par l’agent technique.',
+      );
+    }
+    await this.usersRepo.update({ id: user.id }, { uiMode });
+    return { uiMode };
   }
 
   async login(dto: LoginDto, clientIp?: string) {

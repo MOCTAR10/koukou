@@ -1,4 +1,5 @@
 /** Programme layer (POUFA): lists and registry shapes shared by the screens. */
+import type { UiMode } from './types';
 
 /** An item of a programme list (`GET /programme/lists/:listType`). */
 export interface RefItem {
@@ -115,7 +116,7 @@ export interface RegistrySheet {
   amiRef: string | null;
   cohort: { code: string; label: string } | null;
   exploitant: { name: string | null; phone: string | null };
-  owner: { id: string; fullName: string; phone: string } | null;
+  owner: { id: string; fullName: string; phone: string; uiMode?: UiMode } | null;
   hasOwnerAccount: boolean;
   capacityPlaces: number | null;
   occupation: { chicksPlaced: number; capacityPlaces: number | null; ratePct: number | null };
@@ -324,6 +325,7 @@ export interface TeamMemberRow {
   userId: string;
   fullName: string;
   phone: string | null;
+  uiMode?: UiMode;
   /** FarmStaffRole: ADMIN (administrateur de ferme) or ELEVEUR (membre). */
   role: 'ADMIN' | 'ELEVEUR';
   permissions: string[] | null;

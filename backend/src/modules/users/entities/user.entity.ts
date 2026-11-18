@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from '../../../common/enums/role.enum.js';
+import { UiMode } from '../../../common/enums/ui-mode.enum.js';
 
 @Entity('users')
 export class User {
@@ -29,6 +30,14 @@ export class User {
 
   @Column({ default: true })
   active: boolean;
+
+  /**
+   * Display mode (SIMPLE = pictograms and data entry only). Column default
+   * COMPLET so buyers, institutions and admins are unaffected; programme
+   * exploitants and their ELEVEUR staff are created SIMPLE.
+   */
+  @Column({ name: 'ui_mode', type: 'enum', enum: UiMode, default: UiMode.COMPLET })
+  uiMode: UiMode;
 
   /** Consecutive failed logins since the last success (account lockout). */
   @Column({ name: 'failed_logins', type: 'int', default: 0 })

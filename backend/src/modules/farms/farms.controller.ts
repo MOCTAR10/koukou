@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UploadedFile,
@@ -29,7 +30,8 @@ import type { UploadedImageFile } from './farms.service.js';
 import { CreateElevageDto } from './dto/create-eleveur.dto.js';
 import { UpdateEleveurDto } from './dto/update-eleveur.dto.js';
 import { UpdateFarmSettingsDto } from './dto/update-farm-settings.dto.js';
-import { Domain } from '../../common/decorators/domain.decorator.js';
+import { Action, AlsoGrantedBy, Domain } from '../../common/decorators/domain.decorator.js';
+import { SetUiModeDto } from '../users/dto/ui-mode.dto.js';
 
 @ApiTags('Fermes')
 @Domain('REGISTRE')
@@ -158,6 +160,28 @@ export class FarmsController {
   ) {
     await this.farmsService.assertAccessible(owner, farmId);
     return this.farmsService.listEmployees(owner, farmId);
+  }
+
+  // Display mode of a person of the farm. No @Permissions: the farm ADMIN's
+  // `equipe:gerer` is checked in the service, since an institution (agent
+  // technique: TECHNIQUE:VALIDER, or ADMINISTRATION:ADMINISTRER) has no farm code
+  // for it and must pass the guard through the matrix instead.
+  @Patch(':farmId/members/:userId/ui-mode')
+  @Domain('ADMINISTRATION')
+  @Action('ADMINISTRER')
+  @AlsoGrantedBy(['TECHNIQUE', 'VALIDER'])
+  @Roles(UserRole.PLATFORM_ADMIN, UserRole.PROPRIETAIRE, UserRole.ELEVEUR)
+  @ApiOperation({
+    summary:
+      'Régler le mode d’affichage (SIMPLE | COMPLET) d’une personne de la ferme : responsable, administrateur d’équipe, agent technique',
+  })
+  setMemberUiMode(
+    @CurrentUser() user: AuthUser,
+    @Param('farmId') farmId: string,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: SetUiModeDto,
+  ) {
+    return this.farmsService.setMemberUiMode(user, farmId, userId, dto.uiMode);
   }
 
   @Get(':farmId/me')

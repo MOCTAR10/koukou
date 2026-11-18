@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { createElement, useState, type FormEvent } from 'react';
 import { api } from '../../api/client';
+import type { UiMode } from '../../api/types';
 import { useFarmProfile } from '../../app/useFarmProfile';
 import type {
   BuildingOption,
@@ -30,6 +31,7 @@ import type {
 import { classNames } from '../../lib/format';
 import { isGabonPhoneValid, normalizeGabonPhone } from '../../lib/phone';
 import { Button, ErrorNote, Field, inputCls, Modal, DateInput } from '../form';
+import { UiModePicker } from './UiModePicker';
 import { ConfirmModal, CONTRACT_LABEL, CONTRACT_TYPES, invalidateFarm, Pill, STAFF_ROLE_LABEL } from './shared';
 
 /** Same icon per permission group as the mobile settings screen. */
@@ -112,6 +114,9 @@ export function MemberFormModal({
   const [hrOpen, setHrOpen] = useState(hrFilled);
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmSuspend, setConfirmSuspend] = useState(false);
+  // Display mode of an existing member (an older server does not send it: Simple for an Éleveur).
+  const [initialUiMode] = useState<UiMode>(member?.user.uiMode ?? (member?.role === 'ADMIN' ? 'COMPLET' : 'SIMPLE'));
+  const [uiMode, setUiMode] = useState<UiMode>(initialUiMode);
 
   const applyProfile = (p: StaffProfile) => {
     const custom = p.key === CUSTOM_KEY;
@@ -159,6 +164,7 @@ export function MemberFormModal({
         if (active !== member.active) body.active = active;
         if (salaryFcfa !== member.salaryFcfa) body.salaryFcfa = salaryFcfa;
         await api.patch(`/farms/${farmId}/eleveurs/${member.id}`, body);
+        if (uiMode !== initialUiMode) await api.patch(`/farms/${farmId}/members/${member.userId}/ui-mode`, { uiMode });
         return `Membre « ${member.user.fullName} » mis à jour.`;
       }
       await api.post(`/farms/${farmId}/eleveurs`, {
@@ -299,6 +305,13 @@ export function MemberFormModal({
               <span className="block text-xs text-slate-500">Désactivé, le membre ne peut plus accéder à la ferme.</span>
             </span>
           </label>
+        ) : null}
+
+        {member ? (
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-600">Mode d’affichage</p>
+            <UiModePicker value={uiMode} onChange={setUiMode} disabled={save.isPending} />
+          </div>
         ) : null}
 
         {role === 'ADMIN' ? (

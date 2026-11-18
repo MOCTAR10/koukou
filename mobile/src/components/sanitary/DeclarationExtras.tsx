@@ -22,6 +22,47 @@ export function useClinicalSigns() {
   });
 }
 
+/**
+ * Picks photos with the camera or the library and returns the declaration's
+ * photo list (same list when nothing was added) with the last refusal, if any.
+ * Shared by the declaration form and the simple « Problème » flow.
+ */
+export async function pickDeclarationPhotos(
+  source: 'camera' | 'library',
+  photos: DeclarationPhoto[],
+): Promise<{ photos: DeclarationPhoto[]; error: string | null }> {
+  let error: string | null = null;
+  try {
+    if (source === 'camera') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        return { photos, error: 'Accès à l’appareil photo refusé : autorisez-le dans les réglages du téléphone.' };
+      }
+    }
+    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, exif: false };
+    const result =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: true, selectionLimit: photoSlotsLeft(photos.length) });
+    if (result.canceled) return { photos, error: null };
+    const next = [...photos];
+    for (const asset of result.assets) {
+      if (next.length >= 5) break;
+      const refusal = photoRefusal({ uri: asset.uri, mimeType: asset.mimeType, fileSize: asset.fileSize });
+      if (refusal) {
+        error = refusal;
+        continue;
+      }
+      const mime = photoMimeType({ uri: asset.uri, mimeType: asset.mimeType }) ?? 'image/jpeg';
+      const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+      next.push({ uri: asset.uri, name: asset.fileName ?? `declaration-${next.length + 1}.${ext}`, mimeType: mime });
+    }
+    return { photos: next, error };
+  } catch (e) {
+    return { photos, error: errorText(e, 'Photo indisponible.') };
+  }
+}
+
 interface Props {
   signs: string[];
   onSigns: (codes: string[]) => void;
@@ -53,36 +94,9 @@ export function DeclarationExtras({ signs, onSigns, suspicion, onSuspicion, phot
 
   const pick = async (source: 'camera' | 'library') => {
     setPhotoError(null);
-    try {
-      if (source === 'camera') {
-        const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) {
-          setPhotoError('Accès à l’appareil photo refusé : autorisez-le dans les réglages du téléphone.');
-          return;
-        }
-      }
-      const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, exif: false };
-      const result =
-        source === 'camera'
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync({ ...options, allowsMultipleSelection: true, selectionLimit: slots });
-      if (result.canceled) return;
-      const next = [...photos];
-      for (const asset of result.assets) {
-        if (next.length >= 5) break;
-        const refusal = photoRefusal({ uri: asset.uri, mimeType: asset.mimeType, fileSize: asset.fileSize });
-        if (refusal) {
-          setPhotoError(refusal);
-          continue;
-        }
-        const mime = photoMimeType({ uri: asset.uri, mimeType: asset.mimeType }) ?? 'image/jpeg';
-        const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
-        next.push({ uri: asset.uri, name: asset.fileName ?? `declaration-${next.length + 1}.${ext}`, mimeType: mime });
-      }
-      onPhotos(next);
-    } catch (e) {
-      setPhotoError(errorText(e, 'Photo indisponible.'));
-    }
+    const picked = await pickDeclarationPhotos(source, photos);
+    if (picked.photos !== photos) onPhotos(picked.photos);
+    setPhotoError(picked.error);
   };
 
   return (

@@ -3,6 +3,7 @@ import { api } from '../../api/client';
 import type { TeamMemberRow } from '../../api/types-programme';
 import { Button, ErrorNote } from '../form';
 import { Loading } from '../ui';
+import { UiModeField } from './UiModeField';
 import { teamAccessState, teamRoleLabel, toggleActiveBody } from './teamRules';
 
 const TONE: Record<'emerald' | 'amber' | 'slate', string> = {
@@ -16,7 +17,7 @@ const TONE: Record<'emerald' | 'amber' | 'slate', string> = {
  * and the per-farm suspension (`PUT …/team/:employmentId/active`,
  * ADMINISTRATION:ADMINISTRER). No salary nor HR data; see `backend/docs/comptes-equipe.md`.
  */
-export function TeamSection({ farmId, canSuspend }: { farmId: string; canSuspend: boolean }) {
+export function TeamSection({ farmId, canSuspend, canSetUiMode }: { farmId: string; canSuspend: boolean; canSetUiMode: boolean }) {
   const queryClient = useQueryClient();
   const key = ['programme-farm-team', farmId];
   const team = useQuery({ queryKey: key, queryFn: () => api.get<TeamMemberRow[]>(`/programme/farms/${farmId}/team`), retry: false });
@@ -45,7 +46,8 @@ export function TeamSection({ farmId, canSuspend }: { farmId: string; canSuspend
                   {m.role === 'ADMIN' ? ` · ${m.permissions?.length ?? 0} permission(s)` : ''}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <UiModeField farmId={farmId} userId={m.userId} value={m.uiMode} canEdit={canSetUiMode} />
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${TONE[state.tone]}`}>{state.label}</span>
                 {canSuspend && m.accountActive ? (
                   <Button tone="secondary" busy={toggle.isPending && toggle.variables?.employmentId === m.employmentId} onClick={() => toggle.mutate(m)}>

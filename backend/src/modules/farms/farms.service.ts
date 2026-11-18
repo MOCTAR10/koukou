@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { UserRole } from '../../common/enums/role.enum.js';
+import { UiMode } from '../../common/enums/ui-mode.enum.js';
 import { isUniqueViolation } from '../../common/utils/idempotency.js';
 import { FarmStaffRole } from '../../common/enums/farm-staff-role.enum.js';
 import { ContractType } from '../../common/enums/contract-type.enum.js';
@@ -211,6 +212,8 @@ export class FarmsService {
           fullName: input.fullName,
           passwordHash: await bcrypt.hash(input.code, 10),
           role: UserRole.PROPRIETAIRE,
+          // A programme exploitant starts in the simple display mode.
+          uiMode: UiMode.SIMPLE,
         }),
       );
     } catch (err) {
@@ -410,6 +413,8 @@ export class FarmsService {
         buildingAssignment: string | null;
         active: boolean;
         permissions: string[];
+        uiMode: UiMode;
+        canChangeOwnUiMode: boolean;
       }
     | null
   > {
@@ -422,6 +427,8 @@ export class FarmsService {
         buildingAssignment: null,
         active: true,
         permissions: ['*'],
+        uiMode: UiMode.COMPLET,
+        canChangeOwnUiMode: true,
       };
     }
     const farm = await this.farmRepo.findOne({ where: { id: farmId } });
@@ -435,6 +442,8 @@ export class FarmsService {
         buildingAssignment: null,
         active: true,
         permissions: [...institutionPermissions(access.matrix)],
+        uiMode: UiMode.COMPLET,
+        canChangeOwnUiMode: false,
       };
     }
     if (farm?.ownerId != null && farm.ownerId === user.id) {
@@ -445,6 +454,8 @@ export class FarmsService {
         buildingAssignment: null,
         active: true,
         permissions: ['*'],
+        uiMode: await this.uiModeOf(user.id),
+        canChangeOwnUiMode: true,
       };
     }
     const link = await this.employeeRepo.findOne({
@@ -462,7 +473,69 @@ export class FarmsService {
         role === FarmStaffRole.ADMIN
           ? (link.permissions ?? []).filter(isPermissionCode)
           : [...ELEVEUR_DEFAULT_PERMISSIONS],
+      uiMode: await this.uiModeOf(user.id),
+      canChangeOwnUiMode: false,
     };
+  }
+
+  /** Stored display mode of an account (COMPLET when the account is gone). */
+  private async uiModeOf(userId: string): Promise<UiMode> {
+    const row = await this.userRepo.findOne({
+      where: { id: userId },
+      select: { id: true, uiMode: true },
+    });
+    return row?.uiMode ?? UiMode.COMPLET;
+  }
+
+  /**
+   * Sets the display mode of a person of the farm: the owner himself or a
+   * staff member (any link of that farm). Callers: the farm owner, the
+   * platform admin, a farm ADMIN holding `equipe:gerer` (never on himself),
+   * an institution already admitted by the route guard (TECHNIQUE:VALIDER or
+   * ADMINISTRATION:ADMINISTRER, farm in scope).
+   */
+  async setMemberUiMode(
+    auth: AuthUser,
+    farmId: string,
+    userId: string,
+    uiMode: UiMode,
+  ): Promise<{ userId: string; uiMode: UiMode }> {
+    const farm = await this.assertAccessible(auth, farmId);
+    const isOwner = farm.ownerId !== null && farm.ownerId === userId;
+    const link = isOwner
+      ? null
+      : await this.employeeRepo.findOne({ where: { farmId, userId } });
+    if (!isOwner && !link) {
+      throw new NotFoundException('Membre introuvable dans cette ferme.');
+    }
+    if (
+      auth.role !== UserRole.PLATFORM_ADMIN &&
+      auth.role !== UserRole.INSTITUTION &&
+      !(farm.ownerId !== null && farm.ownerId === auth.id)
+    ) {
+      const eff = await this.resolveEffectivePermissions(auth, farmId);
+      if (eff === null || eff === 'ALL' || !eff.permissions.has('equipe:gerer')) {
+        throw new ForbiddenException(
+          'Accès refusé : la permission requise pour cette action n’est pas accordée.',
+        );
+      }
+      if (userId === auth.id || isOwner) {
+        throw new ForbiddenException(
+          'Ce réglage est fait par le responsable de la ferme ou par l’agent technique.',
+        );
+      }
+      if (link) {
+        await this.assertCanDelegate(auth, farmId, [], {
+          targetUserId: userId,
+          targetPermissions:
+            this.staffRole(link.role) === FarmStaffRole.ADMIN
+              ? (link.permissions ?? [])
+              : [],
+        });
+      }
+    }
+    await this.userRepo.update({ id: userId }, { uiMode });
+    return { userId, uiMode };
   }
 
   /** Liste toutes les fermes (plateforme) avec un aperçu du propriétaire
@@ -702,6 +775,8 @@ export class FarmsService {
         fullName: dto.fullName,
         passwordHash: await bcrypt.hash(dto.code, 10),
         role: UserRole.ELEVEUR,
+        // Field staff start simple; a team administrator reads the full app.
+        uiMode: role === FarmStaffRole.ADMIN ? UiMode.COMPLET : UiMode.SIMPLE,
       }),
     );
     const link = await this.linkEmployee(owner, farmId, employee.id, {
@@ -930,6 +1005,7 @@ export class FarmsService {
       email: user.email ?? null,
       fullName: user.fullName,
       role: user.role,
+      uiMode: user.uiMode,
     };
   }
 
@@ -957,4 +1033,5 @@ export interface PublicUser {
   email: string | null;
   fullName: string;
   role: UserRole;
+  uiMode: UiMode;
 }

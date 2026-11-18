@@ -111,7 +111,7 @@ export function RegistrySheetPanel({ farmId, rights, onClose }: { farmId: string
 
           {rights.team ? (
             <Block title="Comptes d’équipe">
-              <TeamSection farmId={s.id} canSuspend={rights.suspendTeam} />
+              <TeamSection farmId={s.id} canSuspend={rights.suspendTeam} canSetUiMode={rights.uiMode} />
             </Block>
           ) : null}
 

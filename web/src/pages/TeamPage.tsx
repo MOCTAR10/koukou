@@ -12,6 +12,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Button, ErrorNote } from '../components/form';
 import { MemberFormModal } from '../components/org/MemberFormModal';
 import { CONTRACT_LABEL, Pill, STAFF_ROLE_LABEL, SuccessNote } from '../components/org/shared';
+import { UI_MODE_LABEL } from '../components/org/UiModePicker';
 import { Card, DataTable, EmptyState, IconTile, Loading, PageHeader, Td, Th } from '../components/ui';
 import { dateFr, fcfa } from '../lib/format';
 
@@ -21,7 +22,7 @@ const linkCls =
 export function TeamPage() {
   const { farmId, farm } = useFarm();
   const { user } = useAuth();
-  const { hasPermission, isOwner } = useFarmProfile();
+  const { hasPermission, isOwner, profile } = useFarmProfile();
   // POUFA lot A droits: an institution granted EQUIPE reads the team, never manages it.
   const canManage = hasPermission('equipe:gerer');
   const canRead = useCanRead();
@@ -105,6 +106,7 @@ export function TeamPage() {
                   <Th>Téléphone</Th>
                   <Th>Rôle</Th>
                   <Th>Bâtiment</Th>
+                  <Th>Affichage</Th>
                   <Th className="hidden lg:table-cell">Dossier RH</Th>
                   <Th>Statut</Th>
                   <Th />
@@ -124,6 +126,7 @@ export function TeamPage() {
                       <Pill tone="emerald">Propriétaire</Pill>
                     </Td>
                     <Td label="Bâtiment">—</Td>
+                    <Td label="Affichage">{isOwnFarm && profile?.uiMode ? <Pill tone={profile.uiMode === 'SIMPLE' ? 'amber' : 'brand'}>{UI_MODE_LABEL[profile.uiMode]}</Pill> : '—'}</Td>
                     <Td label="Dossier RH" className="md:max-lg:hidden">—</Td>
                     <Td label="Statut">
                       <Pill tone="emerald">Actif</Pill>
@@ -147,6 +150,9 @@ export function TeamPage() {
                       <Pill tone={m.role === 'ADMIN' ? 'amber' : 'brand'}>{STAFF_ROLE_LABEL[m.role]}</Pill>
                     </Td>
                     <Td label="Bâtiment">{m.buildingAssignment ?? '—'}</Td>
+                    <Td label="Affichage">
+                      {m.user.uiMode ? <Pill tone={m.user.uiMode === 'SIMPLE' ? 'amber' : 'brand'}>{UI_MODE_LABEL[m.user.uiMode]}</Pill> : '—'}
+                    </Td>
                     <Td label="Dossier RH" className="md:max-lg:hidden">
                       <HrSummary member={m} />
                     </Td>
