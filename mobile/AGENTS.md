@@ -30,3 +30,9 @@ This app targets **Expo SDK 54** (Expo Go in stores was stuck on a newer SDK unt
 - Automatic read-out is off there (`setAnnounceSilenced`); taps use `cue`, the speaker button still `speak`s.
 - Server marking (`enteredOnBehalf`, `enteredByName`, `enteredByProfile`, type `OnBehalfMark`) is shown by `components/OnBehalfBadge`.
 - `hooks/farm-access.ts#profileFetchState` keeps the cached `/me` after a network-failed refresh (never after a 4xx), so permission codes survive offline; the screen prefetches the day's entries of every open band online.
+
+## Sign-in screen
+
+- `app/login.tsx` must never scroll when the keyboard is closed: `components/auth/loginLayout.ts#loginLayout` computes the keypad key size (44 dp minimum) and the lockup height from the usable height (window minus insets) and the capped text scale. Anything added to that screen must be added to its `fixedHeight` budget, with the test updated.
+- The field-photo background and the ministry band live in `components/auth/LoginChrome.tsx` (assets copied from `web/public`). `AuthHero` stays only for `inscription-acheteur`.
+- `SecretCodePad` `dense` + `keySize` is the no-scroll variant (label and caption on one row).

@@ -46,6 +46,12 @@ interface SecretCodePadProps {
   size?: SecretCodePadSize;
   /** Adds a show/hide switch: the digits can be read back, so no second entry is needed. */
   revealable?: boolean;
+  /**
+   * Compact layout for screens that must not scroll: label and caption share one
+   * row, tighter gaps, and the key diameter is `keySize` (clamped to >= 44 dp).
+   */
+  dense?: boolean;
+  keySize?: number;
 }
 
 /** Point « suivant » : respire doucement pour montrer où la saisie arrive. */
@@ -74,13 +80,13 @@ interface PadKeyProps {
   onLongPress?: () => void;
   disabled?: boolean;
   variant: 'digit' | 'action';
-  size: SecretCodePadSize;
+  keyDiameter: number;
   children: React.ReactNode;
   accessibilityLabel: string;
 }
 
-function PadKey({ onPress, onLongPress, disabled, variant, size, children, accessibilityLabel }: PadKeyProps) {
-  const s = SIZE[size];
+function PadKey({ onPress, onLongPress, disabled, variant, keyDiameter, children, accessibilityLabel }: PadKeyProps) {
+  const s = { key: keyDiameter };
   return (
     <TapScale
       scaleTo={0.9}
@@ -118,8 +124,16 @@ export function SecretCodePad({
   caption,
   size = 'md',
   revealable = false,
+  dense = false,
+  keySize,
 }: SecretCodePadProps) {
-  const s = SIZE[size];
+  const base = SIZE[size];
+  const s = dense
+    ? (() => {
+        const key = Math.max(44, keySize ?? base.key);
+        return { key, label: Math.round(key * 0.44), gap: 6, padPad: 4, badge: Math.round(key * 0.78) };
+      })()
+    : base;
   const [shown, setShown] = useState(false);
   const reveal = revealable && shown;
   const slots = Math.max(minLength, value.length);
@@ -151,13 +165,13 @@ export function SecretCodePad({
   };
 
   return (
-    <View style={styles.wrap}>
-      <View style={styles.header}>
-        <AppText size="label" color="muted">
+    <View style={[styles.wrap, dense && styles.wrapDense]}>
+      <View style={[styles.header, dense && styles.headerDense]}>
+        <AppText size="label" color="muted" numberOfLines={dense ? 1 : undefined}>
           {label}
         </AppText>
         {caption ? (
-          <AppText size="caption" color="faint">
+          <AppText size="caption" color="faint" numberOfLines={dense ? 1 : undefined} style={dense ? styles.captionDense : undefined}>
             {caption}
           </AppText>
         ) : null}
@@ -176,7 +190,7 @@ export function SecretCodePad({
         ) : null}
       </View>
 
-      <View style={styles.dots} accessibilityLabel={`${value.length} chiffre${value.length > 1 ? 's' : ''} saisi${value.length > 1 ? 's' : ''}`}>
+      <View style={[styles.dots, dense && styles.dotsDense]} accessibilityLabel={`${value.length} chiffre${value.length > 1 ? 's' : ''} saisi${value.length > 1 ? 's' : ''}`}>
         {Array.from({ length: slots }).map((_, i) => {
           if (i < value.length && reveal) {
             return (
@@ -195,11 +209,11 @@ export function SecretCodePad({
 
       <View style={[styles.pad, { gap: s.gap, paddingVertical: s.padPad, paddingHorizontal: s.padPad }]}>
         {ROWS.map((row, rIndex) => (
-          <View key={rIndex} style={[styles.row, { gap: s.gap }]}>
+          <View key={rIndex} style={[styles.row, { gap: s.gap }, dense && styles.rowDense]}>
             {row.map((digit) => (
               <PadKey
                 key={digit}
-                size={size}
+                keyDiameter={s.key}
                 variant="digit"
                 disabled={disabled || value.length >= maxLength}
                 onPress={() => press(digit)}
@@ -212,9 +226,9 @@ export function SecretCodePad({
           </View>
         ))}
 
-        <View style={[styles.row, { gap: s.gap }]}>
+        <View style={[styles.row, { gap: s.gap }, dense && styles.rowDense]}>
           <PadKey
-            size={size}
+            keyDiameter={s.key}
             variant="action"
             disabled={!canDelete}
             onPress={backspace}
@@ -224,7 +238,7 @@ export function SecretCodePad({
           </PadKey>
 
           <PadKey
-            size={size}
+            keyDiameter={s.key}
             variant="digit"
             disabled={disabled || value.length >= maxLength}
             onPress={() => press('0')}
@@ -235,7 +249,7 @@ export function SecretCodePad({
           </PadKey>
 
           <PadKey
-            size={size}
+            keyDiameter={s.key}
             variant="action"
             disabled={!canSubmit}
             onPress={submit}
@@ -261,6 +275,25 @@ const styles = StyleSheet.create({
   },
   header: {
     gap: 2,
+  },
+  wrapDense: {
+    gap: 6,
+  },
+  headerDense: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  captionDense: {
+    flexShrink: 1,
+  },
+  dotsDense: {
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 22,
+    paddingVertical: 0,
   },
   dots: {
     flexDirection: 'row',
@@ -315,6 +348,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  rowDense: {
+    justifyContent: 'space-evenly',
   },
   key: {
     alignItems: 'center',
