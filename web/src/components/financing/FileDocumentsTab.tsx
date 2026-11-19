@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Check, Download, ExternalLink, FileSpreadsheet, FileUp, X } from 'lucide-react';
+import { Check, Download, ExternalLink, FileSpreadsheet, FileUp, TriangleAlert, X } from 'lucide-react';
 import { api } from '../../api/client';
 import type { ChecklistLine, FinancingFile } from '../../api/types-financing';
 import { useMenuAccess } from '../../app/useMenuAccess';
@@ -7,7 +7,7 @@ import { dateFr, plural } from '../../lib/format';
 import { Button, DateInput, ErrorNote, Field, Modal, inputCls, todayIso } from '../form';
 import { StatusBadge } from '../ui';
 import { PeriodPicker, usePeriodState } from './FinancialsBlock';
-import { isFinancialStatementsRequirement } from './financialsLogic';
+import { isFinancialStatementsRequirement, lowCoverageLine, periodFor } from './financialsLogic';
 import {
   PROVIDER_LABELS,
   SATISFIED_BY_CONSENT,
@@ -31,7 +31,7 @@ import {
   formatBytes,
   groupChecklist,
 } from './financingLogic';
-import { documentUrl, openFile, useFileAction } from './queries';
+import { documentUrl, openFile, useFarmFinancials, useFileAction } from './queries';
 import { FilePick, SectionTitle } from './shared';
 
 const DOC_TONES = { DEPOSE: 'info', VALIDE: 'ok', REJETE: 'danger' } as const;
@@ -203,30 +203,75 @@ function UploadButton({ fileId, requirement, label }: { fileId: string; requirem
 function AttachStatementsModal({ file, label, onClose }: { file: FinancingFile; label: string; onClose: () => void }) {
   const action = useFileAction<{ from: string; to: string }>(file.id);
   const state = usePeriodState();
+  const p = state.period;
+  const figures = useFarmFinancials(file.farmId, p?.from ?? '', p?.to ?? '', !!p).data;
+  const warning = figures ? lowCoverageLine(figures.reliability) : null;
+  // A thin period is filed only after an explicit second confirmation showing the figure.
+  const [confirming, setConfirming] = useState(false);
+  const file_ = () => {
+    if (p) action.mutate({ path: 'financial-statements', body: p }, { onSuccess: onClose });
+  };
   return (
     <Modal title="Joindre les états financiers Fermia" onClose={onClose}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (state.period) action.mutate({ path: 'financial-statements', body: state.period }, { onSuccess: onClose });
+          if (warning && !confirming) setConfirming(true);
+          else file_();
         }}
       >
         <p className="text-sm text-slate-700">
           Fermia produit le PDF des états financiers de {file.farmName} sur la période choisie et le dépose sous « {label} ». Ces états sont issus de la saisie de l’exploitation, non audités.
         </p>
-        <PeriodPicker state={state} idPrefix="attach" />
+        <PeriodPicker
+          state={{
+            ...state,
+            setPreset: (v) => {
+              setConfirming(false);
+              state.setPreset(v);
+            },
+            setCustom: (v) => {
+              setConfirming(false);
+              state.setCustom(v);
+            },
+          }}
+          idPrefix="attach"
+        />
+        {confirming && warning ? (
+          <div role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+            <p className="flex items-start gap-2 font-semibold">
+              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> {warning}
+            </p>
+            <p className="mt-1">
+              L’exploitation n’a saisi que {figures!.reliability.coveragePct.toLocaleString('fr-FR')} % des jours de la période (minimum du programme : {figures!.reliability.coverageMinPct.toLocaleString('fr-FR')} %). Le PDF portera cet
+              avertissement en première page. Voulez-vous le joindre quand même ?
+            </p>
+          </div>
+        ) : null}
         <ErrorNote error={action.error} />
         <div className="flex justify-end gap-2">
-          <Button tone="secondary" onClick={onClose}>
-            Annuler
+          <Button tone="secondary" onClick={confirming ? () => setConfirming(false) : onClose}>
+            {confirming ? 'Retour' : 'Annuler'}
           </Button>
-          <Button type="submit" busy={action.isPending} disabled={!state.period}>
-            Joindre
+          <Button type="submit" busy={action.isPending} disabled={!p}>
+            {confirming ? 'Joindre malgré une saisie incomplète' : 'Joindre'}
           </Button>
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** The action only exists when the farm opened its accounting; otherwise one line says why. */
+function AttachStatementsButton({ farmId, onClick }: { farmId: string; onClick: () => void }) {
+  const period = periodFor('MONTHS_12');
+  const opened = useFarmFinancials(farmId, period.from, period.to).data?.initialized;
+  if (opened === false) return <p className="text-sm text-slate-600">Cette exploitation n’a pas ouvert sa comptabilité dans Fermia.</p>;
+  return (
+    <Button tone="secondary" className="whitespace-nowrap" onClick={onClick}>
+      <FileSpreadsheet className="h-4 w-4" /> Joindre les états financiers Fermia
+    </Button>
   );
 }
 
@@ -259,11 +304,7 @@ function Line({ file, line }: { file: FinancingFile; line: ChecklistLine }) {
         {file.rights.create && r.active && !satisfied ? (
           <UploadButton fileId={file.id} requirement={r} label={line.documents.length ? 'Ajouter une version' : 'Déposer'} />
         ) : null}
-        {canAttach ? (
-          <Button tone="secondary" className="whitespace-nowrap" onClick={() => setAttaching(true)}>
-            <FileSpreadsheet className="h-4 w-4" /> Joindre les états financiers Fermia
-          </Button>
-        ) : null}
+        {canAttach ? <AttachStatementsButton farmId={file.farmId} onClick={() => setAttaching(true)} /> : null}
       </div>
       {line.documents.length > 0 ? (
         <ul className="space-y-2">

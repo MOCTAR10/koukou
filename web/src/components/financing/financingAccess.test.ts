@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AccessMatrix, ScopeKind } from '../../api/types-access';
-import { FINANCING_ENTRIES, financingHeader, financingRights, isFinancingPath } from './financingAccess';
+import { FINANCING_ENTRIES, farmFinancingEnabled, financingHeader, financingRights, isFinancingPath } from './financingAccess';
 
 const p = (scopeKind: ScopeKind, matrix: AccessMatrix) => ({ scopeKind, matrix });
 
@@ -37,6 +37,21 @@ describe('financingRights', () => {
     expect(financingRights('PLATFORM_ADMIN').validate).toBe(true);
     expect(financingRights('PROPRIETAIRE', p('ALL', { FINANCEMENT: ['CONSULTER'] })).view).toBe(false);
     expect(financingRights('INSTITUTION', null).view).toBe(false);
+  });
+});
+
+describe('farmFinancingEnabled', () => {
+  it('always asks for the owner and the staff once the farm space is ready', () => {
+    expect(farmFinancingEnabled('PROPRIETAIRE', undefined, true)).toBe(true);
+    expect(farmFinancingEnabled('ELEVEUR', [], true)).toBe(true);
+    expect(farmFinancingEnabled('PROPRIETAIRE', undefined, false)).toBe(false);
+  });
+  it('asks for an institution only when its farm profile holds the delegated-entry right', () => {
+    expect(farmFinancingEnabled('INSTITUTION', ['saisie:creer', 'caisse:lire'], true)).toBe(true);
+    expect(farmFinancingEnabled('INSTITUTION', ['caisse:lire'], true)).toBe(false);
+    // Profile not read yet: no request that could answer 403.
+    expect(farmFinancingEnabled('INSTITUTION', undefined, true)).toBe(false);
+    expect(farmFinancingEnabled('PLATFORM_ADMIN', ['*'], true)).toBe(false);
   });
 });
 

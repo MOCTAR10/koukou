@@ -26,6 +26,7 @@ import {
   sortClassBuckets,
 } from '../../components/financing/financingLogic';
 import { exportUrl, usePortfolio } from '../../components/financing/queries';
+import { RiskBand } from '../../components/financing/RiskBand';
 import { ClaimClassBadge, FarmLink } from '../../components/financing/shared';
 import { Card, DataTable, EmptyState, PageHeader, Skeleton, SkeletonTiles, StatTile, Td, Th } from '../../components/ui';
 import { dateFr, fcfa, plural } from '../../lib/format';
@@ -194,6 +195,8 @@ function Dashboard({ p }: { p: PortfolioView }) {
         </Panel>
       </div>
 
+      {p.risk ? <RiskBand risk={p.risk} /> : null}
+
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between gap-2 px-4 pt-4 sm:px-5">
@@ -218,18 +221,18 @@ function Dashboard({ p }: { p: PortfolioView }) {
                 {p.late.map((f) => (
                   <tr key={f.id}>
                     <Td>
-                      <Link to={filePath(f.id)} className="font-medium text-brand-700 hover:underline">
+                      <Link to={filePath(f.id)} className="whitespace-nowrap font-medium tabular-nums text-brand-700 hover:underline">
                         {f.reference}
                       </Link>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block min-w-0 text-xs text-slate-500">
                         {f.farmName}
                         {f.provinceName ? ` · ${f.provinceName}` : ''}
                       </span>
                     </Td>
-                    <Td label="Retard" className="text-right tabular-nums">
+                    <Td label="Retard" className="whitespace-nowrap text-right tabular-nums">
                       {daysLateText(f.daysLate)}
                     </Td>
-                    <Td label="Montant échu" className="text-right font-medium tabular-nums text-red-700">
+                    <Td label="Montant échu" className="whitespace-nowrap text-right font-medium tabular-nums text-red-700">
                       {fcfa(f.amounts.overdueFcfa)}
                     </Td>
                     <Td label="Classe">
@@ -334,7 +337,7 @@ function Dashboard({ p }: { p: PortfolioView }) {
               {p.watchlist.slice(0, 6).map((w) => (
                 <li key={w.farmId} className="py-2 text-sm">
                   <FarmLink to={farm360Path(w.farmId)}>{w.farmName}</FarmLink>
-                  {w.reference ? <span className="ml-2 text-xs text-slate-500">{w.reference}</span> : null}
+                  {w.reference ? <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-slate-500">{w.reference}</span> : null}
                   <ul className="mt-0.5 list-disc pl-5 text-xs text-slate-600">
                     {w.reasons.map((r) => (
                       <li key={r}>{r}</li>

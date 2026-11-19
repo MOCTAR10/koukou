@@ -70,6 +70,11 @@ export function ParameterValueModal({ param, catalog, onClose }: { param: Parame
     });
   };
 
+  // A closed choice (`options`): radio cards, then a confirmation stating the consequence before saving.
+  const options = param.options ?? [];
+  const choice = options.find((o) => o.value === raw) ?? null;
+  const [confirming, setConfirming] = useState(false);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!parsed.ok) return setFormError(parsed.error);
@@ -78,6 +83,7 @@ export function ParameterValueModal({ param, catalog, onClose }: { param: Parame
     const reasonErr = checkReason(reason);
     if (reasonErr) return setFormError(reasonErr);
     setFormError(null);
+    if (choice && !confirming) return setConfirming(true);
     save.mutate({ value: parsed.value, reason: reason.trim(), ...(from.value ? { validFrom: from.value } : {}) });
   };
 
@@ -114,6 +120,34 @@ export function ParameterValueModal({ param, catalog, onClose }: { param: Parame
         </div>
       ) : null}
     </div>
+  ) : options.length > 0 ? (
+    <fieldset className="space-y-2">
+      <legend className="mb-1 text-xs font-medium text-slate-600">Nouvelle valeur</legend>
+      {options.map((o) => (
+        <label
+          key={o.value}
+          className={`flex cursor-pointer items-start gap-3 rounded-xl p-3 ring-1 ${raw === o.value ? 'bg-brand-50 ring-brand-300' : 'bg-white ring-slate-200 hover:bg-slate-50'}`}
+        >
+          <input
+            type="radio"
+            name="parameter-option"
+            className="mt-1"
+            checked={raw === o.value}
+            onChange={() => {
+              setRaw(o.value);
+              setFormError(null);
+            }}
+          />
+          <span>
+            <span className="block text-sm font-semibold text-slate-900">
+              {o.label}
+              {param.value === o.value ? <span className="ml-2 text-xs font-medium text-slate-500">(en vigueur)</span> : null}
+            </span>
+            <span className="block text-sm text-slate-600">{o.description}</span>
+          </span>
+        </label>
+      ))}
+    </fieldset>
   ) : param.type === 'json' ? (
     <Field label="Valeur (JSON)">
       <textarea className={`${inputCls} font-mono`} rows={6} value={raw} onChange={(e) => setRaw(e.target.value)} />
@@ -172,7 +206,7 @@ export function ParameterValueModal({ param, catalog, onClose }: { param: Parame
       </p>
       <p className="mt-1 text-slate-700">
         En vigueur{param.validFrom ? (isDefaultSince(param.validFrom) ? ' (valeur par défaut)' : ` depuis le ${dateTimeFr(param.validFrom)}`) : ''} :{' '}
-        <span className={isFormula ? 'break-words font-mono text-xs' : 'font-semibold'}>{formatParameterValue(param.type, param.value, param.unit)}</span>
+        <span className={isFormula ? 'break-words font-mono text-xs' : 'font-semibold'}>{formatParameterValue(param.type, param.value, param.unit, param.options)}</span>
       </p>
     </div>
   );
@@ -180,13 +214,22 @@ export function ParameterValueModal({ param, catalog, onClose }: { param: Parame
   const actions = (
     <div className="space-y-3">
       {unchanged ? <Note tone="amber">La valeur saisie est celle déjà en vigueur.</Note> : null}
+      {confirming && choice ? (
+        <div role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+          <p className="font-semibold">Confirmer le choix « {choice.label} »</p>
+          <p className="mt-1">{choice.consequence}</p>
+          <p className="mt-1 text-xs">
+            {mode === 'now' ? 'Effet immédiat.' : `Effet à partir du ${local ? dateTimeFr(new Date(local).toISOString()) : 'la date choisie'}.`} Le changement est journalisé avec son motif.
+          </p>
+        </div>
+      ) : null}
       <ErrorNote error={formError ?? (serverRefusal ? null : save.error)} />
       <div className="flex justify-end gap-2">
-        <Button tone="secondary" onClick={onClose} disabled={save.isPending}>
-          Annuler
+        <Button tone="secondary" onClick={confirming ? () => setConfirming(false) : onClose} disabled={save.isPending}>
+          {confirming ? 'Retour' : 'Annuler'}
         </Button>
         <Button type="submit" busy={save.isPending}>
-          Enregistrer la nouvelle valeur
+          {confirming ? 'Confirmer et enregistrer' : choice ? 'Continuer' : 'Enregistrer la nouvelle valeur'}
         </Button>
       </div>
     </div>

@@ -95,7 +95,20 @@ export interface Disbursement {
   releasedOn: string | null;
   /** Technical visit used as the field check, if any. */
   visitId: string | null;
+  /** The same visit in words (date, agent, class), null without a visit. */
+  visit: VisitSummary | null;
   note: string | null;
+}
+
+/** A technical visit of the farm, as the BCEG picks it for a tranche (GET files/:id/visits). */
+export interface VisitSummary {
+  id: string;
+  visitedOn: string;
+  agentName: string | null;
+  /** Biosecurity class of the visit; null when no criterion was assessed. */
+  biosecurityClass: 'A' | 'B' | 'C' | null;
+  /** Biosecurity score in percent; null when no criterion was assessed. */
+  score: number | null;
 }
 
 export interface Instalment {
@@ -352,8 +365,31 @@ export interface PortfolioBucket {
   amountFcfa: number;
 }
 
+/** Risk-committee figures of the portfolio (finance pass). */
+export interface PortfolioRisk {
+  /** Overdue amounts by days late: 1–30, 31–60, 61–90, over 90. Only files with an overdue amount count. */
+  ageing: Array<{ key: 'J1_30' | 'J31_60' | 'J61_90' | 'J90_PLUS'; label: string; files: number; overdueFcfa: number }>;
+  concentration: {
+    /** Five largest borrowers (a farm, all its files together) by outstanding. */
+    top: Array<{ farmId: string; farmName: string; provinceName: string | null; files: number; outstandingFcfa: number; sharePct: number }>;
+    /** Share of the total outstanding held by those five, in percent; null without outstanding. */
+    topSharePct: number | null;
+    /** Outstanding by province (the purpose is free text: no category is derived from it). */
+    byProvince: Array<{ key: string; label: string; files: number; outstandingFcfa: number; sharePct: number }>;
+  };
+  /** Indicative provisions: rates are programme parameters, the bank's own accounting prevails, guarantees are not taken into account. */
+  provisions: {
+    rows: Array<{ claimClass: ClaimClass; label: string; files: number; outstandingFcfa: number; ratePct: number; provisionFcfa: number }>;
+    totalFcfa: number;
+    /** Total provisions / total outstanding, in percent; null without outstanding. */
+    coveragePct: number | null;
+  };
+}
+
 export interface PortfolioView {
   asOf: string;
+  /** Absent from an answer cached before this field existed. */
+  risk: PortfolioRisk;
   perimeter: FinancedPerimeter;
   farms: { inScope: number; withFile: number; financed: number };
   totals: {
@@ -534,12 +570,23 @@ export interface FarmFinancials {
     lastEntryOn: string | null;
     /** True when the period's fiscal year is closed. */
     closed: boolean;
+    /** Days with entries / days in period, in percent (one decimal). */
+    coveragePct: number;
+    /** Programme parameter FINANCEMENT_COUVERTURE_SAISIE_MIN: under it the statements are « incomplete ». */
+    coverageMinPct: number;
   };
   incomeStatement: {
     products: StatementLine[];
     charges: StatementLine[];
     revenueFcfa: number;
     chargesFcfa: number;
+    /**
+     * Feed stock on hand, valued but not yet booked in the farm's ledger
+     * (estimate, 0 when none or once the year is closed). It is added to the
+     * result so that this result equals the balance sheet's.
+     */
+    stockVariationFcfa: number;
+    /** revenueFcfa − chargesFcfa + stockVariationFcfa. */
     netResultFcfa: number;
   } | null;
   balanceSheet: {
@@ -580,7 +627,9 @@ export interface FarmFinancials {
   GET  /programme/financing/farms/:farmId/financials?from&to   → FarmFinancials (default: last 12 months)
   GET  /programme/financing/farms/:farmId/financials/pdf?from&to → PDF « États financiers » (bilan, compte de résultat, trésorerie, ratios, mention non audité)
   POST /programme/financing/files/:id/financial-statements { from, to } → FinancingFile
-       (generates that PDF and files it as a document under the requirement « États financiers ou état de trésorerie », status DEPOSE; CREER)
+       (generates that PDF and files it as a document under the requirement « États financiers ou état de trésorerie », status DEPOSE; CREER;
+        409 when the farm never opened its accounting)
+  GET  /programme/financing/files/:id/visits → VisitSummary[]   (the farm's last 20 technical visits, newest first; CONSULTER)
 */
 
 // ── Third pass: documents supplied by the farmer, configured by the BCEG ───

@@ -83,17 +83,19 @@ export function headlineRatios(ratios: readonly Ratio[], max = 4): Ratio[] {
 
 // ── Reliability ────────────────────────────────────────────────────────────
 
-export const LOW_COVERAGE_PCT = 60;
+type Coverage = Pick<FarmFinancials['reliability'], 'daysInPeriod' | 'daysWithEntries' | 'coveragePct' | 'coverageMinPct'>;
 
-type Coverage = Pick<FarmFinancials['reliability'], 'daysInPeriod' | 'daysWithEntries'>;
+/** Under the programme's minimum share (parameter FINANCEMENT_COUVERTURE_SAISIE_MIN) of days entered. */
+export const isLowCoverage = (r: Pick<Coverage, 'coveragePct' | 'coverageMinPct'>): boolean => r.coveragePct < r.coverageMinPct;
 
-/** Share of the period's days with an entry, in whole percent; 0 when the period is empty. */
-export function coveragePct(r: Coverage): number {
-  if (r.daysInPeriod <= 0) return 0;
-  return Math.min(100, Math.round((r.daysWithEntries / r.daysInPeriod) * 100));
-}
+/** « 153 sur 365 (41,9 %) ». */
+export const coverageFigures = (r: Coverage): string => `${r.daysWithEntries.toLocaleString('fr-FR')} sur ${r.daysInPeriod.toLocaleString('fr-FR')} (${nf(r.coveragePct, 1)} %)`;
 
-export const isLowCoverage = (r: Coverage): boolean => coveragePct(r) < LOW_COVERAGE_PCT;
+/** « 153 jours saisis sur 365 (41,9 %) », the same figure as the PDF's warning. */
+export const coverageText = (r: Coverage): string => `${r.daysWithEntries.toLocaleString('fr-FR')} jours saisis sur ${r.daysInPeriod.toLocaleString('fr-FR')} (${nf(r.coveragePct, 1)} %)`;
+
+/** « Saisie incomplète : 153 jours saisis sur 365 (41,9 %) », or null when the entries are complete enough. */
+export const lowCoverageLine = (r: Coverage): string | null => (isLowCoverage(r) ? `Saisie incomplète : ${coverageText(r)}` : null);
 
 // ── Statements ─────────────────────────────────────────────────────────────
 

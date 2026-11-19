@@ -63,6 +63,8 @@ export interface Bundle {
   file: FinancingFile;
   farm: FarmInfo;
   tranches: FinancingDisbursement[];
+  /** Visits named by the tranches, by id. */
+  visits: Map<string, C.VisitSummary>;
   instalments: FinancingInstalment[];
   repayments: FinancingRepayment[];
   documents: FinancingDocument[];
@@ -299,6 +301,7 @@ export class FinancingViewService {
       }
       return m;
     };
+    const visits = await this.visitsByIds(tranches.map((x) => x.visitId).filter((v): v is string => !!v));
     const t = by(tranches);
     const i = by(instalments);
     const r = by(repayments);
@@ -311,6 +314,7 @@ export class FinancingViewService {
         file,
         farm: farms.get(file.farmId) ?? { id: file.farmId, code: null, name: '—', provinceName: null, exploitantName: null },
         tranches: ft,
+        visits,
         instalments: fi,
         repayments: fr,
         documents: d.get(file.id) ?? [],
@@ -320,6 +324,33 @@ export class FinancingViewService {
       });
     }
     return out;
+  }
+
+  private visitRows(where: string, params: unknown[], limit = ''): Promise<C.VisitSummary[]> {
+    return this.dataSource
+      .query(
+        `SELECT v.id, v.visit_date::text AS "visitedOn", u."fullName" AS "agentName",
+                v.classification AS "biosecurityClass", v.score_pct AS score
+           FROM farm_visits v LEFT JOIN users u ON u.id = v.agent_user_id
+          WHERE ${where}
+          ORDER BY v.visit_date DESC, v.created_at DESC ${limit}`,
+        params,
+      )
+      .then((rows: Array<C.VisitSummary & { score: string | null }>) =>
+        rows.map((r) => ({ ...r, score: r.score === null ? null : Number(r.score) })),
+      );
+  }
+
+  /** The visits named by tranches, by id (any farm of the files read). */
+  async visitsByIds(ids: readonly string[]): Promise<Map<string, C.VisitSummary>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.visitRows(`v.id = ANY($1::uuid[])`, [[...new Set(ids)]]);
+    return new Map(rows.map((r) => [r.id, r]));
+  }
+
+  /** A farm's latest visits, newest first. */
+  recentVisits(farmId: string, limit: number): Promise<C.VisitSummary[]> {
+    return this.visitRows(`v.farm_id = $1`, [farmId], `LIMIT ${Math.trunc(limit)}`);
   }
 
   async farmInfos(farmIds: readonly string[]): Promise<Map<string, FarmInfo>> {
@@ -459,6 +490,7 @@ export class FinancingViewService {
         status: t.status,
         releasedOn: t.releasedOn,
         visitId: t.visitId,
+        visit: t.visitId ? (b.visits.get(t.visitId) ?? null) : null,
         note: t.note,
       })),
       instalments: b.calc.instalments,

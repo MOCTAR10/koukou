@@ -49,6 +49,20 @@ export interface ParameterDefinition {
   readonly defaultNote?: string;
   /** Extra check of a `json` value: French error, or null when valid. */
   readonly check?: (value: unknown) => string | null;
+  /**
+   * A `string` parameter that is a closed choice: the screen shows these
+   * options instead of a text field, and any other value is refused.
+   */
+  readonly options?: readonly ParameterOption[];
+}
+
+export interface ParameterOption {
+  readonly value: string;
+  readonly label: string;
+  /** One sentence: what this choice means. */
+  readonly description: string;
+  /** One sentence shown before saving: what changes once it applies. */
+  readonly consequence: string;
 }
 
 /** Prefix of the parameters holding an indicator formula. */
@@ -82,6 +96,35 @@ function checkFinancedPerimeter(value: unknown): string | null {
     : `Le périmètre doit être l'une de ces valeurs : ${FINANCED_PERIMETERS.join(', ')}.`;
 }
 
+const PROVISION_RANGE = { min: 0, max: 100 } as const;
+
+const FINANCED_PERIMETER_OPTIONS: readonly ParameterOption[] = [
+  {
+    value: 'PROGRAMME',
+    label: 'Toutes les fermes du programme',
+    description:
+      'La BCEG lit les données de toutes les fermes du programme, dans la limite de ses droits.',
+    consequence:
+      'La BCEG pourra lire les données de toutes les fermes du programme, y compris celles qui n’ont ni dossier de financement ni consentement.',
+  },
+  {
+    value: 'DOSSIERS',
+    label: 'Les fermes ayant un dossier de financement',
+    description:
+      'La BCEG lit les données des seules fermes pour lesquelles elle a ouvert un dossier de financement.',
+    consequence:
+      'La BCEG ne pourra plus lire les données des fermes sans dossier de financement ; celles qui en ont un restent lisibles.',
+  },
+  {
+    value: 'CONSENTEMENT',
+    label: 'Les fermes dont l’exploitant a donné son consentement',
+    description:
+      'La BCEG lit les données des seules fermes dont l’exploitant a donné un consentement actif.',
+    consequence:
+      'La BCEG ne pourra lire que les fermes dont l’exploitant a donné un consentement actif ; un consentement retiré ferme l’accès aussitôt.',
+  },
+];
+
 const FINANCING_PARAMETERS: readonly ParameterDefinition[] = [
   {
     // PROGRAMME = every farm of the programme; DOSSIERS = farms with a
@@ -96,6 +139,7 @@ const FINANCING_PARAMETERS: readonly ParameterDefinition[] = [
     defaultNote:
       "proposition de Fermia : à arrêter avec la BCEG et l'autorité de protection des données",
     check: checkFinancedPerimeter,
+    options: FINANCED_PERIMETER_OPTIONS,
   },
   {
     // COBAC R-2018/01 art. 8-9: unpaid up to 90 days = impayée, beyond = douteuse.
@@ -144,6 +188,64 @@ const FINANCING_PARAMETERS: readonly ParameterDefinition[] = [
     max: 50,
     defaultValue: 2,
     defaultNote: 'proposition de Fermia : à arrêter avec la BCEG',
+  },
+  {
+    // Share of the days of a statements period with something entered, under
+    // which the web asks for a confirmation and the PDF carries a warning.
+    key: 'FINANCEMENT_COUVERTURE_SAISIE_MIN',
+    label:
+      'Financement : part minimale de jours saisis d’une période pour des états complets',
+    type: 'number',
+    unit: '%',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 0,
+    max: 100,
+    defaultValue: 60,
+    defaultNote: 'proposition de Fermia : à arrêter avec la BCEG',
+  },
+  // Indicative provisioning rates by claim class (COBAC R-2018/01, art. 17-18:
+  // douteux sans garantie éligible 50 % puis 100 %). The bank's own accounting
+  // prevails and guarantees are not taken into account.
+  {
+    key: 'FINANCEMENT_PROVISION_GENERALE_PCT',
+    label:
+      'Financement : provision indicative des créances saines, sensibles et restructurées',
+    type: 'number',
+    unit: '%',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    ...PROVISION_RANGE,
+    defaultValue: 2,
+    defaultNote: 'proposition de Fermia : à arrêter avec la BCEG',
+  },
+  {
+    key: 'FINANCEMENT_PROVISION_IMPAYE_PCT',
+    label: 'Financement : provision indicative des créances impayées',
+    type: 'number',
+    unit: '%',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    ...PROVISION_RANGE,
+    defaultValue: 0,
+    defaultNote: 'proposition de Fermia : à arrêter avec la BCEG',
+  },
+  {
+    key: 'FINANCEMENT_PROVISION_DOUTEUX_PCT',
+    label: 'Financement : provision indicative des créances douteuses',
+    type: 'number',
+    unit: '%',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    ...PROVISION_RANGE,
+    defaultValue: 50,
+    defaultNote: 'Règlement COBAC R-2018/01, art. 17-18',
+  },
+  {
+    key: 'FINANCEMENT_PROVISION_IRRECOUVRABLE_PCT',
+    label: 'Financement : provision indicative des créances irrécouvrables',
+    type: 'number',
+    unit: '%',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    ...PROVISION_RANGE,
+    defaultValue: 100,
+    defaultNote: 'Règlement COBAC R-2018/01, art. 17-18',
   },
 ];
 
@@ -612,6 +714,15 @@ export function checkParameterValue(
     case 'formula': {
       if (typeof value !== 'string' || value.trim() === '') {
         return fail(`« ${def.label} » doit être un texte non vide.`);
+      }
+      if (
+        def.type === 'string' &&
+        def.options &&
+        !def.options.some((o) => o.value === value.trim())
+      ) {
+        return fail(
+          `« ${def.label} » doit être l'un des choix proposés : ${def.options.map((o) => o.value).join(', ')}.`,
+        );
       }
       const problem =
         def.type === 'string' ? (def.check?.(value.trim()) ?? null) : null;

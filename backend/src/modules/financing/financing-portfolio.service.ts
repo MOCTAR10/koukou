@@ -9,7 +9,7 @@ import {
 import { ReferenceKey } from '../../common/enums/reference-key.enum.js';
 import { UserRole } from '../../common/enums/role.enum.js';
 import { addMonths, FINANCING_STEP_ORDER } from './financing-rules.js';
-import { toXlsx } from '../../common/utils/spreadsheet.js';
+import { toXlsxSheets } from '../../common/utils/spreadsheet.js';
 import { grants, type InstitutionAccess } from '../access/access-rules.js';
 import type { GrantableDomain } from '../access/access-domains.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
@@ -21,6 +21,8 @@ import { FinancingFile } from './entities/financing-file.entity.js';
 import type * as C from './financing.contract.js';
 import { FinancingService } from './financing.service.js';
 import { FinancingViewService } from './financing-view.service.js';
+import { ParametersService } from '../programme/parameters.service.js';
+import { PROVISION_PARAMETERS, riskOf, type ProvisionRates, type RiskFile } from './financing-risk.js';
 
 const CLAIM_CLASSES: readonly C.ClaimClass[] = [
   'SANS_OBJET',
@@ -70,7 +72,32 @@ export class FinancingPortfolioService {
     private readonly files: FinancingService,
     private readonly consents: ConsentService,
     private readonly constants: ReferenceConstantsService,
+    private readonly parameters: ParametersService,
   ) {}
+
+  private async provisionRates(): Promise<ProvisionRates> {
+    const rates = { generale: 2, impaye: 0, douteux: 50, irrecouvrable: 100 };
+    const values = await Promise.all(PROVISION_PARAMETERS.map(([, key]) => this.parameters.get<number>(key)));
+    PROVISION_PARAMETERS.forEach(([name, , proposed], i) => {
+      rates[name] = values[i] ?? proposed;
+    });
+    return rates;
+  }
+
+  /** Risk-committee figures: ageing, concentration and indicative provisions. */
+  private riskFigures(all: ReadonlyArray<{ file: FinancingFile; farm: { name: string; provinceName: string | null; provinceCode?: string | null }; calc: { amounts: C.FinancingAmounts; claimClass: C.ClaimClass; daysLate: number } }>, rates: ProvisionRates): C.PortfolioRisk {
+    const files: RiskFile[] = all.map((b) => ({
+      farmId: b.file.farmId,
+      farmName: b.farm.name,
+      provinceKey: b.farm.provinceCode ?? 'SANS',
+      provinceName: b.farm.provinceName,
+      claimClass: b.calc.claimClass,
+      daysLate: b.calc.daysLate,
+      overdueFcfa: b.calc.amounts.overdueFcfa,
+      outstandingFcfa: b.calc.amounts.outstandingFcfa,
+    }));
+    return riskOf(files, rates);
+  }
 
   /** Files of the programme, limited to the caller's scope when it is not programme-wide. */
   private async scopedFiles(programId: string): Promise<FinancingFile[]> {
@@ -215,6 +242,7 @@ export class FinancingPortfolioService {
     const financedFarms = new Set(all.filter((b) => b.calc.amounts.disbursedFcfa > 0).map((b) => b.file.farmId));
     return {
       asOf: settings.today,
+      risk: this.riskFigures(all, await this.provisionRates()),
       perimeter: await this.scope.financedPerimeter(program.id),
       farms: {
         inScope: await this.farmsInScopeCount(reach, program.id),
@@ -356,9 +384,29 @@ export class FinancingPortfolioService {
       r.amounts.scheduledFcfa, r.amounts.repaidFcfa, r.amounts.overdueFcfa, r.amounts.outstandingFcfa, r.documents.provided,
       r.documents.expected, { AUCUN: 'Non recueilli', ACTIF: 'Donné', RETIRE: 'Retiré' }[r.consent], r.nextDueDate,
     ]);
+    const risk = this.riskFigures([...bundles.values()], await this.provisionRates());
+    const riskRows: unknown[][] = [
+      ...risk.ageing.map((b) => ['Impayés échus par ancienneté', b.label, b.files, b.overdueFcfa, null, null, null]),
+      ...risk.concentration.top.map((t, i) => [`Concentration : 5 plus gros emprunteurs`, `${i + 1}. ${t.farmName}`, t.files, null, t.outstandingFcfa, t.sharePct, null]),
+      ...risk.concentration.byProvince.map((p) => ['Encours par province', p.label, p.files, null, p.outstandingFcfa, p.sharePct, null]),
+      ...risk.provisions.rows.map((r) => ['Provisions indicatives', r.label, r.files, r.provisionFcfa, r.outstandingFcfa, null, r.ratePct]),
+      ['Provisions indicatives', 'Total', null, risk.provisions.totalFcfa, null, risk.provisions.coveragePct, null],
+      [
+        'Note',
+        'Provisions indicatives : la comptabilité de la BCEG fait foi, les garanties ne sont pas prises en compte (Règlement COBAC R-2018/01, art. 17-18).',
+        null, null, null, null, null,
+      ],
+    ];
     return {
       filename: `financement-portefeuille-${settings.today}.xlsx`,
-      buffer: await toXlsx(headers, data, { sheetName: 'Portefeuille' }),
+      buffer: await toXlsxSheets([
+        { name: 'Portefeuille', headers, rows: data },
+        {
+          name: 'Risque',
+          headers: ['Rubrique', 'Libellé', 'Dossiers', 'Montant (FCFA)', 'Encours (FCFA)', 'Part (%)', 'Taux (%)'],
+          rows: riskRows,
+        },
+      ]),
     };
   }
 }

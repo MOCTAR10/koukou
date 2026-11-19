@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -18,12 +19,16 @@ import type * as C from './financing.contract.js';
 import { FinancingFile } from './entities/financing-file.entity.js';
 import { FinancingPortfolioService } from './financing-portfolio.service.js';
 import { addMonths } from './financing-rules.js';
+import { coveragePctOf, incompleteEntriesWarning, netResultWithStock } from './financing-statements-rules.js';
 import { computeRatios, monthsCovered, type RatioInputs } from './financing-ratios.js';
 import { FinancingService } from './financing.service.js';
 import { FinancingViewService } from './financing-view.service.js';
 
 export const COVERAGE_MIN_KEY = 'FINANCEMENT_COUVERTURE_DETTE_MIN';
 export const LEVERAGE_MAX_KEY = 'FINANCEMENT_ENDETTEMENT_MAX';
+/** Line of the income statement for the feed stock valued but not yet booked. */
+const STOCK_VARIATION_LABEL = 'Variation de stock d’aliment (estimée)';
+export const COVERAGE_ENTRIES_MIN_KEY = 'FINANCEMENT_COUVERTURE_SAISIE_MIN';
 /** Seeded requirement under which the generated statements are filed. */
 export const STATEMENTS_REQUIREMENT_CODE = 'INSTRUCTION_ETATS_FINANCIERS';
 
@@ -99,7 +104,19 @@ export class FinancingStatementsService {
     ]);
     const initialized = exercices.length > 0;
     const closed = exercices.some((e) => e.status === 'CLOSED' && e.start_date <= to && e.end_date >= to);
-    const base = { farmId, from, to, initialized, reliability: { ...reliability, closed } };
+    const coverageMinPct = (await this.parameters.get<number>(COVERAGE_ENTRIES_MIN_KEY)) ?? 60;
+    const base = {
+      farmId,
+      from,
+      to,
+      initialized,
+      reliability: {
+        ...reliability,
+        closed,
+        coveragePct: coveragePctOf(reliability.daysWithEntries, reliability.daysInPeriod),
+        coverageMinPct,
+      },
+    };
     const thresholds = await this.thresholds();
     if (!initialized) {
       return {
@@ -116,16 +133,26 @@ export class FinancingStatementsService {
     const bilan = await this.accounting.bilan(user, farmId, undefined, to);
     const products = result.produits.filter((s) => s.soldeFcfa !== 0).map((s) => line(s, -s.soldeFcfa));
     const charges = result.charges.filter((s) => s.soldeFcfa !== 0).map((s) => line(s, s.soldeFcfa));
+    // The balance sheet adds the feed stock on hand (not yet booked in the
+    // ledger) to its result: the income statement shows the same estimate as
+    // its own line, so both results agree. Reused from the bilan, never recomputed.
+    const stockVariationFcfa = bilan.variationStockFcfa;
+    const netResultFcfa = netResultWithStock(result.resultatFcfa, stockVariationFcfa);
     const incomeStatement = {
       products,
       charges,
       revenueFcfa: result.totalProduits,
       chargesFcfa: result.totalCharges,
-      netResultFcfa: result.resultatFcfa,
+      stockVariationFcfa,
+      netResultFcfa,
     };
+    // The bilan's result runs from the start of the fiscal year containing `to`.
+    const yearStart = bilan.exercice?.startDate ?? null;
+    const resultLabel =
+      yearStart && yearStart !== from ? `Résultat de l’exercice (depuis le ${dateFr(yearStart)})` : 'Résultat de la période';
     const liabilities: C.StatementLine[] = [
       ...bilan.capitaux.map((s) => line(s, -s.soldeFcfa)),
-      { code: '12', label: 'Résultat de la période', amountFcfa: bilan.resultatFcfa },
+      { code: '12', label: resultLabel, amountFcfa: bilan.resultatFcfa },
       ...bilan.passif.map((s) => line(s, -s.soldeFcfa)),
     ];
     const balanceSheet = {
@@ -143,7 +170,7 @@ export class FinancingStatementsService {
     const overdraft = sum(bilan.passif, (s) => s.classe === 5, -1);
     const equity = bilan.totalCapitaux;
     const inputs: RatioInputs = {
-      netResultFcfa: result.resultatFcfa,
+      netResultFcfa,
       depreciationFcfa: result.charges
         .filter((s) => s.code.startsWith('68') || s.code.startsWith('69'))
         .reduce((t, s) => t + s.soldeFcfa, 0),
@@ -193,7 +220,7 @@ export class FinancingStatementsService {
   }
 
   /** Days with something entered (daily entry or posted accounting entry), count of entries, last day. */
-  private async reliability(farmId: string, from: string, to: string): Promise<Omit<C.FarmFinancials['reliability'], 'closed'>> {
+  private async reliability(farmId: string, from: string, to: string): Promise<Omit<C.FarmFinancials['reliability'], 'closed' | 'coveragePct' | 'coverageMinPct'>> {
     const daysInPeriod =
       (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000 + 1;
     const rows = await this.q<{ with_entries: string; journal: string; last: string | null }>(
@@ -335,6 +362,9 @@ export class FinancingStatementsService {
           rows: is.charges.map((l) => [l.code, l.label, n(l.amountFcfa)]),
           totals: [
             { label: 'Total charges', value: n(is.chargesFcfa) },
+            ...(is.stockVariationFcfa !== 0
+              ? [{ label: `${STOCK_VARIATION_LABEL} (estimation, non comptabilisée)`, value: n(is.stockVariationFcfa) }]
+              : []),
             { label: 'Résultat net', value: n(is.netResultFcfa) },
           ],
         },
@@ -381,6 +411,7 @@ export class FinancingStatementsService {
       farmName: `États financiers — ${name}`,
       title: 'Comptabilité SYSCOHADA',
       period: `Période du ${dateFr(data.from)} au ${dateFr(data.to)}${data.initialized ? '' : ' — comptabilité non ouverte par l’exploitation'}. ${mention}`,
+      warnings: [incompleteEntriesWarning(data.reliability)].filter((w): w is string => w !== null),
       generatedAtLabel: dateFr(todayLocal()),
       sections,
       totals: [{ label: 'Mention', value: mention }],
@@ -391,6 +422,10 @@ export class FinancingStatementsService {
   /** Files the PDF on a financing file, under the seeded « états financiers » requirement. */
   async attachToFile(user: AuthUser, fileId: string, from: string, to: string): Promise<C.FinancingFile> {
     const { farmId } = await this.files.farmOfFile(fileId);
+    const opened = await this.q<{ n: string }>(`SELECT COUNT(*) AS n FROM accounting_exercices WHERE farm_id = $1`, [farmId]);
+    if (Number(opened[0].n) === 0) {
+      throw new ConflictException('Cette exploitation n’a pas ouvert sa comptabilité dans Fermia : il n’y a pas d’états financiers à déposer.');
+    }
     const period = this.period(from, to);
     const pdf = await this.pdfOf(user, farmId, period.from, period.to);
     return this.files.attachGenerated(user, fileId, {

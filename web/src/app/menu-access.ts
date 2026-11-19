@@ -111,6 +111,9 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/tracabilite': { kind: 'grant', any: [['TRACABILITE', 'CONSULTER'], ['ADMINISTRATION', 'CONSULTER']] },
   // The bank's financer workspace: one domain, no farm scope needed (the server resolves the financed farms).
   '/app/financement': consult('FINANCEMENT'),
+  // The farmer's own page, where a technical agent files pieces for the farm (delegated entry: TECHNIQUE:CREER;
+  // the shell also asks the farm profile for `saisie:creer` before it reads `GET /farms/:id/financing`).
+  '/app/financement-ferme': { kind: 'grant', any: [['TECHNIQUE', 'CREER']], farms: true },
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   // POUFA lot A droits: Fermia modules, consultation only, granted through the matrix.

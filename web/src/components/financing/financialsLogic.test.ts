@@ -3,7 +3,8 @@ import type { FarmFinancials } from '../../api/types-financing';
 import {
   balanceCheck,
   beforeAfterRows,
-  coveragePct,
+  coverageText,
+  lowCoverageLine,
   headlineRatios,
   isFinancialStatementsRequirement,
   isLowCoverage,
@@ -61,12 +62,16 @@ describe('headlineRatios', () => {
 });
 
 describe('coverage', () => {
-  it('computes whole percent and flags under 60 %', () => {
-    expect(coveragePct({ daysInPeriod: 365, daysWithEntries: 219 })).toBe(60);
-    expect(isLowCoverage({ daysInPeriod: 365, daysWithEntries: 219 })).toBe(false);
-    expect(isLowCoverage({ daysInPeriod: 365, daysWithEntries: 200 })).toBe(true);
-    expect(coveragePct({ daysInPeriod: 0, daysWithEntries: 0 })).toBe(0);
-    expect(coveragePct({ daysInPeriod: 10, daysWithEntries: 12 })).toBe(100);
+  const r = (daysWithEntries: number, coveragePct: number) => ({ daysInPeriod: 365, daysWithEntries, coveragePct, coverageMinPct: 60 });
+  it('flags a coverage under the programme minimum, the minimum itself is enough', () => {
+    expect(isLowCoverage(r(219, 60))).toBe(false);
+    expect(isLowCoverage(r(153, 41.9))).toBe(true);
+  });
+
+  it('words the figure like the PDF warning', () => {
+    expect(coverageText(r(153, 41.9))).toBe('153 jours saisis sur 365 (41,9 %)');
+    expect(lowCoverageLine(r(153, 41.9))).toBe('Saisie incomplète : 153 jours saisis sur 365 (41,9 %)');
+    expect(lowCoverageLine(r(365, 100))).toBeNull();
   });
 });
 

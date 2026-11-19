@@ -14,7 +14,8 @@ import {
   daysLateText,
   scheduleTotals,
 } from './financingLogic';
-import { useFileAction } from './queries';
+import { useFileAction, useFileVisits } from './queries';
+import { NO_VISIT_TEXT, visitLabel } from './visitsLogic';
 import { FcfaInput, Fact, SectionTitle } from './shared';
 
 // ── Disbursements ──────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ function ReleaseModal({ file, tranche, onClose }: { file: FinancingFile; tranche
   const action = useFileAction(file.id);
   const [releasedOn, setReleasedOn] = useState(todayIso());
   const [visitId, setVisitId] = useState('');
+  const visits = useFileVisits(file.id);
   const [note, setNote] = useState('');
   return (
     <Modal title={`Débloquer la tranche ${tranche.number}`} onClose={onClose}>
@@ -31,7 +33,7 @@ function ReleaseModal({ file, tranche, onClose }: { file: FinancingFile; tranche
         onSubmit={(e) => {
           e.preventDefault();
           action.mutate(
-            { path: `disbursements/${tranche.id}/release`, body: { releasedOn, visitId: visitId.trim() || null, note: note.trim() || null } },
+            { path: `disbursements/${tranche.id}/release`, body: { releasedOn, visitId: visitId || null, note: note.trim() || null } },
             { onSuccess: onClose },
           );
         }}
@@ -43,8 +45,16 @@ function ReleaseModal({ file, tranche, onClose }: { file: FinancingFile; tranche
         <Field label="Date de déblocage">
           <DateInput value={releasedOn} onChange={(e) => setReleasedOn(e.target.value)} max={todayIso()} required />
         </Field>
-        <Field label="Visite de terrain (facultatif)" hint="Identifiant de la visite technique qui a servi de contrôle sur place.">
-          <input className={inputCls} value={visitId} onChange={(e) => setVisitId(e.target.value)} maxLength={80} />
+        <Field label="Visite de terrain (facultatif)" hint="Visite technique qui a servi de contrôle sur place.">
+          <select className={inputCls} value={visitId} onChange={(e) => setVisitId(e.target.value)} disabled={visits.isLoading || (visits.data?.length ?? 0) === 0}>
+            <option value="">{visits.isLoading ? 'Chargement des visites' : visits.data?.length === 0 ? NO_VISIT_TEXT : 'Aucune visite choisie'}</option>
+            {(visits.data ?? []).map((v) => (
+              <option key={v.id} value={v.id}>
+                {visitLabel(v)}
+              </option>
+            ))}
+          </select>
+          {visits.isError ? <span className="mt-1 block text-xs text-slate-500">Les visites de cette ferme ne sont pas consultables avec votre accès.</span> : null}
         </Field>
         <Field label="Note (facultatif)">
           <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
@@ -164,7 +174,7 @@ export function FileDisbursementsTab({ file }: { file: FinancingFile }) {
                   <Td label="Statut">
                     <StatusBadge tone={DISBURSEMENT_TONES[d.status]} label={DISBURSEMENT_LABELS[d.status]} />
                     {d.releasedOn ? <span className="mt-0.5 block text-xs text-slate-500">le {dateFr(d.releasedOn)}</span> : null}
-                    {d.visitId ? <span className="block text-xs text-slate-500">Visite de terrain liée</span> : null}
+                    {d.visit ? <span className="block text-xs text-slate-500">Visite de terrain : {visitLabel(d.visit)}</span> : d.visitId ? <span className="block text-xs text-slate-500">Visite de terrain liée</span> : null}
                   </Td>
                   <Td label="Actions">
                     {d.status === 'PREVUE' && file.rights.validate ? (

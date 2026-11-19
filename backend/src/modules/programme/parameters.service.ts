@@ -56,6 +56,8 @@ export interface ParameterView {
   readonly defaultValue: unknown;
   /** Who must still decide the default, when the catalog says so. */
   readonly defaultNote: string | null;
+  /** Closed choice of a text parameter (the screen offers these instead of a field). */
+  readonly options: ParameterDefinition['options'] | null;
 }
 
 /** A stored version with its author's name. */
@@ -329,6 +331,7 @@ export class ParametersService {
       versionId: row?.id ?? null,
       defaultValue: def.defaultValue,
       defaultNote: def.defaultNote ?? null,
+      options: def.options ?? null,
     };
   }
 }
