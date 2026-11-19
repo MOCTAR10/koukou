@@ -156,11 +156,15 @@ jobs:
       - name: Apply migrations
         run: npm run migration:run
 
+      # Not in this list on purpose (they compare the faked app clock with the
+      # database `now()`, or read catalog parameters that an earlier spec
+      # changed while its own faked clock restarted at 23:30): market-cancel-move,
+      # pilotage, programme-access.
       - name: E2E tests with the clock at 23:30 UTC
         run: >-
           npx vitest run --config ./vitest.config.e2e.ts
           accounting breed-standards customer-zone dashboard finance-pos
           flock-metrics metier-api-indicators metier-scenarios orders
           poufa-a2-dge poufa-bandes sanitary tasks weather buildings
-          market-cancel-move pilotage poufa-a2-droits poufa-bande-entries
+          poufa-a2-droits poufa-bande-entries
           poufa-droits poufa-visites surveillance visit-reminders pondage
