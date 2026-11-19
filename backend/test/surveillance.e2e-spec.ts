@@ -18,10 +18,9 @@ import {
   uniquePhone,
 } from './helpers/programme-farm.js';
 
+import { lvDay } from './helpers/libreville-day.js';
 function day(offset = 0): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + offset);
-  return d.toISOString().slice(0, 10);
+  return lvDay(offset);
 }
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

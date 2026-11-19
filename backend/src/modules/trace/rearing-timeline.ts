@@ -1,3 +1,4 @@
+import { todayLocal } from '../../common/utils/date.utils.js';
 import { CareType } from '../../common/enums/care-type.enum.js';
 import { HealthEventKind } from '../../common/enums/health-event-kind.enum.js';
 import { RearingEventKind } from '../../common/enums/trace.enum.js';
@@ -162,7 +163,7 @@ export function careRecord(
 }
 
 const dayOf = (d: Date | string) =>
-  typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10);
+  typeof d === 'string' ? d.slice(0, 10) : todayLocal(d);
 
 const kgLabel = (kg: number) =>
   `${Math.round(kg * 10) / 10}`.replace('.', ',');

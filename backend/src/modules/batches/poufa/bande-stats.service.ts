@@ -21,7 +21,7 @@ import { FlockReconciliationService } from '../flock-reconciliation.service.js';
 import {
   buildDailyStats,
   factInstant,
-  utcDay,
+  businessDay,
   type DailyStatRow,
 } from './bande-rules.js';
 
@@ -93,7 +93,7 @@ export class BandeStatsService {
    * since an earlier day (their "entry not done" days must still appear).
    * Returns the number of bands refreshed.
    */
-  async refreshStale(today: string = utcDay()): Promise<number> {
+  async refreshStale(today: string = businessDay()): Promise<number> {
     const stale: { id: string }[] = await this.dataSource.query(
       `SELECT b.id
          FROM production_batches b
@@ -166,7 +166,7 @@ export class BandeStatsService {
       this.parameters.resolver(programId, em),
     ]);
     const start = batch.integrationDate.slice(0, 10);
-    let endDay = batch.closedAt ? utcDay(batch.closedAt) : utcDay();
+    let endDay = batch.closedAt ? businessDay(batch.closedAt) : businessDay();
     for (const e of entries) {
       const d = e.entryDate.slice(0, 10);
       if (d > endDay) endDay = d;

@@ -42,8 +42,9 @@ function todayStr(): string {
   return todayLocal();
 }
 
+/** Libreville day `n` days before today (negative = after). */
 function daysAgoStr(n: number): string {
-  const d = new Date();
+  const d = new Date(`${todayStr()}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
 }
@@ -698,13 +699,9 @@ export class FeedStockService {
    * par lot. ROUGE si périmé ou expire sous 7 j, JAUNE sous 14 j.
    */
   private async evaluateFeedExpiration(farmId: string): Promise<void> {
-    const soon = new Date();
-    soon.setUTCDate(soon.getUTCDate() + 7);
-    const secSoon = new Date();
-    secSoon.setUTCDate(secSoon.getUTCDate() + 14);
-    const soonStr = soon.toISOString().slice(0, 10);
-    const secSoonStr = secSoon.toISOString().slice(0, 10);
     const today = todayStr();
+    const soonStr = daysAgoStr(-7);
+    const secSoonStr = daysAgoStr(-14);
 
     const lots = await this.inputRepo.find({
       where: { farmId, kind: InputKind.ALIMENT, batchId: IsNull() },

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { utcDay } from '../batches/poufa/bande-rules.js';
+import { businessDay } from '../batches/poufa/bande-rules.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import {
   latestControls,
@@ -33,7 +33,7 @@ export class PilotageBiosecurityService {
   async ofFarms(
     programId: string,
     farmIds: readonly string[],
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<{
     byFarm: Map<string, FarmBiosecurity>;
     staleAfterDays: number;

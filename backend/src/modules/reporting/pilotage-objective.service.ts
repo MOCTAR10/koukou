@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { libervilleDayStart } from '../../common/utils/date.utils.js';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { addDays, utcDay } from '../batches/poufa/bande-rules.js';
+import { addDays, businessDay } from '../batches/poufa/bande-rules.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import { ProgrammeService } from '../programme/programme.service.js';
 import { DAY_EXIT_KG, weighedSortiesCte } from './pilotage-data.service.js';
@@ -114,7 +115,7 @@ export class PilotageObjectiveService {
   async objective(
     view: PilotageView,
     raw: RawFilters,
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<PilotageObjective> {
     const filters = await this.scope.filters(view, raw);
     const program = await this.programme.current();
@@ -156,7 +157,7 @@ export class PilotageObjectiveService {
     );
 
     const q = new SqlParams(farms.params);
-    const since = q.add(`${addDays(today, -364)}T00:00:00.000Z`);
+    const since = q.add(libervilleDayStart(addDays(today, -364)));
     const eligibleQ = q.add(rules.eligibleBandKeys);
     const [closed]: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql})

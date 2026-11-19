@@ -46,7 +46,7 @@ import { ProgramMembership } from '../access/entities/program-membership.entity.
 import { ScopeResolver } from '../access/scope-resolver.service.js';
 import { BandeSnapshot } from '../bandes/entities/bande-snapshot.entity.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
-import { utcDay } from '../batches/poufa/bande-rules.js';
+import { businessDay } from '../batches/poufa/bande-rules.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ParametersService } from '../programme/parameters.service.js';
@@ -462,7 +462,7 @@ export class ReportsService {
     if (template.periodicity === ReportPeriodicity.FIN_DE_BANDE) {
       throw new BadRequestException('Périodicité incohérente pour ce modèle.');
     }
-    const today = utcDay();
+    const today = businessDay();
     let period: Period;
     if (input.periodStart) {
       if (!isDay(input.periodStart)) {

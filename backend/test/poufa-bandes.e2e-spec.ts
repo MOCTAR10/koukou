@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
-import { libervilleAheadOfUtc } from './helpers/libreville-day.js';
+import { lvDay } from './helpers/libreville-day.js';
 import { AppModule } from './../src/app.module.js';
 import {
   KOUKOU_EVENTS,
@@ -16,9 +16,8 @@ import {
   createProgrammeFarm,
 } from './helpers/programme-farm.js';
 
-/** `YYYY-MM-DD`, `n` days from today (UTC). */
-const day = (n: number) =>
-  new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+/** `YYYY-MM-DD`, `n` days from today (Libreville). */
+const day = (n: number) => lvDay(n);
 const minutes = (n: number) => new Date(Date.now() + n * 60_000).toISOString();
 
 describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
@@ -124,7 +123,7 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
       );
     });
 
-    it.skipIf(libervilleAheadOfUtc())('âge J+x partout : métriques du lot, calendrier sanitaire', async () => {
+    it('âge J+x partout : métriques du lot, calendrier sanitaire', async () => {
       // Received today at 20 days old.
       const band = await openBand({
         integrationDate: day(0),

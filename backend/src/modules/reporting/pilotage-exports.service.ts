@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { libervilleDayStart } from '../../common/utils/date.utils.js';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { utcDay } from '../batches/poufa/bande-rules.js';
+import { todayLocal } from '../../common/utils/date.utils.js';
+import { businessDay } from '../batches/poufa/bande-rules.js';
 import type { ExportTable } from './export-table.js';
 import { NEVER_CONTROLLED, type BiosecurityFigures } from './pilotage-biosecurity.js';
 import { PilotageBiosecurityService } from './pilotage-biosecurity.service.js';
@@ -243,9 +245,9 @@ export class PilotageExportsService {
     const rules = await this.dashboards.rules(view, ctx.period);
     const farms = this.scope.scopedFarms(view, ctx.filters);
     const p = new SqlParams(farms.params);
-    const from = p.add(`${ctx.period.from}T00:00:00.000Z`);
+    const from = p.add(libervilleDayStart(ctx.period.from));
     const to = p.add(ctx.period.to);
-    const today = p.add(utcDay());
+    const today = p.add(businessDay());
     const eligible = p.add(rules.eligibleBandKeys);
     const rows: Record<string, unknown>[] = await this.dataSource.query(
       `WITH sf AS (${farms.sql})
@@ -311,7 +313,7 @@ export class PilotageExportsService {
         opened: String(r.integration_date ?? '').slice(0, 10),
         initialAge: n(r.initial_age_days),
         closed: r.closed_at
-          ? new Date(String(r.closed_at)).toISOString().slice(0, 10)
+          ? todayLocal(new Date(String(r.closed_at)))
           : null,
         lastDay: String(r.day ?? '').slice(0, 10),
         age: n(r.age_days),

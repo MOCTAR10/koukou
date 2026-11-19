@@ -5,7 +5,7 @@
  */
 import { ReportPeriodicity } from '../../common/enums/report.enum.js';
 import { isGeoJsonGeometry } from '../../common/geo/geo-geometry.js';
-import { addDays, utcDay } from '../batches/poufa/bande-rules.js';
+import { addDays, businessDay } from '../batches/poufa/bande-rules.js';
 import { daysBetween } from '../batches/flock-performance.js';
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -35,7 +35,7 @@ export function isDay(value: string): boolean {
 export function resolvePeriod(
   from: string | undefined,
   to: string | undefined,
-  today: string = utcDay(),
+  today: string = businessDay(),
 ): PeriodResult {
   const end = to?.trim() || today;
   if (!isDay(end)) {
@@ -278,7 +278,7 @@ export function lastCompletePeriod(
   periodicity: ReportPeriodicity.HEBDOMADAIRE | ReportPeriodicity.MENSUEL,
   now: Date = new Date(),
 ): Period {
-  const current = periodContaining(periodicity, utcDay(now));
+  const current = periodContaining(periodicity, businessDay(now));
   return periodContaining(periodicity, addDays(current.from, -1));
 }
 

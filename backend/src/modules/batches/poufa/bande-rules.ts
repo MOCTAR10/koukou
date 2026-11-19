@@ -3,13 +3,17 @@
  * age with a mid-cycle opening (J+x), daily projection rows, completeness and
  * weighing schedule. No I/O: services feed them with rows they read.
  */
+import { libervilleDayEnd, todayLocal } from '../../../common/utils/date.utils.js';
 import { daysBetween } from '../flock-performance.js';
 
 const DAY_MS = 86_400_000;
 
-/** `YYYY-MM-DD` of `now` in UTC (all band dates are UTC days). */
-export function utcDay(now: Date = new Date()): string {
-  return now.toISOString().slice(0, 10);
+/**
+ * Business day (`YYYY-MM-DD`) of an instant: the Africa/Libreville day, the
+ * same as `todayLocal` (UTC+1: from 23:00 UTC it is already the next day).
+ */
+export function businessDay(now: Date = new Date()): string {
+  return todayLocal(now);
 }
 
 export function addDays(day: string, n: number): string {
@@ -24,7 +28,7 @@ export function addDays(day: string, n: number): string {
  * applies to today's figures).
  */
 export function factInstant(day: string, now: Date = new Date()): Date {
-  const end = new Date(Date.parse(`${day}T23:59:59.999Z`));
+  const end = new Date(libervilleDayEnd(day));
   return end.getTime() > now.getTime() ? now : end;
 }
 
@@ -70,7 +74,7 @@ export function expectedEndDate(
  * normal entries (the evening entry often lands after midnight UTC+1).
  */
 export function isCatchUp(entryDate: string, now: Date = new Date()): boolean {
-  return entryDate.slice(0, 10) < addDays(utcDay(now), -1);
+  return entryDate.slice(0, 10) < addDays(businessDay(now), -1);
 }
 
 export interface StatsEntry {

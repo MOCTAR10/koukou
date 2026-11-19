@@ -10,10 +10,9 @@ import {
 } from './helpers/programme-farm.js';
 import { DatabaseSeedService } from './../src/database/database-seed.service.js';
 
+import { lvDay, lvToday } from './helpers/libreville-day.js';
 function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return lvDay(-n);
 }
 
 describe('Module 1 — Bâtiments & bandes (e2e)', () => {
@@ -208,8 +207,8 @@ describe('Module 1 — Bâtiments & bandes (e2e)', () => {
       await app
         .get(DataSource)
         .query(
-          `UPDATE production_batches SET closed_at = now() - make_interval(days => $2) WHERE id = $1`,
-          [batchId, endedDaysAgo],
+          `UPDATE production_batches SET closed_at = $2 WHERE id = $1`,
+          [batchId, new Date(Date.now() - endedDaysAgo * 86_400_000)],
         );
     }
   }
@@ -232,7 +231,7 @@ describe('Module 1 — Bâtiments & bandes (e2e)', () => {
       .expect(200);
     expect(building.body.stats.activeLots).toBe(0);
     expect(building.body.stats.lastLotEndedAt).toBe(
-      new Date().toISOString().slice(0, 10),
+      lvToday(),
     );
     const vs = await activeAlerts(
       `kind = 'VIDE_SANITAIRE' AND building_id = $2`,

@@ -12,10 +12,9 @@ import {
   uniquePhone,
 } from './helpers/programme-farm.js';
 
+import { lvDay } from './helpers/libreville-day.js';
 function daysAgo(n: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
+  return lvDay(-n);
 }
 
 /**
@@ -311,7 +310,7 @@ describe('POUFA — visites techniques et biosécurité (e2e)', () => {
     });
 
     it('journals the third-party reads and the writes', async () => {
-      const since = new Date(Date.now() - 1000);
+      const [{ since }] = await ds.query("SELECT now() - interval '1 second' AS since");
       await get(`/farms/${farmA}/visits`, dgeToken).expect(200);
       await get(`/farms/${farmA}/visits`, ownerA).expect(200);
       const reads = await ds.query(
@@ -375,7 +374,7 @@ describe('POUFA — visites techniques et biosécurité (e2e)', () => {
     });
 
     it('serves the photo to the readers of the visit only, and journals third-party reads', async () => {
-      const since = new Date(Date.now() - 1000);
+      const [{ since }] = await ds.query("SELECT now() - interval '1 second' AS since");
       const url = `/farms/${farmA}/visits/${visitId}/photos/${photoId}`;
       for (const token of [ownerA, dgeToken, vetToken, agentToken]) {
         const res = await get(url, token).buffer(true).expect(200);

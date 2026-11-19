@@ -3,6 +3,7 @@ import {
   addDays,
   ageOn,
   ageZeroDay,
+  businessDay,
   buildDailyStats,
   completenessPct,
   expectedEndDate,
@@ -59,7 +60,7 @@ describe('band dates', () => {
   it('reads the parameters of a past day at its end, of today now', () => {
     const now = new Date('2026-11-05T10:00:00Z');
     expect(factInstant('2026-11-01', now).toISOString()).toBe(
-      '2026-11-01T23:59:59.999Z',
+      '2026-11-01T22:59:59.999Z',
     );
     expect(factInstant('2026-11-05', now)).toBe(now);
   });
@@ -233,5 +234,23 @@ describe('weighingStatus', () => {
       weighingStatus({ ...input, weighings: [], today: '2026-12-01', closed: true })
         .late,
     ).toBe(false);
+  });
+});
+
+describe('businessDay (jour de Libreville, UTC+1)', () => {
+  it('22:59 UTC reste le même jour', () => {
+    expect(businessDay(new Date('2026-11-18T22:59:00Z'))).toBe('2026-11-18');
+  });
+
+  it('23:30 UTC est déjà le lendemain à Libreville', () => {
+    expect(businessDay(new Date('2026-11-18T23:30:00Z'))).toBe('2026-11-19');
+  });
+
+  it('un rattrapage se juge sur le jour de Libreville', () => {
+    // 23:30 UTC le 18 = 00:30 le 19 : hier = le 18, le 17 est un rattrapage.
+    const now = new Date('2026-11-18T23:30:00Z');
+    expect(isCatchUp('2026-11-18', now)).toBe(false);
+    expect(isCatchUp('2026-11-17', now)).toBe(true);
+    expect(isCatchUp('2026-11-17', new Date('2026-11-18T22:59:00Z'))).toBe(false);
   });
 });

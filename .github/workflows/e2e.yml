@@ -161,4 +161,6 @@ jobs:
           npx vitest run --config ./vitest.config.e2e.ts
           accounting breed-standards customer-zone dashboard finance-pos
           flock-metrics metier-api-indicators metier-scenarios orders
-          poufa-a2-dge poufa-bandes sanitary tasks weather
+          poufa-a2-dge poufa-bandes sanitary tasks weather buildings
+          market-cancel-move pilotage poufa-a2-droits poufa-bande-entries
+          poufa-droits poufa-visites surveillance visit-reminders pondage

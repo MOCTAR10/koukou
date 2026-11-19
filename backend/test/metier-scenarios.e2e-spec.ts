@@ -1,4 +1,4 @@
-import { lvDate, utcDayOf } from './helpers/libreville-day.js';
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -21,12 +21,6 @@ import {
 /** `YYYY-MM-DD`, `n` days from today (Libreville). */
 const day = (n: number) =>
   lvDate(new Date(Date.now() + n * 86_400_000));
-
-/**
- * Same, in UTC: a closed band is dated by its `closedAt` UTC day (age, vide
- * sanitaire), so the chair cycle and the sanitary-void scenario count in UTC.
- */
-const utcDay = utcDayOf;
 
 /** Rows of a `;`-separated export, keyed by header. */
 function csvRows(text: string): Record<string, string>[] {
@@ -251,14 +245,14 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
         {
           batchName: `Chair cycle ${tag}`,
           type: 'CHAIR',
-          integrationDate: utcDay(-42),
+          integrationDate: day(-42),
           quantityAtStart: PLACED,
           breedId,
           buildingId: building.body.id,
           chickUnitPriceFcfa: 500,
           couvoirSupplier: 'Couvoir Test',
           chickLotNumber: `CL-${digits}`,
-          hatchDate: utcDay(-42),
+          hatchDate: day(-42),
         },
         token,
       ).expect(201);
@@ -286,7 +280,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
         await post(
           `/farms/${farmId}/batches/${batchId}/daily-entries`,
           {
-            entryDate: utcDay(o - 42),
+            entryDate: day(o - 42),
             deaths: deathsAt(o),
             feedQuantity: feedAt(o),
             feedUnit: 'KG',
@@ -317,7 +311,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
           {
             careType: step.careType,
             protocolStepId: step.id,
-            administeredAt: utcDay(-42 + step.dayFrom),
+            administeredAt: day(-42 + step.dayFrom),
             reason: 'Calendrier sanitaire de référence',
             animalCount: PLACED,
           },
@@ -331,8 +325,8 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
           productName: 'Amoxicilline 20 %',
           dosage: '1 g/L',
           route: 'Eau de boisson',
-          administeredAt: utcDay(-35),
-          endDate: utcDay(-33),
+          administeredAt: day(-35),
+          endDate: day(-33),
           withdrawalDays: 5,
           reason: 'Coryza',
           animalCount: 200,
@@ -360,7 +354,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       const sortie = (body: object) =>
         post(`/farms/${farmId}/bandes/${batchId}/sorties`, body, token).expect(201);
       await sortie({
-        sortieDate: utcDay(-7),
+        sortieDate: day(-7),
         count: 300,
         weightKg: 585,
         reasonCode: 'VENTE_VIF',
@@ -369,7 +363,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
         priceUnit: 'KG',
       });
       await sortie({
-        sortieDate: utcDay(0),
+        sortieDate: day(0),
         count: 400,
         weightKg: 960,
         reasonCode: 'VENTE_VIF',
@@ -378,7 +372,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
         priceUnit: 'KG',
       });
       await sortie({
-        sortieDate: utcDay(0),
+        sortieDate: day(0),
         count: 247,
         weightKg: 592.8,
         reasonCode: 'ABATTOIR',
@@ -476,7 +470,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
 
     it('bilan figé (snapshot v1) = indicateurs officiels du jour de clôture', () => {
       expect(snapshot.version).toBe(1);
-      expect(snapshot.asOf).toBe(utcDay(0));
+      expect(snapshot.asOf).toBe(day(0));
       expect(snapshot.durationDays).toBe(42);
       expect(snapshot.revenueFcfa).toBe(REVENUE);
       expect(snapshot.chargesFcfa).toBe(COSTS);
@@ -597,7 +591,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       const treatments = (await get(`/farms/${farmId}/batches/${batchId}/treatments`, token).expect(200)).body;
       const antibiotic = treatments.find((t: any) => t.careType === 'ANTIBIOTIQUE');
       // Withdrawal runs from the END of the course (day -33 + 5 days).
-      expect(antibiotic.withdrawalEndDate.slice(0, 10)).toBe(utcDay(-28));
+      expect(antibiotic.withdrawalEndDate.slice(0, 10)).toBe(day(-28));
       expect(treatments.length).toBeGreaterThan(1);
       const vaccines = treatments.filter((t: any) => t.careType === 'VACCIN');
       expect(vaccines.length).toBeGreaterThan(0);
@@ -628,7 +622,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
 
     it('pilotage : le même lot dans le tableau de bord national (périmètre de la ferme)', async () => {
       const dash = (
-        await get(`/pilotage/dashboard?from=${utcDay(-45)}&to=${utcDay(0)}`, agentToken).expect(200)
+        await get(`/pilotage/dashboard?from=${day(-45)}&to=${day(0)}`, agentToken).expect(200)
       ).body;
       const m = dash.totals.metrics;
       expect(m).toMatchObject({
@@ -647,7 +641,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
     });
 
     it('exports du pilotage : la ligne de la bande reprend les mêmes totaux', async () => {
-      const csv = await get(`/pilotage/exports/bandes.csv?from=${utcDay(-45)}&to=${utcDay(0)}`, agentToken).expect(200);
+      const csv = await get(`/pilotage/exports/bandes.csv?from=${day(-45)}&to=${day(0)}`, agentToken).expect(200);
       const rows = csvRows(csv.text);
       const row = rows.find((r) => r['Code bande'] === batchCode);
       expect(row).toBeTruthy();
@@ -664,7 +658,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
         {
           batchName: `Chair close ${tag}`,
           type: 'CHAIR',
-          integrationDate: utcDay(-30),
+          integrationDate: day(-30),
           quantityAtStart: 100,
         },
         token,
@@ -672,15 +666,15 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       const id = created.body.id as string;
       await post(
         `/farms/${farmId}/batches/${id}/daily-entries`,
-        { entryDate: utcDay(-29), deaths: 1, avgWeightKg: 0.2, sampleSize: 10 },
+        { entryDate: day(-29), deaths: 1, avgWeightKg: 0.2, sampleSize: 10 },
         token,
       ).expect(201);
       await post(`/farms/${farmId}/batches/${id}/cloture`, {}, token).expect(201);
       await get(`/farms/${farmId}/bandes/${id}/snapshots`, token).expect(200);
       // The band ended 10 days ago: 20 days of rearing.
       await ds.query(
-        `UPDATE production_batches SET closed_at = now() - make_interval(days => 10) WHERE id = $1`,
-        [id],
+        `UPDATE production_batches SET closed_at = $2 WHERE id = $1`,
+        [id, new Date(Date.now() - 10 * 86_400_000)],
       );
       const sheet = (await get(`/farms/${farmId}/bandes/${id}`, token).expect(200)).body;
       const detail = (await get(`/farms/${farmId}/batches/${id}`, token).expect(200)).body;
@@ -802,13 +796,7 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       const m = (await lot()).metrics;
       expect(m.layRatePercent).toBeCloseTo(expected, 6);
       const pondage = (await get(`/farms/${farmId}/batches/${batchId}/pondage`, token).expect(200)).body;
-      // `pondage.service.ts` (recentLayRate) opens its 7-day window on the UTC
-      // day, the metrics and the dashboard on the Libreville day: between
-      // 23:00 and 24:00 UTC the two windows differ by a day (production gap,
-      // listed in the PR), so only compare while both days are the same.
-      if (lvDate() === utcDayOf(0)) {
-        expect(pondage.layRatePercent).toBeCloseTo(expected, 1);
-      }
+      expect(pondage.layRatePercent).toBeCloseTo(expected, 1);
       const row = (await dashboard()).healthOverview.find(
         (r: { batchId: string }) => r.batchId === batchId,
       );
@@ -1211,8 +1199,8 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
       const endedDaysAgo = async (batchId: string, days: number) => {
         await post(`/farms/${farmId}/batches/${batchId}/cloture`, {}, token).expect(201);
         await ds.query(
-          `UPDATE production_batches SET closed_at = now() - make_interval(days => $2) WHERE id = $1`,
-          [batchId, days],
+          `UPDATE production_batches SET closed_at = $2 WHERE id = $1`,
+          [batchId, new Date(Date.now() - days * 86_400_000)],
         );
       };
       const verdict = async (buildingId: string) =>
@@ -1224,24 +1212,24 @@ describe('Scénarios métier de bout en bout (e2e)', () => {
         );
 
       const red = await newBuilding('Bat rouge');
-      await endedDaysAgo(await lotIn(red, 'R1', utcDay(-80)), 30);
-      await lotIn(red, 'R2', utcDay(-20));
+      await endedDaysAgo(await lotIn(red, 'R1', day(-80)), 30);
+      await lotIn(red, 'R2', day(-20));
       const redAlert = await verdict(red);
       expect(redAlert).toHaveLength(1);
       expect(redAlert[0].level).toBe('ROUGE');
       expect(redAlert[0].context.gapDays).toBe(10);
 
       const yellow = await newBuilding('Bat jaune');
-      await endedDaysAgo(await lotIn(yellow, 'J1', utcDay(-80)), 40);
-      await lotIn(yellow, 'J2', utcDay(-23));
+      await endedDaysAgo(await lotIn(yellow, 'J1', day(-80)), 40);
+      await lotIn(yellow, 'J2', day(-23));
       const yellowAlert = await verdict(yellow);
       expect(yellowAlert).toHaveLength(1);
       expect(yellowAlert[0].level).toBe('JAUNE');
       expect(yellowAlert[0].context.gapDays).toBe(17);
 
       const ok = await newBuilding('Bat vert');
-      await endedDaysAgo(await lotIn(ok, 'V1', utcDay(-90)), 50);
-      await lotIn(ok, 'V2', utcDay(-25));
+      await endedDaysAgo(await lotIn(ok, 'V1', day(-90)), 50);
+      await lotIn(ok, 'V2', day(-25));
       expect(await verdict(ok)).toEqual([]);
     });
   });

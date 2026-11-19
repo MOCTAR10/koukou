@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { libervilleDayStart } from '../../common/utils/date.utils.js';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { addDays, utcDay } from '../batches/poufa/bande-rules.js';
+import { addDays, businessDay } from '../batches/poufa/bande-rules.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import { emptyFacts, type Facts } from './pilotage-metrics.js';
 import {
@@ -144,7 +145,7 @@ export class PilotageDataService {
     view: PilotageView,
     filters: FarmFilters,
     period: Period,
-    today: string = utcDay(),
+    today: string = businessDay(),
     rules?: PilotageRules,
   ): Promise<FarmFacts[]> {
     const r0 = rules ?? (await this.rules(view.programId, period.to));
@@ -154,8 +155,8 @@ export class PilotageDataService {
     const to = p.add(period.to);
     const end = p.add(period.to < today ? period.to : today);
     const todayP = p.add(today);
-    const fromTs = p.add(`${period.from}T00:00:00.000Z`);
-    const toTs = p.add(`${addDays(period.to, 1)}T00:00:00.000Z`);
+    const fromTs = p.add(libervilleDayStart(period.from));
+    const toTs = p.add(libervilleDayStart(addDays(period.to, 1)));
     const items = p.add(POULTRY_ITEMS);
     const eligible = p.add(r0.eligibleBandKeys);
     const kinds = p.add(r0.conductAlertKinds);
@@ -183,7 +184,7 @@ export class PilotageDataService {
                 MAX(st.present) FILTER (
                   WHERE st.day = ${end}::date
                     AND (pb.closed_at IS NULL
-                         OR (pb.closed_at AT TIME ZONE 'UTC')::date > ${end}::date)
+                         OR (pb.closed_at AT TIME ZONE 'Africa/Libreville')::date > ${end}::date)
                 ) AS present_end
            FROM st JOIN production_batches pb ON pb.id = st.batch_id
           GROUP BY st.batch_id, st.farm_id
@@ -243,7 +244,7 @@ export class PilotageDataService {
             -- programme sales; a sale with no band stays counted.
             AND (ib.id IS NULL OR ${eligibleBandSql('ib', eligible)})
             AND (o.id IS NULL OR o.status = 'LIVRE')
-            AND COALESCE((o.livred_at AT TIME ZONE 'UTC')::date, s.sale_date)
+            AND COALESCE((o.livred_at AT TIME ZONE 'Africa/Libreville')::date, s.sale_date)
                 BETWEEN ${from}::date AND ${to}::date
           GROUP BY s.farm_id
        ),
@@ -358,8 +359,8 @@ export class PilotageDataService {
     return this.publishedAlerts.published({
       programId: view.programId,
       provinceIds: filters.provinceIds ?? provinceIds,
-      from: new Date(`${period.from}T00:00:00.000Z`),
-      to: new Date(`${addDays(period.to, 1)}T00:00:00.000Z`),
+      from: new Date(libervilleDayStart(period.from)),
+      to: new Date(libervilleDayStart(addDays(period.to, 1))),
     });
   }
 
@@ -397,7 +398,7 @@ export class PilotageDataService {
     view: PilotageView,
     filters: FarmFilters,
     period: Period,
-    today: string = utcDay(),
+    today: string = businessDay(),
     rules?: PilotageRules,
   ): Promise<WeekFacts[]> {
     const r0 = rules ?? (await this.rules(view.programId, period.to));

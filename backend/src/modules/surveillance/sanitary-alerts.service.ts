@@ -31,7 +31,7 @@ import {
   mayHandleSanitaryDeclarations,
 } from '../access/sanitary-declaration.policy.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
-import { addDays, factInstant, utcDay } from '../batches/poufa/bande-rules.js';
+import { addDays, factInstant, businessDay } from '../batches/poufa/bande-rules.js';
 import { Farm } from '../farms/entities/farm.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { RefItem } from '../programme/entities/ref-item.entity.js';
@@ -215,7 +215,7 @@ export class SanitaryAlertsService implements OnModuleInit, OnModuleDestroy {
       await em.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
         `sanitary-alert:${e.batchId}`,
       ]);
-      const since = addDays(utcDay(now), -MORTALITY_LOOKBACK_DAYS);
+      const since = addDays(businessDay(now), -MORTALITY_LOOKBACK_DAYS);
       const days: MortalityDay[] = await em.query(
         `SELECT TO_CHAR(day, 'YYYY-MM-DD') AS day,
                 mortality_day_pct AS "mortalityDayPct",

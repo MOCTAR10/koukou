@@ -139,12 +139,12 @@ export class BuildingsService {
     return { activeBirds, activeLots: rows.length };
   }
 
-  /** End day (UTC) of the last closed lot: the vide sanitaire starts there. */
+  /** End day (Libreville) of the last closed lot: the vide sanitaire starts there. */
   async lastLotEndedAt(buildingId: string): Promise<string | null> {
     const row: { ended: string | null } | undefined = await this.batchRepo
       .createQueryBuilder('b')
       .select(
-        `TO_CHAR(MAX(COALESCE(b.closedAt, b.updatedAt)) AT TIME ZONE 'UTC', 'YYYY-MM-DD')`,
+        `TO_CHAR(MAX(COALESCE(b.closedAt, b.updatedAt)) AT TIME ZONE 'Africa/Libreville', 'YYYY-MM-DD')`,
         'ended',
       )
       .where('b.buildingId = :buildingId', { buildingId })

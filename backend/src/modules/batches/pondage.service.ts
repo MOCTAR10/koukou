@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
-import { isoWeekStart } from '../../common/utils/date.utils.js';
+import { isoWeekStart, todayLocal } from '../../common/utils/date.utils.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
 import { FarmsService } from '../farms/farms.service.js';
 import { ProductionBatch } from './entities/production-batch.entity.js';
@@ -121,9 +121,7 @@ export class PondageService {
     entries: DailyEntry[],
     timeline: FlockTimeline,
   ): number | null {
-    const since = new Date(Date.now() - 7 * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
+    const since = todayLocal(new Date(Date.now() - 7 * 86_400_000));
     const recent = entries.filter(
       (e) => e.entryDate >= since && e.eggsCollected > 0,
     );

@@ -489,7 +489,7 @@ export class SanitaryService {
     if (missing) throw new BadRequestException(missing);
     const endDate = dto.endDate ? dto.endDate.slice(0, 10) : null;
     const periodError = treatmentPeriodError(
-      completedAt.toISOString().slice(0, 10),
+      todayLocal(completedAt),
       endDate,
     );
     if (periodError) throw new BadRequestException(periodError);
@@ -625,7 +625,7 @@ export class SanitaryService {
       : new Date();
     const endDate = dto.endDate ? dto.endDate.slice(0, 10) : null;
     const periodError = treatmentPeriodError(
-      administeredAt.toISOString().slice(0, 10),
+      todayLocal(administeredAt),
       endDate,
     );
     if (periodError) throw new BadRequestException(periodError);

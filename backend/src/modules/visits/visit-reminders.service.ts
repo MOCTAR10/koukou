@@ -11,7 +11,7 @@ import {
   koukouBus,
   type VisitReminderEvent,
 } from '../../common/utils/event-bus.js';
-import { utcDay } from '../batches/poufa/bande-rules.js';
+import { businessDay } from '../batches/poufa/bande-rules.js';
 import {
   ParametersService,
   type ParameterResolver,
@@ -74,7 +74,7 @@ export class VisitRemindersService implements OnModuleInit, OnModuleDestroy {
     for (const programId of new Set(latest.map((v) => v.programId))) {
       resolvers.set(programId, await this.parameters.resolver(programId));
     }
-    const due = dueReminders(latest, utcDay(now), (v) =>
+    const due = dueReminders(latest, businessDay(now), (v) =>
       resolvers.get(v.programId)?.value<number>('VISITE_RAPPEL_J', now) ?? 2,
     );
     const events: VisitReminderEvent[] = due.map((d) => ({

@@ -12,8 +12,9 @@ import {
   uniquePhone,
 } from './helpers/programme-farm.js';
 
+import { lvDay } from './helpers/libreville-day.js';
 function dayOffset(days: number): string {
-  return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+  return lvDay(days);
 }
 
 describe('Market : annulation par l’acheteur et date déplacée (e2e)', () => {

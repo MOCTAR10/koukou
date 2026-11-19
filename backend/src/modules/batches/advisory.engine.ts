@@ -39,9 +39,9 @@ function addDaysIso(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Day a lot ended (UTC); legacy rows closed before closedAt existed fall back to updatedAt. */
+/** Day a lot ended (Libreville); legacy rows closed before closedAt existed fall back to updatedAt. */
 function closedOn(lot: ProductionBatch): string {
-  return (lot.closedAt ?? lot.updatedAt).toISOString().slice(0, 10);
+  return todayLocal(lot.closedAt ?? lot.updatedAt);
 }
 
 function daysBetween(from: string, to: string): number {

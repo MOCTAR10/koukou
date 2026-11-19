@@ -209,7 +209,7 @@ export class PlatformService {
       // on their delivery date (same rule as the ledger and rentabilité).
       .andWhere("(ord.id IS NULL OR ord.status = 'LIVRE')");
     const day =
-      "COALESCE((ord.livred_at AT TIME ZONE 'UTC')::date, s.sale_date)";
+      "COALESCE((ord.livred_at AT TIME ZONE 'Africa/Libreville')::date, s.sale_date)";
     if (from) q.andWhere(`${day} >= :from`, { from });
     if (to) q.andWhere(`${day} <= :to`, { to });
     return q;
