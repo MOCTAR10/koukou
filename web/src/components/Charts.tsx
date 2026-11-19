@@ -239,3 +239,180 @@ export function Donut({
     </div>
   );
 }
+
+export interface GroupedSeries {
+  key: string;
+  label: string;
+  color: string;
+  /** Outline only: tells a « due » series from a solid « paid » one without relying on colour. */
+  outline?: boolean;
+}
+
+/**
+ * Grouped vertical bars, one cluster per category (a month), one bar per series. The legend sits above, bars carry
+ * their value in the tooltip, the axis is labelled with the compact formatter. Hand-rolled SVG like the others.
+ */
+export function GroupedBarChart({
+  rows,
+  series,
+  height = 220,
+  valueFmt = (v: number) => String(v),
+}: {
+  rows: Array<{ label: string; values: Record<string, number> }>;
+  series: GroupedSeries[];
+  height?: number;
+  valueFmt?: (v: number) => string;
+}) {
+  const W = 640;
+  const H = 240;
+  const LEFT = 52;
+  const TOP = 16;
+  const BOTTOM = 28;
+  const max = Math.max(1, ...rows.flatMap((r) => series.map((s) => r.values[s.key] ?? 0)));
+  const innerW = W - LEFT - 8;
+  const innerH = H - TOP - BOTTOM;
+  const step = rows.length > 0 ? innerW / rows.length : innerW;
+  const groupW = step * 0.78;
+  const barW = Math.max(3, groupW / Math.max(1, series.length));
+  const every = step < 36 ? Math.ceil(36 / step) : 1;
+  const ticks = [0, 0.5, 1];
+  return (
+    <div>
+      <ul className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700">
+        {series.map((s) => (
+          <li key={s.key} className="inline-flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="inline-block h-2.5 w-2.5 rounded-[3px]"
+              style={s.outline ? { border: `2px solid ${s.color}`, background: '#fff' } : { background: s.color }}
+            />
+            {s.label}
+          </li>
+        ))}
+      </ul>
+      {rows.length === 0 ? (
+        <div style={{ height }} className="flex items-center justify-center text-xs text-slate-500">
+          Pas encore de données
+        </div>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ height }} className="w-full" role="img" aria-label={series.map((s) => s.label).join(', ')}>
+          {ticks.map((f) => {
+            const y = TOP + innerH - f * innerH;
+            return (
+              <g key={f}>
+                <line x1={LEFT} x2={W - 8} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray={f === 0 ? undefined : '3 3'} />
+                <text x={LEFT - 6} y={y + 4} fontSize="13" fill="#475569" textAnchor="end">
+                  {valueFmt(max * f)}
+                </text>
+              </g>
+            );
+          })}
+          {rows.map((r, i) => {
+            const x0 = LEFT + i * step + (step - groupW) / 2;
+            return (
+              <g key={i}>
+                {series.map((s, k) => {
+                  const v = r.values[s.key] ?? 0;
+                  const h = (v / max) * innerH;
+                  return (
+                    <rect
+                      key={s.key}
+                      x={x0 + k * barW}
+                      y={TOP + innerH - h}
+                      width={Math.max(2, barW - 1.5)}
+                      height={Math.max(h, v > 0 ? 1 : 0)}
+                      rx="2"
+                      fill={s.outline ? '#fff' : s.color}
+                      stroke={s.outline ? s.color : 'none'}
+                      strokeWidth={s.outline ? 1.75 : 0}
+                    >
+                      <title>
+                        {r.label} · {s.label} : {valueFmt(v)}
+                      </title>
+                    </rect>
+                  );
+                })}
+                {i % every === 0 ? (
+                  <text x={LEFT + i * step + step / 2} y={H - 8} fontSize="13" fill="#475569" textAnchor="middle">
+                    {r.label}
+                  </text>
+                ) : null}
+              </g>
+            );
+          })}
+        </svg>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Horizontal bars with the label on the left and the figures on the right of each row (direct labels, no legend).
+ * `tone` colours the bars; a funnel is the same rows ordered by step.
+ */
+export function HorizontalBars({
+  rows,
+  color = '#2a789f',
+  empty = 'Pas encore de données',
+}: {
+  rows: Array<{ key: string; label: string; value: number; display: string; detail?: string; color?: string }>;
+  color?: string;
+  empty?: string;
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  if (rows.length === 0) return <p className="py-6 text-center text-xs text-slate-500">{empty}</p>;
+  return (
+    <ul className="space-y-2.5">
+      {rows.map((r) => (
+        <li key={r.key} className="grid grid-cols-[minmax(5.5rem,9rem)_minmax(0,1fr)] items-center gap-x-3 gap-y-0.5 sm:grid-cols-[9rem_minmax(0,1fr)_auto]">
+          <span className="truncate text-sm text-slate-700" title={r.label}>
+            {r.label}
+          </span>
+          <div className="h-5 rounded bg-slate-100" aria-hidden>
+            <div className="h-full rounded" style={{ width: `${Math.max(r.value > 0 ? 2 : 0, (r.value / max) * 100)}%`, background: r.color ?? color }} />
+          </div>
+          <span className="col-span-2 text-right text-xs tabular-nums text-slate-600 sm:col-span-1 sm:w-44">
+            <span className="font-semibold text-slate-900">{r.display}</span>
+            {r.detail ? <span className="text-slate-500"> · {r.detail}</span> : null}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** One bar split into segments, with the legend (swatch, label, figures) below: each segment is also named in text. */
+export function StackedShare({
+  parts,
+  total,
+  ariaLabel,
+}: {
+  parts: Array<{ key: string; label: string; value: number; color: string; detail?: string }>;
+  total?: number;
+  ariaLabel: string;
+}) {
+  const sum = total ?? parts.reduce((n, p) => n + p.value, 0);
+  return (
+    <div>
+      <div className="flex h-5 overflow-hidden rounded bg-slate-100" role="img" aria-label={ariaLabel}>
+        {parts
+          .filter((p) => p.value > 0)
+          .map((p) => (
+            <div key={p.key} title={`${p.label} : ${p.value}`} style={{ width: `${sum > 0 ? (p.value / sum) * 100 : 0}%`, background: p.color }} className="border-r border-white last:border-r-0" />
+          ))}
+      </div>
+      <ul className="mt-3 space-y-1.5">
+        {parts.map((p) => (
+          <li key={p.key} className="flex items-center gap-2 text-sm">
+            <span aria-hidden className="inline-block h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: p.color }} />
+            <span className="min-w-0 flex-1 truncate text-slate-700">{p.label}</span>
+            <span className="shrink-0 text-right text-xs tabular-nums text-slate-600">
+              <span className="font-semibold text-slate-900">{p.value.toLocaleString('fr-FR')}</span>
+              {p.detail ? <span className="text-slate-500"> · {p.detail}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

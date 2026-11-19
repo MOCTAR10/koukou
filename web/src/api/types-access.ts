@@ -17,6 +17,7 @@ export const PROGRAMME_DOMAINS = [
   'PARAMETRES',
   'AUDIT',
   'ADMINISTRATION',
+  'FINANCEMENT',
 ] as const;
 export type ProgrammeDomain = (typeof PROGRAMME_DOMAINS)[number];
 
@@ -46,10 +47,15 @@ export type AccessAction = (typeof ACCESS_ACTIONS)[number];
 
 /** Actions a domain may be granted: « Consulter » only for a Fermia domain. */
 export function grantableActions(domain: AccessDomain): readonly AccessAction[] {
+  // FINANCEMENT (the bank's workspace): consult, create, modify, validate; nothing to administer.
+  if (domain === 'FINANCEMENT') return FINANCING_ACTIONS;
   return isFermiaGrantableDomain(domain) || (READ_ONLY_PROGRAMME_DOMAINS as readonly string[]).includes(domain)
     ? ['CONSULTER']
     : ACCESS_ACTIONS;
 }
+
+/** Actions of the FINANCEMENT domain. */
+export const FINANCING_ACTIONS: readonly AccessAction[] = ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'];
 
 export type ScopeKind = 'ALL' | 'PROVINCES' | 'FARMS' | 'FINANCED' | 'OPERATOR' | 'AGGREGATE' | 'AUDIT';
 
@@ -222,6 +228,7 @@ export const DOMAIN_LABELS: Readonly<Record<AccessDomain, string>> = {
   PARAMETRES: 'Paramètres du programme',
   AUDIT: 'Journal d’audit',
   ADMINISTRATION: 'Administration',
+  FINANCEMENT: 'Financement',
   VENTES: 'Ventes et caisse',
   MARCHE: 'Market',
   COMPTABILITE: 'Comptabilité',
@@ -240,7 +247,7 @@ export const SCOPE_KIND_LABELS: Readonly<Record<ScopeKind, string>> = {
   ALL: 'Toutes les fermes du programme',
   PROVINCES: 'Fermes de ses provinces',
   FARMS: 'Ses fermes',
-  FINANCED: 'Fermes financées (avec consentement)',
+  FINANCED: 'Fermes financées',
   OPERATOR: 'Lots qui le concernent (opérateur)',
   AGGREGATE: 'Données agrégées seulement',
   AUDIT: 'Journal d’audit seulement',

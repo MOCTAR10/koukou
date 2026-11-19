@@ -35,7 +35,7 @@ export function FarmProvider({ children }: { children: React.ReactNode }) {
     setFarmId(localStorage.getItem(STORAGE_KEY) || null);
   }, [userId]);
 
-  // An institution whose scope reaches no farm (aggregate, audit, financed)
+  // An institution whose scope reaches no farm (aggregate, audit)
   // would only get a 403, journaled: it never asks for the list.
   const inst = useInstitutionAccess();
   const noFarmScope = !!inst.access && !scopeReachesFarms(inst.access.profile.scopeKind);

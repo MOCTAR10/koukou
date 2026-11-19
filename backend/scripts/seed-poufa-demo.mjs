@@ -634,6 +634,7 @@ async function main() {
           source: s.gpsReason ? 'MANUEL' : 'APPAREIL',
           accuracyM: s.gpsReason ? undefined : 8,
           reason: s.gpsReason,
+          confirmOutsideProvince: s.gpsReason ? true : undefined,
         },
         admin,
       );
@@ -759,8 +760,6 @@ async function main() {
       `/admin/farms/${farms[s.key].id}`,
       {
         isVerified: true,
-        administrativeCity:
-          s.localite === 'Bendjé' ? 'Port-Gentil' : 'Libreville',
       },
       admin,
     );
@@ -1014,7 +1013,7 @@ async function main() {
   if (manualEvent?.id) {
     await post(
       `/farms/${farms.mba.id}/batches/${bands.mbaActive.id}/prophylaxis/${manualEvent.id}/complete`,
-      { completedAt: atNoon(-12), notes: 'Lot vaccin IBD-2610 (démo)' },
+      { completedAt: atNoon(-12), notes: 'Lot vaccin IBD-2610 (démo)', animalCount: 500 },
       tokens.mba,
     );
   } else {
@@ -1405,7 +1404,7 @@ async function main() {
       fullName: 'BCEG — chargé de crédit (démo)',
       phone: '+24162300008',
       check:
-        'Périmètre FINANCÉ : vide tant que le consentement n’existe pas (écran « aucune ferme »)',
+        'Espace financeur : portefeuille, 3 dossiers (instruction, suivi avec retard, demande), modèle de consentement, consentements en ligne et papier ; fermes lues selon FINANCEMENT_PERIMETRE',
     },
     {
       profileCode: 'AGENT_TECHNIQUE',
@@ -1470,6 +1469,9 @@ async function main() {
         : `${res.status} ${res.data?.message ?? ''}`;
   }
 
+  // ----- 5b. financer workspace (BCEG): template, consents, files at several steps
+  await seedFinancing(farms, creds);
+
   // ----- 6. credentials
   for (const [phone, o] of ownersByPhone) {
     creds.owners.push({
@@ -1481,6 +1483,106 @@ async function main() {
   }
   writeCredentials(farms, bands, real);
   log(`\n${calls} appels API. Identifiants écrits dans ${OUT}`);
+}
+
+/** Minimal PDF used as every demo document (the content is not read). */
+const DEMO_PDF = () =>
+  new Blob(['%PDF-1.4 1 0 obj<<>>endobj trailer<<>> %%EOF'], {
+    type: 'application/pdf',
+  });
+
+const isoDay = (offset) =>
+  new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * BCEG demo data through the financing API: the consent template (every
+ * mandatory clause confirmed), an online consent (owner of « mba »), a paper
+ * consent (« ndong1 »), and three files: a granted and disbursed one with a
+ * late instalment, one under instruction, one just requested.
+ */
+async function seedFinancing(farms, creds) {
+  const bceg = creds.institutions.find((i) => i.profileCode === 'BCEG');
+  if (!bceg) return;
+  const token = await login(bceg.phone, bceg.code);
+  const F = '/programme/financing';
+  const upload = (path, fields) => {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.append(k, v);
+    form.append('file', DEMO_PDF(), 'document.pdf');
+    return api('POST', path, { token, form });
+  };
+  const clauses = [
+    'IDENTITE_RESPONSABLE', 'FINALITE', 'CATEGORIES_DONNEES', 'DESTINATAIRES',
+    'DUREE_CONSERVATION', 'DROITS', 'RETRAIT', 'RECLAMATION_APDPVP',
+    'DISTINCT_DU_CONTRAT', 'TRANSFERT_HORS_GABON',
+  ];
+  const template = (
+    await upload(`${F}/consent-templates`, {
+      title: 'Consentement au partage des données avec la BCEG',
+      purpose: 'Instruction et suivi des demandes de financement agricole',
+      dataCategories: JSON.stringify([
+        'Identification de l’exploitation',
+        'Production et mortalité',
+        'Ventes et dépenses',
+        'États financiers (comptabilité SYSCOHADA)',
+      ]),
+      retention: 'Durée du financement, puis 5 ans',
+      confirmedClauses: JSON.stringify(clauses),
+    })
+  ).data;
+  log(`  financement : modèle de consentement v${template.version}`);
+
+  // Online consent by the owner of « mba ».
+  await post(
+    `/farms/${farms.mba.id}/financing/consent`,
+    {
+      templateId: template.id,
+      signerName: farms.mba.spec.exploitant?.[0] ?? 'Exploitant',
+      accepted: true,
+    },
+    farms.mba.token,
+  );
+  // Paper consent recorded by the bank for « ndong1 ».
+  await upload(`${F}/farms/${farms.ndong1.id}/consent`, {
+    signerName: farms.ndong1.spec.exploitant?.[0] ?? 'Exploitant',
+    signerQuality: 'Propriétaire',
+    grantedOn: isoDay(-3),
+  });
+
+  const open = async (key, purpose, requestedFcfa) =>
+    (await post(`${F}/files`, { farmId: farms[key].id, purpose, requestedFcfa }, token)).id;
+  const fulfil = async (id) => {
+    const file = await get(`${F}/files/${id}`, token);
+    for (const l of file.checklist) {
+      if (l.requirement.step === file.step && l.requirement.required && l.requirement.active && l.state === 'MANQUANTE') {
+        await upload(`${F}/files/${id}/documents`, { requirementId: l.requirement.id });
+      }
+    }
+  };
+  const step = async (id, body) => {
+    await fulfil(id);
+    return post(`${F}/files/${id}/step`, body, token);
+  };
+
+  const a = await open('mba', 'Aliment et poussins pour deux bandes de chair', 1_500_000);
+  await step(a, { to: 'INSTRUCTION' });
+  await step(a, { to: 'DECISION' });
+  await patch(`${F}/files/${a}`, { grantedFcfa: 1_500_000, ratePct: 11, durationMonths: 12, graceMonths: 1, periodicity: 'MENSUELLE', guarantees: 'Gage des stocks d’aliment', guaranteeFund: 'Fonds de garantie agricole', guaranteePct: 50 }, token);
+  await step(a, { to: 'DECAISSEMENT', decision: 'ACCORDE', note: 'Comité du mois' });
+  await fulfil(a);
+  const withTranche = await post(`${F}/files/${a}/disbursements`, { amountFcfa: 1_500_000, plannedDate: isoDay(-120) }, token);
+  await post(`${F}/files/${a}/disbursements/${withTranche.disbursements[0].id}/release`, { releasedOn: isoDay(-120) }, token);
+  await post(`${F}/files/${a}/schedule`, { firstDueDate: isoDay(-60) }, token);
+  await step(a, { to: 'SUIVI' });
+  const sched = await get(`${F}/files/${a}`, token);
+  // First instalment paid, the second one is late (shows « Impayé » on the dashboard).
+  await post(`${F}/files/${a}/repayments`, { paidOn: isoDay(-58), amountFcfa: sched.instalments[0].dueFcfa, method: 'VIREMENT', reference: 'VIR-DEMO-1' }, token);
+
+  const b = await open('ndong1', 'Rénovation du bâtiment et équipement d’abreuvement', 2_400_000);
+  await step(b, { to: 'INSTRUCTION' });
+
+  await open('moanda', 'Fonds de roulement pour la première bande', 800_000);
+  log('  financement : 3 dossiers (suivi avec retard, instruction, demande), 2 consentements');
 }
 
 const OWNER_CHECKS = {

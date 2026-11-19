@@ -80,7 +80,8 @@ export function domainLockReason(domain: AccessDomain, scopeKind: ScopeKind): st
 
 /** POUFA lot A droits: why a cell is locked (a Fermia domain opens in consultation only); null: open. */
 export function actionLockReason(domain: AccessDomain, action: AccessAction): string | null {
-  return grantableActions(domain).includes(action) ? null : 'Module Fermia : consultation seule pour un profil institutionnel.';
+  if (grantableActions(domain).includes(action)) return null;
+  return domain === 'FINANCEMENT' ? 'Ce domaine n’a rien à administrer.' : 'Module Fermia : consultation seule pour un profil institutionnel.';
 }
 
 /**
@@ -147,7 +148,7 @@ export function scopeKindNote(kind: ScopeKind): string {
     case 'FARMS':
       return 'Seulement les fermes choisies une à une.';
     case 'FINANCED':
-      return 'Les fermes financées dont l’exploitant a donné son consentement. Le consentement n’est pas encore en place : aucune ferme pour l’instant.';
+      return 'Les fermes que la BCEG finance. Le périmètre exact se règle dans les paramètres du programme.';
     case 'OPERATOR':
       return 'Les lots qui concernent l’opérateur : ouvert avec le module de traçabilité.';
     case 'AGGREGATE':

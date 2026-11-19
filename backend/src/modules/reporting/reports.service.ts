@@ -891,6 +891,8 @@ export class ReportsService {
       relations: { profile: true },
     });
     const now = new Date();
+    // FINANCED scope: the farms it reaches (read once, only when needed).
+    let financed: readonly string[] | 'ALL' | undefined;
     for (const m of members) {
       const p = m.profile;
       if (!p || p.programId !== template.programId) continue;
@@ -900,10 +902,15 @@ export class ReportsService {
       if (codes.length > 0 && !codes.includes(p.code)) continue;
       // PILOTAGE:CONSULTER, or TECHNIQUE:CONSULTER for an end-of-band run.
       if (!matrixReadsRun(p.matrix ?? {}, template.level)) continue;
+      if (p.scopeKind === AccessScopeKind.FINANCED && financed === undefined) {
+        financed = await this.scope.financedFarmIds(p.programId);
+      }
       const access = {
         scopeKind: p.scopeKind,
         provinceIds: m.provinceIds ?? [],
         farmIds: m.farmIds ?? [],
+        financedFarmIds:
+          p.scopeKind === AccessScopeKind.FINANCED ? (financed ?? []) : [],
       };
       if (!this.covers(access, target)) continue;
       if (out.some((r) => r.userId === m.userId)) continue;
@@ -914,7 +921,10 @@ export class ReportsService {
 
   /** Whether a scope reaches a run's content. */
   private covers(
-    access: Pick<InstitutionAccess, 'scopeKind' | 'provinceIds' | 'farmIds'>,
+    access: Pick<
+      InstitutionAccess,
+      'scopeKind' | 'provinceIds' | 'farmIds' | 'financedFarmIds'
+    >,
     target: RunTarget,
   ): boolean {
     switch (access.scopeKind) {
@@ -933,6 +943,14 @@ export class ReportsService {
           target.level === ReportLevel.BANDE &&
           target.farm !== null &&
           access.farmIds.includes(target.farm.id)
+        );
+      // The bank reads end-of-band reports of the farms it reaches only.
+      case AccessScopeKind.FINANCED:
+        return (
+          target.level === ReportLevel.BANDE &&
+          target.farm !== null &&
+          (access.financedFarmIds === 'ALL' ||
+            access.financedFarmIds.includes(target.farm.id))
         );
       default:
         return false;
@@ -1016,6 +1034,23 @@ export class ReportsService {
             }).andWhere('r.farm_id IN (:...runsFarmIds)', {
               runsFarmIds: [...access.farmIds],
             });
+          }
+          return;
+        case AccessScopeKind.FINANCED:
+          if (
+            Array.isArray(access.financedFarmIds) &&
+            access.financedFarmIds.length === 0
+          ) {
+            qb.andWhere('1 = 0');
+          } else {
+            qb.andWhere('r.level = :bandLevel', {
+              bandLevel: ReportLevel.BANDE,
+            });
+            if (access.financedFarmIds !== 'ALL') {
+              qb.andWhere('r.farm_id IN (:...runsFinancedIds)', {
+                runsFinancedIds: [...access.financedFarmIds],
+              });
+            }
           }
           return;
         default:

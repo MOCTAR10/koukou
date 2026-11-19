@@ -9,6 +9,7 @@ import { AppService } from './app.service.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BreedsModule } from './modules/breeds/breeds.module.js';
+import { FinancingModule } from './modules/financing/financing.module.js';
 import { ItineraryModule } from './modules/itinerary/itinerary.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { FarmsModule } from './modules/farms/farms.module.js';
@@ -101,6 +102,7 @@ import {
     BuildingsModule,
     BreedsModule,
     ItineraryModule,
+    FinancingModule,
     BatchesModule,
     DailyEntriesModule,
     InputsModule,

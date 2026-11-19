@@ -59,6 +59,7 @@ const PAGE_LABELS: Record<string, string> = {
   '/app/hr': 'Dossiers RH',
   '/app/team': 'Équipe',
   '/app/economie': 'Synthèse économique',
+  '/app/financement': 'Espace financement',
   '/app/visites': 'Visites techniques et biosécurité',
 };
 
@@ -74,6 +75,9 @@ const ACTION_CAPABILITIES: ReadonlyArray<{ domain: AccessDomain; action: AccessA
   { domain: 'SANITAIRE', action: 'MODIFIER', label: 'Qualifier les alertes et gérer les listes sanitaires' },
   { domain: 'REGISTRE', action: 'CREER', label: 'Enregistrer de nouvelles fermes au registre' },
   { domain: 'INTRANTS', action: 'CREER', label: 'Enregistrer les livraisons d’intrants de l’État' },
+  { domain: 'FINANCEMENT', action: 'CREER', label: 'Ouvrir des dossiers de financement, y déposer des pièces et enregistrer les remboursements' },
+  { domain: 'FINANCEMENT', action: 'MODIFIER', label: 'Fixer les conditions, l’échéancier et les tranches d’un dossier, et tenir la liste des pièces' },
+  { domain: 'FINANCEMENT', action: 'VALIDER', label: 'Décider d’un dossier, débloquer une tranche, valider les pièces et déposer le modèle de consentement' },
 ];
 
 /** Programme-wide pages: open without a farm in the scope (POUFA L5 adds surveillance and notification rules). */

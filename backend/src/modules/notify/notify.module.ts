@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AccessCoreModule } from '../access/access-core.module.js';
 import { AccessProfile } from '../access/entities/access-profile.entity.js';
 import { ProgramMembership } from '../access/entities/program-membership.entity.js';
 import { AuthModule } from '../auth/auth.module.js';
@@ -33,6 +34,7 @@ import { NotifyService } from './notify.service.js';
       AccessProfile,
       Program,
     ]),
+    AccessCoreModule,
     AuthModule,
     PushModule,
     ProgrammeModule,

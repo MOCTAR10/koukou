@@ -69,6 +69,8 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
       ECONOMIQUE: ['CONSULTER'],
       TRACABILITE: ['CONSULTER'],
       PILOTAGE: ['CONSULTER'],
+      // Financer workspace, read-only for the State (migration FinancingModule).
+      FINANCEMENT: ['CONSULTER'],
       // POUFA lot A2 vet: VALIDER = owns the follow-up parameters (owner key
       // DGE, `PARAMETER_OWNER_RIGHTS`); migration VeterinaryAuthorityMatrix.
       // POUFA lot A2 divers: CREER = shared breed reference (F8).
@@ -97,14 +99,21 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
     },
   },
   {
-    // Financed farms with the farmer's consent (consent model: later lot).
+    // The financing bank: its financer workspace (files, consent, portfolio)
+    // and a read of the farms the FINANCEMENT_PERIMETRE parameter opens to it.
+    // Read-only on every farm domain; migration FinancingModule for existing data.
     code: PROFILE_CODES.BCEG,
     label: 'BCEG',
     scopeKind: AccessScopeKind.FINANCED,
     matrix: {
       REGISTRE: ['CONSULTER'],
       TECHNIQUE: ['CONSULTER'],
+      INTRANTS: ['CONSULTER'],
       ECONOMIQUE: ['CONSULTER'],
+      PILOTAGE: ['CONSULTER'],
+      FINANCEMENT: ['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER'],
+      // Farms' SYSCOHADA statements (bonus domain, read-only): financer statements.
+      COMPTABILITE: ['CONSULTER'],
     },
   },
   {
@@ -133,6 +142,7 @@ export const DEFAULT_PROFILES: readonly DefaultProfile[] = [
     scopeKind: AccessScopeKind.ALL,
     matrix: {
       REGISTRE: ['CONSULTER'],
+      FINANCEMENT: ['CONSULTER'],
       PARAMETRES: ['CONSULTER', 'MODIFIER'],
       ADMINISTRATION: ['CONSULTER', 'CREER', 'MODIFIER', 'ADMINISTRER'],
     },

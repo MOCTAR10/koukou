@@ -299,7 +299,7 @@ describe('POUFA — visites techniques et biosécurité (e2e)', () => {
       await post(`/farms/${farmA}/visits`, visit, vetToken).expect(403);
     });
 
-    it('lets the owner, the DGE, the vets and the agent read; not another farm, not the BCEG', async () => {
+    it('lets the owner, the DGE, the vets and the agent read, the BCEG too (financer, programme perimeter); not another farm', async () => {
       for (const token of [ownerA, dgeToken, vetToken, agentToken]) {
         const list = await get(`/farms/${farmA}/visits`, token).expect(200);
         expect(list.body.some((v: { id: string }) => v.id === visitId)).toBe(true);
@@ -307,7 +307,8 @@ describe('POUFA — visites techniques et biosécurité (e2e)', () => {
         expect(one.body.answers.length).toBe(4);
       }
       await get(`/farms/${farmA}/visits`, ownerB).expect(403);
-      await get(`/farms/${farmA}/visits`, bcegToken).expect(403);
+      // The financer holds TECHNIQUE:CONSULTER and its scope reaches the programme's farms.
+      await get(`/farms/${farmA}/visits`, bcegToken).expect(200);
     });
 
     it('journals the third-party reads and the writes', async () => {
@@ -382,7 +383,7 @@ describe('POUFA — visites techniques et biosécurité (e2e)', () => {
         expect(res.headers['content-type']).toContain('image/png');
       }
       await get(url, ownerB).expect(403);
-      await get(url, bcegToken).expect(403);
+      await get(url, bcegToken).buffer(true).expect(200);
       const reads = await ds.query(
         `SELECT actor_user_id FROM audit_events
           WHERE action = 'READ_SENSITIVE' AND route = '/farms/:farmId/visits/:id/photos/:photoId'

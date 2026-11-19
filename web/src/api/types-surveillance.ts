@@ -191,6 +191,11 @@ export const NOTIFICATION_EVENTS = [
   'VISIT_OVERDUE',
   // Jury lot 5: an agent entered data or reported a problem for the farm.
   'DELEGATED_ENTRY',
+  // Financer workspace: consent withdrawn, step changed, piece filed by the farm, piece reviewed by the bank.
+  'CONSENT_WITHDRAWN',
+  'FINANCING_STEP_CHANGED',
+  'FINANCING_DOCUMENT_FILED',
+  'FINANCING_DOCUMENT_REVIEWED',
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 

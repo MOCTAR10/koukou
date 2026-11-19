@@ -27,6 +27,7 @@ import {
   readOnlyRefusal,
   scopeExcess,
   scopeKindRefusal,
+  scopeReachesFarms,
   validateMatrix,
   type InstitutionAccess,
 } from './access-rules.js';
@@ -67,6 +68,7 @@ function access(
     provinceIds: [],
     farmIds: [],
     operatorId: null,
+    financedFarmIds: [],
     ...extra,
   };
 }
@@ -95,10 +97,12 @@ describe('default profiles', () => {
     }
   });
 
-  it('never grant a never-grantable Fermia domain, the bonus ones only to the DGE in consultation', () => {
+  it('never grant a never-grantable Fermia domain, the bonus ones only to the DGE (and the BCEG for the books) in consultation', () => {
     for (const p of DEFAULT_PROFILES) {
       for (const d of FERMIA_DOMAINS) {
-        if (!isInstitutionFermiaDomain(d) || p.code !== 'DGE') {
+        // The financer reads the farms' SYSCOHADA statements (financer workspace).
+        const holder = p.code === 'DGE' || (p.code === 'BCEG' && d === 'COMPTABILITE');
+        if (!isInstitutionFermiaDomain(d) || !holder) {
           expect(Object.keys(p.matrix), `${p.code} ${d}`).not.toContain(d);
         } else {
           expect(p.matrix[d]).toEqual(['CONSULTER']);
@@ -228,11 +232,48 @@ describe('scope', () => {
     expect(includesProvince(agent, G2)).toBe(false);
   });
 
-  it('AGGREGATE, AUDIT and FINANCED (no consent model yet): no farm', () => {
-    for (const code of ['MAEDR', 'ANINF', 'BCEG']) {
+  it('AGGREGATE and AUDIT: no farm', () => {
+    for (const code of ['MAEDR', 'ANINF']) {
       expect(includesFarm(access(code), farmA), code).toBe(false);
       expect(farmScopeSql(access(code), 'f').sql, code).toBe('1 = 0');
     }
+  });
+
+  it('FINANCED reaches the farms of its perimeter (FINANCEMENT_PERIMETRE)', () => {
+    // PROGRAMME: every farm of the programme, never another programme's.
+    const all = access('BCEG', { financedFarmIds: 'ALL' });
+    expect(includesFarm(all, farmA)).toBe(true);
+    expect(includesFarm(all, farmB)).toBe(true);
+    expect(includesFarm(all, { ...farmA, programId: OTHER_PROGRAM })).toBe(
+      false,
+    );
+    expect(farmScopeSql(all, 'f')).toEqual({
+      sql: 'f.program_id = :scopeProgramId',
+      params: { scopeProgramId: PROGRAM },
+    });
+    // DOSSIERS / CONSENTEMENT: the listed farms only.
+    const some = access('BCEG', { financedFarmIds: [FARM_B] });
+    expect(includesFarm(some, farmA)).toBe(false);
+    expect(includesFarm(some, farmB)).toBe(true);
+    expect(farmScopeSql(some, 'f')).toEqual({
+      sql: 'f.program_id = :scopeProgramId AND f.id IN (:...scopeFinancedFarmIds)',
+      params: { scopeProgramId: PROGRAM, scopeFinancedFarmIds: [FARM_B] },
+    });
+    // Nothing granted yet: no farm.
+    const none = access('BCEG');
+    expect(includesFarm(none, farmA)).toBe(false);
+    expect(farmScopeSql(none, 'f').sql).toBe('1 = 0');
+    expect(scopeReachesFarms(AccessScopeKind.FINANCED)).toBe(true);
+    expect(scopeReachesFarms(AccessScopeKind.AGGREGATE)).toBe(false);
+  });
+
+  it('BCEG is read-only on every farm domain, full on FINANCEMENT', () => {
+    const m = access('BCEG').matrix;
+    for (const d of ['REGISTRE', 'TECHNIQUE', 'INTRANTS', 'ECONOMIQUE', 'PILOTAGE'] as const) {
+      expect(m[d], d).toEqual(['CONSULTER']);
+    }
+    expect(m.FINANCEMENT).toEqual(['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER']);
+    expect(access('DGE').matrix.FINANCEMENT).toEqual(['CONSULTER']);
   });
 
   it('gives the SQL condition of the scope', () => {

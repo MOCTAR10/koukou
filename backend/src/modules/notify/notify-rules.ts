@@ -26,6 +26,10 @@ export const EVENT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   [NotificationEvent.VISIT_REMINDER]: 'Rappel de la prochaine visite',
   [NotificationEvent.VISIT_OVERDUE]: 'Visite en retard',
   [NotificationEvent.DELEGATED_ENTRY]: 'Saisie pour votre compte',
+  [NotificationEvent.CONSENT_WITHDRAWN]: 'Consentement au partage des données retiré',
+  [NotificationEvent.FINANCING_STEP_CHANGED]: 'Dossier de financement : changement d’étape',
+  [NotificationEvent.FINANCING_DOCUMENT_REVIEWED]: 'Dossier de financement : pièce examinée',
+  [NotificationEvent.FINANCING_DOCUMENT_FILED]: 'Dossier de financement : pièce déposée par l’exploitation',
 };
 
 /**
@@ -168,6 +172,10 @@ export function smsText(
     [NotificationEvent.VISIT_REMINDER]: `visite prévue${ref}`,
     [NotificationEvent.VISIT_OVERDUE]: `visite en retard${ref}`,
     [NotificationEvent.DELEGATED_ENTRY]: `saisie faite pour votre compte${ref}`,
+    [NotificationEvent.CONSENT_WITHDRAWN]: `consentement retiré${ref}`,
+    [NotificationEvent.FINANCING_STEP_CHANGED]: `dossier de financement mis à jour${ref}`,
+    [NotificationEvent.FINANCING_DOCUMENT_REVIEWED]: `pièce de financement examinée${ref}`,
+    [NotificationEvent.FINANCING_DOCUMENT_FILED]: `pièce de financement déposée${ref}`,
   };
   return `${programCode} : ${what[event]}. Ouvrez l'application.`;
 }

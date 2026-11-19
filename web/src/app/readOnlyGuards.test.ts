@@ -4,6 +4,7 @@ import { adminRights } from '../components/admin/adminRights';
 import { canCorrectClosedBand, pilotageRights } from '../components/pilotage/pilotageAccess';
 import { registryRights } from '../components/registry/registryAccess';
 import { notificationRights, surveillanceRights } from '../components/surveillance/surveillanceAccess';
+import { financingRights } from '../components/financing/financingAccess';
 import { institutionWrites } from './menu-access';
 
 /** An institution granted « Consulter » on every domain it can read: the read-only access of the audit. */
@@ -47,5 +48,19 @@ describe('read-only institution access', () => {
       );
       expect(notificationRights('INSTITUTION', access).writeRules).toBe(false);
     }
+  });
+});
+
+describe('financing rights', () => {
+  it('a read-only grant on FINANCEMENT opens the workspace and writes nothing', () => {
+    for (const scope of SCOPES) {
+      const rights = financingRights('INSTITUTION', readOnly(scope));
+      expect([rights.create, rights.edit, rights.validate], scope).toEqual([false, false, false]);
+    }
+    expect(financingRights('INSTITUTION', readOnly('FINANCED')).view).toBe(true);
+  });
+
+  it('FINANCEMENT grants four actions, never « Administrer »', () => {
+    expect(grantableActions('FINANCEMENT')).toEqual(['CONSULTER', 'CREER', 'MODIFIER', 'VALIDER']);
   });
 });

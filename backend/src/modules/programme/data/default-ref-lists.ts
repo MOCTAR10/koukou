@@ -247,6 +247,29 @@ export const DEFAULT_REF_LISTS: Readonly<
       '',
       'Conditions d’exercice de la médecine et de la pharmacie vétérinaires.',
     ),
+    // Financer workspace (BCEG): texts verified; the others it cites are
+    // listed in `financing/data/legal.ts` with `verified: false`.
+    legalText(
+      'LOI_001_2011_DONNEES',
+      'Loi n° 001/2011 du 25 septembre 2011 relative à la protection des données à caractère personnel, modifiée par la loi n° 025/2023 (JO n° 218 bis du 15 juillet 2023)',
+      '2011-09-25',
+      'Art. 6, 43, 53, 60-61, 70-73, 100',
+      'Consentement préalable et éclairé au traitement des données, information de la personne, droit de retrait à tout moment, droits d’accès, de rectification, d’opposition et d’effacement.',
+    ),
+    legalText(
+      'COBAC_R_2018_01',
+      'Règlement COBAC R-2018/01 du 16 janvier 2018 relatif à la classification des créances et à leur provisionnement',
+      '2018-01-16',
+      'Art. 4-11, 12-14',
+      'Classes de créances (saines, sensibles, impayées, douteuses, irrécouvrables) et seuil de 90 jours d’impayé.',
+    ),
+    legalText(
+      'AUS_OHADA_2010',
+      'Acte uniforme OHADA portant organisation des sûretés du 15 décembre 2010',
+      '2010-12-15',
+      'Art. 13-14, 92-96, 118-124',
+      'Cautionnement, gage de matériel et gage de stocks pris en garantie d’un financement.',
+    ),
   ],
   [ProgramListType.VACCIN]: [
     // Generic vaccine catalogue (disease targeted, type, route, storage): a

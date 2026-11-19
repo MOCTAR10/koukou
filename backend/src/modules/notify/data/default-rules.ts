@@ -158,6 +158,40 @@ export const DEFAULT_NOTIFICATION_RULES: readonly DefaultRule[] = [
     audience: NotificationAudience.FARM_MANAGERS,
     channels: [IN_APP, PUSH],
   },
+  // Financer workspace. CONSENT_WITHDRAWN goes to the bank's profile by its
+  // code (admin-editable data); the notifier then checks the profile's matrix
+  // (FINANCEMENT:CONSULTER) and ignores the FINANCED perimeter, since the
+  // bank must hear a withdrawal that takes the farm out of its perimeter.
+  {
+    code: 'BCEG_CONSENTEMENT_RETIRE',
+    label: 'BCEG : un exploitant retire son consentement au partage des données',
+    event: NotificationEvent.CONSENT_WITHDRAWN,
+    audience: NotificationAudience.PROFILE,
+    profileCode: PROFILE_CODES.BCEG,
+    channels: [IN_APP],
+  },
+  {
+    code: 'FERME_FINANCEMENT_ETAPE',
+    label: 'Ferme : son dossier de financement change d’étape',
+    event: NotificationEvent.FINANCING_STEP_CHANGED,
+    audience: NotificationAudience.FARM_MANAGERS,
+    channels: [IN_APP, PUSH],
+  },
+  {
+    code: 'FERME_FINANCEMENT_PIECE_EXAMINEE',
+    label: 'Ferme : le financeur a validé ou refusé une pièce déposée',
+    event: NotificationEvent.FINANCING_DOCUMENT_REVIEWED,
+    audience: NotificationAudience.FARM_MANAGERS,
+    channels: [IN_APP, PUSH],
+  },
+  {
+    code: 'BCEG_PIECE_DEPOSEE',
+    label: 'BCEG : l’exploitation (ou un agent pour elle) dépose une pièce',
+    event: NotificationEvent.FINANCING_DOCUMENT_FILED,
+    audience: NotificationAudience.PROFILE,
+    profileCode: PROFILE_CODES.BCEG,
+    channels: [IN_APP],
+  },
   // POUFA lot A pilot: reports are sent, not only stored (CDC §5.4, §7.7).
   {
     code: 'RAPPORT_DISPONIBLE',

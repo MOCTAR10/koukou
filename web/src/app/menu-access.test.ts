@@ -183,12 +183,12 @@ describe('Fermia modules for institutions (POUFA lot A droits)', () => {
     expect(institutionShowsEntry('/app/expenses', DGE)).toBe(true);
     expect(institutionShowsEntry('/app/economie', DGE)).toBe(true);
     expect(institutionShowsEntry('/app/economie', AGENT_TECHNIQUE)).toBe(false);
-    // The synthesis needs a farm scope: the BCEG (FINANCED) holds ECONOMIQUE but reaches no farm yet.
-    expect(institutionShowsEntry('/app/economie', p('FINANCED', { ECONOMIQUE: ['CONSULTER'] }))).toBe(false);
+    // The synthesis needs a farm scope: FINANCED reaches the financed farms (the server resolves them), AGGREGATE none.
+    expect(institutionShowsEntry('/app/economie', p('FINANCED', { ECONOMIQUE: ['CONSULTER'] }))).toBe(true);
     expect(institutionShowsEntry('/app/economie', p('AGGREGATE', { ECONOMIQUE: ['CONSULTER'] }))).toBe(false);
     // the registry needs a scope that reaches farms (server refuses otherwise)
     expect(institutionShowsEntry('/app/registre', DGE)).toBe(true);
-    expect(institutionShowsEntry('/app/registre', p('FINANCED', { REGISTRE: ['CONSULTER'] }))).toBe(false);
+    expect(institutionShowsEntry('/app/registre', p('FINANCED', { REGISTRE: ['CONSULTER'] }))).toBe(true);
     expect(institutionShowsEntry('/app/registre', p('AGGREGATE', { REGISTRE: ['CONSULTER'] }))).toBe(false);
     // data recovery is national only (RecoveryPage + server imports)
     expect(institutionShowsEntry('/app/reprise', DGE)).toBe(true);
@@ -226,9 +226,18 @@ describe('institutionLanding', () => {
   });
 
   it('sends scopes without farms, and an empty scope, to the access page', () => {
+    expect(institutionLanding(p('AGGREGATE', { TECHNIQUE: ['CONSULTER'] }), 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(p('FINANCED', { TECHNIQUE: ['CONSULTER'] }), 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(AGENT_TECHNIQUE, 0)).toBe(MY_ACCESS_PATH);
     expect(institutionLanding(null, 5)).toBe(MY_ACCESS_PATH);
+  });
+
+  it('lands a profile granted FINANCEMENT:CONSULTER on the portfolio, farms or not', () => {
+    const bank = p('FINANCED', { FINANCEMENT: ['CONSULTER'], TECHNIQUE: ['CONSULTER'] });
+    expect(institutionLanding(bank, 0)).toBe('/app/financement');
+    expect(institutionLanding(bank, 30)).toBe('/app/financement');
+    expect(institutionShowsEntry('/app/financement/dossiers', bank)).toBe(true);
+    expect(institutionShowsEntry('/app/financement', p('FINANCED', { TECHNIQUE: ['CONSULTER'] }))).toBe(false);
   });
 
   it('sends a steering profile without a farm to the programme steering', () => {
@@ -278,8 +287,8 @@ describe('surveillance and notifications (POUFA L5)', () => {
 
 describe('helpers', () => {
   it('scopeReachesFarms matches the server', () => {
-    expect((['ALL', 'PROVINCES', 'FARMS'] as ScopeKind[]).every(scopeReachesFarms)).toBe(true);
-    expect((['FINANCED', 'OPERATOR', 'AGGREGATE', 'AUDIT'] as ScopeKind[]).some(scopeReachesFarms)).toBe(false);
+    expect((['ALL', 'PROVINCES', 'FARMS', 'FINANCED'] as ScopeKind[]).every(scopeReachesFarms)).toBe(true);
+    expect((['OPERATOR', 'AGGREGATE', 'AUDIT'] as ScopeKind[]).some(scopeReachesFarms)).toBe(false);
   });
 
   it('pagesOfDomain lists the pages a domain opens', () => {
@@ -287,6 +296,7 @@ describe('helpers', () => {
     expect(pagesOfDomain('ECONOMIQUE')).toEqual(['/app/reports', '/app/expenses', '/app/economie']);
     expect(pagesOfDomain('EQUIPE')).toEqual(['/app/team', '/app/hr']);
     expect(pagesOfDomain('AUDIT')).toEqual(['/app/audit']);
+    expect(pagesOfDomain('FINANCEMENT')).toEqual(['/app/financement']);
   });
 });
 
@@ -314,13 +324,13 @@ describe('POUFA W6 menu rows', () => {
 });
 
 describe('farm modules need a scope that reaches farms', () => {
-  it('hides them from aggregate, financed and audit scopes, even when the domain is granted', () => {
+  it('hides them from aggregate and audit scopes, even when the domain is granted', () => {
     const farmPages = ['/app/dashboard', '/app/batches', '/app/sanitary', '/app/stock', '/app/reports', '/app/finance/ventes', '/app/team'];
     const all: AccessMatrix = { TECHNIQUE: ['CONSULTER'], SANITAIRE: ['CONSULTER'], INTRANTS: ['CONSULTER'], ECONOMIQUE: ['CONSULTER'], VENTES: ['CONSULTER'], EQUIPE: ['CONSULTER'] };
-    for (const kind of ['AGGREGATE', 'FINANCED', 'AUDIT'] as ScopeKind[]) {
+    for (const kind of ['AGGREGATE', 'AUDIT'] as ScopeKind[]) {
       for (const page of farmPages) expect(institutionShowsEntry(page, p(kind, all))).toBe(false);
     }
-    for (const kind of ['ALL', 'PROVINCES', 'FARMS'] as ScopeKind[]) {
+    for (const kind of ['ALL', 'PROVINCES', 'FARMS', 'FINANCED'] as ScopeKind[]) {
       for (const page of farmPages) expect(institutionShowsEntry(page, p(kind, all))).toBe(true);
     }
   });

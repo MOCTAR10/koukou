@@ -598,6 +598,35 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         call: () => get('/admin/users', ''),
       },
       {
+        name: 'FINANCEMENT consulter (portefeuille)',
+        farm: false,
+        needs: [['FINANCEMENT', 'CONSULTER']],
+        call: () => get('/programme/financing/portfolio', ''),
+      },
+      {
+        name: 'FINANCEMENT consulter (ferme à 360°)',
+        farm: true,
+        needs: [['FINANCEMENT', 'CONSULTER']],
+        call: (f) => get(`/programme/financing/farms/${f}/overview`, ''),
+      },
+      {
+        name: 'FINANCEMENT créer (ouvrir un dossier)',
+        farm: false,
+        needs: [['FINANCEMENT', 'CREER']],
+        call: () => post('/programme/financing/files', {}, ''),
+      },
+      {
+        name: 'FINANCEMENT valider (changer d’étape)',
+        farm: false,
+        needs: [['FINANCEMENT', 'VALIDER']],
+        call: () =>
+          post(
+            '/programme/financing/files/00000000-0000-4000-8000-000000000000/step',
+            {},
+            '',
+          ),
+      },
+      {
         name: 'COMPTE',
         farm: false,
         needs: [],
@@ -605,8 +634,10 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
       },
     ];
 
+    // FINANCED reaches farms through FINANCEMENT_PERIMETRE (default PROGRAMME).
     const reaches = (kind: AccessScopeKind) =>
       kind === AccessScopeKind.ALL ||
+      kind === AccessScopeKind.FINANCED ||
       kind === AccessScopeKind.PROVINCES ||
       kind === AccessScopeKind.FARMS;
 
@@ -824,17 +855,22 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
     });
 
     it('AGGREGATE and AUDIT: no farm-level rows', async () => {
-      for (const code of ['MAEDR', 'ANINF', 'BCEG']) {
+      for (const code of ['MAEDR', 'ANINF']) {
         const token = accounts[code].token;
         await get(`/programme/farms/${farmA}`, token).expect(403);
         await get(`/farms/${farmA}/batches`, token).expect(403);
       }
       await get('/programme/farms', accounts.MAEDR.token).expect(403);
-      await get('/programme/farms', accounts.BCEG.token).expect(403);
-      // FINANCED reaches no farm until the consent model exists.
-      expect(
-        (await get('/farms', accounts.BCEG.token).expect(200)).body,
-      ).toEqual([]);
+      // FINANCED reaches the farms of FINANCEMENT_PERIMETRE (default
+      // PROGRAMME: the whole programme), within the domains of its matrix.
+      const financed = (
+        await get('/farms', accounts.BCEG.token).expect(200)
+      ).body.map((f: { id: string }) => f.id);
+      expect(financed).toEqual(expect.arrayContaining([farmA, farmB, farmC]));
+      await get('/programme/farms', accounts.BCEG.token).expect(200);
+      await get(`/programme/farms/${farmA}`, accounts.BCEG.token).expect(200);
+      // The domains it does not hold stay closed on every farm.
+      await get(`/farms/${farmA}/batches/${NO_BATCH}/health-events`, accounts.BCEG.token).expect(403);
       // The caller's farm list is SESSION: open, but an AGGREGATE scope holds
       // nor an AUDIT one any farm row.
       for (const code of ['MAEDR', 'ANINF']) {

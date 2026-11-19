@@ -88,6 +88,7 @@ export const STATUS_LABEL: Record<string, string> = {
   ACTIF: 'Actif',
   EN_VENTE: 'En vente',
   CLOTURE: 'Clôturé',
+  EN_COURS: 'En cours',
   SETTLED: 'Soldée',
   OUTSTANDING: 'À recouvrer',
   CANCELLED: 'Annulée',

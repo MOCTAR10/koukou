@@ -87,6 +87,8 @@ export function worksWithoutFarm(pathname: string): boolean {
     '/app/tracabilite',
     // POUFA lot A droits: the programme economic synthesis (every farm of the scope).
     '/app/economie',
+    // The bank's financer workspace (every financed farm of the scope, no active farm needed).
+    '/app/financement',
   ].some((root) => isUnder(pathname, root));
 }
 

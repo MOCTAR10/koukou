@@ -171,8 +171,9 @@ describe('registryRights', () => {
     expect(registryRights('INSTITUTION', adminProgramme)).toMatchObject({ team: true, suspendTeam: false });
     // An AUDIT-scope profile reads the journal only.
     expect(registryRights('INSTITUTION', { scopeKind: 'AUDIT', matrix: { REGISTRE: ['CONSULTER'] } }).view).toBe(false);
-    // Scopes reaching no farm (BCEG FINANCED, MAEDR AGGREGATE): no registry entry, the server refuses the list.
-    for (const scopeKind of ['FINANCED', 'AGGREGATE'] as const) {
+    // A scope reaching no farm (MAEDR AGGREGATE): no registry entry, the server refuses the list; FINANCED reaches the financed farms.
+    expect(registryRights('INSTITUTION', { scopeKind: 'FINANCED', matrix: { REGISTRE: ['CONSULTER'] } }).view).toBe(true);
+    for (const scopeKind of ['AGGREGATE'] as const) {
       expect(registryRights('INSTITUTION', { scopeKind, matrix: { REGISTRE: ['CONSULTER'] } }).view).toBe(false);
     }
   });
