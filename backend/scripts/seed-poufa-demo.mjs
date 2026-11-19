@@ -634,6 +634,7 @@ async function main() {
           source: s.gpsReason ? 'MANUEL' : 'APPAREIL',
           accuracyM: s.gpsReason ? undefined : 8,
           reason: s.gpsReason,
+          confirmOutsideProvince: s.gpsReason ? true : undefined,
         },
         admin,
       );
@@ -759,8 +760,6 @@ async function main() {
       `/admin/farms/${farms[s.key].id}`,
       {
         isVerified: true,
-        administrativeCity:
-          s.localite === 'Bendjé' ? 'Port-Gentil' : 'Libreville',
       },
       admin,
     );
@@ -1014,7 +1013,7 @@ async function main() {
   if (manualEvent?.id) {
     await post(
       `/farms/${farms.mba.id}/batches/${bands.mbaActive.id}/prophylaxis/${manualEvent.id}/complete`,
-      { completedAt: atNoon(-12), notes: 'Lot vaccin IBD-2610 (démo)' },
+      { completedAt: atNoon(-12), notes: 'Lot vaccin IBD-2610 (démo)', animalCount: 500 },
       tokens.mba,
     );
   } else {

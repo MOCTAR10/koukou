@@ -53,7 +53,7 @@ function TemplateField({ item }: { item: RequirementX }) {
       <input
         ref={input}
         type="file"
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.odt,.ods"
+        accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
         className="sr-only"
         tabIndex={-1}
         aria-hidden

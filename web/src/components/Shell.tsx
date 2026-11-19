@@ -307,10 +307,14 @@ export function Shell() {
       ),
     ],
   })).filter((group) => group.items.length > 0);
-  // Simple mode (pictograms, data entry): the menu is « Mon terrain » and the help, nothing else.
+  // Simple mode (pictograms, data entry): the menu is « Mon terrain » and the help, plus the farmer's
+  // « Financement » page when the bank asks for a consent or a piece (it is an obligation, not a module).
   const nav = isSimpleMode
     ? fullNav
-        .map((group) => ({ ...group, items: group.items.filter((item) => item.to === '/app/home' || item.to === HELP_PATH) }))
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => item.to === '/app/home' || item.to === HELP_PATH || item.to === FARM_FINANCING_PATH),
+        }))
         .filter((group) => group.items.length > 0)
     : fullNav;
   const onFarmModule = nav.some((g) => g.items.some((i) => pathname === i.to || pathname.startsWith(`${i.to}/`)));

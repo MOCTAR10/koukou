@@ -206,7 +206,7 @@ export class FinancingStatementsService {
           WHERE j.farm_id = $1 AND j.status = 'POSTED' AND j.entry_date BETWEEN $2 AND $3)
        SELECT COUNT(DISTINCT day) AS with_entries,
               COUNT(*) FILTER (WHERE kind = 'J') AS journal,
-              MAX(day) AS last FROM d`,
+              MAX(day)::text AS last FROM d`,
       [farmId, from, to],
     );
     return {
@@ -268,7 +268,7 @@ export class FinancingStatementsService {
   /** Headline figures in the 6 months before and after the first released tranche. */
   private async beforeAfter(user: AuthUser, farmId: string, today: string): Promise<C.FarmFinancials['beforeAfter']> {
     const pivots = await this.q<{ d: string | null }>(
-      `SELECT MIN(d.released_on) AS d FROM financing_disbursements d
+      `SELECT MIN(d.released_on)::text AS d FROM financing_disbursements d
          JOIN financing_files f ON f.id = d.file_id
         WHERE f.farm_id = $1 AND d.status = $2`,
       [farmId, DisbursementStatus.DEBLOQUEE],
@@ -279,7 +279,7 @@ export class FinancingStatementsService {
       `SELECT LEAST(
          (SELECT MIN(entry_date) FROM accounting_journal_entries WHERE farm_id = $1 AND status = 'POSTED'),
          (SELECT MIN(e.entry_date) FROM daily_entries e JOIN production_batches b ON b.id = e.batch_id WHERE b.farm_id = $1)
-       ) AS d`,
+       )::text AS d`,
       [farmId],
     );
     const firstDay = first[0]?.d ?? null;

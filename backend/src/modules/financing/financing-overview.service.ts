@@ -66,7 +66,7 @@ export class FinancingOverviewService {
             [programId, f.status_code],
           )
         : Promise.resolve([]),
-      q<{ visit_date: string }>(`SELECT visit_date FROM farm_visits WHERE farm_id = $1 ORDER BY visit_date DESC LIMIT 1`, [farmId]),
+      q<{ visit_date: string }>(`SELECT visit_date::text AS visit_date FROM farm_visits WHERE farm_id = $1 ORDER BY visit_date DESC LIMIT 1`, [farmId]),
       q<{ classification: string }>(
         `SELECT classification FROM farm_visits WHERE farm_id = $1 AND classification IS NOT NULL ORDER BY visit_date DESC, created_at DESC LIMIT 1`,
         [farmId],
@@ -137,7 +137,7 @@ export class FinancingOverviewService {
         [farmId],
       ),
       q<{ last: string | null }>(
-        `SELECT MAX(e.entry_date) AS last FROM daily_entries e JOIN production_batches b ON b.id = e.batch_id WHERE b.farm_id = $1`,
+        `SELECT MAX(e.entry_date)::text AS last FROM daily_entries e JOIN production_batches b ON b.id = e.batch_id WHERE b.farm_id = $1`,
         [farmId],
       ),
       q<{ eggs: string | null }>(
@@ -146,7 +146,7 @@ export class FinancingOverviewService {
         [farmId, today],
       ),
       q<{ week: string; deaths: string; avg_present: string | null }>(
-        `SELECT date_trunc('week', day)::date AS week, SUM(deaths) AS deaths, AVG(present_start) AS avg_present
+        `SELECT date_trunc('week', day)::date::text AS week, SUM(deaths) AS deaths, AVG(present_start) AS avg_present
            FROM bande_daily_stats WHERE farm_id = $1 AND day > ($2::date - 84)
           GROUP BY 1 ORDER BY 1`,
         [farmId, today],
@@ -236,7 +236,7 @@ export class FinancingOverviewService {
         `SELECT COUNT(DISTINCT d.id) AS deliveries,
                 SUM(COALESCE(l.received_quantity, l.quantity) * COALESCE(l.unit_value_fcfa, 0)) AS value,
                 SUM(COALESCE(l.subsidy_fcfa, 0)) AS subsidy,
-                MAX(COALESCE(d.received_date, d.shipped_at)) AS last
+                to_char(MAX(COALESCE(d.received_date, d.shipped_at)), 'YYYY-MM-DD') AS last
            FROM input_deliveries d JOIN input_delivery_lines l ON l.delivery_id = d.id
           WHERE d.farm_id = $1 AND d.status = 'CONFIRMEE'`,
         [farmId],

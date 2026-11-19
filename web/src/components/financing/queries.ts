@@ -154,7 +154,8 @@ export function useFarmFinancing(farmId: string | null, enabled = true) {
 export function invalidateFinancing(qc: QueryClient, opts: { fileId?: string; consent?: boolean } = {}): void {
   const keys: unknown[][] = [[...KEYS.files], [...KEYS.portfolio], ['financing-overview']];
   if (opts.fileId) keys.push([...KEYS.file(opts.fileId)]);
-  if (opts.consent) keys.push([...KEYS.consents], [...KEYS.templates], ['farm-financing']);
+  // A consent given or withdrawn reopens or closes the « consentement » line of every file of the farm.
+  if (opts.consent) keys.push([...KEYS.consents], [...KEYS.templates], ['farm-financing'], ['financing-file']);
   for (const queryKey of keys) void qc.invalidateQueries({ queryKey });
 }
 

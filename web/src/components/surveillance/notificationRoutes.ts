@@ -47,6 +47,14 @@ export function webTargetFor(item: Pick<InboxItem, 'route' | 'farmId'>, ctx: Rou
   const visits = new RegExp(`^/farms/(${UUID})/visits$`).exec(route);
   if (visits) return { path: '/app/visites', farmId: visits[1]! };
 
+  // Financer workspace: the bank's 360° / file, and the farmer's own Financement page.
+  const bankFarm = new RegExp(`^/programme/financement/fermes/(${UUID})$`).exec(route);
+  if (bankFarm) return { path: `/app/financement/fermes/${bankFarm[1]}`, farmId: null };
+  const bankFile = new RegExp(`^/programme/financement/dossiers/(${UUID})$`).exec(route);
+  if (bankFile) return { path: `/app/financement/dossiers?dossier=${bankFile[1]}`, farmId: null };
+  const farmerPage = new RegExp(`^/farms/(${UUID})/financement$`).exec(route);
+  if (farmerPage) return { path: '/app/financement-ferme', farmId: farmerPage[1]! };
+
   return null;
 }
 
@@ -63,6 +71,10 @@ export const EVENT_SHORT_LABELS: Readonly<Record<NotificationEvent, string>> = {
   VISIT_REMINDER: 'Visite à venir',
   VISIT_OVERDUE: 'Visite en retard',
   DELEGATED_ENTRY: 'Saisie pour votre compte',
+  CONSENT_WITHDRAWN: 'Consentement',
+  FINANCING_STEP_CHANGED: 'Dossier de financement',
+  FINANCING_DOCUMENT_FILED: 'Pièce de financement',
+  FINANCING_DOCUMENT_REVIEWED: 'Pièce de financement',
 };
 
 export function severityTone(level: AlertLevel): 'red' | 'amber' | 'emerald' {

@@ -5,7 +5,7 @@ import { useMenuAccess } from '../../app/useMenuAccess';
 import { PaperConsentModal, WithdrawConsentModal } from '../../components/financing/ConsentModals';
 import { TemplateModal } from '../../components/financing/TemplateModal';
 import { farm360Path } from '../../components/financing/financingAccess';
-import { currentTemplate, formatBytes, perimeterText, sharePct, templateHistory } from '../../components/financing/financingLogic';
+import { currentTemplate, formatBytes, pctText, perimeterText, sharePct, templateHistory } from '../../components/financing/financingLogic';
 import { proofUrl, templateFileUrl, useConsentTemplates, useConsents, type ConsentFilters } from '../../components/financing/queries';
 import { ConsentBadge, Fact, FarmLink, OpenFileButton, SectionTitle } from '../../components/financing/shared';
 import { Button, ErrorNote, inputCls } from '../../components/form';
@@ -144,7 +144,7 @@ function FarmsBlock() {
       {cov ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatTile label="Fermes du périmètre" value={cov.farms.toLocaleString('fr-FR')} />
-          <StatTile label="Consentement donné" value={cov.active.toLocaleString('fr-FR')} tone="good" hint={`${sharePct(cov.active, cov.farms)} % des fermes`} />
+          <StatTile label="Consentement donné" value={cov.active.toLocaleString('fr-FR')} tone="good" hint={`${pctText(sharePct(cov.active, cov.farms))} des fermes`} />
           <StatTile label="Consentement retiré" value={cov.withdrawn.toLocaleString('fr-FR')} tone={cov.withdrawn > 0 ? 'warn' : 'default'} />
           <StatTile label="Non recueilli" value={cov.none.toLocaleString('fr-FR')} hint="Pas encore de réponse" />
         </div>
