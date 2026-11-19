@@ -149,6 +149,16 @@ export function AuthLayout({
               </p>
             ) : null}
             {programme ? (
+              // Phone: the credit shown on the computer's photo panel, hidden there.
+              <p className="mt-2.5 flex items-center justify-center gap-2 text-xs font-medium text-white/90 drop-shadow lg:hidden">
+                Plateforme propulsée par
+                {/* The wordmark is dark green on cream: it keeps its own light plate over the photo. */}
+                <span className="rounded-md bg-[#f6f3ee] px-2 py-1 shadow-md shadow-black/30">
+                  <img src="/okoume-labs.webp" alt="Okoumé Labs" className="h-4 w-auto" />
+                </span>
+              </p>
+            ) : null}
+            {programme ? (
               <p className="mt-2 text-center text-[11px] text-slate-500 max-lg:mt-1 max-lg:text-white/70 max-lg:[@media(max-height:600px)]:hidden">Version {__APP_VERSION__}</p>
             ) : null}
           </motion.div>
