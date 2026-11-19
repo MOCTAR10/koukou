@@ -94,7 +94,7 @@ export class TaskSyncService implements OnModuleDestroy {
       desired.push(...(await this.vaccineTasks(batch)));
       desired.push(...(await this.weighingTasks(batch, today)));
     } else {
-      const closedDay = (batch.closedAt ?? new Date()).toISOString().slice(0, 10);
+      const closedDay = todayLocal(batch.closedAt ?? new Date());
       const minDays = await this.constants.get(
         ReferenceKey.VIDE_SANITAIRE_MIN_DAYS,
         7,

@@ -16,7 +16,11 @@ import {
   BiosecurityClass,
   VisitType,
 } from '../../common/enums/visit.enum.js';
-import { isAfterTomorrowUtc } from '../../common/utils/date.utils.js';
+import {
+  isAfterTomorrowUtc,
+  libervilleDayEnd,
+  todayLocal,
+} from '../../common/utils/date.utils.js';
 import { createOnce } from '../../common/utils/idempotency.js';
 import { scopeReachesFarms } from '../access/access-rules.js';
 import { ScopeResolver } from '../access/scope-resolver.service.js';
@@ -141,7 +145,7 @@ export class VisitsService {
 
   /** Thresholds in force at the end of `day` (default now). */
   async thresholds(day?: string): Promise<BiosecurityThresholds> {
-    const at = day ? new Date(`${day.slice(0, 10)}T23:59:59.999Z`) : new Date();
+    const at = day ? new Date(libervilleDayEnd(day)) : new Date();
     const [a, b] = await Promise.all([
       this.parameters.get<number>(THRESHOLD_A_KEY, at),
       this.parameters.get<number>(THRESHOLD_B_KEY, at),
@@ -336,7 +340,7 @@ export class VisitsService {
     if (query.to) qb.andWhere('v.visit_date <= :to', { to: dayOf(query.to) });
     if (query.retard) {
       // Planned next visit passed and no newer visit on the farm.
-      qb.andWhere('v.next_visit_date < CURRENT_DATE').andWhere(
+      qb.andWhere('v.next_visit_date < :today', { today: todayLocal() }).andWhere(
         `NOT EXISTS (SELECT 1 FROM farm_visits n WHERE n.farm_id = v.farm_id
            AND (n.visit_date, n.created_at) > (v.visit_date, v.created_at))`,
       );

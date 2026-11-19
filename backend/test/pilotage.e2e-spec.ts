@@ -19,8 +19,8 @@ import {
   login,
 } from './helpers/programme-farm.js';
 
-const day = (n: number) =>
-  new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+import { lvDay, lvToday } from './helpers/libreville-day.js';
+const day = (n: number) => lvDay(n);
 
 /** Binary body of a supertest response (PDF). */
 const binary = (
@@ -619,9 +619,8 @@ describe('Pilotage POUFA — tableaux de bord, carte, objectif, rapports (e2e)',
     });
 
     it('production manuelle d’une période close seulement', async () => {
-      const lastMonth = new Date();
-      lastMonth.setUTCDate(1);
-      lastMonth.setUTCMonth(lastMonth.getUTCMonth() - 1);
+      const [y, m] = lvToday().split('-').map(Number);
+      const lastMonth = new Date(Date.UTC(y, m - 2, 1));
       const res = await post(
         '/pilotage/reports/templates/MENSUEL_NATIONAL/runs',
         { periodStart: lastMonth.toISOString().slice(0, 10) },

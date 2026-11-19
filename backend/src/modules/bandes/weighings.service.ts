@@ -14,7 +14,7 @@ import {
 } from '../../common/utils/event-bus.js';
 import type { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import {
-  utcDay,
+  businessDay,
   weighingStatus,
   type WeighingStatus,
 } from '../batches/poufa/bande-rules.js';
@@ -84,7 +84,7 @@ export class WeighingsService implements OnModuleInit, OnModuleDestroy {
       weighings,
       frequencyDays: params.value<number>('PESEE_FREQUENCE_J', now),
       expectedSampleSize: params.value<number>('PESEE_ECHANTILLON_TETES', now),
-      today: utcDay(now),
+      today: businessDay(now),
       closed: batch.status === BatchStatus.CLOTURE,
     });
   }

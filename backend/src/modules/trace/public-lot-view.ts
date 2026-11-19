@@ -1,3 +1,4 @@
+import { todayLocal } from '../../common/utils/date.utils.js';
 import { BatchType } from '../../common/enums/batch-type.enum.js';
 import { Species } from '../../common/enums/species.enum.js';
 import {
@@ -79,7 +80,7 @@ export function toPublicLotView(
     band: {
       code: src.bandCode,
       openedOn: src.integrationDate.slice(0, 10),
-      closedOn: src.closedAt ? src.closedAt.toISOString().slice(0, 10) : null,
+      closedOn: src.closedAt ? todayLocal(src.closedAt) : null,
     },
     /** Kind of operator the lot was ceded to (never its name or contact). */
     operatorType: src.operatorTypeLabel,

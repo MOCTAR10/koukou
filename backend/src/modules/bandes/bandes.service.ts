@@ -8,7 +8,7 @@ import {
   ageOn,
   completenessPct,
   expectedEndDate,
-  utcDay,
+  businessDay,
   type WeighingStatus,
 } from '../batches/poufa/bande-rules.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
@@ -101,13 +101,13 @@ export class BandesService {
   }
 
   async sheetOf({ farm, batch }: Band): Promise<BandSheet> {
-    const today = utcDay();
+    const today = businessDay();
     const rows = await this.stats.rows(batch.id);
     const last = await this.snapshots.findOne({
       where: { batchId: batch.id },
       order: { version: 'DESC' },
     });
-    const endDay = batch.closedAt ? utcDay(batch.closedAt) : today;
+    const endDay = batch.closedAt ? businessDay(batch.closedAt) : today;
     return {
       id: batch.id,
       code: batch.code,

@@ -413,7 +413,7 @@ export class TraceHistoryService {
    */
   private async rearingDeliveries(band: ProductionBatch, programId: string | null) {
     const end = band.closedAt
-      ? band.closedAt.toISOString().slice(0, 10)
+      ? todayLocal(band.closedAt)
       : todayLocal();
     const candidates: {
       id: string;
@@ -424,12 +424,12 @@ export class TraceHistoryService {
       supplierName: string | null;
     }[] = await this.dataSource.query(
       `SELECT d.id, d.code, d.source, d.supplier_name AS "supplierName", d.band_id AS "bandId",
-              TO_CHAR(COALESCE(d.received_date, d.confirmed_at::date), 'YYYY-MM-DD') AS "receivedDate"
+              TO_CHAR(COALESCE(d.received_date, (d.confirmed_at AT TIME ZONE 'Africa/Libreville')::date), 'YYYY-MM-DD') AS "receivedDate"
          FROM input_deliveries d
         WHERE d.farm_id = $1 AND d.status = $2
           AND (d.band_id = $3
                OR (d.band_id IS NULL
-                   AND COALESCE(d.received_date, d.confirmed_at::date)
+                   AND COALESCE(d.received_date, (d.confirmed_at AT TIME ZONE 'Africa/Libreville')::date)
                        BETWEEN $4::date AND $5::date))
         ORDER BY 5, d.code`,
       [
@@ -493,7 +493,7 @@ export class TraceHistoryService {
     if (unlinked.length === 0) return candidates;
     const bands: BandWindow[] = await this.dataSource.query(
       `SELECT id, TO_CHAR(integration_date, 'YYYY-MM-DD') AS "integrationDate",
-              TO_CHAR(COALESCE(closed_at, CASE WHEN status = 'CLOTURE' THEN "updatedAt" END), 'YYYY-MM-DD') AS "closedDay"
+              TO_CHAR(COALESCE(closed_at, CASE WHEN status = 'CLOTURE' THEN "updatedAt" END) AT TIME ZONE 'Africa/Libreville', 'YYYY-MM-DD') AS "closedDay"
          FROM production_batches WHERE farm_id = $1`,
       [band.farmId],
     );
@@ -551,7 +551,7 @@ export class TraceHistoryService {
    */
   private async rearingVisits(band: ProductionBatch) {
     const end = band.closedAt
-      ? band.closedAt.toISOString().slice(0, 10)
+      ? todayLocal(band.closedAt)
       : todayLocal();
     const rows: {
       id: string;

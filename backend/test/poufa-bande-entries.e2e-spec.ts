@@ -15,9 +15,10 @@ import {
   uniquePhone,
 } from './helpers/programme-farm.js';
 
-/** `YYYY-MM-DD`, `n` days from today (UTC). */
+/** `YYYY-MM-DD`, `n` days from today (Libreville). */
+import { lvDay } from './helpers/libreville-day.js';
 const day = (n: number) =>
-  new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  lvDay(n);
 
 /**
  * POUFA lot A « saisies de bande »: CDC n° 6 to 9 (weighing reminder to the

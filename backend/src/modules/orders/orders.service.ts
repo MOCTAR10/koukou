@@ -1378,7 +1378,7 @@ export class OrdersService {
           ? {
               name: lastVaccine.name,
               date: lastVaccine.completedAt
-                ? lastVaccine.completedAt.toISOString().slice(0, 10)
+                ? todayLocal(lastVaccine.completedAt)
                 : lastVaccine.scheduledDate,
             }
           : null,

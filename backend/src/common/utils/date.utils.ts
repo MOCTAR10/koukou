@@ -65,3 +65,17 @@ export function fcfaFr(n: number | string | null | undefined): string {
   if (n == null || !Number.isFinite(v)) return '—';
   return `${(Math.round(v) || 0).toLocaleString('fr-FR')} FCFA`;
 }
+
+/**
+ * First instant of a business day (YYYY-MM-DD) in Gabon time, as an ISO
+ * string with its offset: the lower bound of a `[start, nextStart)` window
+ * over a timestamp column. Africa/Libreville is UTC+1 all year.
+ */
+export function libervilleDayStart(day: string): string {
+  return `${day.slice(0, 10)}T00:00:00.000+01:00`;
+}
+
+/** Last millisecond of a business day (YYYY-MM-DD) in Gabon time. */
+export function libervilleDayEnd(day: string): string {
+  return `${day.slice(0, 10)}T23:59:59.999+01:00`;
+}

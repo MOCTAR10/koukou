@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { libervilleDayStart } from '../../common/utils/date.utils.js';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
@@ -367,9 +368,9 @@ export class EconomieService {
     from: string,
     to: string,
   ): Promise<Map<string, Partial<FarmSums>>> {
-    const fromTs = `${from}T00:00:00.000Z`;
+    const fromTs = libervilleDayStart(from);
     const toTs = new Date(
-      Date.parse(`${to}T00:00:00.000Z`) + 86_400_000,
+      Date.parse(libervilleDayStart(to)) + 86_400_000,
     ).toISOString();
     const [requests, delivered]: Array<Array<Record<string, string | null>>> =
       await Promise.all([

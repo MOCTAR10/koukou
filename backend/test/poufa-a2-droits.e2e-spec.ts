@@ -1,3 +1,4 @@
+import { lvDay, lvToday } from './helpers/libreville-day.js';
 // POUFA lot A2 droits: third-party reads journaled (#5), the official band
 // economics masked without ECONOMIQUE (#6, F6) and the Fermia bonus features
 // stored under programme domains kept read-only for institutions (#7).
@@ -104,9 +105,7 @@ describe('POUFA lot A2 droits — journal, F6, bonus en lecture seule (e2e)', ()
       `/farms/${farmId}/batches`,
       {
         batchName: `Bande A2 ${digits}`,
-        integrationDate: new Date(Date.now() - 86_400_000)
-          .toISOString()
-          .slice(0, 10),
+        integrationDate: lvDay(-1),
         quantityAtStart: 100,
         type: 'CHAIR',
         chickUnitPriceFcfa: 450,
@@ -148,7 +147,7 @@ describe('POUFA lot A2 droits — journal, F6, bonus en lecture seule (e2e)', ()
     const indicators = () => `/farms/${farmId}/bandes/${batchId}/indicators`;
 
     it('journals the DGE reading the registry, the dashboard and the band economics', async () => {
-      const since = new Date(Date.now() - 1000);
+      const [{ since }] = await ds.query("SELECT now() - interval '1 second' AS since");
       const dge = userIdOf(tokens.DGE);
       await get('/programme/farms', tokens.DGE).expect(200);
       await get('/farms', tokens.DGE).expect(200);
@@ -178,7 +177,7 @@ describe('POUFA lot A2 droits — journal, F6, bonus en lecture seule (e2e)', ()
     });
 
     it('journals the agent technique too, even when it gets the masked view', async () => {
-      const since = new Date(Date.now() - 1000);
+      const [{ since }] = await ds.query("SELECT now() - interval '1 second' AS since");
       await get(indicators(), tokens.AGENT).expect(200);
       expect(
         await readEvents(
@@ -190,7 +189,7 @@ describe('POUFA lot A2 droits — journal, F6, bonus en lecture seule (e2e)', ()
     });
 
     it('does not journal the owner reading his own farm', async () => {
-      const since = new Date(Date.now() - 1000);
+      const [{ since }] = await ds.query("SELECT now() - interval '1 second' AS since");
       await get('/farms', ownerToken).expect(200);
       await get(`/farms/${farmId}/dashboard`, ownerToken).expect(200);
       await get(indicators(), ownerToken).expect(200);
@@ -321,7 +320,7 @@ describe('POUFA lot A2 droits — journal, F6, bonus en lecture seule (e2e)', ()
       const res = await send(
         'post',
         `/farms/${farmId}/batches/${batchId}/daily-entries`,
-        { entryDate: new Date().toISOString().slice(0, 10), deaths: 0 },
+        { entryDate: lvToday(), deaths: 0 },
         tokens.WRITER,
       );
       expect(String(res.body.message ?? '')).not.toMatch(/consultation seule/);

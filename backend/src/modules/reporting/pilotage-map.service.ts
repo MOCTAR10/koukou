@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { utcDay } from '../batches/poufa/bande-rules.js';
+import { businessDay } from '../batches/poufa/bande-rules.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import {
   conductAlertsOf,
@@ -125,7 +125,7 @@ export class PilotageMapService {
   async map(
     view: PilotageView,
     query: PilotageQuery,
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<PilotageMap> {
     const ctx = await this.dashboards.context(view, query, today);
     const resolver = await this.parameters.resolver(view.programId);

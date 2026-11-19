@@ -66,7 +66,7 @@ function todayStr(): string {
 }
 
 function daysAgoStr(n: number): string {
-  const d = new Date();
+  const d = new Date(`${todayLocal()}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - n);
   return d.toISOString().slice(0, 10);
 }
@@ -193,7 +193,7 @@ export class RentabiliteService {
               'ord.id IS NULL AND sale.sale_date >= :from AND sale.sale_date <= :to',
             )
             .orWhere(
-              "ord.status = :livre AND (ord.livred_at AT TIME ZONE 'UTC')::date BETWEEN :from AND :to",
+              "ord.status = :livre AND (ord.livred_at AT TIME ZONE 'Africa/Libreville')::date BETWEEN :from AND :to",
             ),
         ),
       )

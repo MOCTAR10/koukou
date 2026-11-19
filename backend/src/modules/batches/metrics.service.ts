@@ -63,7 +63,7 @@ function todayIso(): string {
 function defaultRefDate(batch: Pick<ProductionBatch, 'closedAt'>): string {
   const today = todayIso();
   if (!batch.closedAt) return today;
-  const closed = new Date(batch.closedAt).toISOString().slice(0, 10);
+  const closed = todayLocal(new Date(batch.closedAt));
   return closed < today ? closed : today;
 }
 

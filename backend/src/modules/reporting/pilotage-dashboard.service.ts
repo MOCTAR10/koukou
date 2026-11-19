@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { utcDay } from '../batches/poufa/bande-rules.js';
+import { businessDay } from '../batches/poufa/bande-rules.js';
 import { ParametersService } from '../programme/parameters.service.js';
 import {
   biosecurityBlock,
@@ -186,7 +186,7 @@ export class PilotageDashboardService {
   async parse(
     view: PilotageView,
     query: PilotageQuery,
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<{ period: Period; filters: FarmFilters }> {
     const resolved = resolvePeriod(query.from, query.to, today);
     if (!resolved.ok) throw new BadRequestException(resolved.error);
@@ -205,7 +205,7 @@ export class PilotageDashboardService {
   async context(
     view: PilotageView,
     query: PilotageQuery,
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<DashboardContext> {
     const { period, filters } = await this.parse(view, query, today);
     const rules = await this.data.rules(view.programId, period.to);
@@ -229,7 +229,7 @@ export class PilotageDashboardService {
   async dashboard(
     view: PilotageView,
     query: PilotageQuery,
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<PilotageDashboard> {
     const ctx = await this.context(view, query, today);
     return this.build(ctx, today);
@@ -237,7 +237,7 @@ export class PilotageDashboardService {
 
   async build(
     ctx: DashboardContext,
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<PilotageDashboard> {
     const { view, filters, period, minGroupSize: k, rows, indicators } = ctx;
     const [weeks, statuses, cohorts, published, inputs] = await Promise.all([
@@ -337,7 +337,7 @@ export class PilotageDashboardService {
   /** Class distribution of the latest biosecurity controls, small groups hidden for an aggregate view. */
   async biosecurity(
     ctx: DashboardContext,
-    today: string = utcDay(),
+    today: string = businessDay(),
   ): Promise<BiosecurityBlock> {
     const { byFarm, staleAfterDays } = await this.biosec.ofFarms(
       ctx.view.programId,

@@ -1,3 +1,4 @@
+import { lvDay } from './helpers/libreville-day.js';
 // POUFA lot A droits: the Fermia bonus domains opened to institutions (read
 // only, journaled), confidentiality (F6, F7, F8, F9) and the field rights
 // (farm GPS point, deliveries).
@@ -120,9 +121,7 @@ describe('POUFA lot A droits — modules Fermia, confidentialité, GPS (e2e)', (
       `/farms/${farmId}/batches`,
       {
         batchName: `Bande droits ${digits}`,
-        integrationDate: new Date(Date.now() - 86_400_000)
-          .toISOString()
-          .slice(0, 10),
+        integrationDate: lvDay(-1),
         quantityAtStart: 100,
         type: 'CHAIR',
         chickUnitPriceFcfa: 450,
@@ -241,7 +240,7 @@ describe('POUFA lot A droits — modules Fermia, confidentialité, GPS (e2e)', (
     ] as const;
 
     it('answers each read and journals it as a sensitive read', async () => {
-      const since = new Date(Date.now() - 1000);
+      const [{ since }] = await ds.query("SELECT now() - interval '1 second' AS since");
       const dge = userIdOf(tokens.DGE);
       const failures: string[] = [];
       for (const [route, path] of routes) {
@@ -284,7 +283,7 @@ describe('POUFA lot A droits — modules Fermia, confidentialité, GPS (e2e)', (
     });
 
     it('does not journal the owner reading his own sales, but journals the platform admin', async () => {
-      const since = new Date(Date.now() - 1000);
+      const [{ since }] = await ds.query("SELECT now() - interval '1 second' AS since");
       await get(`/farms/${farmId}/sales`, ownerToken).expect(200);
       expect(await readEvents(ownerId, '/farms/:farmId/sales', since)).toBe(0);
       await get(`/farms/${farmId}/sales`, adminToken).expect(200);

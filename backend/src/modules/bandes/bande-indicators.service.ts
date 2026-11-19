@@ -10,7 +10,7 @@ import {
   ageOn,
   completenessPct,
   factInstant,
-  utcDay,
+  businessDay,
 } from '../batches/poufa/bande-rules.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import { DailyEntry } from '../daily-entries/entities/daily-entry.entity.js';
@@ -64,7 +64,7 @@ export class BandeIndicatorsService {
 
   /** Default date: today, or the closure day of a closed band. */
   defaultAsOf(batch: ProductionBatch): string {
-    return batch.closedAt ? utcDay(batch.closedAt) : utcDay();
+    return batch.closedAt ? businessDay(batch.closedAt) : businessDay();
   }
 
   async compute(
@@ -128,7 +128,7 @@ export class BandeIndicatorsService {
         formulasInForce(resolver, at),
         variables,
       ).filter((i) => !isPeriodIndicator(i.key)),
-      completenessPct: completenessPct(rows, start, day, utcDay()),
+      completenessPct: completenessPct(rows, start, day, businessDay()),
     };
   }
 

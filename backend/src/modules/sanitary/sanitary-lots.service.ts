@@ -3,7 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import type { AuthUser } from '../../common/decorators/current-user.decorator.js';
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
-import { ageOn, utcDay } from '../batches/poufa/bande-rules.js';
+import { ageOn, businessDay } from '../batches/poufa/bande-rules.js';
 import { FarmsService } from '../farms/farms.service.js';
 
 /** A band as the sanitary screens list it (no economics). */
@@ -60,13 +60,13 @@ export class SanitaryLotsService {
         ORDER BY b.integration_date DESC, b.id`,
       openOnly ? [farmId, BatchStatus.CLOTURE] : [farmId],
     );
-    const today = utcDay();
+    const today = businessDay();
     return rows.map(({ initialAgeDays, buildingId, buildingName, ...r }) => ({
       ...r,
       ageDays: ageOn(
         r.integrationDate,
         initialAgeDays,
-        r.closedAt ? utcDay(new Date(r.closedAt)) : today,
+        r.closedAt ? businessDay(new Date(r.closedAt)) : today,
       ),
       building: buildingId ? { id: buildingId, name: buildingName ?? '' } : null,
     }));

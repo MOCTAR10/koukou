@@ -85,7 +85,7 @@ const BATCH_STATUS_LABELS: Record<BatchStatus, string> = {
 };
 
 function dateLabel(d: Date): string {
-  return new Date(d).toISOString().slice(0, 10);
+  return todayLocal(new Date(d));
 }
 
 @Injectable()

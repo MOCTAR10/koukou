@@ -5,7 +5,7 @@ import type { AuthUser } from '../../common/decorators/current-user.decorator.js
 import { BatchStatus } from '../../common/enums/batch-type.enum.js';
 import { ProductionBatch } from '../batches/entities/production-batch.entity.js';
 import { FlockReconciliationService } from '../batches/flock-reconciliation.service.js';
-import { utcDay } from '../batches/poufa/bande-rules.js';
+import { businessDay } from '../batches/poufa/bande-rules.js';
 import { BandeStatsService } from '../batches/poufa/bande-stats.service.js';
 import {
   DailyEntry,
@@ -60,7 +60,7 @@ export class BandeCorrectionsService {
           "La bande n'est pas clôturée : utiliser la saisie journalière.",
         );
       }
-      const closedDay = utcDay(locked.closedAt ?? new Date());
+      const closedDay = businessDay(locked.closedAt ?? new Date());
       if (day < locked.integrationDate.slice(0, 10) || day > closedDay) {
         throw new BadRequestException(
           `Le jour corrigé doit être entre l'ouverture (${locked.integrationDate.slice(0, 10)}) et la clôture (${closedDay}).`,
