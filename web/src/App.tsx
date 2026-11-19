@@ -60,6 +60,13 @@ import { PublicLotPage } from './pages/PublicLotPage';
 import { TracabilitePage } from './pages/TracabilitePage';
 // POUFA lot A droits: programme economic synthesis (finance, payroll, sales and stock of the farms in scope).
 import { EconomiePage } from './pages/EconomiePage';
+// Financer workspace (the bank) and the farmer's side of the consent.
+import { PortfolioPage } from './pages/financing/PortfolioPage';
+import { FilesPage } from './pages/financing/FilesPage';
+import { ConsentsPage } from './pages/financing/ConsentsPage';
+import { FrameworkPage } from './pages/financing/FrameworkPage';
+import { Farm360Page } from './pages/financing/Farm360Page';
+import { FarmFinancingPage } from './pages/FarmFinancingPage';
 
 /**
  * /guide now shows the static jury guide (web/public/guide-jury/, generated outside the repo by
@@ -159,6 +166,14 @@ export function App() {
           <Route path="tracabilite/*" element={<TracabilitePage />} />
           {/* POUFA lot A droits: the page checks its own access (economieRights). */}
           <Route path="economie" element={<EconomiePage />} />
+          {/* The bank's financer workspace: each page checks its own access (financingRights). */}
+          <Route path="financement" element={<PortfolioPage />} />
+          <Route path="financement/dossiers" element={<FilesPage />} />
+          <Route path="financement/consentements" element={<ConsentsPage />} />
+          <Route path="financement/cadre" element={<FrameworkPage />} />
+          <Route path="financement/fermes/:farmId" element={<Farm360Page />} />
+          {/* The farmer's page: it answers only to the owner or manager of the active farm. */}
+          <Route path="financement-ferme" element={<FarmFinancingPage />} />
           <Route element={<RequiresPlatformAdmin />}>
             <Route path="platform" element={<PlatformPage />} />
           </Route>

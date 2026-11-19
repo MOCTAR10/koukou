@@ -34,6 +34,13 @@ export interface InstitutionAccess {
   provinceIds: readonly string[];
   farmIds: readonly string[];
   operatorId: string | null;
+  /**
+   * FINANCED scope: the farms it reaches under the programme parameter
+   * `FINANCEMENT_PERIMETRE` (`'ALL'` = every farm of the programme, else the
+   * farms with a financing file not refused / an active consent). Filled by
+   * `ScopeResolver.load`; empty for any other scope kind.
+   */
+  financedFarmIds: readonly string[] | 'ALL';
 }
 
 export type AccessDecision =
@@ -166,14 +173,15 @@ export function scopeReachesFarms(kind: AccessScopeKind): boolean {
   return (
     kind === AccessScopeKind.ALL ||
     kind === AccessScopeKind.PROVINCES ||
-    kind === AccessScopeKind.FARMS
+    kind === AccessScopeKind.FARMS ||
+    kind === AccessScopeKind.FINANCED
   );
 }
 
 /**
  * Whether a farm is in the scope. Only farms of the member's programme are
- * ever in scope (one programme per instance today). FINANCED needs the BCEG
- * consent model (not built yet), so it reaches no farm for now; AGGREGATE,
+ * ever in scope (one programme per instance today). FINANCED reaches the farms
+ * of `financedFarmIds` (programme parameter `FINANCEMENT_PERIMETRE`); AGGREGATE,
  * AUDIT and OPERATOR never reach a farm sheet.
  */
 export function includesFarm(
@@ -190,6 +198,11 @@ export function includesFarm(
       );
     case AccessScopeKind.FARMS:
       return access.farmIds.includes(farm.id);
+    case AccessScopeKind.FINANCED:
+      return (
+        access.financedFarmIds === 'ALL' ||
+        access.financedFarmIds.includes(farm.id)
+      );
     default:
       return false;
   }
@@ -233,6 +246,18 @@ export function farmScopeSql(
       return {
         sql: `${program} AND ${alias}.id IN (:...scopeFarmIds)`,
         params: { ...params, scopeFarmIds: [...access.farmIds] },
+      };
+    case AccessScopeKind.FINANCED:
+      if (access.financedFarmIds === 'ALL') return { sql: program, params };
+      if (access.financedFarmIds.length === 0) {
+        return { sql: '1 = 0', params: {} };
+      }
+      return {
+        sql: `${program} AND ${alias}.id IN (:...scopeFinancedFarmIds)`,
+        params: {
+          ...params,
+          scopeFinancedFarmIds: [...access.financedFarmIds],
+        },
       };
     default:
       return { sql: '1 = 0', params: {} };
@@ -320,7 +345,7 @@ export const SCOPE_KIND_LABELS: Readonly<Record<AccessScopeKind, string>> = {
   ALL: 'Toutes les fermes du programme',
   PROVINCES: 'Fermes de ses provinces',
   FARMS: 'Ses fermes',
-  FINANCED: 'Fermes financées (avec consentement)',
+  FINANCED: 'Fermes financées',
   OPERATOR: 'Lots qui le concernent (opérateur)',
   AGGREGATE: 'Données agrégées seulement',
   AUDIT: "Journal d'audit seulement",

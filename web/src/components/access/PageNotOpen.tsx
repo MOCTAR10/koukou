@@ -4,16 +4,16 @@ import { MY_ACCESS_PATH } from '../../app/menu-access';
 import { Card, IconTile } from '../ui';
 
 /** A typed URL the institution's access profile doesn't open (instead of a page of 403s). */
-export function PageNotOpen() {
+export function PageNotOpen({ title, reason }: { title?: string; reason?: string } = {}) {
   return (
     <Card className="mx-auto mt-6 max-w-xl p-6 text-center sm:p-8">
       <div className="flex justify-center">
         <IconTile icon={<ShieldOff className="h-6 w-6" />} tone="amber" size="lg" />
       </div>
-      <h1 className="mt-4 text-lg font-bold text-slate-900">Cette page n’est pas ouverte à votre profil</h1>
+      <h1 className="mt-4 text-lg font-bold text-slate-900">{title ?? 'Cette page n’est pas ouverte à votre profil'}</h1>
       <p className="mt-2 text-sm text-slate-600">
-        Votre profil d’accès au programme ne donne pas les droits qu’elle demande, ou elle relève de la gestion propre de la ferme.
-        Les droits se règlent dans les profils d’accès, par l’administration du programme.
+        {reason ??
+          'Votre profil d’accès au programme ne donne pas les droits qu’elle demande, ou elle relève de la gestion propre de la ferme. Les droits se règlent dans les profils d’accès, par l’administration du programme.'}
       </p>
       <div className="mt-6 flex justify-center">
         <Link

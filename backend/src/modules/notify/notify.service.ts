@@ -25,7 +25,11 @@ import {
   type AlertRaisedEvent,
   type DeclarationReceivedEvent,
   type DeclarationReviewedEvent,
+  type ConsentWithdrawnEvent,
   type DelegatedEntryEvent,
+  type FinancingDocumentFiledEvent,
+  type FinancingDocumentReviewedEvent,
+  type FinancingStepChangedEvent,
   type ReportReadyEvent,
   type SanitaryAlertEvent,
   type SyncConflictEvent,
@@ -33,11 +37,14 @@ import {
   type WeighingLateEvent,
 } from '../../common/utils/event-bus.js';
 import {
+  grants,
   includesFarm,
   isMembershipEffective,
   type InstitutionAccess,
 } from '../access/access-rules.js';
 import { ProgramMembership } from '../access/entities/program-membership.entity.js';
+import { ScopeResolver } from '../access/scope-resolver.service.js';
+import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
 import { withDelegatedAuthor } from '../access/delegated-author.js';
 import {
   isVeterinaryAuthority,
@@ -61,6 +68,13 @@ import {
   smsText,
   utcDayStart,
 } from './notify-rules.js';
+
+/** Events of the financer workspace (audience checked on the FINANCEMENT right). */
+const FINANCING_EVENTS: readonly NotificationEvent[] = [
+  NotificationEvent.CONSENT_WITHDRAWN,
+  NotificationEvent.FINANCING_STEP_CHANGED,
+  NotificationEvent.FINANCING_DOCUMENT_FILED,
+];
 
 const SWEEP_INTERVAL_MS = 60 * 1000;
 /** A claimed SMS is not picked again before this (crash while sending). */
@@ -205,6 +219,26 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
       KOUKOU_EVENTS.DELEGATED_ENTRY,
       (e: DelegatedEntryEvent) => this.track(this.onDelegatedEntry(e)),
     ],
+    // Financer workspace: consent withdrawn, financing file step passed.
+    [
+      KOUKOU_EVENTS.CONSENT_WITHDRAWN,
+      (e: ConsentWithdrawnEvent) => this.track(this.onConsentWithdrawn(e)),
+    ],
+    [
+      KOUKOU_EVENTS.FINANCING_STEP_CHANGED,
+      (e: FinancingStepChangedEvent) =>
+        this.track(this.onFinancingStepChanged(e)),
+    ],
+    [
+      KOUKOU_EVENTS.FINANCING_DOCUMENT_REVIEWED,
+      (e: FinancingDocumentReviewedEvent) =>
+        this.track(this.onFinancingDocumentReviewed(e)),
+    ],
+    [
+      KOUKOU_EVENTS.FINANCING_DOCUMENT_FILED,
+      (e: FinancingDocumentFiledEvent) =>
+        this.track(this.onFinancingDocumentFiled(e)),
+    ],
   ];
 
   constructor(
@@ -212,6 +246,7 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
     private readonly rules: NotificationRulesService,
     private readonly push: PushService,
     private readonly parameters: ParametersService,
+    private readonly scope: ScopeResolver,
     @Inject(SMS_SENDER) private readonly sms: SmsSender,
     config: ConfigService,
   ) {
@@ -388,6 +423,92 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
       route: daily
         ? `/batches/${e.batchId}`
         : `/farms/${farm.id}/batches/${e.batchId}/health-events`,
+      smsCode: farm.code,
+    });
+  }
+
+  /**
+   * A consent to share the farm's data with the financer was withdrawn: the
+   * CONSENT_WITHDRAWN rules tell the bank (a PROFILE rule, checked against the
+   * profile's FINANCEMENT right, whatever the FINANCED perimeter).
+   */
+  private async onConsentWithdrawn(e: ConsentWithdrawnEvent): Promise<void> {
+    const farm = await this.farmOf(e.farmId);
+    if (!farm) return;
+    const what = farm.code ? `${farm.name} (${farm.code})` : farm.name;
+    await this.notify({
+      event: NotificationEvent.CONSENT_WITHDRAWN,
+      farmId: farm.id,
+      subjectId: e.consentId,
+      dedupKey: `${NotificationEvent.CONSENT_WITHDRAWN}:${e.consentId}`,
+      severity: AlertLevel.JAUNE,
+      title: 'Consentement retiré',
+      body:
+        `L'exploitation ${what} a retiré son consentement au partage de ses données` +
+        (e.by === 'FARMER' ? ' (retrait en ligne).' : ' (retrait enregistré par la banque).') +
+        ' Le retrait est immédiat et ne rétroagit pas.',
+      route: `/programme/financement/fermes/${farm.id}`,
+      smsCode: farm.code,
+    });
+  }
+
+  /** The farm's managers hear that their financing file changed step. */
+  private async onFinancingStepChanged(
+    e: FinancingStepChangedEvent,
+  ): Promise<void> {
+    const farm = await this.farmOf(e.farmId);
+    if (!farm) return;
+    await this.notify({
+      event: NotificationEvent.FINANCING_STEP_CHANGED,
+      farmId: farm.id,
+      subjectId: e.fileId,
+      dedupKey: `${NotificationEvent.FINANCING_STEP_CHANGED}:${e.eventId}`,
+      severity: AlertLevel.VERT,
+      title: 'Dossier de financement',
+      body: `Votre dossier de financement ${e.reference} passe à l'étape « ${e.toLabel} ».`,
+      route: `/farms/${farm.id}/financement`,
+      smsCode: farm.code,
+    });
+  }
+
+  /** The farm's managers hear the bank's verdict on a document they filed. */
+  private async onFinancingDocumentReviewed(
+    e: FinancingDocumentReviewedEvent,
+  ): Promise<void> {
+    const farm = await this.farmOf(e.farmId);
+    if (!farm) return;
+    const rejected = e.status === 'REJETE';
+    await this.notify({
+      event: NotificationEvent.FINANCING_DOCUMENT_REVIEWED,
+      farmId: farm.id,
+      subjectId: e.documentId,
+      dedupKey: `${NotificationEvent.FINANCING_DOCUMENT_REVIEWED}:${e.documentId}:${e.status}`,
+      severity: rejected ? AlertLevel.JAUNE : AlertLevel.VERT,
+      title: rejected ? 'Pièce refusée' : 'Pièce validée',
+      body: rejected
+        ? `Votre pièce « ${e.label} » a été refusée : ${e.reason ?? 'sans motif précisé'}. Déposez-la de nouveau.`
+        : `Votre pièce « ${e.label} » a été validée.`,
+      route: `/farms/${farm.id}/financement`,
+      smsCode: farm.code,
+    });
+  }
+
+  /** The bank hears that the farm side filed a document (PROFILE rule, matrix-checked). */
+  private async onFinancingDocumentFiled(
+    e: FinancingDocumentFiledEvent,
+  ): Promise<void> {
+    const farm = await this.farmOf(e.farmId);
+    if (!farm) return;
+    const what = farm.code ? `${farm.name} (${farm.code})` : farm.name;
+    await this.notify({
+      event: NotificationEvent.FINANCING_DOCUMENT_FILED,
+      farmId: farm.id,
+      subjectId: e.documentId,
+      dedupKey: `${NotificationEvent.FINANCING_DOCUMENT_FILED}:${e.documentId}`,
+      severity: AlertLevel.VERT,
+      title: 'Pièce déposée',
+      body: `${what} a déposé la pièce « ${e.label} » (dossier ${e.reference}).`,
+      route: `/programme/financement/dossiers/${e.fileId}`,
       smsCode: farm.code,
     });
   }
@@ -700,8 +821,21 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
             },
             relations: { profile: true },
           });
+        // Financing events concern the FINANCEMENT workspace, which works on
+        // every farm of the programme: the right decides, not the perimeter.
+        const financing = FINANCING_EVENTS.includes(rule.event);
+        const financedIds = members.some(
+          (m) => m.profile?.scopeKind === AccessScopeKind.FINANCED,
+        )
+          ? await this.scope.financedFarmIds(farm.programId)
+          : [];
         return members
           .filter((m) => isMembershipEffective(m) && m.profile)
+          .filter(
+            (m) =>
+              !financing ||
+              grants(m.profile!.matrix ?? {}, 'FINANCEMENT', 'CONSULTER'),
+          )
           // Unpublished sanitary data: the profiles holding the veterinary
           // authority in their matrix only (POUFA lot A2 vet).
           .filter(
@@ -712,16 +846,19 @@ export class NotifyService implements OnModuleInit, OnModuleDestroy {
                 { matrix: m.profile!.matrix },
               ),
           )
-          .filter((m) =>
-            includesFarm(
-              {
-                programId: m.profile!.programId,
-                scopeKind: m.profile!.scopeKind,
-                provinceIds: m.provinceIds ?? [],
-                farmIds: m.farmIds ?? [],
-              } as unknown as InstitutionAccess,
-              farm,
-            ),
+          .filter(
+            (m) =>
+              (financing && m.profile!.programId === farm.programId) ||
+              includesFarm(
+                {
+                  programId: m.profile!.programId,
+                  scopeKind: m.profile!.scopeKind,
+                  provinceIds: m.provinceIds ?? [],
+                  farmIds: m.farmIds ?? [],
+                  financedFarmIds: financedIds,
+                } as unknown as InstitutionAccess,
+                farm,
+              ),
           )
           .map((m) => m.userId);
       }

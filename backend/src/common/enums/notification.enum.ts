@@ -30,6 +30,15 @@ export enum NotificationEvent {
   VISIT_OVERDUE = 'VISIT_OVERDUE',
   /** An institutional agent entered data or reported a health problem for the farm. */
   DELEGATED_ENTRY = 'DELEGATED_ENTRY',
+  // Financer workspace (BCEG).
+  /** A farmer withdrew the consent to share his data with the financer. */
+  CONSENT_WITHDRAWN = 'CONSENT_WITHDRAWN',
+  /** A financing file of the farm moved to another step. */
+  FINANCING_STEP_CHANGED = 'FINANCING_STEP_CHANGED',
+  /** The bank validated or rejected a document the farm side filed. */
+  FINANCING_DOCUMENT_REVIEWED = 'FINANCING_DOCUMENT_REVIEWED',
+  /** The farm side (owner, manager or an agent for him) filed a financing document. */
+  FINANCING_DOCUMENT_FILED = 'FINANCING_DOCUMENT_FILED',
 }
 
 /** Delivery channel of one notification. */

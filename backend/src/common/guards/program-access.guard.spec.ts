@@ -79,6 +79,7 @@ const ACCESS: InstitutionAccess = {
   provinceIds: [],
   farmIds: ['in-scope'],
   operatorId: null,
+  financedFarmIds: [],
 };
 
 function guardWith(access: InstitutionAccess | null) {

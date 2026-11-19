@@ -85,5 +85,5 @@ Les valeurs numériques (seuils, itinéraire, standards, calendriers) sont des *
 
 | Exigence | Statut | Remarque |
 |---|---|---|
-| Financement BCEG et consentement (5.1 n° 5) | ❌ | `it.todo` : phase ultérieure |
+| Financement BCEG et consentement (5.1 n° 5) | ✅ | Espace financeur `modules/financing` (domaine FINANCEMENT) : dossiers par étapes, pièces, tranches, échéancier, remboursements, classes de créance, consentement des exploitants (modèle versionné, en ligne ou papier, retrait immédiat), portefeuille et export Excel, ferme à 360°, états financiers SYSCOHADA, pièces fournies par l’exploitation (configurables, péremption, dépôt par l’exploitant ou l’agent). Périmètre de lecture : paramètre `FINANCEMENT_PERIMETRE` ; tests `financing.e2e-spec.ts` |
 | Échange EMA-i Plus (5.2) | ❌ | `it.todo` : protocole à formaliser |

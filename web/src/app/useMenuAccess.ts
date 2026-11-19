@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { registryRights, type RegistryRights } from '../components/registry/registryAccess';
 import { pilotageRights, type PilotageRights } from '../components/pilotage/pilotageAccess';
 import { adminRights, type AdminRights } from '../components/admin/adminRights';
+import { financingRights, type FinancingAccess } from '../components/financing/financingAccess';
 import {
   alwaysOpen,
   canAdministerAccess,
@@ -51,6 +52,8 @@ export interface MenuAccess {
   pilotage: PilotageRights;
   /** Programme administration: parameters, lists, audit journal, data recovery (`components/admin/adminRights.ts`). */
   admin: AdminRights;
+  /** The bank's financer workspace (`components/financing/financingAccess.ts`, domain FINANCEMENT). */
+  financing: FinancingAccess;
 }
 
 /**
@@ -85,6 +88,7 @@ export function useMenuAccess(): MenuAccess {
       registry: registryRights(user?.role),
       pilotage: pilotageRights(user?.role),
       admin: adminRights(user?.role),
+      financing: financingRights(user?.role),
     };
   }
 
@@ -113,6 +117,7 @@ export function useMenuAccess(): MenuAccess {
     registry: registryRights(user?.role, inst.revoked ? null : access?.profile),
     pilotage: pilotageRights(user?.role, inst.revoked ? null : access?.profile),
     admin: adminRights(user?.role, inst.revoked ? null : access?.profile),
+    financing: financingRights(user?.role, inst.revoked ? null : access?.profile),
   };
 }
 

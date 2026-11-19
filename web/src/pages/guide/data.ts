@@ -147,7 +147,7 @@ export const ACTORS: Actor[] = [
   { name: 'Agent technique', role: 'Accompagne les fermes sur le terrain, relève le GPS.', chapters: ['registre', 'pilotage', 'tracabilite', 'intrants'] },
   { name: 'POUFA / DGE', role: 'Pilote le programme et suit les fermes.', chapters: ['pilotage', 'registre', 'economie', 'intrants', 'parametres', 'reprise'] },
   { name: 'Vétérinaire', role: 'Reçoit les déclarations, qualifie et publie les alertes.', chapters: ['surveillance', 'notifications', 'tracabilite'] },
-  { name: 'BCEG (banque)', role: 'Lit les chiffres des fermes financées, avec consentement.', chapters: ['acces', 'economie'] },
+  { name: 'BCEG (banque)', role: 'Suit ses dossiers de financement et lit les fermes financées, avec consentement.', chapters: ['acces', 'economie'] },
   { name: 'MAEDR', role: 'Consulte les chiffres agrégés du programme.', chapters: ['pilotage', 'economie', 'tracabilite'] },
   { name: 'Abattoir', role: 'Reçoit les lots et enregistre l’abattage.', chapters: ['b-abattage', 'tracabilite'] },
   { name: 'Consommateur', role: 'Scanne le QR d’un lot et lit son origine ; achète sur le Marché.', chapters: ['b-marche-public', 'tracabilite'] },

@@ -54,6 +54,48 @@ export interface DelegatedEntryEvent {
   entryDate: string | null;
 }
 
+/** A farmer (or the bank on his behalf) withdrew the financing consent. */
+export interface ConsentWithdrawnEvent {
+  farmId: string;
+  consentId: string;
+  /** Who recorded it: the farmer's side, or the bank. */
+  by: 'FARMER' | 'BANK';
+}
+
+/** The bank reviewed a document supplied by the farm side. */
+export interface FinancingDocumentReviewedEvent {
+  farmId: string;
+  fileId: string;
+  documentId: string;
+  reference: string;
+  /** Label of the document (requirement or file name). */
+  label: string;
+  status: 'VALIDE' | 'REJETE';
+  reason: string | null;
+}
+
+/** The farm side filed a document on a financing file. */
+export interface FinancingDocumentFiledEvent {
+  farmId: string;
+  fileId: string;
+  documentId: string;
+  reference: string;
+  label: string;
+}
+
+/** A financing file moved to another step. */
+export interface FinancingStepChangedEvent {
+  farmId: string;
+  fileId: string;
+  reference: string;
+  from: string;
+  to: string;
+  /** Label of the new step, shown to the farmer. */
+  toLabel: string;
+  /** Step event id: one notification per step passed. */
+  eventId: string;
+}
+
 export interface DailyEntryCreatedEvent {
   farmId: string;
   batchId: string;
@@ -198,6 +240,10 @@ export const KOUKOU_EVENTS = {
   DECLARATION_REVIEWED: 'sanitary.declaration.reviewed',
   VISIT_REMINDER: 'visit.reminder',
   DELEGATED_ENTRY: 'delegated.entry',
+  CONSENT_WITHDRAWN: 'financing.consent.withdrawn',
+  FINANCING_STEP_CHANGED: 'financing.step.changed',
+  FINANCING_DOCUMENT_REVIEWED: 'financing.document.reviewed',
+  FINANCING_DOCUMENT_FILED: 'financing.document.filed',
 } as const;
 
 class FermiaBus extends EventEmitter {}

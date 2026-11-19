@@ -61,11 +61,15 @@ import { classNames, initials, statusLabel } from '../lib/format';
 import { pageTm } from '../lib/motion';
 import { motion, useReducedMotion } from 'motion/react';
 // POUFA W6: inputs and traceability entries.
-import { ClipboardCheck, QrCode, Truck } from 'lucide-react';
+import { Banknote, ClipboardCheck, FileSignature, FolderOpen, ListChecks, QrCode, Truck, Wallet } from 'lucide-react';
 import { FARM_DELIVERIES_PATH, isProgrammeWidePath, programmeEntries, programmeWideLabel } from './trace/traceAccess';
 // POUFA lot A droits: the programme economic synthesis entry.
 import { useInstitutionAccess } from '../app/useInstitutionAccess';
 import { ECONOMIE_PATH, economieRights } from './economie/economie';
+// The bank's financer workspace (menu group « Financement ») and the farmer's own page.
+import { toFileTotal, type FarmerFile } from './financing/documentsLogic';
+import { FARM_FINANCING_PATH, FINANCING_ENTRIES, financingHeader, isFinancingPath } from './financing/financingAccess';
+import { useFarmFinancing } from './financing/queries';
 
 /** `perms`: at least one is required to show the entry; absent means visible to all. */
 const NAV: Array<{
@@ -121,6 +125,8 @@ const NAV: Array<{
     items: [
       { to: '/app/team', label: 'Équipe', icon: Users, perms: ['equipe:gerer'] },
       { to: '/app/hr', label: 'Dossiers RH', icon: Briefcase, perms: ['rh:lire', 'equipe:gerer'] },
+      // The farmer's consent and credit files: shown only while the server answers (owner or manager of the farm).
+      { to: FARM_FINANCING_PATH, label: 'Financement', icon: Banknote },
       { to: '/app/settings', label: 'Réglages', icon: Settings },
       { to: '/app/help', label: 'Aide', icon: LifeBuoy },
     ],
@@ -162,13 +168,21 @@ function navLinkCls({ isActive }: { isActive: boolean }) {
   );
 }
 
-function NavItems({ items, onNavigate }: { items: Array<{ to: string; label: string; icon: LucideIcon }>; onNavigate: () => void }) {
+function NavItems({ items, onNavigate }: { items: Array<{ to: string; label: string; icon: LucideIcon; badge?: number }>; onNavigate: () => void }) {
   return (
     <div className="space-y-0.5">
       {items.map((item) => (
         <NavLink key={item.to} to={item.to} onClick={onNavigate} aria-label={item.label} className={navLinkCls}>
-          <item.icon className="h-4 w-4 shrink-0" />
+          <span className="relative shrink-0">
+            <item.icon className="h-4 w-4" />
+            {item.badge ? <span aria-hidden className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-[#0C2331] md:group-hover/side:hidden md:group-has-[:focus-visible]/side:hidden" /> : null}
+          </span>
           <span className={RAIL_TEXT}>{item.label}</span>
+          {item.badge ? (
+            <span className={classNames(RAIL_TEXT, 'ml-auto min-w-5 rounded-full bg-amber-400 px-1.5 text-center text-xs font-bold text-slate-900')} aria-label={`${item.badge} pièces à fournir`}>
+              {item.badge}
+            </span>
+          ) : null}
         </NavLink>
       ))}
     </div>
@@ -191,6 +205,7 @@ export function Shell() {
   const onRegistry = pathname.startsWith('/app/registre');
   const onAccess = pathname.startsWith('/app/acces') || pathname.startsWith('/app/mon-acces');
   const onPilotage = pathname.startsWith('/app/pilotage');
+  const onFinancing = isFinancingPath(pathname);
   // POUFA L5 (begin)
   const onSurveillance = pathname.startsWith('/app/surveillance');
   const onNotifications = pathname.startsWith('/app/notifications');
@@ -209,14 +224,27 @@ export function Shell() {
           : null;
   // --- end programme administration ---
   const onProgrammeWide = isProgrammeWidePath(pathname); // POUFA W6
-  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null || onProgrammeWide;
+  const onProgramme = onPlatform || onRegistry || onAccess || onPilotage || onSurveillance || onNotifications || adminHeader !== null || onProgrammeWide || onFinancing;
   const reduced = useReducedMotion();
-  const { showEntry, canOpen, isLoading: accessLoading, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin } =
+  const { showEntry, canOpen, isLoading: accessLoading, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin, financing } =
     useMenuAccess();
   const { isSimpleMode, hasGroundHome } = useFarmProfile();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const institutionProfile = useInstitutionAccess().access?.profile;
   const economie = economieRights(user?.role, institutionProfile); // POUFA lot A droits
+  // The farmer's page: the entry exists only when `GET /farms/:id/financing` answers (403/404 hide it).
+  const farmFinancing = useFarmFinancing(farmId, (user?.role === 'PROPRIETAIRE' || user?.role === 'ELEVEUR') && space === 'ready');
+  const farmFinancingOpen = !!farmFinancing.data;
+  // Pieces the BCEG still waits for from the farmer (required and missing, refused or expired): a count on the menu entry.
+  const farmFinancingToFile = toFileTotal((farmFinancing.data?.files ?? []) as FarmerFile[]);
+  // « Financement »: the bank's workspace, programme-wide, decided from the FINANCEMENT matrix.
+  const financingItems = financing.view
+    ? FINANCING_ENTRIES.filter((e) => isAdmin || showEntry(e.to)).map((e) => ({
+        to: e.to,
+        label: e.label,
+        icon: e.kind === 'portfolio' ? Wallet : e.kind === 'files' ? FolderOpen : e.kind === 'consents' ? FileSignature : ListChecks,
+      }))
+    : [];
   const pickerLabel = isAdmin ? 'Ferme à consulter' : 'Ferme active';
   const farmProvince = farm?.provinceName ?? undefined;
   // Programme-wide entries: the registry, the platform console, the institutional access administration, an institution's own access.
@@ -270,9 +298,10 @@ export function Shell() {
         ? [{ to: '/app/home', label: 'Mon terrain', icon: Tractor }]
         : []),
       // Without a farm, only the pages that work without one.
-      ...group.items.filter(
+      ...group.items.map((item) => (item.to === FARM_FINANCING_PATH && farmFinancingToFile > 0 ? { ...item, badge: farmFinancingToFile } : item)).filter(
         (item) =>
           !(consoleMode && item.to === HELP_PATH) &&
+          (item.to !== FARM_FINANCING_PATH || farmFinancingOpen) &&
           (space === 'ready' || worksWithoutFarm(item.to)) &&
           showEntry(item.to, item.perms),
       ),
@@ -347,6 +376,14 @@ export function Shell() {
               <NavItems items={programmeItems} onNavigate={() => setMobileOpen(false)} />
             </div>
           ) : null}
+          {consoleMode && financingItems.length > 0 ? (
+            <div className="mb-4">
+              <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
+                Financement
+              </p>
+              <NavItems items={financingItems} onNavigate={() => setMobileOpen(false)} />
+            </div>
+          ) : null}
           {consoleMode && nav.length > 0 ? (
             <div className="mb-4 border-t border-white/10 pt-3">
               <button
@@ -372,6 +409,14 @@ export function Shell() {
                 <NavItems items={group.items} onNavigate={() => setMobileOpen(false)} />
               </div>
             ))}
+          {!consoleMode && financingItems.length > 0 ? (
+            <div className="mb-4">
+              <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
+                Financement
+              </p>
+              <NavItems items={financingItems} onNavigate={() => setMobileOpen(false)} />
+            </div>
+          ) : null}
           {!consoleMode && adminItems.length > 0 ? (
             <div>
               <p className={classNames('mb-1 whitespace-nowrap px-2 text-[11px] font-medium uppercase tracking-wider text-brand-300', RAIL_BLOCK)}>
@@ -465,6 +510,8 @@ export function Shell() {
               'Console administrateur plateforme'
             ) : onRegistry ? (
               'Registre des fermes du programme'
+            ) : onFinancing ? (
+              financingHeader(pathname)
             ) : onProgrammeWide ? (
               programmeWideLabel(pathname)
             ) : onAccess ? (

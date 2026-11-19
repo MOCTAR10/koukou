@@ -56,6 +56,10 @@ import { UserUiMode1794800000000 } from './1794800000000-UserUiMode.js';
 import { HealthEventAudio1794900000000 } from './1794900000000-HealthEventAudio.js';
 import { DelegatedEntry1795000000000 } from './1795000000000-DelegatedEntry.js';
 import { DelegatedEntryNotify1795100000000 } from './1795100000000-DelegatedEntryNotify.js';
+import { FinancingNotify1795200000000 } from './1795200000000-FinancingNotify.js';
+import { FinancingModule1795200100000 } from './1795200100000-FinancingModule.js';
+import { FinancingStatements1795200200000 } from './1795200200000-FinancingStatements.js';
+import { FinancingDocuments1795300000000 } from './1795300000000-FinancingDocuments.js';
 
 /**
  * Every migration, in order. Listed as classes rather than a file glob so the
@@ -131,4 +135,12 @@ export const MIGRATIONS = [
   DelegatedEntry1795000000000,
   // Jury lot 5: the owner hears about a delegated entry (DELEGATED_ENTRY)
   DelegatedEntryNotify1795100000000,
+  // Financer workspace: notification events CONSENT_WITHDRAWN, FINANCING_STEP_CHANGED
+  FinancingNotify1795200000000,
+  // Financer workspace: tables, journal, requirements, FINANCEMENT matrix rights
+  FinancingModule1795200100000,
+  // Financer workspace: BCEG reads the farms' SYSCOHADA statements (COMPTABILITE)
+  FinancingStatements1795200200000,
+  // Financer workspace, third pass: configurable checklist, document source and validity
+  FinancingDocuments1795300000000,
 ];

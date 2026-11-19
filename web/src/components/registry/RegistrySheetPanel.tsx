@@ -1,6 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Copy, PencilLine } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Copy, PencilLine, ScanEye } from 'lucide-react';
+import { useMenuAccess } from '../../app/useMenuAccess';
+import { farm360Path } from '../financing/financingAccess';
 import { useFarm } from '../../app/FarmContext';
 import { dateFr, num, pct } from '../../lib/format';
 import { Button, ErrorNote, Modal } from '../form';
@@ -38,6 +40,8 @@ export function RegistrySheetPanel({ farmId, rights, onClose }: { farmId: string
   const navigate = useNavigate();
   const { farms, setFarm } = useFarm();
   const sheet = useRegistrySheet(farmId);
+  // The bank's 360° view of the farm, for an account holding FINANCEMENT:CONSULTER (decided from the matrix).
+  const { financing } = useMenuAccess();
   const [editing, setEditing] = useState(false);
   const s = sheet.data;
   const inSwitcher = farms.some((f) => f.id === farmId);
@@ -65,6 +69,14 @@ export function RegistrySheetPanel({ farmId, rights, onClose }: { farmId: string
               <Button onClick={() => setEditing(true)}>
                 <PencilLine className="h-4 w-4" /> Modifier la fiche
               </Button>
+            ) : null}
+            {financing.view ? (
+              <Link
+                to={farm360Path(s.id)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <ScanEye className="h-4 w-4" /> Vue 360° financement
+              </Link>
             ) : null}
             {inSwitcher ? (
               <Button

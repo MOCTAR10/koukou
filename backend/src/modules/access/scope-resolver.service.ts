@@ -1,7 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import {
+  DataSource,
   Repository,
   type ObjectLiteral,
   type SelectQueryBuilder,
@@ -26,6 +27,12 @@ import {
 import { ProgramMembership } from './entities/program-membership.entity.js';
 import type { GrantableDomain } from './access-domains.js';
 import { requireProgramCode } from '../programme/program-code.js';
+import { parameterDefinition } from '../programme/parameter-catalog.js';
+import { AccessScopeKind } from '../../common/enums/access-scope-kind.enum.js';
+
+/** Programme parameter choosing which farms the FINANCED scope reaches. */
+export const FINANCED_PERIMETER_KEY = 'FINANCEMENT_PERIMETRE';
+export type FinancedPerimeter = 'PROGRAMME' | 'DOSSIERS' | 'CONSENTEMENT';
 
 /** Farm columns the scope reads. */
 type ScopedFarm = Pick<Farm, 'id' | 'programId' | 'provinceId'>;
@@ -51,6 +58,7 @@ export class ScopeResolver {
     @InjectRepository(ProgramMembership)
     private readonly memberships: Repository<ProgramMembership>,
     @InjectRepository(Farm) private readonly farms: Repository<Farm>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {
     this.programCode = requireProgramCode(config.get<string>('PROGRAM_CODE'));
   }
@@ -156,6 +164,49 @@ export class ScopeResolver {
     return qb.andWhere(`(${sql})`, params);
   }
 
+  /**
+   * Perimeter of the FINANCED scope in force now (programme parameter
+   * `FINANCEMENT_PERIMETRE`: its latest version in force, else the catalogue
+   * default). Raw SQL: this core module cannot depend on the parameters
+   * service.
+   */
+  async financedPerimeter(programId: string): Promise<FinancedPerimeter> {
+    const rows: { value: unknown }[] = await this.dataSource.query(
+      `SELECT value FROM program_parameters
+        WHERE program_id = $1 AND key = $2 AND valid_from <= now()
+        ORDER BY valid_from DESC, created_at DESC LIMIT 1`,
+      [programId, FINANCED_PERIMETER_KEY],
+    );
+    const raw =
+      rows[0]?.value ?? parameterDefinition(FINANCED_PERIMETER_KEY)?.defaultValue;
+    return raw === 'DOSSIERS' || raw === 'CONSENTEMENT' ? raw : 'PROGRAMME';
+  }
+
+  /**
+   * Farms the FINANCED scope reaches: every farm of the programme
+   * (PROGRAMME, `'ALL'`), the farms with a financing file not refused
+   * (DOSSIERS) or the farms with an active consent (CONSENTEMENT).
+   */
+  async financedFarmIds(programId: string): Promise<string[] | 'ALL'> {
+    const perimeter = await this.financedPerimeter(programId);
+    if (perimeter === 'PROGRAMME') return 'ALL';
+    const rows: { farm_id: string }[] =
+      perimeter === 'DOSSIERS'
+        ? await this.dataSource.query(
+            `SELECT DISTINCT x.farm_id FROM financing_files x
+               JOIN farms fa ON fa.id = x.farm_id
+              WHERE fa.program_id = $1 AND x.decision IS DISTINCT FROM 'REFUSE'`,
+            [programId],
+          )
+        : await this.dataSource.query(
+            `SELECT DISTINCT x.farm_id FROM farm_consents x
+               JOIN farms fa ON fa.id = x.farm_id
+              WHERE fa.program_id = $1 AND x.status = 'ACTIVE'`,
+            [programId],
+          );
+    return rows.map((r) => r.farm_id);
+  }
+
   private async load(userId: string): Promise<InstitutionAccess | null> {
     if (!isUuid(userId)) return null;
     const m = await this.memberships.findOne({
@@ -167,6 +218,10 @@ export class ScopeResolver {
       return null;
     }
     if (!isMembershipEffective(m)) return null;
+    const financedFarmIds =
+      profile.scopeKind === AccessScopeKind.FINANCED
+        ? await this.financedFarmIds(profile.programId)
+        : [];
     return {
       membershipId: m.id,
       userId: m.userId,
@@ -179,6 +234,7 @@ export class ScopeResolver {
       provinceIds: m.provinceIds ?? [],
       farmIds: m.farmIds ?? [],
       operatorId: m.operatorId,
+      financedFarmIds,
     };
   }
 }

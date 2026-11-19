@@ -54,8 +54,7 @@ export function registryRights(
   const administer = grantsAccess(access, 'ADMINISTRATION', 'ADMINISTRER');
   const edit = grantsAccess(access, 'REGISTRE', 'MODIFIER');
   return {
-    // The server refuses the list to scopes that reach no farm (AGGREGATE, AUDIT,
-    // FINANCED until the farmer consent exists): no dead menu entry.
+    // The server refuses the list to scopes that reach no farm (AGGREGATE, AUDIT): no dead menu entry.
     view: grantsAccess(access, 'REGISTRE', 'CONSULTER') && scopeReachesFarms(access.scopeKind),
     create,
     edit,

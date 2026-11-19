@@ -32,6 +32,7 @@ import { FERMIA_GRANTABLE_DOMAINS, type AccessAction, type AccessDomain, type Ac
  * | /app/livraisons         | INTRANTS:CONSULTER       | farms/:id/input-deliveries, declarative-stock (INTRANTS)  |
  * | /app/tracabilite…       | TRACABILITE or ADMINISTRATION:CONSULTER | trace/lots (TRACABILITE), trace/operators (REFERENCE) |
  * | /app/visites           | TECHNIQUE or SANITAIRE:CONSULTER | farms/:id/visits, visits/grid, programme/visits (TECHNIQUE; SANITAIRE alternative) |
+ * | /app/financement…      | FINANCEMENT:CONSULTER    | programme/financing/* (FINANCEMENT)                       |
  * | /app/mon-acces, /app/help | always                 | programme/access/me (SESSION), none                       |
  * | /app/surveillance(/…)   | SANITAIRE:CONSULTER      | surveillance/alerts, lists, calendars (SANITAIRE)         |
  * | /app/notifications      | always                   | notifications (SESSION: the account's own inbox)          |
@@ -82,8 +83,7 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   '/app/slaughter': farmPage('TRACABILITE'),
   '/app/reports': farmPage('ECONOMIQUE'),
   '/app/expenses': farmPage('ECONOMIQUE'),
-  // The server refuses the list to scopes that reach no farm (AGGREGATE,
-  // and FINANCED until the farmer consent exists): no dead entry.
+  // The server refuses the list to scopes that reach no farm (AGGREGATE): no dead entry.
   '/app/registre': { kind: 'grant', any: [['REGISTRE', 'CONSULTER']], farms: true },
   '/app/acces': consult('ADMINISTRATION'),
   '/app/pilotage': consult('PILOTAGE'),
@@ -109,6 +109,8 @@ export const INSTITUTION_MENU: Readonly<Record<string, MenuRule>> = {
   // POUFA visites: TECHNIQUE:CONSULTER (DGE, agent technique) or SANITAIRE:CONSULTER (veterinary services).
   '/app/visites': { kind: 'grant', any: [['TECHNIQUE', 'CONSULTER'], ['SANITAIRE', 'CONSULTER']] },
   '/app/tracabilite': { kind: 'grant', any: [['TRACABILITE', 'CONSULTER'], ['ADMINISTRATION', 'CONSULTER']] },
+  // The bank's financer workspace: one domain, no farm scope needed (the server resolves the financed farms).
+  '/app/financement': consult('FINANCEMENT'),
   '/app/mon-acces': { kind: 'always' },
   '/app/help': { kind: 'always' },
   // POUFA lot A droits: Fermia modules, consultation only, granted through the matrix.
@@ -146,6 +148,8 @@ export const INSTITUTION_LANDING_ORDER = [
 export const MY_ACCESS_PATH = '/app/mon-acces';
 export const ACCESS_ADMIN_PATH = '/app/acces';
 export const PILOTAGE_PATH = '/app/pilotage';
+/** The bank's portfolio: the landing of a profile granted FINANCEMENT:CONSULTER. */
+export const FINANCING_PATH = '/app/financement';
 /** The audit journal: the landing of a profile granted AUDIT whose scope reaches no farm (ANINF). */
 export const AUDIT_PATH = '/app/audit';
 
@@ -236,7 +240,8 @@ export function alwaysOpen(pathname: string): boolean {
 
 /** Scope kinds that reach individual farms (server `scopeReachesFarms`). */
 export function scopeReachesFarms(kind: ScopeKind): boolean {
-  return kind === 'ALL' || kind === 'PROVINCES' || kind === 'FARMS';
+  // FINANCED: the server resolves which farms (programme parameter FINANCEMENT_PERIMETRE).
+  return kind === 'ALL' || kind === 'PROVINCES' || kind === 'FARMS' || kind === 'FINANCED';
 }
 
 /** The institution's landing page. */
@@ -244,6 +249,8 @@ export function institutionLanding(access: Pick<MyAccess['profile'], 'matrix' | 
   if (!access) return MY_ACCESS_PATH;
   // The programme steering (KPIs and map) is the console's home when the profile opens it.
   if (institutionShowsEntry(PILOTAGE_PATH, access)) return PILOTAGE_PATH;
+  // The financer's workspace, with or without farms in the scope (the server resolves the financed ones).
+  if (institutionShowsEntry(FINANCING_PATH, access)) return FINANCING_PATH;
   if (scopeReachesFarms(access.scopeKind) && farmCount > 0) {
     const page = INSTITUTION_LANDING_ORDER.find((p) => institutionShowsEntry(p, access));
     if (page) return page;

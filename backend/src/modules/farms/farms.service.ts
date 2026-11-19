@@ -242,7 +242,7 @@ export class FarmsService {
       return [];
     }
     if (user.role === UserRole.INSTITUTION) {
-      // The farms of the scope (none for AGGREGATE / AUDIT / FINANCED yet).
+      // The farms of the scope (none for AGGREGATE / AUDIT; FINANCED: its perimeter).
       const access = await this.scope.accessOf(user.id);
       if (!access) return [];
       return this.scope

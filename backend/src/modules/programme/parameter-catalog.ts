@@ -68,6 +68,85 @@ export function indicatorKeyOf(parameterKey: string): string | null {
     : null;
 }
 
+/** Values of `FINANCEMENT_PERIMETRE`: what the FINANCED scope (BCEG) reaches. */
+export const FINANCED_PERIMETERS = [
+  'PROGRAMME',
+  'DOSSIERS',
+  'CONSENTEMENT',
+] as const;
+
+function checkFinancedPerimeter(value: unknown): string | null {
+  return typeof value === 'string' &&
+    (FINANCED_PERIMETERS as readonly string[]).includes(value)
+    ? null
+    : `Le périmètre doit être l'une de ces valeurs : ${FINANCED_PERIMETERS.join(', ')}.`;
+}
+
+const FINANCING_PARAMETERS: readonly ParameterDefinition[] = [
+  {
+    // PROGRAMME = every farm of the programme; DOSSIERS = farms with a
+    // financing file not refused; CONSENTEMENT = farms with an active consent.
+    key: 'FINANCEMENT_PERIMETRE',
+    label:
+      'Fermes accessibles au financeur (PROGRAMME, DOSSIERS ou CONSENTEMENT)',
+    type: 'string',
+    unit: null,
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    defaultValue: 'PROGRAMME',
+    defaultNote:
+      "proposition de Fermia : à arrêter avec la BCEG et l'autorité de protection des données",
+    check: checkFinancedPerimeter,
+  },
+  {
+    // COBAC R-2018/01 art. 8-9: unpaid up to 90 days = impayée, beyond = douteuse.
+    key: 'FINANCEMENT_IMPAYE_JOURS',
+    label:
+      "Financement : jours d'impayé au-delà desquels la créance est douteuse",
+    type: 'integer',
+    unit: 'jours',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 1,
+    max: 365,
+    defaultValue: 90,
+    defaultNote: 'Règlement COBAC R-2018/01, art. 8-9',
+  },
+  {
+    key: 'FINANCEMENT_ALERTE_ECHEANCE_JOURS',
+    label: 'Financement : fenêtre des échéances à venir',
+    type: 'integer',
+    unit: 'jours',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 1,
+    max: 365,
+    defaultValue: 30,
+    defaultNote: 'proposition de Fermia, à valider',
+  },
+  {
+    key: 'FINANCEMENT_COUVERTURE_DETTE_MIN',
+    label:
+      'Financement : couverture minimale des échéances par la capacité d’autofinancement (fois)',
+    type: 'number',
+    unit: 'x',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 0,
+    max: 20,
+    defaultValue: 1.2,
+    defaultNote: 'proposition de Fermia : à arrêter avec la BCEG',
+  },
+  {
+    key: 'FINANCEMENT_ENDETTEMENT_MAX',
+    label:
+      'Financement : endettement maximal (dettes financières / capitaux propres, fois)',
+    type: 'number',
+    unit: 'x',
+    ownerProfile: OWNER_PROFILE.ADMIN,
+    min: 0,
+    max: 50,
+    defaultValue: 2,
+    defaultNote: 'proposition de Fermia : à arrêter avec la BCEG',
+  },
+];
+
 const pct = { unit: '%', min: 0, max: 100 } as const;
 
 /** The CDC does not set these values: Fermia proposes them. */
@@ -467,6 +546,9 @@ export const PARAMETER_CATALOG: readonly ParameterDefinition[] = [
     max: 100,
     defaultValue: 5,
   },
+  // Financer workspace (BCEG): who the FINANCED scope reaches and the claim
+  // class thresholds (COBAC R-2018/01 art. 8-9).
+  ...FINANCING_PARAMETERS,
   ...PILOTAGE_PARAMETERS,
   // POUFA lot A pilot: programme perimeter and conduct alerts of the steering.
   ...PILOT_LOT_A_PARAMETERS,
@@ -531,6 +613,9 @@ export function checkParameterValue(
       if (typeof value !== 'string' || value.trim() === '') {
         return fail(`« ${def.label} » doit être un texte non vide.`);
       }
+      const problem =
+        def.type === 'string' ? (def.check?.(value.trim()) ?? null) : null;
+      if (problem) return fail(problem);
       return { ok: true, value: value.trim() };
     }
     case 'json': {
