@@ -21,6 +21,7 @@ export type ParameterTheme =
   | 'NOTIFICATIONS'
   | 'SYNCHRONISATION'
   | 'FORMULES'
+  | 'FINANCEMENT'
   | 'AUTRES';
 
 export const THEME_LABELS: Readonly<Record<ParameterTheme, string>> = {
@@ -33,6 +34,7 @@ export const THEME_LABELS: Readonly<Record<ParameterTheme, string>> = {
   NOTIFICATIONS: 'Notifications',
   SYNCHRONISATION: 'Hors ligne et synchronisation',
   FORMULES: 'Formules des indicateurs',
+  FINANCEMENT: 'Financement',
   AUTRES: 'Autres paramètres',
 };
 
@@ -46,6 +48,7 @@ export const THEME_ORDER: readonly ParameterTheme[] = [
   'NOTIFICATIONS',
   'SYNCHRONISATION',
   'FORMULES',
+  'FINANCEMENT',
   'AUTRES',
 ];
 
@@ -64,6 +67,7 @@ const THEME_PREFIXES: ReadonlyArray<readonly [string, ParameterTheme]> = [
   ['PROJECTION_', 'PILOTAGE'],
   ['NOTIF_', 'NOTIFICATIONS'],
   ['SYNC_', 'SYNCHRONISATION'],
+  ['FINANCEMENT_', 'FINANCEMENT'],
 ];
 
 export function themeOf(param: Pick<ParameterView, 'key' | 'type'>): ParameterTheme {
@@ -129,8 +133,10 @@ function frNumber(n: number): string {
 }
 
 /** A value as displayed (numbers in French, JSON compact, text as is). */
-export function formatParameterValue(type: ParameterType, value: unknown, unit?: string | null): string {
+export function formatParameterValue(type: ParameterType, value: unknown, unit?: string | null, options?: ParameterView['options']): string {
   if (value === null || value === undefined) return '—';
+  const option = options?.find((o) => o.value === value);
+  if (option) return option.label;
   if ((type === 'number' || type === 'integer') && typeof value === 'number') {
     return `${frNumber(value)}${unit ? ` ${unit}` : ''}`;
   }

@@ -118,6 +118,8 @@ export interface AccountingReportData {
   farmName: string;
   title: string;
   period: string;
+  /** Visible warning lines under the period, first page (e.g. incomplete entries). */
+  warnings?: string[];
   generatedAtLabel: string;
   sections: AccountingPdfSection[];
   totals: { label: string; value: string }[];
@@ -376,6 +378,15 @@ export class PdfService {
         { text: data.farmName, style: 'header' },
         { text: data.title, style: 'subheader' },
         { text: data.period, style: 'meta' },
+        ...(data.warnings ?? []).map((w) => ({
+          table: { widths: ['*'], body: [[{ text: w, style: 'warning' }]] },
+          layout: {
+            hLineColor: () => '#b45309',
+            vLineColor: () => '#b45309',
+            fillColor: () => '#fffbeb',
+          },
+          margin: [0, 0, 0, 8],
+        })),
         ...data.sections.flatMap((section) => [
           { text: section.title, style: 'section' },
           {
@@ -423,6 +434,7 @@ export class PdfService {
           color: '#555555',
           margin: [0, 0, 0, 8],
         },
+        warning: { fontSize: 10, bold: true, color: '#92400e' },
         tableHeader: { bold: true, color: '#222222' },
         total: { fontSize: 11, bold: true, color: '#222222' },
         footer: {

@@ -9,6 +9,7 @@ import { ConsentService } from './consent.service.js';
 import { FinancingFile } from './entities/financing-file.entity.js';
 import type * as C from './financing.contract.js';
 import { FinancingPortfolioService } from './financing-portfolio.service.js';
+import { FinancingService } from './financing.service.js';
 import { FinancingViewService } from './financing-view.service.js';
 import { addMonths } from './financing-rules.js';
 
@@ -33,7 +34,21 @@ export class FinancingOverviewService {
     private readonly portfolio: FinancingPortfolioService,
     private readonly view: FinancingViewService,
     private readonly consents: ConsentService,
+    private readonly files: FinancingService,
   ) {}
+
+  /**
+   * The farm's last 20 technical visits, to pick the field check of a tranche
+   * (FINANCEMENT:CONSULTER; a visit is farm data, so the perimeter applies).
+   */
+  async visitsOfFile(user: AuthUser, fileId: string): Promise<C.VisitSummary[]> {
+    const { farmId } = await this.files.farmOfFile(fileId);
+    const reach = await this.portfolio.reachOf(user);
+    if (!(await this.portfolio.farmsInReach(reach, [farmId])).has(farmId)) {
+      throw new ForbiddenException(OUT_OF_SCOPE_MESSAGE);
+    }
+    return this.view.recentVisits(farmId, 20);
+  }
 
   async overview(user: AuthUser, farmId: string): Promise<C.Farm360> {
     const reach = await this.portfolio.reachOf(user);

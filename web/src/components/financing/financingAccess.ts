@@ -48,6 +48,22 @@ export const FINANCING_FRAMEWORK_PATH = '/app/financement/cadre';
 /** The farmer's own page (farm space). */
 export const FARM_FINANCING_PATH = '/app/financement-ferme';
 
+/**
+ * Whether to ask `GET /farms/:id/financing` at all. The farm's owner and staff always may; an institution only
+ * when its farm profile (`/farms/:id/me`) holds `saisie:creer` (delegated entry), as the server answers 403 to
+ * every other institution. An unread profile is not a yes: no request until it is known.
+ */
+export function farmFinancingEnabled(
+  role: Role | null | undefined,
+  farmPermissions: readonly string[] | null | undefined,
+  spaceReady: boolean,
+): boolean {
+  if (!spaceReady) return false;
+  if (role === 'PROPRIETAIRE' || role === 'ELEVEUR') return true;
+  if (role === 'INSTITUTION') return !!farmPermissions && (farmPermissions.includes('saisie:creer') || farmPermissions.includes('*'));
+  return false;
+}
+
 export const farm360Path = (farmId: string): string => `${FINANCING_PATH}/fermes/${farmId}`;
 export const filePath = (fileId: string): string => `${FINANCING_FILES_PATH}?dossier=${encodeURIComponent(fileId)}`;
 

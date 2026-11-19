@@ -16,7 +16,7 @@ import {
   READING_TONES,
   balanceCheck,
   beforeAfterRows,
-  coveragePct,
+  coverageFigures,
   headlineRatios,
   isLowCoverage,
   monthsText,
@@ -123,13 +123,17 @@ function ReliabilityStrip({ f }: { f: FarmFinancials }) {
       </p>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
         <Fact label="Jours saisis">
-          {r.daysWithEntries.toLocaleString('fr-FR')} sur {r.daysInPeriod.toLocaleString('fr-FR')} ({coveragePct(r)} %)
+          {coverageFigures(r)}
         </Fact>
         <Fact label="Écritures comptables">{r.journalEntries.toLocaleString('fr-FR')}</Fact>
         <Fact label="Dernière écriture">{r.lastEntryOn ? dateFr(r.lastEntryOn) : 'Aucune'}</Fact>
         <Fact label="Exercice">{r.closed ? 'Clos' : 'Non clos'}</Fact>
       </dl>
-      {low ? <p className="mt-2 text-sm text-amber-900">Moins de 60 % des jours de la période sont saisis : lisez ces chiffres avec prudence.</p> : null}
+      {low ? (
+        <p className="mt-2 text-sm text-amber-900">
+          Saisie incomplète : moins de {r.coverageMinPct.toLocaleString('fr-FR')} % des jours de la période sont saisis. Lisez ces chiffres avec prudence.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -216,14 +220,35 @@ function StatementCard({ title, subtitle, children, footer }: { title: string; s
 }
 
 function IncomeStatement({ i }: { i: NonNullable<FarmFinancials['incomeStatement']> }) {
+  const stock = i.stockVariationFcfa ?? 0;
+  const row = 'flex flex-wrap items-baseline justify-between gap-x-3';
   return (
     <StatementCard
       title="Compte de résultat"
       footer={
-        <p className="mt-3 flex items-baseline justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900">
-          <span>Résultat net (produits − charges)</span>
-          <span className={classNames('whitespace-nowrap tabular-nums', i.netResultFcfa < 0 && 'text-red-700')}>{amountText(i.netResultFcfa)} FCFA</span>
-        </p>
+        <div className="mt-3 space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-900">
+          {stock !== 0 ? (
+            <>
+              <p className={row}>
+                <span>Résultat comptabilisé (produits − charges)</span>
+                <span className="whitespace-nowrap tabular-nums">{amountText(i.revenueFcfa - i.chargesFcfa)} FCFA</span>
+              </p>
+              <p className={row}>
+                <span>Variation de stock d’aliment (estimée)</span>
+                <span className="whitespace-nowrap tabular-nums">{signedText(stock, '')} FCFA</span>
+              </p>
+            </>
+          ) : null}
+          <p className={classNames(row, 'font-semibold')}>
+            <span>{stock !== 0 ? 'Résultat net' : 'Résultat net (produits − charges)'}</span>
+            <span className={classNames('whitespace-nowrap tabular-nums', i.netResultFcfa < 0 && 'text-red-700')}>{amountText(i.netResultFcfa)} FCFA</span>
+          </p>
+          {stock !== 0 ? (
+            <p className="pt-1 text-xs text-slate-500">
+              Estimation : l’aliment en stock est valorisé mais pas encore comptabilisé par l’exploitation ; le bilan le compte aussi dans son résultat.
+            </p>
+          ) : null}
+        </div>
       }
     >
       <StatementColumn title="Produits" lines={i.products} total={i.revenueFcfa} totalLabel="Total des produits" />

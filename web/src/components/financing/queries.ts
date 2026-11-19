@@ -17,6 +17,7 @@ import type {
   PortfolioView,
   RequirementConfig,
   UpdateFinancingFileBody,
+  VisitSummary,
 } from '../../api/types-financing';
 import { filesQuery, type FileFilters } from './financingLogic';
 
@@ -59,6 +60,16 @@ export function useFinancingFile(id: string | null) {
     queryKey: KEYS.file(id ?? ''),
     queryFn: () => api.get<FinancingFile>(`${BASE}/files/${id}`),
     enabled: !!id,
+    retry: noRetryOnRefusal,
+  });
+}
+
+/** The farm's last technical visits, to pick the field check of a tranche. */
+export function useFileVisits(fileId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['financing-file-visits', fileId],
+    queryFn: () => api.get<VisitSummary[]>(`${BASE}/files/${fileId}/visits`),
+    enabled,
     retry: noRetryOnRefusal,
   });
 }

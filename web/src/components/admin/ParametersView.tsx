@@ -126,7 +126,7 @@ export function ParametersView({ rights }: { rights: AdminRights['parameters'] }
                     </Td>
                     <Td label="Valeur">
                       <span className={p.type === 'formula' ? 'block max-w-md break-words font-mono text-xs text-slate-800' : 'font-semibold text-slate-900 tabular-nums'}>
-                        {formatParameterValue(p.type, p.value, p.unit)}
+                        {formatParameterValue(p.type, p.value, p.unit, p.options)}
                       </span>
                       {p.versionId === null ? (
                         <span className="mt-1 block text-xs text-slate-500">Aucune version à cette date.</span>
@@ -137,7 +137,7 @@ export function ParametersView({ rights }: { rights: AdminRights['parameters'] }
                       ) : null}
                       {p.defaultValue !== undefined && (p.versionId === null || !sameValue(p.value, p.defaultValue)) ? (
                         <span className="mt-1 block text-xs text-slate-500">
-                          Par défaut : <span className={p.type === 'formula' ? 'break-words font-mono' : undefined}>{formatParameterValue(p.type, p.defaultValue, p.unit)}</span>
+                          Par défaut : <span className={p.type === 'formula' ? 'break-words font-mono' : undefined}>{formatParameterValue(p.type, p.defaultValue, p.unit, p.options)}</span>
                         </span>
                       ) : null}
                       {p.defaultNote ? <span className="mt-0.5 block text-xs text-amber-700">{p.defaultNote}</span> : null}

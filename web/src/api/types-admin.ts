@@ -38,6 +38,17 @@ export interface ParameterView {
   defaultValue?: unknown;
   /** Who must still decide the default, when the catalog says so. */
   defaultNote?: string | null;
+  /** Closed choice of a text parameter: the screen offers these instead of a text field. */
+  options?: ParameterOption[] | null;
+}
+
+export interface ParameterOption {
+  value: string;
+  label: string;
+  /** One sentence: what this choice means. */
+  description: string;
+  /** One sentence shown before saving: what changes once it applies. */
+  consequence: string;
 }
 
 /** A stored version (`ProgramParameter`), immutable. */

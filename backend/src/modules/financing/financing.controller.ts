@@ -145,6 +145,13 @@ export class FinancingController {
     return this.files.getFile(user, id);
   }
 
+  @Get('files/:id/visits')
+  @AuditThirdPartyRead('Visites techniques de la ferme d’un dossier')
+  @ApiOperation({ summary: 'Dernières visites techniques de la ferme du dossier (choix de la visite d’une tranche)' })
+  fileVisits(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.overview.visitsOfFile(user, id);
+  }
+
   @Patch('files/:id')
   @ApiOperation({ summary: 'Modifier les conditions et notes du dossier' })
   updateFile(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateFinancingFileDto) {

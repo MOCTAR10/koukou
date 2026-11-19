@@ -39,32 +39,45 @@ export async function toXlsx(
   rows: unknown[][],
   options?: { sheetName?: string },
 ): Promise<Buffer> {
+  return toXlsxSheets([{ name: options?.sheetName, headers, rows }]);
+}
+
+export interface XlsxSheet {
+  name?: string;
+  headers: string[];
+  rows: unknown[][];
+}
+
+/** Workbook of several sheets, each written like `toXlsx` does. */
+export async function toXlsxSheets(sheets: XlsxSheet[]): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Fermia';
-  const sheet = workbook.addWorksheet(sheetNameOf(options?.sheetName), {
-    views: [{ state: 'frozen', ySplit: 1 }],
-  });
-  sheet.addRow(headers);
-  sheet.getRow(1).font = { bold: true };
-  const widths = headers.map((h) => h.length);
-  for (const row of rows) {
-    const cells = row.map((value) => {
-      if (value == null) return null;
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (value instanceof Date) return value;
-      if (typeof value === 'boolean') return value ? 'oui' : 'non';
-      return String(value);
+  for (const { name, headers, rows } of sheets) {
+    const sheet = workbook.addWorksheet(sheetNameOf(name), {
+      views: [{ state: 'frozen', ySplit: 1 }],
     });
-    sheet.addRow(cells);
-    cells.forEach((cell, i) => {
-      const length =
-        cell instanceof Date ? 10 : cell == null ? 0 : String(cell).length;
-      widths[i] = Math.max(widths[i] ?? 0, length);
+    sheet.addRow(headers);
+    sheet.getRow(1).font = { bold: true };
+    const widths = headers.map((h) => h.length);
+    for (const row of rows) {
+      const cells = row.map((value) => {
+        if (value == null) return null;
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        if (value instanceof Date) return value;
+        if (typeof value === 'boolean') return value ? 'oui' : 'non';
+        return String(value);
+      });
+      sheet.addRow(cells);
+      cells.forEach((cell, i) => {
+        const length =
+          cell instanceof Date ? 10 : cell == null ? 0 : String(cell).length;
+        widths[i] = Math.max(widths[i] ?? 0, length);
+      });
+    }
+    widths.forEach((width, i) => {
+      sheet.getColumn(i + 1).width = Math.min(Math.max(width + 2, 8), 60);
     });
   }
-  widths.forEach((width, i) => {
-    sheet.getColumn(i + 1).width = Math.min(Math.max(width + 2, 8), 60);
-  });
   const data = await workbook.xlsx.writeBuffer();
   return Buffer.from(data as ArrayBuffer);
 }

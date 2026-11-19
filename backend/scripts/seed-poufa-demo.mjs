@@ -1470,7 +1470,9 @@ async function main() {
   }
 
   // ----- 5b. financer workspace (BCEG): template, consents, files at several steps
-  await seedFinancing(farms, creds);
+  // SEED_SKIP_FINANCING=1 leaves the financing tables empty, for seed-financing-demo.mjs (it refuses to run on top of them).
+  if (process.env.SEED_SKIP_FINANCING === '1') console.log('Espace financeur : ignoré (SEED_SKIP_FINANCING=1).');
+  else await seedFinancing(farms, creds);
 
   // ----- 6. credentials
   for (const [phone, o] of ownersByPhone) {

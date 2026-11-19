@@ -7,6 +7,7 @@ process.env.INSTITUTION_OTP = 'off';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import ExcelJS from 'exceljs';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
@@ -316,12 +317,36 @@ describe('Espace financeur (BCEG) — e2e', () => {
       )
         .expect(400)
         .expect((r) => expect(r.body.message).toContain('visite'));
+      // The picker: no visit yet, then the farm's visits newest first (20 max).
+      expect((await get(`${F}/files/${fileId}/visits`, bceg).expect(200)).body).toEqual([]);
+      const [agent] = await ds.query(`SELECT id, "fullName" AS full_name FROM users ORDER BY id LIMIT 1`);
+      const [visit] = await ds.query(
+        `INSERT INTO farm_visits (farm_id, visit_date, type, agent_user_id, score_pct, classification)
+         VALUES ($1, $2, 'BIOSECURITE', $3, 82.5, 'B') RETURNING id`,
+        [farm.farmId, day(-120), agent.id],
+      );
+      await ds.query(
+        `INSERT INTO farm_visits (farm_id, visit_date, type, agent_user_id) VALUES ($1, $2, 'TECHNIQUE', $3)`,
+        [farm.farmId, day(-130), agent.id],
+      );
+      const visits = (await get(`${F}/files/${fileId}/visits`, bceg).expect(200)).body;
+      expect(visits).toHaveLength(2);
+      expect(visits[0]).toEqual({
+        id: visit.id,
+        visitedOn: day(-120),
+        agentName: agent.full_name,
+        biosecurityClass: 'B',
+        score: 82.5,
+      });
+      expect(visits[1]).toMatchObject({ biosecurityClass: null, score: null });
+      await get(`${F}/files/${fileId}/visits`, farm.ownerToken).expect(403);
       const released = await post(
         `${F}/files/${fileId}/disbursements/${did}/release`,
-        { releasedOn: day(-100) },
+        { releasedOn: day(-100), visitId: visit.id },
         bceg,
       ).expect(201);
       expect(released.body.amounts.disbursedFcfa).toBe(1_200_000);
+      expect(released.body.disbursements[0].visit).toEqual(visits[0]);
     });
 
     it('génère l’échéancier à annuités constantes, en entiers FCFA', async () => {
@@ -375,9 +400,26 @@ describe('Espace financeur (BCEG) — e2e', () => {
       expect(byProvince.body.total).toBe(1);
       const other = await get(`${F}/files?province=G1&q=${encodeURIComponent(farm.farmCode)}`, bceg).expect(200);
       expect(other.body.total).toBe(0);
-      const xlsx = await get(`${F}/portfolio/export`, bceg).expect(200);
+      expect(portfolio.risk.ageing.map((b: { key: string }) => b.key)).toEqual(['J1_30', 'J31_60', 'J61_90', 'J90_PLUS']);
+      expect(portfolio.risk.concentration.top.length).toBeLessThanOrEqual(5);
+      expect(portfolio.risk.provisions.rows.map((r: { claimClass: string }) => r.claimClass)).toEqual([
+        'SAIN', 'SENSIBLE', 'RESTRUCTURE', 'IMPAYE', 'DOUTEUX', 'IRRECOUVRABLE',
+      ]);
+      const rates = portfolio.risk.provisions.rows.map((r: { ratePct: number }) => r.ratePct);
+      expect(rates).toEqual([2, 2, 2, 0, 50, 100]);
+      const xlsx = await get(`${F}/portfolio/export`, bceg)
+        .buffer(true)
+        .parse((res, cb) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () => cb(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
       expect(xlsx.headers['content-type']).toContain('spreadsheetml');
       expect(xlsx.headers['content-disposition']).toContain('.xlsx');
+      const book = new ExcelJS.Workbook();
+      await book.xlsx.load(xlsx.body as Buffer);
+      expect(book.worksheets.map((s) => s.name)).toEqual(['Portefeuille', 'Risque']);
     });
 
     it('gère la liste de pièces (code généré, jamais supprimée)', async () => {
@@ -432,6 +474,25 @@ describe('Espace financeur (BCEG) — e2e', () => {
         await get(`${F}/farms/${farm3.farmId}/overview`, bceg).expect(403);
       } finally {
         await setPerimeter('PROGRAMME');
+      }
+    });
+
+    it('le périmètre est un choix fermé, servi avec ses options, dans le groupe Financement', async () => {
+      const list = (await get('/programme/parameters', adminToken).expect(200)).body as Array<{
+        key: string;
+        options: Array<{ value: string; label: string; description: string; consequence: string }> | null;
+      }>;
+      const perimeter = list.find((p) => p.key === 'FINANCEMENT_PERIMETRE')!;
+      expect(perimeter.options!.map((o) => o.value)).toEqual(['PROGRAMME', 'DOSSIERS', 'CONSENTEMENT']);
+      expect(perimeter.options!.every((o) => o.description && o.consequence)).toBe(true);
+      for (const key of [
+        'FINANCEMENT_COUVERTURE_SAISIE_MIN',
+        'FINANCEMENT_PROVISION_GENERALE_PCT',
+        'FINANCEMENT_PROVISION_IMPAYE_PCT',
+        'FINANCEMENT_PROVISION_DOUTEUX_PCT',
+        'FINANCEMENT_PROVISION_IRRECOUVRABLE_PCT',
+      ]) {
+        expect(list.some((p) => p.key === key), key).toBe(true);
       }
     });
 
@@ -805,6 +866,50 @@ describe('Espace financeur (BCEG) — e2e', () => {
         [farm2.farmId],
       );
       expect(n).toBe(0);
+    });
+
+    it('le résultat du compte de résultat égale celui du bilan, stock d’aliment estimé compris', async () => {
+      const stocked = await createProgrammeFarm(server, adminToken, { provinceCode: 'G1' });
+      await request(server)
+        .post(`/farms/${stocked.farmId}/inputs`)
+        .set({ Authorization: `Bearer ${stocked.ownerToken}` })
+        .send({
+          kind: 'ALIMENT',
+          productName: 'Maïs grain',
+          supplier: 'CEAG',
+          supplierLotNumber: `CEAG-${digits}`,
+          entryType: 'MATIERE_PREMIERE',
+          tonnageMt: 2,
+          totalCostFcfa: 1_000_000,
+          receivedDate: day(0),
+        })
+        .expect(201);
+      const yearStart = `${day(0).slice(0, 4)}-01-01`;
+      const res = await get(`${F}/farms/${stocked.farmId}/financials?from=${yearStart}&to=${day(0)}`, bceg).expect(200);
+      const income = res.body.incomeStatement;
+      expect(income.stockVariationFcfa).toBe(1_000_000);
+      expect(income.netResultFcfa).toBe(income.revenueFcfa - income.chargesFcfa + income.stockVariationFcfa);
+      const result = res.body.balanceSheet.liabilities.find((l: { code: string }) => l.code === '12');
+      expect(income.netResultFcfa).toBe(result.amountFcfa);
+      expect(result.label).toBe('Résultat de la période');
+      expect(res.body.balanceSheet.totalAssetsFcfa).toBe(res.body.balanceSheet.totalLiabilitiesFcfa);
+      // A period that does not start with the fiscal year says what the bilan's result covers.
+      const shorter = await get(`${F}/farms/${stocked.farmId}/financials?from=${day(-3)}&to=${day(0)}`, bceg).expect(200);
+      expect(shorter.body.balanceSheet.liabilities.find((l: { code: string }) => l.code === '12').label).toContain('Résultat de l’exercice');
+      // Without stock the line is zero.
+      expect((await get(`${F}/farms/${books.farmId}/financials`, bceg).expect(200)).body.incomeStatement.stockVariationFcfa).toBe(0);
+    });
+
+    it('donne la couverture de la saisie et refuse de déposer des états pour une ferme sans comptabilité', async () => {
+      const res = await get(`${F}/farms/${books.farmId}/financials?from=${day(-9)}&to=${day(0)}`, bceg).expect(200);
+      const r = res.body.reliability;
+      expect(r.daysInPeriod).toBe(10);
+      expect(r.coveragePct).toBe(Math.round((r.daysWithEntries / 10) * 1000) / 10);
+      expect(r.coverageMinPct).toBe(60);
+      const empty = await createProgrammeFarm(server, adminToken, { provinceCode: 'G1' });
+      const emptyFile = (await post(`${F}/files`, { farmId: empty.farmId, purpose: 'Sans comptabilité' }, bceg).expect(201)).body.id;
+      const refused = await post(`${F}/files/${emptyFile}/financial-statements`, { from: day(-30), to: day(0) }, bceg).expect(409);
+      expect(refused.body.message).toContain('n’a pas ouvert sa comptabilité');
     });
 
     it('exige COMPTABILITE:CONSULTER en plus de FINANCEMENT', async () => {

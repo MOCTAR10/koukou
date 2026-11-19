@@ -67,7 +67,7 @@ export function ParameterHistoryPanel({
             <>
               <dt className="text-slate-500">Valeur par défaut</dt>
               <dd className={param.type === 'formula' ? 'break-words font-mono text-xs' : undefined}>
-                {formatParameterValue(param.type, param.defaultValue, param.unit)}
+                {formatParameterValue(param.type, param.defaultValue, param.unit, param.options)}
                 {param.defaultNote ? <span className="block text-xs text-amber-700">{param.defaultNote}</span> : null}
               </dd>
             </>
@@ -98,7 +98,7 @@ export function ParameterHistoryPanel({
                   <span className="text-xs text-slate-500">{isDefaultSince(v.validFrom) ? 'valeur par défaut' : `à partir du ${dateTimeFr(v.validFrom)}`}</span>
                 </div>
                 <p className={param.type === 'formula' ? 'break-words font-mono text-xs text-slate-900' : 'font-semibold text-slate-900'}>
-                  {formatParameterValue(param.type, v.value, param.unit)}
+                  {formatParameterValue(param.type, v.value, param.unit, param.options)}
                 </p>
                 {v.reason ? <p className="text-xs text-slate-600">Motif : {v.reason}</p> : null}
                 <p className="text-[11px] text-slate-500">

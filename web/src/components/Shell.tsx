@@ -68,7 +68,7 @@ import { useInstitutionAccess } from '../app/useInstitutionAccess';
 import { ECONOMIE_PATH, economieRights } from './economie/economie';
 // The bank's financer workspace (menu group « Financement ») and the farmer's own page.
 import { toFileTotal, type FarmerFile } from './financing/documentsLogic';
-import { FARM_FINANCING_PATH, FINANCING_ENTRIES, financingHeader, isFinancingPath } from './financing/financingAccess';
+import { FARM_FINANCING_PATH, FINANCING_ENTRIES, farmFinancingEnabled, financingHeader, isFinancingPath } from './financing/financingAccess';
 import { useFarmFinancing } from './financing/queries';
 
 /** `perms`: at least one is required to show the entry; absent means visible to all. */
@@ -228,12 +228,13 @@ export function Shell() {
   const reduced = useReducedMotion();
   const { showEntry, canOpen, isLoading: accessLoading, showPlatform, showAccessAdmin, showMyAccess, registry, pilotage, admin, financing } =
     useMenuAccess();
-  const { isSimpleMode, hasGroundHome } = useFarmProfile();
+  const { isSimpleMode, hasGroundHome, profile: farmProfile } = useFarmProfile();
   const space = farmSpaceState({ farmsLoading, farmsFailed, farmCount: farms.length });
   const institutionProfile = useInstitutionAccess().access?.profile;
   const economie = economieRights(user?.role, institutionProfile); // POUFA lot A droits
   // The farmer's page: the entry exists only when `GET /farms/:id/financing` answers (403/404 hide it).
-  const farmFinancing = useFarmFinancing(farmId, (user?.role === 'PROPRIETAIRE' || user?.role === 'ELEVEUR') && space === 'ready');
+  // An institution holding the delegated-entry right (`saisie:creer` on the farm) files for the farmer too.
+  const farmFinancing = useFarmFinancing(farmId, farmFinancingEnabled(user?.role, farmProfile?.permissions, space === 'ready'));
   const farmFinancingOpen = !!farmFinancing.data;
   // Pieces the BCEG still waits for from the farmer (required and missing, refused or expired): a count on the menu entry.
   const farmFinancingToFile = toFileTotal((farmFinancing.data?.files ?? []) as FarmerFile[]);
