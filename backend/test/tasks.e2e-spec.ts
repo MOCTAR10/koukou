@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -13,7 +14,7 @@ import { TasksService } from './../src/modules/tasks/tasks.service.js';
 function today(offsetDays = 0): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 describe('Tâches & équipe — module Tâches (e2e)', () => {

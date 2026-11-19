@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -12,13 +13,13 @@ import {
 } from './helpers/programme-farm.js';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return lvDate(new Date());
 }
 
 function dayOffset(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 describe('Module 4 — Zone clients & promos (find-or-create, segments, coupons), e2e', () => {

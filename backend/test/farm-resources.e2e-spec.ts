@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -14,7 +15,7 @@ import {
 import { DatabaseSeedService } from './../src/database/database-seed.service.js';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return lvDate(new Date());
 }
 
 describe('Souches, cultures et programmes personnalisés : propres à la ferme (e2e)', () => {

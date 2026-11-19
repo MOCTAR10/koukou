@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -17,7 +18,7 @@ import {
 function day(offset = 0): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + offset);
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 /**

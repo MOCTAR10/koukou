@@ -3,6 +3,7 @@
 // used to write, concurrent EC- references.
 process.env.INSTITUTION_OTP = 'off';
 
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -31,9 +32,9 @@ describe('Regression wave 3 (e2e)', () => {
   const tag = Array.from(randomBytes(6), (b) =>
     String.fromCharCode(65 + (b % 26)),
   ).join('');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = lvDate(new Date());
   const daysAgo = (n: number) =>
-    new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+    lvDate(new Date(Date.now() - n * 86_400_000));
 
   const get = (url: string, t = token) =>
     request(server).get(url).set(auth(t));

@@ -1,3 +1,4 @@
+import { lvDate, lvDay, lvToday } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -10,11 +11,11 @@ import {
 } from './helpers/programme-farm.js';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return lvDate(new Date());
 }
 
 function dateStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 function addDays(d: Date, days: number): Date {
@@ -23,13 +24,13 @@ function addDays(d: Date, days: number): Date {
   return copy;
 }
 
+/** Day of week of the Libreville day (0 = Sunday). */
+function lvWeekday(): number {
+  return new Date(`${lvToday()}T12:00:00Z`).getUTCDay();
+}
+
 function mondayOfCurrentWeek(): string {
-  const now = new Date();
-  const dow = (now.getUTCDay() + 6) % 7;
-  const ws = new Date(now);
-  ws.setUTCHours(12, 0, 0, 0);
-  ws.setUTCDate(ws.getUTCDate() - dow);
-  return ws.toISOString().slice(0, 10);
+  return lvDay(-((lvWeekday() + 6) % 7));
 }
 
 describe('Tableau de bord & courbes de croissance (e2e)', () => {
@@ -151,7 +152,7 @@ describe('Tableau de bord & courbes de croissance (e2e)', () => {
     expect(body.startWeightKg).toBe(0.045);
     // Entries are yesterday and today: two ISO weeks when today is a Monday.
     const weekly: { feedKg: number; deaths: number }[] = body.weekly;
-    expect(weekly).toHaveLength(new Date().getUTCDay() === 1 ? 2 : 1);
+    expect(weekly).toHaveLength(lvWeekday() === 1 ? 2 : 1);
     expect(weekly.reduce((sum, w) => sum + w.feedKg, 0)).toBe(20);
     expect(weekly.reduce((sum, w) => sum + w.deaths, 0)).toBe(2);
     const week = body.weekly[body.weekly.length - 1];

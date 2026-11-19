@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -152,7 +153,7 @@ describe('Plateforme — Administration (rôle PLATFORM_ADMIN, métriques, ferme
   });
 
   it('filtre les métriques par période et expose le détail par ferme', async () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = lvDate(new Date());
     const res = await get(`/admin/metrics?from=${today}&to=${today}`).expect(
       200,
     );

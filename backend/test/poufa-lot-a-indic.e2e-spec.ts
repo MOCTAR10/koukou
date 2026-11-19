@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -15,7 +16,7 @@ import {
 
 /** `YYYY-MM-DD`, `n` days from today (UTC). */
 const day = (n: number) =>
-  new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  lvDate(new Date(Date.now() + n * 86_400_000));
 
 /**
  * POUFA lot A « indic »: one indicator set (band history with the official

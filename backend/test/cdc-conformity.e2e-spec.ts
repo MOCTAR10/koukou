@@ -2,6 +2,7 @@
 // requirement NOT already pinned by a dedicated spec. Requirements already
 // covered are listed in docs/cdc-traceability.md with their covering spec.
 // Scenarios replay the ANINF acceptance report (7 Nov 2026) against the API.
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -20,7 +21,7 @@ import {
 function day(offset = 0): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + offset);
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 describe('CDC Agri Track 241 — conformité (e2e)', () => {

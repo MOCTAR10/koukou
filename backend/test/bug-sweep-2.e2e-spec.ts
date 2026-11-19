@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -10,7 +11,7 @@ import {
 } from './helpers/programme-farm.js';
 
 function dayOffset(days: number): string {
-  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  return lvDate(new Date(Date.now() + days * 86_400_000));
 }
 
 describe('Revue de bugs 2 : intrants, parcelles, tâches, dépenses (e2e)', () => {

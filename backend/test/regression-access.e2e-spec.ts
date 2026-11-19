@@ -3,6 +3,7 @@
 // that write, malformed input).
 process.env.INSTITUTION_OTP = 'off';
 
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -45,11 +46,9 @@ describe('Regression — accès et isolation des données (e2e)', () => {
   const tag = Array.from(randomBytes(6), (b) =>
     String.fromCharCode(65 + (b % 26)),
   ).join('');
-  const today = new Date().toISOString().slice(0, 10);
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86_400_000)
-    .toISOString()
-    .slice(0, 10);
+  const today = lvDate(new Date());
+  const tomorrow = lvDate(new Date(Date.now() + 86_400_000));
+  const yesterday = lvDate(new Date(Date.now() - 86_400_000));
   const UNKNOWN = '00000000-0000-4000-8000-000000000000';
 
   const get = (url: string, token: string) =>

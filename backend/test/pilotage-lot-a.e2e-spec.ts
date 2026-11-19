@@ -1,3 +1,4 @@
+import { lvDate, lvToday } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -16,7 +17,7 @@ import {
 } from './helpers/programme-farm.js';
 
 const day = (n: number) =>
-  new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  lvDate(new Date(Date.now() + n * 86_400_000));
 
 /**
  * POUFA lot A, pilot: reliable steering (published alerts only, programme
@@ -422,12 +423,11 @@ describe('Pilotage POUFA — lot A : pilotage fiable et rapports envoyés (e2e)'
         accounts.dge.token,
       ).expect(403);
       // The new template produces a run with the inputs section.
-      const lastMonth = new Date();
-      lastMonth.setUTCDate(1);
+      const lastMonth = new Date(`${lvToday().slice(0, 8)}01T12:00:00Z`);
       lastMonth.setUTCMonth(lastMonth.getUTCMonth() - 1);
       const run = await post(
         `/pilotage/reports/templates/${templateCode}/runs`,
-        { periodStart: lastMonth.toISOString().slice(0, 10) },
+        { periodStart: lvDate(lastMonth) },
         adminToken,
       ).expect(201);
       expect(run.body.run.templateCode).toBe(templateCode);
