@@ -4,6 +4,7 @@
 // alone never opens a declaration.
 process.env.INSTITUTION_OTP = 'off';
 
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -90,9 +91,7 @@ describe('Droit « Déclarations sanitaires (lecture) » (e2e)', () => {
       .set(auth(owner.ownerToken))
       .send({
         batchName: `Bande Decl ${digits}`,
-        integrationDate: new Date(Date.now() - 86_400_000)
-          .toISOString()
-          .slice(0, 10),
+        integrationDate: lvDate(new Date(Date.now() - 86_400_000)),
         quantityAtStart: 100,
         type: 'CHAIR',
       })

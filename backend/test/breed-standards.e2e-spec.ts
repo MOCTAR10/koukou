@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -11,11 +12,11 @@ import {
 import { Breed } from './../src/modules/breeds/entities/breed.entity.js';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return lvDate(new Date());
 }
 
 function dateStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 function addDays(d: Date, days: number): Date {

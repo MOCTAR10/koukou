@@ -1,3 +1,4 @@
+import { lvDate, lvToday } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -11,7 +12,7 @@ import {
 } from './helpers/programme-farm.js';
 
 function dateStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 function addDays(d: Date, days: number): Date {
@@ -21,10 +22,9 @@ function addDays(d: Date, days: number): Date {
 }
 
 function mondayOfCurrentWeek(): Date {
-  const now = new Date();
-  const dow = (now.getUTCDay() + 6) % 7;
-  const ws = new Date(now);
-  ws.setUTCHours(12, 0, 0, 0);
+  // Monday of the Libreville week, at 12:00 UTC.
+  const ws = new Date(`${lvToday()}T12:00:00Z`);
+  const dow = (ws.getUTCDay() + 6) % 7;
   ws.setUTCDate(ws.getUTCDate() - dow);
   return ws;
 }
@@ -142,9 +142,7 @@ describe('Pondage — indicateurs de ponte par lot (e2e)', () => {
     expect(body.eggsPerHen).toBe(2.8);
     // Average daily rate over the last 7 days with eggs (like the metrics),
     // never the lifetime total over today's hens (was 291.67 %).
-    const since = new Date(Date.now() - 7 * 86_400_000)
-      .toISOString()
-      .slice(0, 10);
+    const since = lvDate(new Date(Date.now() - 7 * 86_400_000));
     const recent = [
       [dayPrev1, 80],
       [dayPrev2, 75],

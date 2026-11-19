@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -11,11 +12,11 @@ import {
 } from './helpers/programme-farm.js';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return lvDate(new Date());
 }
 
 function daysAgo(days: number): string {
-  return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  return lvDate(new Date(Date.now() - days * 86400000));
 }
 
 describe('Module précommandes & bons de commande (orders, e2e)', () => {

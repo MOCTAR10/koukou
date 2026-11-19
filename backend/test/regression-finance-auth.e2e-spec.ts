@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { deflateRawSync } from 'node:zlib';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -23,11 +24,11 @@ import {
 } from './helpers/programme-farm.js';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return lvDate(new Date());
 }
 
 function daysAgo(days: number): string {
-  return new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  return lvDate(new Date(Date.now() - days * 86400000));
 }
 
 /** A one-entry .xlsx-looking zip declaring `size` bytes once inflated. */

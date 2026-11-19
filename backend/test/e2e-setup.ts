@@ -1,3 +1,34 @@
+import { lvDate } from './helpers/libreville-day.js';
+
+/**
+ * Opt-in: `E2E_FAKE_NOW` moves the clock the specs and the app see through
+ * `Date`, to run the suite in the window where Libreville (UTC+1) is already
+ * on the next day. Value: an ISO instant (`2026-11-18T23:30:00Z`) or a bare
+ * UTC time of day (`23:30`, meaning today at that time). Only `Date` is
+ * faked: it keeps ticking (a constant offset) and timers are untouched.
+ * The database clock (`now()`) stays real.
+ */
+function installFakeNow(spec: string): void {
+  const m = /^(\d{2}):(\d{2})$/.exec(spec);
+  const target = m
+    ? new Date().setUTCHours(Number(m[1]), Number(m[2]), 0, 0)
+    : Date.parse(spec);
+  if (Number.isNaN(target)) throw new Error(`E2E_FAKE_NOW invalide : ${spec}`);
+  const RealDate = Date;
+  const offset = target - RealDate.now();
+  class FakeDate extends RealDate {
+    constructor(...args: unknown[]) {
+      if (args.length === 0) super(RealDate.now() + offset);
+      else super(...(args as [number]));
+    }
+    static now(): number {
+      return RealDate.now() + offset;
+    }
+  }
+  globalThis.Date = FakeDate as DateConstructor;
+}
+if (process.env.E2E_FAKE_NOW) installFakeNow(process.env.E2E_FAKE_NOW);
+
 // The whole suite runs from one IP; disable rate limiting (see app.module.ts).
 process.env.THROTTLE_DISABLED = 'true';
 // POUFA-only instance: every farm belongs to the programme (see AGENTS.md).
@@ -31,7 +62,7 @@ function json(body: unknown): Response {
 }
 
 function dateStr(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 function addDays(d: Date, n: number): Date {

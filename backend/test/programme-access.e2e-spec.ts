@@ -2,6 +2,7 @@
 // on below.
 process.env.INSTITUTION_OTP = 'off';
 
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -146,12 +147,12 @@ describe('Programme POUFA — accès institutionnels (e2e)', () => {
         `/farms/${farmC}/batches`,
         {
           batchName: 'Lot accès',
-          integrationDate: new Date().toISOString().slice(0, 10),
+          integrationDate: lvDate(new Date()),
           quantityAtStart: 200,
           type: 'CHAIR',
           couvoirSupplier: 'Canabec',
           chickLotNumber: `CL-${stamp}`,
-          hatchDate: new Date().toISOString().slice(0, 10),
+          hatchDate: lvDate(new Date()),
         },
         ownerToken,
       ).expect(201)

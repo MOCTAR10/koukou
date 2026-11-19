@@ -97,3 +97,68 @@ jobs:
       # Specs are forced sequential in vitest.config.e2e.ts (one shared DB).
       - name: E2E tests
         run: npm run test:e2e
+
+  # Regression guard for the hour when Libreville (UTC+1) is already on the
+  # next day: the suite above only meets that window by chance (23:00-24:00
+  # UTC). Here `Date` is moved to 23:30 UTC (`E2E_FAKE_NOW`, see
+  # backend/test/e2e-setup.ts) and the specs that read « today » run again.
+  backend-e2e-libreville-day:
+    name: Backend e2e (jour de Libreville, 23:30 UTC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: koukou_ferme
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      DB_DATABASE: koukou_ferme
+      DB_SYNCHRONIZE: "false"
+      JWT_SECRET: ci-e2e-only-not-a-secret-7f3c9a1e5b
+      PROGRAM_CODE: POUFA
+      E2E_FAKE_NOW: "23:30"
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Apply migrations
+        run: npm run migration:run
+
+      - name: E2E tests with the clock at 23:30 UTC
+        run: >-
+          npx vitest run --config ./vitest.config.e2e.ts
+          accounting breed-standards customer-zone dashboard finance-pos
+          flock-metrics metier-api-indicators metier-scenarios orders
+          poufa-a2-dge poufa-bandes sanitary tasks weather

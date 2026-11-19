@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -18,7 +19,7 @@ import {
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 describe('Journal d’audit (niveaux 1 et 2, immuabilité, sceaux), e2e', () => {

@@ -11,6 +11,7 @@
 // only READ here.
 process.env.INSTITUTION_OTP = 'off';
 
+import { lvDate } from './helpers/libreville-day.js';
 import { randomBytes } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -28,7 +29,7 @@ import {
 } from './helpers/programme-farm.js';
 
 const day = (offset: number) =>
-  new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+  lvDate(new Date(Date.now() + offset * 86_400_000));
 
 describe('Saisie pour le compte de la ferme — jury lot 5 (e2e)', () => {
   let app: INestApplication<App>;

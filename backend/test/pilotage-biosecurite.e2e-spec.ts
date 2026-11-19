@@ -1,3 +1,4 @@
+import { lvDate } from './helpers/libreville-day.js';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -15,7 +16,7 @@ import {
 function daysAgo(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - n);
-  return d.toISOString().slice(0, 10);
+  return lvDate(d);
 }
 
 /**

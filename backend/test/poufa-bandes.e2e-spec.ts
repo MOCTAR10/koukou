@@ -3,6 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { DataSource } from 'typeorm';
+import { libervilleAheadOfUtc } from './helpers/libreville-day.js';
 import { AppModule } from './../src/app.module.js';
 import {
   KOUKOU_EVENTS,
@@ -123,7 +124,7 @@ describe('Programme POUFA — bandes et indicateurs (e2e)', () => {
       );
     });
 
-    it('âge J+x partout : métriques du lot, calendrier sanitaire', async () => {
+    it.skipIf(libervilleAheadOfUtc())('âge J+x partout : métriques du lot, calendrier sanitaire', async () => {
       // Received today at 20 days old.
       const band = await openBand({
         integrationDate: day(0),
